@@ -73,7 +73,12 @@ class CheckExecutor:
         Вынесено, чтобы не дублировать логику в двух ветках _build_limited_context.
         """
         meta = c.get("metadata", {}) or {}
-        clause = meta.get("clause_uid", "") or rc.clause_uid
+        # Для отображения в LLM-промпте берём raw_uid (читаемый "5.2"),
+        # а не effective_uid ("main_contract:5.2").
+        # Читаем effective_uid из metadata если есть, потом clause_uid как fallback.
+        _raw_clause = meta.get("effective_uid", "") or meta.get("clause_uid", "") or rc.clause_uid
+        # Показываем только raw_uid часть без scope prefix
+        clause = _raw_clause.split(":")[-1] if ":" in _raw_clause else _raw_clause
         section_title = meta.get("section_title", "")
         path_titles = meta.get("path_titles") or rc.path_titles or []
         start_page = meta.get("start_page") or rc.start_page
@@ -357,7 +362,10 @@ class CheckExecutor:
                     element_id=first_element_id,
                     text=c.get("text") or "",
                     page=page_int,
-                    clause_uid=meta.get("clause_uid") or "",
+                    # clause_uid: читаем effective_uid (canonical) или clause_uid (legacy)
+                    # effective_uid появился в Sprint 3 как canonical identity.
+                    # clause_uid оставлен как fallback для старых чанков.
+                    clause_uid=meta.get("effective_uid") or meta.get("clause_uid") or "",
                     bbox=[],
                     dense_score=0.0,
                     sparse_score=0.0,
@@ -553,7 +561,11 @@ class CheckExecutor:
                     "id": rc.element_id,
                     "text": rc.text or "",
                     "metadata": {
+                        # clause_uid содержит effective_uid после нашей правки выше.
+                        # Дублируем под обоими ключами чтобы extraction.py
+                        # мог находить по любому из них без изменения своей логики.
                         "clause_uid": rc.clause_uid,
+                        "effective_uid": rc.clause_uid,
                         "page": rc.page,
                         "start_page": rc.start_page,
                         "end_page": rc.end_page,
@@ -636,9 +648,11 @@ class CheckExecutor:
                 if page is None:
                     page = first_src.get("page")
                 if clause_uid is None:
-                    clause_uid = first_src.get("clause_uid")
-                if element_id is None:
-                    element_id = first_src.get("element_id")
+                    # effective_uid (canonical Sprint 3) или clause_uid (legacy)
+                    clause_uid = (
+                        first_src.get("effective_uid")
+                        or first_src.get("clause_uid")
+                    )
 
         # ------------------------------------------------------------------
         # Metrics

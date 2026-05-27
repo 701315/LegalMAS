@@ -43,6 +43,26 @@ from services.structure.toc_parser import (
     detect_toc_block,
     parse_toc_entries,
 )
+from services.structure.models import (
+    SEMANTIC_ELEMENT_TYPE_SECTION_HEADING as SEMANTIC_TYPE_SECTION_HEADING,
+    SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING as SEMANTIC_TYPE_SUBSECTION_HEADING,
+    SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM as SEMANTIC_TYPE_DEFINITION_ITEM,
+    SEMANTIC_ELEMENT_TYPE_ENUMERATED_CLAUSE as SEMANTIC_TYPE_ENUMERATED_CLAUSE,
+    SEMANTIC_ELEMENT_TYPE_LIST_ITEM as SEMANTIC_TYPE_LIST_ITEM,
+    SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING as SEMANTIC_TYPE_APPENDIX_HEADING,
+    SEMANTIC_ELEMENT_TYPE_SIGNATURE_BLOCK as SEMANTIC_TYPE_SIGNATURE_BLOCK,
+    SEMANTIC_ELEMENT_TYPE_BODY_TEXT as SEMANTIC_TYPE_BODY_TEXT,
+)
+from services.structure.legal_heading_rules import (
+    looks_like_definition_item,
+    looks_like_appendix_heading,
+    looks_like_signature_heading,
+    looks_like_requisites_heading,
+    compute_heading_continuity_signals,
+    numeric_uid_depth,
+)
+from services.structure.heading_patterns import parse_raw_heading
+
 
 logger = get_logger(__name__)
 
@@ -382,6 +402,55 @@ def classify_elements(
 
         meta = dict(result.metadata or {})
 
+        # ── Этап 2: вычисляем semantic_element_type ──────────────────────
+        # Это уточнённый semantic label поверх базового element_type.
+        # Используется heading_scoring и heading_builder для более точных решений.
+        text_for_semantic = _normalize_text(str(element.get("text") or ""))
+        semantic_type = _compute_semantic_element_type(
+            text=text_for_semantic,
+            element_type=result.element_type,
+            raw_type=result.raw_type,
+        )
+        meta["semantic_element_type"] = semantic_type
+
+        # ── Heading confidence (первичная оценка classifier-а) ────────────
+        heading_conf = _compute_heading_confidence_from_classification(
+            element_type=result.element_type,
+            classification_confidence=result.confidence,
+            semantic_type=semantic_type,
+        )
+        meta["heading_confidence"] = heading_conf
+
+        # ── Heading reject reasons (от classifier, не от scorer) ──────────
+        # Собираем reject reasons на уровне classifier.
+        # Scorer может добавить свои позже.
+        classifier_reject_reasons: list[str] = []
+        if semantic_type == SEMANTIC_TYPE_DEFINITION_ITEM:
+            classifier_reject_reasons.append("definition_item_by_classifier")
+        if semantic_type == SEMANTIC_TYPE_SIGNATURE_BLOCK:
+            classifier_reject_reasons.append("signature_or_requisites_by_classifier")
+        if semantic_type == SEMANTIC_TYPE_APPENDIX_HEADING:
+            classifier_reject_reasons.append("appendix_heading_by_classifier")
+        meta["heading_reject_reasons"] = classifier_reject_reasons
+
+        # ── Continuity signals ────────────────────────────────────────────
+        # Вычисляем только для потенциальных heading candidates.
+        # Для body/toc/artifact элементов сигналы не нужны.
+        if semantic_type in {
+            SEMANTIC_TYPE_SECTION_HEADING,
+            SEMANTIC_TYPE_SUBSECTION_HEADING,
+            SEMANTIC_TYPE_APPENDIX_HEADING,
+        }:
+            prev_el = prepared[idx - 1] if idx > 0 else None
+            next_el = prepared[idx + 1] if idx + 1 < len(prepared) else None
+            continuity_signals = compute_heading_continuity_signals(
+                prev_element=prev_el,
+                next_element=next_el,
+            )
+        else:
+            continuity_signals = {}
+        meta["continuity_signals"] = continuity_signals
+
         # Помечаем, входит ли элемент в parsed TOC block.
         # Pipeline использует это как дополнительный сигнал.
         meta["toc_in_parsed_block"] = idx in toc_ctx.toc_source_indexes
@@ -441,6 +510,26 @@ def annotate_elements_with_guard(
     annotated: list[dict[str, Any]] = []
     body_recovered_count = 0
     guard_fp_count = 0
+
+    # Защита: guard.false_positive_indexes и recoverable_indexes содержат
+    # element indexes из classify_elements(). Если elements был изменён
+    # между classify и annotate — индексы съедут.
+    # Проверяем что размер совпадает.
+    max_guard_idx = max(
+        (max(guard.false_positive_indexes, default=-1),
+         max(guard.recoverable_indexes, default=-1))
+    )
+    if max_guard_idx >= len(elements):
+        logger.warning(
+            "annotate_elements_with_guard: guard indexes out of range, "
+            "elements list may have been modified between classify and annotate",
+            extra={
+                "elements_count": len(elements),
+                "max_guard_index": max_guard_idx,
+                "false_positive_indexes_count": len(guard.false_positive_indexes),
+                "recoverable_indexes_count": len(guard.recoverable_indexes),
+            },
+        )
 
     is_soft_mode = guard.decision in {TOC_GUARD_PARTIAL, TOC_GUARD_REJECT}
 
@@ -821,6 +910,150 @@ def _classify_single_element(
 
 
 # ============================================================================
+# Semantic element type resolver
+# ============================================================================
+
+def _compute_semantic_element_type(
+    *,
+    text: str,
+    element_type: str,
+    raw_type: str | None,
+) -> str:
+    """
+    Определяет уточнённый semantic_element_type для элемента.
+
+    Это второй уровень типизации поверх базового element_type.
+    Используется downstream в heading_scoring и heading_builder.
+
+    Правила приоритетов:
+    1. TOC-related типы → оставляем как есть (не semantic heading)
+    2. page_artifact / unknown_layout → body_text как fallback
+    3. signature_block → signature_block
+    4. requisites_block → signature_block (негативный для heading)
+    5. table_content / list_item → list_item
+    6. appendix heading → appendix_heading
+    7. definition item → definition_item
+    8. heading candidate:
+       - если есть numeric uid level 1 → section_heading
+       - если есть numeric uid level >= 2 → subsection_heading
+       - иначе → section_heading как default
+    9. body_text → body_text
+    10. fallback → body_text
+    """
+    normalized_et = element_type.lower().strip()
+
+    # TOC-related — не даём им semantic heading type
+    if normalized_et in {
+        "toc_header",
+        "toc_line",
+        "possible_toc",
+        "toc_false_positive",
+        "page_artifact",
+        "unknown_layout",
+    }:
+        return SEMANTIC_TYPE_BODY_TEXT
+
+    # Signature / requisites → негативные для heading pipeline
+    if normalized_et in {"signature_block", "requisites_block"}:
+        return SEMANTIC_TYPE_SIGNATURE_BLOCK
+
+    # Table / list
+    if normalized_et in {"table_content", "list_item"}:
+        return SEMANTIC_TYPE_LIST_ITEM
+
+    # Body text — явно назначен
+    if normalized_et == "body_text":
+        return SEMANTIC_TYPE_BODY_TEXT
+
+    # Для heading candidate, enumerated clause, definition item —
+    # применяем legal-specific детекторы
+
+    # Приоритет 1: Appendix heading
+    if looks_like_appendix_heading(text):
+        return SEMANTIC_TYPE_APPENDIX_HEADING
+
+    # Приоритет 2: Definition item
+    if looks_like_definition_item(text):
+        return SEMANTIC_TYPE_DEFINITION_ITEM
+
+    # Приоритет 3: Signature / requisites по тексту
+    if looks_like_signature_heading(text) or looks_like_requisites_heading(text):
+        return SEMANTIC_TYPE_SIGNATURE_BLOCK
+
+    # Приоритет 4: Heading candidate — различаем section vs subsection по uid depth
+    if normalized_et in {
+        "heading_candidate",
+        "section_heading",
+        "subsection_heading",
+        "appendix_heading",
+        "enumerated_clause",
+    }:
+        # Пробуем распарсить uid из текста
+        parsed = parse_raw_heading(text)
+        if parsed is not None:
+            raw_uid, _ = parsed
+            if raw_uid:
+                depth = numeric_uid_depth(raw_uid)
+                if depth == 1:
+                    return SEMANTIC_TYPE_SECTION_HEADING
+                elif depth >= 2:
+                    return SEMANTIC_TYPE_SUBSECTION_HEADING
+
+        # Если uid не распарсился — для heading candidate ставим section_heading
+        return SEMANTIC_TYPE_SECTION_HEADING
+
+    # Fallback
+    return SEMANTIC_TYPE_BODY_TEXT
+
+
+def _compute_heading_confidence_from_classification(
+    element_type: str,
+    classification_confidence: float,
+    semantic_type: str,
+) -> float:
+    """
+    Вычисляет heading_confidence на основе element_type и semantic_type.
+
+    Это не финальный scoring — только первичная оценка classifier-а.
+    Финальный score даёт heading_scoring.py.
+
+    Диапазон: 0.0–1.0
+    """
+    normalized_et = element_type.lower().strip()
+
+    # TOC / artifact / body — не heading
+    if normalized_et in {
+        "toc_header", "toc_line", "possible_toc", "toc_false_positive",
+        "page_artifact", "unknown_layout", "body_text",
+        "signature_block", "requisites_block", "table_content",
+    }:
+        return 0.0
+
+    # Appendix — слабый heading signal
+    if semantic_type == SEMANTIC_TYPE_APPENDIX_HEADING:
+        return round(min(classification_confidence, 0.75), 3)
+
+    # Definition item — не section heading
+    if semantic_type == SEMANTIC_TYPE_DEFINITION_ITEM:
+        return 0.0
+
+    # Signature / requisites
+    if semantic_type == SEMANTIC_TYPE_SIGNATURE_BLOCK:
+        return 0.0
+
+    # List item — очень слабый heading signal
+    if normalized_et == "list_item":
+        return round(min(classification_confidence * 0.5, 0.45), 3)
+
+    # Section / subsection heading
+    if semantic_type in {SEMANTIC_TYPE_SECTION_HEADING, SEMANTIC_TYPE_SUBSECTION_HEADING}:
+        return round(min(classification_confidence, 0.95), 3)
+
+    # Fallback
+    return round(min(classification_confidence * 0.6, 0.60), 3)
+
+
+# ============================================================================
 # Pattern helpers
 # ============================================================================
 
@@ -1111,9 +1344,16 @@ def _log_classification_summary(
     toc_fp_count: int = 0,
 ) -> None:
     counts: dict[str, int] = {}
+    semantic_counts: dict[str, int] = {}
+
     for el in classified:
         et = str(el.get("element_type") or ELEMENT_TYPE_UNKNOWN_LAYOUT)
         counts[et] = counts.get(et, 0) + 1
+
+        # Считаем также semantic_element_type для diagnostics
+        meta = el.get("metadata") or {}
+        sem = str(meta.get("semantic_element_type") or "unknown")
+        semantic_counts[sem] = semantic_counts.get(sem, 0) + 1
 
     toc_detected = bool(toc_ctx.toc_block and toc_ctx.toc_block.detected)
     toc_entries = len(toc_ctx.parsed_toc.entries) if toc_ctx.parsed_toc else 0
@@ -1124,6 +1364,7 @@ def _log_classification_summary(
             "document_id": document_id,
             "elements_count": len(classified),
             "counts": counts,
+            "semantic_counts": semantic_counts,
             "toc_detected": toc_detected,
             "toc_entries_parsed": toc_entries,
             "toc_source_indexes_count": len(toc_ctx.toc_source_indexes),
@@ -1131,10 +1372,13 @@ def _log_classification_summary(
             "toc_line_count": counts.get(ELEMENT_TYPE_TOC_LINE, 0),
             "possible_toc_count": counts.get(ELEMENT_TYPE_POSSIBLE_TOC, 0),
             "toc_false_positive_local_count": toc_fp_count,
+            "semantic_section_heading_count": semantic_counts.get(SEMANTIC_TYPE_SECTION_HEADING, 0),
+            "semantic_subsection_heading_count": semantic_counts.get(SEMANTIC_TYPE_SUBSECTION_HEADING, 0),
+            "semantic_definition_item_count": semantic_counts.get(SEMANTIC_TYPE_DEFINITION_ITEM, 0),
+            "semantic_appendix_heading_count": semantic_counts.get(SEMANTIC_TYPE_APPENDIX_HEADING, 0),
             "note": "authoritative_guard_applied_later_in_pipeline",
         },
     )
-
 
 
     

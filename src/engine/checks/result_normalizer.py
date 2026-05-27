@@ -103,6 +103,27 @@ def normalize_check_result(
     # Segment provenance
     segment_info = _extract_segment_provenance(exec_result)
 
+    # ── Этап 7: новые anchor поля из CitationResolver ─────────────────────────
+    # Эти поля заполняются когда детектор использует legal units + citation resolver.
+    # Для старых детекторов которые не знают про citation — поля будут None.
+    # Это backward-compatible: старый контракт (page, clause_uid, element_id, bbox)
+    # остаётся на месте, новые поля добавляются рядом.
+    anchor_uid = exec_result.get("anchor_uid") or exec_result.get("clause_uid")
+    anchor_title = exec_result.get("anchor_title")
+    quoted_text = exec_result.get("quoted_text")
+    quote_start_char = exec_result.get("quote_start_char")
+    quote_end_char = exec_result.get("quote_end_char")
+    source_unit_id = exec_result.get("source_unit_id")
+
+    # Прокидываем citation anchor в quality_flags для diagnostics
+    # (не заменяем основные поля, просто добавляем для explainability)
+    if anchor_uid and isinstance(quality_flags, dict):
+        quality_flags["citation_anchor_uid"] = anchor_uid
+        if quoted_text:
+            quality_flags["citation_has_quote"] = True
+        if source_unit_id:
+            quality_flags["citation_source_unit_id"] = source_unit_id
+
     return {
         "value_text": value_text,
         "evidence_ref": evidence_ref,
@@ -112,10 +133,23 @@ def normalize_check_result(
         "conditional_check_triggered": is_conditional,
         "trigger_name": trigger_name,
         "origin": check_origin,
+        # ── Существующие anchor поля (backward-compatible) ────────────────────
         "page": exec_result.get("page"),
         "clause_uid": exec_result.get("clause_uid"),
         "element_id": exec_result.get("element_id"),
         "bbox": exec_result.get("bbox"),
+        # ── Этап 7: новые anchor поля ─────────────────────────────────────────
+        # anchor_uid: canonical effective_uid клаузы (предпочтительнее clause_uid)
+        "anchor_uid": anchor_uid,
+        # anchor_title: заголовок клаузы для display
+        "anchor_title": anchor_title,
+        # quoted_text: дословная цитата из текста договора
+        "quoted_text": quoted_text,
+        # quote_start_char/quote_end_char: позиция цитаты в own_text клаузы
+        "quote_start_char": quote_start_char,
+        "quote_end_char": quote_end_char,
+        # source_unit_id: ID LegalUnit из которого взята цитата
+        "source_unit_id": source_unit_id,
         **segment_info,
     }
 

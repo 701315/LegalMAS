@@ -580,12 +580,25 @@ def collect_scored_heading_candidates(
             toc_match_index=toc_match_index,
         )
 
+        # Читаем semantic_element_type и continuity_signals,
+        # которые проставил element_classifier на Этапе 2.
+        # Если classifier их не проставил — передаём None,
+        # scorer корректно обработает отсутствие этих данных.
+        element_semantic_type = normalize_spaces(
+            str(element_metadata.get("semantic_element_type") or "")
+        ) or None
+        element_continuity_signals = element_metadata.get("continuity_signals") or None
+
         score_result = score_heading_candidate(
             uid=parsed_raw_uid,
             title=parsed_title,
             raw_text=raw_text,
             toc_match=toc_match,
             element_type=element_type,
+            semantic_element_type=element_semantic_type,
+            continuity_signals=element_continuity_signals,
+            prev_heading_uid=prev_heading_uid,
+            next_heading_uid=next_heading_uid,
         )
 
         normalized_element_type = normalize_spaces(element_type).lower()
@@ -687,6 +700,30 @@ def collect_scored_heading_candidates(
             "toc_match": toc_match,
             "toc_match_type": getattr(score_result, "toc_match_type", None),
             "toc_match_score": float(getattr(score_result, "toc_match_score", 0.0) or 0.0),
+            # ── Этап 2: новые поля от scorer и classifier ─────────────────────
+            # semantic_element_type: финальный тип, согласованный между
+            # classifier и scorer. Scorer может уточнить классификацию.
+            "semantic_element_type": (
+                getattr(score_result, "semantic_element_type", None)
+                or element_semantic_type
+            ),
+            # continuity_bonus: насколько контекст соседних элементов
+            # скорректировал итоговый score.
+            "continuity_bonus": float(getattr(score_result, "continuity_bonus", 0.0) or 0.0),
+            # legal_negative_signals: какие legal rules сработали против этого кандидата.
+            # Используется для explainability и diagnostics.
+            "legal_negative_signals": list(
+                getattr(score_result, "legal_negative_signals", []) or []
+            ),
+            # heading_confidence_from_classifier: что думал classifier до scorer-а.
+            # Сохраняем для сравнения и отладки.
+            "heading_confidence_from_classifier": float(
+                element_metadata.get("heading_confidence") or 0.0
+            ),
+            # heading_reject_reasons_from_classifier: reject reasons от classifier.
+            "heading_reject_reasons_from_classifier": list(
+                element_metadata.get("heading_reject_reasons") or []
+            ),
         }
 
         if decision == "accepted" and not parsed_title:
@@ -745,6 +782,15 @@ def collect_scored_heading_candidates(
             "body_recoverable_from_toc": body_recoverable_from_toc,
             "possible_toc": possible_toc_flag,
             "is_recoverable_toc_like_element_type": recoverable_toc_like_type,
+            # ── Этап 2: новые поля в логах ────────────────────────────────────
+            "semantic_element_type": (
+                getattr(score_result, "semantic_element_type", None)
+                or element_semantic_type
+            ),
+            "continuity_bonus": float(getattr(score_result, "continuity_bonus", 0.0) or 0.0),
+            "legal_negative_signals": list(
+                getattr(score_result, "legal_negative_signals", []) or []
+            ),
         }
 
         if decision == "accepted":
@@ -939,6 +985,12 @@ def build_heading_candidates(
             )
             continue
 
+        # metadata — передаём из scored candidate чтобы hierarchy_builder
+        # имел доступ к semantic_element_type и другим enrichment полям.
+        # Это ключевое звено: без metadata state machine не знает
+        # что перед ним definition_item или signature_block.
+        candidate_metadata = dict(getattr(scored, "metadata", {}) or {})
+
         accepted_candidates.append(
             HeadingCandidate(
                 elem_i=elem_i,
@@ -948,6 +1000,7 @@ def build_heading_candidates(
                 scope=scope,
                 raw_uid=raw_uid,
                 effective_uid=effective_uid,
+                metadata=candidate_metadata,
             )
         )
 

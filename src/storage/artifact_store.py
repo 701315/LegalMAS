@@ -272,6 +272,36 @@ class ArtifactPath:
         """
         return f"tenants/{tenant_id}/deals/{deal_id}/layouts/{document_id}/primary_sanitized.json"
 
+    @staticmethod
+    def legal_units_v1(
+        tenant_id: str,
+        deal_id: str,
+        document_id: str,
+        segment_id: str,
+    ) -> str:
+        """
+        Путь к semantic layer legal units для одного логического сегмента (Этап 5).
+
+        Для непрофессионального программиста:
+        - Это новый артефакт появляющийся после стадии CHUNKS.
+        - Один файл на каждый сегмент (аналогично segment_chunks).
+        - Содержит LegalUnitsSnapshot — список юридических единиц с типами,
+          citability metrics и cross-references.
+        - Downstream (retrieval, detectors) читают именно этот файл,
+          а не raw chunk текст.
+
+        Пример пути (segment_id = "550e8400-e29b-41d4-a716-446655440000"):
+        tenants/abc/deals/xyz/structures/{document_id}/legal_units_550e8400.json
+        """
+        short_id = segment_id[:8]
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/structures/"
+            f"{document_id}/legal_units_{short_id}.json"
+        )
+
+
+
+
 
 class ArtifactStore:
     """

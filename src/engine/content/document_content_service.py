@@ -34,6 +34,12 @@ Canonical contract (Sprint 3):
 - broken chunks без effective_uid не маскируются fallback id generation;
 - retrieval adapters кладут effective_uid в legacy поле RetrievalChunk.clause_uid,
   чтобы downstream не терял canonical identity.
+
+Этап 6 — semantic layer:
+- get_legal_units() читает legal_units_v1.json из segment_meta["legal_units_ref"];
+- get_evidence_bundle() строит EvidenceBundle по RetrievalProfile;
+- оба метода опциональны: если артефакты отсутствуют, возвращают пустые результаты;
+- существующий chunk контракт не ломается.
 """
 
 from __future__ import annotations
@@ -44,16 +50,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.document import DocumentVersion
-from db.repositories.document_repo import DocumentRepository
-from db.repositories.document_version_repo import DocumentVersionRepository
-from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
 from core.logging import get_logger
 from db.models.document import DocumentVersion
 from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
-from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
 from engine.content.chunk_canonicalization import add_summary, build_sized_chunks_from_leaf
+from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
 from engine.content.chunking import build_chunk_summary
 from engine.content.clause_tree_builder import ClauseTreeBuilder
 from engine.retrieval.models import RetrievalChunk
@@ -149,6 +152,10 @@ class DocumentContentService:
         * chunking.* — summary и sized split.
     - Никаких глобальных синглтонов и кэшей здесь нет.
       Каждый воркер создаёт этот сервис в рамках одного UnitOfWork (db_uow).
+
+    Этап 6 — semantic layer:
+    - get_legal_units() даёт доступ к legal_units_v1.json;
+    - get_evidence_bundle() строит отобранный набор units для конкретного check.
     """
 
     def __init__(
@@ -264,7 +271,7 @@ class DocumentContentService:
         return v2_chunks or []
 
     # -------------------------------------------------------------------------
-    # Публичные методы
+    # Публичные методы — chunks
     # -------------------------------------------------------------------------
 
     async def get_title_and_preamble(
@@ -1019,6 +1026,9 @@ class DocumentContentService:
                 doc_id=doc_id,
                 segment_id=segment_id,
                 levels=normalized_levels,
+                # Передаём version_id явно чтобы reader читал именно ту версию
+                # которую нашёл caller, а не latest (которая может отличаться).
+                version_id=document_version_id,
             )
         except Exception as e:
             logger.warning(
@@ -1076,3 +1086,352 @@ class DocumentContentService:
 
         segment_text = separator.join(parts).strip()
         return segment_text or None
+
+    # -------------------------------------------------------------------------
+    # Публичные методы — Этап 6: semantic layer (legal units + evidence bundles)
+    # -------------------------------------------------------------------------
+
+    async def get_legal_units(
+        self,
+        doc_id: uuid.UUID,
+        *,
+        primary_only: bool = True,
+    ) -> list[dict[str, Any]]:
+        """
+        Вернуть список legal units из legal_units_v1.json.
+
+        Для непрофессионального программиста:
+        - legal_units_v1.json создаётся при chunking (Этап 5, dual-write).
+        - Ссылка хранится в DocumentSegment.segment_meta["legal_units_ref"].
+        - Каждый unit — это dict с полями: unit_id, title, unit_type,
+          clause_function, topic_tags, citability, cross_refs и т.д.
+        - Если артефакт отсутствует (старый документ / dual-write не выполнен)
+          — возвращаем пустой список без ошибки.
+
+        Параметры:
+        - doc_id:       UUID документа
+        - primary_only: если True, берём units только из primary сегмента;
+                        если False — из всех сегментов.
+
+        Возвращает:
+        - Список dict-ов из LegalUnit.to_dict() в порядке page_start.
+        """
+        from anyio.to_thread import run_sync
+
+        version = await self._get_latest_version(doc_id)
+        if not version:
+            logger.warning(
+                "DocumentContentService.get_legal_units: no latest version",
+                extra={"doc_id": str(doc_id)},
+            )
+            return []
+
+        # Читаем сегменты чтобы найти legal_units_ref в segment_meta
+        seg_repo = DocumentSegmentRepository(self.session)
+        segments = await seg_repo.list_by_version(version.id)
+
+        if not segments:
+            logger.warning(
+                "DocumentContentService.get_legal_units: no segments found",
+                extra={
+                    "doc_id": str(doc_id),
+                    "version_id": str(version.id),
+                },
+            )
+            return []
+
+        # Фильтруем по primary_only
+        target_segments = (
+            [s for s in segments if bool(s.is_primary)]
+            if primary_only
+            else list(segments)
+        )
+
+        if not target_segments:
+            logger.info(
+                "DocumentContentService.get_legal_units: no target segments after filter",
+                extra={
+                    "doc_id": str(doc_id),
+                    "primary_only": primary_only,
+                    "total_segments": len(segments),
+                },
+            )
+            return []
+
+        all_units: list[dict[str, Any]] = []
+
+        for segment in target_segments:
+            segment_meta = dict(segment.segment_meta or {})
+            legal_units_ref = segment_meta.get("legal_units_ref")
+
+            if not legal_units_ref:
+                logger.debug(
+                    "DocumentContentService.get_legal_units: no legal_units_ref for segment",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "segment_id": segment.segment_id,
+                        "is_primary": bool(segment.is_primary),
+                    },
+                )
+                continue
+
+            try:
+                def _load(ref: str = legal_units_ref) -> dict[str, Any]:
+                    return self._artifact_store.get_json(ref)
+
+                snapshot_dict = await run_sync(_load)
+
+                if not isinstance(snapshot_dict, dict):
+                    logger.warning(
+                        "DocumentContentService.get_legal_units: invalid snapshot format",
+                        extra={
+                            "doc_id": str(doc_id),
+                            "segment_id": segment.segment_id,
+                            "legal_units_ref": legal_units_ref,
+                            "type": type(snapshot_dict).__name__,
+                        },
+                    )
+                    continue
+
+                units_raw = snapshot_dict.get("units") or []
+                if not isinstance(units_raw, list):
+                    continue
+
+                # Валидируем каждый unit минимально
+                for unit in units_raw:
+                    if not isinstance(unit, dict):
+                        continue
+                    if not unit.get("unit_id"):
+                        continue
+                    all_units.append(unit)
+
+                logger.debug(
+                    "DocumentContentService.get_legal_units: loaded units from segment",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "segment_id": segment.segment_id,
+                        "units_count": len(units_raw),
+                        "legal_units_ref": legal_units_ref,
+                    },
+                )
+
+            except Exception as e:
+                logger.warning(
+                    "DocumentContentService.get_legal_units: failed to load legal units for segment",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "segment_id": segment.segment_id,
+                        "legal_units_ref": legal_units_ref,
+                        "error": str(e),
+                    },
+                )
+                continue
+
+        # Сортируем по page_start для deterministic порядка
+        all_units.sort(key=lambda u: (int(u.get("page_start") or 1), str(u.get("unit_id") or "")))
+
+        logger.info(
+            "DocumentContentService.get_legal_units: loaded",
+            extra={
+                "doc_id": str(doc_id),
+                "total_units": len(all_units),
+                "primary_only": primary_only,
+                "segments_checked": len(target_segments),
+            },
+        )
+
+        return all_units
+
+    async def get_evidence_bundle(
+        self,
+        doc_id: uuid.UUID,
+        profile_id: str,
+        *,
+        primary_only: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Построить EvidenceBundle для конкретного check по profile_id.
+
+        Для непрофессионального программиста:
+        - Детектор вызывает этот метод с именем профиля, например
+          "governing_law_check" или "liability_cap_check".
+        - Метод читает legal units, восстанавливает LegalUnit объекты,
+          и строит EvidenceBundle через EvidenceBundleBuilder.
+        - EvidenceBundle содержит отобранные primary + supporting units
+          которые релевантны для данного check.
+        - Если legal units недоступны или profile не найден —
+          возвращает пустой bundle dict без ошибки.
+
+        Параметры:
+        - doc_id:       UUID документа
+        - profile_id:   ID retrieval profile ("governing_law_check" и т.д.)
+        - primary_only: читать units только из primary сегмента
+
+        Возвращает:
+        - dict из EvidenceBundle.to_dict() + поле "units" с текстами primary units.
+        """
+        # Импортируем здесь чтобы не создавать circular dependency на уровне модуля
+        from engine.content.evidence_bundle_builder import EvidenceBundleBuilder
+        from playbook.retrieval_profiles import get_profile
+        from services.structure.legal_unit_models import (
+            CitabilityMetrics,
+            ClauseFunction,
+            LegalUnit,
+            LegalUnitType,
+        )
+
+        # Ищем профиль
+        profile = get_profile(profile_id)
+        if profile is None:
+            logger.warning(
+                "DocumentContentService.get_evidence_bundle: profile not found",
+                extra={
+                    "doc_id": str(doc_id),
+                    "profile_id": profile_id,
+                },
+            )
+            return {
+                "query_topic": profile_id,
+                "primary_units_count": 0,
+                "supporting_units_count": 0,
+                "confidence": 0.0,
+                "missing_topics": [],
+                "primary_unit_ids": [],
+                "supporting_unit_ids": [],
+                "diagnostics": {"reason": "profile_not_found"},
+                "units": [],
+            }
+
+        # Загружаем units как dict
+        units_raw = await self.get_legal_units(doc_id, primary_only=primary_only)
+
+        if not units_raw:
+            logger.info(
+                "DocumentContentService.get_evidence_bundle: no legal units available",
+                extra={
+                    "doc_id": str(doc_id),
+                    "profile_id": profile_id,
+                },
+            )
+            return {
+                "query_topic": profile.query_topic,
+                "primary_units_count": 0,
+                "supporting_units_count": 0,
+                "confidence": 0.0,
+                "missing_topics": list(profile.required_topics),
+                "primary_unit_ids": [],
+                "supporting_unit_ids": [],
+                "diagnostics": {"reason": "no_legal_units"},
+                "units": [],
+            }
+
+        # Восстанавливаем LegalUnit объекты из dict
+        # Используем упрощённое восстановление: только поля нужные для EvidenceBundleBuilder
+        legal_units: list[LegalUnit] = []
+        for raw in units_raw:
+            try:
+                # Восстанавливаем unit_type
+                unit_type_str = str(raw.get("unit_type") or "unknown").lower()
+                try:
+                    unit_type = LegalUnitType(unit_type_str)
+                except ValueError:
+                    unit_type = LegalUnitType.UNKNOWN
+
+                # Восстанавливаем clause_function
+                func_str = str(raw.get("clause_function") or "unknown").lower()
+                try:
+                    clause_function = ClauseFunction(func_str)
+                except ValueError:
+                    clause_function = ClauseFunction.UNKNOWN
+
+                # Восстанавливаем citability из вложенного dict
+                citability_raw = raw.get("citability") or {}
+                citability = CitabilityMetrics(
+                    citability_score=float(citability_raw.get("citability_score") or 0.0),
+                    citability_band=str(citability_raw.get("citability_band") or "low"),
+                    has_own_text=bool(citability_raw.get("has_own_text", False)),
+                    has_subtree_text=bool(citability_raw.get("has_subtree_text", False)),
+                    is_heading_only=bool(citability_raw.get("is_heading_only", False)),
+                    recovered_via_best_effort=bool(
+                        citability_raw.get("recovered_via_best_effort", False)
+                    ),
+                    parse_confidence=citability_raw.get("parse_confidence"),
+                )
+
+                unit = LegalUnit(
+                    unit_id=str(raw.get("unit_id") or ""),
+                    raw_uid=str(raw.get("raw_uid") or ""),
+                    scope=str(raw.get("scope") or ""),
+                    title=str(raw.get("title") or ""),
+                    level=int(raw.get("level") or 1),
+                    unit_type=unit_type,
+                    clause_function=clause_function,
+                    segment_id=str(raw.get("segment_id") or ""),
+                    segment_type=str(raw.get("segment_type") or "unknown"),
+                    page_start=int(raw.get("page_start") or 1),
+                    page_end=int(raw.get("page_end") or 1),
+                    own_text=raw.get("own_text") or None,
+                    subtree_text=raw.get("subtree_text") or None,
+                    own_element_ids=list(raw.get("own_element_ids") or []),
+                    topic_tags=list(raw.get("topic_tags") or []),
+                    cross_refs=[],  # cross_refs не нужны для bundle building
+                    citability=citability,
+                    node_kind=str(raw.get("node_kind") or "leaf"),
+                    semantic_node_type=raw.get("semantic_node_type") or None,
+                    recovered_via_best_effort=bool(
+                        raw.get("recovered_via_best_effort", False)
+                    ),
+                    fallback_reason=raw.get("fallback_reason") or None,
+                )
+                legal_units.append(unit)
+
+            except Exception as unit_exc:
+                logger.debug(
+                    "DocumentContentService.get_evidence_bundle: failed to restore unit",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "unit_id": raw.get("unit_id"),
+                        "error": str(unit_exc),
+                    },
+                )
+                continue
+
+        # Строим bundle
+        builder = EvidenceBundleBuilder()
+        bundle = builder.build(units=legal_units, profile=profile)
+
+        logger.info(
+            "DocumentContentService.get_evidence_bundle: bundle built",
+            extra={
+                "doc_id": str(doc_id),
+                "profile_id": profile_id,
+                "query_topic": profile.query_topic,
+                "primary_count": len(bundle.primary_units),
+                "supporting_count": len(bundle.supporting_units),
+                "confidence": bundle.confidence,
+                "missing_topics": bundle.missing_topics,
+            },
+        )
+
+        # Добавляем текст primary units в результат
+        # чтобы detector не делал дополнительный запрос
+        primary_unit_texts: list[dict[str, Any]] = []
+        for unit in bundle.primary_units:
+            primary_unit_texts.append({
+                "unit_id": unit.unit_id,
+                "raw_uid": unit.raw_uid,
+                "title": unit.title,
+                "own_text": unit.own_text,
+                "page_start": unit.page_start,
+                "page_end": unit.page_end,
+                "unit_type": unit.unit_type.value,
+                "topic_tags": unit.topic_tags,
+                "citability_band": unit.citability.citability_band,
+            })
+
+        result = bundle.to_dict()
+        result["units"] = primary_unit_texts
+        return result
+
+
+

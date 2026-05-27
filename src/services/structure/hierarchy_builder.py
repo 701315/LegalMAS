@@ -45,8 +45,15 @@ from core.logging import get_logger
 from services.structure.models import (
     ClauseNode,
     DEFAULT_SCOPE,
+    SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM,
+    SEMANTIC_ELEMENT_TYPE_SIGNATURE_BLOCK,
+    VALID_SEMANTIC_ELEMENT_TYPES,
     make_effective_uid,
     split_effective_uid,
+)
+from services.structure.hierarchy_state_machine import (
+    HierarchyStateMachine,
+    HierarchyBuildSummary,
 )
 
 logger = get_logger(__name__)
@@ -113,6 +120,17 @@ def _effective_uid_from_scope(scope: str, raw_uid: str) -> str:
 class HeadingCandidate:
     """
     Минимальный входной тип для hierarchy assembly.
+
+    metadata — опциональный словарь с дополнительными данными от heading_builder:
+    - semantic_element_type: тип элемента от classifier/scorer
+    - heading_confidence: уверенность scorer-а
+    - reject_reasons: почему другие кандидаты были отброшены
+    и т.д.
+
+    Используется hierarchy_builder-ом для передачи semantic_type
+    в HierarchyStateMachine.attach(), чтобы machine корректно
+    блокировал definition_item и signature_block от попадания
+    в tree как section headings.
     """
 
     elem_i: int
@@ -122,6 +140,10 @@ class HeadingCandidate:
     scope: str | None = None
     raw_uid: str | None = None
     effective_uid: str | None = None
+    # metadata передаётся из heading_builder и содержит semantic_element_type
+    # и другие enrichment поля от scorer/classifier.
+    # slots=True требует явного None как default для mutable fields.
+    metadata: dict | None = None
 
 
 @dataclass(slots=True)
@@ -477,12 +499,26 @@ def build_clause_hierarchy(
 
     key_to_elem_i, key_to_heading_index = _build_heading_positions(headings)
 
-    nodes_by_scope: dict[str, dict[str, ClauseNode]] = {}
+    # ── Сборка дерева через HierarchyStateMachine ─────────────────────────────
+    # Один state machine на каждый scope.
+    # Machine инкапсулирует:
+    # - логику attach / parent lookup;
+    # - закрытие peer-level sections;
+    # - best-effort recovery при пропущенных родителях.
+
+    machines: dict[str, HierarchyStateMachine] = {}
+    summaries: dict[str, HierarchyBuildSummary] = {}
 
     for scope, scope_headings in headings_by_scope.items():
-        scope_nodes = nodes_by_scope.setdefault(scope, {})
+        machine = HierarchyStateMachine(
+            scope=scope,
+            document_id=normalized_document_id,
+            allow_best_effort=True,
+            max_uid_depth=8,
+        )
+        machines[scope] = machine
 
-        for local_idx, heading in enumerate(scope_headings):
+        for heading in scope_headings:
             try:
                 elem_i = int(heading.elem_i)
                 raw_uid = _heading_raw_uid(heading)
@@ -511,23 +547,7 @@ def build_clause_hierarchy(
                         f"effective_uid implies {inferred_raw_uid!r}"
                     )
 
-                if raw_uid in scope_nodes:
-                    duplicate_scope_raw_uid_skipped_count += 1
-                    logger.warning(
-                        "STRUCTURE node_duplicate_scope_raw_uid_skipped",
-                        extra={
-                            "document_id": normalized_document_id,
-                            "raw_uid": raw_uid,
-                            "effective_uid": effective_uid,
-                            "title": title,
-                            "page": page,
-                            "elem_i": elem_i,
-                            "scope": scope,
-                            "reason": "duplicate_raw_uid_within_same_scope",
-                        },
-                    )
-                    continue
-
+                # Дубликаты проверяет сам machine — пропускаем проверку здесь
                 if effective_uid in nodes:
                     duplicate_effective_uid_skipped_count += 1
                     logger.warning(
@@ -536,18 +556,20 @@ def build_clause_hierarchy(
                             "document_id": normalized_document_id,
                             "raw_uid": raw_uid,
                             "effective_uid": effective_uid,
-                            "title": title,
-                            "page": page,
-                            "elem_i": elem_i,
                             "scope": scope,
-                            "reason": "duplicate_canonical_id",
                         },
                     )
                     continue
 
+                # Вычисляем end_page
+                scope_headings_list = headings_by_scope.get(scope, [])
+                local_idx = next(
+                    (i for i, h in enumerate(scope_headings_list) if h is heading),
+                    len(scope_headings_list) - 1,
+                )
                 next_elem_i = (
-                    int(scope_headings[local_idx + 1].elem_i)
-                    if local_idx + 1 < len(scope_headings)
+                    int(scope_headings_list[local_idx + 1].elem_i)
+                    if local_idx + 1 < len(scope_headings_list)
                     else scope_boundaries.get(scope, (0, len(elements)))[1]
                 )
 
@@ -558,6 +580,31 @@ def build_clause_hierarchy(
 
                 numeric_uid = _is_strict_numeric_uid(raw_uid)
                 level = level_from_uid(raw_uid) if numeric_uid else 1
+
+                # Читаем semantic_element_type из heading metadata если есть
+                # Это позволяет machine принять правильное решение об attach
+                heading_metadata = getattr(heading, "metadata", {}) or {}
+                semantic_type = str(
+                    heading_metadata.get("semantic_element_type") or ""
+                ).strip().lower() or None
+
+                # Вычисляем parse_confidence из metadata heading candidate-а
+                heading_confidence_raw = heading_metadata.get("heading_confidence") or 0.0
+                try:
+                    parse_confidence_value = float(heading_confidence_raw)
+                    if not (0.0 <= parse_confidence_value <= 1.0):
+                        parse_confidence_value = None
+                except (TypeError, ValueError):
+                    parse_confidence_value = None
+
+                # Нормализуем semantic_node_type для ClauseNode
+                # Только если это валидный тип из VALID_SEMANTIC_ELEMENT_TYPES
+                from services.structure.models import VALID_SEMANTIC_ELEMENT_TYPES
+                semantic_node_type_value = (
+                    semantic_type
+                    if semantic_type and semantic_type in VALID_SEMANTIC_ELEMENT_TYPES
+                    else None
+                )
 
                 node = ClauseNode(
                     effective_uid=effective_uid,
@@ -575,10 +622,45 @@ def build_clause_hierarchy(
                     children=[],
                     range_end_reason=None,
                     diagnostics={},
+                    # ── Этап 4: новые поля ────────────────────────────────────
+                    semantic_node_type=semantic_node_type_value,
+                    parse_confidence=parse_confidence_value,
+                    # citability_hint вычисляется позже в populate_subtree_element_ids
+                    citability_hint=None,
+                    recovered_via_best_effort=False,
+                    fallback_reason=None,
                 )
 
+                # Регистрируем в глобальном индексе ДО attach
+                # чтобы duplicate check выше работал
                 nodes[effective_uid] = node
-                scope_nodes[raw_uid] = node
+
+                # Прикрепляем через state machine
+                attach_result = machine.attach(
+                    node,
+                    raw_uid=raw_uid,
+                    semantic_type=semantic_type,
+                )
+
+                # Если semantic negative — убираем из глобального nodes
+                # (они не должны быть в итоговом дереве)
+                if not attach_result.attached and attach_result.attach_mode == "skipped":
+                    if "semantic_negative" in (attach_result.reject_reason or ""):
+                        del nodes[effective_uid]
+
+                # Проставляем поля best-effort recovery из результата attach
+                if attach_result.attach_mode == "best_effort_root":
+                    node.recovered_via_best_effort = True
+                    node.fallback_reason = (
+                        attach_result.reject_reason
+                        or "parent_not_found_in_stack"
+                    )
+                    # Понижаем citability_hint для best-effort узлов
+                    if node.citability_hint is None:
+                        node.citability_hint = "medium"
+
+                if attach_result.attach_mode in {"root", "best_effort_root"}:
+                    root_nodes.append(node)
 
                 logger.debug(
                     "structure.node.created",
@@ -588,76 +670,14 @@ def build_clause_hierarchy(
                         "effective_uid": effective_uid,
                         "title": node.title,
                         "level": node.level,
-                        "own_count": 0,
-                        "own_text_len": 0,
                         "start_page": node.start_page,
                         "end_page": node.end_page,
-                        "heading_elem_i": elem_i,
-                        "next_heading_elem_i": next_elem_i,
-                        "numeric_uid": numeric_uid,
                         "scope": scope,
+                        "attach_mode": attach_result.attach_mode,
+                        "parent_effective_uid": attach_result.parent_effective_uid,
+                        "semantic_type": semantic_type,
                     },
                 )
-
-                parent_uid = find_parent_raw_uid_within_scope(raw_uid, scope_nodes)
-
-                if parent_uid and parent_uid in scope_nodes:
-                    parent_node = scope_nodes[parent_uid]
-
-                    if parent_node.level >= node.level:
-                        parent_attach_rejected_count += 1
-                        node.diagnostics["parent_attach_status"] = "rejected_invalid_parent_level"
-                        node.diagnostics["requested_parent_raw_uid"] = parent_uid
-                        root_nodes.append(node)
-
-                        logger.warning(
-                            "STRUCTURE node_parent_attach_rejected",
-                            extra={
-                                "document_id": normalized_document_id,
-                                "raw_uid": raw_uid,
-                                "effective_uid": effective_uid,
-                                "parent_uid": parent_uid,
-                                "parent_effective_uid": parent_node.effective_uid,
-                                "parent_level": parent_node.level,
-                                "child_level": node.level,
-                                "scope": scope,
-                                "reason": "invalid_parent_level",
-                            },
-                        )
-                    else:
-                        parent_node.children.append(node)
-                        node.diagnostics["parent_attach_status"] = "attached"
-
-                        logger.debug(
-                            "structure.node.parenting",
-                            extra={
-                                "document_id": normalized_document_id,
-                                "raw_uid": raw_uid,
-                                "effective_uid": effective_uid,
-                                "parent_uid": parent_uid,
-                                "parent_effective_uid": parent_node.effective_uid,
-                                "level": node.level,
-                                "attached_to_root": False,
-                                "scope": scope,
-                            },
-                        )
-                else:
-                    node.diagnostics["parent_attach_status"] = "root"
-                    root_nodes.append(node)
-
-                    logger.debug(
-                        "structure.node.parenting",
-                        extra={
-                            "document_id": normalized_document_id,
-                            "raw_uid": raw_uid,
-                            "effective_uid": effective_uid,
-                            "parent_uid": None,
-                            "parent_effective_uid": None,
-                            "level": node.level,
-                            "attached_to_root": True,
-                            "scope": scope,
-                        },
-                    )
 
             except Exception as exc:
                 invalid_heading_candidates_count += 1
@@ -676,6 +696,9 @@ def build_clause_hierarchy(
                     },
                 )
                 continue
+
+        # Фиксируем summary для этого scope
+        summaries[scope] = machine.build_summary()
 
     for heading in headings:
         try:
@@ -903,20 +926,60 @@ def build_clause_hierarchy(
     heavy_candidate_loss = invalid_heading_ratio >= _RECOVERABLE_INVALID_HEADING_RATIO
     heavy_range_damage = own_range_anomaly_ratio >= _RECOVERABLE_OWN_RANGE_ANOMALY_RATIO
 
+    # Учитываем degradation от state machine summaries
+    machine_degraded = any(s.structure_degraded for s in summaries.values())
+
     structure_degraded = bool(
         fatal_hierarchy_failure
         or heavy_candidate_loss
         or heavy_range_damage
+        or machine_degraded
     )
 
-    hierarchy_quality = "good"
-    if total_nodes == 0:
-        hierarchy_quality = "failed"
-    elif structure_degraded:
-        hierarchy_quality = "partial"
+    # Собираем quality gates из всех scope summaries
+    # Берём наиболее консервативное значение: если хотя бы один scope
+    # говорит что section_chunking запрещён — запрещаем для всего документа.
+    combined_quality_gates: dict[str, Any] = {
+        "section_chunking_allowed": True,
+        "technical_fallback_only": False,
+        "recoverable_hierarchy_used": False,
+        "total_fallback_blocked": 0,
+        "hierarchy_quality": "good",
+        "structure_confidence": "HIGH",
+    }
+    for summary in summaries.values():
+        qg = summary.quality_gates
+        if not qg.get("section_chunking_allowed", True):
+            combined_quality_gates["section_chunking_allowed"] = False
+        if qg.get("technical_fallback_only", False):
+            combined_quality_gates["technical_fallback_only"] = True
+        if qg.get("recoverable_hierarchy_used", False):
+            combined_quality_gates["recoverable_hierarchy_used"] = True
+        combined_quality_gates["total_fallback_blocked"] = (
+            combined_quality_gates["total_fallback_blocked"]
+            + qg.get("total_fallback_blocked", 0)
+        )
+        # Берём наихудшее quality
+        current_q = combined_quality_gates["hierarchy_quality"]
+        new_q = qg.get("hierarchy_quality", "good")
+        quality_order = {"failed": 0, "partial": 1, "good": 2}
+        if quality_order.get(new_q, 2) < quality_order.get(current_q, 2):
+            combined_quality_gates["hierarchy_quality"] = new_q
+            combined_quality_gates["structure_confidence"] = qg.get("structure_confidence", "MEDIUM")
+
+    if structure_degraded:
+        combined_quality_gates["section_chunking_allowed"] = False
+        combined_quality_gates["technical_fallback_only"] = True
+        combined_quality_gates["hierarchy_quality"] = (
+            "failed" if total_nodes == 0 else "partial"
+        )
+        combined_quality_gates["structure_confidence"] = "LOW"
+
+    hierarchy_quality = combined_quality_gates["hierarchy_quality"]
 
     for node in nodes.values():
         node.diagnostics.setdefault("hierarchy_quality", hierarchy_quality)
+        node.diagnostics.setdefault("quality_gates", combined_quality_gates)
 
     logger.info(
         "STRUCTURE hierarchy_build_diagnostics",
@@ -930,12 +993,12 @@ def build_clause_hierarchy(
             "own_range_invalid_count": own_range_invalid_count,
             "own_range_missing_count": own_range_missing_count,
             "duplicate_effective_uid_skipped_count": duplicate_effective_uid_skipped_count,
-            "duplicate_scope_raw_uid_skipped_count": duplicate_scope_raw_uid_skipped_count,
             "invalid_heading_candidates_count": invalid_heading_candidates_count,
             "suspicious_leaf_nodes_count": suspicious_leaf_nodes_count,
             "element_ownership_conflicts": element_ownership_conflicts,
             "parent_attach_rejected_count": parent_attach_rejected_count,
             "structure_degraded": structure_degraded,
+            "machine_degraded": machine_degraded,
             "total_nodes": total_nodes,
             "total_headings": total_headings,
             "invalid_heading_ratio": invalid_heading_ratio,
@@ -945,6 +1008,10 @@ def build_clause_hierarchy(
             "heavy_candidate_loss": heavy_candidate_loss,
             "heavy_range_damage": heavy_range_damage,
             "hierarchy_quality": hierarchy_quality,
+            "quality_gates": combined_quality_gates,
+            "scope_summaries": {
+                scope: s.to_dict() for scope, s in summaries.items()
+            },
         },
     )
 
@@ -971,6 +1038,34 @@ def populate_subtree_element_ids(
     for root_node in root_nodes:
         for node in _walk_postorder(root_node):
             node.node_kind = "section" if node.children else "leaf"
+
+            # Вычисляем citability_hint если ещё не задан
+            # Правила простые и deterministic:
+            # - "low"    : definition_item / signature_block / пустой own_text
+            # - "medium" : best-effort recovery / heading-only (нет own_text но есть children)
+            # - "high"   : обычный structural heading с body
+            if node.citability_hint is None:
+                is_semantic_negative = node.semantic_node_type in {
+                    "definition_item",
+                    "signature_block",
+                    "body_text",
+                }
+                has_own_text = bool(node.own_text and node.own_text.strip())
+                has_children = bool(node.children)
+
+                if is_semantic_negative:
+                    node.citability_hint = "low"
+                elif node.recovered_via_best_effort:
+                    node.citability_hint = "medium"
+                elif not has_own_text and not has_children:
+                    # Heading-only без body и без дочерних — технический артефакт
+                    node.citability_hint = "low"
+                elif not has_own_text and has_children:
+                    # Секция с детьми но без своего текста — нормальная структура
+                    node.citability_hint = "medium"
+                else:
+                    # Есть собственный текст — полноценный узел
+                    node.citability_hint = "high"
 
             subtree_ids: list[str] = list(node.own_element_ids or [])
             for child in node.children:

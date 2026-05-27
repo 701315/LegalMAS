@@ -48,6 +48,26 @@ from services.structure.heading_features import (
 
 from services.structure.heading_patterns import normalize_spaces, _normalize_title
 
+from services.structure.models import (
+    SEMANTIC_ELEMENT_TYPE_SECTION_HEADING as SEMANTIC_TYPE_SECTION_HEADING,
+    SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING as SEMANTIC_TYPE_SUBSECTION_HEADING,
+    SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM as SEMANTIC_TYPE_DEFINITION_ITEM,
+    SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING as SEMANTIC_TYPE_APPENDIX_HEADING,
+    SEMANTIC_ELEMENT_TYPE_SIGNATURE_BLOCK as SEMANTIC_TYPE_SIGNATURE_BLOCK,
+    SEMANTIC_ELEMENT_TYPE_LIST_ITEM as SEMANTIC_TYPE_LIST_ITEM,
+)
+from services.structure.legal_heading_rules import (
+    looks_like_definition_item,
+    looks_like_appendix_heading,
+    looks_like_signature_or_requisites_heading,
+    build_numeric_uid_continuity,
+)
+
+from core.logging import get_logger
+
+logger = get_logger(__name__)
+
+
 class CandidateStatus(str, Enum):
     """
     Итоговый статус кандидата.
@@ -67,13 +87,16 @@ class HeadingScoreResult:
     """
     Результат scoring-слоя.
 
-    - status           — основное решение (ACCEPTED / REJECTED / AMBIGUOUS);
-    - score            — итоговый балл доверия 0.0..1.0;
-    - primary_reason   — короткая причина для логов;
-    - accept_reasons   — положительные explainability reasons;
-    - reject_reasons   — отрицательные explainability reasons;
-    - toc_match_score  — вклад TOC match в итоговую confidence-оценку;
-    - toc_match_type   — exact / fuzzy / no_match / None.
+    - status                  — основное решение (ACCEPTED / REJECTED / AMBIGUOUS);
+    - score                   — итоговый балл доверия 0.0..1.0;
+    - primary_reason          — короткая причина для логов;
+    - accept_reasons          — положительные explainability reasons;
+    - reject_reasons          — отрицательные explainability reasons;
+    - toc_match_score         — вклад TOC match в итоговую confidence-оценку;
+    - toc_match_type          — exact / fuzzy / no_match / None;
+    - semantic_element_type   — финальный semantic type, вычисленный scorer-ом;
+    - continuity_bonus        — бонус/штраф от continuity signals (0.0 = нейтральный);
+    - legal_negative_signals  — список сработавших legal negative rules.
     """
 
     status: CandidateStatus
@@ -83,6 +106,9 @@ class HeadingScoreResult:
     reject_reasons: list[str] = field(default_factory=list)
     toc_match_score: float = 0.0
     toc_match_type: str | None = None
+    semantic_element_type: str | None = None
+    continuity_bonus: float = 0.0
+    legal_negative_signals: list[str] = field(default_factory=list)
 
     @property
     def is_accepted(self) -> bool:
@@ -177,6 +203,117 @@ def _clamp_score(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
 
 
+def _resolve_semantic_type_in_scorer(
+    *,
+    uid: str,
+    title: str,
+    raw_text: str,
+    element_type: str | None,
+    classifier_semantic_type: str | None,
+) -> str:
+    """
+    Финальный resolver semantic_element_type внутри scorer-а.
+
+    Принцип:
+    - если classifier уже дал semantic_type — доверяем ему;
+    - но проверяем по тексту через legal_heading_rules,
+      так как classifier работал по element_type, а scorer знает uid и title;
+    - appendix heading и definition item имеют приоритет над generic heading.
+
+    Зачем это нужно:
+    classifier работал с сырым текстом element-а (до parse_raw_heading),
+    а scorer уже знает распарсенный uid и title — это более точный контекст.
+    """
+    # Доверяем classifier если он уже дал специфичный semantic type
+    if classifier_semantic_type in {
+        SEMANTIC_TYPE_DEFINITION_ITEM,
+        SEMANTIC_TYPE_APPENDIX_HEADING,
+        SEMANTIC_TYPE_SIGNATURE_BLOCK,
+        SEMANTIC_TYPE_LIST_ITEM,
+    }:
+        return classifier_semantic_type
+
+    # Дополнительная проверка по title/raw_text на уровне scorer-а
+    # (у нас уже есть распарсенный title — более чистый контекст)
+    if looks_like_appendix_heading(raw_text) or looks_like_appendix_heading(title):
+        return SEMANTIC_TYPE_APPENDIX_HEADING
+
+    if looks_like_definition_item(raw_text) or looks_like_definition_item(title):
+        return SEMANTIC_TYPE_DEFINITION_ITEM
+
+    if looks_like_signature_or_requisites_heading(raw_text):
+        return SEMANTIC_TYPE_SIGNATURE_BLOCK
+
+    # Для numeric uid определяем section vs subsection
+    if _is_strict_numeric_uid(uid):
+        level = level_from_uid(uid)
+        if level == 1:
+            return SEMANTIC_TYPE_SECTION_HEADING
+        return SEMANTIC_TYPE_SUBSECTION_HEADING
+
+    # Если classifier уже дал section/subsection — доверяем
+    if classifier_semantic_type in {
+        SEMANTIC_TYPE_SECTION_HEADING,
+        SEMANTIC_TYPE_SUBSECTION_HEADING,
+    }:
+        return classifier_semantic_type
+
+    return SEMANTIC_TYPE_SECTION_HEADING
+
+
+def _compute_continuity_bonus(
+    continuity_signals: dict[str, object] | None,
+) -> tuple[float, list[str]]:
+    """
+    Вычисляет бонус/штраф от continuity signals для scorer-а.
+
+    Принцип:
+    - если после heading идёт body → небольшой бонус к confidence;
+    - если после heading сразу идёт ещё heading → небольшой штраф;
+    - если рядом definition-like строки → штраф;
+    - если next starts_with_lowercase → штраф (continuation signal).
+
+    Диапазон возвращаемого бонуса: -0.06 .. +0.04
+
+    Это НЕБОЛЬШИЕ корректировки, а не решающие факторы.
+    Они не должны превращать REJECTED в ACCEPTED и наоборот.
+    """
+    if not continuity_signals:
+        return 0.0, []
+
+    bonus = 0.0
+    reasons: list[str] = []
+
+    # Позитивный сигнал: после heading идёт body
+    if continuity_signals.get("continuity_body_positive"):
+        bonus += 0.03
+        reasons.append("continuity_body_after_heading")
+
+    # Негативный: после heading сразу другой heading
+    if continuity_signals.get("continuity_heading_negative"):
+        bonus -= 0.03
+        reasons.append("continuity_next_is_heading")
+
+    # Негативный: рядом definition-like строка
+    if continuity_signals.get("continuity_definition_negative"):
+        bonus -= 0.04
+        reasons.append("continuity_definition_negative")
+
+    # Негативный: next line начинается со строчной — признак continuation
+    if continuity_signals.get("next_starts_with_lowercase"):
+        bonus -= 0.02
+        reasons.append("continuity_next_lowercase_start")
+
+    # Дополнительный позитив: next line имеет substantive verb
+    # (это значит after heading идёт реальный legal clause body)
+    if continuity_signals.get("next_has_substantive_verb"):
+        bonus += 0.02
+        reasons.append("continuity_next_has_substantive_verb")
+
+    bonus = max(-0.06, min(0.04, bonus))
+    return round(bonus, 4), reasons
+
+
 def score_heading_candidate(
     uid: str,
     title: str,
@@ -184,6 +321,10 @@ def score_heading_candidate(
     *,
     toc_match: dict[str, object] | None = None,
     element_type: str | None = None,
+    semantic_element_type: str | None = None,
+    continuity_signals: dict[str, object] | None = None,
+    prev_heading_uid: str | None = None,
+    next_heading_uid: str | None = None,
 ) -> HeadingScoreResult:
     
     """
@@ -232,6 +373,47 @@ def score_heading_candidate(
 
     accept_reasons: list[str] = []
     reject_reasons: list[str] = []
+    legal_negative_signals: list[str] = []
+
+    # ── 1a. Classifier semantic type как дополнительный сигнал ───────────────
+    # Читаем semantic_element_type, который проставил element_classifier.
+    # Это позволяет scorer-у учитывать уже вычисленные юридические признаки.
+    classifier_semantic = str(semantic_element_type or "").strip().lower()
+
+    # ── 1b. Ранние legal negative guards по semantic type ────────────────────
+    # Если classifier уже определил definition_item / signature_block —
+    # это жёсткий сигнал до любого uid-based scoring.
+    # Appendix heading — мягкий: он сам по себе не heading в смысле ClauseTree,
+    # но мы не режем его жёстко, а помечаем как ambiguous ниже.
+
+    if classifier_semantic == SEMANTIC_TYPE_DEFINITION_ITEM:
+        legal_negative_signals.append("semantic_type_definition_item_by_classifier")
+
+    if classifier_semantic == SEMANTIC_TYPE_SIGNATURE_BLOCK:
+        legal_negative_signals.append("semantic_type_signature_block_by_classifier")
+
+    if classifier_semantic == SEMANTIC_TYPE_APPENDIX_HEADING:
+        legal_negative_signals.append("semantic_type_appendix_heading_by_classifier")
+
+    # ── 1c. Continuity bonus (вычисляем заранее, применяем позже) ────────────
+    continuity_bonus, continuity_reasons = _compute_continuity_bonus(continuity_signals)
+
+    # ── 1d. Monotonic UID series check ────────────────────────────────────────
+    # Проверяем, является ли этот uid частью нормальной числовой последовательности.
+    # Это дополнительный positive сигнал для scorer-а.
+    uid_continuity = build_numeric_uid_continuity(
+        prev_uid=prev_heading_uid,
+        current_uid=uid,
+        next_uid=next_heading_uid,
+    )
+    uid_is_in_monotonic_series = (
+        uid_continuity.get("prev_is_next_peer")
+        or uid_continuity.get("next_is_next_peer")
+        or uid_continuity.get("current_is_child_of_prev")
+        or uid_continuity.get("next_is_child_of_current")
+    )
+    if uid_is_in_monotonic_series:
+        accept_reasons.append("uid_monotonic_series")
 
     # ── 2. TOC-строки ────────────────────────────────────────────────────────
     # Строки вида "1. Definitions .......... 4" — оглавление, не заголовок
@@ -491,10 +673,104 @@ def score_heading_candidate(
             reject_reasons=["body_like_sentence_title"],
         )
 
+    # ── 11a. Legal negative guards по legal_heading_rules ────────────────────
+    # Это дополнительная проверка поверх heading_features.py.
+    # legal_heading_rules знает о юридических паттернах, которых нет в features.
+
+    # Appendix heading — не section heading в обычном смысле.
+    # Если uid = 1 уровень и raw_text выглядит как appendix — помечаем ambiguous.
+    if looks_like_appendix_heading(raw_text):
+        legal_negative_signals.append("looks_like_appendix_heading_by_scorer")
+        reject_reasons.append("appendix_heading")
+        toc_bonus_local, toc_match_type_local, toc_accept_local = _toc_match_bonus(toc_match)
+        score = 0.60 + min(toc_bonus_local, 0.03) + continuity_bonus
+        return HeadingScoreResult(
+            status=CandidateStatus.AMBIGUOUS,
+            score=_clamp_score(score),
+            primary_reason="appendix_heading",
+            accept_reasons=accept_reasons + toc_accept_local,
+            reject_reasons=reject_reasons,
+            toc_match_score=toc_bonus_local,
+            toc_match_type=toc_match_type_local,
+            semantic_element_type=SEMANTIC_TYPE_APPENDIX_HEADING,
+            continuity_bonus=continuity_bonus,
+            legal_negative_signals=legal_negative_signals,
+        )
+
+    # Definition item через legal_heading_rules — более строгая проверка,
+    # чем heading_features.looks_like_definition_term_title.
+    # heading_features уже ловит часть случаев, но legal_heading_rules
+    # знает про юридические definition lead patterns.
+    if looks_like_definition_item(raw_text) or looks_like_definition_item(title):
+        legal_negative_signals.append("looks_like_definition_item_by_scorer")
+        if numeric_uid and level >= 2:
+            toc_bonus_local, toc_match_type_local, toc_accept_local = _toc_match_bonus(toc_match)
+            score = 0.40 + min(toc_bonus_local, 0.03) + continuity_bonus
+            if recoverable_toc_like_type:
+                score -= 0.08
+            return HeadingScoreResult(
+                status=CandidateStatus.AMBIGUOUS,
+                score=_clamp_score(score),
+                primary_reason="definition_item_by_legal_rules",
+                accept_reasons=accept_reasons + toc_accept_local,
+                reject_reasons=reject_reasons + ["definition_item_by_legal_rules"],
+                toc_match_score=toc_bonus_local,
+                toc_match_type=toc_match_type_local,
+                semantic_element_type=SEMANTIC_TYPE_DEFINITION_ITEM,
+                continuity_bonus=continuity_bonus,
+                legal_negative_signals=legal_negative_signals,
+            )
+        return HeadingScoreResult(
+            status=CandidateStatus.REJECTED,
+            score=0.08,
+            primary_reason="definition_item_by_legal_rules",
+            accept_reasons=accept_reasons,
+            reject_reasons=reject_reasons + ["definition_item_by_legal_rules"],
+            toc_match_score=0.0,
+            toc_match_type=None,
+            semantic_element_type=SEMANTIC_TYPE_DEFINITION_ITEM,
+            continuity_bonus=continuity_bonus,
+            legal_negative_signals=legal_negative_signals,
+        )
+
+    # Signature / requisites block — жёсткий reject
+    if looks_like_signature_or_requisites_heading(raw_text):
+        legal_negative_signals.append("looks_like_signature_or_requisites_by_scorer")
+        return HeadingScoreResult(
+            status=CandidateStatus.REJECTED,
+            score=0.0,
+            primary_reason="signature_or_requisites_block",
+            accept_reasons=accept_reasons,
+            reject_reasons=reject_reasons + ["signature_or_requisites_block"],
+            toc_match_score=0.0,
+            toc_match_type=None,
+            semantic_element_type=SEMANTIC_TYPE_SIGNATURE_BLOCK,
+            continuity_bonus=continuity_bonus,
+            legal_negative_signals=legal_negative_signals,
+        )
+
     # ── 12. TOC match bonus ──────────────────────────────────────────────────
     toc_bonus, toc_match_type, toc_accept_reasons = _toc_match_bonus(toc_match)
     if toc_accept_reasons:
         accept_reasons.extend(toc_accept_reasons)
+
+    # ── 12a. Применяем continuity bonus ──────────────────────────────────────
+    if continuity_reasons:
+        accept_reasons.extend(
+            r for r in continuity_reasons if not r.startswith("continuity_next")
+        )
+        reject_reasons.extend(
+            r for r in continuity_reasons if r.startswith("continuity_next")
+        )
+
+    # ── 12b. Финальный semantic type ─────────────────────────────────────────
+    resolved_semantic_type = _resolve_semantic_type_in_scorer(
+        uid=uid,
+        title=title,
+        raw_text=raw_text,
+        element_type=element_type,
+        classifier_semantic_type=classifier_semantic or None,
+    )
 
     # ── 13. Финальное решение по типу uid и уровню вложенности ───────────────
 
@@ -506,7 +782,7 @@ def score_heading_candidate(
             if recoverable_toc_like_type:
                 base_score -= 0.05
 
-            final_score = _clamp_score(base_score + toc_bonus)
+            final_score = _clamp_score(base_score + toc_bonus + continuity_bonus)
 
             return HeadingScoreResult(
                 status=CandidateStatus.ACCEPTED,
@@ -516,6 +792,9 @@ def score_heading_candidate(
                 reject_reasons=reject_reasons,
                 toc_match_score=toc_bonus,
                 toc_match_type=toc_match_type,
+                semantic_element_type=resolved_semantic_type,
+                continuity_bonus=continuity_bonus,
+                legal_negative_signals=legal_negative_signals,
             )
 
         if level == 2:
@@ -525,7 +804,7 @@ def score_heading_candidate(
             if recoverable_toc_like_type:
                 base_score -= 0.06
 
-            final_score = _clamp_score(base_score + toc_bonus)
+            final_score = _clamp_score(base_score + toc_bonus + continuity_bonus)
             status = CandidateStatus.ACCEPTED if final_score >= 0.86 else CandidateStatus.AMBIGUOUS
             primary_reason = (
                 "accepted"
@@ -541,6 +820,9 @@ def score_heading_candidate(
                 reject_reasons=reject_reasons,
                 toc_match_score=toc_bonus,
                 toc_match_type=toc_match_type,
+                semantic_element_type=resolved_semantic_type,
+                continuity_bonus=continuity_bonus,
+                legal_negative_signals=legal_negative_signals,
             )
 
         if level == 3:
@@ -550,7 +832,7 @@ def score_heading_candidate(
             if recoverable_toc_like_type:
                 base_score -= 0.06
 
-            final_score = _clamp_score(base_score + toc_bonus)
+            final_score = _clamp_score(base_score + toc_bonus + continuity_bonus)
             status = CandidateStatus.ACCEPTED if final_score >= 0.82 else CandidateStatus.AMBIGUOUS
             primary_reason = (
                 "accepted"
@@ -566,6 +848,9 @@ def score_heading_candidate(
                 reject_reasons=reject_reasons,
                 toc_match_score=toc_bonus,
                 toc_match_type=toc_match_type,
+                semantic_element_type=resolved_semantic_type,
+                continuity_bonus=continuity_bonus,
+                legal_negative_signals=legal_negative_signals,
             )
 
         base_score = 0.58
@@ -578,6 +863,9 @@ def score_heading_candidate(
             reject_reasons=reject_reasons,
             toc_match_score=toc_bonus,
             toc_match_type=toc_match_type,
+            semantic_element_type=resolved_semantic_type,
+            continuity_bonus=continuity_bonus,
+            legal_negative_signals=legal_negative_signals,
         )
 
     if uid_kind == "roman":
@@ -593,6 +881,9 @@ def score_heading_candidate(
             reject_reasons=reject_reasons,
             toc_match_score=toc_bonus,
             toc_match_type=toc_match_type,
+            semantic_element_type=resolved_semantic_type,
+            continuity_bonus=continuity_bonus,
+            legal_negative_signals=legal_negative_signals,
         )
 
     if uid_kind == "alpha":
@@ -606,6 +897,9 @@ def score_heading_candidate(
             reject_reasons=reject_reasons,
             toc_match_score=toc_bonus,
             toc_match_type=toc_match_type,
+            semantic_element_type=resolved_semantic_type,
+            continuity_bonus=continuity_bonus,
+            legal_negative_signals=legal_negative_signals,
         )
 
     base_score = 0.50
@@ -618,6 +912,9 @@ def score_heading_candidate(
         reject_reasons=reject_reasons,
         toc_match_score=toc_bonus,
         toc_match_type=toc_match_type,
+        semantic_element_type=resolved_semantic_type,
+        continuity_bonus=continuity_bonus,
+        legal_negative_signals=legal_negative_signals,
     )
 
 
@@ -628,8 +925,11 @@ def validate_heading_candidate_with_reason(
     *,
     toc_match: dict | None = None,
     element_type: str | None = None,
+    semantic_element_type: str | None = None,
+    continuity_signals: dict[str, object] | None = None,
+    prev_heading_uid: str | None = None,
+    next_heading_uid: str | None = None,
 ) -> tuple[bool, str]:
-    
     """
     Legacy-compatible bridge.
 
@@ -644,6 +944,10 @@ def validate_heading_candidate_with_reason(
         raw_text,
         toc_match=toc_match,
         element_type=element_type,
+        semantic_element_type=semantic_element_type,
+        continuity_signals=continuity_signals,
+        prev_heading_uid=prev_heading_uid,
+        next_heading_uid=next_heading_uid,
     )
     if result.is_accepted:
         return True, result.primary_reason
@@ -657,8 +961,11 @@ def validate_heading_candidate(
     *,
     toc_match: dict | None = None,
     element_type: str | None = None,
+    semantic_element_type: str | None = None,
+    continuity_signals: dict[str, object] | None = None,
+    prev_heading_uid: str | None = None,
+    next_heading_uid: str | None = None,
 ) -> bool:
-    
     """Старый бинарный интерфейс."""
     ok, _ = validate_heading_candidate_with_reason(
         uid,
@@ -666,6 +973,10 @@ def validate_heading_candidate(
         raw_text,
         toc_match=toc_match,
         element_type=element_type,
+        semantic_element_type=semantic_element_type,
+        continuity_signals=continuity_signals,
+        prev_heading_uid=prev_heading_uid,
+        next_heading_uid=next_heading_uid,
     )
     return ok
 

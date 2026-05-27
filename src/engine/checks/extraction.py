@@ -352,7 +352,9 @@ class ExtractionExecutor:
             loc_clause_uid_str = str(loc_clause_uid)
             for c in contexts:
                 meta = c.get("metadata") or {}
-                ctx_clause_uid = meta.get("clause_uid")
+                # Читаем effective_uid (canonical Sprint 3+) или clause_uid (legacy).
+                # loc_clause_uid после наших правок executor.py содержит effective_uid.
+                ctx_clause_uid = meta.get("effective_uid") or meta.get("clause_uid")
                 if ctx_clause_uid is not None and str(ctx_clause_uid) == loc_clause_uid_str:
                     filtered_by_clause.append(c)
 

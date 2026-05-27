@@ -14,6 +14,11 @@ Sprint 3 contract:
 - scope обязателен как часть identity space;
 - section chunks тоже должны иметь canonical identity, если они создаются
   как полноценные retrieval/viewer objects.
+
+Этап 4 — boundary-aware splitting:
+- split_text_to_sized_chunks() теперь делегирует в chunk_boundaries.py
+  который знает про юридические аббревиатуры, list items и heading no-split rules.
+- Старый fallback через простой regex оставлен как резервный путь.
 """
 
 from __future__ import annotations
@@ -70,16 +75,25 @@ def split_text_to_sized_chunks(
     """
     Разбить текст клаузы на несколько меньших под-чанков.
 
-    Алгоритм:
-    1) Если текст короткий, возвращаем его как один chunk.
-    2) Иначе пытаемся разбить по абзацам и предложениям.
-    3) Набираем предложения до target_tokens / max_tokens.
-    4) Между соседними чанками сохраняем overlap по последним предложениям.
+    Этап 4 — boundary-aware splitting:
+    - Основной путь: делегируем в chunk_boundaries.split_legal_text_to_segments()
+      который знает про юридические аббревиатуры, list items и heading no-split rules.
+    - Fallback: если boundary splitter вернул пустой список или упал —
+      используем старый простой алгоритм через regex.
+
+    Алгоритм boundary splitter:
+    1. Анализирует текст на сегменты: paragraph / list_item / sentence.
+    2. Помечает каждый сегмент: is_heading / is_list_item / boundary_after.
+    3. Набирает сегменты в чанк пока не достигнем target_tokens.
+    4. Разрез делает только в допустимом месте:
+       - heading не отрывается от следующего body;
+       - список не разрезается посередине пункта;
+       - аббревиатуры (Ltd., п., ст.) не считаются концом предложения.
 
     Важно:
-    - Если отдельное предложение само по себе длиннее max_tokens,
-      оно остаётся отдельным chunk как fallback.
     - Функция не должна терять текст.
+    - Если отдельный сегмент сам по себе длиннее max_tokens — он остаётся
+      отдельным chunk как forced fallback.
     """
     text = (text or "").strip()
     if not text:
@@ -99,6 +113,49 @@ def split_text_to_sized_chunks(
 
     if count_tokens(text) <= max_tokens and not is_too_long:
         return [text]
+
+    # ── Этап 4: boundary-aware splitting ─────────────────────────────────────
+    # Пробуем новый boundary-aware splitter первым.
+    # Он знает про юридические аббревиатуры и no-split правила.
+    try:
+        from engine.content.chunk_boundaries import split_legal_text_to_segments
+        boundary_result = split_legal_text_to_segments(
+            text=text,
+            target_tokens=target_tokens,
+            max_tokens=max_tokens,
+            overlap_ratio=overlap_ratio,
+        )
+        if boundary_result:
+            logger.debug(
+                "chunking: boundary-aware split used",
+                extra={
+                    "text_len": len(text),
+                    "chunks_count": len(boundary_result),
+                    "target_tokens": target_tokens,
+                    "max_tokens": max_tokens,
+                },
+            )
+            return boundary_result
+    except Exception as boundary_exc:
+        logger.warning(
+            "chunking: boundary-aware split failed, falling back to simple split",
+            extra={
+                "text_len": len(text),
+                "error": str(boundary_exc),
+            },
+        )
+
+    # ── Fallback: старый простой алгоритм ────────────────────────────────────
+    # Используется если boundary splitter вернул пустой список или упал.
+    # Оставлен как safety net — не удалять.
+    logger.debug(
+        "chunking: using legacy simple split fallback",
+        extra={
+            "text_len": len(text),
+            "target_tokens": target_tokens,
+            "max_tokens": max_tokens,
+        },
+    )
 
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
 

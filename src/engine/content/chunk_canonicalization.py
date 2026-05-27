@@ -209,6 +209,13 @@ def ensure_clause_metadata(
     doc_id: uuid.UUID,
     leaf_chunks: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
+    """
+    Нормализует metadata clause чанков и отсеивает невалидные.
+
+    Новые поля Этапа 4 (citability_hint, semantic_node_type и т.д.)
+    уже присутствуют в meta и проходят через dict(chunk.get("metadata") or {})
+    без изменений — дополнительных правок не требуется.
+    """
     str_doc_id = str(doc_id)
     out: list[dict[str, Any]] = []
 
@@ -255,8 +262,6 @@ def ensure_clause_metadata(
         if section_title is not None:
             meta["section_title"] = section_title
 
-        chunk_identity = meta.get("effective_uid") or meta.get("raw_uid") or "full"
-
         out.append(
             {
                 "id": chunk.get("id") or f"{doc_id}:{effective_uid}",
@@ -279,6 +284,41 @@ def ensure_clause_metadata(
     return out
 
 
+# ── Этап 4: константа с полями которые нужно прокидывать в subclause ─────────
+# Список полей из leaf chunk metadata которые должны появляться
+# в каждом subclause chunk.
+#
+# Разбит на группы для читаемости:
+# - segment поля: контекст логического сегмента
+# - Этап 4 поля: semantic/citability поля из hierarchy_builder
+#
+# Почему явный список а не "копировать всё":
+# - subclause chunk должен иметь предсказуемый контракт metadata;
+# - копирование всего привело бы к дублированию технических полей
+#   (element_ids, path_titles и т.д.) которые уже явно обрабатываются выше;
+# - downstream (detectors, retrieval) должен знать ЧТО гарантированно есть
+#   в metadata subclause chunk.
+_SUBCLAUSE_PROPAGATED_KEYS: tuple[str, ...] = (
+    # Segment context — были и раньше
+    "segment_id",
+    "segment_type",
+    "segment_title",
+    "segment_order",
+    "segment_page_range",
+    "is_primary_segment",
+    # ── Этап 4: semantic/citability поля ─────────────────────────────────────
+    # Позволяют downstream знать качество и семантику каждого subclause chunk
+    # без обращения к clause tree или clause chunk.
+    "semantic_node_type",        # тип узла из classifier/scorer
+    "parse_confidence",          # уверенность в parse этого узла [0.0..1.0]
+    "citability_hint",           # "high" / "medium" / "low"
+    "recovered_via_best_effort", # True если узел восстановлен через best-effort
+    "fallback_reason",           # причина fallback если recovered=True
+    "is_heading_only_leaf",      # True если leaf содержал только heading без body
+    "is_structural_fallback",    # True если chunk создан через технический fallback
+)
+
+
 def build_sized_chunks_from_leaf(
     doc_id: uuid.UUID,
     leaf_chunks: list[dict[str, Any]],
@@ -287,6 +327,14 @@ def build_sized_chunks_from_leaf(
     overlap_ratio: float,
     total_pages: int | None = None,
 ) -> list[dict[str, Any]]:
+    """
+    Строит subclause chunks из leaf chunks.
+
+    Этап 4: новые поля semantic/citability прокидываются в subclause metadata
+    через _SUBCLAUSE_PROPAGATED_KEYS вместо жёстко прописанного списка.
+    Это гарантирует что downstream видит citability_hint и semantic_node_type
+    в каждом subclause chunk без обращения к clause tree.
+    """
     short_clause_max_tokens = int(target_tokens * 0.9)
     long_clause_min_tokens = int(max_tokens * 1.2)
 
@@ -412,14 +460,12 @@ def build_sized_chunks_from_leaf(
             if "range_end_reason" in metadata:
                 sub_meta["range_end_reason"] = metadata["range_end_reason"]
 
-            for key in (
-                "segment_id",
-                "segment_type",
-                "segment_title",
-                "segment_order",
-                "segment_page_range",
-                "is_primary_segment",
-            ):
+            # ── Этап 4: прокидываем semantic/citability поля ─────────────────
+            # Используем _SUBCLAUSE_PROPAGATED_KEYS вместо жёсткого списка.
+            # Это единственная точка где определяется какие поля гарантированно
+            # попадают в subclause chunk metadata.
+            # Если поля нет в leaf metadata — просто пропускаем (нет KeyError).
+            for key in _SUBCLAUSE_PROPAGATED_KEYS:
                 if key in metadata:
                     sub_meta[key] = metadata[key]
 

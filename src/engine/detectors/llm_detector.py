@@ -513,7 +513,11 @@ class LLMDetector:
                 text = chunk.get("text", "")
             else:
                 page = getattr(chunk, "page", 0)
-                clause_uid = getattr(chunk, "clause_uid", "") or ""
+                # Показываем LLM только raw_uid (человекочитаемый "5.2"),
+                # не полный effective_uid ("main_contract:5.2").
+                # effective_uid используется для anchor, а не для LLM промпта.
+                _full_clause_uid = getattr(chunk, "clause_uid", "") or ""
+                clause_uid = _full_clause_uid.split(":")[-1] if ":" in _full_clause_uid else _full_clause_uid
                 text = getattr(chunk, "text", "")
 
             clause_info = f" [clause {clause_uid}]" if clause_uid else ""
@@ -549,7 +553,11 @@ class LLMDetector:
                 text = chunk.get("text", "")
             else:
                 page = getattr(chunk, "page", 0)
-                clause_uid = getattr(chunk, "clause_uid", "") or ""
+                # Показываем LLM только raw_uid (человекочитаемый "5.2"),
+                # не полный effective_uid ("main_contract:5.2").
+                # effective_uid используется для anchor, а не для LLM промпта.
+                _full_clause_uid = getattr(chunk, "clause_uid", "") or ""
+                clause_uid = _full_clause_uid.split(":")[-1] if ":" in _full_clause_uid else _full_clause_uid
                 text = getattr(chunk, "text", "")
 
             clause_info = f" [clause {clause_uid}]" if clause_uid else ""
@@ -604,7 +612,10 @@ class LLMDetector:
                         element_id=best_chunk.element_id,
                         text=response.evidence[:500],
                         page=best_chunk.page,
-                        clause_uid=response.clause or best_chunk.clause_uid,
+                        # Приоритет: best_chunk.clause_uid (effective_uid после нашей правки
+                        # в executor.py) > response.clause (то что LLM написал в ответе,
+                        # может быть raw_uid "5.2" вместо "main_contract:5.2").
+                        clause_uid=best_chunk.clause_uid or response.clause,
                         bbox=best_chunk.bbox,
                         score=best_chunk.combined_score,
                         path_titles=list(best_chunk.path_titles or []),

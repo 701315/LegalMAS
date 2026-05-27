@@ -38,7 +38,7 @@ class ChunkCorpusReaderV2:
       * отдельные snapshots для каждого сегмента.
 
     - Этот класс:
-      1) Находит последнюю версию документа (DocumentVersion).
+      1) Находит версию документа (latest или конкретную по version_id).
       2) Берёт ссылку на file manifest (chunks_manifest_v2_ref).
       3) Грузит manifest JSON из object storage (MinIO) — асинхронно.
       4) Для каждого сегмента берёт ссылку на его snapshot (segment_chunks_ref).
@@ -52,6 +52,12 @@ class ChunkCorpusReaderV2:
               "metadata": {...},
           }
       ]
+
+    Важно:
+    - Все новые поля metadata (citability_hint, semantic_node_type,
+      recovered_via_best_effort и т.д. из Этапов 4-5) проходят через reader
+      без изменений — reader не фильтрует metadata.
+    - Для чтения конкретной версии используй version_id параметр в load() и load_segment().
     """
 
     def __init__(
@@ -68,12 +74,20 @@ class ChunkCorpusReaderV2:
         self,
         doc_id: uuid.UUID,
         levels: list[str],
+        *,
+        version_id: uuid.UUID | None = None,
     ) -> list[dict[str, Any]]:
         """
         Загрузить все чанки для документа в формате v2.
 
-        doc_id  — идентификатор документа.
-        levels  — какие уровни чанков нужны (section / clause / subclause).
+        doc_id     — идентификатор документа.
+        levels     — какие уровни чанков нужны (section / clause / subclause).
+        version_id — если задан, читаем конкретную версию;
+                     если None — читаем последнюю (latest).
+
+        Для непрофессионального программиста:
+        - Обычно вызывают без version_id — тогда читаем последнюю версию.
+        - Если нужна конкретная версия (например для аудита) — передаём version_id.
 
         Пример:
         - levels = ["clause", "subclause"]
@@ -82,10 +96,22 @@ class ChunkCorpusReaderV2:
         if not level_set:
             return []
 
-        # 1. Находим последнюю версию документа.
-        version = await self.versions.get_latest(doc_id)
-        if not version:
-            return []
+        # 1. Находим версию документа.
+        if version_id is not None:
+            version = await self.versions.get_by_id(version_id)
+            if not version or version.document_id != doc_id:
+                logger.warning(
+                    "ChunkCorpusReaderV2.load: version not found or doc_id mismatch",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "version_id": str(version_id),
+                    },
+                )
+                return []
+        else:
+            version = await self.versions.get_latest(doc_id)
+            if not version:
+                return []
 
         # 2. Берём ссылку на file-level manifest.
         manifest_ref = getattr(version, "chunks_manifest_v2_ref", None)
@@ -191,28 +217,54 @@ class ChunkCorpusReaderV2:
         doc_id: uuid.UUID,
         segment_id: str,
         levels: list[str],
+        version_id: uuid.UUID | None = None,
     ) -> list[dict[str, Any]]:
         """
         Загрузить чанки только для одного сегмента документа.
 
         Простыми словами:
-        - находит последнюю версию документа;
+        - находит версию документа (latest или конкретную по version_id);
         - читает manifest (chunks_manifest_v2_ref);
         - ищет там нужный segment_id и его segment_chunks_ref;
         - грузит snapshot этого сегмента и возвращает нормализованные чанки.
 
+        Параметры:
+        - doc_id:      UUID документа
+        - segment_id:  ID логического сегмента (строка)
+        - levels:      нужные уровни чанков
+        - version_id:  если задан — читаем конкретную версию;
+                       если None — читаем последнюю.
+
         ВАЖНО:
         - не ходит по всем сегментам, в отличие от load(...);
         - работает только для V2 (scope='segment', schema_version=2).
+
+        Для непрофессионального программиста:
+        - Раньше этот метод всегда брал get_latest() — это создавало риск
+          прочитать не ту версию если caller уже нашёл нужную version по version_id.
+        - Теперь можно явно передать version_id чтобы читать именно ту версию.
         """
         level_set = self._normalize_levels(levels)
         if not level_set:
             return []
 
-        # 1. Последняя версия документа
-        version = await self.versions.get_latest(doc_id)
-        if not version:
-            return []
+        # 1. Находим версию документа
+        if version_id is not None:
+            version = await self.versions.get_by_id(version_id)
+            if not version or version.document_id != doc_id:
+                logger.warning(
+                    "ChunkCorpusReaderV2.load_segment: version not found or doc_id mismatch",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "version_id": str(version_id),
+                        "segment_id": segment_id,
+                    },
+                )
+                return []
+        else:
+            version = await self.versions.get_latest(doc_id)
+            if not version:
+                return []
 
         manifest_ref = getattr(version, "chunks_manifest_v2_ref", None)
         if not manifest_ref:
@@ -337,6 +389,12 @@ class ChunkCorpusReaderV2:
         - segment_id — идентификатор сегмента (строка).
         - segment_chunks_ref — путь к JSON с чанками сегмента в MinIO.
         - level_set — множество нужных уровней (section / clause / subclause).
+
+        Важно:
+        - Все поля metadata из chunk snapshot передаются downstream без изменений.
+        - Это включает новые поля Этапов 4-5: citability_hint, semantic_node_type,
+          recovered_via_best_effort, fallback_reason, is_structural_fallback и т.д.
+        - Reader только добавляет segment_id и chunk_kind если их нет в metadata.
         """
         context = {
             "doc_id": str(doc_id),
@@ -427,7 +485,9 @@ class ChunkCorpusReaderV2:
                 if not isinstance(metadata, dict):
                     metadata = {}
 
-                # Обогащаем metadata, чтобы downstream код не зависел от writer'а.
+                # Обогащаем metadata только если поля отсутствуют.
+                # НЕ перезаписываем существующие поля — они могут содержать
+                # данные записанные при chunking (citability_hint и т.д.).
                 if "segment_id" not in metadata:
                     metadata["segment_id"] = segment_id
                 if "chunk_kind" not in metadata:
@@ -454,7 +514,6 @@ class ChunkCorpusReaderV2:
             for lvl in levels
             if isinstance(lvl, str) and lvl.strip()
         }
-    
     
 
     

@@ -1,7 +1,5 @@
 # src/workers/chunk_builder.py
 
-# src/workers/chunk_builder.py
-
 from __future__ import annotations
 
 """
@@ -27,6 +25,14 @@ Chunk Builder Worker (V2_ONLY).
 - Любое структурное нарушение контракта -> PermanentError
   c type=chunking_v2_contract_violation.
 - Quarantine используется только для контентных кейсов.
+
+Этап 5 — dual-write legal units:
+- После сохранения chunk snapshot для каждого сегмента
+  builder опционально сохраняет legal_units_v1.json рядом.
+- Ссылка legal_units_ref пишется в DocumentSegment.segment_meta.
+- Ошибка сохранения legal units НЕ ломает основной chunk pipeline.
+- Если legal_units_snapshot отсутствует (builder упал или отключён)
+  — продолжаем как обычно, segment_meta не обновляется.
 
 Audit trail:
 - На успешном завершении пишет CHUNK_BUILD_COMPLETED.
@@ -216,6 +222,8 @@ def build_chunks(
             chunks_manifest_v2_ref=result.get("chunks_manifest_v2_ref"),
             segments_count=result.get("segments_count"),
             chunk_count_total=result.get("chunk_count_total"),
+            # Этап 5: логируем наличие legal units
+            legal_units_count=result.get("legal_units_count", 0),
         )
         retrigger_run_pipeline(
             run_id=run_id,
@@ -242,6 +250,11 @@ async def _build_chunks_v2_async(
     - сохраняем segment_chunks и manifest в MinIO;
     - обновляем segment_chunks_ref и chunks_manifest_v2_ref в БД;
     - статус документа -> CHUNKED.
+
+    Этап 5 — dual-write legal units:
+    - для каждого сегмента опционально сохраняем legal_units_v1.json;
+    - ссылку legal_units_ref пишем в segment_meta (JSON merge, не замена);
+    - ошибка сохранения legal units не прерывает основной pipeline.
 
     Дополнительно:
     - execution STARTED перед выполнением;
@@ -381,6 +394,11 @@ async def _build_chunks_v2_async(
     chunk_count_total = 0
     segment_rows_to_replace: list[dict[str, Any]] = []
 
+    # ── Этап 5: счётчики для legal units ─────────────────────────────────────
+    # Собираем статистику по всем сегментам для audit log и return value.
+    legal_units_saved_count = 0   # сколько сегментов успешно сохранили legal units
+    legal_units_refs: list[str] = []  # все сохранённые refs
+
     for snapshot in segment_snapshots:
         seg = segments_by_id.get(snapshot.segment_id)
         if seg is None:
@@ -437,6 +455,61 @@ async def _build_chunks_v2_async(
         if manifest_segment is not None:
             manifest_segment.segment_chunks_ref = segment_chunks_ref
 
+        # ── Этап 5: dual-write legal_units_v1.json ────────────────────────────
+        # Сохраняем legal units snapshot опционально.
+        # Ошибка сохранения НЕ ломает основной chunk pipeline —
+        # мы логируем warning и продолжаем без legal_units_ref.
+        legal_units_ref: str | None = None
+        legal_units_snapshot = getattr(snapshot, "legal_units_snapshot", None)
+
+        if legal_units_snapshot is not None:
+            lu_path = ArtifactPath.legal_units_v1(
+                tenant_id=tenant_id,
+                deal_id=deal_id,
+                document_id=str(doc.id),
+                segment_id=snapshot.segment_id,
+            )
+            try:
+                legal_units_ref = store.put_json(
+                    lu_path,
+                    legal_units_snapshot.to_dict(),
+                )
+                legal_units_saved_count += 1
+                legal_units_refs.append(legal_units_ref)
+
+                logger.info(
+                    "Chunk builder: legal units saved",
+                    document_id=str(doc.id),
+                    document_version_id=str(v_id),
+                    segment_id=snapshot.segment_id,
+                    legal_units_ref=legal_units_ref,
+                    total_units=len(legal_units_snapshot.units),
+                    units_with_known_type=legal_units_snapshot.units_with_known_type,
+                )
+            except Exception as lu_store_exc:
+                logger.warning(
+                    "Chunk builder: failed to store legal units, continuing without legal_units_ref",
+                    document_id=str(doc.id),
+                    document_version_id=str(v_id),
+                    segment_id=snapshot.segment_id,
+                    error=str(lu_store_exc),
+                )
+        else:
+            logger.debug(
+                "Chunk builder: no legal units snapshot for segment, skipping dual-write",
+                document_id=str(doc.id),
+                document_version_id=str(v_id),
+                segment_id=snapshot.segment_id,
+            )
+
+        # Обновляем segment_meta: добавляем legal_units_ref если есть.
+        # Важно: НЕ заменяем весь segment_meta — мерджим поверх существующего.
+        # Это защищает другие поля которые могли быть записаны предыдущими стадиями
+        # (например, structure stage мог записать туда свои диагностические данные).
+        existing_meta = dict(seg.segment_meta or {})
+        if legal_units_ref is not None:
+            existing_meta["legal_units_ref"] = legal_units_ref
+
         segment_rows_to_replace.append(
             {
                 "document_version_id": seg.document_version_id,
@@ -451,7 +524,8 @@ async def _build_chunks_v2_async(
                 "confidence": seg.confidence,
                 "segment_clause_tree_ref": seg.segment_clause_tree_ref,
                 "segment_chunks_ref": segment_chunks_ref,
-                "segment_meta": seg.segment_meta,
+                # Мерджированный meta: старые поля + legal_units_ref если есть
+                "segment_meta": existing_meta,
             }
         )
 
@@ -613,6 +687,11 @@ async def _build_chunks_v2_async(
                 "chunk_count_total": chunk_count_total,
                 "duration_seconds": duration,
                 "run_id": run_id,
+                # ── Этап 5 ───────────────────────────────────────────────────
+                # Сколько сегментов получили legal units artifact.
+                # Если 0 — builder упал или отключён, это не ошибка.
+                "legal_units_saved_count": legal_units_saved_count,
+                "legal_units_refs": legal_units_refs,
             },
         )
     except Exception:
@@ -632,6 +711,9 @@ async def _build_chunks_v2_async(
         chunk_count_total=chunk_count_total,
         duration_seconds=duration,
         status=DocumentStatus.CHUNKED.value,
+        # Этап 5
+        legal_units_saved_count=legal_units_saved_count,
+        legal_units_count=len(legal_units_refs),
     )
 
     return {
@@ -643,6 +725,12 @@ async def _build_chunks_v2_async(
         "chunk_count_total": chunk_count_total,
         "duration_seconds": duration,
         "committed": True,
+        # ── Этап 5: legal units результаты ───────────────────────────────────
+        # legal_units_refs: список S3 URI для всех сохранённых legal units.
+        # legal_units_count: сколько сегментов получили legal units artifact.
+        # Оба поля могут быть пустыми если builder упал — это не ошибка.
+        "legal_units_refs": legal_units_refs,
+        "legal_units_count": len(legal_units_refs),
     }
 
 

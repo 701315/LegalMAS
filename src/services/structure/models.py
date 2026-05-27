@@ -44,7 +44,6 @@ from typing import Any
 DEFAULT_SCOPE = "main_contract"
 SCOPE_NAME_RE = re.compile(r"^[a-z0-9_]+$")
 
-
 STRUCTURE_CONFIDENCE_HIGH = "HIGH"
 STRUCTURE_CONFIDENCE_MEDIUM = "MEDIUM"
 STRUCTURE_CONFIDENCE_LOW = "LOW"
@@ -59,7 +58,6 @@ VALID_STRUCTURE_CONFIDENCE: frozenset[str] = frozenset(
     }
 )
 
-
 SEGMENT_CONFIDENCE_HIGH = "HIGH"
 SEGMENT_CONFIDENCE_MEDIUM = "MEDIUM"
 SEGMENT_CONFIDENCE_LOW = "LOW"
@@ -71,7 +69,6 @@ VALID_SEGMENT_CONFIDENCE: frozenset[str] = frozenset(
         SEGMENT_CONFIDENCE_LOW,
     }
 )
-
 
 SEGMENT_TYPE_CONTRACT = "contract"
 SEGMENT_TYPE_APPENDIX = "appendix"
@@ -97,7 +94,6 @@ VALID_SEGMENT_TYPES: frozenset[str] = frozenset(
     }
 )
 
-
 NODE_KIND_LEAF = "leaf"
 NODE_KIND_SECTION = "section"
 
@@ -108,7 +104,6 @@ VALID_NODE_KINDS: frozenset[str] = frozenset(
     }
 )
 
-
 VALID_RANGE_END_REASONS: frozenset[str] = frozenset(
     {
         "first_child",
@@ -116,6 +111,10 @@ VALID_RANGE_END_REASONS: frozenset[str] = frozenset(
         "segment_end",
         "fallback_boundary",
         "unbounded_error",
+        # recovered variants — используются когда hierarchy_builder
+        # восстанавливает диапазон после первоначально невалидного end_elem_i
+        "segment_end_recovered",
+        "fallback_boundary_recovered",
     }
 )
 
@@ -144,6 +143,62 @@ VALID_PARSE_QUALITY_STATUS: frozenset[str] = frozenset(
         PARSE_QUALITY_FAILED,
     }
 )
+
+# ---------------------------------------------------------------------------
+# Semantic element type constants
+# ---------------------------------------------------------------------------
+# Используются в element_classifier, heading_scoring, heading_builder,
+# legal_heading_rules и downstream pipeline.
+# Canonical source of truth для semantic типов элементов документа.
+# ---------------------------------------------------------------------------
+
+SEMANTIC_ELEMENT_TYPE_SECTION_HEADING = "section_heading"
+SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING = "subsection_heading"
+SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM = "definition_item"
+SEMANTIC_ELEMENT_TYPE_ENUMERATED_CLAUSE = "enumerated_clause"
+SEMANTIC_ELEMENT_TYPE_LIST_ITEM = "list_item"
+SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING = "appendix_heading"
+SEMANTIC_ELEMENT_TYPE_SIGNATURE_BLOCK = "signature_block"
+SEMANTIC_ELEMENT_TYPE_BODY_TEXT = "body_text"
+
+VALID_SEMANTIC_ELEMENT_TYPES: frozenset[str] = frozenset(
+    {
+        SEMANTIC_ELEMENT_TYPE_SECTION_HEADING,
+        SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING,
+        SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM,
+        SEMANTIC_ELEMENT_TYPE_ENUMERATED_CLAUSE,
+        SEMANTIC_ELEMENT_TYPE_LIST_ITEM,
+        SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING,
+        SEMANTIC_ELEMENT_TYPE_SIGNATURE_BLOCK,
+        SEMANTIC_ELEMENT_TYPE_BODY_TEXT,
+    }
+)
+
+HEADING_SEMANTIC_TYPES: frozenset[str] = frozenset(
+    {
+        SEMANTIC_ELEMENT_TYPE_SECTION_HEADING,
+        SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING,
+        SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING,
+    }
+)
+
+BODY_SEMANTIC_TYPES: frozenset[str] = frozenset(
+    {
+        SEMANTIC_ELEMENT_TYPE_BODY_TEXT,
+        SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM,
+        SEMANTIC_ELEMENT_TYPE_ENUMERATED_CLAUSE,
+        SEMANTIC_ELEMENT_TYPE_LIST_ITEM,
+    }
+)
+
+NEGATIVE_HEADING_SEMANTIC_TYPES: frozenset[str] = frozenset(
+    {
+        SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM,
+        SEMANTIC_ELEMENT_TYPE_SIGNATURE_BLOCK,
+        SEMANTIC_ELEMENT_TYPE_BODY_TEXT,
+    }
+)
+
 
 # ---------------------------------------------------------------------------
 # Вспомогательные функции нормализации
@@ -683,6 +738,35 @@ class ClauseNode:
     range_end_reason: str | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
+    # ── Этап 4: новые типизированные поля ────────────────────────────────────
+    # Раньше всё это писалось в diagnostics как неструктурированный dict.
+    # Теперь — отдельные поля с чёткими типами для downstream consumers.
+
+    # Семантический тип узла: "section_heading", "subsection_heading",
+    # "appendix_heading", "definition_item" и т.д.
+    # Берётся из semantic_element_type heading candidate-а.
+    # None означает что тип не был определён (старые документы / fallback).
+    semantic_node_type: str | None = None
+
+    # Уверенность в правильности parse этого узла: 0.0 — 1.0.
+    # Копируется из heading score. None если score недоступен.
+    parse_confidence: float | None = None
+
+    # Подсказка для downstream: насколько этот узел пригоден для цитирования.
+    # "high"  — структурный heading с body, полностью надёжен.
+    # "medium" — heading-only или восстановленный best-effort.
+    # "low"   — технический fallback, пустой диапазон или definition_item.
+    # None    — ещё не вычислено.
+    citability_hint: str | None = None
+
+    # True если узел был прикреплён в дерево через best-effort recovery
+    # (parent не найден, но мы не потеряли узел).
+    recovered_via_best_effort: bool = False
+
+    # Причина fallback/recovery если recovered_via_best_effort == True.
+    # Например: "parent_not_found_in_stack", "parent_level_mismatch".
+    fallback_reason: str | None = None
+
     def __post_init__(self) -> None:
         self.effective_uid = _norm_str(self.effective_uid)
         self.title = _norm_str(self.title)
@@ -708,6 +792,44 @@ class ClauseNode:
 
         self.range_end_reason = _normalize_range_end_reason(self.range_end_reason)
         self.diagnostics = _ensure_dict(self.diagnostics, "ClauseNode.diagnostics")
+
+        # ── Валидация Этап 4: новые поля ─────────────────────────────────────
+
+        # semantic_node_type — если задан, должен быть из известного набора
+        if self.semantic_node_type is not None:
+            normalized_snt = _norm_str(self.semantic_node_type).lower()
+            if normalized_snt not in VALID_SEMANTIC_ELEMENT_TYPES:
+                raise ValueError(
+                    f"ClauseNode.semantic_node_type={self.semantic_node_type!r} is not valid. "
+                    f"Expected one of {sorted(VALID_SEMANTIC_ELEMENT_TYPES)} or None"
+                )
+            self.semantic_node_type = normalized_snt
+
+        # parse_confidence — если задан, должен быть в [0.0, 1.0]
+        if self.parse_confidence is not None:
+            self.parse_confidence = _normalize_probability(
+                self.parse_confidence,
+                "ClauseNode.parse_confidence",
+            )
+
+        # citability_hint — если задан, должен быть одним из трёх значений
+        _VALID_CITABILITY_HINTS: frozenset[str] = frozenset({"high", "medium", "low"})
+        if self.citability_hint is not None:
+            normalized_ch = _norm_str(self.citability_hint).lower()
+            if normalized_ch not in _VALID_CITABILITY_HINTS:
+                raise ValueError(
+                    f"ClauseNode.citability_hint={self.citability_hint!r} is not valid. "
+                    f"Expected one of {sorted(_VALID_CITABILITY_HINTS)} or None"
+                )
+            self.citability_hint = normalized_ch
+
+        # recovered_via_best_effort — просто bool
+        self.recovered_via_best_effort = _norm_bool(self.recovered_via_best_effort)
+
+        # fallback_reason — опциональная строка
+        self.fallback_reason = _norm_opt_str(self.fallback_reason)
+
+
 
         if self.end_page < self.start_page:
             raise ValueError("ClauseNode.end_page must be >= ClauseNode.start_page")
@@ -789,6 +911,12 @@ class ClauseNode:
             "range_end_reason": self.range_end_reason,
             "diagnostics": dict(self.diagnostics),
             "children": [child.to_dict() for child in self.children],
+            # ── Этап 4: новые поля ────────────────────────────────────────────
+            "semantic_node_type": self.semantic_node_type,
+            "parse_confidence": self.parse_confidence,
+            "citability_hint": self.citability_hint,
+            "recovered_via_best_effort": self.recovered_via_best_effort,
+            "fallback_reason": self.fallback_reason,
         }
 
 

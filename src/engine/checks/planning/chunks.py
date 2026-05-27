@@ -261,6 +261,20 @@ class ChunksPreparer:
             if not isinstance(metadata, dict):
                 metadata = {}
 
+            # Диагностика: чанки без effective_uid не будут правильно
+            # идентифицированы в executor.py и citation_resolver.
+            # Это может быть старый чанк без Sprint 3 canonical identity.
+            if not metadata.get("effective_uid"):
+                logger.debug(
+                    "ChunksPreparer: chunk missing effective_uid in metadata",
+                    extra={
+                        "doc_id": doc_id_str,
+                        "chunk_id": ch.get("id"),
+                        "chunk_kind": metadata.get("chunk_kind"),
+                        "raw_uid": metadata.get("raw_uid"),
+                    },
+                )
+
             safe.append(
                 {
                     "id": ch.get("id"),

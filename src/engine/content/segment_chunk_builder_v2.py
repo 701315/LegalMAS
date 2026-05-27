@@ -47,6 +47,9 @@ from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from engine.content.clause_tree_builder import ClauseTreeBuilder
+from services.structure.legal_unit_builder import LegalUnitBuilder
+from services.structure.legal_unit_models import LegalUnitsSnapshot
+
 from engine.content.chunk_canonicalization import (
     add_position_ratio,
     add_summary,
@@ -103,6 +106,18 @@ class SegmentChunkSnapshotV2:
     leaf_nodes_empty_after_filtering: int | None = None
     chunking_incomplete: bool = False
 
+    # ── Этап 4: новые счётчики из ClauseTreeBuilder ───────────────────────────
+    # heading_only_leaf_nodes: leaf узлы которые содержали только heading
+    # без body — правильно пропускаются, не создают шумных чанков.
+    heading_only_leaf_nodes: int = 0
+    # best_effort_leaf_nodes: leaf узлы прикреплённые через best-effort recovery.
+    best_effort_leaf_nodes: int = 0
+
+    # ── Этап 5: legal units snapshot (опциональный dual-write) ───────────────
+    # None если legal unit builder был отключён или упал с ошибкой.
+    # Это НЕ ломает основной chunk pipeline — всегда опциональный.
+    legal_units_snapshot: LegalUnitsSnapshot | None = None
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema_version": 2,
@@ -133,6 +148,9 @@ class SegmentChunkSnapshotV2:
                 "leaf_nodes_without_element_ids": self.leaf_nodes_without_element_ids,
                 "leaf_nodes_empty_after_filtering": self.leaf_nodes_empty_after_filtering,
                 "chunking_incomplete": self.chunking_incomplete,
+                # ── Этап 4 ───────────────────────────────────────────────────
+                "heading_only_leaf_nodes": self.heading_only_leaf_nodes,
+                "best_effort_leaf_nodes": self.best_effort_leaf_nodes,
             },
             "chunks": {
                 "section": self.section_chunks,
@@ -196,6 +214,11 @@ class FileChunkManifestV2:
     leaf_nodes_without_element_ids: int | None = None
     leaf_nodes_empty_after_filtering: int | None = None
     chunking_incomplete: bool = False
+    # ── Этап 4: агрегированные счётчики по всем сегментам ────────────────────
+    heading_only_leaf_nodes: int = 0
+    best_effort_leaf_nodes: int = 0
+
+
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -222,6 +245,9 @@ class FileChunkManifestV2:
                 "leaf_nodes_without_element_ids": self.leaf_nodes_without_element_ids,
                 "leaf_nodes_empty_after_filtering": self.leaf_nodes_empty_after_filtering,
                 "chunking_incomplete": self.chunking_incomplete,
+                # ── Этап 4 ───────────────────────────────────────────────────
+                "heading_only_leaf_nodes": self.heading_only_leaf_nodes,
+                "best_effort_leaf_nodes": self.best_effort_leaf_nodes,
             },
         }
 
@@ -404,12 +430,15 @@ class SegmentChunkBuilderV2:
                 )
             )
 
-        # Этап 3: агрегированные coverage‑метрики по всем сегментам.
+        # Этап 3 + Этап 4: агрегированные coverage‑метрики по всем сегментам.
         total_leaf_nodes = 0
         leaf_nodes_without_chunks = 0
         leaf_nodes_without_element_ids = 0
         leaf_nodes_empty_after_filtering = 0
         any_chunking_incomplete = False
+        # ── Этап 4 ───────────────────────────────────────────────────────────
+        total_heading_only_leaf_nodes = 0
+        total_best_effort_leaf_nodes = 0
 
         for snap in segment_snapshots:
             if snap.total_leaf_nodes is not None:
@@ -422,6 +451,9 @@ class SegmentChunkBuilderV2:
                 leaf_nodes_empty_after_filtering += snap.leaf_nodes_empty_after_filtering
             if snap.chunking_incomplete:
                 any_chunking_incomplete = True
+            # ── Этап 4 ───────────────────────────────────────────────────────
+            total_heading_only_leaf_nodes += snap.heading_only_leaf_nodes or 0
+            total_best_effort_leaf_nodes += snap.best_effort_leaf_nodes or 0
 
         file_manifest = FileChunkManifestV2(
             document_id=doc.id,
@@ -437,6 +469,9 @@ class SegmentChunkBuilderV2:
             leaf_nodes_without_element_ids=leaf_nodes_without_element_ids,
             leaf_nodes_empty_after_filtering=leaf_nodes_empty_after_filtering,
             chunking_incomplete=any_chunking_incomplete,
+            # ── Этап 4 ───────────────────────────────────────────────────────
+            heading_only_leaf_nodes=total_heading_only_leaf_nodes,
+            best_effort_leaf_nodes=total_best_effort_leaf_nodes,
         )
 
         logger.info(
@@ -514,6 +549,10 @@ class SegmentChunkBuilderV2:
         )
         leaf_chunks = leaf_result.chunks
 
+        # ── Этап 4: читаем новые счётчики ────────────────────────────────────
+        heading_only_leaf_nodes = getattr(leaf_result, "heading_only_leaf_nodes", 0) or 0
+        best_effort_leaf_nodes = getattr(leaf_result, "best_effort_leaf_nodes", 0) or 0
+
         logger.info(
             "SegmentChunkBuilderV2: leaf chunks built",
             extra={
@@ -525,6 +564,9 @@ class SegmentChunkBuilderV2:
                 "total_leaf_nodes": leaf_result.total_leaf_nodes,
                 "leaf_nodes_without_element_ids": leaf_result.leaf_nodes_without_element_ids,
                 "leaf_nodes_empty_after_filtering": leaf_result.leaf_nodes_empty_after_filtering,
+                # ── Этап 4 ───────────────────────────────────────────────────
+                "heading_only_leaf_nodes": heading_only_leaf_nodes,
+                "best_effort_leaf_nodes": best_effort_leaf_nodes,
             },
         )
 
@@ -632,18 +674,31 @@ class SegmentChunkBuilderV2:
         )
 
         total_leaf_nodes = leaf_result.total_leaf_nodes
-
-        # Coverage считается по leaf -> clause chunk mapping.
-        # То есть leaf_nodes_without_chunks означает отсутствие clause chunk,
-        # а не вообще любого derived chunk.
-        leaf_nodes_without_chunks = max(0, total_leaf_nodes - len(clause_chunks))
         leaf_nodes_without_element_ids = leaf_result.leaf_nodes_without_element_ids
         leaf_nodes_empty_after_filtering = leaf_result.leaf_nodes_empty_after_filtering
 
+        # Coverage считается по leaf -> clause chunk mapping.
+        # leaf_nodes_without_chunks = сколько leaf узлов не дали ни одного clause chunk.
+        #
+        # Этап 4: heading_only_leaf_nodes правильно пропускаются (без body текста
+        # они не создают чанк — это нормально, не деградация).
+        # Поэтому вычитаем их из расчёта чтобы не получить ложный chunking_incomplete.
+        #
+        # Пример: 10 leaf узлов, 2 heading-only, 8 реальных.
+        # clause_chunks = 8. Без вычитания: 10 - 8 = 2 > 0 -> chunking_incomplete=True.
+        # С вычитанием: (10 - 2) - 8 = 0 -> chunking_incomplete=False. Правильно.
+        effective_leaf_nodes = max(0, total_leaf_nodes - heading_only_leaf_nodes)
+        leaf_nodes_without_chunks = max(0, effective_leaf_nodes - len(clause_chunks))
+
+        # chunking_incomplete = True только если есть реальные потери,
+        # не считая нормально пропущенных heading-only узлов.
         chunking_incomplete = any(
             (
                 leaf_nodes_without_chunks > 0,
                 leaf_nodes_without_element_ids > 0,
+                # leaf_nodes_empty_after_filtering уже не включает heading-only
+                # (они считаются отдельно в heading_only_leaf_nodes).
+                # Поэтому этот счётчик = реальные потери текста.
                 leaf_nodes_empty_after_filtering > 0,
             )
         )
@@ -665,11 +720,15 @@ class SegmentChunkBuilderV2:
                 "document_version_id": str(document_version_id),
                 "segment_id": segment.segment_id,
                 "total_leaf_nodes": total_leaf_nodes,
+                "effective_leaf_nodes": effective_leaf_nodes,
                 "leaf_nodes_without_chunks": leaf_nodes_without_chunks,
                 "leaf_nodes_without_element_ids": leaf_nodes_without_element_ids,
                 "leaf_nodes_empty_after_filtering": leaf_nodes_empty_after_filtering,
                 "chunking_incomplete": chunking_incomplete,
                 "degradation_reason": degradation_reason,
+                # ── Этап 4 ───────────────────────────────────────────────────
+                "heading_only_leaf_nodes": heading_only_leaf_nodes,
+                "best_effort_leaf_nodes": best_effort_leaf_nodes,
             },
         )
 
@@ -685,6 +744,43 @@ class SegmentChunkBuilderV2:
                 "chunking_incomplete": chunking_incomplete,
             },
         )
+
+        # ── Этап 5: dual-write legal units (опциональный) ────────────────────
+        # Строим LegalUnitsSnapshot параллельно с chunk snapshot.
+        # Ошибка здесь НЕ должна ломать основной chunk pipeline.
+        legal_units_snapshot: LegalUnitsSnapshot | None = None
+        try:
+            lu_builder = LegalUnitBuilder()
+            legal_units_snapshot = lu_builder.build_from_clause_tree(
+                clause_tree=clause_tree,
+                segment_id=segment.segment_id,
+                segment_type=segment.segment_type,
+                segment_order=segment.segment_order,
+                is_primary_segment=bool(segment.is_primary),
+                document_id=str(document_id),
+                document_version_id=str(document_version_id),
+            )
+            logger.info(
+                "SegmentChunkBuilderV2: legal units snapshot built",
+                extra={
+                    "document_id": str(document_id),
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment.segment_id,
+                    "total_units": len(legal_units_snapshot.units),
+                    "units_with_known_type": legal_units_snapshot.units_with_known_type,
+                },
+            )
+        except Exception as lu_exc:
+            logger.warning(
+                "SegmentChunkBuilderV2: legal unit builder failed, continuing without legal units",
+                extra={
+                    "document_id": str(document_id),
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment.segment_id,
+                    "error": str(lu_exc),
+                },
+            )
+
 
         return SegmentChunkSnapshotV2(
             document_id=document_id,
@@ -710,6 +806,10 @@ class SegmentChunkBuilderV2:
             leaf_nodes_without_element_ids=leaf_nodes_without_element_ids,
             leaf_nodes_empty_after_filtering=leaf_nodes_empty_after_filtering,
             chunking_incomplete=chunking_incomplete,
+            # ── Этап 4 ───────────────────────────────────────────────────────
+            heading_only_leaf_nodes=heading_only_leaf_nodes,
+            best_effort_leaf_nodes=best_effort_leaf_nodes,
+            legal_units_snapshot=legal_units_snapshot,
         )
 
     def _build_section_chunks_safe(
