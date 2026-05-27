@@ -119,6 +119,31 @@ VALID_RANGE_END_REASONS: frozenset[str] = frozenset(
     }
 )
 
+TOC_CONFIDENCE_NONE = "none"
+TOC_CONFIDENCE_LOW = "low"
+TOC_CONFIDENCE_PARTIAL = "partial"
+TOC_CONFIDENCE_HIGH = "high"
+
+VALID_TOC_CONFIDENCE_BANDS: frozenset[str] = frozenset(
+    {
+        TOC_CONFIDENCE_NONE,
+        TOC_CONFIDENCE_LOW,
+        TOC_CONFIDENCE_PARTIAL,
+        TOC_CONFIDENCE_HIGH,
+    }
+)
+
+PARSE_QUALITY_OK = "ok"
+PARSE_QUALITY_WEAK = "weak"
+PARSE_QUALITY_FAILED = "failed"
+
+VALID_PARSE_QUALITY_STATUS: frozenset[str] = frozenset(
+    {
+        PARSE_QUALITY_OK,
+        PARSE_QUALITY_WEAK,
+        PARSE_QUALITY_FAILED,
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Вспомогательные функции нормализации
@@ -202,6 +227,26 @@ def _normalize_node_kind(value: Any) -> str:
             f"Expected one of {sorted(VALID_NODE_KINDS)}"
         )
     return node_kind
+
+
+def _normalize_toc_confidence_band(value: Any) -> str:
+    band = _norm_str(value).lower() or TOC_CONFIDENCE_NONE
+    if band not in VALID_TOC_CONFIDENCE_BANDS:
+        raise ValueError(
+            f"Invalid toc confidence band={band!r}. "
+            f"Expected one of {sorted(VALID_TOC_CONFIDENCE_BANDS)}"
+        )
+    return band
+
+
+def _normalize_parse_quality_status(value: Any) -> str:
+    status = _norm_str(value).lower() or PARSE_QUALITY_OK
+    if status not in VALID_PARSE_QUALITY_STATUS:
+        raise ValueError(
+            f"Invalid parse quality status={status!r}. "
+            f"Expected one of {sorted(VALID_PARSE_QUALITY_STATUS)}"
+        )
+    return status
 
 
 def _normalize_non_negative_int(value: Any, field_name: str) -> int:
@@ -376,6 +421,241 @@ def make_segment_id(document_id: str, segment_order: int) -> str:
         )
     )
 
+
+# ---------------------------------------------------------------------------
+# TOC / parse diagnostics
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class TOCDiagnostics:
+    """
+    Канонический typed-контракт для TOC diagnostics.
+
+    Этот объект не заменяет полностью structure_diagnostics в ClauseTree,
+    а задаёт его нормализованную TOC-часть. В tree/file-level dict его надо
+    сохранять под ключом "toc_diagnostics".
+    """
+
+    detected: bool = False
+    block_start_index: int | None = None
+    block_end_index: int | None = None
+    detection_reason: str | None = None
+
+    header_count: int = 0
+    toc_line_count: int = 0
+    possible_toc_count: int = 0
+    toc_false_positive_count: int = 0
+
+    parsed_entries_total: int = 0
+    parsed_entries_with_page_hint: int = 0
+    parsed_multiline_entries: int = 0
+
+    exact_matches: int = 0
+    fuzzy_matches: int = 0
+    no_matches: int = 0
+    stale_entries: int = 0
+
+    toc_alignment_score: float = 0.0
+    toc_partial_reliability: float = 0.0
+    toc_confidence_band: str = TOC_CONFIDENCE_NONE
+
+    toc_guard_applied: bool = False
+    toc_body_suppression_allowed: bool = False
+    body_recovered_from_toc: int = 0
+    toc_skipped_elements: int = 0
+
+    parser_status: str = PARSE_QUALITY_OK
+    parser_reasons: list[str] = field(default_factory=list)
+    extra: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.detected = _norm_bool(self.detected)
+        self.block_start_index = (
+            None
+            if self.block_start_index is None
+            else _normalize_non_negative_int(self.block_start_index, "TOCDiagnostics.block_start_index")
+        )
+        self.block_end_index = (
+            None
+            if self.block_end_index is None
+            else _normalize_non_negative_int(self.block_end_index, "TOCDiagnostics.block_end_index")
+        )
+        self.detection_reason = _norm_opt_str(self.detection_reason)
+
+        self.header_count = _normalize_non_negative_int(self.header_count, "TOCDiagnostics.header_count")
+        self.toc_line_count = _normalize_non_negative_int(self.toc_line_count, "TOCDiagnostics.toc_line_count")
+        self.possible_toc_count = _normalize_non_negative_int(
+            self.possible_toc_count,
+            "TOCDiagnostics.possible_toc_count",
+        )
+        self.toc_false_positive_count = _normalize_non_negative_int(
+            self.toc_false_positive_count,
+            "TOCDiagnostics.toc_false_positive_count",
+        )
+
+        self.parsed_entries_total = _normalize_non_negative_int(
+            self.parsed_entries_total,
+            "TOCDiagnostics.parsed_entries_total",
+        )
+        self.parsed_entries_with_page_hint = _normalize_non_negative_int(
+            self.parsed_entries_with_page_hint,
+            "TOCDiagnostics.parsed_entries_with_page_hint",
+        )
+        self.parsed_multiline_entries = _normalize_non_negative_int(
+            self.parsed_multiline_entries,
+            "TOCDiagnostics.parsed_multiline_entries",
+        )
+
+        self.exact_matches = _normalize_non_negative_int(self.exact_matches, "TOCDiagnostics.exact_matches")
+        self.fuzzy_matches = _normalize_non_negative_int(self.fuzzy_matches, "TOCDiagnostics.fuzzy_matches")
+        self.no_matches = _normalize_non_negative_int(self.no_matches, "TOCDiagnostics.no_matches")
+        self.stale_entries = _normalize_non_negative_int(self.stale_entries, "TOCDiagnostics.stale_entries")
+
+        self.toc_alignment_score = _normalize_probability(
+            self.toc_alignment_score,
+            "TOCDiagnostics.toc_alignment_score",
+        )
+        self.toc_partial_reliability = _normalize_probability(
+            self.toc_partial_reliability,
+            "TOCDiagnostics.toc_partial_reliability",
+        )
+        self.toc_confidence_band = _normalize_toc_confidence_band(self.toc_confidence_band)
+
+        self.toc_guard_applied = _norm_bool(self.toc_guard_applied)
+        self.toc_body_suppression_allowed = _norm_bool(self.toc_body_suppression_allowed)
+        self.body_recovered_from_toc = _normalize_non_negative_int(
+            self.body_recovered_from_toc,
+            "TOCDiagnostics.body_recovered_from_toc",
+        )
+
+        self.toc_skipped_elements = _normalize_non_negative_int(  
+            self.toc_skipped_elements,                              
+            "TOCDiagnostics.toc_skipped_elements",                
+        )                                                        
+
+        self.parser_status = _normalize_parse_quality_status(self.parser_status)
+        self.parser_reasons = _normalize_unique_string_list(
+            self.parser_reasons,
+            "TOCDiagnostics.parser_reasons",
+        )
+        self.extra = _ensure_dict(self.extra, "TOCDiagnostics.extra")
+
+        if self.block_start_index is not None and self.block_end_index is not None:
+            if self.block_end_index < self.block_start_index:
+                raise ValueError(
+                    "TOCDiagnostics block range must satisfy block_end_index >= block_start_index"
+                )
+
+        if self.parsed_entries_with_page_hint > self.parsed_entries_total:
+            raise ValueError(
+                "TOCDiagnostics.parsed_entries_with_page_hint cannot exceed parsed_entries_total"
+            )
+
+        if self.parsed_multiline_entries > self.parsed_entries_total:
+            raise ValueError(
+                "TOCDiagnostics.parsed_multiline_entries cannot exceed parsed_entries_total"
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "detected": self.detected,
+            "block_start_index": self.block_start_index,
+            "block_end_index": self.block_end_index,
+            "detection_reason": self.detection_reason,
+            "header_count": self.header_count,
+            "toc_line_count": self.toc_line_count,
+            "possible_toc_count": self.possible_toc_count,
+            "toc_false_positive_count": self.toc_false_positive_count,
+            "parsed_entries_total": self.parsed_entries_total,
+            "parsed_entries_with_page_hint": self.parsed_entries_with_page_hint,
+            "parsed_multiline_entries": self.parsed_multiline_entries,
+            "exact_matches": self.exact_matches,
+            "fuzzy_matches": self.fuzzy_matches,
+            "no_matches": self.no_matches,
+            "stale_entries": self.stale_entries,
+            "toc_alignment_score": self.toc_alignment_score,
+            "toc_partial_reliability": self.toc_partial_reliability,
+            "toc_confidence_band": self.toc_confidence_band,
+            "toc_guard_applied": self.toc_guard_applied,
+            "toc_body_suppression_allowed": self.toc_body_suppression_allowed,
+            "body_recovered_from_toc": self.body_recovered_from_toc,
+            "toc_skipped_elements": self.toc_skipped_elements,
+            "parser_status": self.parser_status,
+            "parser_reasons": list(self.parser_reasons),
+            "extra": dict(self.extra),
+        }
+
+
+@dataclass
+class ParseQualityDiagnostics:
+    """
+    Typed-контракт для верхнеуровневого качества разбора segment/file structure.
+
+    Пока минимальный состав — только то, что нужно для Sprint 1:
+    TOC, heading, hierarchy и общий status.
+    """
+
+    overall_status: str = PARSE_QUALITY_OK
+    toc_status: str = PARSE_QUALITY_OK
+    heading_status: str = PARSE_QUALITY_OK
+    hierarchy_status: str = PARSE_QUALITY_OK
+
+    reasons: list[str] = field(default_factory=list)
+    toc_diagnostics: TOCDiagnostics | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.overall_status = _normalize_parse_quality_status(self.overall_status)
+        self.toc_status = _normalize_parse_quality_status(self.toc_status)
+        self.heading_status = _normalize_parse_quality_status(self.heading_status)
+        self.hierarchy_status = _normalize_parse_quality_status(self.hierarchy_status)
+        self.reasons = _normalize_unique_string_list(self.reasons, "ParseQualityDiagnostics.reasons")
+        self.extra = _ensure_dict(self.extra, "ParseQualityDiagnostics.extra")
+
+        if self.toc_diagnostics is not None and not isinstance(self.toc_diagnostics, TOCDiagnostics):
+            raise ValueError("ParseQualityDiagnostics.toc_diagnostics must be TOCDiagnostics | None")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "overall_status": self.overall_status,
+            "toc_status": self.toc_status,
+            "heading_status": self.heading_status,
+            "hierarchy_status": self.hierarchy_status,
+            "reasons": list(self.reasons),
+            "toc_diagnostics": (
+                self.toc_diagnostics.to_dict()
+                if self.toc_diagnostics is not None
+                else None
+            ),
+            "extra": dict(self.extra),
+        }
+
+
+def embed_toc_diagnostics(
+    structure_diagnostics: dict[str, Any] | None,
+    toc_diagnostics: TOCDiagnostics | None,
+) -> dict[str, Any]:
+    """
+    Возвращает новый diagnostics dict с нормализованным ключом "toc_diagnostics".
+    """
+    base = _ensure_dict(structure_diagnostics, "structure_diagnostics")
+    out = dict(base)
+    out["toc_diagnostics"] = toc_diagnostics.to_dict() if toc_diagnostics is not None else None
+    return out
+
+
+def embed_parse_quality_diagnostics(
+    structure_diagnostics: dict[str, Any] | None,
+    parse_quality: ParseQualityDiagnostics | None,
+) -> dict[str, Any]:
+    """
+    Возвращает новый diagnostics dict с нормализованным ключом "parse_quality".
+    """
+    base = _ensure_dict(structure_diagnostics, "structure_diagnostics")
+    out = dict(base)
+    out["parse_quality"] = parse_quality.to_dict() if parse_quality is not None else None
+    return out
 
 # ---------------------------------------------------------------------------
 # Узлы дерева и ссылки
@@ -812,6 +1092,42 @@ class ClauseTree:
             _walk(node)
 
         return index
+
+
+    @property
+    def toc_diagnostics(self) -> TOCDiagnostics | None:
+        raw = self.structure_diagnostics.get("toc_diagnostics")
+        if raw is None:
+            return None
+        if isinstance(raw, TOCDiagnostics):
+            return raw
+        if not isinstance(raw, dict):
+            raise ValueError("ClauseTree.structure_diagnostics['toc_diagnostics'] must be dict | TOCDiagnostics | None")
+        return TOCDiagnostics(**raw)
+
+    @property
+    def parse_quality(self) -> ParseQualityDiagnostics | None:
+        raw = self.structure_diagnostics.get("parse_quality")
+        if raw is None:
+            return None
+        if isinstance(raw, ParseQualityDiagnostics):
+            return raw
+        if not isinstance(raw, dict):
+            raise ValueError("ClauseTree.structure_diagnostics['parse_quality'] must be dict | ParseQualityDiagnostics | None")
+        toc_raw = raw.get("toc_diagnostics")
+        toc_obj = None
+        if toc_raw is not None:
+            if isinstance(toc_raw, TOCDiagnostics):
+                toc_obj = toc_raw
+            elif isinstance(toc_raw, dict):
+                toc_obj = TOCDiagnostics(**toc_raw)
+            else:
+                raise ValueError("ParseQualityDiagnostics.toc_diagnostics must be dict | TOCDiagnostics | None")
+
+        normalized = dict(raw)
+        normalized["toc_diagnostics"] = toc_obj
+        return ParseQualityDiagnostics(**normalized)
+
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {

@@ -40,7 +40,12 @@ from services.structure.heading_features import (
     looks_like_toc_line,
     roman_uid_is_plausible,
     uid_is_plausible,
+    starts_with_quoted_term,
+    looks_like_definition_term_title,
+    looks_like_lowercase_continuation,
+    looks_like_substantive_clause_line,
 )
+
 from services.structure.heading_patterns import normalize_spaces, _normalize_title
 
 class CandidateStatus(str, Enum):
@@ -130,13 +135,57 @@ def _is_effectively_empty_title(title: str) -> bool:
     return not cleaned
 
 
+def _looks_too_long_for_heading(title: str, *, level: int) -> bool:
+    """
+    Грубый, но полезный guard:
+    - level 1 headings могут быть длиннее;
+    - level 2-3 уже должны быть компактнее;
+    - очень длинные title чаще являются clause body, а не heading.
+    """
+    normalized = normalize_spaces(title)
+    word_count = len(normalized.split())
+
+    if level <= 1:
+        return len(normalized) > 220 or word_count > 22
+    if level == 2:
+        return len(normalized) > 180 or word_count > 18
+    return len(normalized) > 150 or word_count > 16
+
+
+def _normalize_element_type(element_type: str | None) -> str:
+    return normalize_spaces(str(element_type or "")).lower()
+
+
+def _is_recoverable_toc_like_element_type(element_type: str | None) -> bool:
+    normalized = _normalize_element_type(element_type)
+    return normalized in {
+        "toc_false_positive",
+    }
+
+
+def _is_strong_heading_element_type(element_type: str | None) -> bool:
+    normalized = _normalize_element_type(element_type)
+    return normalized in {
+        "heading_candidate",
+        "section_heading",
+        "subsection_heading",
+        "appendix_heading",
+    }
+
+
+def _clamp_score(value: float) -> float:
+    return max(0.0, min(1.0, float(value)))
+
+
 def score_heading_candidate(
     uid: str,
     title: str,
     raw_text: str,
     *,
     toc_match: dict[str, object] | None = None,
+    element_type: str | None = None,
 ) -> HeadingScoreResult:
+    
     """
     Основной deterministic scorer для heading candidate.
 
@@ -173,17 +222,54 @@ def score_heading_candidate(
     level = level_from_uid(uid) if uid else 1
     title = _normalize_title(normalize_spaces(title), uid_depth=level)
 
+    normalized_element_type = _normalize_element_type(element_type)
+    recoverable_toc_like_type = _is_recoverable_toc_like_element_type(
+        normalized_element_type
+    )
+    strong_heading_element_type = _is_strong_heading_element_type(
+        normalized_element_type
+    )
+
     accept_reasons: list[str] = []
     reject_reasons: list[str] = []
 
     # ── 2. TOC-строки ────────────────────────────────────────────────────────
     # Строки вида "1. Definitions .......... 4" — оглавление, не заголовок
     if looks_like_toc_line(raw_text):
+        toc_bonus, toc_match_type, toc_accept_reasons = _toc_match_bonus(toc_match)
+
+        if recoverable_toc_like_type:
+            local_accept_reasons = accept_reasons.copy()
+            local_reject_reasons = ["toc_like_line", "recoverable_toc_like_element_type"]
+            if toc_accept_reasons:
+                local_accept_reasons.extend(toc_accept_reasons)
+
+            score = 0.34
+            if toc_match_type == "exact":
+                score += 0.08
+            elif toc_match_type == "fuzzy":
+                score += min(toc_bonus, 0.05)
+
+            if strong_heading_element_type:
+                score += 0.04
+
+            return HeadingScoreResult(
+                status=CandidateStatus.AMBIGUOUS,
+                score=_clamp_score(score),
+                primary_reason="toc_like_line_recoverable",
+                accept_reasons=local_accept_reasons,
+                reject_reasons=local_reject_reasons,
+                toc_match_score=toc_bonus,
+                toc_match_type=toc_match_type,
+            )
+
         return HeadingScoreResult(
             status=CandidateStatus.REJECTED,
             score=0.0,
             primary_reason="toc_like_line",
             reject_reasons=["toc_like_line"],
+            toc_match_score=toc_bonus,
+            toc_match_type=toc_match_type,
         )
 
     # ── 3. Пустой uid / пустой title ─────────────────────────────────────────
@@ -284,7 +370,89 @@ def score_heading_candidate(
             reject_reasons=["digit_uid_without_textual_title"],
         )
 
-    # ── 11. Похоже на body-предложение ───────────────────────────────────────
+    # ── 11. Похоже на definition/body/substantive clause ─────────────────────
+    # Это главный блок против ложных section headings.
+    # Numeric uid сам по себе НЕ должен превращать clause sentence в heading.
+
+    if starts_with_quoted_term(title) or looks_like_definition_term_title(title):
+        if numeric_uid and level >= 2:
+            toc_bonus, toc_match_type, toc_accept_reasons = _toc_match_bonus(toc_match)
+            local_accept_reasons = accept_reasons.copy()
+            if toc_accept_reasons:
+                local_accept_reasons.extend(toc_accept_reasons)
+
+            local_reject_reasons = ["definition_like_title"]
+            score = 0.42 + min(toc_bonus, 0.03)
+
+            if recoverable_toc_like_type:
+                score -= 0.08
+                local_reject_reasons.append("recoverable_toc_like_penalty")
+
+            if strong_heading_element_type:
+                score += 0.03
+
+            return HeadingScoreResult(
+                status=CandidateStatus.AMBIGUOUS,
+                score=_clamp_score(score),
+                primary_reason="definition_like_title",
+                accept_reasons=local_accept_reasons,
+                reject_reasons=local_reject_reasons,
+                toc_match_score=min(toc_bonus, 0.03),
+                toc_match_type=toc_match_type,
+            )
+
+        return HeadingScoreResult(
+            status=CandidateStatus.REJECTED,
+            score=0.10,
+            primary_reason="definition_like_title",
+            accept_reasons=accept_reasons.copy(),
+            reject_reasons=["definition_like_title"],
+        )
+
+    if looks_like_lowercase_continuation(title):
+        return HeadingScoreResult(
+            status=CandidateStatus.REJECTED,
+            score=0.08,
+            primary_reason="lowercase_continuation_title",
+            accept_reasons=accept_reasons.copy(),
+            reject_reasons=["lowercase_continuation_title"],
+        )
+
+    if _looks_too_long_for_heading(title, level=level) or looks_like_substantive_clause_line(title):
+        if numeric_uid and level >= 2:
+            toc_bonus, toc_match_type, toc_accept_reasons = _toc_match_bonus(toc_match)
+            local_accept_reasons = accept_reasons.copy()
+            if toc_accept_reasons:
+                local_accept_reasons.extend(toc_accept_reasons)
+
+            local_reject_reasons = ["substantive_clause_like_title"]
+            score = 0.46 + min(toc_bonus, 0.03)
+
+            if recoverable_toc_like_type:
+                score -= 0.08
+                local_reject_reasons.append("recoverable_toc_like_penalty")
+
+            if strong_heading_element_type:
+                score += 0.03
+
+            return HeadingScoreResult(
+                status=CandidateStatus.AMBIGUOUS,
+                score=_clamp_score(score),
+                primary_reason="substantive_clause_like_title",
+                accept_reasons=local_accept_reasons,
+                reject_reasons=local_reject_reasons,
+                toc_match_score=min(toc_bonus, 0.03),
+                toc_match_type=toc_match_type,
+            )
+
+        return HeadingScoreResult(
+            status=CandidateStatus.REJECTED,
+            score=0.12,
+            primary_reason="substantive_clause_like_title",
+            accept_reasons=accept_reasons.copy(),
+            reject_reasons=["substantive_clause_like_title"],
+        )
+
     # Ловит длинные фразы с глаголами и знаками конца предложения.
     # Для numeric uid уровня 2+ — спорный случай, помечаем AMBIGUOUS,
     # чтобы LLM-refiner мог досмотреть.
@@ -295,16 +463,26 @@ def score_heading_candidate(
             if toc_accept_reasons:
                 local_accept_reasons.extend(toc_accept_reasons)
 
+            local_reject_reasons = ["body_like_sentence_title"]
+            score = 0.45 + min(toc_bonus, 0.03)
+
+            if recoverable_toc_like_type:
+                score -= 0.08
+                local_reject_reasons.append("recoverable_toc_like_penalty")
+
+            if strong_heading_element_type:
+                score += 0.03
+
             return HeadingScoreResult(
                 status=CandidateStatus.AMBIGUOUS,
-                score=min(1.0, 0.45 + min(toc_bonus, 0.03)),
+                score=_clamp_score(score),
                 primary_reason="body_like_sentence_title",
                 accept_reasons=local_accept_reasons,
-                reject_reasons=["body_like_sentence_title"],
+                reject_reasons=local_reject_reasons,
                 toc_match_score=min(toc_bonus, 0.03),
                 toc_match_type=toc_match_type,
             )
-        
+
         return HeadingScoreResult(
             status=CandidateStatus.REJECTED,
             score=0.10,
@@ -322,9 +500,14 @@ def score_heading_candidate(
 
     if numeric_uid:
         if level == 1:
-            # Пример: "1.", "2.", "10." — корневые разделы
-            base_score = 0.95
-            final_score = min(1.0, base_score + toc_bonus)
+            base_score = 0.90
+            if strong_heading_element_type:
+                base_score += 0.03
+            if recoverable_toc_like_type:
+                base_score -= 0.05
+
+            final_score = _clamp_score(base_score + toc_bonus)
+
             return HeadingScoreResult(
                 status=CandidateStatus.ACCEPTED,
                 score=final_score,
@@ -336,13 +519,24 @@ def score_heading_candidate(
             )
 
         if level == 2:
-            # Пример: "1.1", "2.3", "10.5" — подразделы
-            base_score = 0.90
-            final_score = min(1.0, base_score + toc_bonus)
+            base_score = 0.78
+            if strong_heading_element_type:
+                base_score += 0.04
+            if recoverable_toc_like_type:
+                base_score -= 0.06
+
+            final_score = _clamp_score(base_score + toc_bonus)
+            status = CandidateStatus.ACCEPTED if final_score >= 0.86 else CandidateStatus.AMBIGUOUS
+            primary_reason = (
+                "accepted"
+                if status == CandidateStatus.ACCEPTED
+                else "nested_numeric_heading_needs_confirmation"
+            )
+            
             return HeadingScoreResult(
-                status=CandidateStatus.ACCEPTED,
+                status=status,
                 score=final_score,
-                primary_reason="accepted",
+                primary_reason=primary_reason,
                 accept_reasons=accept_reasons + ["nested_numeric_heading"],
                 reject_reasons=reject_reasons,
                 toc_match_score=toc_bonus,
@@ -350,22 +544,31 @@ def score_heading_candidate(
             )
 
         if level == 3:
-            # Пример: "1.1.1", "2.3.4" — типичные leaf-клаузы,
-            # критичные для построения корректного дерева и downstream анализа.
-            base_score = 0.85
-            final_score = min(1.0, base_score + toc_bonus)
+            base_score = 0.68
+            if strong_heading_element_type:
+                base_score += 0.04
+            if recoverable_toc_like_type:
+                base_score -= 0.06
+
+            final_score = _clamp_score(base_score + toc_bonus)
+            status = CandidateStatus.ACCEPTED if final_score >= 0.82 else CandidateStatus.AMBIGUOUS
+            primary_reason = (
+                "accepted"
+                if status == CandidateStatus.ACCEPTED
+                else "deep_numeric_heading_needs_confirmation"
+            )
+
             return HeadingScoreResult(
-                status=CandidateStatus.ACCEPTED,
+                status=status,
                 score=final_score,
-                primary_reason="accepted",
+                primary_reason=primary_reason,
                 accept_reasons=accept_reasons + ["deep_numeric_heading_l3"],
                 reject_reasons=reject_reasons,
                 toc_match_score=toc_bonus,
                 toc_match_type=toc_match_type,
             )
 
-        # level >= 4: очень глубокая вложенность — принимаем осторожно
-        base_score = 0.65
+        base_score = 0.58
         final_score = min(1.0, base_score + toc_bonus)
         return HeadingScoreResult(
             status=CandidateStatus.AMBIGUOUS,
@@ -378,12 +581,14 @@ def score_heading_candidate(
         )
 
     if uid_kind == "roman":
-        base_score = 0.82
+        base_score = 0.76
         final_score = min(1.0, base_score + toc_bonus)
+        status = CandidateStatus.ACCEPTED if final_score >= 0.82 else CandidateStatus.AMBIGUOUS
+        primary_reason = "accepted" if status == CandidateStatus.ACCEPTED else "roman_heading_needs_confirmation"
         return HeadingScoreResult(
-            status=CandidateStatus.ACCEPTED,
+            status=status,
             score=final_score,
-            primary_reason="accepted",
+            primary_reason=primary_reason,
             accept_reasons=accept_reasons + ["roman_heading"],
             reject_reasons=reject_reasons,
             toc_match_score=toc_bonus,
@@ -422,7 +627,9 @@ def validate_heading_candidate_with_reason(
     raw_text: str,
     *,
     toc_match: dict | None = None,
+    element_type: str | None = None,
 ) -> tuple[bool, str]:
+    
     """
     Legacy-compatible bridge.
 
@@ -431,7 +638,13 @@ def validate_heading_candidate_with_reason(
     - AMBIGUOUS → (False, primary_reason)
     - REJECTED  → (False, primary_reason)
     """
-    result = score_heading_candidate(uid, title, raw_text, toc_match=toc_match)
+    result = score_heading_candidate(
+        uid,
+        title,
+        raw_text,
+        toc_match=toc_match,
+        element_type=element_type,
+    )
     if result.is_accepted:
         return True, result.primary_reason
     return False, result.primary_reason
@@ -443,13 +656,16 @@ def validate_heading_candidate(
     raw_text: str,
     *,
     toc_match: dict | None = None,
+    element_type: str | None = None,
 ) -> bool:
+    
     """Старый бинарный интерфейс."""
     ok, _ = validate_heading_candidate_with_reason(
         uid,
         title,
         raw_text,
         toc_match=toc_match,
+        element_type=element_type,
     )
     return ok
 
@@ -481,16 +697,16 @@ def _toc_match_bonus(
         return 0.0, match_type or "no_match", []
 
     if match_type == "exact":
-        return 0.08, "exact", ["toc_exact_match"]
+        return 0.05, "exact", ["toc_exact_match"]
 
     if match_type == "fuzzy":
         numeric_score = float(match_score or 0.0)
         if numeric_score >= 92:
-            return 0.06, "fuzzy", ["toc_fuzzy_match_strong"]
+            return 0.04, "fuzzy", ["toc_fuzzy_match_strong"]
         if numeric_score >= 87:
-            return 0.045, "fuzzy", ["toc_fuzzy_match"]
+            return 0.03, "fuzzy", ["toc_fuzzy_match"]
         if numeric_score >= 82:
-            return 0.03, "fuzzy", ["toc_fuzzy_match_weak"]
+            return 0.02, "fuzzy", ["toc_fuzzy_match_weak"]
 
     return 0.0, match_type, []
 

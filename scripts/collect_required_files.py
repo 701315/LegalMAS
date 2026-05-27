@@ -12,19 +12,16 @@ PROJECT_ROOT = "/home/vladi/projects/LegalMAS"
 OUTPUT_FILE = "/home/vladi/projects/LegalMAS/all_required_heading_dump.txt"
 
 FILES = [
-    "src/classifiers/yaml_registry.py",
-    "src/classifiers/base.py",
-    "src/classifiers/stage8/l3_semantic.py",
-    "src/classifiers/stage8/l2_header.py",
-    "src/classifiers/stage8/l1_filename.py",
-    "src/classifiers/stage8/hybrid_classifier.py",
-    "src/classifiers/stage8/_voting.py",
-    "src/classifiers/stage8/_result_builder.py",
-    "src/classifiers/stage8/_l4_llm.py",
-    "src/classifiers/stage8/_duplicate_handler.py",
-    "src/classifiers/stage8/_content_fetcher.py",
-    "src/workers/classifier.py",
-    "src/workers/segment_classifier.py",
+    "src/engine/content/segment_chunk_builder_v2.py",
+    "src/engine/content/clause_tree_builder.py",
+    "src/engine/content/chunking.py",
+    "src/workers/chunk_builder.py",
+    "src/services/structure/hierarchy_builder.py",
+    "src/services/structure/heading_builder.py",
+    "src/services/structure/heading_scoring.py",
+    "src/services/structure/toc_parser.py",
+    "src/services/structure/element_classifier.py",
+    "src/services/structure/models.py",
 ]
 
 # ===================================

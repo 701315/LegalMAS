@@ -63,14 +63,22 @@ _EXCLUDED_ELEMENT_TYPES = {
     "table_content",
     "requisites_block",
     "signature_block",
-    "toc_content",
     "page_artifact",
     "unknown_layout",
+    "toc_header",
+    "toc_line",
+    "possible_toc",
 }
 
 _ALLOWED_ELEMENT_TYPES = {
     "heading_candidate",
+    "section_heading",
+    "subsection_heading",
+    "appendix_heading",
+    "enumerated_clause",
+    "definition_item",
     "list_item",
+    "toc_false_positive",
 }
 
 
@@ -221,16 +229,46 @@ def _require_element_structure_contract(
 def _is_candidate_element_type_allowed(element_type: str) -> bool:
     """
     Более строгая политика:
-    - явно разрешаем heading_candidate и list_item;
-    - явно запрещённые типы режем;
+    - явно разрешаем только известные structural types;
+    - TOC-подобные элементы режем;
     - неизвестные типы НЕ пускаем, чтобы не ловить ложные headings.
     """
     normalized = normalize_spaces(element_type).lower()
     if not normalized:
         return False
+
+    if normalized == "toc_content":
+        logger.warning("STRUCTURE legacy_element_type_detected", extra={"element_type": normalized})
+
     if normalized in _EXCLUDED_ELEMENT_TYPES:
         return False
     return normalized in _ALLOWED_ELEMENT_TYPES
+
+
+def _is_strong_structural_element_type(element_type: str) -> bool:
+    normalized = normalize_spaces(element_type).lower()
+    return normalized in {
+        "heading_candidate",
+        "section_heading",
+        "subsection_heading",
+        "appendix_heading",
+    }
+
+
+def _is_weak_structural_element_type(element_type: str) -> bool:
+    normalized = normalize_spaces(element_type).lower()
+    return normalized in {
+        "enumerated_clause",
+        "definition_item",
+        "list_item",
+    }
+
+
+def _is_recoverable_toc_like_element_type(element_type: str) -> bool:
+    normalized = normalize_spaces(element_type).lower()
+    return normalized in {
+        "toc_false_positive",
+    }
 
 
 def _candidate_priority_tuple(candidate: ScoredHeadingCandidate) -> tuple:
@@ -468,6 +506,12 @@ def collect_scored_heading_candidates(
         segment_order = _safe_int(element.get("segment_order"), -1)
         element_type = normalize_spaces(str(element.get("element_type") or ""))
 
+        element_metadata = dict(element.get("metadata") or {})
+        toc_guard_decision = normalize_spaces(str(element_metadata.get("toc_guard_decision") or "")).lower()
+        body_recoverable_from_toc = bool(element_metadata.get("body_recoverable_from_toc"))
+        possible_toc_flag = bool(element_metadata.get("possible_toc"))
+
+
         if not _is_candidate_element_type_allowed(element_type):
             logger.debug(
                 "STRUCTURE non_heading_element_skipped",
@@ -541,19 +585,77 @@ def collect_scored_heading_candidates(
             title=parsed_title,
             raw_text=raw_text,
             toc_match=toc_match,
+            element_type=element_type,
         )
+
+        normalized_element_type = normalize_spaces(element_type).lower()
+
+        strong_structural_type = _is_strong_structural_element_type(normalized_element_type)
+        weak_structural_type = _is_weak_structural_element_type(normalized_element_type)
+        recoverable_toc_like_type = _is_recoverable_toc_like_element_type(normalized_element_type)
 
         decision = _status_to_decision(getattr(score_result, "status", None))
         reason = _normalize_reject_reason(getattr(score_result, "primary_reason", None))
         score = float(getattr(score_result, "score", 0.0) or 0.0)
 
-        if element_type == "list_item" and decision == "accepted":
+        if strong_structural_type and decision == "ambiguous" and score >= 0.55:
+            decision = "accepted"
+            reason = "strong_structural_element_type"
+
+        if weak_structural_type and decision == "accepted" and score < 0.70:
+            decision = "ambiguous"
+            reason = "weak_structural_element_type_requires_stronger_score"
+
+        if recoverable_toc_like_type:
+            # toc_false_positive — не strong structural boost, а только recoverable candidate.
+            # Даже если scorer дал accepted, без сильного score и/или TOC match лучше оставить ambiguous.
+            toc_match_type_local = normalize_spaces(str(getattr(score_result, "toc_match_type", None) or "")).lower()
+            toc_match_score_local = float(getattr(score_result, "toc_match_score", 0.0) or 0.0)
+
+            has_strong_toc_match = (
+                (toc_match_type_local == "exact" and toc_match_score_local > 0.0)
+                or
+                (toc_match_type_local == "fuzzy" and toc_match_score_local >= 0.045)
+            )
+
+            if decision == "accepted" and score < 0.85 and not has_strong_toc_match:
+                decision = "ambiguous"
+                reason = "recoverable_toc_like_requires_stronger_evidence"
+
+            if decision == "ambiguous" and not body_recoverable_from_toc and toc_guard_decision == "reject_toc":
+                decision = "rejected"
+                reason = "recoverable_toc_like_rejected_by_toc_guard"
+
+        normalized_element_type = normalize_spaces(element_type).lower()
+
+        if normalized_element_type == "list_item" and decision == "accepted":
             if not _is_strict_numeric_uid(parsed_raw_uid):
                 decision = "rejected"
                 reason = "list_item_non_numeric_uid"
             elif _uid_depth(parsed_raw_uid) > 4 and score < 0.85:
                 decision = "ambiguous"
                 reason = "list_item_deep_uid_requires_stronger_evidence"
+
+        if normalized_element_type == "definition_item" and decision == "accepted":
+            # definition item сам по себе не должен становиться section heading,
+            # если это не очень сильный numeric structural signal.
+            if not _is_strict_numeric_uid(parsed_raw_uid):
+                decision = "rejected"
+                reason = "definition_item_non_numeric_uid"
+            elif _uid_depth(parsed_raw_uid) >= 3 and score < 0.90:
+                decision = "ambiguous"
+                reason = "definition_item_requires_stronger_structural_evidence"
+            else:
+                decision = "ambiguous"
+                reason = "definition_item_prefer_non_section_interpretation"
+
+        if normalized_element_type == "enumerated_clause" and decision == "accepted":
+            if not _is_strict_numeric_uid(parsed_raw_uid):
+                decision = "rejected"
+                reason = "enumerated_clause_non_numeric_uid"
+            elif _uid_depth(parsed_raw_uid) > 4 and score < 0.90:
+                decision = "ambiguous"
+                reason = "enumerated_clause_deep_uid_requires_stronger_evidence"
 
         metadata = {
             "accept_reasons": list(getattr(score_result, "accept_reasons", []) or []),
@@ -569,6 +671,12 @@ def collect_scored_heading_candidates(
             "segment_type": segment_type,
             "segment_order": segment_order,
             "element_type": element_type,
+            "is_strong_structural_element_type": strong_structural_type,
+            "is_weak_structural_element_type": weak_structural_type,
+            "is_recoverable_toc_like_element_type": recoverable_toc_like_type,
+            "toc_guard_decision": toc_guard_decision,
+            "body_recoverable_from_toc": body_recoverable_from_toc,
+            "possible_toc": possible_toc_flag,
             "uid_depth": _uid_depth(parsed_raw_uid),
             "page": page,
             "page_offset": page_offset,
@@ -633,6 +741,10 @@ def collect_scored_heading_candidates(
             "next_heading_uid": next_heading_uid,
             "toc_match_type": getattr(score_result, "toc_match_type", None),
             "toc_match_score": float(getattr(score_result, "toc_match_score", 0.0) or 0.0),
+            "toc_guard_decision": toc_guard_decision,
+            "body_recoverable_from_toc": body_recoverable_from_toc,
+            "possible_toc": possible_toc_flag,
+            "is_recoverable_toc_like_element_type": recoverable_toc_like_type,
         }
 
         if decision == "accepted":

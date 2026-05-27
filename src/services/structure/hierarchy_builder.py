@@ -42,15 +42,30 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from core.logging import get_logger
-from services.structure.models import ClauseNode, DEFAULT_SCOPE, make_effective_uid, split_effective_uid
+from services.structure.models import (
+    ClauseNode,
+    DEFAULT_SCOPE,
+    make_effective_uid,
+    split_effective_uid,
+)
 
 logger = get_logger(__name__)
-
 
 _NUMERIC_UID_RE = re.compile(r"^\d+(?:\.\d+)*$")
 
 _SUSPICIOUS_LEAF_RANGE_SPAN_THRESHOLD = 200
 _SUSPICIOUS_OWN_SHARE_RATIO = 0.8
+
+# Этап 1: recoverable hierarchy
+_RECOVERABLE_INVALID_HEADING_RATIO = 0.35
+_RECOVERABLE_OWN_RANGE_ANOMALY_RATIO = 0.35
+_FATAL_ROOTLESS_WITH_NODES = True
+
+
+def _safe_ratio(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return float(numerator) / float(denominator)
 
 
 def _is_strict_numeric_uid(uid: str) -> bool:
@@ -371,9 +386,24 @@ def _compute_own_range(
         candidates.append((len(elements), "fallback_boundary"))
 
     if not candidates:
+        scope_boundary = scope_boundaries.get(scope)
+        if scope_boundary is not None and scope_boundary[1] > heading_elem_i:
+            return OwnRangeComputation(
+                start_elem_i=heading_elem_i,
+                end_elem_i=scope_boundary[1],
+                range_end_reason="segment_end",
+            )
+
+        if len(elements) > heading_elem_i:
+            return OwnRangeComputation(
+                start_elem_i=heading_elem_i,
+                end_elem_i=len(elements),
+                range_end_reason="fallback_boundary",
+            )
+
         return OwnRangeComputation(
             start_elem_i=heading_elem_i,
-            end_elem_i=heading_elem_i,
+            end_elem_i=None,
             range_end_reason="unbounded_error",
         )
 
@@ -428,6 +458,7 @@ def build_clause_hierarchy(
     suspicious_leaf_nodes_count = 0
     element_ownership_conflicts = 0
     invalid_heading_candidates_count = 0
+    parent_attach_rejected_count = 0
 
     headings_by_scope = _group_headings_by_scope(headings)
     scope_boundaries = _build_scope_boundaries(elements)
@@ -480,7 +511,7 @@ def build_clause_hierarchy(
                         f"effective_uid implies {inferred_raw_uid!r}"
                     )
 
-                if (scope, raw_uid) in {(scope, key) for key in scope_nodes.keys()}:
+                if raw_uid in scope_nodes:
                     duplicate_scope_raw_uid_skipped_count += 1
                     logger.warning(
                         "STRUCTURE node_duplicate_scope_raw_uid_skipped",
@@ -572,22 +603,46 @@ def build_clause_hierarchy(
 
                 if parent_uid and parent_uid in scope_nodes:
                     parent_node = scope_nodes[parent_uid]
-                    parent_node.children.append(node)
 
-                    logger.debug(
-                        "structure.node.parenting",
-                        extra={
-                            "document_id": normalized_document_id,
-                            "raw_uid": raw_uid,
-                            "effective_uid": effective_uid,
-                            "parent_uid": parent_uid,
-                            "parent_effective_uid": parent_node.effective_uid,
-                            "level": node.level,
-                            "attached_to_root": False,
-                            "scope": scope,
-                        },
-                    )
+                    if parent_node.level >= node.level:
+                        parent_attach_rejected_count += 1
+                        node.diagnostics["parent_attach_status"] = "rejected_invalid_parent_level"
+                        node.diagnostics["requested_parent_raw_uid"] = parent_uid
+                        root_nodes.append(node)
+
+                        logger.warning(
+                            "STRUCTURE node_parent_attach_rejected",
+                            extra={
+                                "document_id": normalized_document_id,
+                                "raw_uid": raw_uid,
+                                "effective_uid": effective_uid,
+                                "parent_uid": parent_uid,
+                                "parent_effective_uid": parent_node.effective_uid,
+                                "parent_level": parent_node.level,
+                                "child_level": node.level,
+                                "scope": scope,
+                                "reason": "invalid_parent_level",
+                            },
+                        )
+                    else:
+                        parent_node.children.append(node)
+                        node.diagnostics["parent_attach_status"] = "attached"
+
+                        logger.debug(
+                            "structure.node.parenting",
+                            extra={
+                                "document_id": normalized_document_id,
+                                "raw_uid": raw_uid,
+                                "effective_uid": effective_uid,
+                                "parent_uid": parent_uid,
+                                "parent_effective_uid": parent_node.effective_uid,
+                                "level": node.level,
+                                "attached_to_root": False,
+                                "scope": scope,
+                            },
+                        )
                 else:
+                    node.diagnostics["parent_attach_status"] = "root"
                     root_nodes.append(node)
 
                     logger.debug(
@@ -669,25 +724,60 @@ def build_clause_hierarchy(
                 continue
 
             if range_info.end_elem_i <= range_info.start_elem_i:
-                own_range_invalid_count += 1
-                node.range_end_reason = "unbounded_error"
-                node.diagnostics["own_range_status"] = "invalid"
-                node.diagnostics["own_range_unbounded"] = True
+                recovered_end = None
+                scope_boundary = scope_boundaries.get(scope)
+                if scope_boundary is not None and scope_boundary[1] > range_info.start_elem_i:
+                    recovered_end = scope_boundary[1]
+                    recovered_reason = "segment_end_recovered"
+                elif len(elements) > range_info.start_elem_i:
+                    recovered_end = len(elements)
+                    recovered_reason = "fallback_boundary_recovered"
+                else:
+                    recovered_reason = "unbounded_error"
+
+                if recovered_end is None or recovered_end <= range_info.start_elem_i:
+                    own_range_invalid_count += 1
+                    node.range_end_reason = "unbounded_error"
+                    node.diagnostics["own_range_status"] = "invalid"
+                    node.diagnostics["own_range_unbounded"] = True
+
+                    logger.warning(
+                        "STRUCTURE node_own_range_invalid",
+                        extra={
+                            "document_id": normalized_document_id,
+                            "raw_uid": raw_uid,
+                            "effective_uid": effective_uid,
+                            "scope": scope,
+                            "heading_elem_i": range_info.start_elem_i,
+                            "own_end": range_info.end_elem_i,
+                            "range_end_reason": "unbounded_error",
+                            "structure_degraded": True,
+                        },
+                    )
+                    continue
+
+                range_info = OwnRangeComputation(
+                    start_elem_i=range_info.start_elem_i,
+                    end_elem_i=recovered_end,
+                    range_end_reason=recovered_reason,
+                )
+                node.range_end_reason = recovered_reason
+                node.diagnostics["own_range_status"] = "recovered"
+                node.diagnostics["own_range_unbounded"] = False
+                node.diagnostics["own_range_recovered"] = True
 
                 logger.warning(
-                    "STRUCTURE node_own_range_invalid",
+                    "STRUCTURE node_own_range_recovered",
                     extra={
                         "document_id": normalized_document_id,
                         "raw_uid": raw_uid,
                         "effective_uid": effective_uid,
                         "scope": scope,
                         "heading_elem_i": range_info.start_elem_i,
-                        "own_end": range_info.end_elem_i,
-                        "range_end_reason": "unbounded_error",
-                        "structure_degraded": True,
+                        "own_end": recovered_end,
+                        "range_end_reason": recovered_reason,
                     },
                 )
-                continue
 
             own_element_ids: list[str] = []
             upper_bound = min(range_info.end_elem_i, len(elements))
@@ -723,8 +813,10 @@ def build_clause_hierarchy(
 
             node.own_element_ids = own_element_ids
             node.own_text = own_text if own_text else None
-            node.diagnostics["own_range_status"] = "ok"
+            if node.diagnostics.get("own_range_status") != "recovered":
+                node.diagnostics["own_range_status"] = "ok"
             node.diagnostics["own_range_unbounded"] = False
+            node.diagnostics.setdefault("own_range_recovered", False)
             node.diagnostics["own_range_span"] = max(0, range_info.end_elem_i - range_info.start_elem_i)
 
             if (
@@ -796,17 +888,35 @@ def build_clause_hierarchy(
         )
         node.diagnostics["suspicious_own_scope"] = suspicious_own_scope
 
-    structure_degraded = any(
-        [
-            own_range_invalid_count > 0,
-            own_range_missing_count > 0,
-            duplicate_effective_uid_skipped_count > 0,
-            duplicate_scope_raw_uid_skipped_count > 0,
-            suspicious_leaf_nodes_count > 0,
-            element_ownership_conflicts > 0,
-            invalid_heading_candidates_count > 0,
-        ]
+    total_nodes = len(nodes)
+    total_headings = len(headings)
+
+    invalid_heading_ratio = _safe_ratio(invalid_heading_candidates_count, total_headings)
+    own_range_anomaly_count = own_range_invalid_count + own_range_missing_count
+    own_range_anomaly_ratio = _safe_ratio(own_range_anomaly_count, max(total_nodes, 1))
+
+    fatal_hierarchy_failure = bool(
+        (total_headings > 0 and total_nodes == 0)
+        or (total_nodes > 0 and not root_nodes and _FATAL_ROOTLESS_WITH_NODES)
     )
+
+    heavy_candidate_loss = invalid_heading_ratio >= _RECOVERABLE_INVALID_HEADING_RATIO
+    heavy_range_damage = own_range_anomaly_ratio >= _RECOVERABLE_OWN_RANGE_ANOMALY_RATIO
+
+    structure_degraded = bool(
+        fatal_hierarchy_failure
+        or heavy_candidate_loss
+        or heavy_range_damage
+    )
+
+    hierarchy_quality = "good"
+    if total_nodes == 0:
+        hierarchy_quality = "failed"
+    elif structure_degraded:
+        hierarchy_quality = "partial"
+
+    for node in nodes.values():
+        node.diagnostics.setdefault("hierarchy_quality", hierarchy_quality)
 
     logger.info(
         "STRUCTURE hierarchy_build_diagnostics",
@@ -824,7 +934,17 @@ def build_clause_hierarchy(
             "invalid_heading_candidates_count": invalid_heading_candidates_count,
             "suspicious_leaf_nodes_count": suspicious_leaf_nodes_count,
             "element_ownership_conflicts": element_ownership_conflicts,
+            "parent_attach_rejected_count": parent_attach_rejected_count,
             "structure_degraded": structure_degraded,
+            "total_nodes": total_nodes,
+            "total_headings": total_headings,
+            "invalid_heading_ratio": invalid_heading_ratio,
+            "own_range_anomaly_count": own_range_anomaly_count,
+            "own_range_anomaly_ratio": own_range_anomaly_ratio,
+            "fatal_hierarchy_failure": fatal_hierarchy_failure,
+            "heavy_candidate_loss": heavy_candidate_loss,
+            "heavy_range_damage": heavy_range_damage,
+            "hierarchy_quality": hierarchy_quality,
         },
     )
 
@@ -889,7 +1009,6 @@ def populate_subtree_element_ids(
                     ),
                 },
             )
-
         
         
         

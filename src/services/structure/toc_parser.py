@@ -12,15 +12,20 @@ TOC parser и TOC reliability слой для structural pipeline.
 - предоставлять reusable TOC model для pipeline / heading scoring / diagnostics.
 
 Главный принцип:
-TOC здесь больше не трактуется как простой "кусок, который надо вырезать".
-Он превращается в структурированный сигнал с измеримой надёжностью.
+TOC здесь не принимает policy-решений и не вырезает body.
+Этот модуль знает только:
+- detect,
+- parse,
+- alignment summary,
+- reliability summary.
 
 Важно:
 - detect_toc_block() отвечает только за границы TOC блока;
 - parse_toc_entries() отвечает только за извлечение uid/title/page_hint;
 - evaluate_toc_alignment() и compute_partial_reliability() работают
   по уже размеченному ParsedTOC;
-- сам fuzzy/exact matching вынесен в toc_matcher.py.
+- сам fuzzy/exact matching вынесен в toc_matcher.py;
+- policy decision (reliable/partial/reject) должен жить в toc_guard.py.
 """
 
 from __future__ import annotations
@@ -29,10 +34,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from core.logging import get_logger
 from services.structure.heading_patterns import normalize_spaces, parse_raw_heading
-
-logger = get_logger(__name__)
 
 _TOC_MAX_PAGES = 5
 
@@ -198,6 +200,17 @@ class TOCReliabilityResult:
     reasons: list[str] = field(default_factory=list)
 
 
+def _safe_page(value: Any, default: int = 1) -> int:
+    """
+    Безопасно приводит page к положительному int.
+    """
+    try:
+        page = int(value)
+    except Exception:
+        return default
+    return page if page >= 1 else default
+
+
 def _normalize_toc_text(text: str) -> str:
     """
     Нормализует TOC-подобную строку для parser-level работы.
@@ -273,26 +286,77 @@ def _is_likely_toc_marker(text: str) -> bool:
     return _normalize_toc_text(text).lower() in _TOC_MARKERS
 
 
-def _is_likely_toc_entry_line(text: str) -> bool:
+def _looks_substantive_toc_false_positive_text(text: str) -> bool:
     """
-    Проверяет, похожа ли строка на самостоятельную TOC entry line.
+    Parser-level negative filter против ложноположительных TOC-строк.
 
-    Сигналы:
-    - dot leaders + page hint;
-    - heading-like line + page hint;
-    - короткая heading-подобная строка в TOC-контексте.
+    Это не юридическая классификация "на 100%", а ранний защитный фильтр,
+    чтобы detect_toc_block() не захватывал очевидные body/definition-like линии.
     """
     t = _normalize_toc_text(text)
     if not t:
         return False
 
-    if _DOT_LEADER_RE.search(t) and _PAGE_HINT_RE.search(t):
+    words = t.split()
+    word_count = len(words)
+    has_dot_leader = bool(_DOT_LEADER_RE.search(t))
+
+    if word_count >= 18:
         return True
 
-    parsed = parse_raw_heading(t)
+    if len(t) >= 160:
+        return True
+
+    if ":" in t and not has_dot_leader:
+        return True
+
+    if t.endswith((".", ";")) and word_count >= 8 and not has_dot_leader:
+        return True
+
+    return False
+
+
+def _is_likely_toc_entry_line(text: str) -> bool:
+    """
+    Проверяет, похожа ли строка на самостоятельную TOC entry line.
+
+    Строгие сигналы:
+    - строка должна иметь page_hint в конце;
+    - строка должна быть короткой;
+    - либо есть dot leaders,
+      либо строка heading-like после извлечения page_hint.
+
+    Negative-фильтры применяются до positive logic.
+    """
+    t = _normalize_toc_text(text)
+    if not t:
+        return False
+
+    if _looks_substantive_toc_false_positive_text(t):
+        return False
+
+    text_wo_page, page_hint = _extract_page_hint(t)
+    if page_hint is None:
+        return False
+
+    has_dot_leader = bool(_DOT_LEADER_RE.search(t))
+
+    if not text_wo_page:
+        return False
+
+    if len(text_wo_page.split()) > 20:
+        return False
+
+    if len(text_wo_page) > 140:
+        return False
+
+    if has_dot_leader:
+        return True
+
+    parsed = parse_raw_heading(text_wo_page)
     if parsed is not None:
         _, title = parsed
-        if len(title.split()) <= 16 and _PAGE_HINT_RE.search(t):
+        if len(title.split()) <= 16 and len(title) <= 140:
             return True
 
     return False
@@ -306,7 +370,8 @@ def _is_toc_continuation_line(text: str) -> bool:
     - continuation line допустима только после уже начатой TOC entry;
     - строка не должна быть TOC marker;
     - строка не должна выглядеть как новая самостоятельная TOC entry;
-    - строка не должна быть слишком длинной.
+    - строка не должна быть слишком длинной;
+    - строка не должна быть явным substantive false positive.
     """
     t = _normalize_toc_text(text)
     if not t:
@@ -318,10 +383,17 @@ def _is_toc_continuation_line(text: str) -> bool:
     if _is_likely_toc_entry_line(t):
         return False
 
+    if _looks_substantive_toc_false_positive_text(t):
+        return False
+
     if len(t.split()) > 18:
         return False
 
+    if len(t) > 140:
+        return False
+
     return True
+
 
 def _is_toc_tail_line(text: str) -> bool:
     """
@@ -329,6 +401,7 @@ def _is_toc_tail_line(text: str) -> bool:
     - есть page_hint;
     - нет собственного heading uid;
     - короткая;
+    - не выглядит как substantive/body line.
     """
     t = _normalize_toc_text(text)
     if not t:
@@ -338,6 +411,9 @@ def _is_toc_tail_line(text: str) -> bool:
     if page_hint is None:
         return False
 
+    if _looks_substantive_toc_false_positive_text(text_wo_page):
+        return False
+
     parsed = parse_raw_heading(text_wo_page)
     if parsed is not None:
         return False
@@ -345,7 +421,11 @@ def _is_toc_tail_line(text: str) -> bool:
     if len(text_wo_page.split()) > 12:
         return False
 
+    if len(text_wo_page) > 100:
+        return False
+
     return True
+
 
 def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
     """
@@ -370,12 +450,12 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
             elements=[],
         )
 
-    first_page = elements[0].get("page", 1)
-    page_threshold = first_page + _TOC_MAX_PAGES
+    first_page = _safe_page(elements[0].get("page", 1), default=1)
+    page_threshold = first_page + max(_TOC_MAX_PAGES - 1, 0)
 
     start_index: int | None = None
     for i, el in enumerate(elements):
-        if el.get("page", 1) > page_threshold:
+        if _safe_page(el.get("page", 1), default=1) > page_threshold:
             break
         text = _normalize_toc_text(str(el.get("text") or ""))
         if _is_likely_toc_marker(text):
@@ -388,8 +468,9 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
         cluster_last = 0
 
         for i, el in enumerate(elements):
-            if el.get("page", 1) > page_threshold:
+            if _safe_page(el.get("page", 1), default=1) > page_threshold:
                 break
+
             text = _normalize_toc_text(str(el.get("text") or ""))
             if _is_likely_toc_entry_line(text):
                 if cluster_start is None:
@@ -398,7 +479,7 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
                 cluster_last = i
                 continue
 
-            if cluster_count >= 3:
+            if cluster_count >= 3 and cluster_start is not None:
                 return TOCBlock(
                     detected=True,
                     start_index=cluster_start,
@@ -432,7 +513,7 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
 
     for i in range(start_index + 1, len(elements)):
         el = elements[i]
-        if el.get("page", 1) > page_threshold:
+        if _safe_page(el.get("page", 1), default=1) > page_threshold:
             break
 
         text = _normalize_toc_text(str(el.get("text") or ""))
@@ -687,9 +768,9 @@ def compute_partial_reliability(
     page_hint_ratio = (
         sum(1 for e in parsed_toc.entries if e.page_hint is not None) / entries_total
     )
-    multiline_penalty = sum(
-        1 for e in parsed_toc.entries if e.diagnostics.get("multiline")
-    ) / entries_total
+    multiline_penalty = (
+        sum(1 for e in parsed_toc.entries if e.diagnostics.get("multiline")) / entries_total
+    )
 
     reliability = (
         alignment.toc_alignment_score * 0.65

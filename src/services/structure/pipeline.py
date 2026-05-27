@@ -32,49 +32,43 @@ from typing import Any
 from core.config import settings
 from core.logging import get_logger
 from services.structure.crossrefs import extract_references
-from services.structure.element_classifier import classify_elements
 from services.structure.file_graph_builder import build_file_graph
 from services.structure.heading_builder import build_heading_candidates
-from services.structure.heading_features import has_letters, looks_like_toc_line
-from services.structure.heading_patterns import normalize_spaces, parse_raw_heading
+from services.structure.heading_patterns import normalize_spaces
 from services.structure.hierarchy_builder import HeadingCandidate, build_clause_hierarchy
 from services.structure.models import (
     ClauseNode,
     ClauseTree,
-    FileGraph,
     FileStructureResult,
     SegmentDocument,
+    ParseQualityDiagnostics,
+    TOCDiagnostics,
+    PARSE_QUALITY_OK,
+    PARSE_QUALITY_WEAK,
     SEGMENT_CONFIDENCE_HIGH,
     SEGMENT_TYPE_CONTRACT,
     STRUCTURE_CONFIDENCE_FAILED,
     STRUCTURE_CONFIDENCE_HIGH,
     STRUCTURE_CONFIDENCE_LOW,
     STRUCTURE_CONFIDENCE_MEDIUM,
+    embed_parse_quality_diagnostics,
+    embed_toc_diagnostics,
     make_effective_uid,
     make_segment_id,
 )
+from services.structure.element_classifier import (
+    annotate_elements_with_guard,
+    classify_elements,
+)
 from services.structure.segmenter import segment_elements
-from services.structure.toc_matcher import attach_toc_matches, build_toc_match_index
-from services.structure.toc_parser import (
-    compute_partial_reliability,
-    detect_toc_block,
-    evaluate_toc_alignment,
-    parse_toc_entries,
+from services.structure.toc_analysis import TOCAnalysisBundle, analyze_toc_with_guard
+from services.structure.toc_guard import (
+    TOC_GUARD_RELIABLE,
 )
 
 logger = get_logger(__name__)
 
-_TOC_MAX_PAGES = 5
 _NUMERIC_UID_RE = re.compile(r"^\d+(?:\.\d+)*$")
-
-_TOC_MARKERS = frozenset(
-    [
-        "table of contents",
-        "contents",
-        "содержание",
-        "оглавление",
-    ]
-)
 
 _REQUIRED_ELEMENT_FIELDS = (
     "scope",
@@ -83,14 +77,6 @@ _REQUIRED_ELEMENT_FIELDS = (
     "segment_order",
     "element_type",
 )
-
-
-@dataclass(slots=True)
-class TocDetectionResult:
-    detected: bool
-    start_index: int | None
-    end_index: int
-    reason: str
 
 
 # ── Утилиты ──────────────────────────────────────────────────────────────────
@@ -327,13 +313,24 @@ def _summarize_element_types(elements: list[dict[str, Any]]) -> dict[str, Any]:
         counts[element_type] = counts.get(element_type, 0) + 1
 
     total = len(elements)
+    toc_total = (
+        counts.get("toc_header", 0)
+        + counts.get("toc_line", 0)
+        + counts.get("possible_toc", 0)
+        + counts.get("toc_false_positive", 0)
+    )
+
     return {
         "total": total,
         "counts": counts,
         "heading_candidates": counts.get("heading_candidate", 0),
         "body_text": counts.get("body_text", 0),
         "list_items": counts.get("list_item", 0),
-        "toc_content": counts.get("toc_content", 0),
+        "toc_header": counts.get("toc_header", 0),
+        "toc_line": counts.get("toc_line", 0),
+        "possible_toc": counts.get("possible_toc", 0),
+        "toc_false_positive": counts.get("toc_false_positive", 0),
+        "toc_total": toc_total,
         "signature_blocks": counts.get("signature_block", 0),
         "requisites_blocks": counts.get("requisites_block", 0),
         "page_artifacts": counts.get("page_artifact", 0),
@@ -343,140 +340,121 @@ def _summarize_element_types(elements: list[dict[str, Any]]) -> dict[str, Any]:
 
 # ── TOC-детекция ─────────────────────────────────────────────────────────────
 
-
-def _find_toc_end(elements: list[dict]) -> TocDetectionResult:
+def _compute_suppressed_indexes(
+    *,
+    elements: list[dict[str, Any]],
+    analysis: TOCAnalysisBundle,
+) -> set[int]:
     """
-    Legacy TOC cutoff heuristic.
+    Вычисляет set индексов элементов, которые можно suppressed при reliable_toc.
+
+    Suppression — только semantic, только в пределах TOC block:
+    - suppression разрешён только при guard.decision == reliable_toc;
+    - удаляются только toc_header и toc_line elements;
+    - toc_false_positive НЕ удаляются никогда;
+    - possible_toc НЕ удаляются;
+    - body за пределами TOC block не трогается.
+
+    Индексы segment-local (относительно переданного elements).
     """
-    if not elements:
-        return TocDetectionResult(
-            detected=False,
-            start_index=None,
-            end_index=0,
-            reason="empty_elements",
-        )
+    if not analysis.guard.suppress_body_elements:
+        return set()
 
-    first_page = elements[0].get("page", 1)
-    page_threshold = first_page + _TOC_MAX_PAGES
+    if analysis.guard.decision != TOC_GUARD_RELIABLE:
+        return set()
 
-    toc_start_idx: int | None = None
-    for i, el in enumerate(elements):
-        if el.get("page", 1) > page_threshold:
-            break
-        text_lower = normalize_spaces(el.get("text", "")).lower()
-        if text_lower in _TOC_MARKERS:
-            toc_start_idx = i
-            break
+    # Собираем element indexes из parsed TOC entries —
+    # только те, которые НЕ помечены как false positive guard-ом.
+    entry_element_indexes: set[int] = set()
+    for entry in analysis.parsed_toc.entries:
+        for idx in (entry.source_element_indexes or []):
+            if isinstance(idx, int) and idx >= 0:
+                if idx not in analysis.guard.false_positive_indexes:
+                    entry_element_indexes.add(idx)
 
-    if toc_start_idx is not None:
-        toc_last_page = elements[toc_start_idx].get("page", 1)
+    # Добавляем TOC header элементы из detected block
+    if analysis.toc_block.start_index is not None:
+        start = analysis.toc_block.start_index
+        end = min(analysis.toc_block.end_index, len(elements))
+        for idx in range(start, end):
+            if elements[idx].get("element_type") == "toc_header":
+                entry_element_indexes.add(idx)
 
-        for i in range(toc_start_idx + 1, len(elements)):
-            el = elements[i]
-            el_page = el.get("page", 1)
+    # Финальный фильтр: suppressed только toc_header и toc_line
+    # — не possible_toc, не toc_false_positive, не body
+    suppressible = {
+        idx
+        for idx in entry_element_indexes
+        if elements[idx].get("element_type") in {"toc_header", "toc_line"}
+    }
 
-            if el_page > page_threshold:
-                logger.debug(
-                    "STRUCTURE toc_end_reached_by_page_threshold",
-                    extra={
-                        "toc_start_idx": toc_start_idx,
-                        "toc_end_idx": i,
-                        "toc_last_page": toc_last_page,
-                    },
-                )
-                return TocDetectionResult(True, toc_start_idx, i, "page_threshold")
+    return suppressible
 
-            text = normalize_spaces(el.get("text", ""))
-            parsed = parse_raw_heading(text)
 
-            if looks_like_toc_line(text):
-                toc_last_page = el_page
-                continue
+def _resolve_parser_status(analysis: TOCAnalysisBundle) -> str:
+    """
+    Определяет parser_status для TOCDiagnostics.
 
-            if el_page > toc_last_page and parsed:
-                uid, title = parsed
-                if uid and title:
-                    logger.debug(
-                        "STRUCTURE toc_end_reached_by_heading_after_toc",
-                        extra={
-                            "toc_start_idx": toc_start_idx,
-                            "toc_end_idx": i,
-                            "toc_last_page": toc_last_page,
-                        },
-                    )
-                    return TocDetectionResult(True, toc_start_idx, i, "heading_after_toc")
+    OK  — если TOC был reliable и suppression применён.
+    WEAK — если TOC обнаружен, но reliability недостаточна.
+    OK  — если TOC не обнаружен (нет сигнала → нет проблемы).
+    """
+    if analysis.guard.suppress_body_elements:
+        return PARSE_QUALITY_OK
+    if analysis.reliability.confidence_band in {"partial", "low"}:
+        return PARSE_QUALITY_WEAK
+    return PARSE_QUALITY_OK
 
-            if not parsed and len(text) > 80 and has_letters(text):
-                logger.debug(
-                    "STRUCTURE toc_end_reached_by_long_text_after_toc",
-                    extra={
-                        "toc_start_idx": toc_start_idx,
-                        "toc_end_idx": i,
-                        "toc_last_page": toc_last_page,
-                    },
-                )
-                return TocDetectionResult(True, toc_start_idx, i, "long_text_after_toc")
 
-            toc_last_page = el_page
+def _build_toc_diagnostics(
+    *,
+    analysis: TOCAnalysisBundle,
+    suppressed_indexes: set[int],
+    body_recovered_count: int,
+    guard_fp_count: int,
+) -> TOCDiagnostics:
+    """
+    Строит TOCDiagnostics из authoritative TOCAnalysisBundle.
 
-        logger.debug(
-            "STRUCTURE toc_end_fallback_after_marker",
-            extra={
-                "toc_start_idx": toc_start_idx,
-                "toc_end_idx": toc_start_idx + 1,
-                "toc_last_page": toc_last_page,
-            },
-        )
-        return TocDetectionResult(True, toc_start_idx, toc_start_idx + 1, "marker_only_fallback")
+    Всё берётся из analysis — нет дублирующих расчётов.
+    """
+    return TOCDiagnostics(
+        detected=analysis.toc_block.detected,
+        block_start_index=analysis.toc_block.start_index,
+        block_end_index=analysis.toc_block.end_index,
+        detection_reason=analysis.toc_block.reason,
+        parsed_entries_total=analysis.alignment.entries_total,
+        parsed_entries_with_page_hint=int(
+            analysis.parsed_toc.parser_diagnostics.get("entries_with_page_hint", 0)
+        ),
+        parsed_multiline_entries=int(
+            analysis.parsed_toc.parser_diagnostics.get("multiline_entries", 0)
+        ),
+        exact_matches=analysis.alignment.exact_matches,
+        fuzzy_matches=analysis.alignment.fuzzy_matches,
+        no_matches=analysis.alignment.no_matches,
+        stale_entries=analysis.alignment.stale_entries,
+        toc_alignment_score=analysis.alignment.toc_alignment_score,
+        toc_partial_reliability=analysis.reliability.partial_reliability,
+        toc_confidence_band=analysis.reliability.confidence_band,
+        toc_guard_applied=True,
+        toc_body_suppression_allowed=analysis.guard.suppress_body_elements,
+        toc_false_positive_count=guard_fp_count,
+        body_recovered_from_toc=body_recovered_count,
+        toc_skipped_elements=len(suppressed_indexes),
+        parser_status=_resolve_parser_status(analysis),
+        parse_quality_toc_status = _resolve_parser_status(analysis),
+        parser_reasons=list(analysis.reliability.reasons),
+        extra={
+            "index_space": "segment_local",
+            "guard_decision": analysis.guard.decision,
+            "guard_quality": analysis.guard.toc_quality,
+            "guard_reliability": analysis.guard.toc_reliability,
+            "false_positive_element_count": len(analysis.guard.false_positive_indexes),
+            "recoverable_element_count": len(analysis.guard.recoverable_indexes),
+        },
+    )
 
-    cluster_count = 0
-    cluster_last_idx = 0
-    cluster_start_idx: int | None = None
-
-    for i, el in enumerate(elements):
-        if el.get("page", 1) > page_threshold:
-            break
-
-        text = normalize_spaces(el.get("text", ""))
-        parsed = parse_raw_heading(text)
-
-        if parsed:
-            uid, title = parsed
-            if "." not in uid and uid and title:
-                if looks_like_toc_line(text) or len(title.split()) <= 12:
-                    if cluster_start_idx is None:
-                        cluster_start_idx = i
-                    cluster_count += 1
-                    cluster_last_idx = i
-                    continue
-
-        if cluster_count >= 3:
-            logger.debug(
-                "STRUCTURE toc_cluster_fallback_used",
-                extra={
-                    "cluster_start_idx": cluster_start_idx,
-                    "cluster_last_idx": cluster_last_idx,
-                    "cluster_count": cluster_count,
-                },
-            )
-            return TocDetectionResult(True, cluster_start_idx, cluster_last_idx + 1, "cluster_fallback")
-
-        cluster_count = 0
-        cluster_start_idx = None
-
-    if cluster_count >= 3:
-        logger.debug(
-            "STRUCTURE toc_cluster_fallback_used_at_end",
-            extra={
-                "cluster_start_idx": cluster_start_idx,
-                "cluster_last_idx": cluster_last_idx,
-                "cluster_count": cluster_count,
-            },
-        )
-        return TocDetectionResult(True, cluster_start_idx, cluster_last_idx + 1, "cluster_fallback_end")
-
-    logger.debug("STRUCTURE toc_not_detected")
-    return TocDetectionResult(False, None, 0, "not_detected")
 
 
 # ── Coverage и quality ───────────────────────────────────────────────────────
@@ -723,38 +701,27 @@ def _build_single_segment_tree(
 ) -> ClauseTree:
     """
     Строит ClauseTree для одного логического сегмента.
+
+    Порядок операций:
+    1. Ранние проверки (contract, layout degraded).
+    2. Первый проход headings — без TOC match index.
+    3. Authoritative TOC analysis с guard (analyze_toc_with_guard).
+    4. Annotate elements с guard verdict (annotate_elements_with_guard).
+    5. Semantic suppression TOC elements при reliable_toc.
+    6. Второй проход headings — с TOC match index.
+    7. Иерархия, coverage, diagnostics, ClauseTree.
+
+    Все TOC indexes — segment-local (относительно elements этого сегмента).
     """
     build_started = time.perf_counter()
     normalized_scope_name = str(scope_name or "main_contract").strip() or "main_contract"
 
-    t_toc = time.perf_counter()
-    toc_block = detect_toc_block(elements)
-    parsed_toc = parse_toc_entries(toc_block)
-
-    body_elements = elements
-    if toc_block.detected and toc_block.end_index > 0:
-        body_elements = elements[toc_block.end_index:] or elements
-
-    if not body_elements:
-        body_elements = elements
-
-    _log_timing(
-        f"{log_prefix} toc_detection",
-        t_toc,
-        document_id=document_id,
-        segment_id=segment_id,
-        toc_detected=toc_block.detected,
-        toc_start_idx=toc_block.start_index,
-        toc_end_idx=toc_block.end_index,
-        toc_reason=toc_block.reason,
-        toc_entries_parsed=len(parsed_toc.entries),
-    )
+    # ── Начальные stats до любых изменений ───────────────────────────────────
 
     missing_element_ids = sum(
-        1 for el in body_elements if not str(el.get("element_id") or "").strip()
+        1 for el in elements if not str(el.get("element_id") or "").strip()
     )
     element_type_summary = _summarize_element_types(elements)
-    body_element_type_summary = _summarize_element_types(body_elements)
 
     layout_degraded = False
     layout_degraded_reason: str | None = None
@@ -766,33 +733,24 @@ def _build_single_segment_tree(
             layout_degraded_reason = lf.get("degraded_reason")
             break
 
+    # ── Contract validation ───────────────────────────────────────────────────
+
     contract_valid, contract_violations = _validate_element_contract(
         document_id=document_id,
         segment_id=segment_id,
-        elements=body_elements,
+        elements=elements,
     )
 
+    # Начальное состояние diagnostics — будет дополняться по мере работы
     diagnostics: dict[str, Any] = {
         "toc": {
-            "detected": toc_block.detected,
-            "start_index": toc_block.start_index,
-            "end_index": toc_block.end_index,
-            "toc_skipped_elements": toc_block.end_index if toc_block.detected else 0,
-            "mode": "structured_toc_v2",
-            "reason": toc_block.reason,
-            "entries_total": len(parsed_toc.entries),
-            "entries_with_page_hint": parsed_toc.parser_diagnostics.get("entries_with_page_hint", 0),
-            "multiline_entries": parsed_toc.parser_diagnostics.get("multiline_entries", 0),
-            "toc_alignment_score": 0.0,
-            "partial_reliability": 0.0,
-            "is_reliable": False,
-            "confidence_band": "none",
-            "exact_matches": 0,
-            "fuzzy_matches": 0,
-            "no_matches": 0,
-            "stale_entries": 0,
-            "mismatch_details": [],
-            "reasons": [],
+            "detected": False,
+            "toc_skipped_elements": 0,
+            "mode": "structured_toc_guarded_v4",
+            "guard_decision": "reject_toc",
+            "toc_body_suppression_allowed": False,
+            "body_recovered_from_toc": 0,
+            "toc_guard_applied": False,
         },
         "layout": {
             "degraded": layout_degraded,
@@ -801,9 +759,7 @@ def _build_single_segment_tree(
         },
         "classification": {
             "segment_elements_total": element_type_summary["total"],
-            "body_elements_total": body_element_type_summary["total"],
             "segment_counts": element_type_summary["counts"],
-            "body_counts": body_element_type_summary["counts"],
         },
         "contract": {
             "valid": contract_valid,
@@ -815,13 +771,10 @@ def _build_single_segment_tree(
     if not contract_valid:
         result = _degraded_tree(
             document_id=document_id,
-            elements=body_elements,
+            elements=elements,
             coverage=0.0,
             structure_confidence=STRUCTURE_CONFIDENCE_FAILED,
-            diagnostics={
-                **diagnostics,
-                "degraded_reason": "element_contract_validation_failed",
-            },
+            diagnostics={**diagnostics, "degraded_reason": "element_contract_validation_failed"},
             scope_name=normalized_scope_name,
             segment_id=segment_id,
             segment_type=segment_type,
@@ -831,39 +784,37 @@ def _build_single_segment_tree(
             is_primary_segment=is_primary_segment,
         )
         _log_timing(
-            f"{log_prefix} build_total",
-            build_started,
-            document_id=document_id,
-            segment_id=segment_id,
-            degraded=True,
-            confidence=STRUCTURE_CONFIDENCE_FAILED,
+            f"{log_prefix} build_total", build_started,
+            document_id=document_id, segment_id=segment_id,
+            degraded=True, confidence=STRUCTURE_CONFIDENCE_FAILED,
         )
         return result
 
-    t_headings = time.perf_counter()
-    headings = build_heading_candidates(body_elements, document_id=document_id)
-    _log_timing(
-        f"{log_prefix} heading_collection",
-        t_headings,
+    # ── Шаг 1: первый проход headings (без TOC match index) ───────────────────
+
+    t_h1 = time.perf_counter()
+    headings_pre = build_heading_candidates(
+        elements,
         document_id=document_id,
-        segment_id=segment_id,
-        headings_found=len(headings),
+        toc_match_index=None,
+    )
+    _log_timing(
+        f"{log_prefix} headings_pass_1", t_h1,
+        document_id=document_id, segment_id=segment_id,
+        headings_found=len(headings_pre),
     )
 
-    if not headings:
+    if not headings_pre:
         fallback_confidence = (
-            STRUCTURE_CONFIDENCE_FAILED if len(body_elements) < 3 else STRUCTURE_CONFIDENCE_LOW
+            STRUCTURE_CONFIDENCE_FAILED if len(elements) < 3
+            else STRUCTURE_CONFIDENCE_LOW
         )
-
         result = _degraded_tree(
             document_id=document_id,
-            elements=body_elements,
+            elements=elements,
             coverage=0.0,
             structure_confidence=fallback_confidence,
-            diagnostics={
-                **diagnostics,
-                "degraded_reason": "no_headings_detected",
-            },
+            diagnostics={**diagnostics, "degraded_reason": "no_headings_detected"},
             scope_name=normalized_scope_name,
             segment_id=segment_id,
             segment_type=segment_type,
@@ -873,67 +824,148 @@ def _build_single_segment_tree(
             is_primary_segment=is_primary_segment,
         )
         _log_timing(
-            f"{log_prefix} build_total",
-            build_started,
-            document_id=document_id,
-            segment_id=segment_id,
-            degraded=True,
-            confidence=fallback_confidence,
+            f"{log_prefix} build_total", build_started,
+            document_id=document_id, segment_id=segment_id,
+            degraded=True, confidence=fallback_confidence,
         )
         return result
 
-    parsed_toc = attach_toc_matches(parsed_toc, headings)
-    toc_alignment = evaluate_toc_alignment(parsed_toc)
-    toc_reliability = compute_partial_reliability(parsed_toc, toc_alignment)
-    toc_match_index = build_toc_match_index(parsed_toc)
+    # ── Шаг 2: authoritative TOC analysis с guard ─────────────────────────────
+    # Вызываем ПОСЛЕ headings_pre — чтобы attach_toc_matches мог работать.
+    # Все indexes в guard — segment-local.
 
-    diagnostics["toc"].update(
-        {
-            "entries_total": toc_alignment.entries_total,
-            "toc_alignment_score": round(toc_alignment.toc_alignment_score, 4),
-            "partial_reliability": round(toc_reliability.partial_reliability, 4),
-            "is_reliable": toc_reliability.is_reliable,
-            "confidence_band": toc_reliability.confidence_band,
-            "exact_matches": toc_alignment.exact_matches,
-            "fuzzy_matches": toc_alignment.fuzzy_matches,
-            "no_matches": toc_alignment.no_matches,
-            "stale_entries": toc_alignment.stale_entries,
-            "mismatch_details": toc_alignment.mismatch_details[:20],
-            "reasons": list(toc_reliability.reasons),
-            "match_index_size": len(toc_match_index),
-        }
+    t_toc = time.perf_counter()
+    analysis = analyze_toc_with_guard(
+        elements,
+        headings_pre,
+        document_id=document_id,
     )
+    _log_timing(
+        f"{log_prefix} toc_analysis", t_toc,
+        document_id=document_id, segment_id=segment_id,
+        toc_detected=analysis.detected,
+        guard_decision=analysis.guard.decision,
+        suppress_body=analysis.suppress_body_elements,
+        false_positive_count=len(analysis.guard.false_positive_indexes),
+        recoverable_count=len(analysis.guard.recoverable_indexes),
+    )
+
+    # ── Шаг 3: annotate elements с guard verdict ──────────────────────────────
+    # annotate_elements_with_guard проставляет guard metadata
+    # и переклассифицирует false positive elements.
+    # Работает на segment-local elements — indexes совпадают с guard verdict.
+
+    annotated_elements, body_recovered_count, guard_fp_count = annotate_elements_with_guard(
+        elements,
+        analysis.guard,
+    )
+
+    # ── Шаг 4: semantic suppression при reliable_toc ──────────────────────────
+    # При partial_toc и reject_toc — suppression не делается,
+    # все элементы остаются в body.
+
+    suppressed_indexes = _compute_suppressed_indexes(
+        elements=annotated_elements,
+        analysis=analysis,
+    )
+
+    if suppressed_indexes:
+        body_elements = [
+            el for idx, el in enumerate(annotated_elements)
+            if idx not in suppressed_indexes
+        ]
+        logger.info(
+            f"{log_prefix} toc_suppression_applied",
+            extra={
+                "document_id": document_id,
+                "segment_id": segment_id,
+                "suppressed_count": len(suppressed_indexes),
+                "body_elements_after": len(body_elements),
+            },
+        )
+    else:
+        body_elements = annotated_elements
+
+    # ── Шаг 5: второй проход headings с TOC match index ──────────────────────
+
+    t_h2 = time.perf_counter()
+    headings = build_heading_candidates(
+        body_elements,
+        document_id=document_id,
+        toc_match_index=analysis.toc_match_index,
+    )
+    _log_timing(
+        f"{log_prefix} headings_pass_2", t_h2,
+        document_id=document_id, segment_id=segment_id,
+        headings_found=len(headings),
+        suppressed_elements=len(suppressed_indexes),
+    )
+
+    # ── Обновляем diagnostics после TOC analysis ──────────────────────────────
+
+    toc_diag_dict = analysis.to_diagnostics_dict()
+    toc_diag_dict["toc_skipped_elements"] = len(suppressed_indexes)
+    toc_diag_dict["body_recovered_from_toc"] = body_recovered_count
+    toc_diag_dict["toc_false_positive_count"] = guard_fp_count
+    diagnostics["toc"].update(toc_diag_dict)
+
+    body_type_summary = _summarize_element_types(body_elements)
+    diagnostics["classification"]["body_elements_total"] = body_type_summary["total"]
+    diagnostics["classification"]["body_counts"] = body_type_summary["counts"]
+
+    # ── Строим typed TOCDiagnostics для embed ─────────────────────────────────
+
+    toc_diag_obj = _build_toc_diagnostics(
+        analysis=analysis,
+        suppressed_indexes=suppressed_indexes,
+        body_recovered_count=body_recovered_count,
+        guard_fp_count=guard_fp_count,
+    )
+
+    parse_quality_toc_status = (
+        PARSE_QUALITY_OK if analysis.guard.suppress_body_elements
+        else PARSE_QUALITY_WEAK if analysis.reliability.confidence_band in {"partial", "low"}
+        else PARSE_QUALITY_OK
+    )
+    parse_quality_reasons = list(analysis.reliability.reasons)
+    if suppressed_indexes:
+        parse_quality_reasons.append("toc_suppression_applied")
+    elif analysis.detected:
+        parse_quality_reasons.append("toc_detected_kept_as_soft_signal")
+
+    parse_quality_obj = ParseQualityDiagnostics(
+        overall_status=PARSE_QUALITY_OK,
+        toc_status=parse_quality_toc_status,
+        heading_status=PARSE_QUALITY_OK,
+        hierarchy_status=PARSE_QUALITY_OK,
+        reasons=parse_quality_reasons,
+        toc_diagnostics=toc_diag_obj,
+    )
+
+    diagnostics = embed_toc_diagnostics(diagnostics, toc_diag_obj)
+    diagnostics = embed_parse_quality_diagnostics(diagnostics, parse_quality_obj)
+
+    # ── Шаг 6: hierarchy, coverage, quality gates ─────────────────────────────
 
     heading_summary = _summarize_headings(headings)
 
     logger.info(
-        f"{log_prefix} build diagnostics",
+        f"{log_prefix} pre_hierarchy_diagnostics",
         extra={
             "document_id": document_id,
             "segment_id": segment_id,
-            "segment_type": segment_type,
-            "scope_name": normalized_scope_name,
             "total_elements": len(elements),
             "body_elements": len(body_elements),
             "headings_found": len(headings),
-            "missing_element_ids": missing_element_ids,
-            "layout_degraded": layout_degraded,
-            "layout_degraded_reason": layout_degraded_reason,
-            "toc_detected": diagnostics["toc"]["detected"],
-            "toc_skipped_elements": diagnostics["toc"]["toc_skipped_elements"],
-            "toc_entries_total": diagnostics["toc"]["entries_total"],
-            "toc_alignment_score": diagnostics["toc"]["toc_alignment_score"],
-            "toc_partial_reliability": diagnostics["toc"]["partial_reliability"],
-            "toc_is_reliable": diagnostics["toc"]["is_reliable"],
-            "toc_exact_matches": diagnostics["toc"]["exact_matches"],
-            "toc_fuzzy_matches": diagnostics["toc"]["fuzzy_matches"],
-            "toc_no_matches": diagnostics["toc"]["no_matches"],
-            "toc_stale_entries": diagnostics["toc"]["stale_entries"],
-            "numeric_headings_count": heading_summary["numeric_count"],
+            "toc_detected": analysis.detected,
+            "guard_decision": analysis.guard.decision,
+            "toc_skipped_elements": len(suppressed_indexes),
+            "body_recovered_from_toc": body_recovered_count,
+            "toc_false_positive_count": guard_fp_count,
+            "toc_alignment_score": round(analysis.alignment.toc_alignment_score, 4),
+            "partial_reliability": round(analysis.reliability.partial_reliability, 4),
             "numeric_headings_ratio": round(heading_summary["numeric_ratio"], 3),
-            "empty_title_count": heading_summary["empty_title_count"],
-            "element_type_counts": element_type_summary["counts"],
-            "body_element_type_counts": body_element_type_summary["counts"],
+            "layout_degraded": layout_degraded,
         },
     )
 
@@ -954,18 +986,12 @@ def _build_single_segment_tree(
     )
 
     _log_timing(
-        f"{log_prefix} tree_build",
-        t_tree,
-        document_id=document_id,
-        segment_id=segment_id,
-        root_nodes=len(root_nodes),
-        references=len(references),
+        f"{log_prefix} tree_build", t_tree,
+        document_id=document_id, segment_id=segment_id,
+        root_nodes=len(root_nodes), references=len(references),
     )
 
-    coverage = _calculate_node_coverage(
-        nodes=nodes,
-        elements=body_elements,
-    )
+    coverage = _calculate_node_coverage(nodes=nodes, elements=body_elements)
 
     confidence, degraded = _confidence_and_mode(
         coverage,
@@ -976,11 +1002,10 @@ def _build_single_segment_tree(
         structure_degraded=structure_degraded,
     )
 
-    section_chunking_allowed = confidence in {
-        STRUCTURE_CONFIDENCE_HIGH,
-        STRUCTURE_CONFIDENCE_MEDIUM,
-    } and not structure_degraded
-    technical_fallback_only = not section_chunking_allowed
+    section_chunking_allowed = (
+        confidence in {STRUCTURE_CONFIDENCE_HIGH, STRUCTURE_CONFIDENCE_MEDIUM}
+        and not structure_degraded
+    )
 
     diagnostics["headings"] = {
         "headings_found": len(headings),
@@ -990,68 +1015,77 @@ def _build_single_segment_tree(
         "scope_distribution": heading_summary["scope_distribution"],
         "coverage": round(coverage, 3),
     }
-
     diagnostics["hierarchy"] = {
         "root_nodes_count": len(root_nodes),
         "nodes_count": len(nodes),
         "references_count": len(references),
         "structure_degraded": structure_degraded,
     }
-
     diagnostics["quality_gates"] = {
         "section_chunking_allowed": section_chunking_allowed,
-        "technical_fallback_only": technical_fallback_only,
+        "technical_fallback_only": not section_chunking_allowed,
         "structure_confidence": confidence,
         "structure_degraded": structure_degraded,
     }
 
+    has_partial_structure = bool(root_nodes) and bool(nodes)
+
+    # ── Degraded fallback если quality gates не пройдены ──────────────────────
+
     if degraded and confidence in {STRUCTURE_CONFIDENCE_LOW, STRUCTURE_CONFIDENCE_FAILED}:
-        degraded_reason = (
-            "hierarchy_degraded"
-            if structure_degraded
-            else "low_heading_quality_or_coverage"
-        )
+        if not has_partial_structure:
+            degraded_reason = (
+                "hierarchy_degraded" if structure_degraded
+                else "low_heading_quality_or_coverage"
+            )
+            logger.info(
+                f"{log_prefix} degraded_no_recoverable_structure",
+                extra={
+                    "document_id": document_id, "segment_id": segment_id,
+                    "coverage": round(coverage, 3),
+                    "headings_count": heading_summary["total"],
+                    "degraded_reason": degraded_reason,
+                },
+            )
+            result = _degraded_tree(
+                document_id=document_id,
+                elements=body_elements,
+                coverage=coverage,
+                structure_confidence=confidence,
+                diagnostics={**diagnostics, "degraded_reason": degraded_reason},
+                scope_name=normalized_scope_name,
+                segment_id=segment_id,
+                segment_type=segment_type,
+                segment_title=segment_title,
+                segment_page_range=segment_page_range,
+                segment_order=segment_order,
+                is_primary_segment=is_primary_segment,
+            )
+            _log_timing(
+                f"{log_prefix} build_total", build_started,
+                document_id=document_id, segment_id=segment_id,
+                degraded=True, confidence=confidence,
+            )
+            return result
 
-        logger.info(
-            f"{log_prefix} degraded: quality gates failed",
+        # Есть частичная структура — не деградируем полностью
+        diagnostics["quality_gates"].update({
+            "recoverable_hierarchy": True,
+            "technical_fallback_only": False,
+            "section_chunking_allowed": True,
+            "total_downgrade_prevented": True,
+        })
+        logger.warning(
+            f"{log_prefix} total_downgrade_prevented",
             extra={
-                "document_id": document_id,
-                "segment_id": segment_id,
+                "document_id": document_id, "segment_id": segment_id,
                 "coverage": round(coverage, 3),
-                "headings_count": heading_summary["total"],
-                "numeric_ratio": round(heading_summary["numeric_ratio"], 3),
-                "empty_title_count": heading_summary["empty_title_count"],
-                "structure_degraded": structure_degraded,
-                "degraded_reason": degraded_reason,
+                "root_nodes_count": len(root_nodes),
+                "nodes_count": len(nodes),
             },
         )
 
-        result = _degraded_tree(
-            document_id=document_id,
-            elements=body_elements,
-            coverage=coverage,
-            structure_confidence=confidence,
-            diagnostics={
-                **diagnostics,
-                "degraded_reason": degraded_reason,
-            },
-            scope_name=normalized_scope_name,
-            segment_id=segment_id,
-            segment_type=segment_type,
-            segment_title=segment_title,
-            segment_page_range=segment_page_range,
-            segment_order=segment_order,
-            is_primary_segment=is_primary_segment,
-        )
-        _log_timing(
-            f"{log_prefix} build_total",
-            build_started,
-            document_id=document_id,
-            segment_id=segment_id,
-            degraded=True,
-            confidence=confidence,
-        )
-        return result
+    # ── Сборка ClauseTree ─────────────────────────────────────────────────────
 
     result = ClauseTree(
         document_id=document_id,
@@ -1072,44 +1106,13 @@ def _build_single_segment_tree(
     )
 
     _log_timing(
-        f"{log_prefix} build_total",
-        build_started,
-        document_id=document_id,
-        segment_id=segment_id,
-        degraded=bool(structure_degraded),
-        confidence=confidence,
+        f"{log_prefix} build_total", build_started,
+        document_id=document_id, segment_id=segment_id,
+        degraded=bool(structure_degraded), confidence=confidence,
     )
     return result
 
 
-def _apply_segment_fields(
-    tree: ClauseTree,
-    *,
-    segment_id: str | None,
-    segment_type: str | None,
-    segment_title: str | None,
-    segment_page_range: tuple[int, int] | None,
-    segment_order: int | None,
-    scope_name: str | None,
-    is_primary_segment: bool,
-) -> None:
-    """
-    Проставляет segment-поля в уже построенный ClauseTree.
-    """
-    if segment_id is not None:
-        tree.segment_id = segment_id
-    if segment_type is not None:
-        tree.segment_type = segment_type
-    if segment_title is not None:
-        tree.segment_title = segment_title
-    if segment_page_range is not None:
-        tree.segment_page_range = segment_page_range
-    if segment_order is not None:
-        tree.segment_order = segment_order
-    if scope_name is not None:
-        tree.scope_name = scope_name
-    tree.is_primary_segment = is_primary_segment
-    tree.schema_version = "3.0"
 
 
 # ── Legacy wrapper ───────────────────────────────────────────────────────────
@@ -1289,7 +1292,11 @@ def build_file_structure(
         heading_candidates=classification_summary["heading_candidates"],
         body_text=classification_summary["body_text"],
         list_items=classification_summary["list_items"],
-        toc_content=classification_summary["toc_content"],
+        toc_total=classification_summary["toc_total"],
+        toc_header=classification_summary["toc_header"],
+        toc_line=classification_summary["toc_line"],
+        possible_toc=classification_summary["possible_toc"],
+        toc_false_positive=classification_summary["toc_false_positive"],
         signature_blocks=classification_summary["signature_blocks"],
         requisites_blocks=classification_summary["requisites_blocks"],
         page_artifacts=classification_summary["page_artifacts"],

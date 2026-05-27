@@ -60,6 +60,57 @@ _BODYISH_START = re.compile(
 )
 _COLON_END = re.compile(r":$")
 
+_QUOTED_TERM_START = re.compile(
+    r'^\s*(?:"[^"]{1,120}"|«[^»]{1,120}»|„[^“]{1,120}“|“[^”]{1,120}”)'
+)
+
+_DEFINITION_TERM_START = re.compile(
+    r"""
+    ^\s*
+    (?:
+        (?:"[^"]{1,120}")
+        |
+        (?:«[^»]{1,120}»)
+        |
+        (?:[A-ZА-ЯЁ][A-Za-zА-Яа-яЁё0-9\-/()]{1,80})
+    )
+    \s+
+    (?:
+        означает(?:ся|ют|ет)?
+        |shall\s+mean
+        |means
+        |именуется
+        |подразумевает(?:ся)?
+    )\b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_LOWERCASE_CONTINUATION_START = re.compile(r"^\s*[a-zа-яё]")
+
+_SUBSTANTIVE_CLAUSE_VERBS = re.compile(
+    r"""
+    \b(
+        обязуется|обязан|вправе|имеет\s+право|должен|должны|осуществляет|осуществляют|
+        гарантирует|гарантируют|заверяет|заверяют|подлежит|подлежат|уплачивает|уплачивают|
+        выплачивает|выплачивают|компенсирует|компенсируют|несет|несут|
+        agrees|shall|must|may|undertakes|warrants|represents|covenants|pays|payable
+    )\b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_SUBSTANTIVE_CLAUSE_CONNECTORS = re.compile(
+    r"""
+    \b(
+        если|если\s+иное|в\s+случае|при\s+условии|при\s+этом|за\s+исключением|
+        если\s+только|при\s+наличии|в\s+течение|не\s+позднее|после\s+того\s+как|
+        provided\s+that|except\s+that|subject\s+to|unless|in\s+the\s+event
+    )\b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 # Полезно для будущего scoring-слоя:
 # заголовок вида ".", "-", "1 ,", "7 , ," и похожий мусор.
 _GARBAGE_TITLE = re.compile(r"^[\s\d,.;:()\-–—]+$")
@@ -92,6 +143,19 @@ def has_lower(text: str) -> bool:
     return bool(_HAS_LOWER.search(text or ""))
 
 
+def starts_with_quoted_term(text: str) -> bool:
+    """
+    Начинается ли строка с quoted term:
+    - "Term"
+    - «Термин»
+    Это сильный сигнал definition-like строки.
+    """
+    t = normalize_spaces(text)
+    if not t:
+        return False
+    return bool(_QUOTED_TERM_START.search(t))
+
+
 def _has_textual_content(title: str) -> bool:
     """
     Title с реальным текстовым содержимым:
@@ -106,6 +170,30 @@ def _has_textual_content(title: str) -> bool:
     if _GARBAGE_TITLE.fullmatch(t):
         return False
     return True
+
+
+def looks_like_definition_term_title(title: str) -> bool:
+    """
+    Похоже ли title на definition item, а не на section heading.
+
+    Примеры:
+    - "Актив" означает ...
+    - «Объект» означает ...
+    - Purchase Price means ...
+    """
+    t = normalize_spaces(title)
+    if not t:
+        return False
+
+    if _DEFINITION_TERM_START.search(t):
+        return True
+
+    if starts_with_quoted_term(t) and len(t.split()) >= 3:
+        lowered = t.lower()
+        if any(marker in lowered for marker in [" означает", " means", " shall mean", " именуется", " подразумевает"]):
+            return True
+
+    return False
 
 
 def digit_uid_without_textual_title(uid: str, title: str) -> bool:
@@ -149,6 +237,25 @@ def looks_like_toc_line(text: str) -> bool:
     return False
 
 
+def looks_like_lowercase_continuation(title: str) -> bool:
+    """
+    Начало со строчной буквы — сильный сигнал, что это continuation/body line,
+    а не самостоятельный heading.
+    """
+    t = normalize_spaces(title)
+    if not t:
+        return False
+
+    if not _LOWERCASE_CONTINUATION_START.search(t):
+        return False
+
+    # Короткие латинские/римские формы не режем здесь
+    if len(t.split()) <= 2 and len(t) <= 16:
+        return False
+
+    return True
+
+
 def is_bad_heading_title(title: str) -> bool:
     """
     Явно плохой заголовок.
@@ -189,6 +296,9 @@ def is_bad_heading_title(title: str) -> bool:
     if _TOO_MUCH_PUNCT.search(t):
         return True
 
+    if looks_like_substantive_clause_line(t) and len(words) >= 14:
+        return True
+
     return False
 
 
@@ -226,30 +336,68 @@ def is_garbage_heading_title(title: str) -> bool:
     return False
 
 
+def looks_like_substantive_clause_line(title: str) -> bool:
+    """
+    Похожа ли строка на substantive legal clause, а не на heading.
+
+    Сигналы:
+    - есть "оперативные" глаголы обязательства/права/гарантии;
+    - есть clause connectors;
+    - строка достаточно длинная;
+    - часто есть запятая, но не обязательно есть sentence-ending punctuation.
+    """
+    t = normalize_spaces(title)
+    if not t:
+        return False
+
+    words = t.split()
+    if len(words) < 6:
+        return False
+
+    verb_hit = bool(_SUBSTANTIVE_CLAUSE_VERBS.search(t))
+    connector_hit = bool(_SUBSTANTIVE_CLAUSE_CONNECTORS.search(t))
+    longish = len(t) >= 60 or len(words) >= 10
+    punctuated = "," in t or ";" in t
+
+    if verb_hit and longish:
+        return True
+
+    if verb_hit and connector_hit:
+        return True
+
+    if connector_hit and punctuated and len(words) >= 10:
+        return True
+
+    return False
+
+
 def looks_like_body_sentence_title(uid: str, title: str) -> bool:
     """
     Похожа ли строка не на заголовок, а на обычное предложение текста.
 
-    Сейчас эту эвристику применяем в основном к вложенным numeric uid.
+    Применяем в основном к вложенным numeric uid.
     Это помогает отсекать строки, которые формально выглядят как "3.1 ..."
-    но фактически являются частью тела документа после OCR/normalization.
+    но фактически являются clause/body content.
     """
     t = normalize_spaces(title)
     if not t:
         return True
 
-    # Только вложенные numeric uid
     if not ("." in uid and _is_strict_numeric_uid(uid)):
         return False
 
-    # Заголовок с двоеточием — скорее валиден
     if _COLON_END.search(t):
         return False
 
     words = t.split()
 
-    # Очень длинная фраза с типичным "телесным" началом и точкой в конце
-    if _BODYISH_START.search(t) and len(words) >= 12 and _SENTENCE_END.search(t):
+    if _BODYISH_START.search(t) and len(words) >= 10 and _SENTENCE_END.search(t):
+        return True
+
+    if looks_like_substantive_clause_line(t):
+        return True
+
+    if len(words) >= 16 and ("," in t or ";" in t):
         return True
 
     return False
