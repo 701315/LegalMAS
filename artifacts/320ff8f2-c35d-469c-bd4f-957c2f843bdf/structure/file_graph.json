@@ -1,0 +1,75 @@
+{
+  "schema_version": "3.0",
+  "document_id": "320ff8f2-c35d-469c-bd4f-957c2f843bdf",
+  "document_version_id": "7a52089d-94e0-4810-a2cd-cd4ce4ac2935",
+  "primary_segment_id": "73e485d9-7d71-501d-b233-5e93b9aa245b",
+  "degraded": true,
+  "structural_confidence": "LOW",
+  "diagnostics": {
+    "schema_version": "3.0",
+    "segments_count": 1,
+    "trees_count": 1,
+    "segment_types": [
+      "contract"
+    ],
+    "segment_scopes": [
+      "main_contract"
+    ],
+    "primary_segment_id": "73e485d9-7d71-501d-b233-5e93b9aa245b",
+    "primary_candidates_marked": [
+      "73e485d9-7d71-501d-b233-5e93b9aa245b"
+    ],
+    "degraded_segments_count": 1,
+    "degraded_segment_ids": [
+      "73e485d9-7d71-501d-b233-5e93b9aa245b"
+    ],
+    "cross_links_count": 0,
+    "cross_link_types": [],
+    "validation": {
+      "has_errors": false,
+      "errors": [],
+      "warnings": []
+    },
+    "segment_summaries": [
+      {
+        "segment_id": "73e485d9-7d71-501d-b233-5e93b9aa245b",
+        "segment_order": 0,
+        "segment_type": "contract",
+        "scope_name": "main_contract",
+        "segment_confidence": "HIGH",
+        "segmentation_confidence_score": 1.0,
+        "segmentation_reasons": [
+          "single_segment_mode"
+        ],
+        "is_primary": true,
+        "tree_confidence": "LOW",
+        "tree_degraded": true,
+        "tree_scope_name": "main_contract",
+        "tree_schema_version": "3.0"
+      }
+    ]
+  },
+  "segments": [
+    {
+      "segment_id": "73e485d9-7d71-501d-b233-5e93b9aa245b",
+      "document_id": "320ff8f2-c35d-469c-bd4f-957c2f843bdf",
+      "document_version_id": "7a52089d-94e0-4810-a2cd-cd4ce4ac2935",
+      "segment_order": 0,
+      "segment_type": "contract",
+      "segment_title": "ДОГОВОР КУПЛИ-ПРОДАЖИ ИМУЩЕСТВА",
+      "scope_name": "main_contract",
+      "page_start": 1,
+      "page_end": 15,
+      "element_start": 0,
+      "element_end": 457,
+      "confidence": "HIGH",
+      "segmentation_confidence_score": 1.0,
+      "segmentation_reasons": [
+        "single_segment_mode"
+      ],
+      "is_primary": true,
+      "diagnostics": {}
+    }
+  ],
+  "cross_links": []
+}

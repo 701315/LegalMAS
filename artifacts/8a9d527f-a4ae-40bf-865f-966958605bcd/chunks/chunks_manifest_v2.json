@@ -1,0 +1,41 @@
+{
+  "schema_version": 2,
+  "scope": "file",
+  "document_id": "8a9d527f-a4ae-40bf-865f-966958605bcd",
+  "document_version_id": "8dc16e9e-c963-4b4d-84e8-36478c215c1f",
+  "built_at": "2026-05-26T18:56:58.791916+00:00",
+  "source": {
+    "layout_ref": "tenants/293ca26c-f7e6-4ebb-b397-7caf7674c5db/deals/293ca26c-f7e6-4ebb-b397-7caf7674c5db/layouts/8a9d527f-a4ae-40bf-865f-966958605bcd/primary_sanitized.json",
+    "file_graph_ref": "s3://mas-artifacts/tenants/293ca26c-f7e6-4ebb-b397-7caf7674c5db/deals/293ca26c-f7e6-4ebb-b397-7caf7674c5db/structures/8a9d527f-a4ae-40bf-865f-966958605bcd/file_graph.json"
+  },
+  "primary_segment_id": "0ec7dce6-0c39-572d-92c5-b9c71581fca3",
+  "degraded": false,
+  "degradation_reason": null,
+  "segments": [
+    {
+      "segment_id": "0ec7dce6-0c39-572d-92c5-b9c71581fca3",
+      "segment_type": "contract",
+      "segment_title": "ДОГОВОР КУПЛИ-ПРОДАЖИ ОБЪЕКТОВ НЕДВИЖИМОСТИ",
+      "segment_order": 0,
+      "is_primary": true,
+      "page_start": 1,
+      "page_end": 18,
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/293ca26c-f7e6-4ebb-b397-7caf7674c5db/deals/293ca26c-f7e6-4ebb-b397-7caf7674c5db/structures/8a9d527f-a4ae-40bf-865f-966958605bcd/segment_0ec7dce6.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/293ca26c-f7e6-4ebb-b397-7caf7674c5db/structures/8a9d527f-a4ae-40bf-865f-966958605bcd/chunks_0ec7dce6.json",
+      "section_count": 0,
+      "clause_count": 8,
+      "subclause_count": 30
+    }
+  ],
+  "totals": {
+    "segment_count": 1,
+    "section_count": 0,
+    "clause_count": 8,
+    "subclause_count": 30,
+    "total_leaf_nodes": 8,
+    "leaf_nodes_without_chunks": 0,
+    "leaf_nodes_without_element_ids": 0,
+    "leaf_nodes_empty_after_filtering": 0,
+    "chunking_incomplete": false
+  }
+}

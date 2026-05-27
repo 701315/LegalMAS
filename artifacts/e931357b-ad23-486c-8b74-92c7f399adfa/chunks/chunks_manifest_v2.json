@@ -1,0 +1,41 @@
+{
+  "schema_version": 2,
+  "scope": "file",
+  "document_id": "e931357b-ad23-486c-8b74-92c7f399adfa",
+  "document_version_id": "e519efc9-db4c-4aa5-be01-c1da864e2c2c",
+  "built_at": "2026-05-26T18:57:01.269874+00:00",
+  "source": {
+    "layout_ref": "tenants/293ca26c-f7e6-4ebb-b397-7caf7674c5db/deals/293ca26c-f7e6-4ebb-b397-7caf7674c5db/layouts/e931357b-ad23-486c-8b74-92c7f399adfa/primary_sanitized.json",
+    "file_graph_ref": "s3://mas-artifacts/tenants/293ca26c-f7e6-4ebb-b397-7caf7674c5db/deals/293ca26c-f7e6-4ebb-b397-7caf7674c5db/structures/e931357b-ad23-486c-8b74-92c7f399adfa/file_graph.json"
+  },
+  "primary_segment_id": "1549531b-e255-5a2d-b216-73cc085e3003",
+  "degraded": false,
+  "degradation_reason": null,
+  "segments": [
+    {
+      "segment_id": "1549531b-e255-5a2d-b216-73cc085e3003",
+      "segment_type": "contract",
+      "segment_title": "ДОГОВОР КРАТКОСРОЧНОЙ АРЕНДЫ",
+      "segment_order": 0,
+      "is_primary": true,
+      "page_start": 1,
+      "page_end": 21,
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/293ca26c-f7e6-4ebb-b397-7caf7674c5db/deals/293ca26c-f7e6-4ebb-b397-7caf7674c5db/structures/e931357b-ad23-486c-8b74-92c7f399adfa/segment_1549531b.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/293ca26c-f7e6-4ebb-b397-7caf7674c5db/structures/e931357b-ad23-486c-8b74-92c7f399adfa/chunks_1549531b.json",
+      "section_count": 0,
+      "clause_count": 10,
+      "subclause_count": 42
+    }
+  ],
+  "totals": {
+    "segment_count": 1,
+    "section_count": 0,
+    "clause_count": 10,
+    "subclause_count": 42,
+    "total_leaf_nodes": 10,
+    "leaf_nodes_without_chunks": 0,
+    "leaf_nodes_without_element_ids": 0,
+    "leaf_nodes_empty_after_filtering": 0,
+    "chunking_incomplete": false
+  }
+}
