@@ -135,18 +135,10 @@ def _select_downstream_task_name(version: Any) -> str:
     - image formats идут в OCR;
     - ambiguous route => OCR.
     """
-    pipeline_strategy = _normalize_route_value(
-        getattr(version, "pipeline_strategy", None)
-    )
-    extraction_strategy = _normalize_route_value(
-        getattr(version, "extraction_strategy", None)
-    )
-    origin_filetype = _normalize_route_value(
-        getattr(version, "origin_filetype", None)
-    )
-    ocr_confidence = _normalize_ocr_confidence(
-        getattr(version, "ocr_confidence", None)
-    )
+    pipeline_strategy = _normalize_route_value(getattr(version, "pipeline_strategy", None))
+    extraction_strategy = _normalize_route_value(getattr(version, "extraction_strategy", None))
+    origin_filetype = _normalize_route_value(getattr(version, "origin_filetype", None))
+    ocr_confidence = _normalize_ocr_confidence(getattr(version, "ocr_confidence", None))
 
     if origin_filetype in IMAGE_FILETYPES:
         return OCR_LANGUAGE_DISCOVERY_TASK_NAME
@@ -233,15 +225,11 @@ async def _prepare_document_for_language_discovery_async(
 
     document = await doc_repo.get_by_id(doc_uuid)
     if not document:
-        raise PermanentError(
-            f"Document {document_id} not found for prepare language discovery"
-        )
+        raise PermanentError(f"Document {document_id} not found for prepare language discovery")
 
     deal = await deal_repo.get_by_id(deal_uuid)
     if not deal:
-        raise PermanentError(
-            f"Deal {deal_id} not found for prepare language discovery"
-        )
+        raise PermanentError(f"Deal {deal_id} not found for prepare language discovery")
 
     version = await ver_repo.get_by_id(version_uuid)
     if not version:
@@ -497,5 +485,3 @@ async def _ensure_pdf_prepared_for_language_discovery(
         f"(document_id={document_id}, document_version_id={document_version_id}, "
         f"origin_filetype={origin_filetype})"
     )
-
-

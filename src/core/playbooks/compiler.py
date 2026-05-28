@@ -62,11 +62,10 @@ DOCUMENT_TYPE и SYSTEM, не ломая формат.
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-import logging
+from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -87,19 +86,19 @@ class PlaybookConfig(BaseModel):
     Его можно показать в UI и использовать для пересборки.
     """
 
-    bundles: List[str] = Field(
+    bundles: list[str] = Field(
         default_factory=list,
         description="Список ID bundle-файлов, которые были включены.",
     )
-    include_ids: List[str] = Field(
+    include_ids: list[str] = Field(
         default_factory=list,
         description="Чек-ID, которые пользователь явно добавил поверх bundle'ов.",
     )
-    exclude_ids: List[str] = Field(
+    exclude_ids: list[str] = Field(
         default_factory=list,
         description="Чек-ID, которые пользователь явно выключил.",
     )
-    profile: Optional[str] = Field(
+    profile: str | None = Field(
         default=None,
         description="Профиль глубины проверки: core/full/quick и т.п.",
     )
@@ -112,11 +111,11 @@ class PlaybookMeta(BaseModel):
         default_factory=PlaybookConfig,
         description="Рецепт сборки плейбука (для UI и пересборки).",
     )
-    bundle_id: Optional[str] = Field(
+    bundle_id: str | None = Field(
         default=None,
         description="Основной bundle, если был выбран один (для удобства).",
     )
-    check_ids: List[str] = Field(
+    check_ids: list[str] = Field(
         default_factory=list,
         description="Итоговый список чеков после всех include/exclude.",
     )
@@ -155,9 +154,9 @@ class GlobalCheckConfig(BaseModel):
 
     id: str
     name: str
-    description: Optional[str] = None
-    category: Optional[str] = None
-    group: Optional[str] = Field(
+    description: str | None = None
+    category: str | None = None
+    group: str | None = Field(
         default=None,
         description="Крупный блок/секция для UX (например, 'liability').",
     )
@@ -166,20 +165,20 @@ class GlobalCheckConfig(BaseModel):
         description="low | medium | high | critical",
     )
     # Outcome‑зависимые severity (опционально, переопределяют базовый severity)
-    severity_if_fail: Optional[str] = Field(
+    severity_if_fail: str | None = Field(
         default=None,
         description="Severity, если результат проверки: fail (опционально).",
     )
-    severity_if_pass: Optional[str] = Field(
+    severity_if_pass: str | None = Field(
         default=None,
         description="Severity, если результат проверки: pass (опционально).",
     )
-    severity_if_unclear: Optional[str] = Field(
+    severity_if_unclear: str | None = Field(
         default=None,
         description="Severity, если результат проверки: unclear (опционально).",
     )
 
-    doc_types: List[str] = Field(
+    doc_types: list[str] = Field(
         default_factory=list,
         description="К каким типам документов чек применим.",
     )
@@ -199,7 +198,7 @@ class GlobalCheckConfig(BaseModel):
 
     # Конфиг для rules-базированного детектора (keywords, regex и т.п.).
     # Хранится как сырой dict, loader строит RulesConfig.
-    rules: Dict[str, Any] = Field(
+    rules: dict[str, Any] = Field(
         default_factory=dict,
         description="Конфиг для rules-базированного детектора (keywords, regex и т.п.).",
     )
@@ -210,41 +209,41 @@ class GlobalCheckConfig(BaseModel):
     #   1) rules.keywords (если dict — inline groups),
     #   2) rules.keyword_groups,
     #   3) keyword_groups (это поле).
-    keyword_groups: Dict[str, Any] = Field(
+    keyword_groups: dict[str, Any] = Field(
         default_factory=dict,
         description="Уровневые группы keywords: {'high': [...], 'medium': [...], 'low': [...]}",
     )
 
-    llm: Dict[str, Any] = Field(
+    llm: dict[str, Any] = Field(
         default_factory=dict,
         description="Конфиг для LLM-детектора (prompt, model, параметры).",
     )
-    retrieval: Dict[str, Any] = Field(
+    retrieval: dict[str, Any] = Field(
         default_factory=dict,
         description="Настройки извлечения контекста (scope, k, и т.п.).",
     )
-    extraction: Dict[str, Any] = Field(
+    extraction: dict[str, Any] = Field(
         default_factory=dict,
         description="Настройки структурированной вытяжки.",
     )
-    red_flags: Dict[str, Any] = Field(
+    red_flags: dict[str, Any] = Field(
         default_factory=dict,
         description="Настройки поиска red flags.",
     )
 
-    profiles_enabled: List[str] = Field(
+    profiles_enabled: list[str] = Field(
         default_factory=list,
         description="Какие профили глубины включают этот чек: ['core', 'full'] и т.п.",
     )
-    deal_profiles: List[str] = Field(
+    deal_profiles: list[str] = Field(
         default_factory=list,
         description="Типы сделок, для которых чек особенно релевантен.",
     )
-    industries: List[str] = Field(
+    industries: list[str] = Field(
         default_factory=list,
         description="Отрасли, для которых чек особенно релевантен.",
     )
-    jurisdictions: List[str] = Field(
+    jurisdictions: list[str] = Field(
         default_factory=list,
         description="Юрисдикции, для которых чек особенно релевантен.",
     )
@@ -259,8 +258,8 @@ class BundleConfig(BaseModel):
 
     id: str
     name: str
-    description: Optional[str] = None
-    check_ids: List[str]
+    description: str | None = None
+    check_ids: list[str]
 
 
 class CompiledPlaybook(BaseModel):
@@ -270,14 +269,14 @@ class CompiledPlaybook(BaseModel):
     - meta: служебная информация о том, как этот список был получен.
     """
 
-    checks: List[GlobalCheckConfig]
+    checks: list[GlobalCheckConfig]
     meta: PlaybookMeta
 
 
 # ===== Загрузка global_checks и bundles =====
 
 
-def load_global_checks() -> Dict[str, GlobalCheckConfig]:
+def load_global_checks() -> dict[str, GlobalCheckConfig]:
     """Загрузить все определения глобальных чеков из GLOBAL_CHECKS_DIR.
 
     Ожидается, что каждый YAML-файл описывает один чек в формате,
@@ -297,7 +296,7 @@ def load_global_checks() -> Dict[str, GlobalCheckConfig]:
         logger.warning("GLOBAL_CHECKS_DIR does not exist: %s", GLOBAL_CHECKS_DIR)
         return {}
 
-    checks: Dict[str, GlobalCheckConfig] = {}
+    checks: dict[str, GlobalCheckConfig] = {}
 
     # Рекурсивно по подпапкам: playbooks/global_checks/**.yaml
     for path in sorted(GLOBAL_CHECKS_DIR.rglob("*.yaml")):
@@ -397,14 +396,14 @@ def load_bundle(bundle_id: str) -> BundleConfig:
 
 
 def build_compiled_checks(
-    all_checks: Dict[str, GlobalCheckConfig],
+    all_checks: dict[str, GlobalCheckConfig],
     *,
-    bundles: Optional[List[str]] = None,
-    include_ids: Optional[List[str]] = None,
-    exclude_ids: Optional[List[str]] = None,
-    profile: Optional[str] = None,
-    primary_bundle_id: Optional[str] = None,
-) -> Dict[str, Any]:
+    bundles: list[str] | None = None,
+    include_ids: list[str] | None = None,
+    exclude_ids: list[str] | None = None,
+    profile: str | None = None,
+    primary_bundle_id: str | None = None,
+) -> dict[str, Any]:
     """Собрать структуру для PlaybookVersion.compiled_checks.
 
     На вход:
@@ -445,7 +444,7 @@ def build_compiled_checks(
     exclude_ids = exclude_ids or []
 
     # 1. базовый набор id: все чек-id из выбранных bundles
-    base_ids: List[str] = []
+    base_ids: list[str] = []
 
     for bundle_id in bundles:
         bundle_cfg = load_bundle(bundle_id)
@@ -459,7 +458,7 @@ def build_compiled_checks(
 
     # 3. убираем дубликаты, сохраняя порядок
     seen: set[str] = set()
-    unique_ids: List[str] = []
+    unique_ids: list[str] = []
     for cid in base_ids:
         if cid in seen:
             continue
@@ -468,19 +467,19 @@ def build_compiled_checks(
 
     # 4. применяем exclude_ids
     excluded_set = set(exclude_ids)
-    final_ids: List[str] = [cid for cid in unique_ids if cid not in excluded_set]
+    final_ids: list[str] = [cid for cid in unique_ids if cid not in excluded_set]
 
     if not final_ids:
         raise ValueError("All checks were excluded; resulting list is empty")
 
     # 5. проверяем, что все есть в all_checks
-    missing: List[str] = [cid for cid in final_ids if cid not in all_checks]
+    missing: list[str] = [cid for cid in final_ids if cid not in all_checks]
     if missing:
         raise KeyError(f"Unknown check_id(s): {', '.join(missing)}")
 
     # 6. фильтрация по profile (если нужно)
     if profile:
-        filtered_ids: List[str] = []
+        filtered_ids: list[str] = []
         for cid in final_ids:
             cfg = all_checks[cid]
             if not cfg.profiles_enabled or profile in cfg.profiles_enabled:

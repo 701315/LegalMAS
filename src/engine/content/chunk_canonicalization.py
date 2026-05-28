@@ -7,9 +7,9 @@ import uuid
 from typing import Any
 
 from core.logging import get_logger
+from engine.content.chunk_ids import build_subclause_chunk_id
 from engine.content.chunking import build_chunk_summary, split_text_to_sized_chunks
 from engine.retrieval.tokenization import count_tokens
-from engine.content.chunk_ids import build_subclause_chunk_id
 
 logger = get_logger(__name__)
 
@@ -48,20 +48,13 @@ def normalize_clause_chunk_text(
         first_line = cleaned[0]
         first_compact = re.sub(r"\s+", " ", first_line.strip().rstrip("."))
         uid_prefix = re.sub(r"\s+", " ", uid.strip().rstrip("."))
-        looks_like_uid_heading = (
-            first_compact == uid_prefix or first_compact.startswith(uid_prefix)
-        )
+        looks_like_uid_heading = first_compact == uid_prefix or first_compact.startswith(uid_prefix)
 
         if looks_like_uid_heading:
             if normalized_title:
                 expected_heading = f"{uid} {normalized_title.strip()}"
-                expected_compact = re.sub(
-                    r"\s+", " ", expected_heading.strip().rstrip(".")
-                )
-                if (
-                    first_compact == expected_compact
-                    or first_compact.startswith(uid_prefix)
-                ):
+                expected_compact = re.sub(r"\s+", " ", expected_heading.strip().rstrip("."))
+                if first_compact == expected_compact or first_compact.startswith(uid_prefix):
                     cleaned = cleaned[1:]
             else:
                 cleaned = cleaned[1:]
@@ -309,13 +302,13 @@ _SUBCLAUSE_PROPAGATED_KEYS: tuple[str, ...] = (
     # ── Этап 4: semantic/citability поля ─────────────────────────────────────
     # Позволяют downstream знать качество и семантику каждого subclause chunk
     # без обращения к clause tree или clause chunk.
-    "semantic_node_type",        # тип узла из classifier/scorer
-    "parse_confidence",          # уверенность в parse этого узла [0.0..1.0]
-    "citability_hint",           # "high" / "medium" / "low"
-    "recovered_via_best_effort", # True если узел восстановлен через best-effort
-    "fallback_reason",           # причина fallback если recovered=True
-    "is_heading_only_leaf",      # True если leaf содержал только heading без body
-    "is_structural_fallback",    # True если chunk создан через технический fallback
+    "semantic_node_type",  # тип узла из classifier/scorer
+    "parse_confidence",  # уверенность в parse этого узла [0.0..1.0]
+    "citability_hint",  # "high" / "medium" / "low"
+    "recovered_via_best_effort",  # True если узел восстановлен через best-effort
+    "fallback_reason",  # причина fallback если recovered=True
+    "is_heading_only_leaf",  # True если leaf содержал только heading без body
+    "is_structural_fallback",  # True если chunk создан через технический fallback
 )
 
 
@@ -510,5 +503,3 @@ def add_summary(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         )
 
     return out
-
-

@@ -32,13 +32,14 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict
+from typing import Any
 
-from .base import BaseLLMClassifier, ClassificationResult
-from .yaml_registry import YAMLRegistry
 from core.config import settings
 from core.constants import ClassificationLevel
 from core.logging import get_logger
+
+from .base import BaseLLMClassifier, ClassificationResult
+from .yaml_registry import YAMLRegistry
 
 logger = get_logger(__name__)
 
@@ -61,12 +62,12 @@ _CLASSIFY_PROMPT = (
     "Инструкция:\n"
     "1) Внимательно прочитай имя файла, путь к папке (если есть) и начало текста документа.\n"
     "2) Выбери РОВНО ОДИН type_code из списка выше, который лучше всего описывает документ.\n"
-    "3) Если ни один тип явно не подходит, верни значение null или строку \"UNKNOWN\" в поле type_code.\n"
+    '3) Если ни один тип явно не подходит, верни значение null или строку "UNKNOWN" в поле type_code.\n'
     "4) Ответь СТРОГО одним JSON-объектом следующего вида:\n"
     "{"
-    "\"type_code\": \"<один type_code из списка, либо \"UNKNOWN\" или null>\", "
-    "\"confidence\": <число от 0 до 1>, "
-    "\"reasoning\": \"краткое объяснение в 1–2 предложениях\""
+    '"type_code": "<один type_code из списка, либо "UNKNOWN" или null>", '
+    '"confidence": <число от 0 до 1>, '
+    '"reasoning": "краткое объяснение в 1–2 предложениях"'
     "}\n\n"
     "Не добавляй никакого текста до или после JSON. "
     "Не объясняй рассуждения вне поля reasoning внутри JSON.\n"
@@ -76,7 +77,7 @@ _CLASSIFY_PROMPT = (
 def _build_types_list() -> str:
     """
     Собрать список известных типов для подстановки в промпт LLM.
-    
+
     Для непрофессионального программиста:
     - Получаем singleton YAMLRegistry (уже валидирован при старте).
     - Строим строку вида:
@@ -87,11 +88,11 @@ def _build_types_list() -> str:
     """
     registry = YAMLRegistry.get_instance(validate=False)
     lines: list[str] = []
-    
+
     for cfg in registry.get_all_configs():
         if cfg.type_code:
             lines.append(f"  - {cfg.type_code}: {cfg.name}")
-    
+
     return "\n".join(lines)
 
 
@@ -107,7 +108,7 @@ def _parse_llm_json(raw_text: str) -> tuple[str, float, str]:
         * число 0–1, любые NaN/отрицательные/больше 1 обрезаются в [0, 1].
     - reasoning:
         * строка (даже если в JSON было что-то иное).
-    
+
     Для непрофессионального программиста:
     - LLM иногда возвращает текст с мусором до/после JSON.
     - Ищем первую открывающую скобку { и последнюю закрывающую }.
@@ -162,7 +163,7 @@ def _parse_llm_json(raw_text: str) -> tuple[str, float, str]:
     return best_type, conf, reasoning
 
 
-def _build_llm_contract_payload(raw_text: str) -> Dict[str, Any]:
+def _build_llm_contract_payload(raw_text: str) -> dict[str, Any]:
     """
     Построить нормализованный L4‑контракт для результата классификации.
 
@@ -175,7 +176,7 @@ def _build_llm_contract_payload(raw_text: str) -> Dict[str, Any]:
     """
     text = (raw_text or "").strip()
 
-    raw: Dict[str, Any] = {
+    raw: dict[str, Any] = {
         "parse_success": False,
         "error_type": None,
         "error_message": None,
@@ -328,7 +329,7 @@ class LocalLLMClassifier(BaseLLMClassifier):
             # Извлекаем метаданные для найденного типа из реестра.
             registry = YAMLRegistry.get_instance(validate=False)
             cfg = registry.get_config(best_type)
-            
+
             language = "ru"
             jurisdiction = "RU"
             if cfg:
@@ -427,7 +428,7 @@ def create_llm_classifier(
     - "openai"     → возвращает заглушку OpenAIClassifier.
     - "anthropic"  → возвращает заглушку AnthropicClassifier.
     - Если модель/ключи не найдены, логирует предупреждение и возвращает None.
-    
+
     Для непрофессионального программиста:
     - YAMLRegistry уже загружен при старте FastAPI (через lifespan).
     - Здесь мы только создаём объект классификатора, не грузим реестр заново.
@@ -467,5 +468,3 @@ def create_llm_classifier(
         )
 
     return None
-
-

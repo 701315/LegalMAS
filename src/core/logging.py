@@ -8,10 +8,10 @@ In production:  JSON output for log aggregation (ELK, etc.).
 """
 
 import logging
-import structlog
 import sys
-
 from contextvars import ContextVar
+
+import structlog
 
 from .config import settings
 
@@ -137,9 +137,9 @@ def _setup_dev_file_handlers(base_dir: str) -> None:
 
     categories = {
         "classifiers": "classifiers.log",
-        "workers":     "workers.log",
-        "api":         "api.log",
-        "engine":      "engine.log",
+        "workers": "workers.log",
+        "api": "api.log",
+        "engine": "engine.log",
     }
 
     for prefix, filename in categories.items():
@@ -151,5 +151,3 @@ def _setup_dev_file_handlers(base_dir: str) -> None:
         )
         handler.setFormatter(formatter)
         logging.getLogger(prefix).addHandler(handler)
-
-        

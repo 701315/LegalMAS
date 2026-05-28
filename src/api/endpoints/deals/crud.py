@@ -82,10 +82,7 @@ async def list_deals(
     has_next = page < total_pages
     has_previous = page > 1
 
-    deal_items = [
-        await _build_deal_response(db=db, deal=deal)
-        for deal in items
-    ]
+    deal_items = [await _build_deal_response(db=db, deal=deal) for deal in items]
 
     return PaginatedResponse[DealResponse](
         items=deal_items,
@@ -266,8 +263,3 @@ async def delete_deal(
 
     await db.delete(deal)
     await db.commit()
-
-
-    
-
-    

@@ -18,10 +18,11 @@ Pydantic-схемы для плейбуков (Playbook / PlaybookVersion) и к
 """
 
 from __future__ import annotations
-from typing import Any, List, Optional
+
+from typing import Any, Literal
 from uuid import UUID
+
 from pydantic import BaseModel, Field
-from typing import Literal
 
 
 class GlobalCheckInfo(BaseModel):
@@ -29,11 +30,11 @@ class GlobalCheckInfo(BaseModel):
 
     id: str
     name: str
-    description: Optional[str] = None
-    category: Optional[str] = None
-    group: Optional[str] = None
+    description: str | None = None
+    category: str | None = None
+    group: str | None = None
     severity: str
-    doc_types: List[str] = Field(default_factory=list)
+    doc_types: list[str] = Field(default_factory=list)
 
 
 class BundleInfo(BaseModel):
@@ -41,8 +42,8 @@ class BundleInfo(BaseModel):
 
     id: str
     name: str
-    description: Optional[str] = None
-    check_ids: List[str]
+    description: str | None = None
+    check_ids: list[str]
 
 
 class PlaybookCreateRequest(BaseModel):
@@ -57,46 +58,45 @@ class PlaybookCreateRequest(BaseModel):
     - опционально привязывает версию к логическому плейбуку (playbook_id).
     """
 
-    name: Optional[str] = Field(
+    name: str | None = Field(
         default=None,
         description="Имя плейбука. Если не задано — можно сгенерировать на бэке.",
     )
-    bundles: List[str] = Field(
+    bundles: list[str] = Field(
         default_factory=list,
         description="Список bundle-id, которые будут включены (mna_core, full, ...).",
     )
-    include_ids: List[str] = Field(
+    include_ids: list[str] = Field(
         default_factory=list,
         description="Чек-ID, которые нужно добавить поверх bundle'ов.",
     )
-    exclude_ids: List[str] = Field(
+    exclude_ids: list[str] = Field(
         default_factory=list,
         description="Чек-ID, которые нужно исключить из bundle'ов.",
     )
-    profile: Optional[str] = Field(
+    profile: str | None = Field(
         default=None,
         description="Профиль глубины проверки: core/full/quick и т.п.",
     )
 
     model_config_id: UUID | None = Field(
         description=(
-        "ID ModelConfig, который будет использоваться раннером. "
-        "Обязательное поле: версия плейбука всегда должна быть привязана "
-        "к конкретной конфигурации модели."
+            "ID ModelConfig, который будет использоваться раннером. "
+            "Обязательное поле: версия плейбука всегда должна быть привязана "
+            "к конкретной конфигурации модели."
         ),
     )
 
-
-    semver: Optional[str] = Field(
+    semver: str | None = Field(
         default=None,
         description="Явное значение semver (если нужно задать с фронта).",
     )
-    status: Optional[str] = Field(
+    status: str | None = Field(
         default=None,
         description="Статус версии плейбука: draft/stable/default. По умолчанию draft.",
     )
 
-    playbook_id: Optional[UUID] = Field(
+    playbook_id: UUID | None = Field(
         default=None,
         description=(
             "ID логического Playbook (шаблона), к которому относится эта версия. "
@@ -104,7 +104,7 @@ class PlaybookCreateRequest(BaseModel):
         ),
     )
 
-    from_line_id: Optional[UUID] = Field(
+    from_line_id: UUID | None = Field(
         default=None,
         description=(
             "Если задано — версия будет собрана на основе шаблона PlaybookLine "
@@ -120,7 +120,7 @@ class PlaybookCreateResponse(BaseModel):
     name: str
     semver: str
     status: str
-    playbook_id: Optional[UUID] = Field(
+    playbook_id: UUID | None = Field(
         default=None,
         description="ID логического Playbook, к которому привязана версия (если есть).",
     )
@@ -133,7 +133,7 @@ class PlaybookVersionShort(BaseModel):
     name: str
     semver: str
     status: str
-    playbook_id: Optional[UUID] = Field(
+    playbook_id: UUID | None = Field(
         default=None,
         description="ID логического Playbook (для группировки версий на UI).",
     )
@@ -152,14 +152,14 @@ class PlaybookVersionDetail(BaseModel):
     name: str
     semver: str
     status: str
-    playbook_id: Optional[UUID] = None
-    model_config_id: Optional[UUID] = None
+    playbook_id: UUID | None = None
+    model_config_id: UUID | None = None
 
-    compiled_checks: Optional[dict[str, Any]] = None
-    trigger_definitions: Optional[dict[str, Any]] = None
-    dd_request_templates: Optional[dict[str, Any]] = None
-    section_markers: Optional[dict[str, Any]] = None
-    classification_config: Optional[dict[str, Any]] = None
+    compiled_checks: dict[str, Any] | None = None
+    trigger_definitions: dict[str, Any] | None = None
+    dd_request_templates: dict[str, Any] | None = None
+    section_markers: dict[str, Any] | None = None
+    classification_config: dict[str, Any] | None = None
 
 
 class PlaybookLineShort(BaseModel):
@@ -174,20 +174,20 @@ class PlaybookLineShort(BaseModel):
     id: UUID
     code: str
     title: str
-    description: Optional[str] = None
-    deal_type: Optional[str] = Field(
+    description: str | None = None
+    deal_type: str | None = Field(
         default=None,
         description="Deal type: real_estate, mna, nda, corporate, etc.",
     )
-    jurisdiction: Optional[str] = Field(
+    jurisdiction: str | None = Field(
         default=None,
         description="Основная юрисдикция, например RU, EN, DE.",
     )
-    language: Optional[str] = Field(
+    language: str | None = Field(
         default=None,
         description="Основной язык документов: 'ru', 'en' и т.п.",
     )
-    risk_profile: Optional[str] = Field(
+    risk_profile: str | None = Field(
         default=None,
         description="Доп. профиль/роль: standard, high, vendor, buyer и т.п.",
     )
@@ -199,6 +199,7 @@ class PlaybookCheckInfo(BaseModel):
     description: str | None = None
     topic_code: str
     file_path: str
+
 
 class PlaybookTopicInfo(BaseModel):
     topic_code: str
@@ -212,6 +213,7 @@ class PlaybookLineItemPayload(BaseModel):
     check_code: str | None = None
     order_index: int
 
+
 class PlaybookLineCreate(BaseModel):
     title: str
     description: str | None = None
@@ -219,6 +221,7 @@ class PlaybookLineCreate(BaseModel):
     jurisdiction: str | None = None
     language: str | None = None
     items: list[PlaybookLineItemPayload]
+
 
 class PlaybookLineDetail(PlaybookLineShort):
     items: list[PlaybookLineItemPayload]
@@ -237,10 +240,11 @@ class ModelConfigResponse(BaseModel):
 
     id: UUID
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
-    embeddings_primary: Optional[str] = None
-    embeddings_fallback: Optional[str] = None
+    embeddings_primary: str | None = None
+    embeddings_fallback: str | None = None
+
 
 class ModelConfigCreateRequest(BaseModel):
     """
@@ -249,7 +253,7 @@ class ModelConfigCreateRequest(BaseModel):
 
     name: str
     embeddings_primary: str = "intfloat/multilingual-e5-large"
-    embeddings_fallback: Optional[str] = "cointegrated/LaBSE"
+    embeddings_fallback: str | None = "cointegrated/LaBSE"
 
     # Простые поля для формы. В бэке мы соберём из них JSON.
     candidate_n: int = 50
@@ -266,14 +270,13 @@ class ModelConfigUpdateRequest(BaseModel):
     Все поля опциональные, можно менять только нужное.
     """
 
-    name: Optional[str] = None
-    embeddings_primary: Optional[str] = None
-    embeddings_fallback: Optional[str] = None
+    name: str | None = None
+    embeddings_primary: str | None = None
+    embeddings_fallback: str | None = None
 
-    candidate_n: Optional[int] = None
-    llm_context_k: Optional[int] = None
+    candidate_n: int | None = None
+    llm_context_k: int | None = None
 
-    dense_weight: Optional[float] = None
-    sparse_weight: Optional[float] = None
-    metadata_boost: Optional[float] = None
-
+    dense_weight: float | None = None
+    sparse_weight: float | None = None
+    metadata_boost: float | None = None

@@ -5,12 +5,11 @@
 Логика: если документ является дубликатом и у мастера есть
 классификация — копируем результат от мастера, не запуская каскад.
 """
+
 from __future__ import annotations
 
-from typing import Optional
-
-from db.repositories.runner_repo import RunnerRepository
 from core.logging import get_logger
+from db.repositories.runner_repo import RunnerRepository
 
 logger = get_logger(__name__)
 
@@ -61,5 +60,3 @@ class DuplicateHandler:
             "jurisdiction": getattr(master, "jurisdiction", None),
             "applicable_triggers": list(getattr(master, "applicable_triggers", []) or []),
         }
-    
-    

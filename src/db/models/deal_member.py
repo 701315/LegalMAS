@@ -21,13 +21,14 @@ ORM-модель участника сделки (проекта).
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, ForeignKey, UniqueConstraint
+from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
+from core.roles import ProjectRole  # Literal["admin", "editor", "viewer"]
+
 from ..base import Base
 from .deal import Deal
-from core.roles import ProjectRole  # Literal["admin", "editor", "viewer"]
 
 
 class DealMember(Base):
@@ -76,7 +77,4 @@ class DealMember(Base):
         nullable=False,
     )
 
-    __table_args__ = (
-        UniqueConstraint("deal_id", "user_id", name="uq_deal_members_deal_user"),
-    )
-    
+    __table_args__ = (UniqueConstraint("deal_id", "user_id", name="uq_deal_members_deal_user"),)

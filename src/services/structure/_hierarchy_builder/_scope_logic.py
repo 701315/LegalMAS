@@ -3,9 +3,12 @@
 """Логика обработки пространств нумерации (scopes)."""
 
 from __future__ import annotations
+
 from typing import Any
+
 from ._types import HeadingCandidate
-from ._utils import _normalize_scope, _heading_scope, _heading_raw_uid
+from ._utils import _heading_raw_uid, _heading_scope, _normalize_scope
+
 
 def _group_headings_by_scope(
     headings: list[HeadingCandidate],
@@ -20,6 +23,7 @@ def _group_headings_by_scope(
         grouped[scope].sort(key=lambda h: (int(h.elem_i), int(h.page)))
     return grouped
 
+
 def _build_scope_boundaries(
     elements: list[dict[str, Any]],
 ) -> dict[str, tuple[int, int]]:
@@ -32,6 +36,7 @@ def _build_scope_boundaries(
         else:
             bounds[scope][1] = idx + 1
     return {scope: (start, end) for scope, (start, end) in bounds.items()}
+
 
 def _build_heading_positions(
     headings: list[HeadingCandidate],

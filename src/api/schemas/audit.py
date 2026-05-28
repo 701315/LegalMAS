@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, computed_field
@@ -30,11 +30,11 @@ class AuditLogEntrySchema(BaseModel):
 
     id: UUID
     tenant_id: UUID
-    deal_id: Optional[UUID] = None
+    deal_id: UUID | None = None
     action: str
     actor: str
-    actor_role: Optional[str] = None
-    details: Dict[str, Any] = {}
+    actor_role: str | None = None
+    details: dict[str, Any] = {}
     created_at: datetime
 
 
@@ -50,7 +50,7 @@ class AuditLogPage(BaseModel):
       items, total, page, per_page, total_pages, has_next, has_previous
     """
 
-    items: List[AuditLogEntrySchema]
+    items: list[AuditLogEntrySchema]
     total: int
     page: int
     per_page: int
@@ -72,5 +72,3 @@ class AuditLogPage(BaseModel):
     @property
     def has_previous(self) -> bool:
         return self.page > 1
-    
-    

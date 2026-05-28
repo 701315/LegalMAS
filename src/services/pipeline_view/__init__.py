@@ -10,4 +10,3 @@ Document pipeline view — пакет для построения предста
 from services.pipeline_view.service import DocumentPipelineViewService
 
 __all__ = ["DocumentPipelineViewService"]
-

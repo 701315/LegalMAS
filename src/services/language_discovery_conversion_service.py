@@ -47,7 +47,6 @@ from core.exceptions import PermanentError, TransientError
 from db.repositories.document_version_repo import DocumentVersionRepository
 from storage.artifact_store import ArtifactPath, ArtifactStore
 
-
 OFFICE_FILETYPES = {
     "doc",
     "docx",
@@ -79,6 +78,7 @@ class LanguageDiscoveryConversionResult:
         origin_filetype: Исходный формат файла.
         committed: True если converted_pdf_ref записан и flush успешен.
     """
+
     document_id: str
     document_version_id: str
     deal_id: str
@@ -113,7 +113,7 @@ def _s3_ref_to_store_path(ref: str, bucket: str) -> str:
     prefix = f"s3://{bucket}/"
     if not ref or not ref.startswith(prefix):
         raise PermanentError(f"Invalid S3 ref for bucket '{bucket}': {ref}")
-    return ref[len(prefix):]
+    return ref[len(prefix) :]
 
 
 def _build_converter_filename(version) -> str:
@@ -183,9 +183,7 @@ async def _convert_office_bytes_to_pdf_bytes(
 
     if resp.status_code != 200:
         body_preview = (resp.text or "")[:1000]
-        raise PermanentError(
-            f"Conversion service error: {resp.status_code} {body_preview}"
-        )
+        raise PermanentError(f"Conversion service error: {resp.status_code} {body_preview}")
 
     content_type = (resp.headers.get("content-type") or "").lower()
     if "application/pdf" not in content_type:
@@ -315,9 +313,7 @@ async def convert_document_for_language_discovery(
 
     refreshed_version = await ver_repo.get_by_id(ver_uuid)
     refreshed_converted_ref = (
-        getattr(refreshed_version, "converted_pdf_ref", None)
-        if refreshed_version
-        else None
+        getattr(refreshed_version, "converted_pdf_ref", None) if refreshed_version else None
     )
 
     if not refreshed_version:
@@ -347,6 +343,3 @@ async def convert_document_for_language_discovery(
         origin_filetype=origin_filetype,
         committed=True,
     )
-
-
-    

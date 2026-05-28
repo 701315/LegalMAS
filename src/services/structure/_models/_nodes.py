@@ -32,7 +32,7 @@ from ._normalization import (
 )
 
 
-def _ensure_clause_nodes(values: Any, field_name: str) -> list["ClauseNode"]:
+def _ensure_clause_nodes(values: Any, field_name: str) -> list[ClauseNode]:
     """Валидирует list[ClauseNode]."""
     if values is None:
         return []
@@ -46,7 +46,7 @@ def _ensure_clause_nodes(values: Any, field_name: str) -> list["ClauseNode"]:
     return normalized
 
 
-def _ensure_cross_refs(values: Any, field_name: str) -> list["CrossReference"]:
+def _ensure_cross_refs(values: Any, field_name: str) -> list[CrossReference]:
     """Валидирует list[CrossReference]."""
     if values is None:
         return []
@@ -60,7 +60,7 @@ def _ensure_cross_refs(values: Any, field_name: str) -> list["CrossReference"]:
     return normalized
 
 
-def _ensure_cross_segment_refs(values: Any, field_name: str) -> list["CrossSegmentRef"]:
+def _ensure_cross_segment_refs(values: Any, field_name: str) -> list[CrossSegmentRef]:
     """Валидирует list[CrossSegmentRef]."""
     if values is None:
         return []
@@ -99,7 +99,7 @@ class ClauseNode:
 
     start_page: int = 1
     end_page: int = 1
-    children: list["ClauseNode"] = field(default_factory=list)
+    children: list[ClauseNode] = field(default_factory=list)
 
     range_end_reason: str | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
@@ -153,13 +153,13 @@ class ClauseNode:
                 "ClauseNode.parse_confidence",
             )
 
-        _VALID_CITABILITY_HINTS: frozenset[str] = frozenset({"high", "medium", "low"})
+        _valid_citability_hints: frozenset[str] = frozenset({"high", "medium", "low"})
         if self.citability_hint is not None:
             normalized_ch = _norm_str(self.citability_hint).lower()
-            if normalized_ch not in _VALID_CITABILITY_HINTS:
+            if normalized_ch not in _valid_citability_hints:
                 raise ValueError(
                     f"ClauseNode.citability_hint={self.citability_hint!r} is not valid. "
-                    f"Expected one of {sorted(_VALID_CITABILITY_HINTS)} or None"
+                    f"Expected one of {sorted(_valid_citability_hints)} or None"
                 )
             self.citability_hint = normalized_ch
 
@@ -411,6 +411,3 @@ class CrossSegmentRef:
             "resolution_method": self.resolution_method,
             "reference_text": self.reference_text,
         }
-    
-
-    

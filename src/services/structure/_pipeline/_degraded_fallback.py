@@ -14,9 +14,9 @@ from typing import Any
 from core.config import settings
 from core.logging import get_logger
 from services.structure.models import (
+    STRUCTURE_CONFIDENCE_LOW,
     ClauseNode,
     ClauseTree,
-    STRUCTURE_CONFIDENCE_LOW,
     make_effective_uid,
 )
 
@@ -139,4 +139,3 @@ def degraded_tree(
         is_primary_segment=is_primary_segment,
         schema_version="3.0",
     )
-

@@ -44,17 +44,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
 from api.schemas.playbook_runs import (
+    DealPlaybookHistoryItem,
+    DealPlaybookHistoryResponse,
     DealPlaybookRebuildRequest,
     DealPlaybookRebuildResponse,
-    DealPlaybookHistoryResponse,
-    DealPlaybookHistoryItem,
 )
 from api.schemas.playbooks import PlaybookCreateRequest  # для описания "рецепта" в current
 from core.constants import PlaybookStatus
 from core.playbooks.compiler import (
-    load_global_checks,
-    build_compiled_checks,
     PlaybookConfig,
+    build_compiled_checks,
+    load_global_checks,
 )
 from core.utils.semver import bump_semver
 from db.models.playbook import PlaybookVersion
@@ -191,7 +191,6 @@ async def rebuild_playbook_and_rerun(
         checks_mode = last_run.checks_mode
     else:
         checks_mode = "global_and_doc_type"
-
 
     deal = await deal_repo.get_by_id(deal_id)
     if not deal:
@@ -358,9 +357,7 @@ async def get_deal_playbook_history(
     if not playbook_ids:
         return DealPlaybookHistoryResponse(deal_id=deal_id, items=[])
 
-    result = await db.execute(
-        select(PlaybookVersion).where(PlaybookVersion.id.in_(playbook_ids))
-    )
+    result = await db.execute(select(PlaybookVersion).where(PlaybookVersion.id.in_(playbook_ids)))
     playbooks_by_id = {pb.id: pb for pb in result.scalars().all()}
 
     items: list[DealPlaybookHistoryItem] = []

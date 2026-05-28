@@ -118,8 +118,7 @@ def build_quick_layout_result_from_pdf(
 
     if not _looks_like_pdf(pdf_bytes):
         raise PermanentError(
-            f"Quick PDF layout build failed: source is not a PDF "
-            f"for document {document_id}"
+            f"Quick PDF layout build failed: source is not a PDF " f"for document {document_id}"
         )
 
     logger.info(
@@ -149,8 +148,7 @@ def build_quick_layout_result_from_pdf(
 
     if not extraction.elements:
         raise PermanentError(
-            f"Quick PDF layout build failed: no elements extracted "
-            f"for document {document_id}"
+            f"Quick PDF layout build failed: no elements extracted " f"for document {document_id}"
         )
 
     quality = _assess_extraction_quality(extraction)
@@ -292,15 +290,9 @@ def _assess_extraction_quality(extraction: ExtractionResult) -> dict[str, Any]:
             if has_text:
                 usable_elements += 1
 
-    non_empty_text_ratio = (
-        non_empty_text_elements / total_elements if total_elements else 0.0
-    )
-    valid_bbox_ratio = (
-        valid_bbox_elements / total_elements if total_elements else 0.0
-    )
-    usable_element_ratio = (
-        usable_elements / total_elements if total_elements else 0.0
-    )
+    non_empty_text_ratio = non_empty_text_elements / total_elements if total_elements else 0.0
+    valid_bbox_ratio = valid_bbox_elements / total_elements if total_elements else 0.0
+    usable_element_ratio = usable_elements / total_elements if total_elements else 0.0
 
     degraded_reasons: list[str] = []
     hard_fail_reasons: list[str] = []
@@ -309,24 +301,16 @@ def _assess_extraction_quality(extraction: ExtractionResult) -> dict[str, Any]:
         hard_fail_reasons.append("no_elements")
 
     if total_extracted_chars < _MIN_TOTAL_EXTRACTED_CHARS:
-        hard_fail_reasons.append(
-            f"too_few_chars:{total_extracted_chars}"
-        )
+        hard_fail_reasons.append(f"too_few_chars:{total_extracted_chars}")
 
     if non_empty_text_ratio < _MIN_NON_EMPTY_TEXT_RATIO:
-        degraded_reasons.append(
-            f"low_non_empty_text_ratio:{non_empty_text_ratio:.3f}"
-        )
+        degraded_reasons.append(f"low_non_empty_text_ratio:{non_empty_text_ratio:.3f}")
 
     if valid_bbox_ratio < _MIN_VALID_BBOX_RATIO:
-        degraded_reasons.append(
-            f"low_valid_bbox_ratio:{valid_bbox_ratio:.3f}"
-        )
+        degraded_reasons.append(f"low_valid_bbox_ratio:{valid_bbox_ratio:.3f}")
 
     if usable_element_ratio < _MIN_USABLE_ELEMENT_RATIO:
-        degraded_reasons.append(
-            f"low_usable_element_ratio:{usable_element_ratio:.3f}"
-        )
+        degraded_reasons.append(f"low_usable_element_ratio:{usable_element_ratio:.3f}")
 
     # Если extractor сам вернул ошибки и при этом usable layout слабый —
     # считаем это уже hard failure.
@@ -358,7 +342,7 @@ def _is_valid_bbox(bbox: Any) -> bool:
     Проверить, что bbox выглядит пригодным для layout-анализа.
     Ожидаем [x0, top, x1, bottom], где x1 > x0 и bottom > top.
     """
-    if not isinstance(bbox, (list, tuple)) or len(bbox) < 4:
+    if not isinstance(bbox, list | tuple) or len(bbox) < 4:
         return False
 
     try:
@@ -370,4 +354,3 @@ def _is_valid_bbox(bbox: Any) -> bool:
         return False
 
     return x1 > x0 and bottom > top
-

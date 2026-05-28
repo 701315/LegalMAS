@@ -22,10 +22,16 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from services.structure.heading_patterns import normalize_spaces
-
+from services.structure.models import (
+    BODY_SEMANTIC_TYPES,
+)
+from services.structure.models import (
+    HEADING_SEMANTIC_TYPES as HEADING_LIKE_SEMANTIC_TYPES,
+)
 
 # ============================================================================
 # Semantic type constants — импортируем из models.py как canonical source
@@ -33,25 +39,10 @@ from services.structure.heading_patterns import normalize_spaces
 # Локальные алиасы для удобного использования внутри модуля.
 # Не дублируем значения — только переименовываем для краткости.
 
-from services.structure.models import (
-    SEMANTIC_ELEMENT_TYPE_SECTION_HEADING as SEMANTIC_TYPE_SECTION_HEADING,
-    SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING as SEMANTIC_TYPE_SUBSECTION_HEADING,
-    SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM as SEMANTIC_TYPE_DEFINITION_ITEM,
-    SEMANTIC_ELEMENT_TYPE_ENUMERATED_CLAUSE as SEMANTIC_TYPE_ENUMERATED_CLAUSE,
-    SEMANTIC_ELEMENT_TYPE_LIST_ITEM as SEMANTIC_TYPE_LIST_ITEM,
-    SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING as SEMANTIC_TYPE_APPENDIX_HEADING,
-    SEMANTIC_ELEMENT_TYPE_SIGNATURE_BLOCK as SEMANTIC_TYPE_SIGNATURE_BLOCK,
-    SEMANTIC_ELEMENT_TYPE_BODY_TEXT as SEMANTIC_TYPE_BODY_TEXT,
-    HEADING_SEMANTIC_TYPES as HEADING_LIKE_SEMANTIC_TYPES,
-    BODY_SEMANTIC_TYPES,
-)
-
 # BODY_LIKE_SEMANTIC_TYPES включает также table_content,
 # которого нет в models.py (это element_type, не semantic_type).
 # Держим расширенный вариант локально.
-BODY_LIKE_SEMANTIC_TYPES: frozenset[str] = frozenset(
-    BODY_SEMANTIC_TYPES | {"table_content"}
-)
+BODY_LIKE_SEMANTIC_TYPES: frozenset[str] = frozenset(BODY_SEMANTIC_TYPES | {"table_content"})
 
 
 # ============================================================================
@@ -274,6 +265,7 @@ _SUBSTANTIVE_CONNECTORS_RE = re.compile(
 # Базовые helpers
 # ============================================================================
 
+
 def _normalized_text(text: str) -> str:
     return normalize_spaces(text or "")
 
@@ -329,6 +321,7 @@ def get_semantic_element_type(element: Mapping[str, Any] | None) -> str | None:
 # ============================================================================
 # Definition item detection
 # ============================================================================
+
 
 def looks_like_definition_item(text: str) -> bool:
     """
@@ -415,6 +408,7 @@ def looks_like_definition_series(
 # Appendix detection
 # ============================================================================
 
+
 def looks_like_appendix_heading(text: str) -> bool:
     """
     Проверяет, похожа ли строка на заголовок приложения.
@@ -448,6 +442,7 @@ def looks_like_appendix_heading(text: str) -> bool:
 # ============================================================================
 # Signature / requisites negative rules
 # ============================================================================
+
 
 def looks_like_signature_heading(text: str) -> bool:
     """
@@ -500,6 +495,7 @@ def looks_like_signature_or_requisites_heading(text: str) -> bool:
 # Continuity helpers
 # ============================================================================
 
+
 def is_heading_like_semantic_type(value: Any) -> bool:
     return _normalize_semantic_type(value) in HEADING_LIKE_SEMANTIC_TYPES
 
@@ -527,7 +523,6 @@ def compute_heading_continuity_signals(
     prev_type = get_semantic_element_type(prev_element)
     next_type = get_semantic_element_type(next_element)
 
-    prev_text = _normalized_text(str((prev_element or {}).get("text") or ""))
     next_text = _normalized_text(str((next_element or {}).get("text") or ""))
 
     next_is_definition_like = looks_like_definition_item(next_text)
@@ -544,10 +539,16 @@ def compute_heading_continuity_signals(
         "next_is_definition_like": next_is_definition_like,
         "next_is_appendix_heading": next_is_appendix_heading,
         "next_is_signature_or_requisites": next_is_signature_or_requisites,
-        "next_starts_with_lowercase": bool(_STARTS_WITH_LOWER_RE.search(next_text)) if next_text else False,
+        "next_starts_with_lowercase": bool(_STARTS_WITH_LOWER_RE.search(next_text))
+        if next_text
+        else False,
         "next_ends_like_sentence": bool(_SENTENCE_END_RE.search(next_text)) if next_text else False,
-        "next_has_substantive_verb": bool(_SUBSTANTIVE_VERBS_RE.search(next_text)) if next_text else False,
-        "next_has_substantive_connector": bool(_SUBSTANTIVE_CONNECTORS_RE.search(next_text)) if next_text else False,
+        "next_has_substantive_verb": bool(_SUBSTANTIVE_VERBS_RE.search(next_text))
+        if next_text
+        else False,
+        "next_has_substantive_connector": bool(_SUBSTANTIVE_CONNECTORS_RE.search(next_text))
+        if next_text
+        else False,
         "continuity_body_positive": False,
         "continuity_heading_negative": False,
         "continuity_definition_negative": False,
@@ -573,6 +574,7 @@ def compute_heading_continuity_signals(
 # ============================================================================
 # Numeric UID / monotonic-series helpers
 # ============================================================================
+
 
 def parse_numeric_uid_parts(uid: str) -> tuple[int, ...] | None:
     """
@@ -675,10 +677,16 @@ def build_numeric_uid_continuity(
     return {
         "has_prev_uid": bool(prev_uid),
         "has_next_uid": bool(next_uid),
-        "prev_is_next_peer": bool(prev_uid and current_uid and is_next_peer_uid(prev_uid, current_uid)),
-        "next_is_next_peer": bool(current_uid and next_uid and is_next_peer_uid(current_uid, next_uid)),
-        "current_is_child_of_prev": bool(prev_uid and current_uid and is_direct_child_uid(prev_uid, current_uid)),
-        "next_is_child_of_current": bool(current_uid and next_uid and is_direct_child_uid(current_uid, next_uid)),
+        "prev_is_next_peer": bool(
+            prev_uid and current_uid and is_next_peer_uid(prev_uid, current_uid)
+        ),
+        "next_is_next_peer": bool(
+            current_uid and next_uid and is_next_peer_uid(current_uid, next_uid)
+        ),
+        "current_is_child_of_prev": bool(
+            prev_uid and current_uid and is_direct_child_uid(prev_uid, current_uid)
+        ),
+        "next_is_child_of_current": bool(
+            current_uid and next_uid and is_direct_child_uid(current_uid, next_uid)
+        ),
     }
-
-

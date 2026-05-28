@@ -15,8 +15,8 @@ from __future__ import annotations
 from typing import Any
 
 from core.logging import get_logger
-from services.structure.models import SegmentDocument
 from services.structure.heading_patterns import normalize_spaces
+from services.structure.models import SegmentDocument
 
 logger = get_logger(__name__)
 
@@ -146,4 +146,3 @@ def ensure_element_segment_metadata(
         )
 
     return prepared
-

@@ -50,7 +50,7 @@ def chunk_sort_key(ch: dict[str, Any]) -> tuple[float, int, str]:
     start_page = meta.get("start_page")
     chunk_id = str(ch.get("id") or "")
     return (
-        float(pos) if isinstance(pos, (int, float)) else 1.0,
+        float(pos) if isinstance(pos, int | float) else 1.0,
         int(start_page) if isinstance(start_page, int) else 10**9,
         chunk_id,
     )
@@ -83,4 +83,3 @@ def extract_clause_tree_text(node: dict[str, Any]) -> str:
                 return text
 
     return ""
-

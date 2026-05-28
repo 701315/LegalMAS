@@ -16,40 +16,40 @@ Pydantic-схемы для результатов проверок (check_result
     * активных сценариев (ипотека, маткапитал, наследование, судебная продажа и т.п.).
 """
 
-from uuid import UUID
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel
 
 
 class LocationField(BaseModel):
-    page: Optional[int] = None
-    clause_uid: Optional[str] = None
-    element_id: Optional[str] = None
-    start_page: Optional[int] = None
-    end_page: Optional[int] = None
-    path_titles: Optional[list[str]] = None
+    page: int | None = None
+    clause_uid: str | None = None
+    element_id: str | None = None
+    start_page: int | None = None
+    end_page: int | None = None
+    path_titles: list[str] | None = None
 
 
 class FieldQC(BaseModel):
-    status: Optional[str] = None  # "pending" | "accepted" | "rejected" | "auto_accepted"
-    by: Optional[str] = None
-    comment: Optional[str] = None
-    at: Optional[str] = None      # ISO8601
+    status: str | None = None  # "pending" | "accepted" | "rejected" | "auto_accepted"
+    by: str | None = None
+    comment: str | None = None
+    at: str | None = None  # ISO8601
 
 
 class StructuredField(BaseModel):
     value: Any
-    unit: Optional[str] = None
-    source: Optional[str] = None
-    confidence: Optional[float] = None
-    found: Optional[bool] = True
-    location: Optional[LocationField] = None
-    qc: Optional[FieldQC] = None
+    unit: str | None = None
+    source: str | None = None
+    confidence: float | None = None
+    found: bool | None = True
+    location: LocationField | None = None
+    qc: FieldQC | None = None
 
 
-StructuredDataDict = Dict[str, StructuredField]
+StructuredDataDict = dict[str, StructuredField]
 
 
 class CheckResultResponse(BaseModel):
@@ -82,8 +82,8 @@ class CheckResultResponse(BaseModel):
     document_id: UUID
     check_id: str
     check_name: str
-    result: str               # fail / pass / unclear
-    severity: str             # critical / high / medium / pass / unclear
+    result: str  # fail / pass / unclear
+    severity: str  # critical / high / medium / pass / unclear
     value_text: str | None
     confidence: float | None
     detector_used: str | None
@@ -138,7 +138,7 @@ class EvidenceResponse(BaseModel):
     clause_uid: str | None
     bbox: list[float] | None
     confidence: float | None
-    source: str               # "raw" или "sanitized"
+    source: str  # "raw" или "sanitized"
     quality_flags: dict | None
     structured_data: dict[str, Any] | None = None
 
@@ -155,6 +155,5 @@ class StructuredDataResponse(BaseModel):
     document_id: UUID
     document_name: str
     doc_type: str | None
-    extracted_values: list[dict]   # [{check_id, field_name, field_value, page, clause_uid}]
+    extracted_values: list[dict]  # [{check_id, field_name, field_value, page, clause_uid}]
     total_extracted: int
-    

@@ -33,7 +33,7 @@ from ._normalization import (
 )
 
 
-def _ensure_segments(values: Any, field_name: str) -> list["SegmentDocument"]:
+def _ensure_segments(values: Any, field_name: str) -> list[SegmentDocument]:
     """Валидирует list[SegmentDocument]."""
     if values is None:
         return []
@@ -47,7 +47,7 @@ def _ensure_segments(values: Any, field_name: str) -> list["SegmentDocument"]:
     return normalized
 
 
-def _ensure_cross_links(values: Any, field_name: str) -> list["CrossDocumentLink"]:
+def _ensure_cross_links(values: Any, field_name: str) -> list[CrossDocumentLink]:
     """Валидирует list[CrossDocumentLink]."""
     if values is None:
         return []
@@ -247,7 +247,10 @@ class FileGraph:
                     f"segment_id={segment.segment_id!r}"
                 )
             if self.document_version_id is not None:
-                if segment.document_version_id is not None and segment.document_version_id != self.document_version_id:
+                if (
+                    segment.document_version_id is not None
+                    and segment.document_version_id != self.document_version_id
+                ):
                     raise ValueError(
                         f"FileGraph segment document_version_id mismatch: "
                         f"graph.document_version_id={self.document_version_id!r}, "

@@ -32,7 +32,7 @@ Document language pipeline service.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,13 +104,13 @@ class DocumentLanguageDecision:
     target_language: str
     is_bilingual: bool
     target_language_ratio: float
-    route: str                          # "proceed" | "quarantine"
+    route: str  # "proceed" | "quarantine"
     quarantine_reason: str | None
     deal_primary_language_before: str | None
     deal_languages_before: list[str]
     deal_primary_language_after: str | None
     deal_languages_after: list[str]
-    requires_user_selection: bool = False   # всегда False в новой логике
+    requires_user_selection: bool = False  # всегда False в новой логике
     pipeline_mode: str = "PRIMARY_ONLY_DOWNSTREAM"
 
 
@@ -390,6 +390,7 @@ async def build_primary_language_layout(
 # Вспомогательные функции
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _measure_language_presence(
     layout: dict[str, Any],
     target_language: str,
@@ -404,11 +405,9 @@ def _measure_language_presence(
     - lat_ratio:    доля латиницы;
     - is_bilingual: True если оба скрипта >= MIN_TARGET_LANGUAGE_RATIO.
     """
-    all_text = " ".join(
-        el.get("text", "") for el in (layout.get("elements") or [])
-    )
+    all_text = " ".join(el.get("text", "") for el in (layout.get("elements") or []))
 
-    cyr = sum(1 for c in all_text if "\u0400" <= c <= "\u04FF")
+    cyr = sum(1 for c in all_text if "\u0400" <= c <= "\u04ff")
     lat = sum(1 for c in all_text if "a" <= c.lower() <= "z")
     total = cyr + lat
 
@@ -432,10 +431,7 @@ def _measure_language_presence(
         # "en" и любой другой поддерживаемый язык с латиницей
         target_ratio = lat_ratio
 
-    is_bilingual = (
-        cyr_ratio >= MIN_TARGET_LANGUAGE_RATIO
-        and lat_ratio >= MIN_TARGET_LANGUAGE_RATIO
-    )
+    is_bilingual = cyr_ratio >= MIN_TARGET_LANGUAGE_RATIO and lat_ratio >= MIN_TARGET_LANGUAGE_RATIO
 
     return {
         "target_ratio": target_ratio,
@@ -565,5 +561,3 @@ def _normalize_lang_list(
             normalized.add(lang)
 
     return sorted(normalized)
-
-

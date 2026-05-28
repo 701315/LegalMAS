@@ -280,5 +280,3 @@ async def save_not_applicable_result(
             },
         )
         raise
-    
-

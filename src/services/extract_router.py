@@ -60,6 +60,7 @@ class ExtractRoutingDecision:
     reason:
       - текст для логов / возможных processing_error_details
     """
+
     action: str
     extractor_task: str | None = None
     reason: str | None = None

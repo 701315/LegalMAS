@@ -31,9 +31,9 @@ textlayoutraw, который далее используют:
                                     и использует element_id для ссылок на доказательства.
 """
 
-import time
 import hashlib
 import io
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -149,7 +149,9 @@ def _safe_page_metrics(page: Any) -> dict[str, Any]:
     except Exception:
         height = None
     try:
-        images_count = len(page.images) if hasattr(page, "images") and page.images is not None else 0
+        images_count = (
+            len(page.images) if hasattr(page, "images") and page.images is not None else 0
+        )
     except Exception:
         images_count = None
     try:
@@ -197,8 +199,7 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
 
             if result.page_count > settings.EXTRACTION_MAX_PAGES:
                 result.errors.append(
-                    f"PDF has {result.page_count} pages, "
-                    f"max {settings.EXTRACTION_MAX_PAGES}"
+                    f"PDF has {result.page_count} pages, " f"max {settings.EXTRACTION_MAX_PAGES}"
                 )
                 return result
 
@@ -258,7 +259,9 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
                         page=page_num,
                         strategy=strategy.value,
                         text_len=page_text_len,
-                        min_text_threshold=getattr(settings, "EXTRACTION_MIN_TEXT_LENGTH_PER_PAGE", None),
+                        min_text_threshold=getattr(
+                            settings, "EXTRACTION_MIN_TEXT_LENGTH_PER_PAGE", None
+                        ),
                         images_count=page_metrics.get("images_count"),
                         chars_count=page_metrics.get("chars_count"),
                     )
@@ -303,8 +306,12 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
                                 page=page_num,
                                 elements=page_element_count,
                                 avg_conf=round(page_conf, 4),
-                                first_element_preview=_safe_preview(page_elements[0].text, 200) if page_elements else "",
-                                last_element_preview=_safe_preview(page_elements[-1].text, 200) if page_elements else "",
+                                first_element_preview=_safe_preview(page_elements[0].text, 200)
+                                if page_elements
+                                else "",
+                                last_element_preview=_safe_preview(page_elements[-1].text, 200)
+                                if page_elements
+                                else "",
                             )
                     else:
                         msg = f"Page {page_num}: OCR required but Tesseract not available"
@@ -326,7 +333,9 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
                             text_preview=_safe_preview(page_text, 200),
                         )
 
-                page_tables = _extract_tables(page, page_num, debug_this_doc=debug_this_doc, document_id=document_id)
+                page_tables = _extract_tables(
+                    page, page_num, debug_this_doc=debug_this_doc, document_id=document_id
+                )
                 page_table_count = len(page_tables)
                 result.tables.extend(page_tables)
 
@@ -467,13 +476,23 @@ def _extract_text_page(
             extract_words_error=extract_words_error,
             first_word_text=(first_word.get("text") if first_word else None),
             first_word_bbox=(
-                [first_word.get("x0"), first_word.get("top"), first_word.get("x1"), first_word.get("bottom")]
+                [
+                    first_word.get("x0"),
+                    first_word.get("top"),
+                    first_word.get("x1"),
+                    first_word.get("bottom"),
+                ]
                 if first_word
                 else None
             ),
             last_word_text=(last_word.get("text") if last_word else None),
             last_word_bbox=(
-                [last_word.get("x0"), last_word.get("top"), last_word.get("x1"), last_word.get("bottom")]
+                [
+                    last_word.get("x0"),
+                    last_word.get("top"),
+                    last_word.get("x1"),
+                    last_word.get("bottom"),
+                ]
                 if last_word
                 else None
             ),
@@ -591,9 +610,7 @@ def _extract_ocr_page(
 
         if debug_this_doc:
             total_ocr_items = len(ocr_data.get("text", []))
-            non_empty_ocr_words = sum(
-                1 for t in (ocr_data.get("text", []) or []) if str(t).strip()
-            )
+            non_empty_ocr_words = sum(1 for t in (ocr_data.get("text", []) or []) if str(t).strip())
             logger.debug(
                 "OCR: image_to_data snapshot",
                 document_id=document_id,

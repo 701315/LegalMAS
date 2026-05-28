@@ -126,9 +126,9 @@ class DealResponse(BaseModel):
     # - "global_only"         — только глобальный плейбук;
     # - "doc_type_only"       — только проверки по типам документов;
     # - "global_and_doc_type" — оба слоя.
-    last_run_checks_mode: Literal[
-        "global_only", "doc_type_only", "global_and_doc_type"
-    ] | None = None
+    last_run_checks_mode: Literal["global_only", "doc_type_only", "global_and_doc_type"] | None = (
+        None
+    )
 
     # Стратегия пайплайна последнего запуска:
     # - "REUSE_STRUCTURE" / "FULL_RERUN" / другие значения.
@@ -201,9 +201,7 @@ class DealCreate(BaseModel):
             and self.languages is not None
             and self.primary_language not in self.languages
         ):
-            raise ValueError(
-                "primary_language must be one of the values from languages."
-            )
+            raise ValueError("primary_language must be one of the values from languages.")
 
         return self
 
@@ -242,9 +240,7 @@ class DealUpdate(BaseModel):
             and self.languages is not None
             and self.primary_language not in self.languages
         ):
-            raise ValueError(
-                "primary_language must be one of the values from languages."
-            )
+            raise ValueError("primary_language must be one of the values from languages.")
 
         return self
 
@@ -263,5 +259,3 @@ class DealPlaybookHistoryItem(BaseModel):
     playbook_id: UUID | None = None
     playbook_name: str | None = None
     semver: str | None = None
-
-

@@ -48,8 +48,8 @@ Pydantic‑схемы для запусков анализа (Run) и их ст�
   для отображения в карточке сделки.
 """
 
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -81,10 +81,7 @@ class RunCreate(BaseModel):
     # Новый режим: какие проверки включать в Run
     checks_mode: str = Field(
         default="global_and_doc_type",
-        description=(
-            "Режим проверок: "
-            "global_only / doc_type_only / global_and_doc_type"
-        ),
+        description=("Режим проверок: " "global_only / doc_type_only / global_and_doc_type"),
     )
 
     # Новый флаг: перед запуском проверок заново классифицировать документы
@@ -108,7 +105,7 @@ class ClassificationStats(BaseModel):
     l2_keyword: int = 0
     l3_semantic: int = 0
     l4_llm: int = 0
-    low_confidence_count: int = 0    # confidence < 0.6
+    low_confidence_count: int = 0  # confidence < 0.6
     unknown_doc_type_count: int = 0  # doc_type = "Generic" или None
 
 
@@ -189,8 +186,10 @@ class ClassificationReportResponse(BaseModel):
     deal_id: UUID
     total_documents: int
     stats: ClassificationStats
-    low_confidence_docs: list[dict]   # [{doc_id, filename, doc_type, confidence, classification_level}]
-    unknown_type_docs: list[dict]     # [{doc_id, filename, detected_type}]
+    low_confidence_docs: list[
+        dict
+    ]  # [{doc_id, filename, doc_type, confidence, classification_level}]
+    unknown_type_docs: list[dict]  # [{doc_id, filename, detected_type}]
     trigger_coverage: dict[str, int]  # {trigger_name: doc_count}
 
 
@@ -233,6 +232,7 @@ class DealRunSummaryResponse(BaseModel):
     error_user_message: str | None = None
     classification_stats: ClassificationStats | None = None
 
+
 class RunProgressEvent(BaseModel):
     """
     Событие прогресса Run для SSE-подписки.
@@ -251,4 +251,3 @@ class RunProgressEvent(BaseModel):
     total_checks: int
     current_document: str | None = None
     error: str | None = None
-

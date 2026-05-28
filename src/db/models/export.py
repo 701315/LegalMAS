@@ -7,7 +7,7 @@ Export model — tracks generated export files (Excel, Word, PDF, JSON).
 import uuid
 
 from sqlalchemy import BigInteger, ForeignKey, String, text
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..base import Base
@@ -76,4 +76,3 @@ class Export(Base):
         nullable=True,
         comment="Last export error message, if export failed",
     )
-    

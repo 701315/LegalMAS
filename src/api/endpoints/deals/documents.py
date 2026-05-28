@@ -4,7 +4,6 @@ import logging
 import os
 import tempfile
 import zipfile
-from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
@@ -13,14 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
 from api.mappers.documents import map_document_to_response
-from api.schemas.pagination import PaginatedResponse
 from api.schemas.documents import DocumentResponse
-from db.session import get_db
+from api.schemas.pagination import PaginatedResponse
 from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
+from db.session import get_db
 from mas_queue.celery_app import celery_app
 from services.document_composition_query import DocumentCompositionQueryService
-
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +178,7 @@ async def get_quarantine_docs(
 )
 async def upload_deal_documents(
     deal_id: UUID,
-    files: List[UploadFile] = File(
+    files: list[UploadFile] = File(
         ...,
         description="Один или несколько файлов документов",
     ),
@@ -283,5 +281,3 @@ async def upload_deal_documents(
         "status": "queued",
         "files_uploaded": len(files),
     }
-
-

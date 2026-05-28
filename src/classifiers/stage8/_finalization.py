@@ -257,5 +257,3 @@ class FallbackFinalizer:
             return float(value)
         except (TypeError, ValueError):
             return default
-    
-

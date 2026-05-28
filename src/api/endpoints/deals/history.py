@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
 from api.schemas.deals import DealPlaybookHistoryItem
-from db.session import get_db
 from db.repositories.audit_repo import AuditRepository
+from db.session import get_db
 
 router = APIRouter()
 
@@ -55,4 +55,3 @@ async def get_deal_playbook_history(
         )
 
     return items
-

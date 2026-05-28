@@ -36,15 +36,15 @@ from typing import Any
 
 from core.logging import get_logger
 from services.structure.models import (
-    ClauseTree,
-    CrossDocumentLink,
-    FileGraph,
-    SegmentDocument,
     SEGMENT_TYPE_CONTRACT,
     STRUCTURE_CONFIDENCE_FAILED,
     STRUCTURE_CONFIDENCE_HIGH,
     STRUCTURE_CONFIDENCE_LOW,
     STRUCTURE_CONFIDENCE_MEDIUM,
+    ClauseTree,
+    CrossDocumentLink,
+    FileGraph,
+    SegmentDocument,
 )
 
 logger = get_logger(__name__)
@@ -90,9 +90,8 @@ def build_file_graph(
     _sync_primary_flags(safe_segments, primary_segment_id)
 
     cross_links = _extract_cross_links(safe_segments, safe_trees)
-    degraded = (
-        bool(validation["has_errors"])
-        or any(bool(getattr(t, "degraded", False)) for t in safe_trees)
+    degraded = bool(validation["has_errors"]) or any(
+        bool(getattr(t, "degraded", False)) for t in safe_trees
     )
     structural_confidence = _derive_file_confidence(
         trees=safe_trees,
@@ -152,7 +151,9 @@ def _validate_graph_inputs(
     segment_ids = [seg.segment_id for seg in segments if getattr(seg, "segment_id", None)]
     tree_ids = [tree.segment_id for tree in trees if getattr(tree, "segment_id", None)]
 
-    duplicate_segment_ids = sorted({seg_id for seg_id in segment_ids if segment_ids.count(seg_id) > 1})
+    duplicate_segment_ids = sorted(
+        {seg_id for seg_id in segment_ids if segment_ids.count(seg_id) > 1}
+    )
     duplicate_tree_ids = sorted({tree_id for tree_id in tree_ids if tree_ids.count(tree_id) > 1})
 
     if duplicate_segment_ids:
@@ -213,12 +214,18 @@ def _validate_graph_inputs(
             errors.append({"type": "tree_missing_segment_id"})
             continue
 
-        matching_segment = next((seg for seg in segments if seg.segment_id == tree.segment_id), None)
+        matching_segment = next(
+            (seg for seg in segments if seg.segment_id == tree.segment_id), None
+        )
         if matching_segment is None:
             continue
 
         tree_scope_name = getattr(tree, "scope_name", None)
-        if tree_scope_name and matching_segment.scope_name and tree_scope_name != matching_segment.scope_name:
+        if (
+            tree_scope_name
+            and matching_segment.scope_name
+            and tree_scope_name != matching_segment.scope_name
+        ):
             errors.append(
                 {
                     "type": "scope_mismatch",
@@ -274,11 +281,7 @@ def _pick_primary_segment(segments: list[SegmentDocument]) -> str | None:
     if high_conf_contracts:
         return high_conf_contracts[0].segment_id
 
-    any_contracts = [
-        s
-        for s in ordered_segments
-        if s.segment_type == SEGMENT_TYPE_CONTRACT
-    ]
+    any_contracts = [s for s in ordered_segments if s.segment_type == SEGMENT_TYPE_CONTRACT]
     if any_contracts:
         return any_contracts[0].segment_id
 
@@ -324,9 +327,7 @@ def _derive_file_confidence(
         return STRUCTURE_CONFIDENCE_FAILED
 
     tree_by_segment_id = {
-        str(getattr(t, "segment_id", "") or ""): t
-        for t in trees
-        if getattr(t, "segment_id", None)
+        str(getattr(t, "segment_id", "") or ""): t for t in trees if getattr(t, "segment_id", None)
     }
 
     primary_tree = tree_by_segment_id.get(primary_segment_id or "")
@@ -340,10 +341,7 @@ def _derive_file_confidence(
     primary_degraded = bool(getattr(primary_tree, "degraded", False))
     all_degraded = all(bool(getattr(t, "degraded", False)) for t in trees)
 
-    confidence_set = {
-        str(getattr(t, "structure_confidence", "") or "").upper()
-        for t in trees
-    }
+    confidence_set = {str(getattr(t, "structure_confidence", "") or "").upper() for t in trees}
 
     if primary_conf == STRUCTURE_CONFIDENCE_FAILED:
         return STRUCTURE_CONFIDENCE_FAILED
@@ -380,9 +378,7 @@ def _build_file_graph_diagnostics(
     File-level diagnostics для отладки и rollout.
     """
     tree_by_segment_id = {
-        str(getattr(t, "segment_id", "") or ""): t
-        for t in trees
-        if getattr(t, "segment_id", None)
+        str(getattr(t, "segment_id", "") or ""): t for t in trees if getattr(t, "segment_id", None)
     }
 
     degraded_segment_ids = [
@@ -443,11 +439,7 @@ def _extract_cross_links(
     if not segments or not trees:
         return []
 
-    seg_by_id = {
-        seg.segment_id: seg
-        for seg in segments
-        if seg.segment_id
-    }
+    seg_by_id = {seg.segment_id: seg for seg in segments if seg.segment_id}
 
     links: list[CrossDocumentLink] = []
     seen_keys: set[tuple[str, str, str]] = set()
@@ -470,11 +462,7 @@ def _extract_cross_links(
             continue
 
         for node in nodes_index.values():
-            node_text = (
-                getattr(node, "subtree_text", None)
-                or getattr(node, "own_text", None)
-                or ""
-            )
+            node_text = getattr(node, "subtree_text", None) or getattr(node, "own_text", None) or ""
             if not node_text:
                 continue
 
@@ -513,4 +501,3 @@ def _extract_cross_links(
                 seen_keys.add(dedup_key)
 
     return links
-

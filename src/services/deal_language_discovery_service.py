@@ -23,7 +23,8 @@ from __future__ import annotations
 
 import uuid
 from collections import Counter
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,9 +37,7 @@ logger = get_logger(__name__)
 
 # Множество всех валидных строковых значений статуса — для детекции unknown.
 # Строится из enum один раз при импорте модуля.
-_KNOWN_DISCOVERY_STATUS_VALUES: frozenset[str] = frozenset(
-    s.value for s in LanguageDiscoveryStatus
-)
+_KNOWN_DISCOVERY_STATUS_VALUES: frozenset[str] = frozenset(s.value for s in LanguageDiscoveryStatus)
 
 
 def _normalize_string(value: Any) -> str | None:
@@ -167,9 +166,7 @@ def _build_documents_debug_snapshot(docs: Sequence[Any]) -> list[dict[str, objec
         snapshot.append(
             {
                 "document_id": str(getattr(doc, "id", "")),
-                "language_discovery_status": getattr(
-                    doc, "language_discovery_status", None
-                ),
+                "language_discovery_status": getattr(doc, "language_discovery_status", None),
                 "detected_languages": getattr(doc, "detected_languages", None) or [],
             }
         )
@@ -229,5 +226,3 @@ async def recompute_deal_language_discovery_state(
         "language_discovery_status": discovery_status,
         "documents_total": len(docs),
     }
-
-

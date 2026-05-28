@@ -151,7 +151,10 @@ def _exact_match(entry: ParsedTOCEntry, headings: list[HeadingCandidate]) -> TOC
         uid = normalize_spaces(entry.uid)
         title = normalize_match_text(entry.normalized_title)
         for heading in headings:
-            if _heading_raw_uid(heading) == uid and normalize_match_text(_heading_title(heading)) == title:
+            if (
+                _heading_raw_uid(heading) == uid
+                and normalize_match_text(_heading_title(heading)) == title
+            ):
                 return TOCMatch(
                     match_type="exact",
                     matched_heading_uid=_heading_raw_uid(heading) or None,
@@ -333,5 +336,3 @@ def build_toc_match_index(parsed_toc: ParsedTOC) -> dict[tuple[str, str], dict[s
         }
 
     return index
-
-

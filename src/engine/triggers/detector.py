@@ -38,7 +38,8 @@ Trigger detector: использует relations/families и YAML trigger_defini
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Iterable, List, Set
+from collections.abc import Iterable
+from typing import Any
 
 from classifiers.yaml_registry import YAMLRegistry
 from core.logging import get_logger
@@ -91,7 +92,7 @@ class TriggerDetector:
             ClauseTreeStorageClient(),
         )
 
-    async def detect_triggers(self, doc) -> List[str]:
+    async def detect_triggers(self, doc) -> list[str]:
         """
         Определить список триггеров для документа.
 
@@ -103,7 +104,7 @@ class TriggerDetector:
         Returns:
             Отсортированный список уникальных строк-триггеров (их ID из YAML).
         """
-        triggers: List[str] = []
+        triggers: list[str] = []
 
         # 1. Определяем конфигурацию типа документа из YAMLRegistry.
         doc_type = getattr(doc, "doc_type", "") or ""
@@ -121,7 +122,7 @@ class TriggerDetector:
             logger.debug("Triggers detected", doc_id=str(doc.id), triggers=unique)
             return unique
 
-        trigger_defs: Dict[str, Any] = cfg.trigger_definitions or {}
+        trigger_defs: dict[str, Any] = cfg.trigger_definitions or {}
 
         # 2. Получаем семейный контекст документа (relations/families).
         #    Раньше здесь был хардкод для mortgage_related,
@@ -129,9 +130,7 @@ class TriggerDetector:
         family = await self.repo.get_document_family(doc.id) or []
 
         # Для удобства соберём множество doc_type членов семьи.
-        family_types: Set[str] = {
-            getattr(m, "doc_type", "") or "" for m in family
-        }
+        family_types: set[str] = {getattr(m, "doc_type", "") or "" for m in family}
 
         # 3. Получаем текст документа в виде чанков через DocumentContentService.
         #    Для непрофессионального программиста:
@@ -140,9 +139,7 @@ class TriggerDetector:
         #    - Здесь нам важно просто иметь список текстов, по которым можно
         #      искать ключевые слова/regex из trigger_definitions.
         try:
-            chunks: List[Dict[str, Any]] = await self.content_service.get_sized_chunks(
-                doc.id
-            )
+            chunks: list[dict[str, Any]] = await self.content_service.get_sized_chunks(doc.id)
         except Exception as e:
             logger.warning(
                 "TriggerDetector: failed to fetch chunks, falling back to empty text",
@@ -154,9 +151,7 @@ class TriggerDetector:
         # Важно: не переводим текст в lower здесь, потому что regex из YAML
         # уже могут содержать (?i) и другие флаги, которые сами управляют
         # чувствительностью к регистру.
-        chunk_texts: List[str] = [
-            ch.get("text") or "" for ch in (chunks or []) if ch.get("text")
-        ]
+        chunk_texts: list[str] = [ch.get("text") or "" for ch in (chunks or []) if ch.get("text")]
 
         # 4. Применяем правила trigger_definitions к семье и чанкам.
         triggers.extend(
@@ -173,10 +168,10 @@ class TriggerDetector:
 
     def _detect_triggers_from_yaml(
         self,
-        trigger_defs: Dict[str, Any],
-        family_types: Set[str],
-        chunk_texts: List[str],
-    ) -> List[str]:
+        trigger_defs: dict[str, Any],
+        family_types: set[str],
+        chunk_texts: list[str],
+    ) -> list[str]:
         """
         Пробегает по trigger_definitions и проверяет, какие триггеры сработали.
 
@@ -215,7 +210,7 @@ class TriggerDetector:
         - Если условия выполняются, триггер считается «сработавшим» и
           добавляется в список.
         """
-        matched: List[str] = []
+        matched: list[str] = []
 
         for trig_id, spec in (trigger_defs or {}).items():
             spec = spec or {}
@@ -236,9 +231,7 @@ class TriggerDetector:
             # Поддерживаем оба ключа:
             # - any_keywords  — фактический формат, который у тебя уже есть;
             # - text_any      — алиас на будущее, если захочешь переименовать.
-            text_patterns: Iterable[str] = (
-                spec.get("text_any") or spec.get("any_keywords") or []
-            )
+            text_patterns: Iterable[str] = spec.get("text_any") or spec.get("any_keywords") or []
 
             if text_patterns:
                 if self._matches_any_pattern_in_chunks(text_patterns, chunk_texts, trig_id):
@@ -255,7 +248,7 @@ class TriggerDetector:
     @staticmethod
     def _matches_any_pattern_in_chunks(
         patterns: Iterable[str],
-        chunk_texts: List[str],
+        chunk_texts: list[str],
         trig_id: str,
     ) -> bool:
         """
@@ -273,7 +266,7 @@ class TriggerDetector:
         - Если regex некорректный (ошибка компиляции) — логируем предупреждение,
           но не падаем, чтобы один кривой паттерн не ломал весь сервис.
         """
-        compiled_patterns: List[re.Pattern] = []
+        compiled_patterns: list[re.Pattern] = []
 
         for raw in patterns or []:
             s = str(raw or "").strip()

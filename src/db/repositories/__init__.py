@@ -14,6 +14,7 @@ Public repository classes for the persistence layer.
 from .audit_repo import AuditRepository
 from .bundle_repo import BundleRepository
 from .calibration_repo import CalibrationRepository
+from .check_result_persist_error_repo import CheckResultPersistErrorRepository
 from .check_result_repo import CheckResultRepository
 from .dd_request_repo import DDRequestRepository
 from .deal_repo import DealRepository
@@ -31,8 +32,6 @@ from .relation_repo import RelationRepository
 from .result_repo import ResultRepository
 from .run_repo import JobRepository, RunRepository
 from .runner_repo import RunnerRepository
-from .check_result_persist_error_repo import CheckResultPersistErrorRepository
-
 
 __all__ = [
     "AuditRepository",
@@ -58,5 +57,3 @@ __all__ = [
     "RunnerRepository",
     "CheckResultPersistErrorRepository",
 ]
-
-

@@ -28,7 +28,6 @@ from __future__ import annotations
 import re
 from typing import NamedTuple
 
-
 # ---------------------------------------------------------------------------
 # Юридические аббревиатуры — точка после них НЕ конец предложения
 # ---------------------------------------------------------------------------
@@ -36,21 +35,93 @@ from typing import NamedTuple
 # Полный список юридических и общеупотребительных аббревиатур
 # которые встречаются в договорах на русском и английском.
 # После них точка НЕ является концом предложения.
-_LEGAL_ABBREVIATIONS: frozenset[str] = frozenset({
-    # Английские юридические
-    "Ltd", "Inc", "Corp", "Co", "LLC", "LLP", "PLC", "GmbH", "S.A", "B.V",
-    "No", "Art", "Sec", "para", "cl", "sub", "approx", "dept", "div",
-    "est", "etc", "fig", "govt", "max", "min", "misc", "natl", "org",
-    "pp", "ref", "reg", "rev", "spec", "std", "temp", "vol",
-    "vs", "i.e", "e.g", "cf", "ibid", "op", "cit",
-    # Русские юридические
-    "п", "пп", "ст", "гл", "разд", "подп", "прим", "абз", "ч",
-    "руб", "коп", "млн", "млрд", "тыс", "кг", "км", "га", "кв",
-    "г", "обл", "р-н", "пр", "ул", "д", "оф", "тел", "факс",
-    "др", "пр-т", "б-р", "наб", "пл",
-    # Единицы измерения
-    "кв.м", "куб.м", "л.с", "кВт", "МВт",
-})
+_LEGAL_ABBREVIATIONS: frozenset[str] = frozenset(
+    {
+        # Английские юридические
+        "Ltd",
+        "Inc",
+        "Corp",
+        "Co",
+        "LLC",
+        "LLP",
+        "PLC",
+        "GmbH",
+        "S.A",
+        "B.V",
+        "No",
+        "Art",
+        "Sec",
+        "para",
+        "cl",
+        "sub",
+        "approx",
+        "dept",
+        "div",
+        "est",
+        "etc",
+        "fig",
+        "govt",
+        "max",
+        "min",
+        "misc",
+        "natl",
+        "org",
+        "pp",
+        "ref",
+        "reg",
+        "rev",
+        "spec",
+        "std",
+        "temp",
+        "vol",
+        "vs",
+        "i.e",
+        "e.g",
+        "cf",
+        "ibid",
+        "op",
+        "cit",
+        # Русские юридические
+        "п",
+        "пп",
+        "ст",
+        "гл",
+        "разд",
+        "подп",
+        "прим",
+        "абз",
+        "ч",
+        "руб",
+        "коп",
+        "млн",
+        "млрд",
+        "тыс",
+        "кг",
+        "км",
+        "га",
+        "кв",
+        "г",
+        "обл",
+        "р-н",
+        "пр",
+        "ул",
+        "д",
+        "оф",
+        "тел",
+        "факс",
+        "др",
+        "пр-т",
+        "б-р",
+        "наб",
+        "пл",
+        # Единицы измерения
+        "кв.м",
+        "куб.м",
+        "л.с",
+        "кВт",
+        "МВт",
+    }
+)
 
 # Строим regex pattern для аббревиатур
 # Паттерн: слово из списка + точка + пробел + следующее слово с большой буквы
@@ -106,6 +177,7 @@ _HEADING_LINE_PATTERN = re.compile(
 # Типы boundary
 # ---------------------------------------------------------------------------
 
+
 class BoundaryType:
     """
     Типы границ между частями текста.
@@ -114,11 +186,12 @@ class BoundaryType:
     Это "метки" которые мы ставим между предложениями/абзацами,
     чтобы потом решить — можно ли здесь делать разрез чанка.
     """
-    PARAGRAPH = "paragraph"     # двойной перенос строки — сильная граница
-    LIST_ITEM = "list_item"     # начало нового пункта списка — граница
-    SENTENCE = "sentence"       # конец предложения — слабая граница
-    ABBREVIATION = "abbrev"     # точка после аббревиатуры — НЕ граница
-    NONE = "none"               # граница отсутствует
+
+    PARAGRAPH = "paragraph"  # двойной перенос строки — сильная граница
+    LIST_ITEM = "list_item"  # начало нового пункта списка — граница
+    SENTENCE = "sentence"  # конец предложения — слабая граница
+    ABBREVIATION = "abbrev"  # точка после аббревиатуры — НЕ граница
+    NONE = "none"  # граница отсутствует
 
 
 class TextSegment(NamedTuple):
@@ -130,6 +203,7 @@ class TextSegment(NamedTuple):
     is_heading:    True если сегмент похож на заголовок
     is_list_item:  True если сегмент — пункт нумерованного списка
     """
+
     text: str
     boundary_after: str
     is_heading: bool
@@ -139,6 +213,7 @@ class TextSegment(NamedTuple):
 # ---------------------------------------------------------------------------
 # Основные функции
 # ---------------------------------------------------------------------------
+
 
 def is_legal_sentence_boundary(text: str, position: int) -> bool:
     """
@@ -165,7 +240,7 @@ def is_legal_sentence_boundary(text: str, position: int) -> bool:
         return False
 
     # Проверяем что после точки (с пробелами) идёт большая буква или цифра
-    rest = text[position + 1:position + 20].lstrip()
+    rest = text[position + 1 : position + 20].lstrip()
     if not rest:
         return True  # конец текста — граница
     if not (rest[0].isupper() or rest[0].isdigit()):
@@ -175,7 +250,7 @@ def is_legal_sentence_boundary(text: str, position: int) -> bool:
     word_start = position - 1
     while word_start >= 0 and (text[word_start].isalpha() or text[word_start] in ".-"):
         word_start -= 1
-    word_before = text[word_start + 1:position]
+    word_before = text[word_start + 1 : position]
 
     # Проверяем аббревиатуры
     if word_before in _LEGAL_ABBREVIATIONS:
@@ -190,7 +265,7 @@ def is_legal_sentence_boundary(text: str, position: int) -> bool:
 
 
 def split_into_legal_sentences(text: str) -> list[str]:
-    """
+    r"""
     Разбить текст на предложения с учётом юридических аббревиатур.
 
     Для непрофессионального программиста:
@@ -224,7 +299,7 @@ def split_into_legal_sentences(text: str) -> list[str]:
                     end_of_punct += 1
 
                 # Добавляем предложение если оно непустое
-                sentence = text[current_start:i + 1].strip()
+                sentence = text[current_start : i + 1].strip()
                 if sentence:
                     sentences.append(sentence)
                 current_start = end_of_punct
@@ -327,15 +402,17 @@ def segment_legal_text(text: str) -> list[TextSegment]:
             # Абзац содержит список — разбиваем по list items
             # Текст до первого list item — отдельный сегмент
             if list_item_starts[0] > 0:
-                pre_text = "\n".join(lines[:list_item_starts[0]])
+                pre_text = "\n".join(lines[: list_item_starts[0]])
                 if pre_text.strip():
                     is_h = is_heading_line(pre_text)
-                    segments.append(TextSegment(
-                        text=pre_text,
-                        boundary_after=BoundaryType.LIST_ITEM,
-                        is_heading=is_h,
-                        is_list_item=False,
-                    ))
+                    segments.append(
+                        TextSegment(
+                            text=pre_text,
+                            boundary_after=BoundaryType.LIST_ITEM,
+                            is_heading=is_h,
+                            is_list_item=False,
+                        )
+                    )
 
             # Каждый list item — отдельный сегмент
             for item_idx, item_start in enumerate(list_item_starts):
@@ -346,16 +423,16 @@ def segment_legal_text(text: str) -> list[TextSegment]:
                 )
                 item_text = "\n".join(lines[item_start:item_end]).strip()
                 is_last_item = item_idx == len(list_item_starts) - 1
-                boundary = (
-                    boundary_after_para if is_last_item else BoundaryType.LIST_ITEM
-                )
+                boundary = boundary_after_para if is_last_item else BoundaryType.LIST_ITEM
                 if item_text:
-                    segments.append(TextSegment(
-                        text=item_text,
-                        boundary_after=boundary,
-                        is_heading=False,
-                        is_list_item=True,
-                    ))
+                    segments.append(
+                        TextSegment(
+                            text=item_text,
+                            boundary_after=boundary,
+                            is_heading=False,
+                            is_list_item=True,
+                        )
+                    )
         else:
             # Абзац без списка — разбиваем на предложения
             full_para = "\n".join(lines)
@@ -365,16 +442,16 @@ def segment_legal_text(text: str) -> list[TextSegment]:
                 if not sentence.strip():
                     continue
                 is_last_sent = sent_idx == len(sentences) - 1
-                boundary = (
-                    boundary_after_para if is_last_sent else BoundaryType.SENTENCE
-                )
+                boundary = boundary_after_para if is_last_sent else BoundaryType.SENTENCE
                 is_h = is_heading_line(sentence) if sent_idx == 0 else False
-                segments.append(TextSegment(
-                    text=sentence,
-                    boundary_after=boundary,
-                    is_heading=is_h,
-                    is_list_item=False,
-                ))
+                segments.append(
+                    TextSegment(
+                        text=sentence,
+                        boundary_after=boundary,
+                        is_heading=is_h,
+                        is_list_item=False,
+                    )
+                )
 
     return segments
 
@@ -552,5 +629,3 @@ def split_legal_text_to_segments(
 
     # Если ничего не получилось — возвращаем исходный текст
     return chunks if chunks else [text]
-
-

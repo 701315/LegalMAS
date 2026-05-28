@@ -183,8 +183,7 @@ def _call_local_llm(prompt: str) -> str:
     """
 
     provider = (
-        str(getattr(settings, "STRUCTURE_LLM_PROVIDER", "") or "").strip()
-        or "local_endpoint"
+        str(getattr(settings, "STRUCTURE_LLM_PROVIDER", "") or "").strip() or "local_endpoint"
     )
     if provider != "local_endpoint":
         raise RuntimeError(f"Unsupported STRUCTURE_LLM_PROVIDER: {provider}")
@@ -422,5 +421,3 @@ def refine_ambiguous_candidates(
             llm_processed += 1
 
     return refined
-
-

@@ -31,22 +31,21 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops.metrics import get_metrics
-
 from classifiers.yaml_registry import YAMLRegistry
 from core.config import settings
 from core.constants import DocumentStatus
 from core.logging import get_logger
 from db.repositories import (
-    DocumentRepository,
-    RelationRepository,
-    DocumentVersionRepository,
     AuditRepository,
+    DocumentRepository,
+    DocumentVersionRepository,
+    RelationRepository,
 )
 from db.uow import db_uow
+from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
-from mas_queue.async_helpers import run_async
+from ops.metrics import get_metrics
 from services.relations.dedup import ExactDedupService
 from services.relations.detector import RelationDetector
 from services.relations.family_builder import FamilyBuilder
@@ -187,9 +186,7 @@ async def _build_relations_async(
     if families:
         masters_with_yaml = sum(1 for f in families if f.master_yaml_available)
         master_levels = [
-            f.master_classification_level
-            for f in families
-            if f.master_classification_level
+            f.master_classification_level for f in families if f.master_classification_level
         ]
         logger.info(
             "Family masters classification summary",
@@ -285,9 +282,8 @@ async def _load_text_snippets(
                 continue
 
             # новый unified‑контракт
-            layout_ref = (
-                getattr(version, "layout_primary_sanitized_ref", None)
-                or getattr(version, "layout_primary_ref", None)
+            layout_ref = getattr(version, "layout_primary_sanitized_ref", None) or getattr(
+                version, "layout_primary_ref", None
             )
             if not layout_ref:
                 doc["text_first_2000"] = ""
@@ -383,5 +379,3 @@ async def _write_audit_log(
             tenant_id=tenant_id,
             error=str(e),
         )
-
-        

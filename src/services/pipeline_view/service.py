@@ -157,7 +157,9 @@ class DocumentPipelineViewService:
             view_mode=view_mode,
             friendly_supported=False,
         )
-    
+
+
 class PipelineViewNotFoundError(Exception):
     """Pipeline view cannot be built because the document or its version does not exist."""
+
     pass

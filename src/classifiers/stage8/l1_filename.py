@@ -39,11 +39,12 @@ L1: Filename classifier с YAMLRegistry (Stage 8).
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List
+from typing import Any
 
-from ..yaml_registry import YAMLRegistry
 from core.config import settings
 from core.logging import get_logger
+
+from ..yaml_registry import YAMLRegistry
 
 logger = get_logger(__name__)
 
@@ -68,17 +69,11 @@ class L1FilenameClassifier:
             settings.CLASSIFICATION_L1_FOLDER_RULE_WEIGHT_FACTOR
         )
 
-        self._specific_conf_boost: float = (
-            settings.CLASSIFICATION_L1_SPECIFIC_CONF_BOOST
-        )
-        self._specific_weight_factor: float = (
-            settings.CLASSIFICATION_L1_SPECIFIC_WEIGHT_FACTOR
-        )
+        self._specific_conf_boost: float = settings.CLASSIFICATION_L1_SPECIFIC_CONF_BOOST
+        self._specific_weight_factor: float = settings.CLASSIFICATION_L1_SPECIFIC_WEIGHT_FACTOR
 
         self._generic_weight_cap: float = settings.CLASSIFICATION_L1_GENERIC_WEIGHT_CAP
-        self._generic_weight_factor: float = (
-            settings.CLASSIFICATION_L1_GENERIC_WEIGHT_FACTOR
-        )
+        self._generic_weight_factor: float = settings.CLASSIFICATION_L1_GENERIC_WEIGHT_FACTOR
 
         self._context_weight_cap: float = settings.CLASSIFICATION_L1_CONTEXT_WEIGHT_CAP
         self._context_weight_factor_specific: float = (
@@ -92,14 +87,10 @@ class L1FilenameClassifier:
         )
 
         self._generic_min_conf: float = settings.CLASSIFICATION_L1_GENERIC_MIN_CONF
-        self._generic_min_extra_factor: float = (
-            settings.CLASSIFICATION_L1_GENERIC_MIN_EXTRA_FACTOR
-        )
+        self._generic_min_extra_factor: float = settings.CLASSIFICATION_L1_GENERIC_MIN_EXTRA_FACTOR
         self._generic_max_conf: float = settings.CLASSIFICATION_L1_GENERIC_MAX_CONF
 
-        self._context_only_max_conf: float = (
-            settings.CLASSIFICATION_L1_CONTEXT_ONLY_MAX_CONF
-        )
+        self._context_only_max_conf: float = settings.CLASSIFICATION_L1_CONTEXT_ONLY_MAX_CONF
 
         self._generic_under_specific_margin: float = (
             settings.CLASSIFICATION_L1_GENERIC_UNDER_SPECIFIC_MARGIN
@@ -136,7 +127,7 @@ class L1FilenameClassifier:
     def _clamp(value: float, low: float, high: float) -> float:
         return max(low, min(high, value))
 
-    def classify(self, filename: str | None, folder: str | None) -> List[Dict[str, Any]]:
+    def classify(self, filename: str | None, folder: str | None) -> list[dict[str, Any]]:
         """
         Вернуть список кандидатов {type_code, confidence, level, method, details}.
 
@@ -153,7 +144,7 @@ class L1FilenameClassifier:
         filename = (filename or "").strip()
         folder = (folder or "").strip()
 
-        candidates: List[Dict[str, Any]] = []
+        candidates: list[dict[str, Any]] = []
 
         if not filename and not folder:
             return candidates
@@ -244,8 +235,7 @@ class L1FilenameClassifier:
 
                 if generic_hits > 0:
                     confidence += (
-                        min(generic_weight, self._generic_weight_cap)
-                        * self._generic_weight_factor
+                        min(generic_weight, self._generic_weight_cap) * self._generic_weight_factor
                     )
 
                 if context_hits > 0:
@@ -332,5 +322,3 @@ class L1FilenameClassifier:
                     c["confidence"] = max(0.0, c["confidence"])
 
         return sorted(candidates, key=lambda x: x["confidence"], reverse=True)
-
-    

@@ -27,12 +27,13 @@
 """
 
 import uuid
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import RunStatus
+
 from ..models.document import Document
 from ..models.result import CheckResult
 from ..models.run import Job, Run
@@ -116,7 +117,7 @@ class RunRepository:
                 return None
             if dt.tzinfo is None:
                 return dt
-            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+            return dt.astimezone(UTC).replace(tzinfo=None)
 
         values: dict = {"status": status}
 
@@ -128,11 +129,15 @@ class RunRepository:
         if status == RunStatus.RUNNING.value and "started_at" not in values:
             values["started_at"] = datetime.now(UTC).replace(tzinfo=None)
 
-        if status in (
-            RunStatus.COMPLETED.value,
-            RunStatus.COMPLETED_WITH_ERRORS.value,
-            RunStatus.FAILED.value,
-        ) and "completed_at" not in values:
+        if (
+            status
+            in (
+                RunStatus.COMPLETED.value,
+                RunStatus.COMPLETED_WITH_ERRORS.value,
+                RunStatus.FAILED.value,
+            )
+            and "completed_at" not in values
+        ):
             values["completed_at"] = datetime.now(UTC).replace(tzinfo=None)
 
         for k, v in kwargs.items():
@@ -140,12 +145,7 @@ class RunRepository:
                 continue
             values[k] = v
 
-        stmt = (
-            update(Run)
-            .where(Run.id == run_id)
-            .values(**values)
-            .returning(Run)
-        )
+        stmt = update(Run).where(Run.id == run_id).values(**values).returning(Run)
         result = await self.session.execute(stmt)
         run = result.scalar_one_or_none()
         if run:
@@ -185,11 +185,7 @@ class RunRepository:
         """
         Вернуть уникальные document_id, для которых есть CheckResult с данным run_id.
         """
-        subq = (
-            select(CheckResult.document_id)
-            .where(CheckResult.run_id == run_id)
-            .distinct()
-        )
+        subq = select(CheckResult.document_id).where(CheckResult.run_id == run_id).distinct()
         result = await self.session.execute(subq)
         return [row[0] for row in result.all()]
 
@@ -197,12 +193,7 @@ class RunRepository:
         """
         Вернуть последний Run для сделки по дате создания.
         """
-        stmt = (
-            select(Run)
-            .where(Run.deal_id == deal_id)
-            .order_by(desc(Run.created_at))
-            .limit(1)
-        )
+        stmt = select(Run).where(Run.deal_id == deal_id).order_by(desc(Run.created_at)).limit(1)
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
@@ -210,11 +201,7 @@ class RunRepository:
         """
         Вернуть все Run'ы для сделки, новые сначала.
         """
-        stmt = (
-            select(Run)
-            .where(Run.deal_id == deal_id)
-            .order_by(desc(Run.created_at))
-        )
+        stmt = select(Run).where(Run.deal_id == deal_id).order_by(desc(Run.created_at))
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -229,14 +216,11 @@ class RunRepository:
             .subquery()
         )
 
-        stmt = (
-            select(
-                Document.classification_level,
-                Document.classification_confidence,
-                Document.doc_type,
-            )
-            .where(Document.id.in_(select(subq)))
-        )
+        stmt = select(
+            Document.classification_level,
+            Document.classification_confidence,
+            Document.doc_type,
+        ).where(Document.id.in_(select(subq)))
         result = await self.session.execute(stmt)
         rows = result.all()
 
@@ -444,5 +428,3 @@ class JobRepository:
         if job:
             await self.session.flush()
         return job
-    
-    

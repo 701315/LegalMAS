@@ -45,8 +45,7 @@ def build_stage_representation(
             view_mode=view_mode,
             is_canonical=True,
             label="Результат этапа",
-            description=canonical_description
-            or "Показывается точный результат этого этапа.",
+            description=canonical_description or "Показывается точный результат этого этапа.",
             provenance=StageProvenanceDTO(
                 primary_source_stage=stage_code,
                 derived_from_stages=[],
@@ -75,7 +74,7 @@ def build_stage_representation(
         description=(
             friendly_description
             or "Для этого этапа отдельный friendly-режим не поддержан; "
-               "показывается тот же результат этапа в режиме удобного просмотра."
+            "показывается тот же результат этапа в режиме удобного просмотра."
         ),
         provenance=StageProvenanceDTO(
             primary_source_stage=stage_code,
@@ -113,4 +112,3 @@ def with_representation(
             )
         }
     )
-

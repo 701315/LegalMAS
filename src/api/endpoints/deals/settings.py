@@ -32,6 +32,7 @@ class DealPlaybookUpdate(BaseModel):
     Передаём ID версии плейбука, которая должна использоваться
     по умолчанию при запуске анализа для этой сделки.
     """
+
     playbook_version_id: UUID
 
 
@@ -44,6 +45,7 @@ class DealModelConfigUpdate(BaseModel):
     для сделки сбрасывается, и при запуске анализа будет
     использован профиль, привязанный к PlaybookVersion.
     """
+
     model_config_id: UUID | None
 
 
@@ -55,6 +57,7 @@ class DealPrimaryLanguageUpdate(BaseModel):
     - primary_language должен входить в список languages сделки;
     - если передан null, основной язык сбрасывается.
     """
+
     primary_language: str | None
 
 
@@ -94,9 +97,7 @@ async def set_deal_playbook(
         return DealResponse.model_validate(deal)
 
     result = await db.execute(
-        sa.select(PlaybookVersion).where(
-            PlaybookVersion.id == new_playbook_version_id
-        )
+        sa.select(PlaybookVersion).where(PlaybookVersion.id == new_playbook_version_id)
     )
     pv = result.scalar_one_or_none()
     if pv is None:
@@ -118,9 +119,7 @@ async def set_deal_playbook(
             if old_playbook_version_id
             else None,
             "new_playbook_version_id": str(new_playbook_version_id),
-            "playbook_id": str(pv.playbook_id)
-            if getattr(pv, "playbook_id", None)
-            else None,
+            "playbook_id": str(pv.playbook_id) if getattr(pv, "playbook_id", None) else None,
             "playbook_name": getattr(pv, "name", None),
             "semver": getattr(pv, "semver", None),
         },
@@ -192,12 +191,8 @@ async def set_deal_model_config(
         actor=user.id,
         actor_role=getattr(user, "role", None),
         details={
-            "old_model_config_id": str(old_model_config_id)
-            if old_model_config_id
-            else None,
-            "new_model_config_id": str(new_model_config_id)
-            if new_model_config_id
-            else None,
+            "old_model_config_id": str(old_model_config_id) if old_model_config_id else None,
+            "new_model_config_id": str(new_model_config_id) if new_model_config_id else None,
             "new_model_config_name": new_model_config_name,
         },
     )
@@ -242,8 +237,8 @@ async def set_deal_primary_language(
     deal_repo = DealRepository(db)
     doc_repo = DocumentRepository(db)
     dv_repo = DocumentVersionRepository(db)
-    audit_repo = AuditRepository(db)   # [+] инстанцируем audit_repo
-    outbox = OutboxService(db)         # [+] инстанцируем outbox
+    audit_repo = AuditRepository(db)  # [+] инстанцируем audit_repo
+    outbox = OutboxService(db)  # [+] инстанцируем outbox
 
     deal = await deal_repo.get_by_id(deal_id)
     if deal is None:
@@ -256,9 +251,9 @@ async def set_deal_primary_language(
 
     deal_languages = list(deal.languages or [])
     normalized_deal_languages = [
-        _normalize_language_code(l)
-        for l in deal_languages
-        if l is not None and str(l).strip()
+        _normalize_language_code(lang)
+        for lang in deal_languages
+        if lang is not None and str(lang).strip()
     ]
 
     if new_lang is not None:

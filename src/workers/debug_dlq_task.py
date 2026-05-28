@@ -54,7 +54,3 @@ def always_fail_permanent(self, *, job_id: str | None = None) -> dict:
         f"Debug permanent failure for DLQ test, job_id={job_id}",
         details={"job_id": job_id},
     )
-
-
-
-

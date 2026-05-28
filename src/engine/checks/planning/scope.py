@@ -24,14 +24,10 @@ def _normalize_segment_types(raw: Any) -> set[str]:
     - Если raw — строка или неитерируемый объект, считаем конфигурацию некорректной
       и возвращаем пустое множество.
     """
-    if not isinstance(raw, Iterable) or isinstance(raw, (str, bytes)):
+    if not isinstance(raw, Iterable) or isinstance(raw, str | bytes):
         return set()
 
-    return {
-        str(t).strip().lower()
-        for t in raw
-        if str(t).strip()
-    }
+    return {str(t).strip().lower() for t in raw if str(t).strip()}
 
 
 class ScopeResolver:
@@ -74,9 +70,7 @@ class ScopeResolver:
             return True, {"appendix"}
 
         include_primary = bool(scope.get("include_primary", True))
-        include_types = _normalize_segment_types(
-            scope.get("include_segment_types") or []
-        )
+        include_types = _normalize_segment_types(scope.get("include_segment_types") or [])
 
         return include_primary, include_types
 
@@ -126,9 +120,7 @@ class ScopeResolver:
 
                 seg_type = str(meta.get("segment_type") or "").strip().lower()
 
-                has_primary_flag = (
-                    "is_primary_segment" in meta or "is_primary" in meta
-                )
+                has_primary_flag = "is_primary_segment" in meta or "is_primary" in meta
                 has_segment_type = bool(seg_type)
 
                 if "is_primary_segment" in meta:
@@ -181,7 +173,3 @@ class ScopeResolver:
                 },
             )
             return chunks
-        
-
-    
-    

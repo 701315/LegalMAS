@@ -28,11 +28,11 @@ import re
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
-from PIL import Image, ImageOps, ImageSequence
 from pdf2image import convert_from_bytes
+from PIL import Image, ImageOps, ImageSequence
 
 from core.exceptions import PermanentError, TransientError
 
@@ -380,9 +380,7 @@ def _ocr_image_bytes(
     merged = _normalize_ocr_text("\n".join(texts), max_chars=max_text_chars)
 
     if not merged.strip():
-        raise PermanentError(
-            f"Quick OCR for image type '{image_format}' produced empty text"
-        )
+        raise PermanentError(f"Quick OCR for image type '{image_format}' produced empty text")
 
     return QuickOCRResult(
         text=merged,
@@ -464,16 +462,18 @@ def _run_tesseract_on_image(
             "tesseract",
             input_path,
             output_base,
-            "--oem", DEFAULT_TESSERACT_OEM,
-            "--psm", DEFAULT_TESSERACT_PSM,
-            "-l", "+".join(tesseract_languages),
+            "--oem",
+            DEFAULT_TESSERACT_OEM,
+            "--psm",
+            DEFAULT_TESSERACT_PSM,
+            "-l",
+            "+".join(tesseract_languages),
         ]
 
         try:
             completed = subprocess.run(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
                 timeout=DEFAULT_TESSERACT_TIMEOUT_SECONDS,
                 check=False,
                 text=True,
@@ -503,7 +503,7 @@ def _run_tesseract_on_image(
             raise PermanentError("Tesseract OCR did not produce output text file")
 
         try:
-            with open(output_txt, "r", encoding="utf-8", errors="ignore") as f:
+            with open(output_txt, encoding="utf-8", errors="ignore") as f:
                 return f.read()
         except Exception as e:
             raise TransientError(f"Failed to read OCR output text: {e}") from e
@@ -666,8 +666,7 @@ def _get_installed_tesseract_languages() -> set[str]:
         try:
             completed = subprocess.run(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
                 timeout=DEFAULT_TESSERACT_LIST_LANGS_TIMEOUT_SECONDS,
                 check=False,
                 text=True,
@@ -678,9 +677,7 @@ def _get_installed_tesseract_languages() -> set[str]:
         if completed.returncode != 0:
             continue
 
-        combined = "\n".join(
-            part for part in (completed.stdout, completed.stderr) if part
-        )
+        combined = "\n".join(part for part in (completed.stdout, completed.stderr) if part)
 
         languages = {
             line.strip().lower()
@@ -705,4 +702,3 @@ def _ensure_tesseract_available() -> None:
     """
     if shutil.which("tesseract") is None:
         raise PermanentError("Tesseract executable is not available in PATH")
-        

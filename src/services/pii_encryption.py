@@ -39,17 +39,17 @@
 
 import base64
 import json
-from typing import Any, Dict, Optional
+from typing import Any
 
 from core.config import settings
 from core.logging import get_logger
-
 
 logger = get_logger(__name__)
 
 
 class PIIEncryptionError(Exception):
     """Ошибка инициализации, шифрования или дешифрования PII‑данных."""
+
     pass
 
 
@@ -94,9 +94,7 @@ class PIIEncryptor:
             decoded = base64.urlsafe_b64decode(key_bytes)
         except Exception as e:
             # Здесь как раз ловим ошибки вида "Incorrect padding"
-            raise PIIEncryptionError(
-                f"PII_ENCRYPTION_KEY имеет неверный формат base64: {e}"
-            ) from e
+            raise PIIEncryptionError(f"PII_ENCRYPTION_KEY имеет неверный формат base64: {e}") from e
 
         if len(decoded) != 32:
             raise PIIEncryptionError(
@@ -116,9 +114,7 @@ class PIIEncryptor:
         try:
             from cryptography.fernet import Fernet
         except Exception as e:
-            raise PIIEncryptionError(
-                f"Не удалось импортировать cryptography.fernet: {e}"
-            ) from e
+            raise PIIEncryptionError(f"Не удалось импортировать cryptography.fernet: {e}") from e
 
         # Дополнительная проверка формата ключа перед созданием Fernet
         key_bytes = self._validate_key_format()
@@ -134,7 +130,7 @@ class PIIEncryptor:
         """Возвращает True, если шифрование включено (production‑режим)."""
         return self._fernet is not None
 
-    def encrypt_mapping(self, mapping: Dict[str, Any]) -> bytes:
+    def encrypt_mapping(self, mapping: dict[str, Any]) -> bytes:
         """
         Зашифровать маппинг {TOKEN: original_text}.
 
@@ -162,7 +158,7 @@ class PIIEncryptor:
             )
             return raw
 
-    def decrypt_mapping(self, encrypted: bytes) -> Dict[str, Any]:
+    def decrypt_mapping(self, encrypted: bytes) -> dict[str, Any]:
         """
         Расшифровать маппинг.
 
@@ -186,9 +182,7 @@ class PIIEncryptor:
         try:
             return json.loads(raw.decode("utf-8"))
         except Exception as e:
-            raise PIIEncryptionError(
-                f"Не удалось декодировать/распарсить PII‑маппинг: {e}"
-            ) from e
+            raise PIIEncryptionError(f"Не удалось декодировать/распарсить PII‑маппинг: {e}") from e
 
     @staticmethod
     def generate_key() -> str:
@@ -208,10 +202,10 @@ class PIIEncryptor:
 # Singleton и функции‑обёртки
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_encryptor_instance: Optional[PIIEncryptor] = None
+_encryptor_instance: PIIEncryptor | None = None
 
 
-def get_pii_encryptor(encryption_key: Optional[str] = None) -> PIIEncryptor:
+def get_pii_encryptor(encryption_key: str | None = None) -> PIIEncryptor:
     """
     Получить singleton‑экземпляр энкриптора.
 
@@ -240,12 +234,12 @@ def get_pii_encryptor(encryption_key: Optional[str] = None) -> PIIEncryptor:
     return _encryptor_instance
 
 
-def encrypt_mapping(mapping: Dict[str, Any]) -> bytes:
+def encrypt_mapping(mapping: dict[str, Any]) -> bytes:
     """Функция‑обёртка для шифрования PII‑маппинга через singleton."""
     return get_pii_encryptor().encrypt_mapping(mapping)
 
 
-def decrypt_mapping(encrypted: bytes) -> Dict[str, Any]:
+def decrypt_mapping(encrypted: bytes) -> dict[str, Any]:
     """Функция‑обёртка для дешифрования PII‑маппинга через singleton."""
     return get_pii_encryptor().decrypt_mapping(encrypted)
 

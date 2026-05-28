@@ -6,9 +6,8 @@ Thin wrapper over SQLAlchemy ORM — no business logic here.
 """
 
 import uuid
-from typing import Sequence
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.dd_request import DDRequest
@@ -94,12 +93,7 @@ class DDRequestRepository:
         if not data:
             return await self.get_by_id(req_id)
 
-        stmt = (
-            update(DDRequest)
-            .where(DDRequest.id == req_id)
-            .values(**data)
-            .returning(DDRequest)
-        )
+        stmt = update(DDRequest).where(DDRequest.id == req_id).values(**data).returning(DDRequest)
         result = await self.session.execute(stmt)
         req = result.scalar_one_or_none()
         if req:

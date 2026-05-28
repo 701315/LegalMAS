@@ -85,10 +85,7 @@ def start_pipeline(deal_id: str, tenant_id: str, source_path: str) -> dict[str, 
             run_async(
                 mark_run_enqueue_failed_async(
                     run_id=run_id,
-                    message=(
-                        "Run was created, but failed to enqueue "
-                        "workers.import_bundle"
-                    ),
+                    message=("Run was created, but failed to enqueue " "workers.import_bundle"),
                     enqueue_error=str(e),
                 )
             )
@@ -179,9 +176,7 @@ async def _create_run(*, deal_id: str, tenant_id: str) -> str:
             deal_id=deal_id,
             tenant_id=tenant_id,
             playbook_id=str(playbook.id),
-            model_config_id=str(playbook.model_config_id)
-            if playbook.model_config_id
-            else None,
+            model_config_id=str(playbook.model_config_id) if playbook.model_config_id else None,
             profile="full",
             checks_mode="global_and_doc_type",
         )
@@ -229,6 +224,3 @@ async def mark_run_enqueue_failed_async(
             failed_reason="enqueue_failed",
             task_name="workers.import_bundle",
         )
-
-
-        

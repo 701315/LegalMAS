@@ -7,22 +7,22 @@ Shared helpers for documents endpoints.
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.mappers.documents import map_document_to_response
 from api.mappers.document_versions import map_document_version_to_response
+from api.mappers.documents import map_document_to_response
 from api.schemas.documents import (
     ClassificationMetadata,
     DocumentDetailResponse,
     DocumentVersionResponse,
 )
+from classifiers.yaml_registry import YAMLRegistry
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.relation_repo import RelationRepository
-from classifiers.yaml_registry import YAMLRegistry
+
 
 async def load_document_detail(
     db: AsyncSession,
@@ -89,6 +89,3 @@ async def load_document_detail(
         family_id=family_id,
         classification=classification_block,
     )
-
-
-

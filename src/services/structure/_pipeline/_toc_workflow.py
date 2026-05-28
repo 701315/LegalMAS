@@ -10,9 +10,9 @@ TOC workflow:
 from __future__ import annotations
 
 from services.structure.models import (
-    TOCDiagnostics,
     PARSE_QUALITY_OK,
     PARSE_QUALITY_WEAK,
+    TOCDiagnostics,
 )
 from services.structure.toc_analysis import TOCAnalysisBundle
 from services.structure.toc_guard import TOC_GUARD_RELIABLE
@@ -35,7 +35,7 @@ def compute_suppressed_indexes(
     entry_indexes: set[int] = set()
 
     for entry in analysis.parsed_toc.entries:
-        for idx in (entry.source_element_indexes or []):
+        for idx in entry.source_element_indexes or []:
             if isinstance(idx, int) and idx >= 0:
                 if idx not in analysis.guard.false_positive_indexes:
                     entry_indexes.add(idx)
@@ -96,4 +96,3 @@ def build_toc_diagnostics(
         parser_status=resolve_parser_status(analysis),
         parser_reasons=list(analysis.reliability.reasons),
     )
-

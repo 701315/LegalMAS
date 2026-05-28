@@ -36,7 +36,7 @@ from __future__ import annotations
 import re
 import traceback
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from core.logging import get_logger
 
@@ -73,10 +73,10 @@ _MAX_REPEATED_SYMBOL_RUN = 6
 
 _STRUCTURED_DATA_RE = re.compile(
     r"(?:"
-    r"\d{6,}"                                                   # ИНН, ОГРН, БИК, счета
-    r"|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"     # email
-    r"|\+?[\d\s\-\(\)]{7,}"                                    # телефоны
-    r"|[A-Z]{2,6}[\s\-]?\d{3,}"                               # SWIFT, BIC, KPP
+    r"\d{6,}"  # ИНН, ОГРН, БИК, счета
+    r"|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"  # email
+    r"|\+?[\d\s\-\(\)]{7,}"  # телефоны
+    r"|[A-Z]{2,6}[\s\-]?\d{3,}"  # SWIFT, BIC, KPP
     r")",
     re.IGNORECASE,
 )
@@ -95,6 +95,7 @@ def _is_structured_data(text: str) -> bool:
     if not stripped:
         return False
     return bool(_STRUCTURED_DATA_RE.search(stripped))
+
 
 # ---------------------------------------------------------------------------
 # Детекция скрипта
@@ -135,7 +136,7 @@ def _clean_artifacts(text: str) -> str:
     cleaned = cleaned.replace("▫", " ")
 
     # Схлопываем длинные серии из одинаковых "шумовых" символов
-    cleaned = re.sub(r"([_\-–—.=~*•·])\1{%d,}" % (_MAX_REPEATED_SYMBOL_RUN - 1), r"\1", cleaned)
+    cleaned = re.sub(rf"([_\-–—.=~*•·])\1{{{_MAX_REPEATED_SYMBOL_RUN - 1},}}", r"\1", cleaned)
 
     # Нормализуем пробелы
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
@@ -170,11 +171,7 @@ def _detect_script(text: str) -> str:
         if 0x0400 <= code <= 0x04FF or 0x0500 <= code <= 0x052F:
             cyr += 1
         # Латиница: ASCII + Latin-1 supplement
-        elif (
-            0x0041 <= code <= 0x005A
-            or 0x0061 <= code <= 0x007A
-            or 0x00C0 <= code <= 0x00FF
-        ):
+        elif 0x0041 <= code <= 0x005A or 0x0061 <= code <= 0x007A or 0x00C0 <= code <= 0x00FF:
             lat += 1
 
     total = cyr + lat
@@ -210,6 +207,7 @@ def _should_keep_neutral(text: str) -> bool:
     или таблица/мусор без уверенного языка.
     """
     return _count_chars(text) <= _NEUTRAL_MAX_CHARS
+
 
 def _sanitize_text_to_script(text: str, target_lang: str) -> str:
     """
@@ -259,6 +257,7 @@ def _sanitize_text_to_script(text: str, target_lang: str) -> str:
 
     return "".join(cleaned_chars).strip()
 
+
 def _safe_int_page(value: Any, default: int = 1) -> int:
     try:
         page = int(float(str(value).strip()))
@@ -267,15 +266,15 @@ def _safe_int_page(value: Any, default: int = 1) -> int:
         return default
 
 
-def _safe_bbox(raw_bbox: Any) -> List[float]:
+def _safe_bbox(raw_bbox: Any) -> list[float]:
     """
     Нормализовать bbox к [x0, top, x1, bottom] из float.
     При проблемах возвращает [0,0,0,0].
     """
-    if not isinstance(raw_bbox, (list, tuple)) or len(raw_bbox) < 4:
+    if not isinstance(raw_bbox, list | tuple) or len(raw_bbox) < 4:
         return [0.0, 0.0, 0.0, 0.0]
 
-    result: List[float] = []
+    result: list[float] = []
     for value in raw_bbox[:4]:
         try:
             result.append(float(str(value).strip()))
@@ -291,11 +290,11 @@ def _safe_bbox(raw_bbox: Any) -> List[float]:
     return [x0, top, x1, bottom]
 
 
-def _is_zero_bbox(bbox: List[float]) -> bool:
+def _is_zero_bbox(bbox: list[float]) -> bool:
     return len(bbox) >= 4 and all(abs(v) < 1e-9 for v in bbox[:4])
 
 
-def _bbox_sort_key(element: Dict[str, Any]) -> Tuple[int, float, float]:
+def _bbox_sort_key(element: dict[str, Any]) -> tuple[int, float, float]:
     bbox = _safe_bbox(element.get("bbox"))
     return (
         _safe_int_page(element.get("page", 1)),
@@ -309,7 +308,7 @@ def _bbox_sort_key(element: Dict[str, Any]) -> Tuple[int, float, float]:
 # ---------------------------------------------------------------------------
 
 
-def detect_languages_in_layout(layout: Dict[str, Any]) -> List[str]:
+def detect_languages_in_layout(layout: dict[str, Any]) -> list[str]:
     """
     Определить, какие языки реально присутствуют в layout.
 
@@ -317,7 +316,7 @@ def detect_languages_in_layout(layout: Dict[str, Any]) -> List[str]:
     Возвращает отсортированный список кодов языков (["en", "ru"] и т.п.).
     Если ни одного языка не обнаружено — возвращает ["ru"] как дефолт.
     """
-    elements: List[Dict[str, Any]] = layout.get("elements") or []
+    elements: list[dict[str, Any]] = layout.get("elements") or []
     langs: set[str] = set()
 
     for el in elements:
@@ -339,14 +338,15 @@ def detect_languages_in_layout(layout: Dict[str, Any]) -> List[str]:
 @dataclass
 class _StructElement:
     """Внутреннее представление одного элемента layout."""
-    original: Dict[str, Any]
+
+    original: dict[str, Any]
     element_id: str
     text: str
     page: int
-    bbox: List[float]
+    bbox: list[float]
     element_type: str
-    detected_lang: str         # "ru" | "en" | "other"
-    clause_number: Optional[str] = None
+    detected_lang: str  # "ru" | "en" | "other"
+    clause_number: str | None = None
     y_center: float = 0.0
     x_center: float = 0.0
 
@@ -370,18 +370,19 @@ class _StructBlock:
     Группа параллельных элементов на одной вертикальной позиции.
     Может содержать один или два языка (ru и/или en).
     """
-    block_id: Optional[str]
+
+    block_id: str | None
     y_position: float
     page: int
-    elements: List[_StructElement] = field(default_factory=list)
-    ru_element: Optional[_StructElement] = None
-    en_element: Optional[_StructElement] = None
+    elements: list[_StructElement] = field(default_factory=list)
+    ru_element: _StructElement | None = None
+    en_element: _StructElement | None = None
     is_heading: bool = False
 
     def resolve_languages(self) -> None:
         """Выбрать по одному представителю для каждого языка."""
-        ru_candidates: List[_StructElement] = []
-        en_candidates: List[_StructElement] = []
+        ru_candidates: list[_StructElement] = []
+        en_candidates: list[_StructElement] = []
 
         for el in self.elements:
             if el.detected_lang == "ru":
@@ -389,7 +390,7 @@ class _StructBlock:
             elif el.detected_lang == "en":
                 en_candidates.append(el)
 
-        def _best(candidates: List[_StructElement]) -> Optional[_StructElement]:
+        def _best(candidates: list[_StructElement]) -> _StructElement | None:
             if not candidates:
                 return None
             headings = [e for e in candidates if e.element_type == "heading"]
@@ -406,7 +407,7 @@ class _StructBlock:
                 self.ru_element = best_neutral
                 self.en_element = best_neutral
 
-    def get_for_language(self, lang: str) -> Optional[_StructElement]:
+    def get_for_language(self, lang: str) -> _StructElement | None:
         """
         Вернуть элемент для целевого языка.
 
@@ -453,7 +454,7 @@ class _StructuralAnalyzer:
     def __init__(self, y_tolerance: float = _Y_TOLERANCE):
         self.y_tolerance = y_tolerance
 
-    def analyze(self, elements: List[Dict[str, Any]]) -> List[_StructBlock]:
+    def analyze(self, elements: list[dict[str, Any]]) -> list[_StructBlock]:
         """Основная точка входа."""
         if not elements:
             return []
@@ -465,7 +466,7 @@ class _StructuralAnalyzer:
         y_groups = self._group_by_y(struct_els)
         sorted_keys = sorted(y_groups.keys())
 
-        blocks: List[_StructBlock] = []
+        blocks: list[_StructBlock] = []
         for key in sorted_keys:
             block = self._create_block(
                 y_center=key[1],
@@ -478,8 +479,8 @@ class _StructuralAnalyzer:
         blocks = self._align_by_clause_numbers(blocks)
         return self._finalize_blocks(blocks)
 
-    def _convert_elements(self, elements: List[Dict[str, Any]]) -> List[_StructElement]:
-        result: List[_StructElement] = []
+    def _convert_elements(self, elements: list[dict[str, Any]]) -> list[_StructElement]:
+        result: list[_StructElement] = []
 
         for el in elements:
             raw_text = el.get("text", "")
@@ -515,7 +516,7 @@ class _StructuralAnalyzer:
         return result
 
     @staticmethod
-    def _extract_clause_number(text: str, el_type: str) -> Optional[str]:
+    def _extract_clause_number(text: str, el_type: str) -> str | None:
         is_heading = el_type == "heading" or text.strip().isupper()
         stripped = text.strip()
 
@@ -531,11 +532,11 @@ class _StructuralAnalyzer:
 
     def _group_by_y(
         self,
-        elements: List[_StructElement],
-    ) -> Dict[Tuple[int, float], List[_StructElement]]:
+        elements: list[_StructElement],
+    ) -> dict[tuple[int, float], list[_StructElement]]:
         """Группировка по (page, y_center) с допуском y_tolerance."""
-        groups: Dict[Tuple[int, float], List[_StructElement]] = {}
-        current_key: Optional[Tuple[int, float]] = None
+        groups: dict[tuple[int, float], list[_StructElement]] = {}
+        current_key: tuple[int, float] | None = None
 
         sorted_els = sorted(elements, key=lambda e: (e.page, e.y_center, e.x_center))
 
@@ -556,8 +557,8 @@ class _StructuralAnalyzer:
         self,
         y_center: float,
         page: int,
-        elements: List[_StructElement],
-    ) -> Optional[_StructBlock]:
+        elements: list[_StructElement],
+    ) -> _StructBlock | None:
         if not elements:
             return None
 
@@ -569,10 +570,7 @@ class _StructuralAnalyzer:
         )
         block.resolve_languages()
 
-        headings_with_num = [
-            e for e in elements
-            if e.element_type == "heading" and e.clause_number
-        ]
+        headings_with_num = [e for e in elements if e.element_type == "heading" and e.clause_number]
         if headings_with_num:
             # Берём наиболее "сильный" heading как источник block_id
             best_heading = max(headings_with_num, key=lambda e: (_count_chars(e.text), len(e.text)))
@@ -581,14 +579,14 @@ class _StructuralAnalyzer:
 
         return block
 
-    def _align_by_clause_numbers(self, blocks: List[_StructBlock]) -> List[_StructBlock]:
+    def _align_by_clause_numbers(self, blocks: list[_StructBlock]) -> list[_StructBlock]:
         """
         Объединяем блоки с одинаковым block_id (номером пункта).
         Это нужно для случаев, когда параллельные блоки договора
         оказались на слегка разных y-координатах.
         """
-        num_to_blocks: Dict[str, List[_StructBlock]] = {}
-        unnumbered: List[_StructBlock] = []
+        num_to_blocks: dict[str, list[_StructBlock]] = {}
+        unnumbered: list[_StructBlock] = []
 
         for block in blocks:
             if block.block_id:
@@ -596,7 +594,7 @@ class _StructuralAnalyzer:
             else:
                 unnumbered.append(block)
 
-        merged: List[_StructBlock] = []
+        merged: list[_StructBlock] = []
         for number, blks in num_to_blocks.items():
             if len(blks) == 1:
                 merged.append(blks[0])
@@ -607,7 +605,7 @@ class _StructuralAnalyzer:
         return merged
 
     @staticmethod
-    def _merge_blocks(number: str, blocks: List[_StructBlock]) -> _StructBlock:
+    def _merge_blocks(number: str, blocks: list[_StructBlock]) -> _StructBlock:
         avg_y = sum(b.y_position for b in blocks) / len(blocks)
         all_els = [e for b in blocks for e in b.elements]
         result = _StructBlock(
@@ -621,14 +619,16 @@ class _StructuralAnalyzer:
         return result
 
     @staticmethod
-    def _finalize_blocks(blocks: List[_StructBlock]) -> List[_StructBlock]:
+    def _finalize_blocks(blocks: list[_StructBlock]) -> list[_StructBlock]:
         """Сортируем и дедуплицируем элементы внутри блоков."""
         blocks.sort(key=lambda b: (b.page, b.y_position))
         seen_ids: set[str] = set()
 
         for block in blocks:
-            unique: List[_StructElement] = []
-            for element in sorted(block.elements, key=lambda e: (e.y_center, e.x_center, e.element_id)):
+            unique: list[_StructElement] = []
+            for element in sorted(
+                block.elements, key=lambda e: (e.y_center, e.x_center, e.element_id)
+            ):
                 dedupe_key = element.element_id or f"{element.page}:{element.bbox}:{element.text}"
                 if dedupe_key not in seen_ids:
                     seen_ids.add(dedupe_key)
@@ -644,10 +644,10 @@ class _StructuralAnalyzer:
 
 
 def _assess_quality(
-    original: List[Dict[str, Any]],
-    selected: List[Dict[str, Any]],
+    original: list[dict[str, Any]],
+    selected: list[dict[str, Any]],
     is_bilingual: bool = False,  # ← новый аргумент
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     e_b = len(original)
     e_a = len(selected)
     c_b = sum(_count_chars(el.get("text", "")) for el in original)
@@ -656,7 +656,7 @@ def _assess_quality(
     element_retention_ratio = e_a / e_b if e_b else 0.0
     char_retention_ratio = c_a / c_b if c_b else 0.0
 
-    degraded_reasons: List[str] = []
+    degraded_reasons: list[str] = []
 
     # Абсолютные провалы — проверяем всегда, для любого документа
     if e_b > 0 and e_a == 0:
@@ -668,14 +668,13 @@ def _assess_quality(
     # Для монолингвальных фильтр не применяется (Баг 1), поэтому
     # низкий retention здесь означает баг фильтра, а не норму.
     if is_bilingual:
-        if e_b >= _STRUCTURAL_MIN_ELEMENTS and element_retention_ratio < _MIN_ELEMENT_RETENTION_RATIO:
-            degraded_reasons.append(
-                f"low_element_retention_ratio:{element_retention_ratio:.3f}"
-            )
+        if (
+            e_b >= _STRUCTURAL_MIN_ELEMENTS
+            and element_retention_ratio < _MIN_ELEMENT_RETENTION_RATIO
+        ):
+            degraded_reasons.append(f"low_element_retention_ratio:{element_retention_ratio:.3f}")
         if c_b > 0 and char_retention_ratio < _MIN_CHAR_RETENTION_RATIO:
-            degraded_reasons.append(
-                f"low_char_retention_ratio:{char_retention_ratio:.3f}"
-            )
+            degraded_reasons.append(f"low_char_retention_ratio:{char_retention_ratio:.3f}")
 
     degraded = bool(degraded_reasons)
 
@@ -692,12 +691,12 @@ def _assess_quality(
 
 
 def _build_metadata(
-    layout: Dict[str, Any],
+    layout: dict[str, Any],
     target: str,
-    quality: Dict[str, Any],
+    quality: dict[str, Any],
     is_bilingual: bool = False,
     structural_filter_used: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Собрать metadata для layout_primary.
     """
@@ -718,16 +717,16 @@ def _build_metadata(
 
 
 def _simple_filter(
-    layout: Dict[str, Any],
+    layout: dict[str, Any],
     target: str,
-    elements: List[Dict[str, Any]],
-    tables: List[Any],
+    elements: list[dict[str, Any]],
+    tables: list[Any],
     is_bilingual: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Простая посимвольная фильтрация по скрипту.
     """
-    filtered: List[Dict[str, Any]] = []
+    filtered: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
 
     for el in elements:
@@ -780,26 +779,27 @@ def _simple_filter(
         "metadata": metadata,
     }
 
+
 # ---------------------------------------------------------------------------
 # Структурный фильтр (билингвальный режим)
 # ---------------------------------------------------------------------------
 
 
 def _structural_filter(
-    layout: Dict[str, Any],
+    layout: dict[str, Any],
     target: str,
-    elements: List[Dict[str, Any]],
-    tables: List[Any],
-) -> Dict[str, Any]:
+    elements: list[dict[str, Any]],
+    tables: list[Any],
+) -> dict[str, Any]:
     """
     Структурный фильтр для билингвальных документов.
     """
     analyzer = _StructuralAnalyzer()
     blocks = analyzer.analyze(elements)
 
-    selected_elements: List[Dict[str, Any]] = []
+    selected_elements: list[dict[str, Any]] = []
     selected_ids: set[str] = set()
-    last_heading_uid: Optional[str] = None
+    last_heading_uid: str | None = None
     bilingual_block_count = 0
 
     for block in blocks:
@@ -827,7 +827,10 @@ def _structural_filter(
         elif not block.is_heading and last_heading_uid and not out.get("parent_clause_uid"):
             out["parent_clause_uid"] = last_heading_uid
 
-        dedupe_key = str(out.get("element_id") or "") or f"{_safe_int_page(out.get('page', 1))}:{_safe_bbox(out.get('bbox'))}:{out.get('text', '')}"
+        dedupe_key = (
+            str(out.get("element_id") or "")
+            or f"{_safe_int_page(out.get('page', 1))}:{_safe_bbox(out.get('bbox'))}:{out.get('text', '')}"
+        )
         if dedupe_key in selected_ids:
             continue
 
@@ -862,10 +865,10 @@ def _structural_filter(
 
 
 def filter_layout_to_language(
-    layout: Dict[str, Any],
+    layout: dict[str, Any],
     target_language: str,
-    context: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Отфильтровать layout до одного языка.
 
@@ -887,8 +890,8 @@ def filter_layout_to_language(
         )
         return layout
 
-    elements: List[Dict[str, Any]] = layout.get("elements") or []
-    tables: List[Any] = layout.get("tables") or []
+    elements: list[dict[str, Any]] = layout.get("elements") or []
+    tables: list[Any] = layout.get("tables") or []
 
     if not elements:
         return {
@@ -923,7 +926,9 @@ def filter_layout_to_language(
             elements_in=len(elements),
             elements_out=len(result.get("elements") or []),
             degraded=result.get("metadata", {}).get("language_filter", {}).get("degraded", False),
-            degraded_reason=result.get("metadata", {}).get("language_filter", {}).get("degraded_reason"),
+            degraded_reason=result.get("metadata", {})
+            .get("language_filter", {})
+            .get("degraded_reason"),
         )
         return result
 
@@ -935,9 +940,13 @@ def filter_layout_to_language(
             target=target,
             elements_in=len(elements),
             elements_out=len(result.get("elements") or []),
-            bilingual_blocks=result.get("metadata", {}).get("language_filter", {}).get("bilingual_blocks_found", 0),
+            bilingual_blocks=result.get("metadata", {})
+            .get("language_filter", {})
+            .get("bilingual_blocks_found", 0),
             degraded=result.get("metadata", {}).get("language_filter", {}).get("degraded", False),
-            degraded_reason=result.get("metadata", {}).get("language_filter", {}).get("degraded_reason"),
+            degraded_reason=result.get("metadata", {})
+            .get("language_filter", {})
+            .get("degraded_reason"),
         )
         return result
 
@@ -953,7 +962,7 @@ def filter_layout_to_language(
         result = _simple_filter(layout, target, elements, tables, is_bilingual=True)
 
         # Явно помечаем degraded и добавляем причину fallback-а в metadata
-        lf = ((result.get("metadata") or {}).get("language_filter") or {})
+        lf = (result.get("metadata") or {}).get("language_filter") or {}
         lf["degraded"] = True
 
         fallback_reason = "structural_filter_exception_fallback_to_simple"
@@ -983,10 +992,9 @@ def filter_layout_to_language(
 # ---------------------------------------------------------------------------
 
 
-def filter_layout_to_ru(layout: Dict[str, Any]) -> Dict[str, Any]:
+def filter_layout_to_ru(layout: dict[str, Any]) -> dict[str, Any]:
     return filter_layout_to_language(layout, "ru")
 
 
-def filter_layout_to_en(layout: Dict[str, Any]) -> Dict[str, Any]:
+def filter_layout_to_en(layout: dict[str, Any]) -> dict[str, Any]:
     return filter_layout_to_language(layout, "en")
-

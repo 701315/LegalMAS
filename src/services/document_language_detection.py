@@ -172,5 +172,3 @@ def detect_document_languages_from_text(
         quick_layout=quick_layout,
         detected_languages=detected_languages,
     )
-
-    

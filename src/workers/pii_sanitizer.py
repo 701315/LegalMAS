@@ -29,14 +29,13 @@ PII Sanitizer Worker.
   всегда имеет честный и понятный статус.
 """
 
-
 import uuid
+from datetime import UTC, datetime
 from typing import Any
-from datetime import datetime, timezone
-from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
 
-
+from classifiers.yaml_registry import YAMLRegistry
 from core.config import settings
+from core.constants import DocumentStatus
 from core.exceptions import PermanentError, QuarantineError
 from core.logging import get_logger
 from db.repositories import (
@@ -44,21 +43,18 @@ from db.repositories import (
     DocumentRepository,
     DocumentVersionRepository,
 )
+from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
 from db.uow import UnitOfWork, db_uow
+from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
-from mas_queue.async_helpers import run_async
 from services.pii_detector import get_pii_detector, get_preserve_types
 from services.pii_encryption import PIIEncryptionError, get_pii_encryptor
 from services.pii_tokenizer import PIIPolicy, PIITokenizer
-from classifiers.yaml_registry import YAMLRegistry
-from core.constants import DocumentStatus
-from storage.artifact_store import ArtifactStore, ArtifactPath
 from services.run_orchestrator_trigger import retrigger_run_pipeline
-
+from storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)
-
 
 
 class PIISanitizer:
@@ -139,9 +135,7 @@ class PIISanitizer:
             policy = self._build_policy(doc, triggers)
 
             # 6. Обработать элементы
-            sanitized_elements, global_mapping, stats = self._process_elements(
-                elements, policy
-            )
+            sanitized_elements, global_mapping, stats = self._process_elements(elements, policy)
 
             # 7. Сохранить sanitized-layout.
             #
@@ -373,7 +367,6 @@ class PIISanitizer:
         )
 
 
-
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
@@ -426,14 +419,17 @@ def sanitize_document(
                 async with db_uow() as uow_err:
                     dse_err = DocumentStageExecutionRepository(uow_err.session)
                     if exec_uuid:
-                        await dse_err.mark_failed(exec_uuid, error_details={
-                            "stage": "pii",
-                            "type": "permanent_error",
-                            "reason": "pii_error",
-                            "message": str(e),
-                            "run_id": run_id,
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
-                        })
+                        await dse_err.mark_failed(
+                            exec_uuid,
+                            error_details={
+                                "stage": "pii",
+                                "type": "permanent_error",
+                                "reason": "pii_error",
+                                "message": str(e),
+                                "run_id": run_id,
+                                "timestamp": datetime.now(UTC).isoformat(),
+                            },
+                        )
                     await _mark_failed(uow_err, version_id=version_uuid, message=str(e))
                 # ← один UoW на оба обновления — атомарно
 
@@ -459,14 +455,17 @@ def sanitize_document(
                 async with db_uow() as uow_err:
                     dse_err = DocumentStageExecutionRepository(uow_err.session)
                     if exec_uuid:
-                        await dse_err.mark_failed(exec_uuid, error_details={
-                            "stage": "pii",
-                            "type": "quarantine_error",
-                            "reason": getattr(e, "reason", "pii_quarantine"),
-                            "message": str(e),
-                            "run_id": run_id,
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
-                        })
+                        await dse_err.mark_failed(
+                            exec_uuid,
+                            error_details={
+                                "stage": "pii",
+                                "type": "quarantine_error",
+                                "reason": getattr(e, "reason", "pii_quarantine"),
+                                "message": str(e),
+                                "run_id": run_id,
+                                "timestamp": datetime.now(UTC).isoformat(),
+                            },
+                        )
                     await _mark_quarantine(uow_err, version_id=version_uuid, error=e)
                 return {"status": DocumentStatus.QUARANTINE.value, "error": str(e)}
 
@@ -489,7 +488,6 @@ def sanitize_document(
         )
 
     return result
-
 
 
 async def _mark_failed(
@@ -544,7 +542,6 @@ async def _mark_failed(
         )
 
 
-
 async def _mark_quarantine(
     uow: UnitOfWork,
     version_id: uuid.UUID,
@@ -596,6 +593,3 @@ async def _mark_quarantine(
             "PII sanitizer: failed to write audit log for PII_SANITIZE_QUARANTINED",
             document_id=str(version.document_id),
         )
-    
-
-    

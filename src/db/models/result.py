@@ -21,6 +21,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.constants import QCStatus
+
 from ..base import Base
 
 
@@ -188,7 +189,6 @@ class CheckResult(Base):
         ),
     )
 
-
     playbook_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("playbook_versions.id", ondelete="SET NULL"),
@@ -286,6 +286,3 @@ class CheckResult(Base):
             postgresql_where=(segment_id.isnot(None)),
         ),
     )
-
-
-    

@@ -113,5 +113,3 @@ def import_bundle(
     )
 
     return result
-
-

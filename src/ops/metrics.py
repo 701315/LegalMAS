@@ -54,7 +54,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from prometheus_client import Counter, Gauge, Histogram, Info, CollectorRegistry
+from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, Info
 
 from core.config import settings
 
@@ -257,8 +257,7 @@ class MetricsRegistry:
 
         self.relation_traversal_depth_p95 = Gauge(
             f"{_P}_relation_traversal_depth_p95",
-            "95th percentile of relation traversal depth. "
-            "Signal for Graph DB migration if > 3.",
+            "95th percentile of relation traversal depth. " "Signal for Graph DB migration if > 3.",
             registry=registry,
         )
 
@@ -271,8 +270,7 @@ class MetricsRegistry:
 
         self.cross_doc_queries_qps = Gauge(
             f"{_P}_cross_doc_queries_qps",
-            "Cross-document queries per second. "
-            "Signal for Graph DB migration if > 50.",
+            "Cross-document queries per second. " "Signal for Graph DB migration if > 50.",
             registry=registry,
         )
 
@@ -296,8 +294,7 @@ class MetricsRegistry:
 
         self.low_confidence_rate = Gauge(
             f"{_P}_low_confidence_rate",
-            "Fraction of classified documents with confidence < 0.6. "
-            "Target: <= 0.15",
+            "Fraction of classified documents with confidence < 0.6. " "Target: <= 0.15",
             registry=registry,
         )
 
@@ -394,6 +391,7 @@ def get_metrics() -> MetricsRegistry:
 if TYPE_CHECKING:
     METRICS: MetricsRegistry
 else:
+
     class _MetricsProxy:
         """
         Lazy proxy for MetricsRegistry.
@@ -411,4 +409,3 @@ else:
             return getattr(get_metrics(), item)
 
     METRICS = _MetricsProxy()
-    

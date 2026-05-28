@@ -13,12 +13,12 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Optional
 
 from classifiers.base import HybridClassificationCandidate, HybridClassificationResultDTO
-from ..yaml_registry import YAMLRegistry
 from core.config import settings
 from core.logging import get_logger
+
+from ..yaml_registry import YAMLRegistry
 
 logger = get_logger(__name__)
 
@@ -65,7 +65,11 @@ class ResultBuilder:
         except Exception as e:
             logger.warning(
                 "ResultBuilder: failed to load YAML config for final_type",
-                extra={"entity_id": entity_id, "final_type": normalized_final_type, "error": str(e)},
+                extra={
+                    "entity_id": entity_id,
+                    "final_type": normalized_final_type,
+                    "error": str(e),
+                },
             )
             return []
 
@@ -82,7 +86,11 @@ class ResultBuilder:
         except Exception as e:
             logger.warning(
                 "ResultBuilder: failed to build applicable_triggers",
-                extra={"entity_id": entity_id, "final_type": normalized_final_type, "error": str(e)},
+                extra={
+                    "entity_id": entity_id,
+                    "final_type": normalized_final_type,
+                    "error": str(e),
+                },
             )
             return []
 
@@ -147,7 +155,7 @@ class ResultBuilder:
     ) -> list[HybridClassificationCandidate]:
         normalized: list[HybridClassificationCandidate] = []
 
-        for c in (candidates or []):
+        for c in candidates or []:
             if not isinstance(c, dict):
                 logger.warning(
                     "ResultBuilder: candidate is not a dict, skipped",
@@ -157,9 +165,7 @@ class ResultBuilder:
 
             normalized.append(
                 HybridClassificationCandidate(
-                    doctype=self._normalize_final_type(
-                        c.get("type_code") or c.get("doctype")
-                    ),
+                    doctype=self._normalize_final_type(c.get("type_code") or c.get("doctype")),
                     confidence=self._safe_float(c.get("confidence")),
                     level=str(c.get("level") or ""),
                     method=c.get("method"),
@@ -215,11 +221,11 @@ class ResultBuilder:
     def build(
         self,
         *,
-        final_type: Optional[str],
+        final_type: str | None,
         final_confidence: float,
-        level: Optional[str],
-        language: Optional[str],
-        jurisdiction: Optional[str],
+        level: str | None,
+        language: str | None,
+        jurisdiction: str | None,
         applicable_triggers: list[str],
         levels_tried: list[str],
         candidates: list[dict],
@@ -306,6 +312,3 @@ class ResultBuilder:
 
         result = asdict(dto)
         return self._merge_extra_fields(result, extra_fields)
-    
-
-    

@@ -97,13 +97,6 @@ class AuditRepository:
         # Пагинация: смещение = (номер_страницы - 1) * размер_страницы
         offset = (page - 1) * per_page
 
-        rows_stmt = (
-            base_stmt
-            .order_by(AuditLog.created_at.desc())
-            .offset(offset)
-            .limit(per_page)
-        )
+        rows_stmt = base_stmt.order_by(AuditLog.created_at.desc()).offset(offset).limit(per_page)
         result = await self.session.execute(rows_stmt)
         return list(result.scalars().all()), total
-    
-    

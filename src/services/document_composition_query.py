@@ -38,8 +38,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.schemas.documents import DocumentCompositionSummary
 from db.models.document import Document, DocumentSegment, DocumentVersion
-from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
 
 
 class DocumentCompositionQueryService:
@@ -107,9 +107,7 @@ class DocumentCompositionQueryService:
         )
 
         # Собираем список ID версий, у которых реально есть запись.
-        version_ids: list[uuid.UUID] = [
-            version.id for version in latest_versions_by_doc.values()
-        ]
+        version_ids: list[uuid.UUID] = [version.id for version in latest_versions_by_doc.values()]
         if not version_ids:
             # Нет версий ни у одного документа — composition везде None.
             return {doc_id: None for doc_id in doc_ids}
@@ -192,5 +190,3 @@ class DocumentCompositionQueryService:
             primary_segment_label=primary_label,
             is_composite_file=is_composite_file,
         )
-    
-    

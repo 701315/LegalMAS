@@ -12,7 +12,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from ._constants import STRUCTURE_CONFIDENCE_MEDIUM
 from ._diagnostics import ParseQualityDiagnostics, TOCDiagnostics
 from ._nodes import (
     ClauseNode,
@@ -92,7 +91,10 @@ class ClauseTree:
             self.scope_name = _validate_scope_name(self.scope_name)
 
         if self.segment_page_range is not None:
-            if not isinstance(self.segment_page_range, tuple | list) or len(self.segment_page_range) != 2:
+            if (
+                not isinstance(self.segment_page_range, tuple | list)
+                or len(self.segment_page_range) != 2
+            ):
                 raise ValueError("ClauseTree.segment_page_range must be a 2-item tuple/list")
             start_page, end_page = self.segment_page_range
             start_page = _normalize_positive_int(start_page, "ClauseTree.segment_page_range[0]")
@@ -132,7 +134,9 @@ class ClauseTree:
 
         if self.nodes_index:
             if set(self.nodes_index.keys()) != set(root_index.keys()):
-                missing_in_nodes_index = sorted(set(root_index.keys()) - set(self.nodes_index.keys()))
+                missing_in_nodes_index = sorted(
+                    set(root_index.keys()) - set(self.nodes_index.keys())
+                )
                 extra_in_nodes_index = sorted(set(self.nodes_index.keys()) - set(root_index.keys()))
                 raise ValueError(
                     "ClauseTree.nodes_index must match tree root traversal exactly: "
@@ -205,7 +209,9 @@ class ClauseTree:
         if isinstance(raw, TOCDiagnostics):
             return raw
         if not isinstance(raw, dict):
-            raise ValueError("ClauseTree.structure_diagnostics['toc_diagnostics'] must be dict | TOCDiagnostics | None")
+            raise ValueError(
+                "ClauseTree.structure_diagnostics['toc_diagnostics'] must be dict | TOCDiagnostics | None"
+            )
         return TOCDiagnostics(**raw)
 
     @property
@@ -217,7 +223,9 @@ class ClauseTree:
         if isinstance(raw, ParseQualityDiagnostics):
             return raw
         if not isinstance(raw, dict):
-            raise ValueError("ClauseTree.structure_diagnostics['parse_quality'] must be dict | ParseQualityDiagnostics | None")
+            raise ValueError(
+                "ClauseTree.structure_diagnostics['parse_quality'] must be dict | ParseQualityDiagnostics | None"
+            )
         toc_raw = raw.get("toc_diagnostics")
         toc_obj = None
         if toc_raw is not None:
@@ -226,7 +234,9 @@ class ClauseTree:
             elif isinstance(toc_raw, dict):
                 toc_obj = TOCDiagnostics(**toc_raw)
             else:
-                raise ValueError("ParseQualityDiagnostics.toc_diagnostics must be dict | TOCDiagnostics | None")
+                raise ValueError(
+                    "ParseQualityDiagnostics.toc_diagnostics must be dict | TOCDiagnostics | None"
+                )
 
         normalized = dict(raw)
         normalized["toc_diagnostics"] = toc_obj
@@ -260,5 +270,3 @@ class ClauseTree:
 
         result["is_primary_segment"] = self.is_primary_segment
         return result
-    
-    

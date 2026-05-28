@@ -15,7 +15,6 @@ Legacy Runner API.
 всегда одинаковое (410 Gone).
 """
 
-
 import uuid as uuid_lib
 
 from fastapi import APIRouter, Depends, HTTPException, status

@@ -8,10 +8,9 @@ Used for the "Requests" tab and exports (Request List / Appendix A).
 
 import uuid
 from datetime import datetime
-from sqlalchemy.dialects.postgresql import JSONB
 
-from sqlalchemy import String, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..base import Base
@@ -68,14 +67,12 @@ class DDRequest(Base):
         comment="Who the request is addressed to",
     )
 
-
     structured_values: Mapped[list[dict]] = mapped_column(
         JSONB,
         nullable=False,
         default=list,
         comment="Structured values mentioned in the request (dates, amounts, etc.)",
     )
-
 
     source: Mapped[str] = mapped_column(
         String(50),

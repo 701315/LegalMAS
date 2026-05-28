@@ -117,11 +117,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.constants import DocumentStatus, RunStatus
 from core.logging import get_logger
 from core.pipeline_snapshots import (
-    RunSnapshot,
     DocumentSnapshot,
+    RunSnapshot,
     VersionSnapshot,
-    snapshot_run,
     snapshot_document,
+    snapshot_run,
     snapshot_version,
 )
 from db.repositories.audit_repo import AuditRepository
@@ -160,6 +160,7 @@ ORCHESTRATION_STRATEGY_V2_ONLY = "V2_ONLY"
 
 # ─── TaskPlan ─────────────────────────────────────────────────────────────────
 
+
 @dataclass(slots=True)
 class TaskPlan:
     task_name: str
@@ -169,6 +170,7 @@ class TaskPlan:
 
 
 # ─── Segment helpers ──────────────────────────────────────────────────────────
+
 
 def _is_multi_document_snapshot(snap: VersionSnapshot) -> bool:
     """Multi-document критерий по snapshot: segments_count > 1."""
@@ -270,6 +272,7 @@ async def _can_start_checks_for_run(
 
 # ─── Celery task entrypoint ───────────────────────────────────────────────────
 
+
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
@@ -311,6 +314,7 @@ def start_run_pipeline(
 
 # ─── Tenant resolver ──────────────────────────────────────────────────────────
 
+
 async def _resolve_tenant_id(
     tenant_id: str | None,
     deal_uuid: uuid.UUID,
@@ -346,6 +350,7 @@ async def _resolve_tenant_id(
 
 
 # ─── Async core ───────────────────────────────────────────────────────────────
+
 
 async def _start_run_pipeline_async(
     run_id: str,
@@ -522,9 +527,7 @@ async def _start_run_pipeline_async(
 
     # ── Resolve deal ──────────────────────────────────────────────────────────
 
-    deal_uuid = run_snap.deal_id if run_snap.deal_id else (
-        uuid.UUID(deal_id) if deal_id else None
-    )
+    deal_uuid = run_snap.deal_id if run_snap.deal_id else (uuid.UUID(deal_id) if deal_id else None)
     if deal_uuid is None:
         await run_repo.update_status(
             run_uuid,
@@ -585,9 +588,7 @@ async def _start_run_pipeline_async(
 
     # Снимаем нужные deal-поля в примитивы сразу после загрузки ORM-объекта.
     deal_primary_language: str | None = getattr(deal, "primary_language", None)
-    deal_language_discovery_status: str | None = getattr(
-        deal, "language_discovery_status", None
-    )
+    deal_language_discovery_status: str | None = getattr(deal, "language_discovery_status", None)
     deal_languages: list[str] | None = getattr(deal, "languages", None)
 
     if not deal_primary_language:
@@ -816,6 +817,7 @@ async def _start_run_pipeline_async(
 
 # ─── Stage mapping ────────────────────────────────────────────────────────────
 
+
 def _target_status_for_stage(stage: str) -> str:
     """
     Map internal stage name to *intended* DocumentStatus
@@ -839,6 +841,7 @@ def _target_status_for_stage(stage: str) -> str:
 
 
 # ─── Task plan builder ────────────────────────────────────────────────────────
+
 
 async def _build_document_task_plan(
     *,
@@ -870,9 +873,7 @@ async def _build_document_task_plan(
                 "status": status,
             },
         )
-        raise ValueError(
-            "deal_primary_language must be selected before building run task plan"
-        )
+        raise ValueError("deal_primary_language must be selected before building run task plan")
 
     # ── PENDING ───────────────────────────────────────────────────────────────
 
@@ -1176,8 +1177,7 @@ async def _build_document_task_plan(
             return None
 
         logger.info(
-            "CHUNKED document ready for classification "
-            "(v2 manifest + full segment chunk refs)",
+            "CHUNKED document ready for classification " "(v2 manifest + full segment chunk refs)",
             extra={
                 "document_id": doc_id_str,
                 "document_version_id": snap.version_id_str,
@@ -1311,6 +1311,7 @@ async def _build_document_task_plan(
 
 # ─── Celery task sender ───────────────────────────────────────────────────────
 
+
 def _send_task(
     *,
     plan: TaskPlan,
@@ -1324,16 +1325,16 @@ def _send_task(
 ) -> str:
     """Поставить stage-task в Celery. Возвращает celery task id."""
     kwargs = dict(plan.kwargs)
-    kwargs.update({
-        "stage_execution_id": stage_execution_id,
-        "run_id": run_id,
-        "deal_id": deal_id,
-        "tenant_id": tenant_id,
-        "document_id": document_id,
-        "document_version_id": document_version_id,
-        "orchestration_strategy": orchestration_strategy,
-    })
+    kwargs.update(
+        {
+            "stage_execution_id": stage_execution_id,
+            "run_id": run_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "orchestration_strategy": orchestration_strategy,
+        }
+    )
     result = celery_app.send_task(plan.task_name, kwargs=kwargs)
     return result.id
-
-    

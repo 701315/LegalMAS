@@ -81,4 +81,3 @@ def _relative_page_position(
     top_ratio = (top - min_top) / span
     bottom_ratio = (max_bottom - bottom) / span
     return top_ratio, bottom_ratio
-

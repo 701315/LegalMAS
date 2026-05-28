@@ -22,13 +22,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
-from ..yaml_registry import YAMLRegistry, DocumentTypeConfig
-from engine.llm.client import LLMClient, LLMResponse
 from core.config import settings
 from core.logging import get_logger
+from engine.llm.client import LLMClient, LLMResponse
 
+from ..yaml_registry import DocumentTypeConfig, YAMLRegistry
 
 logger = get_logger(__name__)
 
@@ -109,9 +109,7 @@ class L4LLMClassifier:
         # но оставляем проверку как защитный слой.
         estimated_prompt_tokens = self._estimate_token_count(prompt)
         max_allowed_tokens = (
-            settings.LLM_CONTEXT_LIMIT
-            - settings.LLM_MAX_TOKENS
-            - settings.LLM_SAFETY_MARGIN_TOKENS
+            settings.LLM_CONTEXT_LIMIT - settings.LLM_MAX_TOKENS - settings.LLM_SAFETY_MARGIN_TOKENS
         )
 
         if estimated_prompt_tokens > max_allowed_tokens:
@@ -157,8 +155,8 @@ class L4LLMClassifier:
         self,
         response: LLMResponse,
         *,
-        allowed_types: List[str],
-    ) -> Dict[str, Any]:
+        allowed_types: list[str],
+    ) -> dict[str, Any]:
         """
         Разобрать JSON из ответа LLM и привести к безопасным значениям.
 
@@ -171,7 +169,7 @@ class L4LLMClassifier:
         """
         text = (getattr(response, "text", "") or "").strip()
 
-        raw: Dict[str, Any] = {
+        raw: dict[str, Any] = {
             "provider": getattr(response, "provider", None),
             "model": getattr(response, "model", None),
             "tokens_used": getattr(response, "tokens_used", None),
@@ -237,7 +235,7 @@ class L4LLMClassifier:
                 raise ValueError("reasoning must be non-empty")
             if len(parsed_reasoning) > settings.CLASSIFICATION_L4_REASONING_MAX_CHARS:
                 parsed_reasoning = parsed_reasoning[
-                    :settings.CLASSIFICATION_L4_REASONING_MAX_CHARS
+                    : settings.CLASSIFICATION_L4_REASONING_MAX_CHARS
                 ].rstrip()
 
             if parsed_type_code == "UNKNOWN":
@@ -349,11 +347,10 @@ class L4LLMClassifier:
             return matched, meta
 
         prefix_candidates = [
-            t for t in allowed_list
-            if cleaned.startswith(t) or t.startswith(cleaned)
+            t for t in allowed_list if cleaned.startswith(t) or t.startswith(cleaned)
         ]
         if len(prefix_candidates) == 1:
-            matched = prefix_candidates[0]    # ← FIX: берём элемент, не список
+            matched = prefix_candidates[0]  # ← FIX: берём элемент, не список
             logger.warning(
                 "L4LLMClassifier.parse: fuzzy type_code match",
                 extra={"raw": cleaned, "matched": matched},
@@ -409,9 +406,7 @@ class L4LLMClassifier:
         available_types_tokens = self._estimate_token_count(available_types_block)
 
         # --- Шаг 3: «скелет» промпта без fragment ---
-        skeleton = template.replace(
-            "{available_types}", available_types_block
-        ).replace(
+        skeleton = template.replace("{available_types}", available_types_block).replace(
             "{document_fragment}", ""
         )
         skeleton_tokens = self._estimate_token_count(skeleton)
@@ -452,9 +447,7 @@ class L4LLMClassifier:
         )
 
         # --- Шаг 6: собираем user_content и оборачиваем в ChatML ---
-        user_content = template.replace(
-            "{available_types}", available_types_block
-        ).replace(
+        user_content = template.replace("{available_types}", available_types_block).replace(
             "{document_fragment}", document_fragment
         )
 
@@ -521,13 +514,9 @@ class L4LLMClassifier:
         template = path.read_text(encoding="utf-8").strip()
 
         if "{available_types}" not in template:
-            raise ValueError(
-                "Prompt template missing required placeholder: {available_types}"
-            )
+            raise ValueError("Prompt template missing required placeholder: {available_types}")
         if "{document_fragment}" not in template:
-            raise ValueError(
-                "Prompt template missing required placeholder: {document_fragment}"
-            )
+            raise ValueError("Prompt template missing required placeholder: {document_fragment}")
 
         self._prompt_template_cache = template
         return template
@@ -563,9 +552,7 @@ class L4LLMClassifier:
 
             # Берём description как short_desc — обрезаем до первого предложения
             # или первых 150 символов (достаточно для 3B-модели)
-            raw_description = str(
-                (cfg.raw or {}).get("description", "") or ""
-            ).strip()
+            raw_description = str((cfg.raw or {}).get("description", "") or "").strip()
             short_desc = self._truncate_to_sentence(raw_description, max_chars=150)
 
             rendered.append(
@@ -612,9 +599,7 @@ class L4LLMClassifier:
         Приоритет: начало документа (заголовок, предмет договора).
         """
         if max_chars is None:
-            max_chars = int(
-                getattr(settings, "CLASSIFICATION_L4_MAX_INPUT_CHARS", 6000)
-            )
+            max_chars = int(getattr(settings, "CLASSIFICATION_L4_MAX_INPUT_CHARS", 6000))
 
         safe_text = (text or "").strip()
 
@@ -632,7 +617,7 @@ class L4LLMClassifier:
         return prefix + trimmed_text
 
     @staticmethod
-    def _extract_single_json_object(text: str) -> Dict[str, Any]:
+    def _extract_single_json_object(text: str) -> dict[str, Any]:
         if not text:
             raise ValueError("Empty LLM response")
 
@@ -642,7 +627,7 @@ class L4LLMClassifier:
         if start_idx == -1 or end_idx == -1 or end_idx < start_idx:
             raise ValueError("No JSON object found in LLM response")
 
-        candidate = stripped[start_idx:end_idx + 1].strip()
+        candidate = stripped[start_idx : end_idx + 1].strip()
         try:
             return json.loads(candidate)
         except json.JSONDecodeError as e:
@@ -662,5 +647,3 @@ class L4LLMClassifier:
         if not text:
             return 0
         return max(1, len(text) // 3)
-    
-

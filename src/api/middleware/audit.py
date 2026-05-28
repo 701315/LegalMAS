@@ -16,7 +16,7 @@ Audit middleware — фиксирует важные HTTP-запросы в та
 """
 
 import uuid
-from typing import Awaitable, Callable, Dict, Tuple
+from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -26,14 +26,14 @@ from db.session import get_session
 
 # Точные пути (метод + путь), которые обязательно аудитим
 # ключ: (HTTP-метод, путь), значение: action для AuditLog
-_AUDITED_PATHS: Dict[Tuple[str, str], str] = {
+_AUDITED_PATHS: dict[tuple[str, str], str] = {
     # пример: ("GET", "/health"): "VIEW_HEALTH",
     ("GET", "/admin/yaml-instructions"): "VIEW_YAML_INSTRUCTIONS",
 }
 
 # Суффиксы путей для динамических URL (например /documents/{id}/reclassify)
 # ключ: суффикс, значение: action
-_AUDITED_PATH_SUFFIXES: Dict[str, str] = {
+_AUDITED_PATH_SUFFIXES: dict[str, str] = {
     "/reclassify": "DOCUMENT_RECLASSIFIED_API",
     "/structured-data": "STRUCTURED_DATA_ACCESSED",
 }
@@ -114,5 +114,3 @@ class AuditMiddleware(BaseHTTPMiddleware):
             pass
 
         return response
-
-

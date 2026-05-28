@@ -9,21 +9,17 @@ Components exchange S3 URIs (references), not raw files.
 
 import io
 import json
-from urllib.parse import quote
 from datetime import timedelta
-
+from urllib.parse import quote
 
 from minio import Minio
 from minio.error import S3Error
-
-
-from .exports import ExportSuffix, build_export_filename
-
 
 from core.config import Settings, settings
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
 
+from .exports import ExportSuffix, build_export_filename
 
 logger = get_logger(__name__)
 
@@ -154,7 +150,6 @@ class ArtifactPath:
         """
         return f"tenants/{tenant_id}/deals/{deal_id}/structures/{document_id}/chunks.json"
 
-
     @staticmethod
     def chunks_manifest_v2(
         tenant_id: str,
@@ -181,8 +176,6 @@ class ArtifactPath:
             f"tenants/{tenant_id}/deals/{deal_id}/structures/"
             f"{document_id}/chunks_manifest_v2.json"
         )
-
-
 
     @staticmethod
     def segment_chunks(
@@ -298,9 +291,6 @@ class ArtifactPath:
             f"tenants/{tenant_id}/deals/{deal_id}/structures/"
             f"{document_id}/legal_units_{short_id}.json"
         )
-
-
-
 
 
 class ArtifactStore:
@@ -484,9 +474,7 @@ class ArtifactStore:
             ext = "json"
         elif content_type == "text/csv":
             ext = "csv"
-        elif content_type in (
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        ):
+        elif content_type in ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",):
             ext = "xlsx"
         elif content_type in (
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -498,5 +486,3 @@ class ArtifactStore:
         filename = build_export_filename(run_id, suffix, ext=ext)
         path = ArtifactPath.export(tenant_id, deal_id, run_id, filename)
         return self.put_file(path, data, content_type=content_type)
-    
-    

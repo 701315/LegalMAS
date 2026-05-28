@@ -90,9 +90,7 @@ EXTENSION_MAP = {
 
 def get_allowed_extensions() -> set[str]:
     return {
-        ext.strip().lower()
-        for ext in settings.IMPORT_ALLOWED_EXTENSIONS.split(",")
-        if ext.strip()
+        ext.strip().lower() for ext in settings.IMPORT_ALLOWED_EXTENSIONS.split(",") if ext.strip()
     }
 
 
@@ -137,8 +135,7 @@ def validate_file(filepath: str) -> ValidationResult:
             status=FileStatus.QUARANTINE,
             filetype="unknown",
             reason=(
-                f"Unsupported file extension '{ext}'. "
-                f"Allowed: {', '.join(sorted(allowed))}"
+                f"Unsupported file extension '{ext}'. " f"Allowed: {', '.join(sorted(allowed))}"
             ),
             original_extension=ext,
         )
@@ -257,7 +254,9 @@ def _check_magic_bytes(filepath: str, extension: str) -> tuple[bool, str | None]
             return False, None
 
         if extension == ".pdf":
-            return header[:4] == MAGIC_BYTES["pdf"], "pdf" if header[:4] == MAGIC_BYTES["pdf"] else None
+            return header[:4] == MAGIC_BYTES["pdf"], "pdf" if header[:4] == MAGIC_BYTES[
+                "pdf"
+            ] else None
 
         if extension in (".docx", ".xlsx", ".xls"):
             # DOCX and XLSX are ZIP-based (PK magic)
@@ -277,7 +276,9 @@ def _check_magic_bytes(filepath: str, extension: str) -> tuple[bool, str | None]
             return False, None
 
         if extension == ".png":
-            return header[:4] == MAGIC_BYTES["png"], "image" if header[:4] == MAGIC_BYTES["png"] else None
+            return header[:4] == MAGIC_BYTES["png"], "image" if header[:4] == MAGIC_BYTES[
+                "png"
+            ] else None
 
         if extension in (".jpg", ".jpeg"):
             if header[:3] == MAGIC_BYTES["jpg"]:

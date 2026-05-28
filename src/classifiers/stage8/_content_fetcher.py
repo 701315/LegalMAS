@@ -25,14 +25,15 @@
 - никакой бизнес-логики классификации, только безопасный fetch, нормализация
   и диагностика качества входа.
 """
+
 from __future__ import annotations
 
 import re
 from typing import Any
 from uuid import UUID
 
-from engine.content.document_content_service import DocumentContentService
 from core.logging import get_logger
+from engine.content.document_content_service import DocumentContentService
 
 logger = get_logger(__name__)
 
@@ -483,7 +484,3 @@ class ContentFetcher:
             return str(doc_id)
         except Exception:
             return "<unprintable-doc-id>"
-        
-
-               
-

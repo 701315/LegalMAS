@@ -41,19 +41,20 @@ Structure Builder Worker.
 - При PermanentError помечаем execution как FAILED с понятным error_details.
 """
 
-
 from __future__ import annotations
-
 
 import time
 import uuid
 from typing import Any
 
-
 from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
+from core.pipeline_errors import (
+    PipelineErrorType,
+    StructureV2ErrorReason,
+)
 from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
@@ -68,14 +69,8 @@ from mas_queue.celery_app import celery_app
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from services.structure.builder import StructureBuilder
 from storage.artifact_store import ArtifactPath, ArtifactStore
-from core.pipeline_errors import (
-    PipelineErrorType,
-    StructureV2ErrorReason,
-)
-
 
 logger = get_logger(__name__)
-
 
 
 @celery_app.task(
@@ -132,9 +127,9 @@ def build_structure(
             raise
 
         except PermanentError as e:
-            reason_code = (
-                getattr(e, "details", {}) or {}
-            ).get("reason", StructureV2ErrorReason.STRUCTURE_BUILD_ERROR)
+            reason_code = (getattr(e, "details", {}) or {}).get(
+                "reason", StructureV2ErrorReason.STRUCTURE_BUILD_ERROR
+            )
             logger.error(
                 "Permanent error during structure building",
                 document_version_id=document_version_id,
@@ -177,7 +172,6 @@ def build_structure(
         )
 
     return result
-
 
 
 async def _build_structure_async(
@@ -273,16 +267,10 @@ async def _build_structure_async(
             "committed": False,
         }
 
-    allow_legacy_layout_fallback = bool(
-        getattr(settings, "ALLOW_LEGACY_LAYOUT_FALLBACK", False)
-    )
+    allow_legacy_layout_fallback = bool(getattr(settings, "ALLOW_LEGACY_LAYOUT_FALLBACK", False))
 
-    store_file_graph = bool(
-        getattr(settings, "STRUCTURE_STORE_FILE_GRAPH", False)
-    )
-    store_segment_trees = bool(
-        getattr(settings, "STRUCTURE_STORE_SEGMENT_TREES", True)
-    )
+    store_file_graph = bool(getattr(settings, "STRUCTURE_STORE_FILE_GRAPH", False))
+    store_segment_trees = bool(getattr(settings, "STRUCTURE_STORE_SEGMENT_TREES", True))
 
     sanitized_layout_ref = getattr(version, "layout_primary_sanitized_ref", None)
     primary_layout_ref = getattr(version, "layout_primary_ref", None)
@@ -303,8 +291,7 @@ async def _build_structure_async(
 
     if not layout_ref:
         raise PermanentError(
-            "Sanitized layout is required for structure building: "
-            f"doc={doc.id}, version={v_id}",
+            "Sanitized layout is required for structure building: " f"doc={doc.id}, version={v_id}",
             details={
                 "stage": "structure",
                 "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
@@ -571,31 +558,21 @@ async def _build_structure_async(
 
     refreshed_version = await ver_repo.get_by_id(v_id)
     if not refreshed_version:
-        raise TransientError(
-            f"DocumentVersion {v_id} is not visible after flush"
-        )
+        raise TransientError(f"DocumentVersion {v_id} is not visible after flush")
 
     refreshed_clause_tree_ref = getattr(refreshed_version, "clause_tree_ref", None)
     if not refreshed_clause_tree_ref:
-        raise TransientError(
-            f"clause_tree_ref is not visible after flush for version {v_id}"
-        )
+        raise TransientError(f"clause_tree_ref is not visible after flush for version {v_id}")
 
     if refreshed_clause_tree_ref != clause_tree_ref:
-        raise TransientError(
-            f"clause_tree_ref mismatch after flush for version {v_id}"
-        )
+        raise TransientError(f"clause_tree_ref mismatch after flush for version {v_id}")
 
     refreshed_file_graph_ref = getattr(refreshed_version, "file_graph_ref", None)
     if file_graph_ref and not refreshed_file_graph_ref:
-        raise TransientError(
-            f"file_graph_ref is not visible after flush for version {v_id}"
-        )
+        raise TransientError(f"file_graph_ref is not visible after flush for version {v_id}")
 
     if file_graph_ref and refreshed_file_graph_ref != file_graph_ref:
-        raise TransientError(
-            f"file_graph_ref mismatch after flush for version {v_id}"
-        )
+        raise TransientError(f"file_graph_ref mismatch after flush for version {v_id}")
 
     if store_file_graph:
         persisted_segments = await seg_repo.list_by_version(v_id)
@@ -693,7 +670,6 @@ async def _build_structure_async(
     }
 
 
-
 async def _mark_failed(
     uow: UnitOfWork,
     document_version_id: str,
@@ -780,7 +756,3 @@ async def _mark_failed(
                 stage_execution_id=stage_execution_id,
                 error=str(e),
             )
-
-            
-
-    

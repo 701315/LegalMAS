@@ -50,15 +50,14 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
 
-
 # ────────────────────────── DETECTOR CONFIG ──────────────────────────
 
 
 class DetectorType(str, Enum):
     """Как именно выполняется проверка."""
 
-    RULES = "rules"    # Только keyword/regex-поиск.
-    LLM = "llm"        # Анализ только через LLM.
+    RULES = "rules"  # Только keyword/regex-поиск.
+    LLM = "llm"  # Анализ только через LLM.
     HYBRID = "hybrid"  # Сначала rules, потом LLM как fallback.
 
 
@@ -71,7 +70,7 @@ class KeywordMode(str, Enum):
 
 # Признак того, что строка является regex-паттерном, а не plain keyword.
 # Наличие любого из этих символов означает regex.
-_REGEX_HINT_RE = re.compile(r'[\\()\[\]?+*{}|^$]')
+_REGEX_HINT_RE = re.compile(r"[\\()\[\]?+*{}|^$]")
 
 
 class RulesConfig(BaseModel):
@@ -233,8 +232,16 @@ class StructuredDataCondition(BaseModel):
 
     field: str
     op: Literal[
-        "==", "!=", ">", ">=", "<", "<=",
-        "in", "not_in", "is_null", "not_null",
+        "==",
+        "!=",
+        ">",
+        ">=",
+        "<",
+        "<=",
+        "in",
+        "not_in",
+        "is_null",
+        "not_null",
     ]
     value: Any | None = None
 
@@ -457,11 +464,7 @@ class PlaybookDefinition(BaseModel):
         """
         base_checks = self.get_checks_for_doc_type(doc_type)
         if not applicable_triggers:
-            return [
-                check
-                for check in base_checks
-                if not getattr(check, "conditional", None)
-            ]
+            return [check for check in base_checks if not getattr(check, "conditional", None)]
 
         trigger_set = set(applicable_triggers)
         result: list[CheckDefinition] = []
@@ -483,4 +486,3 @@ class PlaybookDefinition(BaseModel):
                     continue
 
         return result
-    

@@ -15,16 +15,16 @@ from __future__ import annotations
 from typing import Any
 
 from core.config import settings
+from services.structure.hierarchy_builder import HeadingCandidate
 from services.structure.models import (
-    ClauseNode,
     STRUCTURE_CONFIDENCE_FAILED,
     STRUCTURE_CONFIDENCE_HIGH,
     STRUCTURE_CONFIDENCE_LOW,
     STRUCTURE_CONFIDENCE_MEDIUM,
+    ClauseNode,
 )
-from services.structure.hierarchy_builder import HeadingCandidate
 
-from ._utils import stable_element_id, is_numeric_uid
+from ._utils import is_numeric_uid, stable_element_id
 
 
 def calculate_node_coverage(
@@ -167,4 +167,3 @@ def confidence_and_mode(
         return STRUCTURE_CONFIDENCE_MEDIUM, False
 
     return STRUCTURE_CONFIDENCE_HIGH, False
-

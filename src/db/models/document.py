@@ -54,19 +54,22 @@ DocumentSegment (v2):
 
 import uuid
 from datetime import datetime
+
 from sqlalchemy import (
+    Boolean,
     Float,
     ForeignKey,
     Index,
     Integer,
     String,
-    Boolean,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY, JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from core.constants import DocumentStatus, DocumentStageExecutionStatus
+from core.constants import DocumentStageExecutionStatus, DocumentStatus
+
 from ..base import Base
 
 
@@ -118,8 +121,7 @@ class Document(Base):
         JSONB,
         nullable=True,
         comment=(
-            "Last processing error metadata: "
-            "{stage, type, reason, message, run_id, timestamp}"
+            "Last processing error metadata: " "{stage, type, reason, message, run_id, timestamp}"
         ),
     )
 
@@ -176,7 +178,6 @@ class Document(Base):
             "pending / processing / completed / failed"
         ),
     )
-
 
     jurisdiction_guess: Mapped[str | None] = mapped_column(
         String(50),
@@ -352,7 +353,6 @@ class DocumentVersion(Base):
         ),
     )
 
-
     # ── Multi-document поля (v2) ──────────────────────────────────────────────
     # Оба поля опциональны (nullable=True).
     # Если NULL — версия обработана в legacy-режиме (один сегмент = весь файл).
@@ -416,8 +416,7 @@ class DocumentVersion(Base):
         String(50),
         nullable=True,
         comment=(
-            "Internal type of the file this version originates from: "
-            "pdf, docx, image, etc."
+            "Internal type of the file this version originates from: " "pdf, docx, image, etc."
         ),
     )
 
@@ -616,8 +615,7 @@ class DocumentSegment(Base):
         String(20),
         nullable=True,
         comment=(
-            "Уровень, который дал финальное решение для сегмента: "
-            "L3, L4, HYBRID, COPIED и т.п."
+            "Уровень, который дал финальное решение для сегмента: " "L3, L4, HYBRID, COPIED и т.п."
         ),
     )
 
@@ -638,8 +636,6 @@ class DocumentSegment(Base):
             "{levels_tried, candidates, final_type, final_confidence, confidence_zone, ...}."
         ),
     )
-
-
 
     __table_args__ = (
         UniqueConstraint(
@@ -769,8 +765,7 @@ class DocumentStageExecution(Base):
         JSONB,
         nullable=True,
         comment=(
-            "Execution error metadata: "
-            "{stage, type, reason, message, run_id, timestamp, extra}"
+            "Execution error metadata: " "{stage, type, reason, message, run_id, timestamp, extra}"
         ),
     )
 
@@ -789,5 +784,3 @@ class DocumentStageExecution(Base):
         Index("idx_dse_docver_created", "document_version_id", "created_at"),
         Index("idx_dse_doc_stage_status", "document_id", "to_status", "status"),
     )
-
-    

@@ -18,18 +18,20 @@ Repository for CheckResult operations.
 """
 
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Sequence, Any
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select, update, distinct, case
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import case, distinct, func, select, update
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import CheckExecutionStatus
-from ..models.result import CheckResult
-from ..models.document import Document
 from db.repositories.check_result_persist_error_repo import CheckResultPersistErrorRepository
+
+from ..models.document import Document
+from ..models.result import CheckResult
 
 
 def normalize_origin_type(origin: str | None) -> str | None:
@@ -304,7 +306,9 @@ class ResultRepository:
                 CheckResult.run_id == run_id,
                 CheckResult.document_id == document_id,
                 CheckResult.check_id == check_id,
-                CheckResult.segment_id == segment_id if segment_id else CheckResult.segment_id.is_(None),
+                CheckResult.segment_id == segment_id
+                if segment_id
+                else CheckResult.segment_id.is_(None),
             )
             .values(
                 qc_status=qc_status,
@@ -711,9 +715,7 @@ class ResultRepository:
                 "conditional_check_triggered": conditional_check_triggered,
                 "trigger_name": trigger_name,
                 "origin": origin,
-                "playbook_version_id": (
-                    str(playbook_version_id) if playbook_version_id else None
-                ),
+                "playbook_version_id": (str(playbook_version_id) if playbook_version_id else None),
                 "page": page,
                 "clause_uid": clause_uid,
                 "element_id": element_id,
@@ -737,9 +739,7 @@ class ResultRepository:
                 document_id=document_id,
                 check_id=check_id,
                 payload=payload,
-                error_type=(
-                    "permanent_db_error" if permanent else "transient_db_error"
-                ),
+                error_type=("permanent_db_error" if permanent else "transient_db_error"),
                 sqlstate=sqlstate,
                 error_message=str(err),
                 retryable=not permanent,
@@ -852,8 +852,10 @@ class ResultRepository:
             .subquery()
         )
 
-        stmt = select(func.count()).select_from(per_doc).where(
-            per_doc.c.total_cnt == per_doc.c.finished_cnt
+        stmt = (
+            select(func.count())
+            .select_from(per_doc)
+            .where(per_doc.c.total_cnt == per_doc.c.finished_cnt)
         )
         result = await self.session.execute(stmt)
         return int(result.scalar_one() or 0)
@@ -879,7 +881,3 @@ class ResultRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none() is not None
-    
-
-
-    

@@ -92,11 +92,7 @@ def normalize_check_result(
         trigger_name = conditional.get("trigger")
     else:
         is_conditional = bool(conditional)
-        trigger_name = (
-            getattr(conditional, "trigger", None)
-            if conditional is not None
-            else None
-        )
+        trigger_name = getattr(conditional, "trigger", None) if conditional is not None else None
 
     check_origin = getattr(check, "origin", None) if check is not None else None
 
@@ -175,9 +171,8 @@ def resolve_execution_status(exec_result: dict) -> tuple[str, dict[str, Any] | N
     # Берём признаки как из верхнего уровня exec_result, так и из raw.
     # Это важно, потому что в реальном пайплайне часть LLM-диагностики
     # часто оказывается именно в raw.
-    llm_error_type = (
-        exec_result.get("llm_error_type")
-        or (raw.get("llm_error_type") if isinstance(raw, dict) else None)
+    llm_error_type = exec_result.get("llm_error_type") or (
+        raw.get("llm_error_type") if isinstance(raw, dict) else None
     )
 
     llm_required = bool(
@@ -192,9 +187,8 @@ def resolve_execution_status(exec_result: dict) -> tuple[str, dict[str, Any] | N
         else (raw.get("llm_degraded") if isinstance(raw, dict) else False)
     )
 
-    rules_llm_decision = (
-        exec_result.get("rules_llm_decision")
-        or (raw.get("rules_llm_decision") if isinstance(raw, dict) else None)
+    rules_llm_decision = exec_result.get("rules_llm_decision") or (
+        raw.get("rules_llm_decision") if isinstance(raw, dict) else None
     )
 
     # По умолчанию считаем, что check отработал успешно.
@@ -289,7 +283,7 @@ def _extract_red_flags(
 def _extract_segment_provenance(exec_result: dict) -> dict[str, Any]:
     """
     Извлечь segment-aware информацию из exec_result.
-    
+
     Для непрофессионального программиста:
     - Сначала проверяем верхний уровень exec_result (segment_id, segment_type, ...);
     - Если там пусто, пытаемся найти в exec_result["raw"]["segment_provenance"];
@@ -301,24 +295,24 @@ def _extract_segment_provenance(exec_result: dict) -> dict[str, Any]:
     segment_title = exec_result.get("segment_title")
     segment_order = exec_result.get("segment_order")
     is_primary_segment = exec_result.get("is_primary_segment")
-    
+
     # Fallback: если в верхнем уровне пусто, ищем в raw.segment_provenance
     if segment_id is None:
         raw_segment = None
         if isinstance(exec_result.get("raw"), dict):
             raw_segment = exec_result["raw"].get("segment_provenance")
-        
+
         if isinstance(raw_segment, dict):
             segment_id = raw_segment.get("segment_id") or None
             segment_type = raw_segment.get("segment_type") or None
             segment_title = raw_segment.get("segment_title") or None
-            
+
             try:
                 if raw_segment.get("segment_order") is not None:
                     segment_order = int(raw_segment.get("segment_order"))
             except (TypeError, ValueError):
                 segment_order = None
-            
+
             is_primary_segment = raw_segment.get("is_primary_segment")
             if isinstance(is_primary_segment, str):
                 is_primary_segment = is_primary_segment.strip().lower() in (
@@ -326,7 +320,7 @@ def _extract_segment_provenance(exec_result: dict) -> dict[str, Any]:
                     "true",
                     "yes",
                 )
-    
+
     return {
         "segment_id": segment_id,
         "segment_type": segment_type,
@@ -334,7 +328,3 @@ def _extract_segment_provenance(exec_result: dict) -> dict[str, Any]:
         "segment_order": segment_order,
         "is_primary_segment": is_primary_segment,
     }
-
-
-
-

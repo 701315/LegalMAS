@@ -6,19 +6,20 @@ Repository for Playbook, PlaybookVersion and ModelConfig operations.
 """
 
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
-from sqlalchemy import select, text, update, func
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import PlaybookStatus
+
 from ..models.deal import Deal
 from ..models.playbook import (
     ModelConfig,
-    PlaybookVersion,
     Playbook,
     PlaybookLineItem,
+    PlaybookVersion,
 )
 from ..models.run import Run
 
@@ -76,9 +77,7 @@ class PlaybookRepository:
 
     async def get_model_config(self, config_id: uuid.UUID) -> ModelConfig | None:
         """Get single model configuration by ID."""
-        result = await self.session.execute(
-            select(ModelConfig).where(ModelConfig.id == config_id)
-        )
+        result = await self.session.execute(select(ModelConfig).where(ModelConfig.id == config_id))
         return result.scalar_one_or_none()
 
     async def update_model_config(
@@ -142,16 +141,12 @@ class PlaybookRepository:
 
     async def get_playbook_by_id(self, playbook_id: uuid.UUID) -> Playbook | None:
         """Get Playbook by ID."""
-        result = await self.session.execute(
-            select(Playbook).where(Playbook.id == playbook_id)
-        )
+        result = await self.session.execute(select(Playbook).where(Playbook.id == playbook_id))
         return result.scalar_one_or_none()
 
     async def get_playbook_by_code(self, code: str) -> Playbook | None:
         """Get Playbook by its machine-readable code."""
-        result = await self.session.execute(
-            select(Playbook).where(Playbook.code == code)
-        )
+        result = await self.session.execute(select(Playbook).where(Playbook.code == code))
         return result.scalar_one_or_none()
 
     async def list_playbooks(
@@ -299,13 +294,7 @@ class PlaybookRepository:
 
         Делает slug в snake_case, обрезает до 80 символов.
         """
-        base = (
-            title.lower()
-            .replace(" ", "_")
-            .replace("/", "_")
-            .replace("—", "_")
-            .replace("-", "_")
-        )
+        base = title.lower().replace(" ", "_").replace("/", "_").replace("—", "_").replace("-", "_")
         base = "".join(ch for ch in base if ch.isalnum() or ch == "_")
         return base[:80]
 
@@ -336,9 +325,7 @@ class PlaybookRepository:
             )
 
         # 2. Все версии этого Playbook
-        versions_stmt = select(PlaybookVersion.id).where(
-            PlaybookVersion.playbook_id == line_id
-        )
+        versions_stmt = select(PlaybookVersion.id).where(PlaybookVersion.playbook_id == line_id)
         versions_result = await self.session.execute(versions_stmt)
         version_ids = list(versions_result.scalars().all())
         versions_count = len(version_ids)
@@ -366,8 +353,8 @@ class PlaybookRepository:
             deal_names.append(name)
 
         # 4. Считаем запуски Run, использующие эти версии
-        runs_stmt = select(func.count()).select_from(Run).where(
-            Run.playbook_version_id.in_(version_ids)
+        runs_stmt = (
+            select(func.count()).select_from(Run).where(Run.playbook_version_id.in_(version_ids))
         )
         runs_result = await self.session.execute(runs_stmt)
         used_in_runs = int(runs_result.scalar_one() or 0)
@@ -447,9 +434,7 @@ class PlaybookRepository:
     async def get_default(self) -> PlaybookVersion | None:
         """Get the playbook version with status='default'. Only one should exist."""
         result = await self.session.execute(
-            select(PlaybookVersion).where(
-                PlaybookVersion.status == PlaybookStatus.DEFAULT.value
-            )
+            select(PlaybookVersion).where(PlaybookVersion.status == PlaybookStatus.DEFAULT.value)
         )
         return result.scalar_one_or_none()
 
@@ -502,6 +487,3 @@ class PlaybookRepository:
             select(PlaybookVersion).where(PlaybookVersion.id == version_id)
         )
         return result.scalar_one_or_none()
-    
-
-    

@@ -31,11 +31,9 @@ from typing import Any
 
 from core.logging import get_logger
 from services.structure.models import (
-    ClauseNode,
     DEFAULT_SCOPE,
     NEGATIVE_HEADING_SEMANTIC_TYPES,
-    make_effective_uid,
-    split_effective_uid,
+    ClauseNode,
 )
 
 logger = get_logger(__name__)
@@ -43,6 +41,7 @@ logger = get_logger(__name__)
 # ============================================================================
 # Вспомогательные типы
 # ============================================================================
+
 
 @dataclass(slots=True)
 class AttachResult:
@@ -54,6 +53,7 @@ class AttachResult:
     parent_effective_uid: к какому parent прикреплён (None если root).
     reject_reason: почему узел был пропущен (только если skipped).
     """
+
     attached: bool
     attach_mode: str
     parent_effective_uid: str | None = None
@@ -70,6 +70,7 @@ class HierarchyBuildSummary:
     - diagnostics/logging;
     - решения о structure_degraded.
     """
+
     total_candidates: int = 0
     attached_as_child: int = 0
     attached_as_root: int = 0
@@ -118,6 +119,7 @@ class HierarchyBuildSummary:
 # Вспомогательные функции
 # ============================================================================
 
+
 def _normalize_uid(value: Any) -> str:
     return str(value or "").strip()
 
@@ -130,6 +132,7 @@ def _normalize_scope(value: Any) -> str:
 def _is_numeric_uid(uid: str) -> bool:
     """Проверяет что uid это чистый numeric uid типа 1 / 1.2 / 3.1.4."""
     import re
+
     return bool(re.fullmatch(r"\d+(?:\.\d+)*", uid.strip()))
 
 
@@ -175,6 +178,7 @@ def _is_semantic_negative_for_section(semantic_type: str | None) -> bool:
 # ============================================================================
 # Основной класс
 # ============================================================================
+
 
 class HierarchyStateMachine:
     """
@@ -465,17 +469,12 @@ class HierarchyStateMachine:
         summary.has_valid_root_sections = bool(
             self._root_nodes
             and any(
-                not node.diagnostics.get("semantic_attach_skipped")
-                for node in self._root_nodes
+                not node.diagnostics.get("semantic_attach_skipped") for node in self._root_nodes
             )
         )
 
         # Оцениваем degradation
-        total_attached = (
-            self._attached_child
-            + self._attached_root
-            + self._attached_best_effort
-        )
+        total_attached = self._attached_child + self._attached_root + self._attached_best_effort
 
         if self._total > 0 and total_attached == 0:
             summary.mark_degraded("no_nodes_attached")
@@ -601,14 +600,9 @@ class HierarchyStateMachine:
         technical_fallback_only:
         - True если структура деградировала до уровня fallback.
         """
-        total_attached = (
-            self._attached_child
-            + self._attached_root
-            + self._attached_best_effort
-        )
+        total_attached = self._attached_child + self._attached_root + self._attached_best_effort
         best_effort_ratio = (
-            self._attached_best_effort / max(total_attached, 1)
-            if total_attached > 0 else 0.0
+            self._attached_best_effort / max(total_attached, 1) if total_attached > 0 else 0.0
         )
 
         section_chunking_allowed = (
@@ -618,28 +612,26 @@ class HierarchyStateMachine:
             and best_effort_ratio < 0.5
         )
 
-        technical_fallback_only = (
-            summary.structure_degraded
-            or not summary.has_valid_root_sections
-        )
+        technical_fallback_only = summary.structure_degraded or not summary.has_valid_root_sections
 
         return {
             "section_chunking_allowed": section_chunking_allowed,
             "technical_fallback_only": technical_fallback_only,
             "structure_confidence": (
-                "HIGH" if not summary.structure_degraded and summary.has_valid_root_sections
-                else "LOW" if summary.structure_degraded
+                "HIGH"
+                if not summary.structure_degraded and summary.has_valid_root_sections
+                else "LOW"
+                if summary.structure_degraded
                 else "MEDIUM"
             ),
             "recoverable_hierarchy_used": self._attached_best_effort > 0,
             "total_fallback_blocked": self._skipped_invalid + self._skipped_semantic,
             "hierarchy_quality": (
-                "good" if not summary.structure_degraded and summary.has_valid_root_sections
-                else "partial" if summary.has_valid_root_sections
+                "good"
+                if not summary.structure_degraded and summary.has_valid_root_sections
+                else "partial"
+                if summary.has_valid_root_sections
                 else "failed"
             ),
             "best_effort_ratio": round(best_effort_ratio, 4),
         }
-    
-
-    

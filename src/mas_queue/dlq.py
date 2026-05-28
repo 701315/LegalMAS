@@ -35,7 +35,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.logging import get_logger
 from db.models.ops import DLQRecord
 
-
 logger = get_logger(__name__)
 
 # Значение по умолчанию для поля next_action.
@@ -106,9 +105,7 @@ class DLQManager:
         """
         Получить одну запись DLQ по ID.
         """
-        result = await self.session.execute(
-            select(DLQRecord).where(DLQRecord.id == record_id)
-        )
+        result = await self.session.execute(select(DLQRecord).where(DLQRecord.id == record_id))
         return result.scalar_one_or_none()
 
     async def get_records(
@@ -186,5 +183,3 @@ class DLQManager:
                 cutoff=cutoff.isoformat(),
             )
         return deleted
-    
-    

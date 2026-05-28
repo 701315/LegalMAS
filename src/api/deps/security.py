@@ -32,15 +32,15 @@
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser
+from core.roles import ProjectRole
 from db.repositories.project_role_repo import ProjectRoleRepository
-from core.roles import ProjectRole, GlobalRole
 
 
 async def require_project_role(

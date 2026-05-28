@@ -26,9 +26,9 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.session import get_db
-from api.deps.auth import get_current_user, CurrentUser
+from api.deps.auth import CurrentUser, get_current_user
 from db.repositories.deal_repo import DealRepository
+from db.session import get_db
 
 router = APIRouter(prefix="/api/v1/user", tags=["user-projects"])
 
@@ -62,7 +62,7 @@ async def list_user_projects(
         UserProject(
             deal_id=str(d.id),
             deal_name=d.name,
-                        role="admin",  # временно считаем, что текущий пользователь — админ везде
+            role="admin",  # временно считаем, что текущий пользователь — админ везде
             created_at=d.created_at.isoformat(),
             contact_person=(
                 (d.metadata_ or {}).get("contact_person")

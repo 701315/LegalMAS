@@ -30,56 +30,64 @@ from __future__ import annotations
 from typing import Any
 
 from core.logging import get_logger
+from services.structure._element_classifier._classify_reason import (
+    ClassificationReason,
+    ClassificationResult,
+)
+from services.structure._element_classifier._classify_single import _classify_single_element
+
+# ============================================================================
+# Импорты из внутренних модулей (не экспортируются наружу)
+# ============================================================================
+from services.structure._element_classifier._logging import _log_classification_summary
+from services.structure._element_classifier._page_stats import _build_page_stats
+from services.structure._element_classifier._semantic_resolver import (
+    _compute_heading_confidence_from_classification,
+    _compute_semantic_element_type,
+)
+from services.structure._element_classifier._text_utils import (
+    _normalize_text,
+)
+from services.structure._element_classifier._toc_context import _TocContext
+from services.structure.legal_heading_rules import (
+    compute_heading_continuity_signals,
+)
+from services.structure.models import (
+    SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING as SEMANTIC_TYPE_APPENDIX_HEADING,
+)
+from services.structure.models import (
+    SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM as SEMANTIC_TYPE_DEFINITION_ITEM,
+)
+from services.structure.models import (
+    SEMANTIC_ELEMENT_TYPE_SECTION_HEADING as SEMANTIC_TYPE_SECTION_HEADING,
+)
+from services.structure.models import (
+    SEMANTIC_ELEMENT_TYPE_SIGNATURE_BLOCK as SEMANTIC_TYPE_SIGNATURE_BLOCK,
+)
+from services.structure.models import (
+    SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING as SEMANTIC_TYPE_SUBSECTION_HEADING,
+)
 from services.structure.toc_guard import (
     TOC_GUARD_PARTIAL,
     TOC_GUARD_REJECT,
     TOCGuardVerdict,
 )
-from services.structure.models import (
-    SEMANTIC_ELEMENT_TYPE_SECTION_HEADING as SEMANTIC_TYPE_SECTION_HEADING,
-    SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING as SEMANTIC_TYPE_SUBSECTION_HEADING,
-    SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM as SEMANTIC_TYPE_DEFINITION_ITEM,
-    SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING as SEMANTIC_TYPE_APPENDIX_HEADING,
-    SEMANTIC_ELEMENT_TYPE_SIGNATURE_BLOCK as SEMANTIC_TYPE_SIGNATURE_BLOCK,
-)
-from services.structure.legal_heading_rules import (
-    compute_heading_continuity_signals,
-)
-
-# ============================================================================
-# Импорты из внутренних модулей (не экспортируются наружу)
-# ============================================================================
-
-from services.structure._element_classifier._config import *
-from services.structure._element_classifier._text_utils import (
-    _normalize_text,
-)
-from services.structure._element_classifier._toc_context import _TocContext
-from services.structure._element_classifier._page_stats import _build_page_stats
-from services.structure._element_classifier._semantic_resolver import (
-    _compute_semantic_element_type,
-    _compute_heading_confidence_from_classification,
-)
-from services.structure._element_classifier._classify_single import _classify_single_element
-from services.structure._element_classifier._classify_reason import ClassificationReason, ClassificationResult
-from services.structure._element_classifier._logging import _log_classification_summary
 
 # ============================================================================
 # Публичные константы (Импортируются из конфига)
 # ============================================================================
-
 from ._element_classifier._config import (
-    ELEMENT_TYPE_HEADING_CANDIDATE,
     ELEMENT_TYPE_BODY_TEXT,
-    ELEMENT_TYPE_TABLE_CONTENT,
-    ELEMENT_TYPE_REQUISITES_BLOCK,
-    ELEMENT_TYPE_SIGNATURE_BLOCK,
-    ELEMENT_TYPE_TOC_HEADER,
-    ELEMENT_TYPE_TOC_LINE,
-    ELEMENT_TYPE_POSSIBLE_TOC,
-    ELEMENT_TYPE_TOC_FALSE_POSITIVE,
+    ELEMENT_TYPE_HEADING_CANDIDATE,
     ELEMENT_TYPE_LIST_ITEM,
     ELEMENT_TYPE_PAGE_ARTIFACT,
+    ELEMENT_TYPE_POSSIBLE_TOC,
+    ELEMENT_TYPE_REQUISITES_BLOCK,
+    ELEMENT_TYPE_SIGNATURE_BLOCK,
+    ELEMENT_TYPE_TABLE_CONTENT,
+    ELEMENT_TYPE_TOC_FALSE_POSITIVE,
+    ELEMENT_TYPE_TOC_HEADER,
+    ELEMENT_TYPE_TOC_LINE,
     ELEMENT_TYPE_UNKNOWN_LAYOUT,
     SUPPORTED_ELEMENT_TYPES,
 )
@@ -89,6 +97,7 @@ logger = get_logger(__name__)
 # ============================================================================
 # Public API
 # ============================================================================
+
 
 def classify_elements(
     elements: list[dict[str, Any]] | None,
@@ -210,8 +219,7 @@ def classify_elements(
         normalized["element_type"] = result.element_type
         normalized["element_classification_confidence"] = round(result.confidence, 3)
         normalized["element_classification_reasons"] = [
-            {"code": r.code, "weight": r.weight, "note": r.note}
-            for r in result.reasons
+            {"code": r.code, "weight": r.weight, "note": r.note} for r in result.reasons
         ]
         existing_meta = dict(normalized.get("metadata") or {})
         existing_meta.update(meta)
@@ -257,8 +265,7 @@ def annotate_elements_with_guard(
     # между classify и annotate — индексы съедут.
     # Проверяем что размер совпадает.
     max_guard_idx = max(
-        (max(guard.false_positive_indexes, default=-1),
-         max(guard.recoverable_indexes, default=-1))
+        (max(guard.false_positive_indexes, default=-1), max(guard.recoverable_indexes, default=-1))
     )
     if max_guard_idx >= len(elements):
         logger.warning(
@@ -337,5 +344,3 @@ __all__ = [
     "classify_elements",
     "annotate_elements_with_guard",
 ]
-
-    

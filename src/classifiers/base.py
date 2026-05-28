@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from core.constants import ClassificationLevel
 
@@ -174,11 +174,11 @@ class HybridClassificationCandidate:
     doctype: str
     confidence: float
     level: str  # "L1", "L2", "L3", "L4"
-    method: Optional[str] = None
-    evidence: Optional[str] = None
-    language: Optional[str] = None
-    jurisdiction: Optional[str] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
+    method: str | None = None
+    evidence: str | None = None
+    language: str | None = None
+    jurisdiction: str | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -248,15 +248,15 @@ class HybridClassificationResultDTO:
         }
     """
 
-    final_type: Optional[str] = None
+    final_type: str | None = None
     final_confidence: float = 0.0
-    level: Optional[str] = None  # "L1","L2","L3","L4","HYBRID","COPIED",None
-    language: Optional[str] = None
-    jurisdiction: Optional[str] = None
-    applicable_triggers: List[str] = field(default_factory=list)
-    levels_tried: List[str] = field(default_factory=list)
-    candidates: List[HybridClassificationCandidate] = field(default_factory=list)
-    details: Dict[str, Any] = field(default_factory=dict)
+    level: str | None = None  # "L1","L2","L3","L4","HYBRID","COPIED",None
+    language: str | None = None
+    jurisdiction: str | None = None
+    applicable_triggers: list[str] = field(default_factory=list)
+    levels_tried: list[str] = field(default_factory=list)
+    candidates: list[HybridClassificationCandidate] = field(default_factory=list)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 class BaseClassifier(ABC):

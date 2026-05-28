@@ -163,15 +163,11 @@ async def _convert_document_for_language_discovery_async(
 
     document = await doc_repo.get_by_id(doc_uuid)
     if document is None:
-        raise PermanentError(
-            f"Document {document_id} not found for language discovery conversion"
-        )
+        raise PermanentError(f"Document {document_id} not found for language discovery conversion")
 
     deal = await deal_repo.get_by_id(deal_uuid)
     if deal is None:
-        raise PermanentError(
-            f"Deal {deal_id} not found for language discovery conversion"
-        )
+        raise PermanentError(f"Deal {deal_id} not found for language discovery conversion")
 
     version = await ver_repo.get_by_id(version_uuid)
     if version is None:
@@ -286,7 +282,3 @@ async def _convert_document_for_language_discovery_async(
             extra=log_extra_base,
         )
         raise
-
-    
-
-    

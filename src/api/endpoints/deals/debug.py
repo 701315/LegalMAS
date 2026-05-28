@@ -61,4 +61,3 @@ async def debug_create_deal(
         "id": str(deal.id),
         "name": deal.name,
     }
-

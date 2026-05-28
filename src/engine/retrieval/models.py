@@ -30,7 +30,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 # Тип уровня чанка:
 # - "section"   — крупный раздел (несколько пунктов),
 # - "clause"    — исходная листовая клауза из clause tree,
@@ -122,15 +121,10 @@ class RetrievalChunk(BaseModel):
         metadata.update(self.meta or {})
 
         # Убираем пустые/None для компактности
-        metadata = {
-            k: v
-            for k, v in metadata.items()
-            if v not in (None, [], {}, "")
-        }
+        metadata = {k: v for k, v in metadata.items() if v not in (None, [], {}, "")}
 
         return {
             "id": self.id,
             "text": self.text,
             "metadata": metadata,
         }
-    

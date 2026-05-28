@@ -87,4 +87,3 @@ def build_layout_stage_from_payload(
         meta=meta,
         preview=preview,
     )
-

@@ -9,20 +9,16 @@
 
 from __future__ import annotations
 
-import time
-
 from core.logging import get_logger
-from services.structure.models import FileStructureResult
 from services.structure.file_graph_builder import build_file_graph
+from services.structure.models import FileStructureResult
 
+from ._pipeline._core_builder import build_single_segment_tree
 from ._pipeline._element_validation import clean_elements, ensure_element_segment_metadata
 from ._pipeline._segment_utils import (
     make_single_segment_list,
     segment_document,
 )
-from ._pipeline._core_builder import build_single_segment_tree
-from ._pipeline._quality_metrics import summarize_element_types
-from ._pipeline._utils import log_timing
 
 logger = get_logger(__name__)
 
@@ -48,7 +44,6 @@ def build_file_structure(
     *,
     document_version_id: str | None = None,
 ) -> FileStructureResult:
-
     if not document_id:
         logger.warning("STRUCTURE build_file_structure: empty document_id")
         document_id = "<unknown>"
@@ -99,7 +94,7 @@ def build_file_structure(
     segment_trees = []
 
     for seg in segments:
-        slice_ = classified[seg.element_start:seg.element_end]
+        slice_ = classified[seg.element_start : seg.element_end]
         prepared = ensure_element_segment_metadata(
             elements=slice_,
             segment=seg,
@@ -133,5 +128,3 @@ def build_file_structure(
         segment_trees=segment_trees,
         file_graph=file_graph,
     )
-
-

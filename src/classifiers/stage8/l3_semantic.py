@@ -59,16 +59,17 @@ Production-версия с:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 
-from ..base import BaseClassifier, ClassificationResult
-from ..yaml_registry import DocumentTypeConfig, YAMLRegistry
 from core.config import settings
 from core.constants import ClassificationLevel
 from core.logging import get_logger
 from services.embeddings.embedding_service import embedding_service
+
+from ..base import BaseClassifier, ClassificationResult
+from ..yaml_registry import DocumentTypeConfig, YAMLRegistry
 
 logger = get_logger(__name__)
 
@@ -106,7 +107,7 @@ def _estimate_input_quality(text: str) -> float:
     )
 
 
-def _validate_weight_sum(weights: List[float], name: str) -> None:
+def _validate_weight_sum(weights: list[float], name: str) -> None:
     """Логируем неконсистентную конфигурацию весов."""
     total = float(sum(weights))
     if not np.isclose(total, 1.0, atol=_L3_WEIGHT_SUM_TOLERANCE):
@@ -132,9 +133,9 @@ class L3SemanticClassifier(BaseClassifier):
 
     def __init__(self, registry: YAMLRegistry | None = None) -> None:
         self._registry = registry or YAMLRegistry.get_instance()
-        self._positive_prototypes: Dict[str, np.ndarray] = {}
-        self._negative_prototypes: Dict[str, np.ndarray] = {}
-        self._meta: Dict[str, dict] = {}
+        self._positive_prototypes: dict[str, np.ndarray] = {}
+        self._negative_prototypes: dict[str, np.ndarray] = {}
+        self._meta: dict[str, dict] = {}
 
         self._load_prototypes()
 
@@ -144,15 +145,15 @@ class L3SemanticClassifier(BaseClassifier):
 
     def _load_prototypes(self) -> None:
         """Строим positive и negative embedding-прототипы для каждого типа."""
-        configs: List[DocumentTypeConfig] = self._registry.get_all_configs()
+        configs: list[DocumentTypeConfig] = self._registry.get_all_configs()
         if not configs:
             logger.warning("L3SemanticClassifier: no configs in YAMLRegistry")
             return
 
-        positive_texts: List[str] = []
-        negative_texts: List[str] = []
-        type_codes: List[str] = []
-        meta_list: List[dict] = []
+        positive_texts: list[str] = []
+        negative_texts: list[str] = []
+        type_codes: list[str] = []
+        meta_list: list[dict] = []
 
         for cfg in configs:
             pos_proto, neg_proto = self._create_dual_prototypes(cfg)
@@ -212,9 +213,9 @@ class L3SemanticClassifier(BaseClassifier):
             extra={"count": len(self._positive_prototypes)},
         )
 
-    def _create_dual_prototypes(self, cfg: DocumentTypeConfig) -> Tuple[str, str]:
-        pos_parts: List[str] = []
-        neg_parts: List[str] = []
+    def _create_dual_prototypes(self, cfg: DocumentTypeConfig) -> tuple[str, str]:
+        pos_parts: list[str] = []
+        neg_parts: list[str] = []
 
         pos_parts.append(str(cfg.name or ""))
         raw = cfg.raw or {}
@@ -232,7 +233,7 @@ class L3SemanticClassifier(BaseClassifier):
             pos_parts.extend(elem.get("keywords", []) or [])
             pos_parts.extend(elem.get("phrases", []) or [])
 
-        exclusions: List[str] = []
+        exclusions: list[str] = []
 
         if hasattr(cfg, "rules_keywords") and isinstance(cfg.rules_keywords, dict):
             exclusions = cfg.rules_keywords.get("exclusions", []) or []
@@ -242,12 +243,10 @@ class L3SemanticClassifier(BaseClassifier):
 
         neg_parts.extend(exclusions)
 
-        clean_pos = [str(p) for p in pos_parts if p and isinstance(p, (str, int, float))]
-        clean_neg = [str(p) for p in neg_parts if p and isinstance(p, (str, int, float))]
+        clean_pos = [str(p) for p in pos_parts if p and isinstance(p, str | int | float)]
+        clean_neg = [str(p) for p in neg_parts if p and isinstance(p, str | int | float)]
 
-        positive = " ".join(clean_pos)[
-            : settings.CLASSIFICATION_L3_POSITIVE_PROTOTYPE_MAX_CHARS
-        ]
+        positive = " ".join(clean_pos)[: settings.CLASSIFICATION_L3_POSITIVE_PROTOTYPE_MAX_CHARS]
         negative = (
             " ".join(clean_neg)[: settings.CLASSIFICATION_L3_NEGATIVE_PROTOTYPE_MAX_CHARS]
             if clean_neg
@@ -266,7 +265,7 @@ class L3SemanticClassifier(BaseClassifier):
 
         return positive, negative
 
-    def _extract_windows(self, text: str) -> List[str]:
+    def _extract_windows(self, text: str) -> list[str]:
         """
         Извлекает окна из текста для multi-window encoding.
 
@@ -294,7 +293,7 @@ class L3SemanticClassifier(BaseClassifier):
 
         return [w1, w2, w3]
 
-    def _compute_multi_window_embedding(self, windows: List[str]) -> np.ndarray:
+    def _compute_multi_window_embedding(self, windows: list[str]) -> np.ndarray:
         """
         Кодирует окна документа и возвращает нормализованную взвешенную сумму.
 
@@ -422,9 +421,9 @@ class L3SemanticClassifier(BaseClassifier):
                 },
             )
 
-        pos_sims: Dict[str, float] = {}
-        neg_sims: Dict[str, float] = {}
-        adjusted_sims: Dict[str, float] = {}
+        pos_sims: dict[str, float] = {}
+        neg_sims: dict[str, float] = {}
+        adjusted_sims: dict[str, float] = {}
 
         negative_factor: float = settings.CLASSIFICATION_L3_NEGATIVE_PROTOTYPE_FACTOR
 
@@ -509,8 +508,7 @@ class L3SemanticClassifier(BaseClassifier):
                 "best_neg_sim": round(best_neg_sim, 4),
                 "margin": round(margin, 4),
                 "top_alt": [
-                    {"type": a["type"], "similarity": a["similarity"]}
-                    for a in alternatives
+                    {"type": a["type"], "similarity": a["similarity"]} for a in alternatives
                 ],
             },
         )
@@ -529,9 +527,7 @@ class L3SemanticClassifier(BaseClassifier):
         _validate_weight_sum([sim_weight, margin_weight], "confidence")
 
         margin_factor = (
-            _clamp(margin / margin_saturation, 0.0, 1.0)
-            if margin_saturation > 0.0
-            else 0.0
+            _clamp(margin / margin_saturation, 0.0, 1.0) if margin_saturation > 0.0 else 0.0
         )
 
         confidence_raw = sim_weight * sim_component + margin_weight * margin_factor
@@ -539,7 +535,7 @@ class L3SemanticClassifier(BaseClassifier):
 
         meta = self._meta.get(best_type, {})
 
-        extra: Dict[str, Any] = {
+        extra: dict[str, Any] = {
             "raw_similarity": round(best_adjusted_sim, 4),
             "positive_similarity": round(best_pos_sim, 4),
             "negative_similarity": round(best_neg_sim, 4),
@@ -577,6 +573,3 @@ class L3SemanticClassifier(BaseClassifier):
             alternative_types=alternatives,
             extra=extra,
         )
-
-
-

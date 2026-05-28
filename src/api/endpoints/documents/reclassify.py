@@ -133,4 +133,3 @@ async def reclassify_document(
     except Exception:
         await db.rollback()
         raise
-

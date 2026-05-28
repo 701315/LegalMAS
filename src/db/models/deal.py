@@ -24,11 +24,12 @@ ORM-модель Deal описывает сделку (проект due diligenc
 
 import uuid
 
-from sqlalchemy import Index, String, ForeignKey, Enum, Text
+from sqlalchemy import Enum, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.constants import DealStatus, PIIMode
+
 from ..base import Base
 
 
@@ -120,7 +121,6 @@ class Deal(Base):
         comment="ID of the latest analysis run for this deal",
     )
 
-
     last_run_checks_mode: Mapped[str | None] = mapped_column(
         Enum(
             "global_only",
@@ -130,8 +130,7 @@ class Deal(Base):
         ),
         nullable=True,
         comment=(
-            "Checks mode of the latest run: "
-            "global_only / doc_type_only / global_and_doc_type"
+            "Checks mode of the latest run: " "global_only / doc_type_only / global_and_doc_type"
         ),
     )
 
@@ -177,7 +176,4 @@ class Deal(Base):
         comment="Arbitrary deal metadata",
     )
 
-    __table_args__ = (
-        Index("idx_deals_tenant_status", "tenant_id", "status"),
-    )
-
+    __table_args__ = (Index("idx_deals_tenant_status", "tenant_id", "status"),)

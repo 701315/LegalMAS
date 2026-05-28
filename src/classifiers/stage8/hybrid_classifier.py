@@ -30,32 +30,33 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from ..yaml_registry import YAMLRegistry
-from ops.metrics import get_metrics
-
+from classifiers.base import (  # noqa: F401
+    HybridClassificationCandidate,
+    HybridClassificationResultDTO,
+)
 from core.config import settings
 from core.logging import get_logger
 from db.repositories.runner_repo import RunnerRepository
 from engine.content.document_content_service import DocumentContentService
 from engine.llm.client import LLMClient
+from ops.metrics import get_metrics
 
+from ..yaml_registry import YAMLRegistry
+from ._cascade_steps import CascadeSteps
+from ._content_fetcher import ContentFetcher
+from ._decision_logger import DecisionStrategy, log_classification_decision
+from ._decision_support import apply_voting, best_pre_l4_signal
+from ._duplicate_handler import DuplicateHandler
+from ._finalization import FallbackFinalizer
+from ._l4_executor import L4Executor
+from ._l4_llm import L4LLMClassifier
+from ._l4_policy import is_hybrid_confident
+from ._priority_rules import PriorityRulesEvaluator
+from ._result_builder import ResultBuilder
+from ._voting import WeightedVoter
 from .l1_filename import L1FilenameClassifier
 from .l2_header import L2HeaderClassifier
 from .l3_semantic import L3SemanticClassifier
-from ._voting import WeightedVoter
-from ._l4_llm import L4LLMClassifier
-from ._content_fetcher import ContentFetcher
-from ._duplicate_handler import DuplicateHandler
-from ._result_builder import ResultBuilder
-from ._decision_support import best_pre_l4_signal, apply_voting
-from ._l4_policy import is_hybrid_confident
-from ._priority_rules import PriorityRulesEvaluator
-from ._finalization import FallbackFinalizer
-from ._cascade_steps import CascadeSteps
-from ._l4_executor import L4Executor
-from ._decision_logger import DecisionStrategy, log_classification_decision
-
-from classifiers.base import HybridClassificationCandidate, HybridClassificationResultDTO  # noqa: F401
 
 __all__ = [
     "HybridClassifier",
@@ -239,18 +240,23 @@ class HybridClassifier:
         )
 
         # ── L3 ───────────────────────────────────────────────────────
-        top_l3, candidates, details, language, jurisdiction, applicable_triggers = (
-            await self._cascade.run_l3(
-                doc_id=doc_id,
-                snippet_text=snippet_text,
-                filename=filename,
-                folder=folder,
-                candidates=candidates,
-                details=details,
-                language=language,
-                jurisdiction=jurisdiction,
-                applicable_triggers=applicable_triggers,
-            )
+        (
+            top_l3,
+            candidates,
+            details,
+            language,
+            jurisdiction,
+            applicable_triggers,
+        ) = await self._cascade.run_l3(
+            doc_id=doc_id,
+            snippet_text=snippet_text,
+            filename=filename,
+            folder=folder,
+            candidates=candidates,
+            details=details,
+            language=language,
+            jurisdiction=jurisdiction,
+            applicable_triggers=applicable_triggers,
         )
 
         # ── Приоритетные правила ──────────────────────────────────────
@@ -327,18 +333,23 @@ class HybridClassifier:
             )
 
         # ── L3 ───────────────────────────────────────────────────────
-        top_l3, candidates, details, language, jurisdiction, applicable_triggers = (
-            await self._cascade.run_l3(
-                doc_id=f"segment:{segment_id}",
-                snippet_text=text,
-                filename=filename,
-                folder=folder_path or "",
-                candidates=candidates,
-                details=details,
-                language=language,
-                jurisdiction=jurisdiction,
-                applicable_triggers=applicable_triggers,
-            )
+        (
+            top_l3,
+            candidates,
+            details,
+            language,
+            jurisdiction,
+            applicable_triggers,
+        ) = await self._cascade.run_l3(
+            doc_id=f"segment:{segment_id}",
+            snippet_text=text,
+            filename=filename,
+            folder=folder_path or "",
+            candidates=candidates,
+            details=details,
+            language=language,
+            jurisdiction=jurisdiction,
+            applicable_triggers=applicable_triggers,
         )
         top_l2 = None
 
@@ -425,9 +436,7 @@ class HybridClassifier:
         self._enrich_candidates_with_family_metadata(candidates)
 
         details["candidates"] = (
-            candidates
-            if settings.CLASSIFICATION_TRACE_INCLUDE_CANDIDATES
-            else candidates[:3]
+            candidates if settings.CLASSIFICATION_TRACE_INCLUDE_CANDIDATES else candidates[:3]
         )
 
         voted = self._voter.vote(candidates)
@@ -509,16 +518,14 @@ class HybridClassifier:
             )
 
         # ── Pre-L4 signal ─────────────────────────────────────────────
-        final_type_av, final_conf_av, language, jurisdiction, pre_l4_src = (
-            best_pre_l4_signal(
-                voted=voted,
-                top_l1=top_l1,
-                top_l2=top_l2,
-                top_l3=top_l3,
-                language=language,
-                jurisdiction=jurisdiction,
-                details=details,
-            )
+        final_type_av, final_conf_av, language, jurisdiction, pre_l4_src = best_pre_l4_signal(
+            voted=voted,
+            top_l1=top_l1,
+            top_l2=top_l2,
+            top_l3=top_l3,
+            language=language,
+            jurisdiction=jurisdiction,
+            details=details,
         )
 
         details["pre_l4_best_signal"] = {
@@ -672,5 +679,3 @@ class HybridClassifier:
                 },
             },
         }
-    
-    

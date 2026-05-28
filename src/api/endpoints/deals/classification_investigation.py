@@ -89,5 +89,3 @@ async def get_classification_investigation_page(
         page=page,
         per_page=per_page,
     )
-
-

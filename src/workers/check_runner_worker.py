@@ -45,15 +45,15 @@ from core.pipeline_snapshots import (
     RunSnapshot,
     snapshot_run,
 )
+from db.repositories.audit_repo import AuditRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
 from db.repositories.run_repo import RunRepository
-from db.repositories.audit_repo import AuditRepository
 from db.uow import db_uow
+from engine.checks_runner import CheckRunner
 from engine.llm.client import LLMClient
 from engine.playbook.loader import load_playbook_from_version
-from engine.checks_runner import CheckRunner
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
@@ -144,9 +144,7 @@ def run_deal_checks(
 
                 pb_version = await pb_repo.get_by_id(run_snap.playbook_version_id)
                 if pb_version is None:
-                    raise ValueError(
-                        f"PlaybookVersion not found: {run_snap.playbook_version_id}"
-                    )
+                    raise ValueError(f"PlaybookVersion not found: {run_snap.playbook_version_id}")
 
                 playbook = load_playbook_from_version(pb_version)
 
@@ -257,9 +255,7 @@ def run_deal_checks(
                 duration = time.time() - started_at
 
                 try:
-                    metrics.checks_duration.labels(
-                        stage="deal_checks_schedule"
-                    ).observe(duration)
+                    metrics.checks_duration.labels(stage="deal_checks_schedule").observe(duration)
                 except Exception:
                     logger.exception(
                         "run_deal_checks scheduler: failed to update checks_duration metric",
@@ -295,9 +291,7 @@ def run_deal_checks(
 
                     finalized = await run_repo.finalize_run_if_finished(run_uuid)
                     if finalized is None:
-                        raise ValueError(
-                            f"Run not found during zero-check finalize: {run_uuid}"
-                        )
+                        raise ValueError(f"Run not found during zero-check finalize: {run_uuid}")
 
                     # Снимаем snapshot финализированного Run сразу после получения.
                     finalized_snap: RunSnapshot = snapshot_run(finalized)
@@ -423,9 +417,7 @@ def run_single_check(
 
                 pb_version = await pb_repo.get_by_id(effective_pb_version_id)
                 if pb_version is None:
-                    raise ValueError(
-                        f"PlaybookVersion not found: {effective_pb_version_id}"
-                    )
+                    raise ValueError(f"PlaybookVersion not found: {effective_pb_version_id}")
                 playbook = load_playbook_from_version(pb_version)
 
                 doc = await doc_repo.get_by_id(doc_uuid)
@@ -453,12 +445,8 @@ def run_single_check(
                             "doc_id": doc_id,
                             "check_id": check_id,
                             "force": force,
-                            "success_result_id": (
-                                str(success_row.id) if success_row else None
-                            ),
-                            "success_segment_id": (
-                                success_row.segment_id if success_row else None
-                            ),
+                            "success_result_id": (str(success_row.id) if success_row else None),
+                            "success_segment_id": (success_row.segment_id if success_row else None),
                             "success_segment_type": (
                                 success_row.segment_type if success_row else None
                             ),
@@ -579,9 +567,7 @@ def run_single_check(
                     evidence_ref=None,
                     confidence=None,
                     detector_used=None,
-                    quality_flags={
-                        "raw": {"source": "timeout", "error_message": str(e)}
-                    },
+                    quality_flags={"raw": {"source": "timeout", "error_message": str(e)}},
                     structured_data=None,
                     conditional_check_triggered=False,
                     trigger_name=None,
@@ -610,9 +596,6 @@ def run_single_check(
 
                 message = str(e)
 
-                is_permanent_db_error = message.startswith(
-                    "Permanent DB error while upserting check_result"
-                )
                 is_transient_db_error = message.startswith(
                     "Transient DB error while upserting check_result"
                 )
@@ -629,9 +612,7 @@ def run_single_check(
                         evidence_ref=None,
                         confidence=None,
                         detector_used=None,
-                        quality_flags={
-                            "raw": {"source": "exception", "error_message": message}
-                        },
+                        quality_flags={"raw": {"source": "exception", "error_message": message}},
                         structured_data=None,
                         conditional_check_triggered=False,
                         trigger_name=None,
@@ -718,9 +699,7 @@ def finalize_run_if_ready(
             run_snap: RunSnapshot = snapshot_run(run_obj)
 
             finished_checks = await result_repo.count_finished_checks_for_run(run_uuid)
-            materialized_checks = (
-                await result_repo.count_distinct_checks_for_run(run_uuid)
-            )
+            materialized_checks = await result_repo.count_distinct_checks_for_run(run_uuid)
 
             updated_run = await run_repo.finalize_run_if_finished(run_uuid)
             if updated_run is None:
@@ -815,4 +794,3 @@ def finalize_run_if_ready(
             }
 
     return run_async(_run())
-

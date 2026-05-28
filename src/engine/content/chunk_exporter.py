@@ -13,13 +13,12 @@
 from __future__ import annotations
 
 import uuid
-from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from engine.content.document_content_service import DocumentContentService
-from storage.artifact_store import ArtifactStore, ArtifactPath
 from db.repositories.document_repo import DocumentRepository
+from engine.content.document_content_service import DocumentContentService
+from storage.artifact_store import ArtifactPath, ArtifactStore
 
 
 class ChunkExportService:
@@ -70,7 +69,7 @@ class ChunkExportService:
         chunks = await content.get_sized_chunks(doc_id)
 
         if not chunks or not any((ch.get("text") or "").strip() for ch in chunks):
-            raise ValueError(f"No sized chunks for document {doc_id}")        
+            raise ValueError(f"No sized chunks for document {doc_id}")
 
         # Проверяем, что документ существует (на случай расхождений в БД).
         doc = await self.doc_repo.get_by_id(doc_id)
@@ -78,7 +77,7 @@ class ChunkExportService:
             raise ValueError(f"Document {doc_id} not found")
 
         # Строим человекочитаемый Markdown.
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"# Document {doc_id}")
         lines.append("")
 
@@ -119,5 +118,3 @@ class ChunkExportService:
         )
         uri = self.store.put_file(export_path, data, content_type="text/markdown")
         return uri
-    
-    

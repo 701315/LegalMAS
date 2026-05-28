@@ -74,7 +74,9 @@ class TOCDiagnostics:
         self.block_start_index = (
             None
             if self.block_start_index is None
-            else _normalize_non_negative_int(self.block_start_index, "TOCDiagnostics.block_start_index")
+            else _normalize_non_negative_int(
+                self.block_start_index, "TOCDiagnostics.block_start_index"
+            )
         )
         self.block_end_index = (
             None
@@ -83,8 +85,12 @@ class TOCDiagnostics:
         )
         self.detection_reason = _norm_opt_str(self.detection_reason)
 
-        self.header_count = _normalize_non_negative_int(self.header_count, "TOCDiagnostics.header_count")
-        self.toc_line_count = _normalize_non_negative_int(self.toc_line_count, "TOCDiagnostics.toc_line_count")
+        self.header_count = _normalize_non_negative_int(
+            self.header_count, "TOCDiagnostics.header_count"
+        )
+        self.toc_line_count = _normalize_non_negative_int(
+            self.toc_line_count, "TOCDiagnostics.toc_line_count"
+        )
         self.possible_toc_count = _normalize_non_negative_int(
             self.possible_toc_count,
             "TOCDiagnostics.possible_toc_count",
@@ -107,10 +113,16 @@ class TOCDiagnostics:
             "TOCDiagnostics.parsed_multiline_entries",
         )
 
-        self.exact_matches = _normalize_non_negative_int(self.exact_matches, "TOCDiagnostics.exact_matches")
-        self.fuzzy_matches = _normalize_non_negative_int(self.fuzzy_matches, "TOCDiagnostics.fuzzy_matches")
+        self.exact_matches = _normalize_non_negative_int(
+            self.exact_matches, "TOCDiagnostics.exact_matches"
+        )
+        self.fuzzy_matches = _normalize_non_negative_int(
+            self.fuzzy_matches, "TOCDiagnostics.fuzzy_matches"
+        )
         self.no_matches = _normalize_non_negative_int(self.no_matches, "TOCDiagnostics.no_matches")
-        self.stale_entries = _normalize_non_negative_int(self.stale_entries, "TOCDiagnostics.stale_entries")
+        self.stale_entries = _normalize_non_negative_int(
+            self.stale_entries, "TOCDiagnostics.stale_entries"
+        )
 
         self.toc_alignment_score = _normalize_probability(
             self.toc_alignment_score,
@@ -210,11 +222,17 @@ class ParseQualityDiagnostics:
         self.toc_status = _normalize_parse_quality_status(self.toc_status)
         self.heading_status = _normalize_parse_quality_status(self.heading_status)
         self.hierarchy_status = _normalize_parse_quality_status(self.hierarchy_status)
-        self.reasons = _normalize_unique_string_list(self.reasons, "ParseQualityDiagnostics.reasons")
+        self.reasons = _normalize_unique_string_list(
+            self.reasons, "ParseQualityDiagnostics.reasons"
+        )
         self.extra = _ensure_dict(self.extra, "ParseQualityDiagnostics.extra")
 
-        if self.toc_diagnostics is not None and not isinstance(self.toc_diagnostics, TOCDiagnostics):
-            raise ValueError("ParseQualityDiagnostics.toc_diagnostics must be TOCDiagnostics | None")
+        if self.toc_diagnostics is not None and not isinstance(
+            self.toc_diagnostics, TOCDiagnostics
+        ):
+            raise ValueError(
+                "ParseQualityDiagnostics.toc_diagnostics must be TOCDiagnostics | None"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         """Сериализовать в dict для JSON/diagnostics."""
@@ -225,9 +243,7 @@ class ParseQualityDiagnostics:
             "hierarchy_status": self.hierarchy_status,
             "reasons": list(self.reasons),
             "toc_diagnostics": (
-                self.toc_diagnostics.to_dict()
-                if self.toc_diagnostics is not None
-                else None
+                self.toc_diagnostics.to_dict() if self.toc_diagnostics is not None else None
             ),
             "extra": dict(self.extra),
         }
@@ -271,4 +287,3 @@ def embed_parse_quality_diagnostics(
     out = dict(base)
     out["parse_quality"] = parse_quality.to_dict() if parse_quality is not None else None
     return out
-

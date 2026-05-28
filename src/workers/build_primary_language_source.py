@@ -42,10 +42,11 @@ Build Primary Language Source Worker.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import settings
 from core.constants import DocumentStatus, LanguageDiscoveryStatus
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
@@ -68,7 +69,6 @@ from services.document_language_pipeline import (
 from services.primary_pdf_builder import build_pdf_from_layout
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from storage.artifact_store import ArtifactPath, ArtifactStore
-from core.config import settings
 
 logger = get_logger(__name__)
 
@@ -807,9 +807,7 @@ async def _build_primary_language_source_async(
         processing_error_details=None,
     )
     if not updated_doc:
-        raise PermanentError(
-            f"Document {document_id} not found during PRIMARY_READY status update"
-        )
+        raise PermanentError(f"Document {document_id} not found during PRIMARY_READY status update")
 
     # ── 13. Flush + consistency check перед commit ────────────────────────────
     #
@@ -892,15 +890,10 @@ def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
     """
     prefix = f"s3://{bucket}/"
     if not s3_ref or not s3_ref.startswith(prefix):
-        raise PermanentError(
-            f"Invalid S3 ref for bucket '{bucket}': {s3_ref!r}"
-        )
+        raise PermanentError(f"Invalid S3 ref for bucket '{bucket}': {s3_ref!r}")
     return s3_ref.replace(prefix, "", 1)
 
 
 def _utcnow_iso() -> str:
     """Текущее время UTC в ISO 8601 для audit/error_details."""
-    return datetime.now(tz=timezone.utc).isoformat()
-
-
-
+    return datetime.now(tz=UTC).isoformat()

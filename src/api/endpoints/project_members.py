@@ -27,29 +27,26 @@
   через require_project_role(..., allowed_roles=("admin",)).
 """
 
-
-from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.deps.auth import CurrentUser, get_current_user
+from api.deps.security import require_project_role
 from api.mappers.project_members import (
     map_member_to_response,
     map_members_to_response,
 )
-from api.deps.auth import CurrentUser, get_current_user
-from api.deps.security import require_project_role
 from api.schemas.project_members import (
-    ProjectMemberResponse,
     CreateProjectMember,
+    ProjectMemberResponse,
     UpdateProjectMember,
 )
-from db.session import get_db
-from db.repositories.project_role_repo import ProjectRoleRepository
 from db.models.deal_member import DealMember
-
+from db.repositories.project_role_repo import ProjectRoleRepository
+from db.session import get_db
 
 router = APIRouter(
     prefix="/projects",
@@ -59,7 +56,7 @@ router = APIRouter(
 
 @router.get(
     "/{deal_id}/members",
-    response_model=List[ProjectMemberResponse],
+    response_model=list[ProjectMemberResponse],
     summary="Список участников проекта",
 )
 async def list_project_members(
@@ -179,9 +176,7 @@ async def update_project_member(
 
     # Если логин меняется – проверяем уникальность
     if payload.login is not None and payload.login != current.login:
-        existing = await db.execute(
-            select(DealMember).where(DealMember.login == payload.login)
-        )
+        existing = await db.execute(select(DealMember).where(DealMember.login == payload.login))
         if existing.scalar_one_or_none() is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

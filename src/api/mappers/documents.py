@@ -37,11 +37,11 @@
 должны сначала вноситься сюда, а не напрямую в ORM‑модели или в контроллеры.
 """
 
-from typing import Iterable, List
+from collections.abc import Iterable
 
+from api.schemas.documents import DocumentResponse
 from core.constants import DocumentStatus
 from db.models.document import Document
-from api.schemas.documents import DocumentResponse
 
 
 def _compute_human_review_status(doc: Document) -> str:
@@ -52,7 +52,7 @@ def _compute_human_review_status(doc: Document) -> str:
 
     if status == DocumentStatus.QUARANTINE:
         return "Требует внимания юриста"
-    
+
     if status == DocumentStatus.LANGUAGE_SELECTION_REQUIRED:
         # Документ технически не в quarantine, но пайплайн остановлен до выбора языка.
         return "Нужно выбрать основной язык"
@@ -87,9 +87,7 @@ def map_document_to_response(doc: Document) -> DocumentResponse:
         applicable_triggers=doc.applicable_triggers or [],  # ключевая нормализация
         # Флаг «нужна ручная проверка», выставленный HybridClassifier
         # (low-confidence или зона unknown).
-        classification_requires_review=getattr(
-            doc, "classification_requires_review", False
-        ),
+        classification_requires_review=getattr(doc, "classification_requires_review", False),
         # Детали последней ошибки обработки пайплайна.
         processing_error_details=doc.processing_error_details,
         created_at=doc.created_at,
@@ -99,7 +97,5 @@ def map_document_to_response(doc: Document) -> DocumentResponse:
 
 def map_documents_to_response(
     docs: Iterable[Document],
-) -> List[DocumentResponse]:
+) -> list[DocumentResponse]:
     return [map_document_to_response(d) for d in docs]
-
-

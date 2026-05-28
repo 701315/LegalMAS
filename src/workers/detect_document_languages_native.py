@@ -51,12 +51,12 @@ from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from services.document_language_detection import (
+    detect_document_languages_from_pdf_bytes,
+)
 from services.language_discovery_helpers import (
     mark_document_discovery_failed_and_recompute,
     recompute_deal_discovery_or_log,
-)
-from services.document_language_detection import (
-    detect_document_languages_from_pdf_bytes,
 )
 from storage.artifact_store import ArtifactStore
 
@@ -93,11 +93,13 @@ IMAGE_FILETYPES = {
 # Значение "pending" является единственным ожидаемым входным состоянием
 # для реальной обработки: orchestrator переводит документ из NULL/failed -> pending,
 # а этот worker переводит pending -> processing -> completed/failed.
-_IDEMPOTENT_TERMINAL_STATUSES = frozenset({
-    LanguageDiscoveryStatus.COMPLETED,
-    LanguageDiscoveryStatus.PROCESSING,
-    LanguageDiscoveryStatus.FAILED,
-})
+_IDEMPOTENT_TERMINAL_STATUSES = frozenset(
+    {
+        LanguageDiscoveryStatus.COMPLETED,
+        LanguageDiscoveryStatus.PROCESSING,
+        LanguageDiscoveryStatus.FAILED,
+    }
+)
 
 # Единственный статус, с которого этот worker легитимно начинает обработку.
 _EXPECTED_ENTRY_STATUS = LanguageDiscoveryStatus.PENDING
@@ -200,15 +202,11 @@ async def _detect_document_languages_native_async(
 
     document = await doc_repo.get_by_id(doc_uuid)
     if not document:
-        raise PermanentError(
-            f"Document {document_id} not found for language detection"
-        )
+        raise PermanentError(f"Document {document_id} not found for language detection")
 
     deal = await deal_repo.get_by_id(deal_uuid)
     if not deal:
-        raise PermanentError(
-            f"Deal {deal_id} not found for document language detection"
-        )
+        raise PermanentError(f"Deal {deal_id} not found for document language detection")
 
     version = await ver_repo.get_by_id(version_uuid)
     if not version:
@@ -254,7 +252,11 @@ async def _detect_document_languages_native_async(
             "deal_language_discovery_status": (
                 recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING).value
                 if isinstance(recomputed.get("language_discovery_status"), LanguageDiscoveryStatus)
-                else str(recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING.value))
+                else str(
+                    recomputed.get(
+                        "language_discovery_status", LanguageDiscoveryStatus.PENDING.value
+                    )
+                )
             ),
         }
         logger.info(
@@ -288,7 +290,11 @@ async def _detect_document_languages_native_async(
             "deal_language_discovery_status": (
                 recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING).value
                 if isinstance(recomputed.get("language_discovery_status"), LanguageDiscoveryStatus)
-                else str(recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING.value))
+                else str(
+                    recomputed.get(
+                        "language_discovery_status", LanguageDiscoveryStatus.PENDING.value
+                    )
+                )
             ),
         }
         logger.info(
@@ -322,7 +328,11 @@ async def _detect_document_languages_native_async(
             "deal_language_discovery_status": (
                 recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING).value
                 if isinstance(recomputed.get("language_discovery_status"), LanguageDiscoveryStatus)
-                else str(recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING.value))
+                else str(
+                    recomputed.get(
+                        "language_discovery_status", LanguageDiscoveryStatus.PENDING.value
+                    )
+                )
             ),
         }
         logger.info(
@@ -368,14 +378,10 @@ async def _detect_document_languages_native_async(
         # Читаем актуальный статус для диагностики.
         refreshed_document = await doc_repo.get_by_id(doc_uuid)
         refreshed_status = (
-            refreshed_document.language_discovery_status
-            if refreshed_document
-            else None
+            refreshed_document.language_discovery_status if refreshed_document else None
         )
         refreshed_languages = (
-            list(refreshed_document.detected_languages or [])
-            if refreshed_document
-            else []
+            list(refreshed_document.detected_languages or []) if refreshed_document else []
         )
 
         recomputed = await recompute_deal_discovery_or_log(
@@ -407,7 +413,11 @@ async def _detect_document_languages_native_async(
             "deal_language_discovery_status": (
                 recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING).value
                 if isinstance(recomputed.get("language_discovery_status"), LanguageDiscoveryStatus)
-                else str(recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING.value))
+                else str(
+                    recomputed.get(
+                        "language_discovery_status", LanguageDiscoveryStatus.PENDING.value
+                    )
+                )
             ),
         }
 
@@ -445,9 +455,7 @@ async def _detect_document_languages_native_async(
         except TransientError:
             raise
         except Exception as e:
-            raise PermanentError(
-                f"Failed to read source PDF for language detection: {e}"
-            ) from e
+            raise PermanentError(f"Failed to read source PDF for language detection: {e}") from e
 
         if not pdf_bytes:
             raise PermanentError(
@@ -494,7 +502,11 @@ async def _detect_document_languages_native_async(
             "deal_language_discovery_status": (
                 recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING).value
                 if isinstance(recomputed.get("language_discovery_status"), LanguageDiscoveryStatus)
-                else str(recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING.value))
+                else str(
+                    recomputed.get(
+                        "language_discovery_status", LanguageDiscoveryStatus.PENDING.value
+                    )
+                )
             ),
         }
 
@@ -589,8 +601,3 @@ def _resolve_source_pdf_ref(version: Any) -> str | None:
         return None
 
     return converted_pdf_ref
-
-
-
-
-

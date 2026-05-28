@@ -44,5 +44,3 @@ class CheckResultPersistErrorRepository:
         self.session.add(obj)
         await self.session.flush()
         return obj
-
-        

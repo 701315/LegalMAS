@@ -18,7 +18,7 @@ UPDATED:
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from core.config import settings
 from core.logging import get_logger
@@ -217,9 +217,7 @@ def build_voting_details(
                 "margin": _safe_float(voted.get("margin"), 0.0),
                 "support_count": _safe_int(voted.get("support_count"), 0),
                 "support_levels": _normalize_support_levels(voted.get("support_levels")),
-                "single_source_cap_applied": bool(
-                    voted.get("single_source_cap_applied", False)
-                ),
+                "single_source_cap_applied": bool(voted.get("single_source_cap_applied", False)),
                 "single_source_cap_used": (
                     _safe_float(voted.get("single_source_cap_used"), 0.0)
                     if voted.get("single_source_cap_used") is not None
@@ -292,9 +290,7 @@ def build_voting_details(
                 "dominant_floor",
                 "best_component_confidence",
             }:
-                payload[key] = (
-                    _safe_float(extra[key], 0.0) if extra[key] is not None else None
-                )
+                payload[key] = _safe_float(extra[key], 0.0) if extra[key] is not None else None
             else:
                 payload[key] = extra[key]
 
@@ -495,8 +491,8 @@ def best_pre_l4_signal(
 
 
 def build_llm_source_text(
-    header_text: Optional[str],
-    snippet_text: Optional[str],
+    header_text: str | None,
+    snippet_text: str | None,
 ) -> str:
     """
     Собирает текст для передачи в LLM из header и snippet.
@@ -593,7 +589,7 @@ def apply_voting(
       details["l1_support"]              — если L1 согласен с результатом voting.
       details["top_l3_snapshot"]         — снапшот top_l3 для explainability.
     """
-    
+
     final_type = "UNKNOWN"
     final_conf = 0.0
 
@@ -640,8 +636,7 @@ def apply_voting(
             # Используется downstream-кодом и тестами как минимальный контракт.
             # Не содержит debug-полей voter'а (raw_score, level_contributions, и т.д.).
             details["voting_ranking"] = [
-                {"type": entry["type"], "score": entry["score"]}
-                for entry in ranking[:3]
+                {"type": entry["type"], "score": entry["score"]} for entry in ranking[:3]
             ]
             # voting_ranking_enriched — полный debug payload из voter'а.
             # Содержит все поля: raw_score, normalized_score, agreement_bonus,
@@ -717,5 +712,3 @@ def apply_voting(
         }
 
     return final_type, final_conf, language, jurisdiction, details
-    
-

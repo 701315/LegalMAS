@@ -83,6 +83,7 @@
 from __future__ import annotations
 
 import uuid
+
 from pydantic import BaseModel
 
 
@@ -101,6 +102,7 @@ class CurrentUser(BaseModel):
     - tenant_id   = реальный tenant_id пользователя
     - email       = e-mail пользователя (опционально)
     """
+
     id: str
     global_role: str
     tenant_id: uuid.UUID
@@ -122,4 +124,3 @@ def get_current_user() -> CurrentUser:
         tenant_id=uuid.UUID(int=0),
         email="admin@example.com",
     )
-

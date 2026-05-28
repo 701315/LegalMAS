@@ -216,15 +216,9 @@ class CascadeSteps:
                         "negative_hits": int(
                             l2_extra.get("soft_exclusion_hits", 0)
                         ),  # legacy compatibility
-                        "soft_negative_hits": int(
-                            l2_extra.get("soft_exclusion_hits", 0)
-                        ),
-                        "hard_negative_hits": int(
-                            l2_extra.get("hard_exclusion_hits", 0)
-                        ),
-                        "ambiguity_penalty": float(
-                            l2_extra.get("ambiguity_penalty", 0.0)
-                        ),
+                        "soft_negative_hits": int(l2_extra.get("soft_exclusion_hits", 0)),
+                        "hard_negative_hits": int(l2_extra.get("hard_exclusion_hits", 0)),
+                        "ambiguity_penalty": float(l2_extra.get("ambiguity_penalty", 0.0)),
                         "input_quality": float(l2_extra.get("input_quality", 1.0)),
                     }
                 )
@@ -281,11 +275,7 @@ class CascadeSteps:
 
         if not snippet_text or not settings.RUNNER_EMBEDDINGS_ENABLED:
             details["levels_tried"].append("L3")
-            note = (
-                "empty_text"
-                if not snippet_text
-                else "embeddings_disabled_or_no_snippet"
-            )
+            note = "empty_text" if not snippet_text else "embeddings_disabled_or_no_snippet"
             details["L3"] = {
                 "type": "UNKNOWN",
                 "confidence": 0.0,
@@ -320,9 +310,7 @@ class CascadeSteps:
         language = getattr(l3_result, "language", "ru")
         jurisdiction = getattr(l3_result, "jurisdiction", "RU")
         if hasattr(l3_result, "applicable_triggers"):
-            applicable_triggers = list(
-                getattr(l3_result, "applicable_triggers") or []
-            )
+            applicable_triggers = list(getattr(l3_result, "applicable_triggers") or [])
 
         l3_extra = getattr(l3_result, "extra", {}) or {}
         raw_sim = float(l3_extra.get("raw_similarity", 0.0))
@@ -355,12 +343,11 @@ class CascadeSteps:
                     "jurisdiction": jurisdiction,
                     "raw_similarity": raw_sim,
                     "signal_quality": l3_extra.get(
-                        "signal_quality", min(1.0, raw_sim + settings.CLASSIFICATION_L3_SIGNAL_QUALITY_UPLIFT)
+                        "signal_quality",
+                        min(1.0, raw_sim + settings.CLASSIFICATION_L3_SIGNAL_QUALITY_UPLIFT),
                     ),
                     "negative_hits": int(l3_extra.get("negative_hits", 0)),
-                    "ambiguity_penalty": float(
-                        l3_extra.get("ambiguity_penalty", 0.0)
-                    ),
+                    "ambiguity_penalty": float(l3_extra.get("ambiguity_penalty", 0.0)),
                     "input_quality": float(l3_extra.get("input_quality", 1.0)),
                     "margin": float(l3_extra.get("margin", 0.0)),
                 }
@@ -391,5 +378,3 @@ class CascadeSteps:
             jurisdiction,
             applicable_triggers,
         )
-    
-

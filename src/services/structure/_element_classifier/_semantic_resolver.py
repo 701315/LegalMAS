@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from services.structure.heading_patterns import parse_raw_heading
 from services.structure.legal_heading_rules import (
     looks_like_appendix_heading,
@@ -20,20 +18,25 @@ from services.structure.legal_heading_rules import (
 )
 from services.structure.models import (
     SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING as SEMANTIC_TYPE_APPENDIX_HEADING,
+)
+from services.structure.models import (
     SEMANTIC_ELEMENT_TYPE_BODY_TEXT as SEMANTIC_TYPE_BODY_TEXT,
+)
+from services.structure.models import (
     SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM as SEMANTIC_TYPE_DEFINITION_ITEM,
+)
+from services.structure.models import (
     SEMANTIC_ELEMENT_TYPE_LIST_ITEM as SEMANTIC_TYPE_LIST_ITEM,
+)
+from services.structure.models import (
     SEMANTIC_ELEMENT_TYPE_SECTION_HEADING as SEMANTIC_TYPE_SECTION_HEADING,
+)
+from services.structure.models import (
     SEMANTIC_ELEMENT_TYPE_SIGNATURE_BLOCK as SEMANTIC_TYPE_SIGNATURE_BLOCK,
+)
+from services.structure.models import (
     SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING as SEMANTIC_TYPE_SUBSECTION_HEADING,
 )
-
-from ._detectors import (
-    _heading_candidate_confidence,
-    _looks_like_requisites_block,
-    _looks_like_signature_block,
-)
-from ._text_utils import _normalize_text
 
 
 def _compute_semantic_element_type(
@@ -134,9 +137,16 @@ def _compute_heading_confidence_from_classification(
 
     # TOC / artifact / body — не heading
     if normalized_et in {
-        "toc_header", "toc_line", "possible_toc", "toc_false_positive",
-        "page_artifact", "unknown_layout", "body_text",
-        "signature_block", "requisites_block", "table_content",
+        "toc_header",
+        "toc_line",
+        "possible_toc",
+        "toc_false_positive",
+        "page_artifact",
+        "unknown_layout",
+        "body_text",
+        "signature_block",
+        "requisites_block",
+        "table_content",
     }:
         return 0.0
 
@@ -162,4 +172,3 @@ def _compute_heading_confidence_from_classification(
 
     # Fallback
     return round(min(classification_confidence * 0.6, 0.60), 3)
-

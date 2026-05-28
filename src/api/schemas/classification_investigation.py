@@ -213,6 +213,3 @@ class ClassificationInvestigationDetailResponse(BaseModel):
 
     raw_result: dict[str, Any] = Field(default_factory=dict)
     raw_details: dict[str, Any] = Field(default_factory=dict)
-
-
-    

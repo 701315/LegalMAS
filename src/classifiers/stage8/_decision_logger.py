@@ -21,6 +21,7 @@ classify_segment — непосредственно перед return.
  - canonical source skip_reason — details["L4_gate"]["skip_reason"].
  - этот модуль только логирует уже принятое решение, не вычисляет его заново.
 """
+
 from __future__ import annotations
 
 import time
@@ -30,7 +31,6 @@ from typing import Any
 import structlog
 
 from core.config import settings
-
 
 _logger = structlog.get_logger(__name__)
 
@@ -52,12 +52,15 @@ class DecisionStrategy(StrEnum):
 
     Порядок отражает каскад: ранние exits сверху, fallback снизу.
     """
-    COPIED = "COPIED"                      # Stage 7: документ — копия мастера
-    L2_STRONG_WINS = "L2_STRONG_WINS"      # L2 confidence >= strong threshold, нет решающего L3-конфликта
-    L1_L2_AGREE = "L1_L2_AGREE"            # L1 и L2 совпали с confidence >= 0.7
-    HYBRID_VOTING = "HYBRID_VOTING"        # Взвешенное голосование L1–L3 дало уверенный результат
-    L4_LLM = "L4_LLM"                      # LLM-fallback дал результат
-    FALLBACK_LOW = "FALLBACK_LOW"          # Voting слабый, L4 не помог — низкая уверенность
+
+    COPIED = "COPIED"  # Stage 7: документ — копия мастера
+    L2_STRONG_WINS = (
+        "L2_STRONG_WINS"  # L2 confidence >= strong threshold, нет решающего L3-конфликта
+    )
+    L1_L2_AGREE = "L1_L2_AGREE"  # L1 и L2 совпали с confidence >= 0.7
+    HYBRID_VOTING = "HYBRID_VOTING"  # Взвешенное голосование L1–L3 дало уверенный результат
+    L4_LLM = "L4_LLM"  # LLM-fallback дал результат
+    FALLBACK_LOW = "FALLBACK_LOW"  # Voting слабый, L4 не помог — низкая уверенность
     FALLBACK_UNKNOWN = "FALLBACK_UNKNOWN"  # Не удалось определить тип — UNKNOWN
 
 
@@ -135,6 +138,3 @@ def log_classification_decision(
                 payload[k] = v
 
     _logger.info("classification_decision", doc_id=doc_id, **payload)
-
-
-    

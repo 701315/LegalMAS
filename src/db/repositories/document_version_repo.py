@@ -124,19 +124,10 @@ class DocumentVersionRepository:
             .subquery()
         )
 
-        stmt = (
-            select(DocumentVersion)
-            .join(
-                latest_versions_subquery,
-                (
-                    DocumentVersion.document_id
-                    == latest_versions_subquery.c.document_id
-                )
-                & (
-                    DocumentVersion.version_num
-                    == latest_versions_subquery.c.max_version_num
-                ),
-            )
+        stmt = select(DocumentVersion).join(
+            latest_versions_subquery,
+            (DocumentVersion.document_id == latest_versions_subquery.c.document_id)
+            & (DocumentVersion.version_num == latest_versions_subquery.c.max_version_num),
         )
 
         result = await self.session.execute(stmt)
@@ -266,5 +257,3 @@ class DocumentVersionRepository:
             await self.session.flush()
 
         return version
-    
-    

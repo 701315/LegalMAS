@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import os
 import uuid
-from typing import Optional
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -218,9 +217,7 @@ async def convert_to_pdf_async(
             original_ref=original_ref,
             error=str(e),
         )
-        raise PermanentError(
-            f"convert_to_pdf: failed to read original source file: {e}"
-        )
+        raise PermanentError(f"convert_to_pdf: failed to read original source file: {e}")
 
     if not src_bytes:
         raise PermanentError(
@@ -259,9 +256,7 @@ async def convert_to_pdf_async(
 
     refreshed_version = await ver_repo.get_by_id(ver_uuid)
     refreshed_converted_ref = (
-        getattr(refreshed_version, "converted_pdf_ref", None)
-        if refreshed_version
-        else None
+        getattr(refreshed_version, "converted_pdf_ref", None) if refreshed_version else None
     )
 
     if not refreshed_version:
@@ -319,7 +314,6 @@ async def convert_to_pdf_async(
             deal_id=deal_id,
         )
 
-
     return {
         "status": "converted",
         "document_id": document_id,
@@ -336,10 +330,8 @@ def _s3_ref_to_store_path(ref: str, bucket: str) -> str:
     """
     prefix = f"s3://{bucket}/"
     if not ref or not ref.startswith(prefix):
-        raise PermanentError(
-            f"Invalid S3 ref for bucket '{bucket}': {ref}"
-        )
-    return ref[len(prefix):]
+        raise PermanentError(f"Invalid S3 ref for bucket '{bucket}': {ref}")
+    return ref[len(prefix) :]
 
 
 def _build_converter_filename(version) -> str:
@@ -409,9 +401,7 @@ async def _convert_office_bytes_to_pdf_bytes(
 
     if resp.status_code != 200:
         body_preview = (resp.text or "")[:1000]
-        raise PermanentError(
-            f"Conversion service error: {resp.status_code} {body_preview}"
-        )
+        raise PermanentError(f"Conversion service error: {resp.status_code} {body_preview}")
 
     content_type = (resp.headers.get("content-type") or "").lower()
     if "application/pdf" not in content_type:
@@ -446,7 +436,7 @@ async def _mark_convert_failed(
     document_uuid: uuid.UUID,
     *,
     message: str,
-    run_id: Optional[uuid.UUID],
+    run_id: uuid.UUID | None,
 ) -> None:
     """
     Перевести документ в FAILED на стадии convert.
@@ -486,6 +476,7 @@ async def _mark_convert_failed(
             document_id=str(document_uuid),
             run_id=str(run_id) if run_id else None,
         )
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # КАК ДЕЙСТВОВАТЬ, КОГДА ПОЯВИТСЯ РЕАЛЬНЫЙ EXTRACTOR ИЛИ КОНВЕРТЕР ДЛЯ НОВОГО ТИПА
@@ -597,5 +588,3 @@ async def _mark_convert_failed(
 #   - convert_worker.py хранит логику конвертации в PDF (одна точка доработки).
 #   - extract_router.py отвечает за выбор конвертации/экстрактора.
 #   - import_worker.py лишь вызывает роутер и ставит задачи в Celery.
-
-

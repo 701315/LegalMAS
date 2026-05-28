@@ -6,7 +6,6 @@ Document detail endpoints.
 
 from __future__ import annotations
 
-import uuid
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status

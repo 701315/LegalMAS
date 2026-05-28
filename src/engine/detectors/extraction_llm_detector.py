@@ -138,17 +138,16 @@ KeyError на невинных JSON-ключах. str.replace() заменяет
   по конкретной юридической проверке.
 """
 
-
 from __future__ import annotations
 
 import json
 import os
 from typing import Any
 
-from core.logging import get_logger
 from core.config import settings
-from ..llm.client import _extract_json
-from ..llm.client import LLMClient
+from core.logging import get_logger
+
+from ..llm.client import LLMClient, _extract_json
 from ..playbook.models import (
     CheckDefinition,
     ExtractionConfig,
@@ -156,18 +155,15 @@ from ..playbook.models import (
     ExtractionFieldType,
 )
 
-
 logger = get_logger(__name__)
 
 LLM_DEFAULT_CONFIDENCE: float = settings.LLM_DEFAULT_CONFIDENCE
-EXTRACTION_PROMPT_PATH = os.path.join(
-    settings.BASE_DIR, "playbooks", "json_format_ru.txt"
-)
+EXTRACTION_PROMPT_PATH = os.path.join(settings.BASE_DIR, "playbooks", "json_format_ru.txt")
 
 
 def _load_prompt_template(path: str) -> str | None:
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return f.read()
     except OSError:
         logger.warning("Failed to load extraction prompt template", path=path)
@@ -239,16 +235,14 @@ class ExtractionLLMDetector:
             #    - fields_schema (список полей с описаниями),
             #    - example_json (пример структуры ответа).
             # ------------------------------------------------------------------
-            prompt_skeleton = self._build_prompt(
-                check, extraction_cfg, context_text=""
-            )
+            prompt_skeleton = self._build_prompt(check, extraction_cfg, context_text="")
             skeleton_words = len(prompt_skeleton.split())
 
             # Консервативный коэффициент для Qwen2.5 на русском юр. тексте.
             # count_tokens() использует 2.5, что занижает реальность на 40-60%.
             # 3.8 даёт запас ~10% к реальному значению.
-            _TOKEN_FACTOR = 3.8
-            skeleton_tokens = int(skeleton_words * _TOKEN_FACTOR)
+            token_factor = 3.8
+            skeleton_tokens = int(skeleton_words * token_factor)
 
             # ------------------------------------------------------------------
             # 3. GRACEFUL FALLBACK: если скелет уже не помещается — выходим.
@@ -257,7 +251,7 @@ class ExtractionLLMDetector:
             #    или упростить llm_prompt_extraction конкретного чека.
             # ------------------------------------------------------------------
             _min_context_words = 50  # меньше этого — извлечение бессмысленно
-            _min_context_tokens = int(_min_context_words * _TOKEN_FACTOR)
+            _min_context_tokens = int(_min_context_words * token_factor)
 
             available_for_context = _limit - _max_out - _safety - skeleton_tokens
 
@@ -281,7 +275,7 @@ class ExtractionLLMDetector:
             # ------------------------------------------------------------------
             # 4. ОБРЕЗКА CONTEXT: по реальному остатку бюджета.
             # ------------------------------------------------------------------
-            max_context_words = int(available_for_context / _TOKEN_FACTOR)
+            max_context_words = int(available_for_context / token_factor)
             words = text.split()
             if len(words) > max_context_words:
                 text = " ".join(words[:max_context_words])
@@ -377,9 +371,7 @@ class ExtractionLLMDetector:
             if getattr(check, "name", None):
                 check_meta_lines.append(f"Текущая проверка: {check.name.strip()}.")
             if getattr(check, "description", None):
-                check_meta_lines.append(
-                    f"Краткое описание проверки: {check.description.strip()}"
-                )
+                check_meta_lines.append(f"Краткое описание проверки: {check.description.strip()}")
 
         check_meta = "\n".join(check_meta_lines).strip()
         if not check_meta:
@@ -476,21 +468,17 @@ class ExtractionLLMDetector:
         lines.append("---")
         lines.append("")
         lines.append("ЖЁСТКИЕ правила формата ответа (ОБЯЗАТЕЛЬНО):")
-        lines.append(
-            '- Выведи ТОЛЬКО один валидный JSON-объект с корневым ключом "fields".'
-        )
+        lines.append('- Выведи ТОЛЬКО один валидный JSON-объект с корневым ключом "fields".')
         lines.append(
             "- НЕ добавляй НИКАКОГО текста до или после JSON: "
             "никаких пояснений, инструкций, комментариев, Markdown, списков, "
             '"Шаг 1", "Ответ:", подсказок по форматированию и т.п.'
         )
         lines.append(
-            '- НЕ объясняй, КАК нужно оформить JSON, не пиши советы типа '
+            "- НЕ объясняй, КАК нужно оформить JSON, не пиши советы типа "
             '"заверши ответ запятой". Просто СРАЗУ выведи готовый JSON.'
         )
-        lines.append(
-            "- Все ключи и строковые значения должны быть в двойных кавычках."
-        )
+        lines.append("- Все ключи и строковые значения должны быть в двойных кавычках.")
         lines.append(
             "- Если по какому-то полю нет достаточно информации, установи "
             "value = null и confidence = 0.2."
@@ -502,7 +490,7 @@ class ExtractionLLMDetector:
         )
         lines.append(
             "- Пример выше — это только пример структуры. В ответе выведи "
-            "ТОЛЬКО реальный JSON, БЕЗ слов \"пример\", \"ответ\" и т.п."
+            'ТОЛЬКО реальный JSON, БЕЗ слов "пример", "ответ" и т.п.'
         )
 
         return "\n".join(lines)
@@ -571,9 +559,7 @@ class ExtractionLLMDetector:
             # Попробуем вытащить JSON "изнутри"
             candidate = _extract_json(text)
             if not candidate:
-                logger.warning(
-                    "Failed to parse LLM extraction JSON", raw=text[:500]
-                )
+                logger.warning("Failed to parse LLM extraction JSON", raw=text[:500])
                 return {}
             data = candidate
 
@@ -669,7 +655,9 @@ class ExtractionLLMDetector:
                 value_cast = value_allowed
 
             # 3) required-поля: если required == True, а value_cast пустое → логируем
-            if getattr(cfg, "required", False) and (value_cast is None or str(value_cast).strip() == ""):
+            if getattr(cfg, "required", False) and (
+                value_cast is None or str(value_cast).strip() == ""
+            ):
                 logger.warning(
                     "ExtractionLLMDetector: required field has empty value after normalization",
                     extra={
@@ -722,7 +710,6 @@ class ExtractionLLMDetector:
             return allowed_norm_map[value_norm]
 
         return None
-    
 
     def _cast_to_type(
         self,
@@ -760,9 +747,4 @@ class ExtractionLLMDetector:
 
         # STRING / default
         s = str(value)
-        return s if s.strip() else None    
-    
-
-
-
-
+        return s if s.strip() else None

@@ -37,7 +37,7 @@ Audit trail:
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,7 +54,7 @@ async def run_export_for_record(
     export: Export,
     db: AsyncSession,
     tenant_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Выполнить экспорт для уже существующей записи Export.
 
@@ -221,5 +221,3 @@ async def process_one_pending_export(
             error=str(e),
         )
         raise
-
-

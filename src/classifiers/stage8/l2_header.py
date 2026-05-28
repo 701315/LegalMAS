@@ -38,13 +38,14 @@ Production-версия с расширенным форматом classificatio
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from ..base import BaseClassifier, ClassificationResult
-from ..yaml_registry import YAMLRegistry, DocumentTypeConfig
 from core.config import settings
 from core.constants import ClassificationLevel
 from core.logging import get_logger
+
+from ..base import BaseClassifier, ClassificationResult
+from ..yaml_registry import DocumentTypeConfig, YAMLRegistry
 
 logger = get_logger(__name__)
 
@@ -57,15 +58,16 @@ logger = get_logger(__name__)
 # Не выносятся в config.py — это внутренняя алгоритмическая логика,
 # а не системные пороги, управляемые оператором.
 # ---------------------------------------------------------------------------
-_LEGACY_HEADER_PATTERN_BASE: float = 0.35   # базовый вклад header_pattern hit
+_LEGACY_HEADER_PATTERN_BASE: float = 0.35  # базовый вклад header_pattern hit
 _LEGACY_HEADER_PATTERN_EXTRA: float = 0.10  # бонус за каждый доп. hit (max 2)
 _LEGACY_DISTINCTIVE_HIGH_BASE: float = 0.05  # базовый вклад distinctive_high hit
-_LEGACY_DISTINCTIVE_HIGH_EXTRA: float = 0.02 # бонус за каждый доп. hit (max 2)
-_LEGACY_GENERIC_MEDIUM_BASE: float = 0.02   # базовый вклад generic_medium hit
+_LEGACY_DISTINCTIVE_HIGH_EXTRA: float = 0.02  # бонус за каждый доп. hit (max 2)
+_LEGACY_GENERIC_MEDIUM_BASE: float = 0.02  # базовый вклад generic_medium hit
 _LEGACY_GENERIC_MEDIUM_EXTRA: float = 0.01  # бонус за каждый доп. hit (max 2)
-_LEGACY_LOW_HIT_WEIGHT: float = 0.01        # вклад каждого low hit (max 3)
-_LEGACY_SOFT_EXCL_PENALTY: float = 0.20     # штраф за каждый soft exclusion hit (max 2)
-_LEGACY_MAX_AMBIGUITY_PENALTY: float = 0.15 # максимальный ambiguity penalty
+_LEGACY_LOW_HIT_WEIGHT: float = 0.01  # вклад каждого low hit (max 3)
+_LEGACY_SOFT_EXCL_PENALTY: float = 0.20  # штраф за каждый soft exclusion hit (max 2)
+_LEGACY_MAX_AMBIGUITY_PENALTY: float = 0.15  # максимальный ambiguity penalty
+
 
 def _clamp(value: float, min_value: float, max_value: float) -> float:
     """Clamp float value to an inclusive range."""
@@ -143,7 +145,7 @@ def _search_pattern_in_context(
     context: str,
     header_text: str,
     snippet_text: str,
-) -> tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """
     Ищет regex-паттерн в нужной текстовой области с учётом context.
 
@@ -244,10 +246,10 @@ class L2HeaderClassifier(BaseClassifier):
 
         best_type: str = "UNKNOWN"
         best_conf: float = 0.0
-        best_evidence: Optional[str] = None
-        best_extra: Dict[str, Any] = {}
+        best_evidence: str | None = None
+        best_extra: dict[str, Any] = {}
 
-        scored_candidates: List[Dict[str, Any]] = []
+        scored_candidates: list[dict[str, Any]] = []
 
         global_accept: float = settings.CLASSIFICATION_L2_ACCEPT
         global_ambiguity_margin: float = settings.CLASSIFICATION_L2_AMBIGUITY_MARGIN
@@ -300,7 +302,9 @@ class L2HeaderClassifier(BaseClassifier):
                 )
 
             if ambiguity_margin > 0 and margin < ambiguity_margin:
-                ambiguity_penalty = _LEGACY_MAX_AMBIGUITY_PENALTY * (1.0 - margin / ambiguity_margin)
+                ambiguity_penalty = _LEGACY_MAX_AMBIGUITY_PENALTY * (
+                    1.0 - margin / ambiguity_margin
+                )
 
             if best_extra:
                 best_extra["ambiguity_penalty"] = round(
@@ -341,7 +345,7 @@ class L2HeaderClassifier(BaseClassifier):
         input_quality: float,
         global_accept: float,
         global_ambiguity_margin: float,
-    ) -> Dict[str, Any] | None:
+    ) -> dict[str, Any] | None:
         """
         Классификация с использованием расширенного формата:
         - config.lexical_signals: dict[str, list[dict]]
@@ -363,7 +367,7 @@ class L2HeaderClassifier(BaseClassifier):
 
         hard_exclusion_hits = 0
         soft_exclusion_hits = 0
-        matched_exclusions: List[str] = []
+        matched_exclusions: list[str] = []
 
         for neg_signal in negative_signals:
             pattern = neg_signal.get("pattern")
@@ -416,7 +420,7 @@ class L2HeaderClassifier(BaseClassifier):
             return None
 
         positive_score = 0.0
-        matched_patterns: List[str] = []
+        matched_patterns: list[str] = []
 
         signal_counts = {
             "high_distinctive": 0,
@@ -483,9 +487,7 @@ class L2HeaderClassifier(BaseClassifier):
         if positive_score == 0.0:
             return None
 
-        total_distinctive = (
-            signal_counts["high_distinctive"] + signal_counts["medium_distinctive"]
-        )
+        total_distinctive = signal_counts["high_distinctive"] + signal_counts["medium_distinctive"]
         total_generic = signal_counts["high_generic"] + signal_counts["medium_generic"]
         total_signals = total_distinctive + total_generic
 
@@ -514,16 +516,18 @@ class L2HeaderClassifier(BaseClassifier):
                 if matched:
                     penalty_weight = abs(
                         float(
-                            neg_signal.get("weight", settings.CLASSIFICATION_L2_DEFAULT_NEGATIVE_WEIGHT)
+                            neg_signal.get(
+                                "weight", settings.CLASSIFICATION_L2_DEFAULT_NEGATIVE_WEIGHT
+                            )
                         )
                     )
                     soft_excl_penalty += penalty_weight
 
         conf = positive_score * signal_quality - soft_excl_penalty
-        conf = conf * (input_quality ** input_quality_weight)
+        conf = conf * (input_quality**input_quality_weight)
         conf = _clamp(conf, 0.0, 1.0)
 
-        current_extra: Dict[str, Any] = {
+        current_extra: dict[str, Any] = {
             "positive_score": round(positive_score, 3),
             "signal_quality": round(signal_quality, 3),
             "soft_excl_penalty": round(soft_excl_penalty, 3),
@@ -580,7 +584,7 @@ class L2HeaderClassifier(BaseClassifier):
         header_text: str,
         input_quality: float,
         global_accept: float,
-    ) -> Dict[str, Any] | None:
+    ) -> dict[str, Any] | None:
         """
         LEGACY: классификация со старым форматом (keywords_high/medium/low, exclusions).
 
@@ -613,7 +617,7 @@ class L2HeaderClassifier(BaseClassifier):
         low_hits = 0
         soft_exclusion_hits = 0
         hard_exclusion_hits = 0
-        matched_patterns: List[str] = []
+        matched_patterns: list[str] = []
 
         for pattern in header_patterns:
             try:
@@ -709,13 +713,19 @@ class L2HeaderClassifier(BaseClassifier):
         conf = 0.0
 
         if header_pattern_hits > 0:
-            conf += _LEGACY_HEADER_PATTERN_BASE + _LEGACY_HEADER_PATTERN_EXTRA * min(header_pattern_hits - 1, 2)
+            conf += _LEGACY_HEADER_PATTERN_BASE + _LEGACY_HEADER_PATTERN_EXTRA * min(
+                header_pattern_hits - 1, 2
+            )
 
         if distinctive_high_hits > 0:
-            conf += _LEGACY_DISTINCTIVE_HIGH_BASE + _LEGACY_DISTINCTIVE_HIGH_EXTRA * min(distinctive_high_hits - 1, 2)
+            conf += _LEGACY_DISTINCTIVE_HIGH_BASE + _LEGACY_DISTINCTIVE_HIGH_EXTRA * min(
+                distinctive_high_hits - 1, 2
+            )
 
         if generic_medium_hits > 0:
-            conf += _LEGACY_GENERIC_MEDIUM_BASE + _LEGACY_GENERIC_MEDIUM_EXTRA * min(generic_medium_hits - 1, 2)
+            conf += _LEGACY_GENERIC_MEDIUM_BASE + _LEGACY_GENERIC_MEDIUM_EXTRA * min(
+                generic_medium_hits - 1, 2
+            )
 
         conf += _LEGACY_LOW_HIT_WEIGHT * min(low_hits, 3)
 
@@ -732,7 +742,7 @@ class L2HeaderClassifier(BaseClassifier):
         else:
             signal_quality = 0.5
 
-        current_extra: Dict[str, Any] = {
+        current_extra: dict[str, Any] = {
             "header_pattern_hits": header_pattern_hits,
             "distinctive_high_hits": distinctive_high_hits,
             "distinctive_medium_hits": distinctive_medium_hits,
@@ -775,7 +785,7 @@ class L2HeaderClassifier(BaseClassifier):
             "evidence": evidence,
         }
 
-    def _empty_extra(self, input_quality: float) -> Dict[str, Any]:
+    def _empty_extra(self, input_quality: float) -> dict[str, Any]:
         """Return empty diagnostics for UNKNOWN result."""
         return {
             "positive_score": 0.0,
@@ -795,5 +805,3 @@ class L2HeaderClassifier(BaseClassifier):
             "matched_patterns_preview": [],
             "format": "none",
         }
-    
-    

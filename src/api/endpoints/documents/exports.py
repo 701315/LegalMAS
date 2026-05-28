@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -56,12 +55,12 @@ class DocumentsExportRequest(BaseModel):
     """
 
     deal_id: UUID
-    visible_column_ids: Optional[list[DocumentColumnId]] = Field(default=None)
+    visible_column_ids: list[DocumentColumnId] | None = Field(default=None)
 
 
 def build_table_rows(
     documents: list[Document],
-    visible_column_ids: Optional[list[DocumentColumnId]],
+    visible_column_ids: list[DocumentColumnId] | None,
     composition_by_doc_id: dict[UUID, object] | None = None,
 ) -> tuple[list[str], list[list[str]]]:
     """
@@ -407,5 +406,3 @@ async def export_documents_pdf(
         media_type="application/pdf",
         headers=_build_download_headers(filename),
     )
-
-    

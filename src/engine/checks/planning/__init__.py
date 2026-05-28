@@ -7,9 +7,8 @@ Checks planning & scoping — модуль планирования и скоу�
     from engine.checks.planning import CheckPlanner, ScopeResolver, ChunksPreparer
 """
 
+from engine.checks.planning.chunks import ChunksPreparer
 from engine.checks.planning.planner import CheckPlanner
 from engine.checks.planning.scope import ScopeResolver
-from engine.checks.planning.chunks import ChunksPreparer
 
 __all__ = ["CheckPlanner", "ScopeResolver", "ChunksPreparer"]
-

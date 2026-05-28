@@ -41,6 +41,7 @@ logger = get_logger(__name__)
 # Модели
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CitationAnchor:
     """
@@ -56,13 +57,13 @@ class CitationAnchor:
     """
 
     # Canonical identity клаузы
-    anchor_uid: str                   # effective_uid клаузы ("main_contract:5.2")
-    anchor_title: str | None = None   # заголовок клаузы
+    anchor_uid: str  # effective_uid клаузы ("main_contract:5.2")
+    anchor_title: str | None = None  # заголовок клаузы
 
     # Цитата
-    quoted_text: str | None = None        # фрагмент текста
-    quote_start_char: int | None = None   # позиция начала в own_text
-    quote_end_char: int | None = None     # позиция конца в own_text
+    quoted_text: str | None = None  # фрагмент текста
+    quote_start_char: int | None = None  # позиция начала в own_text
+    quote_end_char: int | None = None  # позиция конца в own_text
 
     # Страницы
     page_start: int | None = None
@@ -102,6 +103,7 @@ class CitationResolveResult:
     confidence:      уверенность [0.0..1.0]
     fallback_used:   True если использовался fallback (не идеальный anchor)
     """
+
     anchor: CitationAnchor | None
     resolve_method: str
     confidence: float
@@ -119,6 +121,7 @@ class CitationResolveResult:
 # ---------------------------------------------------------------------------
 # Вспомогательные функции
 # ---------------------------------------------------------------------------
+
 
 def _normalize_text_for_search(text: str) -> str:
     """
@@ -230,6 +233,7 @@ def _build_anchor_from_unit_dict(unit_dict: dict[str, Any]) -> CitationAnchor:
 # ---------------------------------------------------------------------------
 # CitationResolver
 # ---------------------------------------------------------------------------
+
 
 class CitationResolver:
     """
@@ -399,11 +403,7 @@ class CitationResolver:
         candidates: list[tuple[dict[str, Any], int]] = []  # (unit, score)
 
         for unit in units:
-            unit_topics = set(
-                t.lower().strip()
-                for t in (unit.get("topic_tags") or [])
-                if t
-            )
+            unit_topics = set(t.lower().strip() for t in (unit.get("topic_tags") or []) if t)
             topic_matches = len(unit_topics & topics_set)
 
             if topic_matches == 0:
@@ -509,17 +509,9 @@ class CitationResolver:
                         (если не передан — строится из units)
         """
         if units_by_uid is None:
-            units_by_uid = {
-                str(u.get("unit_id") or ""): u
-                for u in units
-                if u.get("unit_id")
-            }
+            units_by_uid = {str(u.get("unit_id") or ""): u for u in units if u.get("unit_id")}
 
-        evidence_text = (
-            exec_result.get("evidence")
-            or str(exec_result.get("reason") or "")
-            or None
-        )
+        evidence_text = exec_result.get("evidence") or str(exec_result.get("reason") or "") or None
         if evidence_text:
             evidence_text = evidence_text.strip() or None
 
@@ -637,5 +629,3 @@ class CitationResolver:
             if unit_id and unit_id not in index:
                 index[unit_id] = unit
         return index
-    
-

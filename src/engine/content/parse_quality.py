@@ -50,6 +50,7 @@ _MIN_CROSS_REF_RESOLVE_RATIO = 0.3
 # Модели
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class QualitySignal:
     """
@@ -60,8 +61,9 @@ class QualitySignal:
     reason: человекочитаемое объяснение
     details: дополнительные данные
     """
-    status: str        # "ok" / "weak" / "failed"
-    score: float       # 0.0 .. 1.0
+
+    status: str  # "ok" / "weak" / "failed"
+    score: float  # 0.0 .. 1.0
     reason: str | None = None
     details: dict[str, Any] = field(default_factory=dict)
 
@@ -167,6 +169,7 @@ class ParseQualityReport:
 # ParseQualityBuilder
 # ---------------------------------------------------------------------------
 
+
 class ParseQualityBuilder:
     """
     Строит ParseQualityReport из артефактов документа.
@@ -243,9 +246,7 @@ class ParseQualityBuilder:
             )
 
         try:
-            report.legal_unit_quality = self._assess_legal_unit_quality(
-                legal_units_snapshot
-            )
+            report.legal_unit_quality = self._assess_legal_unit_quality(legal_units_snapshot)
         except Exception as e:
             report.legal_unit_quality = QualitySignal(
                 status="weak",
@@ -254,9 +255,7 @@ class ParseQualityBuilder:
             )
 
         try:
-            report.cross_ref_quality = self._assess_cross_ref_quality(
-                legal_units_snapshot
-            )
+            report.cross_ref_quality = self._assess_cross_ref_quality(legal_units_snapshot)
         except Exception as e:
             report.cross_ref_quality = QualitySignal(
                 status="weak",
@@ -321,9 +320,7 @@ class ParseQualityBuilder:
         degraded = bool(clause_tree.get("degraded", False))
         root_nodes = clause_tree.get("root") or []
         root_count = len(root_nodes) if isinstance(root_nodes, list) else 0
-        structure_confidence = str(
-            clause_tree.get("structure_confidence") or "MEDIUM"
-        ).upper()
+        structure_confidence = str(clause_tree.get("structure_confidence") or "MEDIUM").upper()
 
         if root_count == 0:
             return QualitySignal(
@@ -425,12 +422,8 @@ class ParseQualityBuilder:
 
         # Смотрим на quality_gates из hierarchy builder
         quality_gates = diagnostics.get("quality_gates") or {}
-        hierarchy_quality = str(
-            quality_gates.get("hierarchy_quality") or "good"
-        ).lower()
-        structure_confidence = str(
-            quality_gates.get("structure_confidence") or "MEDIUM"
-        ).upper()
+        hierarchy_quality = str(quality_gates.get("hierarchy_quality") or "good").lower()
+        structure_confidence = str(quality_gates.get("structure_confidence") or "MEDIUM").upper()
 
         if hierarchy_quality == "failed":
             return QualitySignal(
@@ -448,9 +441,7 @@ class ParseQualityBuilder:
                 details={"structure_confidence": structure_confidence},
             )
 
-        conf_score = {"HIGH": 1.0, "MEDIUM": 0.75, "LOW": 0.4}.get(
-            structure_confidence, 0.7
-        )
+        conf_score = {"HIGH": 1.0, "MEDIUM": 0.75, "LOW": 0.4}.get(structure_confidence, 0.7)
         return QualitySignal(
             status="ok" if conf_score >= 0.6 else "weak",
             score=conf_score,
@@ -474,15 +465,9 @@ class ParseQualityBuilder:
         diagnostics = clause_tree.get("structure_diagnostics") or {}
         quality_gates = diagnostics.get("quality_gates") or {}
 
-        section_chunking_allowed = bool(
-            quality_gates.get("section_chunking_allowed", True)
-        )
-        recoverable_hierarchy_used = bool(
-            quality_gates.get("recoverable_hierarchy_used", False)
-        )
-        total_fallback_blocked = int(
-            quality_gates.get("total_fallback_blocked") or 0
-        )
+        section_chunking_allowed = bool(quality_gates.get("section_chunking_allowed", True))
+        recoverable_hierarchy_used = bool(quality_gates.get("recoverable_hierarchy_used", False))
+        total_fallback_blocked = int(quality_gates.get("total_fallback_blocked") or 0)
 
         if root_count == 0 or degraded:
             return QualitySignal(
@@ -670,8 +655,7 @@ class ParseQualityBuilder:
             )
 
         units_with_own_text = sum(
-            1 for u in units
-            if isinstance(u, dict) and bool((u.get("own_text") or "").strip())
+            1 for u in units if isinstance(u, dict) and bool((u.get("own_text") or "").strip())
         )
         units_with_text_ratio = units_with_own_text / len(units)
 
@@ -686,9 +670,7 @@ class ParseQualityBuilder:
                 chunk_coverage = min(1.0, clause_count / total_leaf_nodes)
                 coverage_bonus = chunk_coverage * 0.1
 
-        score = round(
-            min(1.0, units_with_text_ratio * 0.9 + coverage_bonus), 3
-        )
+        score = round(min(1.0, units_with_text_ratio * 0.9 + coverage_bonus), 3)
         status = "ok" if score >= 0.7 else ("weak" if score >= 0.4 else "failed")
 
         return QualitySignal(
@@ -730,18 +712,12 @@ class ParseQualityBuilder:
             (report.citation_quality, 0.02),
         ]
 
-        weighted_score = sum(
-            signal.score * weight for signal, weight in signals
-        )
+        weighted_score = sum(signal.score * weight for signal, weight in signals)
         weighted_score = round(min(1.0, max(0.0, weighted_score)), 3)
 
         # Подсчёт failed компонент
-        failed_count = sum(
-            1 for signal, _ in signals if signal.status == "failed"
-        )
-        weak_count = sum(
-            1 for signal, _ in signals if signal.status == "weak"
-        )
+        failed_count = sum(1 for signal, _ in signals if signal.status == "failed")
+        weak_count = sum(1 for signal, _ in signals if signal.status == "weak")
 
         if failed_count >= 2:
             overall_status = "failed"
@@ -753,6 +729,3 @@ class ParseQualityBuilder:
             overall_status = "ok"
 
         return weighted_score, overall_status
-    
-
-    

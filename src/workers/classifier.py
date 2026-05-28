@@ -268,14 +268,10 @@ async def _classify_document_async(
             level = classification_result.get("level")
             language = classification_result.get("language")
             jurisdiction = classification_result.get("jurisdiction")
-            applicable_triggers = classification_result.get(
-                "applicable_triggers", []
-            )
+            applicable_triggers = classification_result.get("applicable_triggers", [])
             details = classification_result.get("details", {}) or {}
 
-            classification_requires_review = bool(
-                details.get("requires_manual_review", False)
-            )
+            classification_requires_review = bool(details.get("requires_manual_review", False))
 
             final_type: str | None
             if isinstance(raw_final_type, str) and raw_final_type.upper() == "UNKNOWN":
@@ -309,9 +305,7 @@ async def _classify_document_async(
                     doc_type=final_type or "UNKNOWN",
                 ).inc()
             except Exception:
-                logger.exception(
-                    "classify_document: failed to update classification metrics"
-                )
+                logger.exception("classify_document: failed to update classification metrics")
 
             updated_doc = await doc_repo.update_status(
                 doc.id,
@@ -387,15 +381,11 @@ async def _classify_document_async(
     return {
         "document_id": document_id,
         "status": DocumentStatus.CLASSIFIED.value,
-        "doctype": classification_result.get("final_type")
-        if classification_result
-        else None,
+        "doctype": classification_result.get("final_type") if classification_result else None,
         "confidence": classification_result.get("final_confidence")
         if classification_result
         else 0.0,
-        "language": classification_result.get("language")
-        if classification_result
-        else None,
+        "language": classification_result.get("language") if classification_result else None,
         "jurisdiction": classification_result.get("jurisdiction")
         if classification_result
         else None,
@@ -438,9 +428,7 @@ async def _mark_failed(
 
     try:
         tenant_id_value = None
-        if hasattr(document, "deal") and document.deal and hasattr(
-            document.deal, "tenant_id"
-        ):
+        if hasattr(document, "deal") and document.deal and hasattr(document.deal, "tenant_id"):
             tenant_id_value = document.deal.tenant_id
         elif hasattr(document, "tenant_id") and getattr(document, "tenant_id", None):
             tenant_id_value = document.tenant_id
@@ -464,5 +452,3 @@ async def _mark_failed(
             "Classifier: failed to write audit log for CLASSIFY_FAILED",
             document_id=str(doc_id),
         )
-
-    

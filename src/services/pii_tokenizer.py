@@ -26,6 +26,7 @@ PII Tokenizer.
 """
 
 from dataclasses import dataclass, field
+
 from core.config import settings
 from core.constants import PIIEntityType, PIITokenPolicy
 from services.pii_detector import PIIEntity, get_preserve_types
@@ -209,7 +210,6 @@ class PIITokenizer:
         """
         # Читаем из settings если не передано явно
         if preserve_party_roles is None:
-
             preserve_party_roles = settings.PII_PRESERVE_PARTY_ROLES
 
         use_role_map = bool(applicable_triggers) and preserve_party_roles

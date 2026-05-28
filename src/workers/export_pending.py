@@ -51,9 +51,9 @@ import uuid
 from core.logging import get_logger
 from db.repositories import AuditRepository
 from db.uow import db_uow
+from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
-from mas_queue.async_helpers import run_async
 from services.export.service import process_one_pending_export
 
 logger = get_logger(__name__)
@@ -88,11 +88,7 @@ async def _export_process_pending_async(tenant_id: str) -> bool:
                     await audit_repo.log(
                         tenant_id=tenant_uuid,
                         deal_id=uuid.UUID(int=0),
-                        action=(
-                            "EXPORT_PENDING_PROCESSED"
-                            if processed
-                            else "EXPORT_PENDING_IDLE"
-                        ),
+                        action=("EXPORT_PENDING_PROCESSED" if processed else "EXPORT_PENDING_IDLE"),
                         actor="system",
                         actor_role="worker",
                         details={
@@ -170,5 +166,3 @@ def export_process_pending(self, tenant_id: str = "default") -> bool:
     """
     _ = self
     return run_async(_export_process_pending_async(tenant_id))
-
-

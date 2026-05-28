@@ -18,7 +18,6 @@ Repository for persisted document type instruction versions.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from sqlalchemy import Select, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -66,12 +65,10 @@ class DocumentTypeInstructionVersionRepository:
     async def get_by_id(
         self,
         instruction_version_id,
-    ) -> Optional[DocumentTypeInstructionVersion]:
+    ) -> DocumentTypeInstructionVersion | None:
         stmt: Select[tuple[DocumentTypeInstructionVersion]] = select(
             DocumentTypeInstructionVersion
-        ).where(
-            DocumentTypeInstructionVersion.id == instruction_version_id
-        )
+        ).where(DocumentTypeInstructionVersion.id == instruction_version_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -80,7 +77,7 @@ class DocumentTypeInstructionVersionRepository:
         *,
         doc_type_code: str,
         source_sha256: str,
-    ) -> Optional[DocumentTypeInstructionVersion]:
+    ) -> DocumentTypeInstructionVersion | None:
         stmt: Select[tuple[DocumentTypeInstructionVersion]] = select(
             DocumentTypeInstructionVersion
         ).where(
@@ -164,9 +161,7 @@ class DocumentTypeInstructionVersionRepository:
         if inserted_id is not None:
             created = await self.get_by_id(inserted_id)
             if created is None:
-                raise RuntimeError(
-                    "Instruction version row was inserted but could not be reloaded"
-                )
+                raise RuntimeError("Instruction version row was inserted but could not be reloaded")
 
             logger.info(
                 "Instruction version created",
@@ -226,9 +221,7 @@ class DocumentTypeInstructionVersionRepository:
         """
         doc_type_code = str(getattr(cfg, "type_code", "") or "").strip()
         if not doc_type_code:
-            raise ValueError(
-                "Cannot persist instruction version: cfg.type_code is empty"
-            )
+            raise ValueError("Cannot persist instruction version: cfg.type_code is empty")
 
         name = str(getattr(cfg, "name", "") or "").strip() or None
 
@@ -287,5 +280,3 @@ class DocumentTypeInstructionVersionRepository:
             },
         )
         return payload
-    
-

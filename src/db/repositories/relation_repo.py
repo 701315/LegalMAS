@@ -151,18 +151,13 @@ class RelationRepository:
                 )
             )
             await self.session.execute(
-                DocumentFamily.__table__.delete().where(
-                    DocumentFamily.id.in_(family_ids)
-                )
+                DocumentFamily.__table__.delete().where(DocumentFamily.id.in_(family_ids))
             )
 
         # Удаляем все связи документов по сделке.
         await self.session.execute(
-            DocumentRelation.__table__.delete().where(
-                DocumentRelation.deal_id == deal_id
-            )
+            DocumentRelation.__table__.delete().where(DocumentRelation.deal_id == deal_id)
         )
 
         # flush не обязателен, но пусть будет для единообразия.
         await self.session.flush()
-

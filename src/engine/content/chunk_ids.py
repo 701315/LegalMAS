@@ -26,7 +26,6 @@ import re
 import uuid
 from typing import Final
 
-
 _SCOPE_RE: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9_]+$")
 _SECTION_RAW_UID_PREFIX: Final[str] = "section::"
 
@@ -288,4 +287,3 @@ def build_subclause_chunk_id(
         kind="subclause",
         suffix=str(subchunk_index),
     )
-

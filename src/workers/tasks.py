@@ -26,41 +26,43 @@ Task registry — единая точка регистрации всех Celery
 # Импортируем все воркеры, которые содержат Celery-таски
 
 # импорт и подготовка файлов
-from workers.import_worker import import_bundle  # noqa: F401
-from workers.convert_worker import convert_to_pdf  # noqa: F401
-
-# pre-run language discovery
-from workers.language_discovery_orchestrator import start_language_discovery  # noqa: F401
-from workers.detect_document_languages_native import detect_document_languages_native  # noqa: F401
-from workers.detect_document_languages_ocr import detect_document_languages_ocr  # noqa: F401
-from workers.prepare_document_for_language_discovery import prepare_document_for_language_discovery  # noqa: F401
-from workers.convert_document_for_language_discovery import convert_document_for_language_discovery_task  # noqa: F401
-
-# system / infrastructure workers
-from workers.outbox_dispatcher import outbox_dispatcher  # noqa: F401
-from workers.debug_dlq_task import always_fail_transient  # noqa: F401
-
-# оркестрация Run (запуск пайплайна по сделке)
-from workers.run_orchestrator import start_run_pipeline  # noqa: F401
-
 # основной пайплайн обработки документов
 from workers.build_primary_language_source import build_primary_language_source  # noqa: F401
-from workers.extract_worker import extract_document  # noqa: F401
-from workers.pii_sanitizer import sanitize_document  # noqa: F401
-from workers.structure_builder import build_structure  # noqa: F401
-from workers.classifier import classify_document  # noqa: F401
-from workers.chunk_builder import build_chunks  # noqa: F401
-from workers.segment_classifier import classify_document_segments  # noqa: F401
 
 # запуск checks: scheduler + атомарные checks + финализация run
 from workers.check_runner_worker import (  # noqa: F401
+    finalize_run_if_ready,
     run_deal_checks,
     run_single_check,
-    finalize_run_if_ready,
+)
+from workers.chunk_builder import build_chunks  # noqa: F401
+from workers.classifier import classify_document  # noqa: F401
+from workers.convert_document_for_language_discovery import (
+    convert_document_for_language_discovery_task,  # noqa: F401
+)
+from workers.convert_worker import convert_to_pdf  # noqa: F401
+from workers.debug_dlq_task import always_fail_transient  # noqa: F401
+from workers.detect_document_languages_native import detect_document_languages_native  # noqa: F401
+from workers.detect_document_languages_ocr import detect_document_languages_ocr  # noqa: F401
+from workers.export_pending import export_process_pending  # noqa: F401
+from workers.exporter import export_by_id, export_results  # noqa: F401
+from workers.extract_worker import extract_document  # noqa: F401
+from workers.import_worker import import_bundle  # noqa: F401
+
+# pre-run language discovery
+from workers.language_discovery_orchestrator import start_language_discovery  # noqa: F401
+
+# system / infrastructure workers
+from workers.outbox_dispatcher import outbox_dispatcher  # noqa: F401
+from workers.pii_sanitizer import sanitize_document  # noqa: F401
+from workers.prepare_document_for_language_discovery import (
+    prepare_document_for_language_discovery,  # noqa: F401
 )
 
 # Дополнительно: построение связей и экспорты
 from workers.relations_worker import build_relations  # noqa: F401
-from workers.exporter import export_results, export_by_id  # noqa: F401
-from workers.export_pending import export_process_pending  # noqa: F401
 
+# оркестрация Run (запуск пайплайна по сделке)
+from workers.run_orchestrator import start_run_pipeline  # noqa: F401
+from workers.segment_classifier import classify_document_segments  # noqa: F401
+from workers.structure_builder import build_structure  # noqa: F401

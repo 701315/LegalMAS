@@ -76,7 +76,6 @@ from core.logging import get_logger
 from db.session import engine
 from mas_queue.async_helpers import close_worker_loop, has_worker_loop, run_async
 
-
 logger = get_logger(__name__)
 
 
@@ -90,6 +89,7 @@ celery_app = Celery("mas_dd")
 # ---------------------------------------------------------------------------
 # Backend результатов
 # ---------------------------------------------------------------------------
+
 
 def _make_result_backend(broker_url: str, db: int = 1) -> str:
     """
@@ -158,7 +158,6 @@ celery_app.conf.update(
     # --- Broker / backend ---
     broker_url=settings.REDIS_URL,
     result_backend=_result_backend,
-
     # --- Явный список модулей с Celery tasks ---
     include=[
         "workers.build_primary_language_source",
@@ -183,32 +182,25 @@ celery_app.conf.update(
         "workers.structure_builder",
         "workers.debug_dlq_task",
     ],
-
     # --- Сериализация ---
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
-
     # --- Timezone ---
     timezone="UTC",
     enable_utc=True,
-
     # --- Надёжность доставки ---
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     task_reject_on_worker_lost=True,
-
     # --- Результаты ---
     result_expires=3600,
     task_track_started=True,
-
     # --- Подключение к брокеру ---
     broker_connection_retry_on_startup=True,
-
     # --- Глобальные лимиты выполнения ---
     task_soft_time_limit=GLOBAL_TASK_SOFT_TIME_LIMIT_SEC,
     task_time_limit=GLOBAL_TASK_TIME_LIMIT_SEC,
-
     # --- Параметры транспорта Redis ---
     broker_transport_options={
         "visibility_timeout": BROKER_VISIBILITY_TIMEOUT_SEC,
@@ -219,10 +211,8 @@ celery_app.conf.update(
         "visibility_timeout": BROKER_VISIBILITY_TIMEOUT_SEC,
     },
     visibility_timeout=BROKER_VISIBILITY_TIMEOUT_SEC,
-
     # --- Управление жизненным циклом worker child process ---
     worker_max_tasks_per_child=200,
-
     # --- Описание очередей ---
     task_queues=(
         Queue(
@@ -255,12 +245,10 @@ celery_app.conf.update(
             routing_key=QUEUE_HEAVY_LLM,
         ),
     ),
-
     # --- Очередь по умолчанию ---
     task_default_queue=QUEUE_DEFAULT,
     task_default_exchange=QUEUE_DEFAULT,
     task_default_routing_key=QUEUE_DEFAULT,
-
     # --- Маршрутизация задач ---
     task_routes={
         "workers.start_language_discovery": {
@@ -300,7 +288,6 @@ celery_app.conf.update(
             "routing_key": QUEUE_DEFAULT,
         },
     },
-
     # --- Периодические задачи Celery Beat ---
     #
     # Celery Beat будет каждые 5 секунд ставить workers.outbox_dispatcher
@@ -322,7 +309,6 @@ celery_app.conf.update(
             },
         },
     },
-
     # --- Task-level overrides ---
     task_annotations={
         "workers.run_single_check": {
@@ -336,6 +322,7 @@ celery_app.conf.update(
 # ---------------------------------------------------------------------------
 # Cleanup worker child process resources
 # ---------------------------------------------------------------------------
+
 
 @worker_process_shutdown.connect
 def _cleanup_worker_process_async_resources(
@@ -392,8 +379,3 @@ def _cleanup_worker_process_async_resources(
                 "Celery worker process shutdown: failed to close worker event loop",
                 extra={"pid": pid, "exitcode": exitcode},
             )
-
-
-
-
-

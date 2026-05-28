@@ -17,10 +17,7 @@
 """
 
 from dataclasses import dataclass
-from typing import Literal, List
-
-from db.models.document import Document  # если нужно для type hints
-
+from typing import Literal
 
 # Полный перечень ID колонок (синхронизирован с фронтом src/types/index.ts)
 DocumentColumnId = Literal[
@@ -75,7 +72,7 @@ class DocumentColumnDef:
 
 # Полный список всех возможных колонок по документу.
 # 1:1 с фронтовым ALL_DOCUMENT_COLUMNS.
-ALL_DOCUMENT_COLUMNS: List[DocumentColumnDef] = [
+ALL_DOCUMENT_COLUMNS: list[DocumentColumnDef] = [
     DocumentColumnDef(
         id="filename",
         label="Название документа",
@@ -187,18 +184,14 @@ ALL_DOCUMENT_COLUMNS: List[DocumentColumnDef] = [
     DocumentColumnDef(
         id="primary_segment_label",
         label="Основной сегмент",
-        description=(
-            "Человекочитаемое название основного логического документа внутри файла."
-        ),
+        description=("Человекочитаемое название основного логического документа внутри файла."),
         field="primary_segment_label",
         default_visible=True,
     ),
     DocumentColumnDef(
         id="is_composite_file",
         label="Составной файл",
-        description=(
-            "Логический флаг: файл содержит несколько логических документов."
-        ),
+        description=("Логический флаг: файл содержит несколько логических документов."),
         field="is_composite_file",
         default_visible=False,
     ),
@@ -235,6 +228,7 @@ ALL_DOCUMENT_COLUMNS: List[DocumentColumnDef] = [
 
 # Удобные вспомогательные функции для экспорта/настроек
 
+
 def get_column_by_id(column_id: DocumentColumnId) -> DocumentColumnDef:
     for col in ALL_DOCUMENT_COLUMNS:
         if col.id == column_id:
@@ -255,5 +249,3 @@ def get_columns_by_ids(ids: list[DocumentColumnId] | None) -> list[DocumentColum
 
 def get_default_visible_ids() -> list[DocumentColumnId]:
     return [c.id for c in ALL_DOCUMENT_COLUMNS if c.default_visible]
-
-

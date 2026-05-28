@@ -31,14 +31,14 @@ FastAPI-эндпоинты для UI-обзора сделки (deal review).
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
-from db.session import get_db
-from db.repositories.run_repo import RunRepository
 from db.repositories.playbook_repo import PlaybookRepository
+from db.repositories.run_repo import RunRepository
+from db.session import get_db
 from services.deal_review_service import (
     build_conditional_checks,
     build_dd_matrix,
@@ -48,6 +48,7 @@ from services.deal_review_service import (
     build_extracted_values,
     load_aggregated_results,
 )
+
 from ..schemas.deal_review import (
     ConditionalCheckDTO,
     DDMatrixResponseDTO,
@@ -65,6 +66,7 @@ router = APIRouter(prefix="/deals", tags=["deal_review"])
 # Вспомогательная функция: проверка доступа + загрузка run
 # Используется в эндпоинтах которым нужен объект run (не только deal_id).
 # ---------------------------------------------------------------------------
+
 
 async def _get_run_with_access_check(
     deal_id: str,
@@ -101,6 +103,7 @@ async def _get_run_with_access_check(
 # ---------------------------------------------------------------------------
 # Эндпоинты
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/{deal_id}/runs/{run_id}/documents",
@@ -204,8 +207,7 @@ async def get_document_structured_data_for_run(
     all_values = build_extracted_values(agg)
     # structured_value_rows хранят document_id — используем его для точной фильтрации
     doc_values = [
-        v for sv, v in zip(agg.structured_value_rows, all_values)
-        if sv.document_id == document_id
+        v for sv, v in zip(agg.structured_value_rows, all_values) if sv.document_id == document_id
     ]
 
     return DocumentStructuredDataDTO(
@@ -345,5 +347,3 @@ async def get_dd_matrix(
     )
     agg, documents = await load_aggregated_results(deal_id, run_id)
     return build_dd_matrix(agg, documents)
-
-

@@ -10,7 +10,7 @@ Ledger для ошибок сохранения CheckResult в БД (persist lay
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, Index
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -109,5 +109,3 @@ class CheckResultPersistError(Base):
         Index("idx_cr_persist_errors_doc", "document_id"),
         Index("idx_cr_persist_errors_status_retry", "resolution_status", "retryable"),
     )
-
-    

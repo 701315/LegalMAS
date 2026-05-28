@@ -30,7 +30,6 @@ from __future__ import annotations
 from engine.content.evidence_bundle_builder import RetrievalProfile
 from services.structure.legal_unit_models import LegalUnitType
 
-
 # ---------------------------------------------------------------------------
 # Canonical profiles
 # ---------------------------------------------------------------------------
@@ -84,8 +83,11 @@ WARRANTIES_PROFILE = RetrievalProfile(
     query_topic="warranties",
     required_topics=["warranties", "representations"],
     supporting_topics=[
-        "seller_warranties", "buyer_warranties",
-        "warranty_period", "warranty_cap", "warranty_basket",
+        "seller_warranties",
+        "buyer_warranties",
+        "warranty_period",
+        "warranty_cap",
+        "warranty_basket",
         "warranty_breach",
     ],
     required_unit_types=[LegalUnitType.WARRANTY],
@@ -99,8 +101,10 @@ TERMINATION_PROFILE = RetrievalProfile(
     query_topic="termination",
     required_topics=["termination", "termination_rights"],
     supporting_topics=[
-        "termination_notice", "termination_for_cause",
-        "termination_consequences", "break_fee",
+        "termination_notice",
+        "termination_for_cause",
+        "termination_consequences",
+        "break_fee",
         "notice_period",
     ],
     required_unit_types=[],
@@ -147,8 +151,11 @@ TITLE_TRANSFER_PROFILE = RetrievalProfile(
     query_topic="title_transfer",
     required_topics=["title_transfer"],
     supporting_topics=[
-        "title_warranty", "closing_conditions", "closing_date",
-        "completion", "conditions_precedent",
+        "title_warranty",
+        "closing_conditions",
+        "closing_date",
+        "completion",
+        "conditions_precedent",
     ],
     required_unit_types=[],
     min_citability="low",
@@ -272,4 +279,3 @@ def get_profiles_for_topics(topics: list[str]) -> list[RetrievalProfile]:
             matching.append(profile)
 
     return matching
-

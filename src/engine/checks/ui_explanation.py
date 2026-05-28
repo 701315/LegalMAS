@@ -46,7 +46,6 @@ from typing import Any
 from core.constants import CheckExecutionStatus
 from core.logging import get_logger
 
-
 logger = get_logger(__name__)
 
 
@@ -125,10 +124,7 @@ def build_user_explanation(
 
     # --- 2. Проверка не применима к данному типу документа ---
 
-    if (
-        raw_error == "check_not_applicable_for_document"
-        or reason == "check_not_applicable"
-    ):
+    if raw_error == "check_not_applicable_for_document" or reason == "check_not_applicable":
         return {
             "user_status": "not_applicable",
             "user_message": (
@@ -257,11 +253,7 @@ def _has_not_found_value(structured_data: dict[str, Any] | None) -> bool:
     # Собираем только поля, по которым LLM вернул хоть какое-то значение (не None).
     evaluated: list[bool] = []
     for _, field_payload in structured_data.items():
-        value = (
-            field_payload.get("value")
-            if isinstance(field_payload, dict)
-            else field_payload
-        )
+        value = field_payload.get("value") if isinstance(field_payload, dict) else field_payload
         if value is None:
             # Поле без значения — пропускаем, оно не даёт информации.
             continue
@@ -321,7 +313,3 @@ def _is_presence_style_check(
 
     joined = " ".join(candidates)
     return any(hint in joined for hint in _PRESENCE_HINTS)
-
-
-
-

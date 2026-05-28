@@ -21,6 +21,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.constants import JobStatus, RunStatus
+
 from ..base import Base
 
 
@@ -70,8 +71,7 @@ class Run(Base):
         nullable=False,
         default="global_and_doc_type",
         comment=(
-            "Режим проверок для этого Run: "
-            "global_only / doc_type_only / global_and_doc_type"
+            "Режим проверок для этого Run: " "global_only / doc_type_only / global_and_doc_type"
         ),
     )
 
@@ -173,8 +173,7 @@ class Job(Base):
         String(100),
         nullable=False,
         comment=(
-            "import, extract, sanitize, structure, classify, "
-            "run_deal_checks, aggregate, export"
+            "import, extract, sanitize, structure, classify, " "run_deal_checks, aggregate, export"
         ),
     )
 
@@ -209,8 +208,4 @@ class Job(Base):
         default=0,
     )
 
-    __table_args__ = (
-        Index("idx_jobs_run_status", "run_id", "status"),
-    )
-
-    
+    __table_args__ = (Index("idx_jobs_run_status", "run_id", "status"),)

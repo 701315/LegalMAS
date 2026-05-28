@@ -3,13 +3,16 @@
 """Типы данных и статусы процесса скоринга заголовков."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
+
 
 class CandidateStatus(str, Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     AMBIGUOUS = "ambiguous"
+
 
 @dataclass(slots=True)
 class HeadingScoreResult:
@@ -27,9 +30,11 @@ class HeadingScoreResult:
     @property
     def is_accepted(self) -> bool:
         return self.status == CandidateStatus.ACCEPTED
+
     @property
     def is_rejected(self) -> bool:
         return self.status == CandidateStatus.REJECTED
+
     @property
     def is_ambiguous(self) -> bool:
         return self.status == CandidateStatus.AMBIGUOUS

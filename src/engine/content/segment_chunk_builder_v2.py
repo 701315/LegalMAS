@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -46,10 +46,6 @@ from db.models.document import DocumentSegment
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
-from engine.content.clause_tree_builder import ClauseTreeBuilder
-from services.structure.legal_unit_builder import LegalUnitBuilder
-from services.structure.legal_unit_models import LegalUnitsSnapshot
-
 from engine.content.chunk_canonicalization import (
     add_position_ratio,
     add_summary,
@@ -59,6 +55,9 @@ from engine.content.chunk_canonicalization import (
     normalize_clause_chunk_text,
     propagate_language_filter,
 )
+from engine.content.clause_tree_builder import ClauseTreeBuilder
+from services.structure.legal_unit_builder import LegalUnitBuilder
+from services.structure.legal_unit_models import LegalUnitsSnapshot
 from storage.artifact_store import ArtifactStore
 
 logger = get_logger(__name__)
@@ -133,7 +132,7 @@ class SegmentChunkSnapshotV2:
                 "page_start": self.segment_page_start,
                 "page_end": self.segment_page_end,
             },
-            "built_at": datetime.now(tz=timezone.utc).isoformat(),
+            "built_at": datetime.now(tz=UTC).isoformat(),
             "source": {
                 "layout_ref": self.layout_ref,
                 "file_graph_ref": self.file_graph_ref,
@@ -218,15 +217,13 @@ class FileChunkManifestV2:
     heading_only_leaf_nodes: int = 0
     best_effort_leaf_nodes: int = 0
 
-
-
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema_version": 2,
             "scope": "file",
             "document_id": str(self.document_id),
             "document_version_id": str(self.document_version_id),
-            "built_at": datetime.now(tz=timezone.utc).isoformat(),
+            "built_at": datetime.now(tz=UTC).isoformat(),
             "source": {
                 "layout_ref": self.layout_ref,
                 "file_graph_ref": self.file_graph_ref,
@@ -298,7 +295,9 @@ class SegmentChunkBuilderV2:
 
         doc = await doc_repo.get_by_id(version.document_id)
         if not doc:
-            raise PermanentError(f"Document {version.document_id} not found for version {document_version_id}")
+            raise PermanentError(
+                f"Document {version.document_id} not found for version {document_version_id}"
+            )
 
         layout_ref = getattr(version, "layout_primary_sanitized_ref", None)
         if not layout_ref:
@@ -463,7 +462,9 @@ class SegmentChunkBuilderV2:
             primary_segment_id=primary_segment_id,
             segments=manifest_segments,
             degraded=any_chunking_incomplete,
-            degradation_reason="chunking_incomplete_in_segments" if any_chunking_incomplete else None,
+            degradation_reason="chunking_incomplete_in_segments"
+            if any_chunking_incomplete
+            else None,
             total_leaf_nodes=total_leaf_nodes,
             leaf_nodes_without_chunks=leaf_nodes_without_chunks,
             leaf_nodes_without_element_ids=leaf_nodes_without_element_ids,
@@ -587,8 +588,7 @@ class SegmentChunkBuilderV2:
         clause_chunks = ensure_clause_metadata(document_id, leaf_chunks)
 
         invalid_clause_chunks = [
-            ch for ch in clause_chunks
-            if not ((ch.get("metadata") or {}).get("effective_uid"))
+            ch for ch in clause_chunks if not ((ch.get("metadata") or {}).get("effective_uid"))
         ]
         if invalid_clause_chunks:
             logger.warning(
@@ -602,8 +602,7 @@ class SegmentChunkBuilderV2:
             )
 
         invalid_clause_kinds = [
-            ch for ch in clause_chunks
-            if (ch.get("metadata") or {}).get("chunk_kind") != "clause"
+            ch for ch in clause_chunks if (ch.get("metadata") or {}).get("chunk_kind") != "clause"
         ]
         if invalid_clause_kinds:
             logger.warning(
@@ -615,7 +614,6 @@ class SegmentChunkBuilderV2:
                     "invalid_count": len(invalid_clause_kinds),
                 },
             )
-
 
         clause_chunks = self._enrich_segment_metadata(
             chunks=clause_chunks,
@@ -637,7 +635,8 @@ class SegmentChunkBuilderV2:
         )
 
         invalid_subclause_kinds = [
-            ch for ch in subclause_chunks
+            ch
+            for ch in subclause_chunks
             if (ch.get("metadata") or {}).get("chunk_kind") != "subclause"
         ]
         if invalid_subclause_kinds:
@@ -781,7 +780,6 @@ class SegmentChunkBuilderV2:
                 },
             )
 
-
         return SegmentChunkSnapshotV2(
             document_id=document_id,
             document_version_id=document_version_id,
@@ -851,7 +849,8 @@ class SegmentChunkBuilderV2:
                 return []
 
             invalid_section_kinds = [
-                ch for ch in section_chunks
+                ch
+                for ch in section_chunks
                 if (ch.get("metadata") or {}).get("chunk_kind") != "section"
             ]
             if invalid_section_kinds:
@@ -991,5 +990,3 @@ class SegmentChunkBuilderV2:
         if relative > 1.0:
             return 1.0
         return relative
-    
-    

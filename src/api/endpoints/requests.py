@@ -10,26 +10,25 @@
 - DELETE /api/v1/requests/{req_id}
 """
 
-import uuid
-from docx import Document
-import xlsxwriter
 import io
+import uuid
 from datetime import datetime
 
+import xlsxwriter
+from docx import Document
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
-
-from db.session import get_db
-from db.repositories.dd_request_repo import DDRequestRepository
-from db.repositories.deal_repo import DealRepository
 from api.schemas.requests import (
     DDRequestCreate,
-    DDRequestUpdate,
     DDRequestResponse,
+    DDRequestUpdate,
 )
+from db.repositories.dd_request_repo import DDRequestRepository
+from db.repositories.deal_repo import DealRepository
+from db.session import get_db
 
 router = APIRouter(
     prefix="/deals",
@@ -260,15 +259,11 @@ async def export_dd_requests_for_deal(
 
     if format == "word":
         content_bytes = generate_requests_docx(deal_id, requests)
-        media_type = (
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         ext = "docx"
     else:  # excel
         content_bytes = generate_requests_xlsx(deal_id, requests)
-        media_type = (
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ext = "xlsx"
 
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -281,9 +276,7 @@ async def export_dd_requests_for_deal(
     )
 
 
-def generate_requests_docx(
-    deal_id: uuid.UUID, requests: list[DDRequestResponse]
-) -> bytes:
+def generate_requests_docx(deal_id: uuid.UUID, requests: list[DDRequestResponse]) -> bytes:
     doc = Document()
     doc.add_heading(f"DD Requests for deal {deal_id}", level=1)
 
@@ -325,9 +318,7 @@ def generate_requests_docx(
 
         # structured_values как JSON
         try:
-            row[7].text = json.dumps(
-                r.structured_values, ensure_ascii=False, indent=2
-            )
+            row[7].text = json.dumps(r.structured_values, ensure_ascii=False, indent=2)
         except Exception:
             row[7].text = str(r.structured_values or "")
 
@@ -343,9 +334,7 @@ def generate_requests_docx(
     return buf.getvalue()
 
 
-def generate_requests_xlsx(
-    deal_id: uuid.UUID, requests: list[DDRequestResponse]
-) -> bytes:
+def generate_requests_xlsx(deal_id: uuid.UUID, requests: list[DDRequestResponse]) -> bytes:
     output = io.BytesIO()
     workbook = xlsxwriter.Workbook(output, {"in_memory": True})
     ws = workbook.add_worksheet("Requests")

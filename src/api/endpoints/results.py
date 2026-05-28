@@ -11,21 +11,19 @@
   (место в документе, сниппет текста, служебные поля).
 """
 
-from typing import List
 import uuid
 
-from fastapi import APIRouter, Depends, Query, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
-from db.session import get_db
-from db.repositories.result_repo import ResultRepository
-from db.repositories.check_result_repo import CheckResultRepository
 from db.models.result import CheckResult
-from ..schemas.results import CheckResultResponse
+from db.repositories.result_repo import ResultRepository
+from db.session import get_db
 
-from pydantic import BaseModel
+from ..schemas.results import CheckResultResponse
 
 router = APIRouter(prefix="/results", tags=["results"])
 
@@ -72,7 +70,7 @@ class EvidenceResponse(BaseModel):
 
 @router.get(
     "",
-    response_model=List[CheckResultResponse],
+    response_model=list[CheckResultResponse],
     summary="Список результатов проверок с фильтрами",
 )
 async def list_results(
@@ -112,17 +110,13 @@ async def list_results(
     if run_id:
         # Используем вариант с join документов и уже готовыми dict'ами
         raw_results = await repo.get_by_run_with_docs(uuid.UUID(run_id))
-        out: List[CheckResultResponse] = [
+        out: list[CheckResultResponse] = [
             CheckResultResponse.model_validate(r) for r in raw_results
         ]
     elif deal_id:
         # TODO: когда появится get_by_deal / list_latest, сюда можно
         # добавить полноценную реализацию выборки по сделке.
-        results = (
-            await repo.get_by_run_with_docs(uuid.UUID(run_id))
-            if run_id
-            else []
-        )
+        results = await repo.get_by_run_with_docs(uuid.UUID(run_id)) if run_id else []
         out = [CheckResultResponse.model_validate(r) for r in results]
     else:
         # Пока без дополнительных фильтров — возвращаем пустой список.

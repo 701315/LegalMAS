@@ -33,19 +33,18 @@ from typing import Any
 
 from ..playbook.models import KeywordMode, RulesConfig
 
-
 # Уровни → базовый confidence при совпадении
 _LEVEL_CONFIDENCE: dict[str, float] = {
-    "high":   0.85,
+    "high": 0.85,
     "medium": 0.65,
-    "low":    0.45,
+    "low": 0.45,
 }
 
 # Приоритет уровней для выбора "лучшего" при нескольких совпадениях
 _LEVEL_PRIORITY: dict[str, int] = {
-    "high":   3,
+    "high": 3,
     "medium": 2,
-    "low":    1,
+    "low": 1,
 }
 
 # Базовый confidence для паттернов без группы (старая эвристика недоступна)
@@ -300,18 +299,14 @@ class RulesDetector:
             "reason": (
                 f"matched rules: keywords/regex/clause_patterns, "
                 f"total_hits={len(hits)}"
-                + (
-                    f", best_level={hit_levels.get(evidence, 'ungrouped')}"
-                    if hit_levels
-                    else ""
-                )
+                + (f", best_level={hit_levels.get(evidence, 'ungrouped')}" if hit_levels else "")
             ),
             "rule_name": getattr(rules, "name", None),
-            "check_id": None,   # заполнит HybridDetector
-            "severity": None,   # заполнит CheckExecutor/playbook
+            "check_id": None,  # заполнит HybridDetector
+            "severity": None,  # заполнит CheckExecutor/playbook
             "span": span,
-            "location": None,   # заполнит HybridDetector (chunk_id/page/clause_uid)
-            "sources": None,    # заполнит HybridDetector
+            "location": None,  # заполнит HybridDetector (chunk_id/page/clause_uid)
+            "sources": None,  # заполнит HybridDetector
             "raw": {
                 "hits": hits,
                 "spans": spans,
@@ -324,4 +319,3 @@ class RulesDetector:
                 "hit_levels": hit_levels,
             },
         }
-        

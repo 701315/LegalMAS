@@ -12,21 +12,20 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.session import get_db
-from db.repositories.playbook_repo import PlaybookRepository
 from api.schemas.playbooks import (
-    ModelConfigResponse,
     ModelConfigCreateRequest,
+    ModelConfigResponse,
     ModelConfigUpdateRequest,
 )
-from db.models.playbook import PlaybookVersion
 from db.models.deal import Deal
-
+from db.models.playbook import PlaybookVersion
+from db.repositories.playbook_repo import PlaybookRepository
+from db.session import get_db
 
 router = APIRouter(
     prefix="/model-configs",
@@ -274,9 +273,7 @@ async def get_model_config_usage(
     ]
 
     # Сделки, использующие этот профиль
-    deal_result = await db.execute(
-        select(Deal).where(Deal.model_config_id == config_id)
-    )
+    deal_result = await db.execute(select(Deal).where(Deal.model_config_id == config_id))
     deal_rows = deal_result.scalars().all()
 
     deals = [

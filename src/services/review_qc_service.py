@@ -1,4 +1,4 @@
-# src/services/review_qc_service.py 
+# src/services/review_qc_service.py
 
 """
 Сервис QC‑действий для review mode.
@@ -409,7 +409,3 @@ def build_bulk_review_qc_response(
             for item in result.items
         ],
     )
-
-
-
-

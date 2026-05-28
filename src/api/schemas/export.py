@@ -22,7 +22,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # Разрешённые типы экспортов.
 # Если backend позже расширится, список можно пополнить.
 ExportType = Literal[
@@ -162,6 +161,3 @@ class ExportListResponse(BaseModel):
 
     items: list[ExportRecord]
     total: int = Field(..., description="Общее количество записей")
-
-    
-

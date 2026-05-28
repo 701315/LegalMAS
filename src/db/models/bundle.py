@@ -21,7 +21,6 @@ Bundle model — пакет документов, импортированных
   с количеством файлов и итоговым статусом каждого импорта.
 """
 
-
 import uuid
 from datetime import datetime
 
@@ -30,6 +29,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.constants import BundleSourceType
+
 from ..base import Base
 
 

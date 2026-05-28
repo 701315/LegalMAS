@@ -20,15 +20,13 @@ Extract Worker — извлечение текста и таблиц из PDF, �
 - При успехе обновляет статус документа до EXTRACTED; запуск PII‑санитизации делает оркестратор.
 """
 
-
 from __future__ import annotations
 
-
+import asyncio
 import time
 import uuid
-import asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.constants import DocumentStatus
@@ -52,9 +50,7 @@ from services.pdf_extractor import (
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from storage.artifact_store import ArtifactPath, ArtifactStore
 
-
 logger = get_logger(__name__)
-
 
 
 @celery_app.task(
@@ -173,7 +169,6 @@ def extract_document(
         )
 
     return result
-
 
 
 async def _extract_document_async(
@@ -316,9 +311,7 @@ async def _extract_document_async(
         )
 
     if quality_decision.outcome == "quarantine":
-        METRICS.quarantine.labels(
-            reason=quality_decision.reason or "unknown"
-        ).inc()
+        METRICS.quarantine.labels(reason=quality_decision.reason or "unknown").inc()
         raise QuarantineError(
             quality_decision.message,
             document_id=document_id,
@@ -367,14 +360,10 @@ async def _extract_document_async(
         ver_repo = DocumentVersionRepository(db)
         refreshed_version = await ver_repo.get_by_id(uuid.UUID(document_version_id))
         refreshed_layout_primary_ref = (
-            getattr(refreshed_version, "layout_primary_ref", None)
-            if refreshed_version
-            else None
+            getattr(refreshed_version, "layout_primary_ref", None) if refreshed_version else None
         )
         refreshed_raw_ref = (
-            getattr(refreshed_version, "raw_ref", None)
-            if refreshed_version
-            else None
+            getattr(refreshed_version, "raw_ref", None) if refreshed_version else None
         )
 
         if not refreshed_version:
@@ -387,31 +376,20 @@ async def _extract_document_async(
             )
         else:
             # Жёсткое расхождение: сломан layout_primary_ref или raw_ref изменился на другое ненулевое значение.
-            hard_mismatch = (
-                refreshed_layout_primary_ref != primary_ref
-                or (refreshed_raw_ref is not None and refreshed_raw_ref != raw_ref)
+            hard_mismatch = refreshed_layout_primary_ref != primary_ref or (
+                refreshed_raw_ref is not None and refreshed_raw_ref != raw_ref
             )
 
             # При необходимости даём БД шанс догнать raw_ref.
-            if (
-                refreshed_layout_primary_ref == primary_ref
-                and not refreshed_raw_ref
-                and raw_ref
-            ):
+            if refreshed_layout_primary_ref == primary_ref and not refreshed_raw_ref and raw_ref:
                 await asyncio.sleep(0.1)
-                refreshed_version = await ver_repo.get_by_id(
-                    uuid.UUID(document_version_id)
-                )
+                refreshed_version = await ver_repo.get_by_id(uuid.UUID(document_version_id))
                 refreshed_raw_ref = (
-                    getattr(refreshed_version, "raw_ref", None)
-                    if refreshed_version
-                    else None
+                    getattr(refreshed_version, "raw_ref", None) if refreshed_version else None
                 )
 
             soft_raw_lag = (
-                refreshed_layout_primary_ref == primary_ref
-                and not refreshed_raw_ref
-                and raw_ref
+                refreshed_layout_primary_ref == primary_ref and not refreshed_raw_ref and raw_ref
             )
 
             if hard_mismatch:
@@ -539,7 +517,6 @@ async def _extract_document_async(
     }
 
 
-
 async def get_pdf_source_ref(
     document_version_id: str,
     db: AsyncSession,
@@ -580,7 +557,6 @@ async def get_pdf_source_ref(
         return converted_ref
 
     return original_ref
-
 
 
 async def update_extraction_result(
@@ -654,7 +630,6 @@ async def update_extraction_result(
         )
 
 
-
 async def _mark_failed(
     uow: UnitOfWork,
     document_uuid: uuid.UUID,
@@ -700,7 +675,6 @@ async def _mark_failed(
             document_id=str(document_uuid),
             run_id=str(run_id) if run_id else None,
         )
-
 
 
 async def _mark_quarantine(
@@ -750,7 +724,6 @@ async def _mark_quarantine(
         )
 
 
-
 def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
     """
     Преобразовать s3://bucket/path в path для ArtifactStore.get_file().
@@ -763,6 +736,3 @@ def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
             details={"stage": "extract", "kind": "invalid_pdf_ref"},
         )
     return s3_ref.replace(prefix, "", 1)
-
-
-

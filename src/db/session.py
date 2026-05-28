@@ -190,4 +190,3 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     async with get_session() as session:
         yield session
-

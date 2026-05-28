@@ -28,9 +28,9 @@ from services.structure.hierarchy_builder import HeadingCandidate
 from services.structure.toc_guard import TOCGuardVerdict, evaluate_toc_guard
 from services.structure.toc_matcher import attach_toc_matches, build_toc_match_index
 from services.structure.toc_parser import (
-    TOCBlock,
     ParsedTOC,
     TOCAlignmentResult,
+    TOCBlock,
     TOCReliabilityResult,
     compute_partial_reliability,
     detect_toc_block,
@@ -178,4 +178,3 @@ def analyze_toc_with_guard(
         guard=guard,
         toc_match_index=toc_match_index,
     )
-

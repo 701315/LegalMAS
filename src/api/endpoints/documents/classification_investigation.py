@@ -88,4 +88,3 @@ async def get_document_classification_investigation(
         )
 
     return detail
-

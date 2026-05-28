@@ -442,7 +442,7 @@ class MatrixCell:
         qc_status  — статус ручной проверки: "pending" | "approved" | "rejected"
         conditional_check_triggered — True если чек сработал по триггеру
         trigger_name — имя триггера который активировал чек
-        
+
     Segment/chunk provenance (NEW):
         segment_id, chunk_id — позволяют точно указать, откуда взят результат
     """
@@ -538,8 +538,7 @@ class DocumentMatrixRow:
     def critical_count(self) -> int:
         """Количество критических провалов — для сортировки и цветовой индикации строки."""
         return sum(
-            1 for c in self.results.values()
-            if c.result == "fail" and c.severity == "critical"
+            1 for c in self.results.values() if c.result == "fail" and c.severity == "critical"
         )
 
 
@@ -583,10 +582,9 @@ class SegmentMatrixRow:
     def critical_count(self) -> int:
         """Количество критических провалов — для сортировки и цветовой индикации строки."""
         return sum(
-            1 for c in self.results.values()
-            if c.result == "fail" and c.severity == "critical"
+            1 for c in self.results.values() if c.result == "fail" and c.severity == "critical"
         )
-    
+
 
 @dataclass
 class DDMatrixResponse:
@@ -636,4 +634,3 @@ class DDMatrixResponse:
     quarantine_count: int = 0
     degraded_count: int = 0
     evidence_validity_rate: float = 1.0
-

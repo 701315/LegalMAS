@@ -25,10 +25,7 @@ def build_pii_stage(
     store: ArtifactStore,
 ) -> PipelineStageViewDTO:
     """Строит стадию PII."""
-    artifact_ref = (
-        version.layout_primary_sanitized_ref
-        or version.text_layout_sanitized_ref
-    )
+    artifact_ref = version.layout_primary_sanitized_ref or version.text_layout_sanitized_ref
 
     if not artifact_ref:
         return PipelineStageViewDTO(
@@ -84,4 +81,3 @@ def build_pii_stage(
         layout=layout,
         base_meta=base_meta,
     )
-

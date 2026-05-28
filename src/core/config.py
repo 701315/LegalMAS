@@ -69,9 +69,7 @@ class Settings(BaseSettings):
 
     # --- Import Worker ---
     IMPORT_MAX_FILE_SIZE_MB: int = 200
-    IMPORT_ALLOWED_EXTENSIONS: str = (
-        ".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.tiff,.tif"
-    )
+    IMPORT_ALLOWED_EXTENSIONS: str = ".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.tiff,.tif"
     IMPORT_MAX_FILES_PER_BUNDLE: int = 10000
 
     # --- Extractor ---
@@ -297,7 +295,11 @@ class Settings(BaseSettings):
     RELATIONS_MAX_FAMILY_SIZE: int = 20
 
     FAMILY_MASTER_DOC_TYPES: list[str] = [
-        "SPA", "SHA", "Loan", "RealEstate", "ServiceAgreement",
+        "SPA",
+        "SHA",
+        "Loan",
+        "RealEstate",
+        "ServiceAgreement",
     ]
     FAMILY_MASTER_MIN_CLASSIFICATION_LEVEL: str = "L1"
     FAMILY_CLASSIFICATION_LEVEL_PRIORITY: list[str] = ["L0", "L1", "L2", "L3"]

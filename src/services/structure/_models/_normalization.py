@@ -14,7 +14,13 @@ from typing import Any
 
 from ._constants import (
     DEFAULT_SCOPE,
+    NODE_KIND_LEAF,
+    PARSE_QUALITY_OK,
     SCOPE_NAME_RE,
+    SEGMENT_CONFIDENCE_MEDIUM,
+    SEGMENT_TYPE_UNKNOWN,
+    STRUCTURE_CONFIDENCE_MEDIUM,
+    TOC_CONFIDENCE_NONE,
     VALID_NODE_KINDS,
     VALID_PARSE_QUALITY_STATUS,
     VALID_RANGE_END_REASONS,
@@ -22,12 +28,6 @@ from ._constants import (
     VALID_SEGMENT_TYPES,
     VALID_STRUCTURE_CONFIDENCE,
     VALID_TOC_CONFIDENCE_BANDS,
-    NODE_KIND_LEAF,
-    PARSE_QUALITY_OK,
-    SEGMENT_CONFIDENCE_MEDIUM,
-    SEGMENT_TYPE_UNKNOWN,
-    STRUCTURE_CONFIDENCE_MEDIUM,
-    TOC_CONFIDENCE_NONE,
 )
 
 
@@ -91,8 +91,7 @@ def _validate_scope_name(scope_name: str) -> str:
     normalized = _norm_scope(scope_name)
     if not SCOPE_NAME_RE.fullmatch(normalized):
         raise ValueError(
-            f"Invalid scope_name={normalized!r}. "
-            f"Expected ASCII snake_case matching [a-z0-9_]+"
+            f"Invalid scope_name={normalized!r}. " f"Expected ASCII snake_case matching [a-z0-9_]+"
         )
     return normalized
 
@@ -115,8 +114,7 @@ def _normalize_node_kind(value: Any) -> str:
     node_kind = _norm_str(value).lower() or NODE_KIND_LEAF
     if node_kind not in VALID_NODE_KINDS:
         raise ValueError(
-            f"Invalid node_kind={node_kind!r}. "
-            f"Expected one of {sorted(VALID_NODE_KINDS)}"
+            f"Invalid node_kind={node_kind!r}. " f"Expected one of {sorted(VALID_NODE_KINDS)}"
         )
     return node_kind
 
@@ -202,5 +200,3 @@ def _ensure_dict(value: Any, field_name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{field_name} must be a dict")
     return dict(value)
-
-

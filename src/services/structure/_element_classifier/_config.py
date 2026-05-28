@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import re
 
-
 # ============================================================================
 # Публичные константы типов элементов (Element Types)
 # ============================================================================
@@ -49,13 +48,12 @@ SUPPORTED_ELEMENT_TYPES: frozenset[str] = frozenset(
 )
 
 
-
 # ============================================================================
 # Пороговые значения TOC scoring
 # ============================================================================
 
-TOC_SCORE_STRONG = 0.78      # Сильный TOC сигнал → toc_line
-TOC_SCORE_WEAK = 0.52        # Слабый TOC сигнал → possible_toc
+TOC_SCORE_STRONG = 0.78  # Сильный TOC сигнал → toc_line
+TOC_SCORE_WEAK = 0.52  # Слабый TOC сигнал → possible_toc
 
 # ============================================================================
 # Ключевые слова для границ разделов
@@ -254,4 +252,3 @@ ROMAN_LIST_ITEM_RE = re.compile(
 NORMALIZE_NUM_SIGN_RE = re.compile(r"\b(?:№|N|No\.?)\s*")
 WHITESPACE_RE = re.compile(r"\s+")
 PUNCT_SPACES_RE = re.compile(r"\s*([:;,.])\s*")
-

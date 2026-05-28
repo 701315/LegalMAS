@@ -21,14 +21,13 @@
 """
 
 import uuid
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from api.mappers.documents import map_document_to_response
 
-from db.models.document import Document
+from api.mappers.documents import map_document_to_response
 from api.schemas.documents import DocumentResponse
+from db.models.document import Document
 
 
 class DocumentNotFoundError(Exception):
@@ -49,7 +48,7 @@ class DocumentService:
         """
         stmt = select(Document).where(Document.id == doc_id)
         result = await self.session.execute(stmt)
-        document: Optional[Document] = result.scalar_one_or_none()
+        document: Document | None = result.scalar_one_or_none()
 
         if document is None:
             raise DocumentNotFoundError
@@ -59,6 +58,3 @@ class DocumentService:
         await self.session.refresh(document)
 
         return map_document_to_response(document)
-    
-
-    

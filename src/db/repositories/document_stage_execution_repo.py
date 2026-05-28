@@ -25,13 +25,14 @@ Repository for DocumentStageExecution lifecycle operations.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import DocumentStageExecutionStatus
+
 from ..models.document import DocumentStageExecution
 
 
@@ -82,9 +83,7 @@ class DocumentStageExecutionRepository:
     ) -> DocumentStageExecution | None:
         """Get execution record by ID."""
         result = await self.session.execute(
-            select(DocumentStageExecution).where(
-                DocumentStageExecution.id == execution_id
-            )
+            select(DocumentStageExecution).where(DocumentStageExecution.id == execution_id)
         )
         return result.scalar_one_or_none()
 
@@ -153,7 +152,7 @@ class DocumentStageExecutionRepository:
             .where(DocumentStageExecution.id == execution_id)
             .values(
                 status=DocumentStageExecutionStatus.STARTED.value,
-                started_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
             )
             .returning(DocumentStageExecution)
         )
@@ -178,7 +177,7 @@ class DocumentStageExecutionRepository:
             .where(DocumentStageExecution.id == execution_id)
             .values(
                 status=DocumentStageExecutionStatus.SUCCEEDED.value,
-                finished_at=datetime.now(timezone.utc),
+                finished_at=datetime.now(UTC),
             )
             .returning(DocumentStageExecution)
         )
@@ -214,7 +213,7 @@ class DocumentStageExecutionRepository:
             .values(
                 status=DocumentStageExecutionStatus.FAILED.value,
                 error_details=error_details,
-                finished_at=datetime.now(timezone.utc),
+                finished_at=datetime.now(UTC),
             )
             .returning(DocumentStageExecution)
         )
@@ -239,7 +238,7 @@ class DocumentStageExecutionRepository:
         """
         values: dict[str, object] = {
             "status": DocumentStageExecutionStatus.CANCELLED.value,
-            "finished_at": datetime.now(timezone.utc),
+            "finished_at": datetime.now(UTC),
         }
 
         if error_details is not None:
@@ -258,7 +257,6 @@ class DocumentStageExecutionRepository:
             await self.session.flush()
 
         return execution
-
 
     async def create_planned_or_none_on_conflict(
         self,
@@ -302,5 +300,3 @@ class DocumentStageExecutionRepository:
                 )
         except IntegrityError:
             return None
-        
-        

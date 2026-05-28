@@ -32,20 +32,18 @@ from core.config import settings
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
 from engine.llm.client import LLMContextLimitError
+
+from ..playbook.models import CheckDefinition
 from .llm_detector import LLMDetector
 from .models import EvidenceChunk, RetrievedChunk
 from .rules_detector import RulesDetector
-from ..playbook.models import CheckDefinition
-
 
 logger = get_logger(__name__)
 
 
 RULES_CONFIDENCE_THRESHOLD = settings.RULES_CONFIDENCE_THRESHOLD
 
-RUN_LLM_ON_RULES_CLEAN_NEGATIVE = bool(
-    getattr(settings, "RUN_LLM_ON_RULES_CLEAN_NEGATIVE", False)
-)
+RUN_LLM_ON_RULES_CLEAN_NEGATIVE = bool(getattr(settings, "RUN_LLM_ON_RULES_CLEAN_NEGATIVE", False))
 
 
 class HybridDetector:
@@ -486,6 +484,3 @@ class HybridDetector:
                 "llm_error_type": details.get("error_type"),
             },
         }
-    
-
-

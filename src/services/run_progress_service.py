@@ -28,7 +28,7 @@ subscribe_run_progress в StreamingResponse с media_type="text/event-stream".
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 from uuid import UUID
 
 from sqlalchemy import select
@@ -101,11 +101,7 @@ async def subscribe_run_progress(
                 )
 
             # Не спамим одинаковыми событиями, только при изменении
-            if (
-                status != last_status
-                or completed != last_completed
-                or total != last_total
-            ):
+            if status != last_status or completed != last_completed or total != last_total:
                 event = RunProgressEvent(
                     run_id=current_run_id,
                     status=status,

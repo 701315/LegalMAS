@@ -21,7 +21,8 @@ from __future__ import annotations
 
 import math
 import uuid
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -316,7 +317,7 @@ class ClassificationInvestigationQueryService:
         """
         levels_raw = raw_details.get("levels_tried")
         if isinstance(levels_raw, list):
-            return [str(l) for l in levels_raw if isinstance(l, str)]
+            return [str(level) for level in levels_raw if isinstance(level, str)]
 
         levels: list[str] = []
         for key in ("MASTERCOPY", "L1", "L2", "L3", "L4"):
@@ -347,12 +348,7 @@ class ClassificationInvestigationQueryService:
         for item in items:
             if not isinstance(item, dict):
                 continue
-            doctype = (
-                item.get("type_code")
-                or item.get("doctype")
-                or item.get("type")
-                or "UNKNOWN"
-            )
+            doctype = item.get("type_code") or item.get("doctype") or item.get("type") or "UNKNOWN"
             confidence = float(item.get("confidence") or 0.0)
             level = str(item.get("level") or "")
             method = item.get("method")
@@ -416,9 +412,7 @@ class ClassificationInvestigationQueryService:
                 continue
 
             level_type = (
-                block_dict.get("type_code")
-                or block_dict.get("doctype")
-                or block_dict.get("type")
+                block_dict.get("type_code") or block_dict.get("doctype") or block_dict.get("type")
             )
             confidence = block_dict.get("confidence")
             method = block_dict.get("method")
@@ -481,9 +475,7 @@ class ClassificationInvestigationQueryService:
             type=str(v_type) if isinstance(v_type, str) else None,
             confidence=float(confidence) if confidence is not None else None,
             margin=float(margin) if margin is not None else None,
-            ranking=[
-                dict(item) for item in ranking if isinstance(item, dict)
-            ],
+            ranking=[dict(item) for item in ranking if isinstance(item, dict)],
             override=override_raw or None,
         )
 
@@ -673,6 +665,3 @@ class ClassificationInvestigationQueryService:
             l4_count=l4_count,
             contradiction_count=contradiction_count,
         )
-
-
-        

@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 # anyio.to_thread.run_sync позволяет запустить синхронную (блокирующую) функцию
 # в отдельном потоке, не замораживая async event loop.
 # Это важно потому что ArtifactStore.get_json делает HTTP-запрос в MinIO —
 # он может занять 50-500мс, и всё это время event loop был бы заморожен.
 from anyio.to_thread import run_sync
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.repositories.document_version_repo import DocumentVersionRepository
-from db.repositories.document_segment_repo import DocumentSegmentRepository
-from storage.artifact_store import ArtifactStore
 from core.logging import get_logger
+from db.repositories.document_segment_repo import DocumentSegmentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from storage.artifact_store import ArtifactStore
 
 logger = get_logger(__name__)
 
@@ -509,13 +509,4 @@ class ChunkCorpusReaderV2:
         Нормализовать список уровней: привести к нижнему регистру,
         убрать пробелы, отфильтровать пустые строки.
         """
-        return {
-            lvl.strip().lower()
-            for lvl in levels
-            if isinstance(lvl, str) and lvl.strip()
-        }
-    
-
-    
-
-    
+        return {lvl.strip().lower() for lvl in levels if isinstance(lvl, str) and lvl.strip()}

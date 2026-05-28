@@ -21,25 +21,26 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import Any, Dict, List, Mapping
+from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from ops.metrics import METRICS
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.logging import get_logger
+from db.models.playbook import PlaybookVersion
 from db.models.result import CheckResult
-from services.export.aggregator import aggregate_results
-from services.export.grid_builder import build_grid_excel
-from services.export.report_builder import build_report_docx
-from services.export.summary_builder import build_summary_excel
-from storage.artifact_store import ArtifactPath, ArtifactStore
 from db.repositories import (
     DealRepository,
     ResultRepository,
     RunnerRepository,
     RunRepository,
 )
-from db.models.playbook import PlaybookVersion
+from ops.metrics import METRICS
+from services.export.aggregator import aggregate_results
+from services.export.grid_builder import build_grid_excel
+from services.export.report_builder import build_report_docx
+from services.export.summary_builder import build_summary_excel
+from storage.artifact_store import ArtifactStore
 from storage.exports import ExportSuffix
 
 logger = get_logger(__name__)
@@ -50,15 +51,15 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 
-async def _load_check_results(run_id: str, db: AsyncSession) -> List[Dict[str, Any]]:
+async def _load_check_results(run_id: str, db: AsyncSession) -> list[dict[str, Any]]:
     """
     Загрузить результаты проверок из БД для данного run_id и
     вернуть список словарей (core не знает про ORM-модели).
     """
     repo = ResultRepository(db)
-    results: List[CheckResult] = await repo.get_by_run(uuid.UUID(run_id))
+    results: list[CheckResult] = await repo.get_by_run(uuid.UUID(run_id))
 
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for r in results:
         rows.append(
             {
@@ -77,9 +78,7 @@ async def _load_check_results(run_id: str, db: AsyncSession) -> List[Dict[str, A
                 "clause_uid": getattr(r, "clause_uid", "") or "",
                 # Stage 8
                 "structured_data": getattr(r, "structured_data", {}) or {},
-                "conditional_check_triggered": getattr(
-                    r, "conditional_check_triggered", False
-                )
+                "conditional_check_triggered": getattr(r, "conditional_check_triggered", False)
                 or False,
                 "trigger_name": getattr(r, "trigger_name", "") or "",
             }
@@ -88,9 +87,7 @@ async def _load_check_results(run_id: str, db: AsyncSession) -> List[Dict[str, A
     return rows
 
 
-async def _load_documents_metadata(
-    deal_id: str, db: AsyncSession
-) -> Dict[str, Dict[str, Any]]:
+async def _load_documents_metadata(deal_id: str, db: AsyncSession) -> dict[str, dict[str, Any]]:
     """
     Загрузить метаданные документов по сделке.
     Ключ словаря — document_id в строковом виде.
@@ -106,7 +103,7 @@ async def _load_documents_metadata(
         },
     )
 
-    docs: Dict[str, Dict[str, Any]] = {}
+    docs: dict[str, dict[str, Any]] = {}
 
     for d in documents:
         docs[str(d.id)] = {
@@ -115,10 +112,7 @@ async def _load_documents_metadata(
             "doc_type": getattr(d, "doc_type", "Generic") or "Generic",
             "status": getattr(d, "status", "active") or "active",
             "classification_level": getattr(d, "classification_level", "") or "",
-            "classification_confidence": getattr(
-                d, "classification_confidence", 0.0
-            )
-            or 0.0,
+            "classification_confidence": getattr(d, "classification_confidence", 0.0) or 0.0,
             "applicable_triggers": getattr(d, "applicable_triggers", []) or [],
         }
 
@@ -153,7 +147,7 @@ async def export_core(
     deal_id: str,
     tenant_id: str,
     db: AsyncSession,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Общий core экспорта.
 
@@ -231,9 +225,7 @@ async def export_core(
         # Пытаемся подтянуть PlaybookVersion, чтобы взять реальную версию.
         try:
             pb_result = await db.execute(
-                select(PlaybookVersion).where(
-                    PlaybookVersion.id == run_obj.playbook_version_id
-                )
+                select(PlaybookVersion).where(PlaybookVersion.id == run_obj.playbook_version_id)
             )
             pb_obj = pb_result.scalar_one_or_none()
         except Exception:
@@ -264,7 +256,7 @@ async def export_core(
         documents=documents,
     )
 
-    refs: Dict[str, str | None] = {
+    refs: dict[str, str | None] = {
         "dd_grid": None,
         "summary": None,
         "report": None,
@@ -284,10 +276,7 @@ async def export_core(
             run_id=run_id,
             suffix=ExportSuffix.DD_GRID,
             data=grid_bytes,
-            content_type=(
-                "application/"
-                "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            ),
+            content_type=("application/" "vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
         )
         METRICS.export_duration.labels(export_type="grid_xlsx").observe(0.0)
         logger.info("DD Grid Excel сохранён", ref=refs["dd_grid"])
@@ -308,10 +297,7 @@ async def export_core(
             run_id=run_id,
             suffix=ExportSuffix.DEAL_SUMMARY,
             data=summary_bytes,
-            content_type=(
-                "application/"
-                "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            ),
+            content_type=("application/" "vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
         )
         METRICS.export_duration.labels(export_type="summary_xlsx").observe(0.0)
         logger.info("Summary Excel сохранён", ref=refs["summary"])
@@ -336,8 +322,7 @@ async def export_core(
             suffix=ExportSuffix.REPORT,
             data=report_bytes,
             content_type=(
-                "application/"
-                "vnd.openxmlformats-officedocument.wordprocessingml.document"
+                "application/" "vnd.openxmlformats-officedocument.wordprocessingml.document"
             ),
         )
         METRICS.export_duration.labels(export_type="report_docx").observe(0.0)

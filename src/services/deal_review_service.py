@@ -21,13 +21,6 @@ import uuid
 from collections import defaultdict
 from typing import Any
 
-from core.logging import get_logger
-from db.uow import db_uow
-from db.repositories.runner_repo import RunnerRepository
-from db.repositories.deal_repo import DealRepository
-from services.export.aggregator import aggregate_results
-from services.export.models import AggregatedResults
-
 from api.schemas.deal_review import (
     CheckItemDTO,
     CheckMetaDTO,
@@ -42,6 +35,12 @@ from api.schemas.deal_review import (
     MatrixCellDTO,
     SegmentMatrixRowDTO,
 )
+from core.logging import get_logger
+from db.repositories.deal_repo import DealRepository
+from db.repositories.runner_repo import RunnerRepository
+from db.uow import db_uow
+from services.export.aggregator import aggregate_results
+from services.export.models import AggregatedResults
 
 logger = get_logger(__name__)
 
@@ -136,9 +135,7 @@ def build_document_summaries(
                 "has_degraded_structure": "structure_degraded" in (row.quality_flags or ""),
                 "in_quarantine": doc_meta.get("status", "") == "quarantine",
                 "classification_level": doc_meta.get("classification_level", ""),
-                "classification_confidence": float(
-                    doc_meta.get("classification_confidence", 0.0)
-                ),
+                "classification_confidence": float(doc_meta.get("classification_confidence", 0.0)),
             }
 
         if row.result == "fail":
@@ -224,7 +221,7 @@ def build_document_detail(
 def build_dd_requests(agg: AggregatedResults) -> list[DDRequestDTO]:
     """
     Построить список DD-запросов для UI из AggregatedResults.dd_requests.
-    
+
     Теперь передаёт segment provenance для точной навигации в viewer
     при клике "Open in document" из review panel.
     """
@@ -400,7 +397,7 @@ def build_dd_matrix(
         if meta["origin"] == "GLOBAL_PLAYBOOK":
             global_check_ids.append(check_id)
         else:
-            for doc_type in (meta["applicable_doc_types"] or []):
+            for doc_type in meta["applicable_doc_types"] or []:
                 if check_id not in doc_type_check_ids[doc_type]:
                     doc_type_check_ids[doc_type].append(check_id)
 
@@ -439,8 +436,8 @@ def build_dd_matrix(
         segment_groups[(row.document_id, seg_id)].append(row)
 
     # Вспомогательные приоритеты: что считать "худшим" результатом.
-    RESULT_PRIORITY = {"fail": 3, "unclear": 2, "pass": 1}
-    SEVERITY_PRIORITY = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+    result_priority = {"fail": 3, "unclear": 2, "pass": 1}
+    severity_priority = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
     def select_best_row(rows_for_check: list[Any]) -> Any:
         """
@@ -449,10 +446,11 @@ def build_dd_matrix(
         - потом по severity: critical > high > medium > low;
         - затем по confidence (по убыванию).
         """
+
         def key(r: Any) -> tuple[int, int, float]:
             return (
-                RESULT_PRIORITY.get(r.result, 0),
-                SEVERITY_PRIORITY.get(r.severity, 0),
+                result_priority.get(r.result, 0),
+                severity_priority.get(r.severity, 0),
                 r.confidence or 0.0,
             )
 
@@ -462,7 +460,7 @@ def build_dd_matrix(
     for row in agg.rows:
         doc_order[row.document_id] = None
 
-    segment_rows: list[SegmentMatrixRowDTO] = []   # правильный тип
+    segment_rows: list[SegmentMatrixRowDTO] = []  # правильный тип
 
     for (doc_id, seg_id), rows_for_segment in segment_groups.items():
         doc_meta = documents.get(doc_id, {})
@@ -503,21 +501,19 @@ def build_dd_matrix(
             )
 
         segment_rows.append(
-            SegmentMatrixRowDTO(              # правильный класс
+            SegmentMatrixRowDTO(  # правильный класс
                 document_id=doc_id,
                 document_name=doc_meta.get("name", ""),
                 doc_type=doc_meta.get("doc_type", "Generic"),
                 folder_path=doc_meta.get("folder_path") or None,
-                segment_id=seg_id or None,    # "" → None для несегментированных
+                segment_id=seg_id or None,  # "" → None для несегментированных
                 segment_type=r0.segment_type or None,
                 segment_title=r0.segment_title or None,
                 segment_order=r0.segment_order,
                 is_primary_segment=r0.is_primary_segment,
                 status=doc_meta.get("status", "completed"),
                 classification_level=doc_meta.get("classification_level", ""),
-                classification_confidence=float(
-                    doc_meta.get("classification_confidence", 0.0)
-                ),
+                classification_confidence=float(doc_meta.get("classification_confidence", 0.0)),
                 requires_manual_review=bool(
                     doc_meta.get("classification_requires_review") or False
                 ),
@@ -549,9 +545,9 @@ def build_dd_matrix(
                 extracted=sv_index.get((doc_id, check_id), []),
                 confidence=export_row.confidence or 0.0,
                 qc_status=export_row.qc_status or "pending",
-                qc_by=export_row.qc_by,           # ← ИСПРАВЛЕНО
-                qc_comment=export_row.qc_comment, # ← ИСПРАВЛЕНО
-                qc_at=export_row.qc_at,           # ← ИСПРАВЛЕНО
+                qc_by=export_row.qc_by,  # ← ИСПРАВЛЕНО
+                qc_comment=export_row.qc_comment,  # ← ИСПРАВЛЕНО
+                qc_at=export_row.qc_at,  # ← ИСПРАВЛЕНО
                 conditional_check_triggered=export_row.conditional_check_triggered,
                 trigger_name=export_row.trigger_name or "",
                 # segment_* / chunk_* здесь можно не заполнять, т.к. этот слой legacy;
@@ -573,9 +569,7 @@ def build_dd_matrix(
                 folder_path=doc_meta.get("folder_path") or None,
                 status=doc_meta.get("status", "completed"),
                 classification_level=doc_meta.get("classification_level", ""),
-                classification_confidence=float(
-                    doc_meta.get("classification_confidence", 0.0)
-                ),
+                classification_confidence=float(doc_meta.get("classification_confidence", 0.0)),
                 requires_manual_review=bool(
                     doc_meta.get("classification_requires_review") or False
                 ),
@@ -589,8 +583,7 @@ def build_dd_matrix(
 
     def sort_key(row: DocumentMatrixRowDTO | SegmentMatrixRowDTO) -> tuple[int, int, int]:
         critical_fails = sum(
-            1 for c in row.results.values()
-            if c.result == "fail" and c.severity == "critical"
+            1 for c in row.results.values() if c.result == "fail" and c.severity == "critical"
         )
         all_fails = sum(1 for c in row.results.values() if c.result == "fail")
         quarantine_flag = 1 if row.status == "quarantine" else 0
@@ -618,5 +611,3 @@ def build_dd_matrix(
         degraded_count=agg.degraded_count,
         evidence_validity_rate=round(agg.evidence_validity_rate, 3),
     )
-
-

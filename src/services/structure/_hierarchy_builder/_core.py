@@ -3,24 +3,31 @@
 """Основной оркестратор сборки ClauseHierarchy."""
 
 from __future__ import annotations
-import time
-from typing import Any, Callable
+
+from collections.abc import Callable
+from typing import Any
+
 from core.logging import get_logger
-from services.structure._models._nodes import ClauseNode
-from services.structure._models._identity import split_effective_uid
 from services.structure._models._constants import VALID_SEMANTIC_ELEMENT_TYPES
+from services.structure._models._nodes import ClauseNode
 from services.structure.hierarchy_state_machine import HierarchyStateMachine
 
-from ._types import HeadingCandidate, OwnRangeComputation
-from ._utils import (
-    _safe_ratio, _normalize_title, _heading_raw_uid, _heading_effective_uid,
-    _heading_scope, _is_strict_numeric_uid, level_from_uid
-)
+from ._range_logic import _collect_own_text, _compute_own_range
 from ._scope_logic import (
-    _group_headings_by_scope, _build_scope_boundaries, _build_heading_positions
+    _build_heading_positions,
+    _build_scope_boundaries,
+    _group_headings_by_scope,
 )
-from ._range_logic import _compute_own_range, _collect_own_text
 from ._traversal import populate_subtree_element_ids
+from ._types import HeadingCandidate
+from ._utils import (
+    _heading_effective_uid,
+    _heading_raw_uid,
+    _heading_scope,
+    _is_strict_numeric_uid,
+    _normalize_title,
+    level_from_uid,
+)
 
 logger = get_logger(__name__)
 
@@ -28,6 +35,7 @@ _SUSPICIOUS_LEAF_RANGE_SPAN_THRESHOLD = 200
 _RECOVERABLE_INVALID_HEADING_RATIO = 0.35
 _RECOVERABLE_OWN_RANGE_ANOMALY_RATIO = 0.35
 _FATAL_ROOTLESS_WITH_NODES = True
+
 
 def build_clause_hierarchy(
     headings: list[HeadingCandidate],
@@ -47,9 +55,7 @@ def build_clause_hierarchy(
 
     invalid_heading_candidates_count = 0
     duplicate_effective_uid_skipped_count = 0
-    own_range_invalid_count = 0
     own_range_missing_count = 0
-    suspicious_leaf_nodes_count = 0
     element_ownership_conflicts = 0
 
     headings_by_scope = _group_headings_by_scope(headings)
@@ -57,7 +63,7 @@ def build_clause_hierarchy(
     key_to_elem_i, key_to_idx = _build_heading_positions(headings)
 
     machines: dict[str, HierarchyStateMachine] = {}
-    
+
     # Этап 1: Создание узлов и построение структуры
     for scope, scope_headings in headings_by_scope.items():
         machine = HierarchyStateMachine(scope=scope, document_id=doc_id)
@@ -74,24 +80,31 @@ def build_clause_hierarchy(
                 # Обработка метаданных для типизации mypy
                 h_meta = heading.metadata or {}
                 sem_type = str(h_meta.get("semantic_element_type") or "").strip().lower() or None
-                
+
                 conf_raw = h_meta.get("heading_confidence")
                 parse_conf: float | None = None
                 if conf_raw is not None:
                     try:
                         parse_conf = float(conf_raw)
-                        if not (0.0 <= parse_conf <= 1.0): parse_conf = None
-                    except (ValueError, TypeError): parse_conf = None
+                        if not (0.0 <= parse_conf <= 1.0):
+                            parse_conf = None
+                    except (ValueError, TypeError):
+                        parse_conf = None
 
                 sem_node_type = sem_type if sem_type in VALID_SEMANTIC_ELEMENT_TYPES else None
-                
+
                 level = level_from_uid(raw_uid) if _is_strict_numeric_uid(raw_uid) else 1
 
                 node = ClauseNode(
-                    effective_uid=effective_uid, raw_uid=raw_uid, scope=scope,
-                    title=_normalize_title(heading.title), level=level,
-                    start_page=int(heading.page), end_page=int(heading.page),
-                    semantic_node_type=sem_node_type, parse_confidence=parse_conf
+                    effective_uid=effective_uid,
+                    raw_uid=raw_uid,
+                    scope=scope,
+                    title=_normalize_title(heading.title),
+                    level=level,
+                    start_page=int(heading.page),
+                    end_page=int(heading.page),
+                    semantic_node_type=sem_node_type,
+                    parse_confidence=parse_conf,
                 )
                 nodes[effective_uid] = node
 
@@ -116,33 +129,40 @@ def build_clause_hierarchy(
         try:
             eff_uid = _heading_effective_uid(heading)
             node = nodes.get(eff_uid)
-            if not node: continue
+            if not node:
+                continue
 
             scope = _heading_scope(heading)
             range_info = _compute_own_range(
-                raw_uid=_heading_raw_uid(heading), node=node,
+                raw_uid=_heading_raw_uid(heading),
+                node=node,
                 headings=headings_by_scope.get(scope, []),
-                elements=elements, key_to_elem_i=key_to_elem_i,
-                key_to_heading_index=key_to_idx, scope=scope,
-                scope_boundaries=scope_boundaries
+                elements=elements,
+                key_to_elem_i=key_to_elem_i,
+                key_to_heading_index=key_to_idx,
+                scope=scope,
+                scope_boundaries=scope_boundaries,
             )
 
             node.range_end_reason = range_info.range_end_reason
-            
+
             # Присваиваем element IDs
             own_ids: list[str] = []
             for j in range(range_info.start_elem_i, range_info.end_elem_i):
                 s_id = str(stable_element_id_resolver(elements[j], j) or "").strip()
-                if not s_id: continue
+                if not s_id:
+                    continue
                 own_ids.append(s_id)
                 if s_id in element_to_effective_uid:
                     if element_to_effective_uid[s_id] != eff_uid:
                         element_ownership_conflicts += 1
                 else:
                     element_to_effective_uid[s_id] = eff_uid
-            
+
             node.own_element_ids = list(dict.fromkeys(own_ids))
-            node.own_text = _collect_own_text(elements, range_info.start_elem_i, range_info.end_elem_i)
+            node.own_text = _collect_own_text(
+                elements, range_info.start_elem_i, range_info.end_elem_i
+            )
             node.diagnostics["own_range_span"] = range_info.end_elem_i - range_info.start_elem_i
 
         except Exception:
@@ -151,10 +171,8 @@ def build_clause_hierarchy(
 
     # Этап 3: Пост-обработка
     populate_subtree_element_ids(root_nodes, document_id=doc_id)
-    
+
     # Расчёт деградации (упрощенно для примера)
     structure_degraded = bool(len(headings) > 0 and not nodes)
-    
+
     return root_nodes, nodes, element_to_effective_uid, structure_degraded
-
-

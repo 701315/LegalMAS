@@ -48,19 +48,19 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from db.models.playbook import PlaybookVersion
-from core.config import settings
 from core.logging import get_logger
+from core.playbooks.compiler import CheckSource, GlobalCheckConfig
+from db.models.playbook import PlaybookVersion
+
 from .models import (
-    PlaybookDefinition,
     CheckDefinition,
     DetectorType,
-    RulesConfig,
-    LLMConfig,
-    RetrievalConfig,
     ExtractionConfig,
+    LLMConfig,
+    PlaybookDefinition,
+    RetrievalConfig,
+    RulesConfig,
 )
-from core.playbooks.compiler import GlobalCheckConfig, CheckSource
 
 logger = get_logger(__name__)
 
@@ -68,6 +68,7 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Вспомогательная функция: строим RulesConfig из сырого dict
 # ---------------------------------------------------------------------------
+
 
 def _build_rules_config(rules_raw: dict, extra_keyword_groups: dict | None = None) -> RulesConfig:
     """
@@ -104,11 +105,7 @@ def _build_rules_config(rules_raw: dict, extra_keyword_groups: dict | None = Non
         # Старый формат: keywords — плоский список строк
         flat_keywords = raw_keywords or []
         # keyword_groups может быть вложен в rules или передан снаружи
-        keyword_groups = (
-            rules_raw.get("keyword_groups")
-            or extra_keyword_groups
-            or {}
-        )
+        keyword_groups = rules_raw.get("keyword_groups") or extra_keyword_groups or {}
 
     return RulesConfig(
         keywords=flat_keywords,
@@ -123,6 +120,7 @@ def _build_rules_config(rules_raw: dict, extra_keyword_groups: dict | None = Non
 # ---------------------------------------------------------------------------
 # Публичные функции загрузки
 # ---------------------------------------------------------------------------
+
 
 def load_playbook_from_yaml(path: str) -> PlaybookDefinition:
     """
@@ -258,18 +256,12 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
                 rules=rules,
                 llm=LLMConfig(**(cfg.llm or {})),
                 retrieval=RetrievalConfig(**(cfg.retrieval or {})),
-                extraction=ExtractionConfig(**(cfg.extraction or {}))
-                if cfg.extraction
-                else None,
+                extraction=ExtractionConfig(**(cfg.extraction or {})) if cfg.extraction else None,
             )
         )
 
     meta = raw.get("meta") or {}
-    name = (
-        meta.get("config", {}).get("profile")
-        or meta.get("bundle_id")
-        or "build_compiled_checks"
-    )
+    name = meta.get("config", {}).get("profile") or meta.get("bundle_id") or "build_compiled_checks"
     version = str(meta.get("version_schema", 1))
 
     playbook = PlaybookDefinition(
@@ -303,8 +295,6 @@ def load_playbook_from_version(version: PlaybookVersion) -> PlaybookDefinition:
     """
     raw = version.compiled_checks
     if not raw or not isinstance(raw, dict):
-        raise ValueError(
-            f"PlaybookVersion {version.id} has empty or invalid compiled_checks"
-        )
+        raise ValueError(f"PlaybookVersion {version.id} has empty or invalid compiled_checks")
 
     return load_playbook_from_dict(raw)

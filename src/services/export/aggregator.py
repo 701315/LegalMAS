@@ -158,9 +158,7 @@ def aggregate_results(
 
         flags = cr.get("quality_flags", {})
         flags_str = (
-            ", ".join(k for k, v in flags.items() if v is True)
-            if isinstance(flags, dict)
-            else ""
+            ", ".join(k for k, v in flags.items() if v is True) if isinstance(flags, dict) else ""
         )
 
         structured_data = cr.get("structured_data") or {}
@@ -311,8 +309,7 @@ def aggregate_results(
 
     # --- Step 3: DD Requests ---
     unclear_important = [
-        r for r in rows
-        if r.result == "unclear" and r.severity in ("critical", "high")
+        r for r in rows if r.result == "unclear" and r.severity in ("critical", "high")
     ]
     all_rows_for_requests = fail_rows + unclear_important
     agg.dd_requests = _generate_dd_requests(all_rows_for_requests, check_results)
@@ -448,9 +445,7 @@ def _generate_dd_requests(
         doc_ids = list(dict.fromkeys(r.document_id for r in group))
         doc_names = list(dict.fromkeys(r.document_name for r in group))
         doc_types = list(dict.fromkeys(r.doc_type for r in group))
-        evidence_refs = [
-            r.evidence_snippet[:max_ev] for r in group if r.evidence_snippet
-        ]
+        evidence_refs = [r.evidence_snippet[:max_ev] for r in group if r.evidence_snippet]
 
         text, addressee = loader.render(check_id, group[0].check_name, doc_names)
 
@@ -459,9 +454,7 @@ def _generate_dd_requests(
         ):
             text = f"[ТРЕБУЕТ УТОЧНЕНИЯ] {text}"
 
-        dedup_key = hashlib.md5(
-            f"{check_id}:{','.join(sorted(doc_ids))}".encode()
-        ).hexdigest()[:12]
+        dedup_key = hashlib.md5(f"{check_id}:{','.join(sorted(doc_ids))}".encode()).hexdigest()[:12]
 
         if dedup_key in seen_keys:
             continue
@@ -528,9 +521,7 @@ def _build_doc_type_summaries(
                     1 for r in type_rows if r.severity == "critical" and r.result == "fail"
                 ),
                 high=sum(1 for r in type_rows if r.severity == "high" and r.result == "fail"),
-                medium=sum(
-                    1 for r in type_rows if r.severity == "medium" and r.result == "fail"
-                ),
+                medium=sum(1 for r in type_rows if r.severity == "medium" and r.result == "fail"),
                 pass_count=sum(1 for r in type_rows if r.result == "pass"),
                 unclear=sum(1 for r in type_rows if r.result == "unclear"),
                 avg_classification_confidence=round(avg_conf, 3),
@@ -561,8 +552,3 @@ def _truncate(text: str, max_length: int) -> str:
     if len(text) <= max_length:
         return text
     return text[: max_length - 3] + "..."
-
-
-
-
-

@@ -30,6 +30,10 @@ from typing import Any
 from core.config import settings
 from core.logging import get_logger
 
+from ._decision_logger import (
+    DecisionStrategy,
+    log_classification_decision,
+)
 from ._decision_support import (
     build_llm_source_text,
     make_l4_error_details,
@@ -37,10 +41,6 @@ from ._decision_support import (
 from ._l4_policy import (
     build_llm_allowed_types,
     should_run_l4,
-)
-from ._decision_logger import (
-    DecisionStrategy,
-    log_classification_decision,
 )
 
 logger = get_logger(__name__)
@@ -225,9 +225,7 @@ class L4Executor:
                 level="L4",
                 language=language,
                 jurisdiction=jurisdiction,
-                applicable_triggers=self._builder.build_triggers(
-                    doc_id, parsed["type_code"]
-                ),
+                applicable_triggers=self._builder.build_triggers(doc_id, parsed["type_code"]),
                 details=details,
             )
 
@@ -241,7 +239,7 @@ class L4Executor:
     # Segment L4
     # ──────────────────────────────────────────────────────────────────
 
-    async def run_for_segment(          # ← 4 пробела отступа, внутри класса
+    async def run_for_segment(  # ← 4 пробела отступа, внутри класса
         self,
         *,
         segment_id: str,
@@ -358,9 +356,9 @@ class L4Executor:
             return None
 
         if parsed["type_code"] and parsed["type_code"] != "UNKNOWN":
-            self._metrics.classification_duration.labels(
-                source="segment_l4"
-            ).observe(time.time() - started_at)
+            self._metrics.classification_duration.labels(source="segment_l4").observe(
+                time.time() - started_at
+            )
             if settings.CLASSIFICATION_LOG_DECISIONS:
                 log_classification_decision(
                     doc_id=f"segment:{segment_id}",
@@ -432,23 +430,15 @@ class L4Executor:
             # strong_final / strong_single_no_conflict её заблокировали.
             "raw_need_adjudication": bool(getattr(gate, "raw_need_adjudication", False)),
             "skip_l4": bool(getattr(gate, "skip_l4", False)),
-            "strong_single_no_conflict": bool(
-                getattr(gate, "strong_single_no_conflict", False)
-            ),
+            "strong_single_no_conflict": bool(getattr(gate, "strong_single_no_conflict", False)),
             "strong_final": bool(getattr(gate, "strong_final", False)),
-            "contradiction_detected": bool(
-                getattr(gate, "contradiction_detected", False)
-            ),
-            "input_quality": L4Executor._safe_float(
-                getattr(gate, "input_quality", 0.0), 0.0
-            ),
+            "contradiction_detected": bool(getattr(gate, "contradiction_detected", False)),
+            "input_quality": L4Executor._safe_float(getattr(gate, "input_quality", 0.0), 0.0),
             "domain_conflict": bool(getattr(gate, "domain_conflict", False)),
             "final_conf_after_voting": L4Executor._safe_float(
                 getattr(gate, "final_conf_after_voting", 0.0), 0.0
             ),
-            "voted_margin": L4Executor._safe_float(
-                getattr(gate, "voted_margin", 0.0), 0.0
-            ),
+            "voted_margin": L4Executor._safe_float(getattr(gate, "voted_margin", 0.0), 0.0),
             "weak_input_for_l4": bool(getattr(gate, "weak_input_for_l4", False)),
             "l4_useful": bool(getattr(gate, "l4_useful", True)),
             "review_preferred": bool(getattr(gate, "review_preferred", False)),
@@ -610,7 +600,3 @@ class L4Executor:
                 "input_quality": gate.input_quality,
             },
         )
-
-        
-
-

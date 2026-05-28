@@ -46,5 +46,3 @@ def retrigger_run_pipeline(
             "force_reclassify": force_reclassify,
         },
     )
-
-    

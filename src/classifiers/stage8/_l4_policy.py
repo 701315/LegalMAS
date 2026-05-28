@@ -23,10 +23,10 @@ from typing import Any
 
 from core.config import settings
 
-
 # ══════════════════════════════════════════════════════════════════════
 # L4GateDecision — результат gating-решения
 # ══════════════════════════════════════════════════════════════════════
+
 
 @dataclass(slots=True)
 class L4GateDecision:
@@ -61,6 +61,7 @@ class L4GateDecision:
 # ══════════════════════════════════════════════════════════════════════
 # Вспомогательные функции — типобезопасность
 # ══════════════════════════════════════════════════════════════════════
+
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
     try:
@@ -100,6 +101,7 @@ def _is_valid_type_code(value: Any) -> bool:
 # ══════════════════════════════════════════════════════════════════════
 # is_hybrid_confident — общее условие для HYBRID-решения
 # ══════════════════════════════════════════════════════════════════════
+
 
 def is_hybrid_confident(
     *,
@@ -142,6 +144,7 @@ def is_hybrid_confident(
 # ══════════════════════════════════════════════════════════════════════
 # Shortlist и allowed_types для L4
 # ══════════════════════════════════════════════════════════════════════
+
 
 def _extract_shortlist_from_voting(details: dict | None, top_k: int) -> list[str]:
     if not isinstance(details, dict):
@@ -345,9 +348,7 @@ def expand_llm_types_by_family(
 
     result: list[str] = []
     seen = {
-        _normalize_type_code(t)
-        for t in seed_types
-        if _is_valid_type_code(_normalize_type_code(t))
+        _normalize_type_code(t) for t in seed_types if _is_valid_type_code(_normalize_type_code(t))
     }
 
     for type_code in all_types:
@@ -476,16 +477,11 @@ def build_llm_allowed_types(
     # в result на первом цикле выше, поэтому result не может быть пустым
     # при наличии shortlist с валидными type_code.
     empty_candidate_space = len(result) == 0
-    empty_reason: str | None = (
-        "no_shortlist_and_no_candidates" if empty_candidate_space else None
-    )
+    empty_reason: str | None = "no_shortlist_and_no_candidates" if empty_candidate_space else None
 
     source_map = {
         "shortlist": [t for t in shortlist if t in result_set],
-        "family_seed_types": [
-            t for t in family_seed_types
-            if t in result_set or t in shortlist
-        ],
+        "family_seed_types": [t for t in family_seed_types if t in result_set or t in shortlist],
         "family": family_selected,
         "contradiction_detected": contradiction,
         "domain_conflict": domain_conflict,
@@ -500,6 +496,7 @@ def build_llm_allowed_types(
 # ══════════════════════════════════════════════════════════════════════
 # should_run_l4 — централизованный gating для L4
 # ══════════════════════════════════════════════════════════════════════
+
 
 def should_run_l4(
     *,
@@ -564,14 +561,10 @@ def should_run_l4(
     top_l3 = details.get("L3_top")
 
     top_l2_conf = (
-        _safe_float((top_l2 or {}).get("confidence", 0.0), 0.0)
-        if isinstance(top_l2, dict)
-        else 0.0
+        _safe_float((top_l2 or {}).get("confidence", 0.0), 0.0) if isinstance(top_l2, dict) else 0.0
     )
     top_l3_conf = (
-        _safe_float((top_l3 or {}).get("confidence", 0.0), 0.0)
-        if isinstance(top_l3, dict)
-        else 0.0
+        _safe_float((top_l3 or {}).get("confidence", 0.0), 0.0) if isinstance(top_l3, dict) else 0.0
     )
 
     # ── strong_final: используем is_hybrid_confident для единого условия ──
@@ -616,11 +609,7 @@ def should_run_l4(
     weak_score = final_conf_after_voting < hybrid_accept
 
     _raw_need_adjudication = (
-        weak_score
-        or weak_margin
-        or weak_support
-        or contradiction
-        or domain_conflict
+        weak_score or weak_margin or weak_support or contradiction or domain_conflict
     )
 
     # ── need_adjudication: подавленная версия ────────────────────────────
@@ -631,9 +620,7 @@ def should_run_l4(
     # Инвариант 2: strong_single_no_conflict явно подавляет need_adjudication,
     #   даже если weak_support=True (support_count=1 при сильном L3/L2).
     need_adjudication = (
-        _raw_need_adjudication
-        and not strong_final
-        and not strong_single_no_conflict
+        _raw_need_adjudication and not strong_final and not strong_single_no_conflict
     )
 
     # ── l4_useful и review_preferred ─────────────────────────────────────

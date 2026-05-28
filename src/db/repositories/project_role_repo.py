@@ -23,30 +23,26 @@
 
 from __future__ import annotations
 
-from typing import Optional
 from uuid import UUID
 
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, insert, update, delete
 
-from db.models.deal_member import DealMember
 from core.roles import ProjectRole  # Literal["admin", "editor", "viewer"]
+from db.models.deal_member import DealMember
 
 
 class ProjectRoleRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_role(self, user_id: str, deal_id: UUID) -> Optional[ProjectRole]:
+    async def get_role(self, user_id: str, deal_id: UUID) -> ProjectRole | None:
         """
         Вернуть проектную роль пользователя в сделке или None, если записи нет.
         """
-        stmt = (
-            select(DealMember.role)
-            .where(
-                DealMember.user_id == user_id,
-                DealMember.deal_id == deal_id,
-            )
+        stmt = select(DealMember.role).where(
+            DealMember.user_id == user_id,
+            DealMember.deal_id == deal_id,
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
@@ -79,7 +75,7 @@ class ProjectRoleRepository:
                 user_id=user_id,
                 deal_id=deal_id,
                 role=role,
-                name="",   # при чистом set_role пока не трогаем name/login
+                name="",  # при чистом set_role пока не трогаем name/login
                 login=user_id,
             )
             await self.db.execute(stmt_insert)

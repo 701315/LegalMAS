@@ -38,6 +38,7 @@ logger = get_logger(__name__)
 # Модели
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class EvidenceBundle:
     """
@@ -50,6 +51,7 @@ class EvidenceBundle:
     missing_topics:  темы которые ожидались но не найдены
     diagnostics:     дополнительная информация для debugging
     """
+
     query_topic: str
     primary_units: list[LegalUnit] = field(default_factory=list)
     supporting_units: list[LegalUnit] = field(default_factory=list)
@@ -99,6 +101,7 @@ class RetrievalProfile:
     max_primary_units: максимум primary units в bundle
     max_supporting_units: максимум supporting units в bundle
     """
+
     profile_id: str
     query_topic: str
     required_topics: list[str] = field(default_factory=list)
@@ -112,6 +115,7 @@ class RetrievalProfile:
 # ---------------------------------------------------------------------------
 # EvidenceBundleBuilder
 # ---------------------------------------------------------------------------
+
 
 class EvidenceBundleBuilder:
     """
@@ -154,7 +158,8 @@ class EvidenceBundleBuilder:
         min_citability_score = citability_order.get(profile.min_citability, 1)
 
         eligible_units = [
-            u for u in units
+            u
+            for u in units
             if citability_order.get(u.citability.citability_band, 0) >= min_citability_score
         ]
 
@@ -192,7 +197,7 @@ class EvidenceBundleBuilder:
 
         # Сортируем по score убывание, потом по page_start для determinism
         primary_candidates.sort(key=lambda x: (-x[1], x[0].page_start))
-        primary_units = [u for u, _ in primary_candidates[:profile.max_primary_units]]
+        primary_units = [u for u, _ in primary_candidates[: profile.max_primary_units]]
         bundle.primary_units = primary_units
 
         # Шаг 3: supporting units — совпадение с supporting_topics
@@ -222,7 +227,7 @@ class EvidenceBundleBuilder:
 
         supporting_candidates.sort(key=lambda x: (-x[1], x[0].page_start))
         bundle.supporting_units = [
-            u for u, _ in supporting_candidates[:profile.max_supporting_units]
+            u for u, _ in supporting_candidates[: profile.max_supporting_units]
         ]
 
         # Шаг 4: missing_topics
@@ -231,8 +236,7 @@ class EvidenceBundleBuilder:
             found_topics.update(unit.topic_tags)
 
         bundle.missing_topics = [
-            topic for topic in profile.required_topics
-            if topic not in found_topics
+            topic for topic in profile.required_topics if topic not in found_topics
         ]
 
         # Шаг 5: confidence
@@ -242,13 +246,15 @@ class EvidenceBundleBuilder:
             found_topics=found_topics,
         )
 
-        bundle.diagnostics.update({
-            "primary_candidates_before_limit": len(primary_candidates),
-            "supporting_candidates_before_limit": len(supporting_candidates),
-            "required_topics": list(profile.required_topics),
-            "found_topics": list(found_topics),
-            "missing_topics": list(bundle.missing_topics),
-        })
+        bundle.diagnostics.update(
+            {
+                "primary_candidates_before_limit": len(primary_candidates),
+                "supporting_candidates_before_limit": len(supporting_candidates),
+                "required_topics": list(profile.required_topics),
+                "found_topics": list(found_topics),
+                "missing_topics": list(bundle.missing_topics),
+            }
+        )
 
         logger.debug(
             "EvidenceBundleBuilder: bundle built",
@@ -283,9 +289,7 @@ class EvidenceBundleBuilder:
             extra={
                 "profiles_count": len(profiles),
                 "total_units": len(units),
-                "bundles_with_primary": sum(
-                    1 for b in results.values() if not b.is_empty
-                ),
+                "bundles_with_primary": sum(1 for b in results.values() if not b.is_empty),
             },
         )
 
@@ -315,18 +319,13 @@ class EvidenceBundleBuilder:
         }
 
         avg_citability = sum(
-            citability_scores.get(u.citability.citability_band, 0.3)
-            for u in primary_units
+            citability_scores.get(u.citability.citability_band, 0.3) for u in primary_units
         ) / len(primary_units)
 
         if required_topics:
-            topic_coverage = len(
-                set(required_topics) & found_topics
-            ) / len(required_topics)
+            topic_coverage = len(set(required_topics) & found_topics) / len(required_topics)
         else:
             topic_coverage = 1.0 if primary_units else 0.0
 
         confidence = avg_citability * 0.6 + topic_coverage * 0.4
         return round(min(1.0, max(0.0, confidence)), 3)
-    
-

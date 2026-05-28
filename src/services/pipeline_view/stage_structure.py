@@ -420,6 +420,7 @@ class StructureStageBuilder:
 # Автономные функции (используются также из других stage builders)
 # ════════════════════════════════════════════════════════════════════
 
+
 def _make_segment_dto(seg: DocumentSegment) -> PipelineSegmentDTO:
     return PipelineSegmentDTO(
         segment_id=seg.segment_id,
@@ -475,9 +476,7 @@ def flatten_clause_tree(
     page_from = normalize_int(
         node.get("startPage") or node.get("start_page") or node.get("page_from")
     )
-    page_to = normalize_int(
-        node.get("endPage") or node.get("end_page") or node.get("page_to")
-    )
+    page_to = normalize_int(node.get("endPage") or node.get("end_page") or node.get("page_to"))
 
     if page_from is not None and page_to is None:
         page_to = page_from
@@ -790,6 +789,3 @@ async def enrich_structure_with_text(
         enriched_any = True
 
     return enriched_any
-
-
-    

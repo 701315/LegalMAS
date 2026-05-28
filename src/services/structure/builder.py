@@ -20,8 +20,7 @@ from __future__ import annotations
 
 from core.logging import get_logger
 from services.structure.models import ClauseTree, FileStructureResult
-from services.structure.pipeline import build_structure, build_file_structure
-
+from services.structure.pipeline import build_file_structure, build_structure
 
 logger = get_logger(__name__)
 
@@ -87,5 +86,3 @@ class StructureBuilder:
             elements=elements,
             document_version_id=document_version_id,
         )
-    
-    

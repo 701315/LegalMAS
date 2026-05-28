@@ -28,7 +28,6 @@ import os
 import re
 import threading
 from dataclasses import dataclass
-from typing import Optional
 
 import yaml
 
@@ -37,7 +36,7 @@ from core.logging import get_logger
 
 logger = get_logger(__name__)
 _lock = threading.Lock()
-_instance: Optional["YAMLRegistry"] = None
+_instance: YAMLRegistry | None = None
 
 
 def _pattern_to_text(raw_pattern: str) -> str:
@@ -47,11 +46,11 @@ def _pattern_to_text(raw_pattern: str) -> str:
     получала семантически осмысленный текст, а не шум из \b, (?i) и т.п.
     """
     s = raw_pattern.strip()
-    s = re.sub(r'^\(\?[imsux]+\)', '', s)
-    s = re.sub(r'\\[bBsSwWdD]', ' ', s)
-    s = re.sub(r'[+*?]|\{\d+,?\d*\}', '', s)
-    s = re.sub(r'[\[\]()^$|\\]', ' ', s)
-    s = re.sub(r'\s+', ' ', s).strip()
+    s = re.sub(r"^\(\?[imsux]+\)", "", s)
+    s = re.sub(r"\\[bBsSwWdD]", " ", s)
+    s = re.sub(r"[+*?]|\{\d+,?\d*\}", "", s)
+    s = re.sub(r"[\[\]()^$|\\]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
     return s
 
 
@@ -116,7 +115,9 @@ class DocumentTypeConfig:
         self.registry_entry_raw = registry_entry_raw or {}
         self.load_warnings = list(load_warnings or [])
         self.source_sha256 = source_sha256 or self._compute_sha256(
-            source_yaml if isinstance(source_yaml, str) and source_yaml.strip() else self._dump_canonical_yaml(self.raw)
+            source_yaml
+            if isinstance(source_yaml, str) and source_yaml.strip()
+            else self._dump_canonical_yaml(self.raw)
         )
 
         self.type_code = str(self.raw.get("type", ""))
@@ -130,7 +131,9 @@ class DocumentTypeConfig:
 
         runtime = self.raw.get("classification_runtime_v1") or {}
         rules = runtime.get("rules") or self.raw.get("rules", {}) or {}
-        validation = self.raw.get("validation_engine_v3_2") or self.raw.get("validation_metadata") or {}
+        validation = (
+            self.raw.get("validation_engine_v3_2") or self.raw.get("validation_metadata") or {}
+        )
         self.triggerdefinitions = dict(
             runtime.get("trigger_definitions") or validation.get("trigger_definitions") or {}
         )
@@ -183,9 +186,7 @@ class DocumentTypeConfig:
         self.keywords_medium = self._compile_regex_list(kw.get("medium", []))
         self.keywords_low = self._compile_regex_list(kw.get("low", []))
 
-        self.negative_signals = self._parse_negative_signals(
-            rules.get("exclusions", [])
-        )
+        self.negative_signals = self._parse_negative_signals(rules.get("exclusions", []))
 
         self.exclusions = self._compile_regex_list(rules.get("exclusions", []))
 
@@ -381,13 +382,15 @@ class DocumentTypeConfig:
                     )
                     continue
 
-                signals.append({
-                    "pattern": compiled,
-                    "weight": default_weights.get(group_level, 0.3),
-                    "distinctiveness": "medium",
-                    "context": "any",
-                    "description": None,
-                })
+                signals.append(
+                    {
+                        "pattern": compiled,
+                        "weight": default_weights.get(group_level, 0.3),
+                        "distinctiveness": "medium",
+                        "context": "any",
+                        "description": None,
+                    }
+                )
 
             elif isinstance(item, dict):
                 pattern_str = item.get("pattern", "")
@@ -431,13 +434,15 @@ class DocumentTypeConfig:
                     )
                     context = "any"
 
-                signals.append({
-                    "pattern": compiled,
-                    "weight": weight,
-                    "distinctiveness": distinctiveness,
-                    "context": context,
-                    "description": description,
-                })
+                signals.append(
+                    {
+                        "pattern": compiled,
+                        "weight": weight,
+                        "distinctiveness": distinctiveness,
+                        "context": context,
+                        "description": description,
+                    }
+                )
 
         return signals
 
@@ -461,12 +466,14 @@ class DocumentTypeConfig:
                     )
                     continue
 
-                signals.append({
-                    "pattern": compiled,
-                    "severity": "soft",
-                    "weight": -0.3,
-                    "description": None,
-                })
+                signals.append(
+                    {
+                        "pattern": compiled,
+                        "severity": "soft",
+                        "weight": -0.3,
+                        "description": None,
+                    }
+                )
 
             elif isinstance(item, dict):
                 pattern_str = item.get("pattern", "")
@@ -501,12 +508,14 @@ class DocumentTypeConfig:
                     )
                     severity = "soft"
 
-                signals.append({
-                    "pattern": compiled,
-                    "severity": severity,
-                    "weight": weight,
-                    "description": description,
-                })
+                signals.append(
+                    {
+                        "pattern": compiled,
+                        "severity": severity,
+                        "weight": weight,
+                        "description": description,
+                    }
+                )
 
         return signals
 
@@ -750,7 +759,9 @@ class YAMLRegistry:
                             }
                         )
 
-                    if field_name in ("filename_patterns", "folder_patterns") and isinstance(item, dict):
+                    if field_name in ("filename_patterns", "folder_patterns") and isinstance(
+                        item, dict
+                    ):
                         kind = item.get("kind")
                         if kind is not None and kind not in allowed_filename_kinds:
                             errors.append(
@@ -764,7 +775,7 @@ class YAMLRegistry:
 
                         if "weight" in item:
                             weight = item.get("weight")
-                            if not isinstance(weight, (int, float)):
+                            if not isinstance(weight, int | float):
                                 errors.append(
                                     {
                                         "type_code": type_code,
@@ -792,12 +803,14 @@ class YAMLRegistry:
                             try:
                                 re.compile(clean)
                             except re.error as e:
-                                errors.append({
-                                    "type_code": type_code,
-                                    "field": f"keywords.{level}[{idx}]",
-                                    "pattern": item,
-                                    "error": str(e),
-                                })
+                                errors.append(
+                                    {
+                                        "type_code": type_code,
+                                        "field": f"keywords.{level}[{idx}]",
+                                        "pattern": item,
+                                        "error": str(e),
+                                    }
+                                )
                     elif isinstance(item, dict):
                         pattern_str = item.get("pattern", "")
                         if pattern_str:
@@ -805,28 +818,38 @@ class YAMLRegistry:
                             try:
                                 re.compile(clean)
                             except re.error as e:
-                                errors.append({
-                                    "type_code": type_code,
-                                    "field": f"keywords.{level}[{idx}].pattern",
-                                    "pattern": pattern_str,
-                                    "error": str(e),
-                                })
+                                errors.append(
+                                    {
+                                        "type_code": type_code,
+                                        "field": f"keywords.{level}[{idx}].pattern",
+                                        "pattern": pattern_str,
+                                        "error": str(e),
+                                    }
+                                )
 
-                        if "distinctiveness" in item and item["distinctiveness"] not in ("high", "medium", "low"):
-                            errors.append({
-                                "type_code": type_code,
-                                "field": f"keywords.{level}[{idx}].distinctiveness",
-                                "pattern": pattern_str,
-                                "error": f"Invalid value: {item['distinctiveness']}, expected 'high'|'medium'|'low'",
-                            })
+                        if "distinctiveness" in item and item["distinctiveness"] not in (
+                            "high",
+                            "medium",
+                            "low",
+                        ):
+                            errors.append(
+                                {
+                                    "type_code": type_code,
+                                    "field": f"keywords.{level}[{idx}].distinctiveness",
+                                    "pattern": pattern_str,
+                                    "error": f"Invalid value: {item['distinctiveness']}, expected 'high'|'medium'|'low'",
+                                }
+                            )
 
                         if "context" in item and item["context"] not in ("header", "body", "any"):
-                            errors.append({
-                                "type_code": type_code,
-                                "field": f"keywords.{level}[{idx}].context",
-                                "pattern": pattern_str,
-                                "error": f"Invalid value: {item['context']}, expected 'header'|'body'|'any'",
-                            })
+                            errors.append(
+                                {
+                                    "type_code": type_code,
+                                    "field": f"keywords.{level}[{idx}].context",
+                                    "pattern": pattern_str,
+                                    "error": f"Invalid value: {item['context']}, expected 'header'|'body'|'any'",
+                                }
+                            )
 
             for idx, item in enumerate(rules.get("exclusions", []) or []):
                 if isinstance(item, str):
@@ -835,12 +858,14 @@ class YAMLRegistry:
                         try:
                             re.compile(clean)
                         except re.error as e:
-                            errors.append({
-                                "type_code": type_code,
-                                "field": f"exclusions[{idx}]",
-                                "pattern": item,
-                                "error": str(e),
-                            })
+                            errors.append(
+                                {
+                                    "type_code": type_code,
+                                    "field": f"exclusions[{idx}]",
+                                    "pattern": item,
+                                    "error": str(e),
+                                }
+                            )
                 elif isinstance(item, dict):
                     pattern_str = item.get("pattern", "")
                     if pattern_str:
@@ -848,40 +873,48 @@ class YAMLRegistry:
                         try:
                             re.compile(clean)
                         except re.error as e:
-                            errors.append({
-                                "type_code": type_code,
-                                "field": f"exclusions[{idx}].pattern",
-                                "pattern": pattern_str,
-                                "error": str(e),
-                            })
+                            errors.append(
+                                {
+                                    "type_code": type_code,
+                                    "field": f"exclusions[{idx}].pattern",
+                                    "pattern": pattern_str,
+                                    "error": str(e),
+                                }
+                            )
 
                     if "severity" in item and item["severity"] not in ("hard", "soft"):
-                        errors.append({
-                            "type_code": type_code,
-                            "field": f"exclusions[{idx}].severity",
-                            "pattern": pattern_str,
-                            "error": f"Invalid value: {item['severity']}, expected 'hard'|'soft'",
-                        })
+                        errors.append(
+                            {
+                                "type_code": type_code,
+                                "field": f"exclusions[{idx}].severity",
+                                "pattern": pattern_str,
+                                "error": f"Invalid value: {item['severity']}, expected 'hard'|'soft'",
+                            }
+                        )
 
             scoring = runtime.get("scoring", {})
             if scoring:
                 for param, value in scoring.items():
                     if param in ("accept_threshold", "strong_signal_threshold", "max_confidence"):
-                        if not isinstance(value, (int, float)) or not (0 < value <= 1):
-                            errors.append({
-                                "type_code": type_code,
-                                "field": f"scoring.{param}",
-                                "pattern": str(value),
-                                "error": f"Expected float in range (0, 1], got {value}",
-                            })
+                        if not isinstance(value, int | float) or not (0 < value <= 1):
+                            errors.append(
+                                {
+                                    "type_code": type_code,
+                                    "field": f"scoring.{param}",
+                                    "pattern": str(value),
+                                    "error": f"Expected float in range (0, 1], got {value}",
+                                }
+                            )
                     elif param == "ambiguity_margin":
-                        if not isinstance(value, (int, float)) or not (0 <= value <= 1):
-                            errors.append({
-                                "type_code": type_code,
-                                "field": f"scoring.{param}",
-                                "pattern": str(value),
-                                "error": f"Expected float in range [0, 1], got {value}",
-                            })
+                        if not isinstance(value, int | float) or not (0 <= value <= 1):
+                            errors.append(
+                                {
+                                    "type_code": type_code,
+                                    "field": f"scoring.{param}",
+                                    "pattern": str(value),
+                                    "error": f"Expected float in range [0, 1], got {value}",
+                                }
+                            )
 
         is_valid = len(errors) == 0
 
@@ -1016,7 +1049,7 @@ class YAMLRegistry:
         ]
 
     @classmethod
-    def get_instance(cls, validate: bool = True) -> "YAMLRegistry":
+    def get_instance(cls, validate: bool = True) -> YAMLRegistry:
         """
         Получить singleton-экземпляр YAMLRegistry.
         """
@@ -1124,6 +1157,3 @@ class YAMLRegistry:
         global _instance
         with _lock:
             _instance = None
-            
-
-

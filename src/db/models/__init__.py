@@ -6,10 +6,11 @@ Import all ORM models so Alembic can discover them for autogenerate.
 
 from .bundle import Bundle
 from .calibration import ClassificationCalibration
+from .check_result_persist_error import CheckResultPersistError
 from .dd_request import DDRequest
 from .deal import Deal
 from .deal_member import DealMember
-from .document import Document, DocumentVersion, DocumentSegment, DocumentStageExecution
+from .document import Document, DocumentSegment, DocumentStageExecution, DocumentVersion
 from .document_type_instruction import DocumentTypeInstructionVersion
 from .export import Export
 from .ops import AuditLog, DLQRecord, IdempotencyKey
@@ -18,8 +19,6 @@ from .playbook import ModelConfig, Playbook, PlaybookLineItem, PlaybookVersion
 from .relation import DocumentFamily, DocumentFamilyMember, DocumentRelation
 from .result import CheckResult
 from .run import Job, Run
-from .check_result_persist_error import CheckResultPersistError
-
 
 __all__ = [
     "AuditLog",

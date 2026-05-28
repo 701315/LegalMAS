@@ -60,8 +60,7 @@ def split_effective_uid(effective_uid: str) -> tuple[str, str]:
 
     if ":" not in normalized:
         raise ValueError(
-            f"Invalid effective_uid={normalized!r}. "
-            "Expected canonical 'scope:raw_uid' format"
+            f"Invalid effective_uid={normalized!r}. " "Expected canonical 'scope:raw_uid' format"
         )
 
     scope, raw_uid = normalized.split(":", 1)
@@ -122,4 +121,3 @@ def make_segment_id(document_id: str, segment_order: int) -> str:
             f"{normalized_document_id}::segment::{normalized_order}",
         )
     )
-

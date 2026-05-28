@@ -113,9 +113,7 @@ class MASBaseTask(Task):
         чтобы сигнатуры worker-функций оставались чистыми.
         """
         self._stage_execution_id: str | None = kwargs.pop("stage_execution_id", None)
-        self._orchestration_strategy: str | None = kwargs.pop(
-            "orchestration_strategy", None
-        )
+        self._orchestration_strategy: str | None = kwargs.pop("orchestration_strategy", None)
 
         try:
             return self.run(*args, **kwargs)
@@ -124,13 +122,10 @@ class MASBaseTask(Task):
         except (PermanentError, QuarantineError):
             raise
         except SoftTimeLimitExceeded as exc:
-            raise PermanentError(
-                f"Task '{self.name}' exceeded soft time limit"
-            ) from exc
+            raise PermanentError(f"Task '{self.name}' exceeded soft time limit") from exc
         except (AttributeError, TypeError, NotImplementedError, AssertionError) as exc:
             raise PermanentError(
-                f"Task '{self.name}' failed with programming error: "
-                f"{type(exc).__name__}: {exc}"
+                f"Task '{self.name}' failed with programming error: " f"{type(exc).__name__}: {exc}"
             ) from exc
         except TransientError as exc:
             self._handle_transient(exc, kwargs, error_kind="transient")
@@ -396,7 +391,7 @@ class MASBaseTask(Task):
         """
         Рассчитать exponential backoff с jitter для retry.
         """
-        base = float(min(10 * (3 ** retry_num), self.retry_backoff_max))
+        base = float(min(10 * (3**retry_num), self.retry_backoff_max))
         jitter = random.uniform(0, base * 0.1)
         return base + jitter
 
@@ -446,9 +441,7 @@ class MASBaseTask(Task):
         if raw_job_id:
             try:
                 job_id = (
-                    raw_job_id
-                    if isinstance(raw_job_id, uuid.UUID)
-                    else uuid.UUID(str(raw_job_id))
+                    raw_job_id if isinstance(raw_job_id, uuid.UUID) else uuid.UUID(str(raw_job_id))
                 )
             except (ValueError, TypeError) as parse_exc:
                 logger.warning(
@@ -543,11 +536,5 @@ class MASBaseTask(Task):
             if retry_count is not None:
                 values["retry_count"] = retry_count
 
-            stmt = (
-                sa_update(Job)
-                .where(Job.id == uuid.UUID(job_id))
-                .values(**values)
-            )
+            stmt = sa_update(Job).where(Job.id == uuid.UUID(job_id)).values(**values)
             await db.execute(stmt)
-
-            

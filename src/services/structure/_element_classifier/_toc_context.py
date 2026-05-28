@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from services.structure.toc_parser import TOCBlock, ParsedTOC, detect_toc_block, parse_toc_entries
+from services.structure.toc_parser import ParsedTOC, TOCBlock, detect_toc_block, parse_toc_entries
 
 
 @dataclass(slots=True)
@@ -37,7 +37,7 @@ class _TocContext:
     recent_strong_toc_indexes: list[int] = field(default_factory=list)
 
     @classmethod
-    def build(cls, elements: list[dict[str, Any]]) -> "_TocContext":
+    def build(cls, elements: list[dict[str, Any]]) -> _TocContext:
         """Строит TocContext из elements.
 
         Вызывается один раз до цикла classify.
@@ -65,4 +65,3 @@ class _TocContext:
             parsed_toc=parsed_toc,
             toc_source_indexes=source_indexes,
         )
-

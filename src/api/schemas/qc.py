@@ -21,7 +21,6 @@ Pydantic‑схемы для QC‑действий в review mode.
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
 _ALLOWED_QC_STATUSES = {"approved", "rejected", "needs_review"}
 
 
@@ -71,9 +70,7 @@ class ReviewQCUpdateRequest(BaseModel):
     def validate_qc_status(cls, value: str) -> str:
         normalized = value.strip().lower()
         if normalized not in _ALLOWED_QC_STATUSES:
-            raise ValueError(
-                "qc_status must be one of: approved, rejected, needs_review"
-            )
+            raise ValueError("qc_status must be one of: approved, rejected, needs_review")
         return normalized
 
     @field_validator("comment")
@@ -119,9 +116,7 @@ class ReviewQCBulkUpdateRequest(BaseModel):
     def validate_qc_status(cls, value: str) -> str:
         normalized = value.strip().lower()
         if normalized not in _ALLOWED_QC_STATUSES:
-            raise ValueError(
-                "qc_status must be one of: approved, rejected, needs_review"
-            )
+            raise ValueError("qc_status must be one of: approved, rejected, needs_review")
         return normalized
 
     @field_validator("comment")
@@ -136,9 +131,7 @@ class ReviewQCBulkUpdateRequest(BaseModel):
     def validate_single_run_scope(self) -> "ReviewQCBulkUpdateRequest":
         run_ids = {item.run_id for item in self.findings}
         if len(run_ids) != 1:
-            raise ValueError(
-                "all findings in bulk request must belong to the same run_id"
-            )
+            raise ValueError("all findings in bulk request must belong to the same run_id")
         return self
 
 
@@ -175,6 +168,3 @@ class ReviewQCBulkUpdateResponse(BaseModel):
     changed_findings: int
     updated_rows_count: int
     items: list[ReviewQCBulkItemResponse]
-
-
-    

@@ -71,6 +71,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from classifiers.yaml_registry import YAMLRegistry
 from core.constants import DocumentStatus
 from core.logging import get_logger
+
 from ..models.document import Document
 from .document_type_instruction_version_repo import (
     DocumentTypeInstructionVersionRepository,
@@ -111,9 +112,7 @@ class DocumentRepository:
         return doc
 
     async def get_by_id(self, doc_id: uuid.UUID) -> Document | None:
-        result = await self.session.execute(
-            select(Document).where(Document.id == doc_id)
-        )
+        result = await self.session.execute(select(Document).where(Document.id == doc_id))
         return result.scalar_one_or_none()
 
     async def get_by_deal(
@@ -158,12 +157,7 @@ class DocumentRepository:
         **kwargs: Any,
     ) -> Document | None:
         values = {"status": status, **kwargs}
-        stmt = (
-            update(Document)
-            .where(Document.id == doc_id)
-            .values(**values)
-            .returning(Document)
-        )
+        stmt = update(Document).where(Document.id == doc_id).values(**values).returning(Document)
         result = await self.session.execute(stmt)
         doc = result.scalar_one_or_none()
         if doc:
@@ -455,9 +449,7 @@ class DocumentRepository:
         }
 
         if classification_requires_review is not None:
-            classification_result["requires_manual_review"] = (
-                classification_requires_review
-            )
+            classification_result["requires_manual_review"] = classification_requires_review
 
         return await self.save_classification_result(
             document_id=doc_id,
@@ -489,9 +481,7 @@ class DocumentRepository:
         level = classification_result.get("level")
         language = classification_result.get("language")
         jurisdiction = classification_result.get("jurisdiction")
-        applicable_triggers = list(
-            classification_result.get("applicable_triggers") or []
-        )
+        applicable_triggers = list(classification_result.get("applicable_triggers") or [])
         details = classification_result.get("details") or {}
 
         requires_review = bool(
@@ -529,9 +519,7 @@ class DocumentRepository:
                 "instruction_version_id": (
                     str(instruction_version_id) if instruction_version_id else None
                 ),
-                "playbook_version_id": (
-                    str(playbook_version_id) if playbook_version_id else None
-                ),
+                "playbook_version_id": (str(playbook_version_id) if playbook_version_id else None),
             },
         )
 
@@ -590,12 +578,9 @@ class DocumentRepository:
         return list(result.scalars().all())
 
     async def exists_manual_classified_docs(self, deal_id: uuid.UUID) -> bool:
-        stmt = (
-            select(func.count(Document.id))
-            .where(
-                Document.deal_id == deal_id,
-                Document.classification_level == "L_manual",
-            )
+        stmt = select(func.count(Document.id)).where(
+            Document.deal_id == deal_id,
+            Document.classification_level == "L_manual",
         )
         result = await self.session.execute(stmt)
         count = result.scalar_one() or 0
@@ -612,9 +597,7 @@ class DocumentRepository:
     ) -> tuple[list[Document], int]:
         offset = (page - 1) * per_page
 
-        count_stmt = select(func.count(Document.id)).where(
-            Document.deal_id == deal_id
-        )
+        count_stmt = select(func.count(Document.id)).where(Document.deal_id == deal_id)
         total_result = await self.session.execute(count_stmt)
         total = total_result.scalar_one() or 0
 
@@ -665,12 +648,7 @@ class DocumentRepository:
                 }
             )
 
-        stmt = (
-            update(Document)
-            .where(Document.id == doc_id)
-            .values(**values)
-            .returning(Document)
-        )
+        stmt = update(Document).where(Document.id == doc_id).values(**values).returning(Document)
         result = await self.session.execute(stmt)
         doc = result.scalar_one_or_none()
         if doc:
@@ -706,6 +684,3 @@ class DocumentRepository:
             semver=semver,
         )
         return resolved.version.id
-    
-
-    

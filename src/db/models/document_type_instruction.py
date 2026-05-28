@@ -104,5 +104,3 @@ class DocumentTypeInstructionVersion(Base):
             name="uq_doc_type_instruction_versions_doc_type_code_sha256",
         ),
     )
-
-    

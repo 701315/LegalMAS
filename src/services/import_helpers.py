@@ -256,4 +256,3 @@ def _get_content_type(filetype: str) -> str:
         "image": "image/png",
     }
     return content_types.get(filetype, "application/octet-stream")
-

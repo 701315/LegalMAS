@@ -26,7 +26,6 @@ Pydantic DTO-схемы для представления пайплайна о�
   или это более удобное производное представление.
 """
 
-
 from __future__ import annotations
 
 from enum import Enum
@@ -315,7 +314,7 @@ class StructurePreviewDTO(BaseModel):
 
     # v2 canonical view
     segments: list[StructureSegmentPreviewDTO] = Field(default_factory=list)
-    
+
     raw_json: dict[str, Any] | list[Any] | None = None
 
 
@@ -374,12 +373,7 @@ class ChunksPreviewDTO(BaseModel):
     raw_json: dict[str, Any] | list[Any] | None = None
 
 
-PipelinePreviewDTO = (
-    PdfPreviewDTO
-    | LayoutPreviewDTO
-    | StructurePreviewDTO
-    | ChunksPreviewDTO
-)
+PipelinePreviewDTO = PdfPreviewDTO | LayoutPreviewDTO | StructurePreviewDTO | ChunksPreviewDTO
 
 
 class PipelineStageViewDTO(BaseModel):
@@ -410,6 +404,3 @@ class DocumentPipelineViewResponseDTO(BaseModel):
     view_mode: StageViewMode
 
     stages: list[PipelineStageViewDTO] = Field(default_factory=list)
-
-
-

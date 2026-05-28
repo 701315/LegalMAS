@@ -13,7 +13,6 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, Tuple
 
 from core.config import settings
 from core.logging import get_logger
@@ -332,7 +331,7 @@ def cleanup_heading_title(uid: str, raw_title: str) -> str:
     return title
 
 
-def _try_match(pattern: re.Pattern[str], stripped: str) -> Optional[Tuple[str, str]]:
+def _try_match(pattern: re.Pattern[str], stripped: str) -> tuple[str, str] | None:
     m = pattern.match(stripped)
     if not m:
         return None
@@ -360,7 +359,7 @@ def _try_match(pattern: re.Pattern[str], stripped: str) -> Optional[Tuple[str, s
     return uid, title
 
 
-def parse_raw_heading(text: str) -> Optional[Tuple[str, str]]:
+def parse_raw_heading(text: str) -> tuple[str, str] | None:
     """
     Попробовать распарсить строку как заголовок.
 
@@ -433,5 +432,3 @@ def parse_raw_heading(text: str) -> Optional[Tuple[str, str]]:
                 return uid, title
 
     return None
-
-

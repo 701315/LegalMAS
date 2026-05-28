@@ -87,8 +87,7 @@ class ChunksStageBuilder:
                     code=PipelineStageCode.CHUNKS,
                     title="CHUNKS: materialized chunks",
                     description=(
-                        "V2 manifest чанков ещё не записан. "
-                        "Стадия CHUNKS пока не готова."
+                        "V2 manifest чанков ещё не записан. " "Стадия CHUNKS пока не готова."
                     ),
                     available=False,
                     kind=PipelineStageKind.chunks,
@@ -384,9 +383,7 @@ class ChunksStageBuilder:
                 **_CHUNKS_REPR_KWARGS,
             )
 
-        reconstructed_text = "\n\n".join(
-            ch.text for ch in chunk_previews if ch.text.strip()
-        )
+        reconstructed_text = "\n\n".join(ch.text for ch in chunk_previews if ch.text.strip())
 
         preview = ChunksPreviewDTO(
             type="chunks",
@@ -499,8 +496,7 @@ class ChunksStageBuilder:
                 chunk_id = ch.get("id")
                 raw_idx = ch.get("_pipeline_index")
                 index = (
-                    int(raw_idx) if isinstance(raw_idx, int)
-                    else len(flat_chunks) + len(seg_chunks)
+                    int(raw_idx) if isinstance(raw_idx, int) else len(flat_chunks) + len(seg_chunks)
                 )
 
                 seg_chunks.append(
@@ -542,5 +538,3 @@ class ChunksStageBuilder:
             flat_chunks.extend(seg_chunks)
 
         return flat_chunks, segments_preview
-
-        

@@ -20,6 +20,7 @@ PR4: вынесен из hybrid_classifier.py.
 evaluate() возвращает готовый dict-результат или None.
 None означает "продолжать каскад".
 """
+
 from __future__ import annotations
 
 import time
@@ -155,9 +156,7 @@ class PriorityRulesEvaluator:
         strong_l2 = global_strong_l2
         if winner_cfg is not None:
             scoring = getattr(winner_cfg, "scoring", {}) or {}
-            strong_l2 = float(
-                scoring.get("strong_signal_threshold", global_strong_l2)
-            )
+            strong_l2 = float(scoring.get("strong_signal_threshold", global_strong_l2))
 
         if l2_conf < strong_l2:
             return None
@@ -166,14 +165,11 @@ class PriorityRulesEvaluator:
         l2_high_hits = int(l2_extra.get("high_hits", 0))
         l2_medium_hits = int(l2_extra.get("medium_hits", 0))
         distinctive_high = int(l2_extra.get("distinctive_high_hits", l2_high_hits))
-        distinctive_medium = int(
-            l2_extra.get("distinctive_medium_hits", l2_medium_hits // 2)
-        )
+        distinctive_medium = int(l2_extra.get("distinctive_medium_hits", l2_medium_hits // 2))
         generic_high = int(l2_extra.get("generic_high_hits", 0))
 
-        weak_l2_signal = (
-            (distinctive_high == 0 and generic_high > 0)
-            or (distinctive_high == 1 and distinctive_medium == 0)
+        weak_l2_signal = (distinctive_high == 0 and generic_high > 0) or (
+            distinctive_high == 1 and distinctive_medium == 0
         )
 
         # 1A: L1 + L3 консенсус против L2
@@ -329,13 +325,11 @@ class PriorityRulesEvaluator:
         ):
             return None
 
-        from ._decision_support import build_voting_details
         from ._decision_logger import DecisionStrategy, log_classification_decision
+        from ._decision_support import build_voting_details
 
         final_type = top_l2.doctype
-        final_conf = float(
-            (float(top_l1["confidence"]) + float(top_l2.confidence)) / 2.0
-        )
+        final_conf = float((float(top_l1["confidence"]) + float(top_l2.confidence)) / 2.0)
 
         details["voting"] = build_voting_details(
             strategy="L1_L2_AGREE",
@@ -369,9 +363,9 @@ class PriorityRulesEvaluator:
             },
         )
 
-        self._metrics.classification_duration.labels(
-            source="l1_l2_agree"
-        ).observe(time.time() - started_at)
+        self._metrics.classification_duration.labels(source="l1_l2_agree").observe(
+            time.time() - started_at
+        )
 
         return self._builder.build(
             levels_tried=details["levels_tried"],
@@ -408,8 +402,8 @@ class PriorityRulesEvaluator:
         started_at: float,
     ) -> dict:
         """Строит финальный result для стратегии L2_STRONG_WINS."""
-        from ._decision_support import build_voting_details
         from ._decision_logger import DecisionStrategy, log_classification_decision
+        from ._decision_support import build_voting_details
 
         details["voting"] = build_voting_details(
             strategy="L2_STRONG_WINS",
@@ -453,9 +447,9 @@ class PriorityRulesEvaluator:
             },
         )
 
-        self._metrics.classification_duration.labels(
-            source="l2_strong"
-        ).observe(time.time() - started_at)
+        self._metrics.classification_duration.labels(source="l2_strong").observe(
+            time.time() - started_at
+        )
 
         return self._builder.build(
             levels_tried=details["levels_tried"],
@@ -468,10 +462,3 @@ class PriorityRulesEvaluator:
             applicable_triggers=self._builder.build_triggers(doc_id, l2_type),
             details=details,
         )
-
-
-
-
-
-
-

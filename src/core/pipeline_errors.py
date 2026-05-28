@@ -49,4 +49,3 @@ class ChunkingV2ErrorReason:
 class ChunkingQuarantineReason:
     EMPTY_CHUNKS_CONTENT = "emptychunks_content"
     EMPTY_SEGMENTS_CONTENT = "emptysegments_content"
-    

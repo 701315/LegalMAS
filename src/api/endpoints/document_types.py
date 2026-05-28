@@ -12,13 +12,10 @@ HTTP‑эндпоинты для работы с типами документо
   с краткими метаданными (категория, риск, язык, юрисдикция).
 """
 
-from typing import Optional, List
-
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from classifiers.yaml_registry import YAMLRegistry
-
 
 router = APIRouter(prefix="/document-types", tags=["document-types"])
 
@@ -29,17 +26,17 @@ class DocumentTypeItem(BaseModel):
     # Человеко-понятное название типа
     name: str
     # Основная категория: "contract", "annex" и т.п.
-    category: Optional[str] = None
+    category: str | None = None
     # Уровень риска: "low" / "medium" / "high" / "critical"
-    risk_level: Optional[str] = None
+    risk_level: str | None = None
     # Основной язык документов этого типа
-    language: Optional[str] = None
+    language: str | None = None
     # Юрисдикция, например "RU", "EN"
-    jurisdiction: Optional[str] = None
+    jurisdiction: str | None = None
 
 
-@router.get("", response_model=List[DocumentTypeItem])
-async def list_document_types() -> List[DocumentTypeItem]:
+@router.get("", response_model=list[DocumentTypeItem])
+async def list_document_types() -> list[DocumentTypeItem]:
     """
     Вернуть список всех типов документов из YAMLRegistry.
 
@@ -47,7 +44,7 @@ async def list_document_types() -> List[DocumentTypeItem]:
     """
     registry = YAMLRegistry.get_instance()
 
-    items: List[DocumentTypeItem] = []
+    items: list[DocumentTypeItem] = []
 
     # YAMLRegistry.get_all_configs() возвращает список DocumentTypeConfig
     for cfg in registry.get_all_configs():

@@ -73,5 +73,3 @@ def toc_match_payload(
         normalize_toc_match_title(title or ""),
     )
     return toc_match_index.get(key)
-
-

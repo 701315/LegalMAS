@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import uuid
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -135,9 +134,7 @@ class ChunksPreparer:
             )
             return []
 
-        levels_for_segment = self._resolve_levels(
-            checks, default=["subclause", "clause"]
-        )
+        levels_for_segment = self._resolve_levels(checks, default=["subclause", "clause"])
 
         # Загружаем чанки только этого сегмента через ChunkCorpusReaderV2.
         # Он сам находит последнюю версию документа и читает нужный snapshot из MinIO.
@@ -284,6 +281,3 @@ class ChunksPreparer:
             )
 
         return safe
-    
-    
-

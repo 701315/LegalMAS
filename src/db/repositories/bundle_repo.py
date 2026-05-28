@@ -18,7 +18,6 @@ BundleRepository — репозиторий для работы с пакета�
   - когда именно импорт завершился (completed_at).
 """
 
-
 import uuid
 from datetime import UTC, datetime
 
@@ -85,29 +84,20 @@ class BundleRepository:
         return bundle
 
     async def get_by_id(self, bundle_id: uuid.UUID) -> Bundle | None:
-        result = await self.session.execute(
-            select(Bundle).where(Bundle.id == bundle_id)
-        )
+        result = await self.session.execute(select(Bundle).where(Bundle.id == bundle_id))
         return result.scalar_one_or_none()
-
 
     async def update(
         self,
         bundle_id: uuid.UUID,
         **values,
     ) -> Bundle | None:
-        stmt = (
-            update(Bundle)
-            .where(Bundle.id == bundle_id)
-            .values(**values)
-            .returning(Bundle)
-        )
+        stmt = update(Bundle).where(Bundle.id == bundle_id).values(**values).returning(Bundle)
         result = await self.session.execute(stmt)
         bundle = result.scalar_one_or_none()
         if bundle:
             await self.session.flush()
         return bundle
-
 
     async def mark_completed(
         self,
@@ -140,4 +130,3 @@ class BundleRepository:
             error_details=error_details,
             completed_at=datetime.now(UTC),
         )
-

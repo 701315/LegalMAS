@@ -267,7 +267,5 @@ def _build_base_details(
         "avg_ocr_confidence": round(avg_conf, 3) if avg_conf is not None else None,
         "ocr_confidence_available": confidence_available,
         "ocr_quarantine_threshold": round(policy.ocr_quarantine_threshold, 3),
-        "hybrid_min_ocr_rate_for_quarantine": round(
-            policy.hybrid_min_ocr_rate_for_quarantine, 3
-        ),
+        "hybrid_min_ocr_rate_for_quarantine": round(policy.hybrid_min_ocr_rate_for_quarantine, 3),
     }

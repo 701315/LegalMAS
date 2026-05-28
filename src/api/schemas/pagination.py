@@ -4,7 +4,8 @@
 Generic-схемы для пагинации в REST API.
 """
 
-from typing import Generic, TypeVar, List
+from typing import Generic, TypeVar
+
 from pydantic import BaseModel
 
 T = TypeVar("T")
@@ -25,11 +26,11 @@ class PaginatedResponse(BaseModel, Generic[T]):
         "has_previous": false
     }
     """
-    items: List[T]
+
+    items: list[T]
     total: int
     page: int
     per_page: int
     total_pages: int
     has_next: bool
     has_previous: bool
-

@@ -89,20 +89,21 @@ class WeightedVoter:
         # Гарантирует INV-1 (монотонность): добавление любого уровня
         # с effective_score >= 0 не уменьшает normalized_score.
         self._total_weight_sum: float = max(
-            sum(
-                self._clamp(self._safe_float(w, 0.0), 0.0, 1.0)
-                for w in level_weights.values()
-            ),
+            sum(self._clamp(self._safe_float(w, 0.0), 0.0, 1.0) for w in level_weights.values()),
             1e-9,
         )
 
         self.single_source_cap: float = settings.CLASSIFICATION_SINGLE_SOURCE_CAP
-        self.single_source_high_quality_cap: float = settings.CLASSIFICATION_SINGLE_SOURCE_HIGH_QUALITY_CAP
+        self.single_source_high_quality_cap: float = (
+            settings.CLASSIFICATION_SINGLE_SOURCE_HIGH_QUALITY_CAP
+        )
         self.dominant_floor_factor: float = settings.CLASSIFICATION_DOMINANT_FLOOR_FACTOR
         self.max_agreement_bonus: float = settings.CLASSIFICATION_MAX_AGREEMENT_BONUS
         self.agreement_bonus_step: float = settings.CLASSIFICATION_AGREEMENT_BONUS_STEP
         self.multi_level_floor_uplift: float = settings.CLASSIFICATION_MULTI_LEVEL_FLOOR_UPLIFT
-        self.single_source_high_conf_min: float = settings.CLASSIFICATION_SINGLE_SOURCE_HIGH_CONF_MIN
+        self.single_source_high_conf_min: float = (
+            settings.CLASSIFICATION_SINGLE_SOURCE_HIGH_CONF_MIN
+        )
         self.margin_bonus_strong_score_min = settings.CLASSIFICATION_MARGIN_BONUS_STRONG_SCORE_MIN
         self.margin_bonus_medium_score_min = settings.CLASSIFICATION_MARGIN_BONUS_MEDIUM_SCORE_MIN
         self.margin_bonus_strong_cap = settings.CLASSIFICATION_MARGIN_BONUS_STRONG_CAP
@@ -117,7 +118,6 @@ class WeightedVoter:
         self.soft_negative_max_penalty = settings.CLASSIFICATION_SOFT_NEGATIVE_MAX_PENALTY
         self.soft_negative_step = settings.CLASSIFICATION_SOFT_NEGATIVE_STEP
         self.default_level_weight: float = settings.CLASSIFICATION_DEFAULT_LEVEL_WEIGHT
-
 
     @staticmethod
     def _safe_float(value: Any, default: float) -> float:
@@ -537,9 +537,7 @@ class WeightedVoter:
                         "soft_negative_hits": int(level_meta.get("soft_negative_hits", 0)),
                         "hard_negative_hits": int(level_meta.get("hard_negative_hits", 0)),
                         "negative_factor": round(level_meta.get("negative_factor", 1.0), 4),
-                        "ambiguity_penalty": round(
-                            level_meta.get("ambiguity_penalty", 0.0), 4
-                        ),
+                        "ambiguity_penalty": round(level_meta.get("ambiguity_penalty", 0.0), 4),
                         "ambiguity_factor": round(level_meta.get("ambiguity_factor", 1.0), 4),
                     }
                 )
@@ -558,15 +556,11 @@ class WeightedVoter:
                     # ─── NEW: total_weight_sum в каждой строке ranking —
                     # делает лог самодостаточным при разборе без контекста вызова.
                     "total_weight_sum": round(self._total_weight_sum, 4),
-                    "best_component_score": round(
-                        type_best_component_score.get(type_code, 0.0), 4
-                    ),
+                    "best_component_score": round(type_best_component_score.get(type_code, 0.0), 4),
                     "best_component_confidence": round(
                         type_best_component_confidence.get(type_code, 0.0), 4
                     ),
-                    "single_source_capped": bool(
-                        type_single_source_capped.get(type_code, False)
-                    ),
+                    "single_source_capped": bool(type_single_source_capped.get(type_code, False)),
                     "single_source_cap_used": round(type_cap_used.get(type_code, 1.0), 4),
                     "component_count": type_component_count.get(type_code, 0),
                     "active_component_count": type_active_component_count.get(type_code, 0),
@@ -585,9 +579,7 @@ class WeightedVoter:
             "margin": round(margin, 4),
             "language": meta.get("language", "ru"),
             "jurisdiction": meta.get("jurisdiction", "RU"),
-            "single_source_cap_applied": bool(
-                type_single_source_capped.get(best_type, False)
-            ),
+            "single_source_cap_applied": bool(type_single_source_capped.get(best_type, False)),
             "single_source_cap_used": round(type_cap_used.get(best_type, 1.0), 4),
             "support_count": best_support_level_count,
             "support_levels": sorted(type_support_levels.get(best_type, set())),
@@ -602,7 +594,3 @@ class WeightedVoter:
             "top2_types": [best_type] + ([second_type] if second_type else []),
             "ranking": ranking,
         }
-    
-    
-
-    

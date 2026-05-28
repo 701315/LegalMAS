@@ -3,7 +3,8 @@ Repository for Export operations.
 """
 
 import uuid
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,24 +88,13 @@ class ExportRepository:
         return export
 
     async def list_for_run(self, run_id: uuid.UUID) -> list[Export]:
-        stmt = (
-            select(Export)
-            .where(Export.run_id == run_id)
-            .order_by(Export.created_at.desc())
-        )
+        stmt = select(Export).where(Export.run_id == run_id).order_by(Export.created_at.desc())
         result = await self.session.execute(stmt)
         exports: Sequence[Export] = result.scalars().all()
         return list(exports)
 
     async def list_for_deal(self, deal_id: uuid.UUID) -> list[Export]:
-        stmt = (
-            select(Export)
-            .where(Export.deal_id == deal_id)
-            .order_by(Export.created_at.desc())
-        )
+        stmt = select(Export).where(Export.deal_id == deal_id).order_by(Export.created_at.desc())
         result = await self.session.execute(stmt)
         exports: Sequence[Export] = result.scalars().all()
         return list(exports)
-    
-
-    

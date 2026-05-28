@@ -11,32 +11,31 @@ from typing import Any
 
 from core.logging import get_logger
 from services.structure.crossrefs import extract_references
+from services.structure.element_classifier import annotate_elements_with_guard
 from services.structure.heading_builder import build_heading_candidates
 from services.structure.hierarchy_builder import build_clause_hierarchy
 from services.structure.models import (
-    ClauseTree,
-    ParseQualityDiagnostics,
     STRUCTURE_CONFIDENCE_FAILED,
     STRUCTURE_CONFIDENCE_LOW,
+    ClauseTree,
+    ParseQualityDiagnostics,
     embed_parse_quality_diagnostics,
     embed_toc_diagnostics,
 )
 from services.structure.toc_analysis import analyze_toc_with_guard
-from services.structure.element_classifier import annotate_elements_with_guard
 
-from ._utils import log_timing, stable_element_id
-from ._quality_metrics import (
-    calculate_node_coverage,
-    summarize_headings,
-    summarize_element_types,
-    confidence_and_mode,
-)
-from ._toc_workflow import (
-    compute_suppressed_indexes,
-    build_toc_diagnostics,
-)
 from ._degraded_fallback import degraded_tree
 from ._element_validation import validate_element_contract
+from ._quality_metrics import (
+    calculate_node_coverage,
+    confidence_and_mode,
+    summarize_headings,
+)
+from ._toc_workflow import (
+    build_toc_diagnostics,
+    compute_suppressed_indexes,
+)
+from ._utils import log_timing, stable_element_id
 
 logger = get_logger(__name__)
 
@@ -54,7 +53,6 @@ def build_single_segment_tree(
     is_primary_segment: bool = False,
     log_prefix: str = "STRUCTURE",
 ) -> ClauseTree:
-
     build_started = time.perf_counter()
     normalized_scope_name = str(scope_name or "main_contract").strip() or "main_contract"
 
@@ -109,8 +107,7 @@ def build_single_segment_tree(
     )
 
     body_elements = [
-        el for idx, el in enumerate(annotated_elements)
-        if idx not in suppressed_indexes
+        el for idx, el in enumerate(annotated_elements) if idx not in suppressed_indexes
     ]
 
     headings = build_heading_candidates(
@@ -196,4 +193,3 @@ def build_single_segment_tree(
 
     log_timing(f"{log_prefix} build_total", build_started)
     return result
-

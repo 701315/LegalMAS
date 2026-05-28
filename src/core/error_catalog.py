@@ -21,11 +21,10 @@
 - Если stage/reason не известны, возвращаем None, а фронт может показать дефолтный текст.
 """
 
-
 from __future__ import annotations
 
-from typing import Any, Mapping
-
+from collections.abc import Mapping
+from typing import Any
 
 # Базовый словарь сообщений по (stage, reason).
 # Ключи — коды, значения — короткие RU-тексты для юриста.
@@ -79,7 +78,7 @@ _ERROR_MESSAGES: dict[tuple[str, str], str] = {
     ("orchestrator", "queue_unavailable"): (
         "Очередь задач временно недоступна. "
         "Повторите запуск анализа позже или обратитесь к администратору."
-    ),    
+    ),
     # общее сообщение для инфраструктурных ошибок пайплайна
     ("pipeline", "infrastructure_error"): "Инфраструктурная ошибка при запуске анализа.",
 }

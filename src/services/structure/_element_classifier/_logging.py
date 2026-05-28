@@ -8,17 +8,16 @@ from typing import Any
 
 from core.logging import get_logger
 
-from ._config import ELEMENT_TYPE_TOC_HEADER, ELEMENT_TYPE_TOC_LINE, ELEMENT_TYPE_POSSIBLE_TOC
-from ._toc_context import _TocContext
-
 # Импорт semantic констант для диагностики
 from services.structure.models import (
+    SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING,
+    SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM,
     SEMANTIC_ELEMENT_TYPE_SECTION_HEADING,
     SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING,
-    SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM,
-    SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING,
 )
 
+from ._config import ELEMENT_TYPE_POSSIBLE_TOC, ELEMENT_TYPE_TOC_HEADER, ELEMENT_TYPE_TOC_LINE
+from ._toc_context import _TocContext
 
 logger = get_logger(__name__)
 
@@ -67,12 +66,18 @@ def _log_classification_summary(
             "toc_line_count": counts.get(ELEMENT_TYPE_TOC_LINE, 0),
             "possible_toc_count": counts.get(ELEMENT_TYPE_POSSIBLE_TOC, 0),
             "toc_false_positive_local_count": toc_fp_count,
-            "semantic_section_heading_count": semantic_counts.get(SEMANTIC_ELEMENT_TYPE_SECTION_HEADING, 0),
-            "semantic_subsection_heading_count": semantic_counts.get(SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING, 0),
-            "semantic_definition_item_count": semantic_counts.get(SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM, 0),
-            "semantic_appendix_heading_count": semantic_counts.get(SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING, 0),
+            "semantic_section_heading_count": semantic_counts.get(
+                SEMANTIC_ELEMENT_TYPE_SECTION_HEADING, 0
+            ),
+            "semantic_subsection_heading_count": semantic_counts.get(
+                SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING, 0
+            ),
+            "semantic_definition_item_count": semantic_counts.get(
+                SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM, 0
+            ),
+            "semantic_appendix_heading_count": semantic_counts.get(
+                SEMANTIC_ELEMENT_TYPE_APPENDIX_HEADING, 0
+            ),
             "note": "authoritative_guard_applied_later_in_pipeline",
         },
     )
-
-

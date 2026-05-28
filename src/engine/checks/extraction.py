@@ -16,6 +16,7 @@ from typing import Any
 
 from core.config import settings
 from core.logging import get_logger
+
 from ..detectors.extraction_llm_detector import ExtractionLLMDetector
 from ..llm.client import LLMClient
 from ..playbook.models import (
@@ -320,9 +321,7 @@ class ExtractionExecutor:
                 loc_element_ids = []
 
         # Нормализуем ссылки на element_id'ы в строковый список
-        loc_element_ids_str = {
-            str(eid) for eid in loc_element_ids if eid is not None
-        }
+        loc_element_ids_str = {str(eid) for eid in loc_element_ids if eid is not None}
         if loc_element_id is not None:
             loc_element_ids_str.add(str(loc_element_id))
 
@@ -545,6 +544,3 @@ class ExtractionExecutor:
             check_id=getattr(field_cfg, "check_id", getattr(field_cfg, "check_id", "unknown")),
         )
         return None
-
-
-

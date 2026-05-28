@@ -202,4 +202,3 @@ class DLQRecord(Base):
         Index("idx_dlq_source_task_id", "source_task_id"),
         Index("idx_dlq_dedupe_key", "dedupe_key"),
     )
-

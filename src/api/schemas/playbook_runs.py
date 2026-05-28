@@ -29,14 +29,10 @@
 бэкенд будет использовать bundles/include_ids/exclude_ids, как раньше.
 """
 
-
 from __future__ import annotations
 
-
 from datetime import datetime
-from typing import List, Optional
 from uuid import UUID
-
 
 from pydantic import BaseModel, Field
 
@@ -71,21 +67,21 @@ class DealPlaybookRebuildRequest(BaseModel):
 
     # --- "Рецепт" для компилятора (как было раньше) ---
 
-    bundles: List[str] = Field(
+    bundles: list[str] = Field(
         default_factory=list,
         description="Список bundle-id для нового плейбука. "
         "Если пусто и не заданы enabled_check_ids — использовать текущие из config.",
     )
-    include_ids: List[str] = Field(
+    include_ids: list[str] = Field(
         default_factory=list,
         description="Чеки, которые явно добавить поверх bundles "
         "(используются, если enabled_check_ids не заданы).",
     )
-    exclude_ids: List[str] = Field(
+    exclude_ids: list[str] = Field(
         default_factory=list,
         description="Чеки, которые явно исключить (используются, если enabled_check_ids не заданы).",
     )
-    profile: Optional[str] = Field(
+    profile: str | None = Field(
         default=None,
         description="Профиль глубины проверки (core/full/quick/max и т.п.). "
         "Если не задан и нет enabled_check_ids — берётся из текущего config.",
@@ -93,7 +89,7 @@ class DealPlaybookRebuildRequest(BaseModel):
 
     # --- Новый уровень: явный итоговый состав после UI-плашек ---
 
-    enabled_check_ids: List[str] = Field(
+    enabled_check_ids: list[str] = Field(
         default_factory=list,
         description=(
             "Итоговый список check_id, которые должны быть включены в плейбук "
@@ -101,7 +97,7 @@ class DealPlaybookRebuildRequest(BaseModel):
             "Если непустой, может использоваться как основной источник состава."
         ),
     )
-    disabled_check_ids: List[str] = Field(
+    disabled_check_ids: list[str] = Field(
         default_factory=list,
         description=(
             "Список check_id, которые явно выключены юристом по сравнению с базовым набором. "
@@ -145,7 +141,7 @@ class DealPlaybookHistoryItem(BaseModel):
     playbook_semver: str
     run_status: str
     created_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     profile: str
 
 
@@ -162,4 +158,4 @@ class DealPlaybookHistoryResponse(BaseModel):
     """
 
     deal_id: UUID
-    items: List[DealPlaybookHistoryItem]
+    items: list[DealPlaybookHistoryItem]

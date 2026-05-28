@@ -35,15 +35,14 @@ Run Checks Auto-Starter Service.
 """
 
 import uuid
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.constants import DocumentStatus, RunStatus, JobStatus
+from core.constants import DocumentStatus, JobStatus, RunStatus
 from core.logging import get_logger
-from db.models.run import Run, Job
+from db.models.run import Job, Run
 from db.repositories.document_repo import DocumentRepository
 from mas_queue.celery_app import celery_app
 
@@ -52,7 +51,7 @@ logger = get_logger(__name__)
 
 async def maybe_start_run_checks(
     db: AsyncSession,
-    run_id: Optional[uuid.UUID],
+    run_id: uuid.UUID | None,
 ) -> None:
     """
     Проверить, пора ли запускать checks для Run, и при необходимости
@@ -144,14 +143,9 @@ async def maybe_start_run_checks(
     # Снимаем статусы документов в примитивы сразу после загрузки,
     # до любого следующего await. Это предотвращает MissingGreenlet
     # при обращении к doc.status после возможного savepoint rollback.
-    doc_statuses: list[str] = [
-        str(d.status or "") for d in docs
-    ]
+    doc_statuses: list[str] = [str(d.status or "") for d in docs]
 
-    participating_statuses = [
-        s for s in doc_statuses
-        if s not in non_participating_statuses
-    ]
+    participating_statuses = [s for s in doc_statuses if s not in non_participating_statuses]
 
     # Если participating_docs нет, всё равно запускаем run_deal_checks,
     # чтобы корректно отработать zero-check run и финализировать Run.
@@ -172,11 +166,10 @@ async def maybe_start_run_checks(
                     "run_id": run_id_str,
                     "deal_id": deal_id_str,
                     "participating_docs": len(participating_statuses),
-                    "ready_docs": sum(
-                        1 for s in participating_statuses if s in ready_statuses
-                    ),
+                    "ready_docs": sum(1 for s in participating_statuses if s in ready_statuses),
                     "blocked_docs": sum(
-                        1 for s in doc_statuses
+                        1
+                        for s in doc_statuses
                         if s == DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value
                     ),
                 },
@@ -255,4 +248,3 @@ async def _has_run_deal_checks_job(db: AsyncSession, run_id: uuid.UUID) -> bool:
     )
     job = result.scalar_one_or_none()
     return job is not None
-

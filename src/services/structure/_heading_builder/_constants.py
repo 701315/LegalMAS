@@ -36,4 +36,3 @@ _ALLOWED_ELEMENT_TYPES = {
     "list_item",
     "toc_false_positive",
 }
-

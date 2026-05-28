@@ -30,6 +30,7 @@ class DocumentSummaryDTO(BaseModel):
     - есть ли проблемы со структурой (degraded);
     - уровень и уверенность классификации.
     """
+
     document_id: str
     name: str
     doc_type: str
@@ -62,6 +63,7 @@ class CheckItemDTO(BaseModel):
     - structured_data с извлечёнными полями;
     - (опционально) метаданные сегмента для multi-document файлов.
     """
+
     check_id: str
     check_name: str
     result: str
@@ -97,10 +99,11 @@ class CheckMetaDTO(BaseModel):
     - список типов документов, к которым относится
       (для DOCUMENT_TYPE / CONDITIONAL).
     """
+
     check_id: str
     check_name: str
-    origin: str            # "GLOBAL_PLAYBOOK", "DOCUMENT_TYPE" или "CONDITIONAL"
-    severity: str          # "critical" / "high" / "medium"
+    origin: str  # "GLOBAL_PLAYBOOK", "DOCUMENT_TYPE" или "CONDITIONAL"
+    severity: str  # "critical" / "high" / "medium"
     order_index: int
     applicable_doc_types: list[str] | None = None
 
@@ -113,6 +116,7 @@ class ExtractedFieldDTO(BaseModel):
     - field_name: "amount", field_value: "5 000 000", field_format: "money"
     - field_name: "end_date", field_value: "01.01.2025", field_format: "date"
     """
+
     field_name: str
     field_value: str
     field_format: str  # "money", "date", "entity_name", "text"
@@ -128,14 +132,15 @@ class MatrixCellDTO(BaseModel):
     - список извлечённых полей;
     - статус QC и флаги условной проверки.
     """
-    result: str                  # "fail" / "pass" / "unclear"
-    severity: str                # "critical" / "high" / "medium" / "pass" / "unclear"
+
+    result: str  # "fail" / "pass" / "unclear"
+    severity: str  # "critical" / "high" / "medium" / "pass" / "unclear"
     snippet: str
     page: int | None
     clause_uid: str
     extracted: list[ExtractedFieldDTO]
     confidence: float
-    qc_status: str               # "pending" / "approved" / "rejected" / "needs_review"
+    qc_status: str  # "pending" / "approved" / "rejected" / "needs_review"
 
     qc_by: str | None = None
     qc_comment: str | None = None
@@ -154,7 +159,6 @@ class MatrixCellDTO(BaseModel):
     chunk_index: int | None = None
 
 
-
 class DocumentMatrixRowDTO(BaseModel):
     """
     Строка DD Matrix для одного документа.
@@ -164,6 +168,7 @@ class DocumentMatrixRowDTO(BaseModel):
     - уровень и уверенность классификации;
     - словарь ячеек по check_id.
     """
+
     document_id: str
     document_name: str
     doc_type: str
@@ -186,6 +191,7 @@ class SegmentMatrixRowDTO(BaseModel):
     - статус файла и метрики классификации;
     - словарь ячеек по check_id.
     """
+
     document_id: str
     document_name: str
     doc_type: str
@@ -204,7 +210,6 @@ class SegmentMatrixRowDTO(BaseModel):
     results: dict[str, MatrixCellDTO]
 
 
-
 class DDMatrixResponseDTO(BaseModel):
     """
     Ответ DD Matrix для эндпоинта
@@ -217,6 +222,7 @@ class DDMatrixResponseDTO(BaseModel):
     - список строк матрицы по документам;
     - агрегированные счётчики по серьёзности и качеству доказательств.
     """
+
     deal_id: str
     run_id: str
     deal_name: str
@@ -229,7 +235,7 @@ class DDMatrixResponseDTO(BaseModel):
     # NEW: сегмент-ориентированные строки матрицы.
     # Именно они будут основным источником данных для DD Grid на фронте.
     segment_documents: list[SegmentMatrixRowDTO] = []
-    
+
     total_documents: int
     total_checks: int
     severity_counts: dict[str, int]
@@ -248,6 +254,7 @@ class DocumentDetailDTO(BaseModel):
     - список applicable_triggers;
     - список проверок (CheckItemDTO).
     """
+
     document_id: str
     name: str
     doc_type: str
@@ -271,6 +278,7 @@ class DDRequestDTO(BaseModel):
     - какие structured_values были использованы;
     - (опционально) segment provenance для viewer navigation в multi-document файлах.
     """
+
     request_id: str
     priority: str
     check_id: str | None
@@ -305,6 +313,7 @@ class ConditionalCheckDTO(BaseModel):
     - фрагмент evidence;
     - уверенность и флаги качества.
     """
+
     document_name: str
     doc_type: str
     trigger_name: str
@@ -330,12 +339,13 @@ class ExtractedValueDTO(BaseModel):
     Для multi-document файлов дополнительно может содержать сегмент,
     к которому относится значение (основной договор, приложение, акт и т.п.).
     """
+
     document_name: str
     doc_type: str
     check_name: str
     field_name: str
     field_value: str
-    field_format: str        # "money", "date", "entity_name", "text"
+    field_format: str  # "money", "date", "entity_name", "text"
     page: int | None
     clause_uid: str
 
@@ -359,6 +369,7 @@ class DocumentStructuredDataDTO(BaseModel):
     - сколько значений извлечено;
     - список извлечённых значений.
     """
+
     deal_id: str
     run_id: str
 
@@ -373,7 +384,3 @@ class DocumentStructuredDataDTO(BaseModel):
 
     total_values: int
     values: list[ExtractedValueDTO]
-
-    
-
-

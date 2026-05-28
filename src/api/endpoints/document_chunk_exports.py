@@ -38,12 +38,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
-from db.session import get_db
-from db.repositories.document_repo import DocumentRepository
+from core.logging import get_logger
 from db.repositories.deal_repo import DealRepository
+from db.repositories.document_repo import DocumentRepository
+from db.session import get_db
 from engine.content.chunk_exporter import ChunkExportService
 from storage.artifact_store import ArtifactStore
-from core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -177,5 +177,3 @@ async def get_document_chunk_view(
     #    - либо открыть в новой вкладке,
     #    - либо скачать как файл.
     return {"url": presigned_url}
-
-

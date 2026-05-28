@@ -11,18 +11,14 @@
   5. "Classification Quality"  — качество классификации по документам (включается опционально)
 """
 
-
 import io
-
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-
 from core.config import settings
 from core.logging import get_logger
 from services.export.models import AggregatedResults
-
 
 logger = get_logger(__name__)
 
@@ -283,11 +279,7 @@ def _build_classification_quality_sheet(wb: Workbook, agg: AggregatedResults) ->
         conf_cell = ws.cell(
             row=row_num,
             column=4,
-            value=(
-                f"{row.classification_confidence:.0%}"
-                if row.classification_confidence
-                else ""
-            ),
+            value=(f"{row.classification_confidence:.0%}" if row.classification_confidence else ""),
         )
         if row.classification_confidence and row.classification_confidence < 0.6:
             conf_cell.fill = low_conf_fill

@@ -12,11 +12,10 @@
 - в эндпоинтах project_members.py для всех операций с участниками проекта.
 """
 
+from collections.abc import Iterable
 
-from typing import Iterable, List
-
-from db.models.deal_member import DealMember
 from api.schemas.project_members import ProjectMemberResponse
+from db.models.deal_member import DealMember
 
 
 def map_member_to_response(member: DealMember) -> ProjectMemberResponse:
@@ -31,5 +30,5 @@ def map_member_to_response(member: DealMember) -> ProjectMemberResponse:
 
 def map_members_to_response(
     members: Iterable[DealMember],
-) -> List[ProjectMemberResponse]:
+) -> list[ProjectMemberResponse]:
     return [map_member_to_response(m) for m in members]

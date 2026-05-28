@@ -19,13 +19,14 @@ Sprint 3 contract:
 from __future__ import annotations
 
 import re
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from core.logging import get_logger
 from services.structure.models import (
+    DEFAULT_SCOPE,
     ClauseNode,
     CrossReference,
-    DEFAULT_SCOPE,
     make_effective_uid,
     split_effective_uid,
 )
@@ -99,10 +100,7 @@ def _node_effective_uid(node: ClauseNode) -> str:
 
 
 def _extract_target_uid(match: re.Match[str]) -> str:
-    return _normalize_uid(
-        match.group("ru_target")
-        or match.group("en_target")
-    )
+    return _normalize_uid(match.group("ru_target") or match.group("en_target"))
 
 
 def _match_kind(match: re.Match[str]) -> str:
@@ -406,6 +404,3 @@ def extract_references(
     )
 
     return references
-
-    
-

@@ -77,7 +77,11 @@ async def run_deal_classification(
     else:
         logger.warning(
             "RBAC check skipped in development mode",
-            extra={"endpoint": "POST /classifier/runs", "user_id": str(user.id), "deal_id": deal_id},
+            extra={
+                "endpoint": "POST /classifier/runs",
+                "user_id": str(user.id),
+                "deal_id": deal_id,
+            },
         )
 
     # Валидация deal_id как UUID

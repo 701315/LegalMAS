@@ -25,6 +25,7 @@ import uuid
 from enum import Enum
 
 import redis as redis_lib
+
 from ops.metrics import get_metrics
 
 from .config import settings
@@ -32,6 +33,7 @@ from .exceptions import CircuitOpenError
 from .logging import get_logger
 
 logger = get_logger(__name__)
+
 
 class CBState(str, Enum):
     """Circuit breaker states."""
@@ -218,9 +220,7 @@ class CircuitBreaker:
             time_in_open = now - float(opened_at)
 
         if time_in_open > 0:
-            self._metrics.circuit_breaker_open_seconds.labels(
-                provider=self.name
-            ).inc(time_in_open)
+            self._metrics.circuit_breaker_open_seconds.labels(provider=self.name).inc(time_in_open)
 
         return {
             "name": self.name,

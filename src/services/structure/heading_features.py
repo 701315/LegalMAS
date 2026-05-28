@@ -60,9 +60,7 @@ _BODYISH_START = re.compile(
 )
 _COLON_END = re.compile(r":$")
 
-_QUOTED_TERM_START = re.compile(
-    r'^\s*(?:"[^"]{1,120}"|«[^»]{1,120}»|„[^“]{1,120}“|“[^”]{1,120}”)'
-)
+_QUOTED_TERM_START = re.compile(r'^\s*(?:"[^"]{1,120}"|«[^»]{1,120}»|„[^“]{1,120}“|“[^”]{1,120}”)')
 
 _DEFINITION_TERM_START = re.compile(
     r"""
@@ -190,7 +188,10 @@ def looks_like_definition_term_title(title: str) -> bool:
 
     if starts_with_quoted_term(t) and len(t.split()) >= 3:
         lowered = t.lower()
-        if any(marker in lowered for marker in [" означает", " means", " shall mean", " именуется", " подразумевает"]):
+        if any(
+            marker in lowered
+            for marker in [" означает", " means", " shall mean", " именуется", " подразумевает"]
+        ):
             return True
 
     return False
@@ -326,11 +327,7 @@ def is_garbage_heading_title(title: str) -> bool:
         return True
 
     # Короткий заголовок, который почти целиком состоит из цифр и разделителей
-    if (
-        not has_letters(t)
-        and len(t.split()) <= 6
-        and _ONLY_DIGITS_AND_SEPARATORS.fullmatch(t)
-    ):
+    if not has_letters(t) and len(t.split()) <= 6 and _ONLY_DIGITS_AND_SEPARATORS.fullmatch(t):
         return True
 
     return False
@@ -478,5 +475,3 @@ def classify_uid_kind(uid: str) -> str:
         return "alpha"
 
     return "other"
-
-

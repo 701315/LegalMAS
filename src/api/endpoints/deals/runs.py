@@ -1,27 +1,24 @@
 # src/api/endpoints/deals/runs.py
 from __future__ import annotations
 
-import uuid
 from uuid import UUID
-from typing import List
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
-from api.schemas.runs import RunCreate, RunResponse
-from db.session import get_db
-from db.repositories.run_repo import RunRepository
-
 from api.endpoints.runs import _start_run_core
+from api.schemas.runs import RunCreate, RunResponse
+from db.repositories.run_repo import RunRepository
+from db.session import get_db
 
 router = APIRouter()
 
 
 @router.get(
     "/{deal_id}/runs",
-    response_model=List[RunResponse],
+    response_model=list[RunResponse],
     summary="Список запусков по сделке",
 )
 async def list_deal_runs(
@@ -66,4 +63,3 @@ async def start_deal_run(
         allowed_roles=("admin", "editor"),
     )
     return await _start_run_core(deal_id, payload, db, user)
-

@@ -50,18 +50,17 @@ Lifecycle записи Export:
 import time
 import uuid
 
-from ops.metrics import get_metrics
-from core.logging import get_logger
-from db.uow import db_uow
-from db.repositories.run_repo import RunRepository
-from db.repositories.export_repo import ExportRepository
-from db.repositories.audit_repo import AuditRepository
 from core.constants import RunStatus
+from core.logging import get_logger
+from db.repositories.audit_repo import AuditRepository
+from db.repositories.export_repo import ExportRepository
+from db.repositories.run_repo import RunRepository
+from db.uow import db_uow
+from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
-from mas_queue.async_helpers import run_async
+from ops.metrics import get_metrics
 from services.export.core import export_core
-
 
 logger = get_logger(__name__)
 
@@ -115,9 +114,7 @@ def export_results(
                 )
 
                 duration = time.time() - started_at
-                metrics.export_duration.labels(
-                    export_type="full_deal_export"
-                ).observe(duration)
+                metrics.export_duration.labels(export_type="full_deal_export").observe(duration)
 
                 refs = result.get("refs", {})
 
@@ -502,5 +499,3 @@ def export_by_id(self, export_id: str) -> dict:
                 raise
 
     return run_async(_run())
-
-

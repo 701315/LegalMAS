@@ -41,8 +41,8 @@ try:
     from reportlab.lib.colors import black
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfbase.pdfmetrics import stringWidth
+    from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfgen import canvas
 
     REPORTLAB_AVAILABLE = True
@@ -138,9 +138,7 @@ def build_pdf_from_layout(layout: dict[str, Any]) -> bytes:
     - PermanentError, если layout пустой или ReportLab недоступен.
     """
     if not REPORTLAB_AVAILABLE:
-        raise PermanentError(
-            "primary_pdf_builder requires reportlab, but it is not installed"
-        )
+        raise PermanentError("primary_pdf_builder requires reportlab, but it is not installed")
 
     _register_unicode_fonts()
 
@@ -491,7 +489,7 @@ def _safe_bbox(element: dict[str, Any]) -> list[float]:
     Безопасно привести bbox к [x0, top, x1, bottom].
     """
     raw_bbox = element.get("bbox") or [0, 0, 0, 0]
-    if not isinstance(raw_bbox, (list, tuple)) or len(raw_bbox) < 4:
+    if not isinstance(raw_bbox, list | tuple) or len(raw_bbox) < 4:
         return [0.0, 0.0, 0.0, 0.0]
 
     result: list[float] = []
@@ -528,4 +526,3 @@ def _safe_pdf_title(layout: dict[str, Any]) -> str:
     """
     document_id = layout.get("document_id") or "unknown-document"
     return f"Primary source for {document_id}"
-

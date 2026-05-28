@@ -186,9 +186,7 @@ async def _check_idempotency(
     if record.status == "completed":
         return ImportBundleResult.from_dict(record.result)
     if record.status == "processing":
-        raise IdempotencyConflictError(
-            f"Import with key '{key}' is already in progress"
-        )
+        raise IdempotencyConflictError(f"Import with key '{key}' is already in progress")
     if record.status == "failed":
         return None
     return None
@@ -427,9 +425,7 @@ async def _async_import(
                 },
             )
 
-            metrics.quarantine.labels(
-                reason=validation.reason or "import_quarantine"
-            ).inc()
+            metrics.quarantine.labels(reason=validation.reason or "import_quarantine").inc()
 
             try:
                 await audit_repo.log(
@@ -567,9 +563,7 @@ async def _async_import(
                 },
             )
 
-            metrics.quarantine.labels(
-                reason=decision.reason or "unsupported_filetype"
-            ).inc()
+            metrics.quarantine.labels(reason=decision.reason or "unsupported_filetype").inc()
 
             try:
                 await audit_repo.log(
@@ -702,5 +696,3 @@ async def _async_import(
         )
 
     return result
-
-

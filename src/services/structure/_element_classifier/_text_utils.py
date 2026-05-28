@@ -10,7 +10,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from ._config import NORMALIZE_NUM_SIGN_RE, PUNCT_SPACES_RE, WHITESPACE_RE
@@ -32,7 +31,7 @@ def _normalize_text(text: str) -> str:
     Returns:
         Нормализованный текст
     """
-    text = text.replace("\u00A0", " ")
+    text = text.replace("\u00a0", " ")
     text = text.replace("ё", "е").replace("Ё", "Е")
     text = NORMALIZE_NUM_SIGN_RE.sub("№ ", text)
     text = PUNCT_SPACES_RE.sub(r"\1 ", text)
@@ -77,7 +76,7 @@ def _safe_bbox(bbox: Any) -> list[float]:
     Returns:
         Список из 4 float значений [x0, y0, x1, y1]
     """
-    if not isinstance(bbox, (list, tuple)):
+    if not isinstance(bbox, list | tuple):
         return [0.0, 0.0, 0.0, 0.0]
     values = list(bbox[:4])
     while len(values) < 4:
@@ -89,4 +88,3 @@ def _safe_bbox(bbox: Any) -> list[float]:
         except Exception:
             out.append(0.0)
     return out
-

@@ -29,7 +29,6 @@ Exact deduplication of documents within a single deal.
 - find_duplicates(documents) -> tuple[DedupResult, list[DetectedRelation]]
 """
 
-
 from collections import defaultdict
 
 from core.logging import get_logger

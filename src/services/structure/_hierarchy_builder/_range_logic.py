@@ -3,13 +3,20 @@
 """Вычисление границ владения элементами (Geometry) с исправлением ошибок None vs int."""
 
 from __future__ import annotations
+
 from typing import Any
+
 from services.structure._models._nodes import ClauseNode
+
 from ._types import HeadingCandidate, OwnRangeComputation
 from ._utils import (
-    _heading_scope, _heading_raw_uid, _normalize_uid, 
-    _is_strict_numeric_uid, level_from_uid
+    _heading_raw_uid,
+    _heading_scope,
+    _is_strict_numeric_uid,
+    _normalize_uid,
+    level_from_uid,
 )
+
 
 def _collect_own_text(
     elements: list[dict[str, Any]],
@@ -26,6 +33,7 @@ def _collect_own_text(
             parts.append(text)
     return " ".join(parts)
 
+
 def _find_next_same_or_higher_level_elem_i(
     *,
     raw_uid: str,
@@ -40,7 +48,7 @@ def _find_next_same_or_higher_level_elem_i(
     if idx is None:
         return None
 
-    for heading in headings[idx + 1:]:
+    for heading in headings[idx + 1 :]:
         if _heading_scope(heading) != scope:
             continue
         h_uid = _heading_raw_uid(heading)
@@ -51,6 +59,7 @@ def _find_next_same_or_higher_level_elem_i(
         if h_level <= node_level:
             return int(heading.elem_i)
     return None
+
 
 def _compute_own_range(
     *,
@@ -81,14 +90,17 @@ def _compute_own_range(
         c_elem_i = key_to_elem_i.get(c_key)
         if c_elem_i is not None and (first_child_elem_i is None or c_elem_i < first_child_elem_i):
             first_child_elem_i = c_elem_i
-    
+
     if first_child_elem_i is not None and first_child_elem_i > heading_elem_i:
         candidates.append((first_child_elem_i, "first_child"))
 
     # Следующий заголовок того же уровня
     next_same_or_higher = _find_next_same_or_higher_level_elem_i(
-        raw_uid=raw_uid, node_level=node.level, scope=scope,
-        headings=headings, key_to_heading_index=key_to_heading_index
+        raw_uid=raw_uid,
+        node_level=node.level,
+        scope=scope,
+        headings=headings,
+        key_to_heading_index=key_to_heading_index,
     )
     if next_same_or_higher is not None and next_same_or_higher > heading_elem_i:
         candidates.append((next_same_or_higher, "next_same_or_higher"))
@@ -97,7 +109,7 @@ def _compute_own_range(
     scope_boundary = scope_boundaries.get(scope)
     if scope_boundary is not None and scope_boundary[1] > heading_elem_i:
         candidates.append((scope_boundary[1], "segment_end"))
-    
+
     # 2. Обязательный fallback: конец списка элементов.
     # Это гарантирует, что candidates никогда не пуст и min() не получит None.
     candidates.append((len(elements), "fallback_boundary"))
@@ -110,5 +122,3 @@ def _compute_own_range(
         end_elem_i=end_elem_i,
         range_end_reason=reason,
     )
-
-

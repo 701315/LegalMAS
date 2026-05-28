@@ -27,7 +27,6 @@
 from __future__ import annotations
 
 import pathlib
-from typing import Dict, List
 
 import yaml
 
@@ -71,8 +70,8 @@ def _normalize_str(value: object, fallback: str) -> str:
     return normalized or fallback
 
 
-def load_global_checks_catalog() -> List[PlaybookTopicInfo]:
-    topics: Dict[str, PlaybookTopicInfo] = {}
+def load_global_checks_catalog() -> list[PlaybookTopicInfo]:
+    topics: dict[str, PlaybookTopicInfo] = {}
 
     base_dir = pathlib.Path(settings.BASE_DIR)
     global_checks_root = _get_global_checks_root()
@@ -168,5 +167,3 @@ def load_global_checks_catalog() -> List[PlaybookTopicInfo]:
         total_checks=sum(len(t.checks) for t in topics.values()),
     )
     return sorted(topics.values(), key=lambda t: t.topic_code)
-
-

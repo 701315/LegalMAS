@@ -16,17 +16,17 @@ The client handles timeouts, retries, and error normalization.
 import json
 import os
 import re
-from dataclasses import dataclass, field
-from typing import Any, Optional
 import time
+from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 
-from ops.metrics import METRICS
 from core.config import settings
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
 from engine.retrieval.tokenization import count_tokens
+from ops.metrics import METRICS
 
 logger = get_logger(__name__)
 
@@ -46,15 +46,15 @@ class LLMContextLimitError(PermanentError):
 class LLMResponse:
     """Standardized response from an LLM call."""
 
-    text: str                           # Raw response text
-    found: bool | None = None           # Parsed: was the condition found?
-    evidence: str = ""                  # Parsed: evidence snippet from response
-    clause: str = ""                    # Parsed: clause reference
-    confidence: float = 0.0            # Parsed: confidence (if LLM provides it)
-    provider: str = ""                  # Which provider was used
-    model: str = ""                     # Which model was used
-    tokens_used: int = 0                # Approximate tokens consumed
-    parse_success: bool = False         # Was the JSON response parsed successfully?
+    text: str  # Raw response text
+    found: bool | None = None  # Parsed: was the condition found?
+    evidence: str = ""  # Parsed: evidence snippet from response
+    clause: str = ""  # Parsed: clause reference
+    confidence: float = 0.0  # Parsed: confidence (if LLM provides it)
+    provider: str = ""  # Which provider was used
+    model: str = ""  # Which model was used
+    tokens_used: int = 0  # Approximate tokens consumed
+    parse_success: bool = False  # Was the JSON response parsed successfully?
     raw_response: dict = field(default_factory=dict)
 
 
@@ -97,7 +97,7 @@ class LLMClient:
     ) -> tuple[int, dict]:
         """
         Fail-fast check: влезает ли prompt + requested_max_tokens в окно модели.
-        
+
         Вызывающий код (LLMDetector) отвечает за то, чтобы prompt был правильного размера.
         Этот метод только проверяет финальный инвариант и выбрасывает LLMContextLimitError.
         """
@@ -120,13 +120,13 @@ class LLMClient:
         diagnostics["prompt_tokens"] = int(prompt_tokens)
 
         reserved_output_tokens = model_limit - prompt_tokens - safety_margin
-        
+
         if reserved_output_tokens <= 0:
             raise LLMContextLimitError(
                 f"Prompt exceeds model context (prompt={prompt_tokens}, "
                 f"limit={model_limit}, margin={safety_margin})"
             )
-        
+
         if reserved_output_tokens < min_output_tokens:
             raise LLMContextLimitError(
                 f"Insufficient output budget (reserved={reserved_output_tokens}, "
@@ -143,7 +143,7 @@ class LLMClient:
         prompt: str,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        grammar_path: Optional[str] = None,
+        grammar_path: str | None = None,
     ) -> LLMResponse | None:
         """
         Call the configured LLM provider.
@@ -166,9 +166,7 @@ class LLMClient:
             return None
 
         temp = temperature if temperature is not None else settings.LLM_TEMPERATURE
-        requested_tokens = (
-            max_tokens if max_tokens is not None else settings.LLM_MAX_TOKENS
-        )
+        requested_tokens = max_tokens if max_tokens is not None else settings.LLM_MAX_TOKENS
 
         # ── Жёсткий budget: останавливаем вызов до обращения к модели ──────
         # LLMContextLimitError — подкласс PermanentError, поэтому порядок важен:
@@ -216,9 +214,7 @@ class LLMClient:
             elif self.provider == "ollama":
                 result = self._call_ollama(prompt, temp, tokens)
             elif self.provider == "llamacpp":
-                result = self._call_llamacpp(
-                    prompt, temp, tokens, grammar_path=grammar_path
-                )
+                result = self._call_llamacpp(prompt, temp, tokens, grammar_path=grammar_path)
             else:
                 logger.warning("Unknown LLM provider", provider=self.provider)
                 error_type_for_metrics = "unknown_provider"
@@ -244,9 +240,9 @@ class LLMClient:
         finally:
             duration = time.time() - start_time
             try:
-                METRICS.llm_request_duration_seconds.labels(
-                    provider=self.provider
-                ).observe(duration)
+                METRICS.llm_request_duration_seconds.labels(provider=self.provider).observe(
+                    duration
+                )
                 METRICS.llm_requests_total.labels(
                     provider=self.provider,
                     error_type=error_type_for_metrics or "none",
@@ -265,7 +261,7 @@ class LLMClient:
         prompt: str,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        grammar_path: Optional[str] = None,
+        grammar_path: str | None = None,
         max_retries: int | None = None,
     ) -> tuple[LLMResponse | None, dict]:
         """
@@ -292,9 +288,7 @@ class LLMClient:
         last_error_message: str | None = None
 
         retries = (
-            max_retries
-            if max_retries is not None
-            else getattr(settings, "LLM_MAX_RETRIES", 2)
+            max_retries if max_retries is not None else getattr(settings, "LLM_MAX_RETRIES", 2)
         )
 
         while True:
@@ -418,9 +412,7 @@ class LLMClient:
         if response.status_code >= 500:
             raise TransientError(f"OpenAI server error: {response.status_code}")
         if response.status_code != 200:
-            raise PermanentError(
-                f"OpenAI error {response.status_code}: {response.text[:200]}"
-            )
+            raise PermanentError(f"OpenAI error {response.status_code}: {response.text[:200]}")
 
         data = response.json()
         text = data["choices"][0]["message"]["content"]
@@ -464,9 +456,7 @@ class LLMClient:
                 f"Run `ollama pull {settings.LLM_OLLAMA_MODEL}`."
             )
         if response.status_code != 200:
-            raise TransientError(
-                f"Ollama error {response.status_code}: {response.text[:200]}"
-            )
+            raise TransientError(f"Ollama error {response.status_code}: {response.text[:200]}")
 
         data = response.json()
         text = data.get("response", "")
@@ -486,7 +476,7 @@ class LLMClient:
         prompt: str,
         temperature: float,
         max_tokens: int,
-        grammar_path: Optional[str] = None,
+        grammar_path: str | None = None,
     ) -> LLMResponse:
         """Call local model via llama-cpp-python."""
         model_path = settings.LLM_LOCAL_MODEL_PATH
@@ -495,9 +485,7 @@ class LLMClient:
 
         normalized = model_path.replace("\\", "/")
         if not os.path.exists(normalized):
-            raise PermanentError(
-                f"Model file does not exist: {normalized} (LLM_LOCAL_MODEL_PATH)"
-            )
+            raise PermanentError(f"Model file does not exist: {normalized} (LLM_LOCAL_MODEL_PATH)")
 
         if self._llama_model is None:
             logger.info(
@@ -509,8 +497,7 @@ class LLMClient:
                 from llama_cpp import Llama
             except ImportError as e:
                 raise PermanentError(
-                    "llama-cpp-python is not installed. "
-                    "Install it or switch LLM_PROVIDER."
+                    "llama-cpp-python is not installed. " "Install it or switch LLM_PROVIDER."
                 ) from e
 
             logger.info(
@@ -543,7 +530,7 @@ class LLMClient:
         if grammar_path:
             try:
                 if grammar_path not in self._llama_grammar_cache:
-                    with open(grammar_path, "r", encoding="utf-8") as f:
+                    with open(grammar_path, encoding="utf-8") as f:
                         gbnf_text = f.read()
                     grammar_obj = LlamaGrammar.from_string(gbnf_text)
                     self._llama_grammar_cache[grammar_path] = grammar_obj
@@ -604,10 +591,7 @@ def _parse_llm_response(response: LLMResponse) -> LLMResponse:
         text_lower = text.lower()
         if any(w in text_lower for w in ["yes", "да", "found", "найден", "true"]):
             response.found = True
-        elif any(
-            w in text_lower
-            for w in ["no", "нет", "not found", "не найден", "false"]
-        ):
+        elif any(w in text_lower for w in ["no", "нет", "not found", "не найден", "false"]):
             response.found = False
         else:
             response.found = None
@@ -649,4 +633,3 @@ def _extract_json(text: str) -> dict | None:
             pass
 
     return None
-

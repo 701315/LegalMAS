@@ -11,11 +11,13 @@
 
 import uuid
 
-from sqlalchemy import select, update, func
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.deal import Deal
 from core.exceptions import PermanentError
+
+from ..models.deal import Deal
+
 
 class DealRepository:
     """
@@ -94,7 +96,6 @@ class DealRepository:
         result = await self.session.execute(select(Deal).where(Deal.id == deal_id))
         return result.scalar_one_or_none()
 
-
     async def assert_tenant_owns_deal(
         self,
         *,
@@ -128,7 +129,6 @@ class DealRepository:
             )
 
         return deal
-
 
     async def get_by_tenant(
         self,
@@ -175,18 +175,12 @@ class DealRepository:
         - обновлённый объект Deal;
         - None, если сделки с таким ID не найдено.
         """
-        stmt = (
-            update(Deal)
-            .where(Deal.id == deal_id)
-            .values(status=status)
-            .returning(Deal)
-        )
+        stmt = update(Deal).where(Deal.id == deal_id).values(status=status).returning(Deal)
         result = await self.session.execute(stmt)
         deal = result.scalar_one_or_none()
         if deal:
             await self.session.flush()
         return deal
-
 
     async def update_language_discovery_status(
         self,
@@ -207,14 +201,9 @@ class DealRepository:
           - 'failed'     — ничего не удалось обработать успешно;
           - None         — статус не задан (по умолчанию).
         """
-        stmt = (
-            update(Deal)
-            .where(Deal.id == deal_id)
-            .values(language_discovery_status=status)
-        )
+        stmt = update(Deal).where(Deal.id == deal_id).values(language_discovery_status=status)
         await self.session.execute(stmt)
         await self.session.flush()
-
 
     async def get_page(
         self,
@@ -292,11 +281,7 @@ class DealRepository:
         if pipeline_strategy is not None:
             values["last_run_pipeline_strategy"] = pipeline_strategy
 
-        stmt = (
-            update(Deal)
-            .where(Deal.id == deal_id)
-            .values(**values)
-        )
+        stmt = update(Deal).where(Deal.id == deal_id).values(**values)
         await self.session.execute(stmt)
         await self.session.flush()
 
@@ -332,11 +317,7 @@ class DealRepository:
         - метод просто записывает его в поле Deal.languages для указанной сделки;
         - никакой логики объединения здесь нет — это уже сделал сервис.
         """
-        stmt = (
-            update(Deal)
-            .where(Deal.id == deal_id)
-            .values(languages=languages)
-        )
+        stmt = update(Deal).where(Deal.id == deal_id).values(languages=languages)
         await self.session.execute(stmt)
         await self.session.flush()
 
@@ -363,11 +344,7 @@ class DealRepository:
         values["languages"] = languages
         values["language_discovery_status"] = discovery_status
 
-        stmt = (
-            update(Deal)
-            .where(Deal.id == deal_id)
-            .values(**values)
-        )
+        stmt = update(Deal).where(Deal.id == deal_id).values(**values)
         await self.session.execute(stmt)
         await self.session.flush()
 
@@ -383,14 +360,10 @@ class DealRepository:
         - primary_language — строка вроде "ru" или "en", либо None;
         - метод просто записывает значение в одно поле указанной сделки.
         """
-        stmt = (
-            update(Deal)
-            .where(Deal.id == deal_id)
-            .values(primary_language=primary_language)
-        )
+        stmt = update(Deal).where(Deal.id == deal_id).values(primary_language=primary_language)
         await self.session.execute(stmt)
         await self.session.flush()
-        
+
     async def update_summary(
         self,
         deal_id: uuid.UUID,
@@ -399,16 +372,9 @@ class DealRepository:
         normalized = summary.strip() if summary is not None else None
         normalized = normalized or None
 
-        stmt = (
-            update(Deal)
-            .where(Deal.id == deal_id)
-            .values(summary=normalized)
-            .returning(Deal)
-        )
+        stmt = update(Deal).where(Deal.id == deal_id).values(summary=normalized).returning(Deal)
         result = await self.session.execute(stmt)
         deal = result.scalar_one_or_none()
         if deal:
             await self.session.flush()
         return deal
-
-

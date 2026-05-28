@@ -7,10 +7,10 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
+from pydantic import BaseModel  # ← добавили
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
@@ -19,24 +19,23 @@ from api.schemas.playbooks import (
     GlobalCheckInfo,
     PlaybookCreateRequest,
     PlaybookCreateResponse,
-    PlaybookVersionShort,
-    PlaybookLineShort,
-    PlaybookVersionDetail,
-    PlaybookLineDetail,
     PlaybookLineCreate,
+    PlaybookLineDetail,
     PlaybookLineItemPayload,
+    PlaybookLineShort,
     PlaybookTopicInfo,
+    PlaybookVersionDetail,
+    PlaybookVersionShort,
 )
 from core.playbooks.compiler import (
-    load_global_checks,
-    build_compiled_checks,
-    BundleConfig,
     BUNDLES_DIR,
+    BundleConfig,
+    build_compiled_checks,
+    load_global_checks,
 )
-from db.session import get_db
 from db.repositories.playbook_repo import PlaybookRepository
+from db.session import get_db
 from services.playbooks.catalog import load_global_checks_catalog
-from pydantic import BaseModel  # ← добавили
 
 router = APIRouter(
     prefix="/playbooks",
@@ -75,7 +74,7 @@ async def get_playbooks_catalog(
 
 @router.get(
     "/checks",
-    response_model=List[GlobalCheckInfo],
+    response_model=list[GlobalCheckInfo],
     summary="Список всех глобальных проверок (global_checks)",
 )
 async def list_global_checks(
@@ -99,7 +98,7 @@ async def list_global_checks(
 
 @router.get(
     "/bundles",
-    response_model=List[BundleInfo],
+    response_model=list[BundleInfo],
     summary="Список всех преднастроенных bundles (presets)",
 )
 async def list_bundles(
@@ -108,7 +107,7 @@ async def list_bundles(
 ):
     import yaml
 
-    items: List[BundleInfo] = []
+    items: list[BundleInfo] = []
 
     if not BUNDLES_DIR.exists():
         return items
@@ -134,21 +133,21 @@ async def list_bundles(
 
 @router.get(
     "/lines",
-    response_model=List[PlaybookLineShort],
+    response_model=list[PlaybookLineShort],
     summary="Список логических плейбуков (Playbook-шаблонов)",
 )
 async def list_playbook_lines(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(require_playbook_admin),
-    deal_type: Optional[str] = Query(
+    deal_type: str | None = Query(
         default=None,
         description="Фильтр по типу сделки: real_estate, mna, nda, corporate и т.п.",
     ),
-    jurisdiction: Optional[str] = Query(
+    jurisdiction: str | None = Query(
         default=None,
         description="Фильтр по юрисдикции: RU, EN, DE и т.п.",
     ),
-    language: Optional[str] = Query(
+    language: str | None = Query(
         default=None,
         description="Фильтр по языку документов: 'ru', 'en' и т.п.",
     ),
@@ -249,10 +248,7 @@ async def create_playbook_version(
     if not payload.bundles and not include_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "At least one bundle, include_ids, or from_line_id "
-                "must be provided."
-            ),
+            detail=("At least one bundle, include_ids, or from_line_id " "must be provided."),
         )
 
     # Загружаем все глобальные проверки
@@ -329,7 +325,7 @@ async def create_playbook_version(
 
 @router.get(
     "",
-    response_model=List[PlaybookVersionShort],
+    response_model=list[PlaybookVersionShort],
     summary="Список версий плейбуков (PlaybookVersion)",
 )
 async def list_playbook_versions(
@@ -337,6 +333,7 @@ async def list_playbook_versions(
     user: CurrentUser = Depends(get_current_user),
 ):
     from sqlalchemy import select
+
     from db.models.playbook import PlaybookVersion
 
     result = await db.execute(select(PlaybookVersion))
@@ -528,6 +525,7 @@ async def update_playbook_line(
         ],
     )
 
+
 @router.delete(
     "/lines/{line_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -568,16 +566,12 @@ async def delete_playbook_line(
         if usage.used_in_deals > 0:
             if usage.deal_names:
                 deals_str = ", ".join(usage.deal_names)
-                parts.append(
-                    f"используется в {usage.used_in_deals} сделк(е/ах): {deals_str}"
-                )
+                parts.append(f"используется в {usage.used_in_deals} сделк(е/ах): {deals_str}")
             else:
                 parts.append(f"используется в {usage.used_in_deals} сделк(е/ах)")
 
         if usage.used_in_runs > 0:
-            parts.append(
-                f"использовался в {usage.used_in_runs} запуск(е/ах) анализа (Run)"
-            )
+            parts.append(f"использовался в {usage.used_in_runs} запуск(е/ах) анализа (Run)")
 
         detail = "Шаблон плейбука не может быть удалён: " + "; ".join(parts) + "."
 

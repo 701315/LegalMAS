@@ -72,16 +72,16 @@ class HeadingCandidateRaw:
     - scope — logical scope: main_contract / appendix_* / и т.п.
     """
 
-    element_index: int                    # индекс элемента в body_elements
-    element_id: str                       # стабильный element_id (если есть, иначе fallback)
-    raw_text: str                         # исходный текст элемента (после normalize_spaces)
-    raw_uid: str                          # исходный uid, распарсенный из строки
-    raw_title: str                        # текст после uid до cleanup/нормализации
-    page: int                             # номер страницы
-    pattern_kind: PatternKind             # тип паттерна, сработавшего на этой строке
-    scope: str = _DEFAULT_SCOPE           # main_contract / appendix_* / ...
-    effective_uid: str | None = None      # scope-aware uid / canonical uid
-    normalized_title: str | None = None   # title после cleanup_heading_title / normalize
+    element_index: int  # индекс элемента в body_elements
+    element_id: str  # стабильный element_id (если есть, иначе fallback)
+    raw_text: str  # исходный текст элемента (после normalize_spaces)
+    raw_uid: str  # исходный uid, распарсенный из строки
+    raw_title: str  # текст после uid до cleanup/нормализации
+    page: int  # номер страницы
+    pattern_kind: PatternKind  # тип паттерна, сработавшего на этой строке
+    scope: str = _DEFAULT_SCOPE  # main_contract / appendix_* / ...
+    effective_uid: str | None = None  # scope-aware uid / canonical uid
+    normalized_title: str | None = None  # title после cleanup_heading_title / normalize
 
     @property
     def uid(self) -> str:
@@ -110,19 +110,19 @@ class HeadingCandidateFeatures:
     Эти признаки используются скорером и scope-aware фильтрацией.
     """
 
-    uid_depth: int                        # глубина uid: "3.1.2" -> 3
-    title_len: int                        # длина заголовка в символах
-    word_count: int                       # количество слов в заголовке
-    has_letters: bool                     # есть ли хоть одна буква
-    letters_ratio: float                  # доля букв в заголовке
-    digits_ratio: float                   # доля цифр в заголовке
-    punct_ratio: float                    # доля знаков пунктуации в заголовке
-    is_title_short: bool                  # очень короткий заголовок (1-2 слова)
-    is_numeric_only_title: bool           # заголовок почти целиком из цифр/знаков
-    is_garbage_title: bool                # заголовок похож на ".", ",", "1 ,", "7 , ,"
-    looks_like_body_sentence: bool        # "телесный" текст, а не заголовок
-    uid_plausible: bool                   # uid разумный (не "0.0.9999.12345")
-    uid_format_kind: str                  # "numeric" / "roman" / "alpha" / "other"
+    uid_depth: int  # глубина uid: "3.1.2" -> 3
+    title_len: int  # длина заголовка в символах
+    word_count: int  # количество слов в заголовке
+    has_letters: bool  # есть ли хоть одна буква
+    letters_ratio: float  # доля букв в заголовке
+    digits_ratio: float  # доля цифр в заголовке
+    punct_ratio: float  # доля знаков пунктуации в заголовке
+    is_title_short: bool  # очень короткий заголовок (1-2 слова)
+    is_numeric_only_title: bool  # заголовок почти целиком из цифр/знаков
+    is_garbage_title: bool  # заголовок похож на ".", ",", "1 ,", "7 , ,"
+    looks_like_body_sentence: bool  # "телесный" текст, а не заголовок
+    uid_plausible: bool  # uid разумный (не "0.0.9999.12345")
+    uid_format_kind: str  # "numeric" / "roman" / "alpha" / "other"
 
     # Scope / duplicate-related признаки
     scope: str = _DEFAULT_SCOPE
@@ -197,5 +197,3 @@ class HeadingCandidateScored:
     @property
     def title(self) -> str:
         return self.raw.title
-    
-    

@@ -19,9 +19,8 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,6 +38,7 @@ router = APIRouter(tags=["audit"])
 # Временная заглушка tenant_id — потом заменить на чтение из токена
 # ---------------------------------------------------------------------------
 
+
 async def get_tenant_id() -> str:
     """Временная заглушка. Позже — из JWT-токена или middleware."""
     return "default"
@@ -47,6 +47,7 @@ async def get_tenant_id() -> str:
 # ---------------------------------------------------------------------------
 # GET /api/v1/deals/{deal_id}/audit
 # ---------------------------------------------------------------------------
+
 
 @router.get(
     "/deals/{deal_id}/audit",
@@ -59,10 +60,10 @@ async def get_deal_audit_log(
     page: int = Query(1, ge=1, description="Номер страницы, начиная с 1"),
     per_page: int = Query(50, ge=1, le=200, description="Записей на страницу"),
     # Фильтры — все необязательные
-    action: Optional[str] = Query(None, description="Фильтр по типу действия (точное совпадение)"),
-    actor: Optional[str] = Query(None, description="Фильтр по пользователю (точное совпадение)"),
-    from_date: Optional[datetime] = Query(None, description="Начало диапазона (ISO 8601)"),
-    to_date: Optional[datetime] = Query(None, description="Конец диапазона (ISO 8601)"),
+    action: str | None = Query(None, description="Фильтр по типу действия (точное совпадение)"),
+    actor: str | None = Query(None, description="Фильтр по пользователю (точное совпадение)"),
+    from_date: datetime | None = Query(None, description="Начало диапазона (ISO 8601)"),
+    to_date: datetime | None = Query(None, description="Конец диапазона (ISO 8601)"),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_tenant_id),
 ) -> AuditLogPage:
@@ -114,12 +115,14 @@ async def get_deal_audit_log(
 # POST /api/v1/audit-log
 # ---------------------------------------------------------------------------
 
+
 class AuditLogCreatePayload(BaseModel):
     """
     Тело запроса для ручного создания записи аудита с фронта.
     Используется хуком useCreateAuditLogEntry.
     """
-    deal_id: Optional[uuid.UUID] = None
+
+    deal_id: uuid.UUID | None = None
     action: str
     details: dict = {}
 
@@ -150,8 +153,8 @@ async def create_audit_log_entry(
         tenant_id=uuid.UUID(tenant_id) if tenant_id != "default" else uuid.UUID(int=0),
         deal_id=payload.deal_id,
         action=payload.action,
-        actor="frontend",          # TODO: заменить на реального пользователя из токена
-        actor_role="user",         # TODO: заменить на роль из токена
+        actor="frontend",  # TODO: заменить на реального пользователя из токена
+        actor_role="user",  # TODO: заменить на роль из токена
         details=payload.details,
     )
     await db.commit()
@@ -163,5 +166,3 @@ async def create_audit_log_entry(
     )
 
     return AuditLogEntrySchema.model_validate(entry)
-
-

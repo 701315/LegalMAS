@@ -23,9 +23,9 @@ Sprint 3 contract:
 
 from __future__ import annotations
 
-from collections import defaultdict
 import re
-from typing import Any, Dict, List
+from collections import defaultdict
+from typing import Any
 
 from core.logging import get_logger
 from engine.content.chunk_ids import build_section_chunk_id, build_section_effective_uid
@@ -34,7 +34,7 @@ from engine.retrieval.tokenization import count_tokens
 logger = get_logger(__name__)
 
 
-def build_chunk_summary(path_titles: List[str], text: str, max_len: int = 200) -> str:
+def build_chunk_summary(path_titles: list[str], text: str, max_len: int = 200) -> str:
     """
     Построить короткое текстовое summary для чанка.
 
@@ -71,7 +71,7 @@ def split_text_to_sized_chunks(
     target_tokens: int,
     max_tokens: int,
     overlap_ratio: float,
-) -> List[str]:
+) -> list[str]:
     """
     Разбить текст клаузы на несколько меньших под-чанков.
 
@@ -108,8 +108,8 @@ def split_text_to_sized_chunks(
 
     overlap_ratio = max(0.0, min(float(overlap_ratio), 1.0))
 
-    TOO_LONG_CHARS = 10_000
-    is_too_long = len(text) > TOO_LONG_CHARS
+    too_long_chars = 10_000
+    is_too_long = len(text) > too_long_chars
 
     if count_tokens(text) <= max_tokens and not is_too_long:
         return [text]
@@ -119,6 +119,7 @@ def split_text_to_sized_chunks(
     # Он знает про юридические аббревиатуры и no-split правила.
     try:
         from engine.content.chunk_boundaries import split_legal_text_to_segments
+
         boundary_result = split_legal_text_to_segments(
             text=text,
             target_tokens=target_tokens,
@@ -159,7 +160,7 @@ def split_text_to_sized_chunks(
 
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
 
-    sentences: List[str] = []
+    sentences: list[str] = []
     for p in paragraphs:
         parts = re.split(r"(?<=[.!?])\s+(?=[A-ZА-Я0-9])", p)
         if len(parts) == 1:
@@ -173,12 +174,12 @@ def split_text_to_sized_chunks(
     if not sentences:
         return [text]
 
-    chunks: List[str] = []
-    current_sentences: List[str] = []
+    chunks: list[str] = []
+    current_sentences: list[str] = []
     current_tokens = 0
-    overlap_window: List[str] = []
+    overlap_window: list[str] = []
 
-    def _tokens_of(parts: List[str]) -> int:
+    def _tokens_of(parts: list[str]) -> int:
         if not parts:
             return 0
         return count_tokens(" ".join(parts))
@@ -226,9 +227,9 @@ def split_text_to_sized_chunks(
 
 
 def take_overlap_window(
-    sentences: List[str],
+    sentences: list[str],
     overlap_ratio: float,
-) -> List[str]:
+) -> list[str]:
     """
     Взять хвост из последних предложений для overlap между chunk'ами.
 
@@ -247,9 +248,9 @@ def take_overlap_window(
 
 def build_section_chunks_from_clauses(
     doc_id: str,
-    clause_chunks: List[Dict[str, Any]],
+    clause_chunks: list[dict[str, Any]],
     max_tokens: int = 1200,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Собрать крупные section-чанки на основе списка clause-чанков.
 
@@ -279,7 +280,7 @@ def build_section_chunks_from_clauses(
         },
     )
 
-    groups: dict[tuple[str, str], list[Dict[str, Any]]] = defaultdict(list)
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     clauses_without_path_count = 0
     clauses_without_effective_uid_count = 0
     clauses_without_scope_count = 0
@@ -322,7 +323,7 @@ def build_section_chunks_from_clauses(
         },
     )
 
-    sections: List[Dict[str, Any]] = []
+    sections: list[dict[str, Any]] = []
     long_section_count = 0
     empty_section_text_count = 0
 
@@ -330,7 +331,7 @@ def build_section_chunks_from_clauses(
         if not items:
             continue
 
-        def _sort_key(c: Dict[str, Any]) -> tuple:
+        def _sort_key(c: dict[str, Any]) -> tuple:
             meta = c.get("metadata") or {}
             start_page = meta.get("start_page") or 0
             effective_uid = meta.get("effective_uid") or ""
@@ -339,10 +340,10 @@ def build_section_chunks_from_clauses(
 
         items_sorted = sorted(items, key=_sort_key)
 
-        texts: List[str] = []
-        pages: List[int] = []
-        element_ids: List[str] = []
-        position_ratios: List[float] = []
+        texts: list[str] = []
+        pages: list[int] = []
+        element_ids: list[str] = []
+        position_ratios: list[float] = []
         lf_merged: dict[str, Any] = {}
 
         segment_id = None
@@ -371,7 +372,7 @@ def build_section_chunks_from_clauses(
                     element_ids.append(eid)
 
             pos = meta.get("position_ratio")
-            if isinstance(pos, (int, float)):
+            if isinstance(pos, int | float):
                 position_ratios.append(float(pos))
 
             lf = meta.get("language_filter") or {}
@@ -382,7 +383,9 @@ def build_section_chunks_from_clauses(
             segment_id = segment_id or meta.get("segment_id")
             segment_type = segment_type or meta.get("segment_type")
             segment_title = segment_title or meta.get("segment_title")
-            segment_order = segment_order if segment_order is not None else meta.get("segment_order")
+            segment_order = (
+                segment_order if segment_order is not None else meta.get("segment_order")
+            )
             is_primary_segment = (
                 is_primary_segment
                 if is_primary_segment is not None
@@ -431,7 +434,7 @@ def build_section_chunks_from_clauses(
             effective_uid=section_effective_uid,
         )
 
-        metadata: Dict[str, Any] = {
+        metadata: dict[str, Any] = {
             "doc_id": str(doc_id),
             "chunk_kind": "section",
             "node_kind": "section",
@@ -510,5 +513,3 @@ def build_section_chunks_from_clauses(
         )
 
     return sections
-
-    

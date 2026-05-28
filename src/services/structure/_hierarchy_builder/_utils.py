@@ -3,13 +3,17 @@
 """Утилиты нормализации и логики UID с исправленной типизацией."""
 
 from __future__ import annotations
+
 import re
 from typing import Any
+
 from services.structure._models._constants import DEFAULT_SCOPE
 from services.structure._models._identity import make_effective_uid, split_effective_uid
+
 from ._types import HeadingCandidate
 
 _NUMERIC_UID_RE = re.compile(r"^\d+(?:\.\d+)*$")
+
 
 def _safe_ratio(numerator: int, denominator: int) -> float:
     """Безопасный расчёт пропорции."""
@@ -17,11 +21,13 @@ def _safe_ratio(numerator: int, denominator: int) -> float:
         return 0.0
     return float(numerator) / float(denominator)
 
+
 def _is_strict_numeric_uid(uid: str | None) -> bool:
     """Проверка, является ли UID строго числовым (1.2.3)."""
     if not uid:
         return False
     return bool(_NUMERIC_UID_RE.fullmatch(uid.strip()))
+
 
 def _normalize_scope(value: Any) -> str:
     """Приведение scope к каноничному виду str."""
@@ -29,13 +35,16 @@ def _normalize_scope(value: Any) -> str:
         return str(DEFAULT_SCOPE)
     return str(value).strip() or str(DEFAULT_SCOPE)
 
+
 def _normalize_uid(value: Any) -> str:
     """Нормализация UID."""
     return str(value or "").strip()
 
+
 def _normalize_title(value: Any) -> str:
     """Нормализация заголовка."""
     return str(value or "").strip()
+
 
 def level_from_uid(uid: str) -> int:
     """Определение уровня вложенности (глубины) UID."""
@@ -44,9 +53,11 @@ def level_from_uid(uid: str) -> int:
         raise ValueError(f"level_from_uid expects strict numeric uid, got {uid!r}")
     return normalized.count(".") + 1
 
+
 def _heading_scope(heading: HeadingCandidate) -> str:
     """Извлечение scope из кандидата."""
     return _normalize_scope(heading.scope)
+
 
 def _heading_raw_uid(heading: HeadingCandidate) -> str:
     """Извлечение raw_uid из кандидата."""
@@ -54,6 +65,7 @@ def _heading_raw_uid(heading: HeadingCandidate) -> str:
     if raw_uid:
         return raw_uid
     return _normalize_uid(heading.uid)
+
 
 def _heading_effective_uid(heading: HeadingCandidate) -> str:
     """Получение канонического эффективного UID."""
@@ -63,9 +75,10 @@ def _heading_effective_uid(heading: HeadingCandidate) -> str:
         return make_effective_uid(scope, raw_uid)
     return make_effective_uid(_heading_scope(heading), _heading_raw_uid(heading))
 
+
 def find_parent_raw_uid_within_scope(
     raw_uid: str,
-    nodes_by_raw_uid: dict[str, Any], # ClauseNode заменяем на Any для избежания циклов
+    nodes_by_raw_uid: dict[str, Any],  # ClauseNode заменяем на Any для избежания циклов
 ) -> str | None:
     """Поиск родительского raw_uid в цепочке (1.2.3 -> 1.2)."""
     uid = _normalize_uid(raw_uid)

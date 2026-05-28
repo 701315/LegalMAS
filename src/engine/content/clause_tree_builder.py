@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 from core.logging import get_logger
 from engine.content.chunk_ids import build_leaf_chunk_id, build_section_chunk_id
@@ -69,7 +69,7 @@ class LeafChunkBuildResult:
       - сколько листов были прикреплены через best-effort recovery.
     """
 
-    chunks: List[Dict[str, Any]]
+    chunks: list[dict[str, Any]]
     total_leaf_nodes: int
     leaf_nodes_without_element_ids: int
     leaf_nodes_empty_after_filtering: int
@@ -112,26 +112,28 @@ class ClauseTreeBuilder:
         return title or None
 
     @classmethod
-    def _node_effective_uid(cls, node: Dict[str, Any]) -> str | None:
+    def _node_effective_uid(cls, node: dict[str, Any]) -> str | None:
         return cls._normalize_uid(node.get("effective_uid"))
 
     @classmethod
-    def _node_raw_uid(cls, node: Dict[str, Any]) -> str | None:
+    def _node_raw_uid(cls, node: dict[str, Any]) -> str | None:
         return cls._normalize_uid(node.get("raw_uid"))
 
     @classmethod
-    def _node_scope(cls, node: Dict[str, Any]) -> str | None:
+    def _node_scope(cls, node: dict[str, Any]) -> str | None:
         return cls._normalize_uid(node.get("scope"))
 
     @classmethod
-    def _node_chunk_identity(cls, node: Dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+    def _node_chunk_identity(
+        cls, node: dict[str, Any]
+    ) -> tuple[str | None, str | None, str | None]:
         effective_uid = cls._node_effective_uid(node)
         raw_uid = cls._node_raw_uid(node)
         scope = cls._node_scope(node)
         return effective_uid, raw_uid, scope
 
     @staticmethod
-    def _extract_node_etap4_fields(node: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_node_etap4_fields(node: dict[str, Any]) -> dict[str, Any]:
         """
         Извлекает из node dict новые поля Этапа 4.
 
@@ -158,7 +160,7 @@ class ClauseTreeBuilder:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def extract_root_children(tree: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def extract_root_children(tree: dict[str, Any]) -> list[dict[str, Any]]:
         """
         Извлечь список узлов верхнего уровня из clause tree JSON.
 
@@ -185,12 +187,12 @@ class ClauseTreeBuilder:
         return []
 
     @staticmethod
-    def build_element_index(layout: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    def build_element_index(layout: dict[str, Any]) -> dict[str, dict[str, Any]]:
         """
         Построить индекс element_id -> элемент layout'а.
         """
         elements = layout.get("elements") or []
-        index: Dict[str, Dict[str, Any]] = {}
+        index: dict[str, dict[str, Any]] = {}
 
         missing_id_count = 0
         for el in elements:
@@ -236,8 +238,8 @@ class ClauseTreeBuilder:
     def build_leaf_chunks(
         cls,
         doc_id: uuid.UUID,
-        tree: Dict[str, Any],
-        layout: Dict[str, Any],
+        tree: dict[str, Any],
+        layout: dict[str, Any],
     ) -> LeafChunkBuildResult:
         """
         Построить клауза-чанки (листовые узлы) на основе clause tree + layout.
@@ -290,7 +292,7 @@ class ClauseTreeBuilder:
 
         element_index = cls.build_element_index(layout)
 
-        chunks: List[Dict[str, Any]] = []
+        chunks: list[dict[str, Any]] = []
         total_leaf_nodes = 0
         leaf_nodes_without_element_ids = 0
         leaf_nodes_empty_after_filtering = 0
@@ -333,9 +335,7 @@ class ClauseTreeBuilder:
         uid_with_none = sum(
             1 for ch in chunks if (ch.get("metadata") or {}).get("effective_uid") is None
         )
-        empty_text_chunks = sum(
-            1 for ch in chunks if not (ch.get("text") or "").strip()
-        )
+        empty_text_chunks = sum(1 for ch in chunks if not (ch.get("text") or "").strip())
 
         logger.info(
             "ClauseTreeBuilder: leaf chunks built",
@@ -382,10 +382,10 @@ class ClauseTreeBuilder:
     def _collect_leaf_chunks(
         cls,
         doc_id: uuid.UUID,
-        node: Dict[str, Any],
-        element_index: Dict[str, Dict[str, Any]],
-        out: List[Dict[str, Any]],
-        path_titles: List[str] | None = None,
+        node: dict[str, Any],
+        element_index: dict[str, dict[str, Any]],
+        out: list[dict[str, Any]],
+        path_titles: list[str] | None = None,
     ) -> tuple[int, int, int, int, int]:
         """
         Рекурсивно обходит дерево и строит leaf-чанки.
@@ -406,7 +406,7 @@ class ClauseTreeBuilder:
         - это предотвращает downstream от получения бессодержательных чанков.
         """
 
-        def _extract_section_title(path: List[str]) -> str | None:
+        def _extract_section_title(path: list[str]) -> str | None:
             if not path:
                 return None
             return path[0]
@@ -417,7 +417,7 @@ class ClauseTreeBuilder:
         heading_only_inc = 0
         best_effort_inc = 0
 
-        current_path: List[str] = list(path_titles or [])
+        current_path: list[str] = list(path_titles or [])
         node_title = cls._normalize_title(node.get("title"))
         if node_title:
             current_path.append(node_title)
@@ -438,7 +438,7 @@ class ClauseTreeBuilder:
             if is_best_effort:
                 best_effort_inc += 1
 
-            own_element_ids: List[str] = node.get("own_element_ids") or []
+            own_element_ids: list[str] = node.get("own_element_ids") or []
 
             if not own_element_ids:
                 logger.warning(
@@ -476,8 +476,8 @@ class ClauseTreeBuilder:
 
             missing_elements = 0
             heading_elements = 0
-            texts: List[str] = []
-            pages: List[int] = []
+            texts: list[str] = []
+            pages: list[int] = []
             last_page: int | None = None
 
             for el_id in element_ids:
@@ -640,7 +640,7 @@ class ClauseTreeBuilder:
                 "citability_hint": effective_citability,
                 "recovered_via_best_effort": is_best_effort,
                 "fallback_reason": etap4["fallback_reason"],
-                "is_heading_only_leaf": False,      # True только если бы мы дошли сюда
+                "is_heading_only_leaf": False,  # True только если бы мы дошли сюда
                 "is_structural_fallback": is_best_effort,
             }
 
@@ -740,9 +740,9 @@ class ClauseTreeBuilder:
     def build_section_chunks(
         cls,
         doc_id: uuid.UUID,
-        tree: Dict[str, Any],
-        layout: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+        tree: dict[str, Any],
+        layout: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """
         Построить section-чанки по узлам верхнего уровня (root children)
         на основе clause tree + layout.
@@ -795,7 +795,7 @@ class ClauseTreeBuilder:
         )
 
         element_index = cls.build_element_index(layout)
-        chunks: List[Dict[str, Any]] = []
+        chunks: list[dict[str, Any]] = []
 
         for node in root_children:
             if not isinstance(node, dict):
@@ -831,9 +831,9 @@ class ClauseTreeBuilder:
     def _build_single_section_chunk(
         cls,
         doc_id: uuid.UUID,
-        node: Dict[str, Any],
-        element_index: Dict[str, Dict[str, Any]],
-        out: List[Dict[str, Any]],
+        node: dict[str, Any],
+        element_index: dict[str, dict[str, Any]],
+        out: list[dict[str, Any]],
     ) -> None:
         """
         Построить один section-чанк для узла верхнего уровня.
@@ -865,7 +865,7 @@ class ClauseTreeBuilder:
                 },
             )
 
-        subtree_element_ids: List[str] = node.get("subtree_element_ids") or []
+        subtree_element_ids: list[str] = node.get("subtree_element_ids") or []
 
         if not subtree_element_ids:
             logger.warning(
@@ -883,8 +883,8 @@ class ClauseTreeBuilder:
         element_ids = subtree_element_ids
 
         missing_elements = 0
-        texts: List[str] = []
-        pages: List[int] = []
+        texts: list[str] = []
+        pages: list[int] = []
         last_page: int | None = None
 
         for el_id in element_ids:
@@ -1023,5 +1023,3 @@ class ClauseTreeBuilder:
                     "recovered_via_best_effort": is_best_effort,
                 },
             )
-            
-

@@ -130,5 +130,3 @@ async def get_document_pipeline_view(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Pipeline view temporarily unavailable",
         )
-        
-    

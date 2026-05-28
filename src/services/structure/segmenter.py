@@ -33,9 +33,8 @@ from typing import Any
 from core.config import settings
 from core.logging import get_logger
 from services.structure.heading_patterns import normalize_spaces
-from services.structure.heading_scoring import score_heading_candidate, CandidateStatus
+from services.structure.heading_scoring import CandidateStatus, score_heading_candidate
 from services.structure.models import (
-    SegmentDocument,
     SEGMENT_CONFIDENCE_HIGH,
     SEGMENT_CONFIDENCE_LOW,
     SEGMENT_CONFIDENCE_MEDIUM,
@@ -46,6 +45,7 @@ from services.structure.models import (
     SEGMENT_TYPE_INVOICE,
     SEGMENT_TYPE_PROTOCOL,
     SEGMENT_TYPE_UNKNOWN,
+    SegmentDocument,
     make_segment_id,
 )
 
@@ -107,6 +107,7 @@ class _BoundarySignal:
     """
     Один сигнал в пользу границы сегмента.
     """
+
     name: str
     weight: float
     details: dict[str, Any] = field(default_factory=dict)
@@ -117,6 +118,7 @@ class _BoundaryCandidate:
     """
     Кандидат на начало нового сегмента.
     """
+
     element_index: int
     page: int
     text: str
@@ -182,10 +184,7 @@ def _segment_elements_impl(
         )
     )
 
-    accepted_candidates = [
-        c for c in validated_candidates
-        if c.confidence_score >= threshold
-    ]
+    accepted_candidates = [c for c in validated_candidates if c.confidence_score >= threshold]
 
     if not accepted_candidates:
         single = _make_single_segment(document_id=document_id, elements=clean_elements)
@@ -545,7 +544,9 @@ def _build_segments_from_candidates(
                 (c for c in candidates if c.element_index == start_idx),
                 None,
             )
-            segment_type = boundary_candidate.segment_type if boundary_candidate else SEGMENT_TYPE_UNKNOWN
+            segment_type = (
+                boundary_candidate.segment_type if boundary_candidate else SEGMENT_TYPE_UNKNOWN
+            )
             segment_title = boundary_candidate.title if boundary_candidate else None
             confidence_score = boundary_candidate.confidence_score if boundary_candidate else 0.60
 
@@ -566,9 +567,7 @@ def _build_segments_from_candidates(
 
         segment.segmentation_confidence_score = round(confidence_score, 3)
         segment.segmentation_reasons = (
-            list(boundary_candidate.reasons)
-            if boundary_candidate
-            else ["file_start"]
+            list(boundary_candidate.reasons) if boundary_candidate else ["file_start"]
         )
 
         segments.append(segment)
@@ -584,7 +583,8 @@ def _assign_primary_segment(segments: list[SegmentDocument]) -> None:
         s.is_primary = False
 
     contracts_high = [
-        s for s in segments
+        s
+        for s in segments
         if s.segment_type == SEGMENT_TYPE_CONTRACT and s.confidence == SEGMENT_CONFIDENCE_HIGH
     ]
     if contracts_high:
@@ -715,7 +715,8 @@ def _infer_first_segment_type(
     candidates: list[_BoundaryCandidate],
 ) -> str:
     if any(
-        c.segment_type in {
+        c.segment_type
+        in {
             SEGMENT_TYPE_APPENDIX,
             SEGMENT_TYPE_AMENDMENT,
             SEGMENT_TYPE_ACT,
@@ -772,8 +773,10 @@ def _safe_page(element: dict[str, Any]) -> int:
     except Exception:
         return 1
 
+
 def _element_type(element: dict[str, Any]) -> str:
     return str(element.get("element_type") or "").strip().lower()
+
 
 def _is_non_boundary_element_type(element: dict[str, Any]) -> bool:
     element_type = _element_type(element)
@@ -786,11 +789,14 @@ def _is_non_boundary_element_type(element: dict[str, Any]) -> bool:
         "unknown_layout",
     }
 
+
 def _is_heading_candidate_element(element: dict[str, Any]) -> bool:
     return _element_type(element) == "heading_candidate"
 
+
 def _is_list_item_element(element: dict[str, Any]) -> bool:
     return _element_type(element) == "list_item"
+
 
 def _page_offset(elements: list[dict[str, Any]], index: int) -> int:
     current_page = _safe_page(elements[index])
@@ -960,8 +966,8 @@ def _detect_formatting_shift(
     is_centered = bool(fmt.get("is_centered"))
     font_size = fmt.get("font_size")
 
-    strong_visual = is_all_caps or is_centered or (
-        isinstance(font_size, (int, float)) and font_size >= 13
+    strong_visual = (
+        is_all_caps or is_centered or (isinstance(font_size, int | float) and font_size >= 13)
     )
 
     if strong_visual:
@@ -1062,4 +1068,3 @@ def _generate_scope_name(
 
     segment_type = re.sub(r"[^a-z0-9_]+", "_", segment_type).strip("_") or "unknown"
     return f"{segment_type}_{index_within_type}"
-

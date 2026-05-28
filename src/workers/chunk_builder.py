@@ -1,7 +1,5 @@
 # src/workers/chunk_builder.py
 
-from __future__ import annotations
-
 """
 Chunk Builder Worker (V2_ONLY).
 
@@ -40,6 +38,8 @@ Audit trail:
 - При QuarantineError переводит документ в QUARANTINE и пишет CHUNK_BUILD_QUARANTINED.
 - Audit logging best-effort: проблемы аудита не должны ломать бизнес-стадию.
 """
+
+from __future__ import annotations
 
 import time
 import uuid
@@ -396,7 +396,7 @@ async def _build_chunks_v2_async(
 
     # ── Этап 5: счётчики для legal units ─────────────────────────────────────
     # Собираем статистику по всем сегментам для audit log и return value.
-    legal_units_saved_count = 0   # сколько сегментов успешно сохранили legal units
+    legal_units_saved_count = 0  # сколько сегментов успешно сохранили legal units
     legal_units_refs: list[str] = []  # все сохранённые refs
 
     for snapshot in segment_snapshots:
@@ -417,11 +417,7 @@ async def _build_chunks_v2_async(
         clause_chunks = snapshot_chunks.get("clause", []) or []
         subclause_chunks = snapshot_chunks.get("subclause", []) or []
 
-        snapshot_chunk_count = (
-            len(section_chunks)
-            + len(clause_chunks)
-            + len(subclause_chunks)
-        )
+        snapshot_chunk_count = len(section_chunks) + len(clause_chunks) + len(subclause_chunks)
         chunk_count_total += snapshot_chunk_count
 
         chunk_path = ArtifactPath.segment_chunks(
@@ -623,9 +619,7 @@ async def _build_chunks_v2_async(
 
     refreshed_version = await ver_repo.get_by_id(v_id)
     if not refreshed_version:
-        raise TransientError(
-            f"DocumentVersion {v_id} is not visible after flush (v2)"
-        )
+        raise TransientError(f"DocumentVersion {v_id} is not visible after flush (v2)")
 
     refreshed_manifest_ref = getattr(refreshed_version, "chunks_manifest_v2_ref", None)
     if not refreshed_manifest_ref:
@@ -634,9 +628,7 @@ async def _build_chunks_v2_async(
         )
 
     if refreshed_manifest_ref != chunks_manifest_v2_ref:
-        raise TransientError(
-            f"chunks_manifest_v2_ref mismatch after flush for version {v_id}"
-        )
+        raise TransientError(f"chunks_manifest_v2_ref mismatch after flush for version {v_id}")
 
     refreshed_segments = await seg_repo.list_by_version(v_id)
     if len(refreshed_segments) != len(segments):
@@ -646,9 +638,7 @@ async def _build_chunks_v2_async(
         )
 
     missing_segment_chunk_refs = [
-        s.segment_id
-        for s in refreshed_segments
-        if not getattr(s, "segment_chunks_ref", None)
+        s.segment_id for s in refreshed_segments if not getattr(s, "segment_chunks_ref", None)
     ]
     if missing_segment_chunk_refs:
         raise TransientError(
@@ -883,6 +873,3 @@ async def _mark_failed(
                 stage_execution_id=stage_execution_id,
                 error=str(e),
             )
-            
-
-    

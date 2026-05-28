@@ -19,39 +19,33 @@ import uuid
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from core.config import settings
-from core.constants import LanguageDiscoveryStatus, RunStatus
-from core.error_catalog import render_error_message
-from core.logging import get_logger
 
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
 from api.schemas.pagination import PaginatedResponse as PaginatedResponseSchema
 from api.schemas.results import CheckResultResponse
 from api.schemas.runs import (
-    RunCreate,
-    RunResponse,
     ClassificationReportResponse,
     DealRunSummaryResponse,
+    RunCreate,
+    RunResponse,
 )
-
+from core.config import settings
+from core.constants import LanguageDiscoveryStatus, RunStatus
+from core.error_catalog import render_error_message
+from core.logging import get_logger
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.deal_repo import DealRepository
-from db.repositories.document_repo import DocumentRepository
 from db.repositories.export_repo import ExportRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
 from db.repositories.run_repo import RunRepository
 from db.session import get_db
-
 from mas_queue.celery_app import celery_app
-
 from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
 from services.run_progress_service import subscribe_run_progress
 
@@ -105,39 +99,28 @@ async def _start_run_core(
                 "deal_id": str(deal_uuid),
                 "tenant_id": str(getattr(deal, "tenant_id", "")),
                 "requested_by": (
-                    str(getattr(user, "id", None))
-                    if getattr(user, "id", None)
-                    else "unknown"
+                    str(getattr(user, "id", None)) if getattr(user, "id", None) else "unknown"
                 ),
             },
         )
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Primary language must be selected before starting analysis"
-            ),
+            detail=("Primary language must be selected before starting analysis"),
         )
 
     # 1.2. Пока language discovery ещё выполняется, запуск Run запрещён.
     # Это защита на backend уровне: даже если UI ошибётся или кто-то вызовет
     # API напрямую, analysis нельзя стартовать до завершения pre-run discovery.
-    if (
-        getattr(deal, "language_discovery_status", None)
-        == LanguageDiscoveryStatus.PROCESSING
-    ):
+    if getattr(deal, "language_discovery_status", None) == LanguageDiscoveryStatus.PROCESSING:
         logger.warning(
             "Run start rejected: language discovery is still in progress",
             extra={
                 "deal_id": str(deal_uuid),
                 "tenant_id": str(getattr(deal, "tenant_id", "")),
                 "requested_by": (
-                    str(getattr(user, "id", None))
-                    if getattr(user, "id", None)
-                    else "unknown"
+                    str(getattr(user, "id", None)) if getattr(user, "id", None) else "unknown"
                 ),
-                "language_discovery_status": getattr(
-                    deal, "language_discovery_status", None
-                ),
+                "language_discovery_status": getattr(deal, "language_discovery_status", None),
             },
         )
         raise HTTPException(
@@ -254,9 +237,7 @@ async def _start_run_core(
             tenant_id=getattr(user, "tenant_id", None) or uuid.UUID(int=0),
             deal_id=deal_uuid,
             action="ANALYSIS_REQUESTED",
-            actor=str(getattr(user, "id", None))
-            if getattr(user, "id", None)
-            else "unknown",
+            actor=str(getattr(user, "id", None)) if getattr(user, "id", None) else "unknown",
             actor_role=getattr(user, "global_role", "user"),
             details={
                 "run_id": str(run.id),
@@ -267,8 +248,7 @@ async def _start_run_core(
                 "checks_mode": data.checks_mode,
                 "pipeline_strategy": pipeline_strategy,
                 "force_reclassify": bool(
-                    data.force_reclassify
-                    and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
+                    data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
                 ),
             },
         )
@@ -307,14 +287,11 @@ async def _start_run_core(
                 "deal_id": str(deal_uuid),
                 "tenant_id": (
                     str(tenant_id)
-                    if tenant_id
-                    and str(tenant_id) != "00000000-0000-0000-0000-000000000000"
+                    if tenant_id and str(tenant_id) != "00000000-0000-0000-0000-000000000000"
                     else None
                 ),
-
                 "force_reclassify": bool(
-                    data.force_reclassify
-                    and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
+                    data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
                 ),
             },
         )
@@ -342,10 +319,7 @@ async def _start_run_core(
             )
         else:
             reason = "infrastructure_error"
-            http_detail = (
-                "Не удалось запустить анализ сделки: внутренняя ошибка "
-                "инфраструктуры."
-            )
+            http_detail = "Не удалось запустить анализ сделки: внутренняя ошибка " "инфраструктуры."
 
         await _mark_run_failed_orchestrator(
             run_repo=run_repo,
@@ -765,9 +739,7 @@ async def start_run_export(
             )
         else:
             reason = "infrastructure_error"
-            http_detail = (
-                "Не удалось запустить экспорт: внутренняя ошибка инфраструктуры."
-            )
+            http_detail = "Не удалось запустить экспорт: внутренняя ошибка инфраструктуры."
 
         logger.error(
             "Failed to queue export task",
@@ -935,4 +907,3 @@ async def get_deal_run_summary(
         error_user_message=error_user_message,
         classification_stats=classification_stats,
     )
-

@@ -27,7 +27,7 @@ Production policy:
 from __future__ import annotations
 
 import uuid
-from typing import Iterable
+from collections.abc import Iterable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -79,10 +79,7 @@ async def update_deal_languages(
     )
 
     existing_languages_sorted = sorted(existing_languages)
-    if (
-        merged_languages == existing_languages_sorted
-        and new_primary == current_primary
-    ):
+    if merged_languages == existing_languages_sorted and new_primary == current_primary:
         return
 
     if merged_languages != existing_languages_sorted:
@@ -163,6 +160,3 @@ def _normalize_lang_iterable(values: Iterable[str] | None) -> set[str]:
             normalized.add(lang)
 
     return normalized
-
-
-

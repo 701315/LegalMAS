@@ -81,4 +81,3 @@ def build_extract_stage(
         layout=layout,
         base_meta=base_meta,
     )
-

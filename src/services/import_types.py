@@ -130,7 +130,7 @@ class ImportBundleResult:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ImportBundleResult":
+    def from_dict(cls, data: dict[str, Any]) -> ImportBundleResult:
         """
         Восстановить ImportBundleResult из plain dict.
 
@@ -164,7 +164,5 @@ class ImportBundleResult:
             duplicate_count=int(data["duplicate_count"]),
             skipped_count=int(data["skipped_count"]),
             committed=bool(data["committed"]),
-            language_discovery_requested=bool(
-                data["language_discovery_requested"]
-            ),
+            language_discovery_requested=bool(data["language_discovery_requested"]),
         )

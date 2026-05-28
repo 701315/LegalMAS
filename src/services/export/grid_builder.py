@@ -32,24 +32,24 @@ logger = get_logger(__name__)
 
 _FILLS = {
     "critical": PatternFill(start_color="FF4444", end_color="FF4444", fill_type="solid"),
-    "high":     PatternFill(start_color="FF8C00", end_color="FF8C00", fill_type="solid"),
-    "medium":   PatternFill(start_color="FFD700", end_color="FFD700", fill_type="solid"),
-    "pass":     PatternFill(start_color="90EE90", end_color="90EE90", fill_type="solid"),
-    "unclear":  PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid"),
-    "na":       PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid"),
+    "high": PatternFill(start_color="FF8C00", end_color="FF8C00", fill_type="solid"),
+    "medium": PatternFill(start_color="FFD700", end_color="FFD700", fill_type="solid"),
+    "pass": PatternFill(start_color="90EE90", end_color="90EE90", fill_type="solid"),
+    "unclear": PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid"),
+    "na": PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid"),
 }
-_FONT_WHITE  = Font(color="FFFFFF", bold=True)
-_FONT_BLACK  = Font(color="000000")
+_FONT_WHITE = Font(color="FFFFFF", bold=True)
+_FONT_BLACK = Font(color="000000")
 _FONT_HEADER = Font(bold=True, size=11)
-_FONT_TITLE  = Font(bold=True, size=14)
-_FONT_SMALL  = Font(size=9, color="555555")
+_FONT_TITLE = Font(bold=True, size=14)
+_FONT_SMALL = Font(size=9, color="555555")
 _THIN_BORDER = Border(
     left=Side(style="thin"),
     right=Side(style="thin"),
     top=Side(style="thin"),
     bottom=Side(style="thin"),
 )
-_WRAP   = Alignment(wrap_text=True, vertical="top")
+_WRAP = Alignment(wrap_text=True, vertical="top")
 _CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
 
@@ -58,33 +58,34 @@ _CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
 # ---------------------------------------------------------------------------
 
 _BASE_COLUMNS = [
-    ("Документ",            35, "document_name"),
-    ("Папка",               25, "folder_path"),
-    ("Тип документа",       18, "doc_type"),
-    ("Проверка",            30, "check_name"),
-    ("Результат",           12, "result"),
-    ("Severity",            12, "severity"),
+    ("Документ", 35, "document_name"),
+    ("Папка", 25, "folder_path"),
+    ("Тип документа", 18, "doc_type"),
+    ("Проверка", 30, "check_name"),
+    ("Результат", 12, "result"),
+    ("Severity", 12, "severity"),
     ("Evidence / Значение", 50, "evidence_snippet"),
-    ("Стр.",                 6, "page"),
-    ("Пункт",               10, "clause_uid"),
-    ("Confidence",          12, "confidence"),
-    ("Детектор",            10, "detector_used"),
-    ("Флаги",               22, "quality_flags"),
-    ("QC",                  12, "qc_status"),
+    ("Стр.", 6, "page"),
+    ("Пункт", 10, "clause_uid"),
+    ("Confidence", 12, "confidence"),
+    ("Детектор", 10, "detector_used"),
+    ("Флаги", 22, "quality_flags"),
+    ("QC", 12, "qc_status"),
 ]
 
-_STRUCTURED_COLUMN  = ("Извлечённые данные", 30, "structured_data_preview")
+_STRUCTURED_COLUMN = ("Извлечённые данные", 30, "structured_data_preview")
 _CLASSIFIER_COLUMNS = [
     ("Уровень классиф.", 15, "classification_level"),
-    ("Conf. классиф.",   14, "classification_confidence"),
+    ("Conf. классиф.", 14, "classification_confidence"),
 ]
 _CONDITIONAL_COLUMN = ("Триггер", 18, "trigger_name")
-_ORIGIN_COLUMN      = ("Источник чека", 18, "origin")
+_ORIGIN_COLUMN = ("Источник чека", 18, "origin")
 
 
 # ---------------------------------------------------------------------------
 # Публичная точка входа
 # ---------------------------------------------------------------------------
+
 
 def build_grid_excel(
     aggregated: AggregatedResults,
@@ -133,10 +134,10 @@ def build_grid_excel(
     return output.read()
 
 
-
 # ---------------------------------------------------------------------------
 # Лист 1: DD Grid — плоский список результатов
 # ---------------------------------------------------------------------------
+
 
 def _get_columns(aggregated: AggregatedResults) -> list[tuple]:
     cols = list(_BASE_COLUMNS)
@@ -165,7 +166,7 @@ def _build_grid_sheet(
     # Можно в A1 положить человекочитаемую шапку по ран‑метаданным.
     # Но у тебя уже заголовки в строке 1 под данные, поэтому аккуратнее:
     # оставляем как есть, чтобы не ломать формат — шапку лучше делать на Summary.
-    
+
     columns = _get_columns(aggregated)
 
     # Заголовки
@@ -214,6 +215,7 @@ def _build_grid_sheet(
 # ---------------------------------------------------------------------------
 # Лист 2: DD Matrix — матричное представление
 # ---------------------------------------------------------------------------
+
 
 def _build_matrix_sheet(wb: Workbook, aggregated: AggregatedResults) -> None:
     ws = wb.create_sheet("DD Matrix")
@@ -287,7 +289,7 @@ def _build_matrix_sheet(wb: Workbook, aggregated: AggregatedResults) -> None:
     )
 
     # 4. Заголовки
-    FIXED_COLS = 4  # A–D
+    fixed_cols = 4  # A–D
 
     ws.cell(row=1, column=1, value="Документ").font = _FONT_HEADER
     ws.cell(row=1, column=2, value="Тип").font = _FONT_HEADER
@@ -299,12 +301,12 @@ def _build_matrix_sheet(wb: Workbook, aggregated: AggregatedResults) -> None:
     ws.column_dimensions["C"].width = 16
     ws.column_dimensions["D"].width = 10
 
-    for col_idx in range(1, FIXED_COLS + 1):
+    for col_idx in range(1, fixed_cols + 1):
         cell = ws.cell(row=1, column=col_idx)
         cell.alignment = _CENTER
         cell.border = _THIN_BORDER
 
-    current_col = FIXED_COLS + 1
+    current_col = fixed_cols + 1
 
     # Заголовки глобальных чеков
     for cid in global_checks:
@@ -346,7 +348,7 @@ def _build_matrix_sheet(wb: Workbook, aggregated: AggregatedResults) -> None:
         ws.column_dimensions[get_column_letter(current_col)].width = 24
         current_col += 1
 
-    ws.freeze_panes = ws.cell(row=2, column=FIXED_COLS + 1)
+    ws.freeze_panes = ws.cell(row=2, column=fixed_cols + 1)
 
     # 5. Строки документов
     for row_idx, doc_id in enumerate(doc_order, 2):
@@ -362,13 +364,13 @@ def _build_matrix_sheet(wb: Workbook, aggregated: AggregatedResults) -> None:
         ws.cell(row=row_idx, column=3, value=conf_str)
         ws.cell(row=row_idx, column=4, value=level)
 
-        for col in range(1, FIXED_COLS + 1):
+        for col in range(1, fixed_cols + 1):
             cell = ws.cell(row=row_idx, column=col)
             cell.border = _THIN_BORDER
             cell.alignment = _WRAP
 
         # Глобальные чеки
-        col = FIXED_COLS + 1
+        col = fixed_cols + 1
         for cid in global_checks:
             cell = ws.cell(row=row_idx, column=col)
             cell.border = _THIN_BORDER
@@ -420,9 +422,11 @@ def _build_matrix_sheet(wb: Workbook, aggregated: AggregatedResults) -> None:
 
         ws.row_dimensions[row_idx].height = 42
 
+
 # ---------------------------------------------------------------------------
 # Лист 3: Summary — KPI
 # ---------------------------------------------------------------------------
+
 
 def _build_summary_sheet(
     wb: Workbook,
@@ -453,23 +457,23 @@ def _build_summary_sheet(
         ws.merge_cells("A2:B2")
 
     kpi_data = [
-        ("Всего документов",           aggregated.total_documents),
-        ("Всего проверок",            aggregated.total_checks),
-        ("",                          ""),
-        ("🔴 Critical",               aggregated.severity_counts.critical),
-        ("🟠 High",                   aggregated.severity_counts.high),
-        ("🟡 Medium",                 aggregated.severity_counts.medium),
-        ("🟢 Pass",                   aggregated.severity_counts.pass_count),
-        ("⚪ Unclear",                aggregated.severity_counts.unclear),
-        ("",                          ""),
-        ("Документов в карантине",    aggregated.quarantine_count),
+        ("Всего документов", aggregated.total_documents),
+        ("Всего проверок", aggregated.total_checks),
+        ("", ""),
+        ("🔴 Critical", aggregated.severity_counts.critical),
+        ("🟠 High", aggregated.severity_counts.high),
+        ("🟡 Medium", aggregated.severity_counts.medium),
+        ("🟢 Pass", aggregated.severity_counts.pass_count),
+        ("⚪ Unclear", aggregated.severity_counts.unclear),
+        ("", ""),
+        ("Документов в карантине", aggregated.quarantine_count),
         ("Документов с degraded OCR", aggregated.degraded_count),
-        ("Evidence validity rate",    f"{aggregated.evidence_validity_rate:.0%}"),
-        ("",                          ""),
-        ("DD Requests (дедупл.)",     len(aggregated.dd_requests)),
+        ("Evidence validity rate", f"{aggregated.evidence_validity_rate:.0%}"),
+        ("", ""),
+        ("DD Requests (дедупл.)", len(aggregated.dd_requests)),
         ("Условных проверок (всего)", aggregated.conditional_checks_total),
-        ("Условных проверок (FAIL)",  aggregated.conditional_checks_triggered),
-        ("Извлечённых значений",      len(aggregated.structured_value_rows)),
+        ("Условных проверок (FAIL)", aggregated.conditional_checks_triggered),
+        ("Извлечённых значений", len(aggregated.structured_value_rows)),
     ]
 
     start_row = 4  # 1 — title, 2 — meta, 3 — пустая строка под отступ
@@ -492,27 +496,27 @@ def _build_summary_sheet(
             val_cell.fill = _FILLS["unclear"]
 
 
-
 # ---------------------------------------------------------------------------
 # Лист 4: By Doc Type — сводка по типам документа
 # ---------------------------------------------------------------------------
+
 
 def _build_doc_type_sheet(wb: Workbook, aggregated: AggregatedResults) -> None:
     ws = wb.create_sheet("By Doc Type")
     ws.freeze_panes = "A2"
 
     headers = [
-        ("Тип документа",         28),
-        ("Документов",            12),
-        ("Проверок",              12),
-        ("🔴 Critical",           12),
-        ("🟠 High",               12),
-        ("🟡 Medium",             12),
-        ("🟢 Pass",               12),
-        ("⚪ Unclear",            12),
-        ("Conf. классиф. (avg)",  20),
-        ("Низкая conf. (<0.6)",   20),
-        ("Условных FAIL",         16),
+        ("Тип документа", 28),
+        ("Документов", 12),
+        ("Проверок", 12),
+        ("🔴 Critical", 12),
+        ("🟠 High", 12),
+        ("🟡 Medium", 12),
+        ("🟢 Pass", 12),
+        ("⚪ Unclear", 12),
+        ("Conf. классиф. (avg)", 20),
+        ("Низкая conf. (<0.6)", 20),
+        ("Условных FAIL", 16),
     ]
 
     for col_idx, (header, width) in enumerate(headers, 1):
@@ -537,7 +541,9 @@ def _build_doc_type_sheet(wb: Workbook, aggregated: AggregatedResults) -> None:
             s.medium,
             s.pass_count,
             s.unclear,
-            f"{s.avg_classification_confidence:.0%}" if s.avg_classification_confidence > 0 else "—",
+            f"{s.avg_classification_confidence:.0%}"
+            if s.avg_classification_confidence > 0
+            else "—",
             s.low_confidence_count,
             s.conditional_checks_triggered,
         ]
@@ -563,21 +569,22 @@ def _build_doc_type_sheet(wb: Workbook, aggregated: AggregatedResults) -> None:
 # Лист 5: Conditional Checks
 # ---------------------------------------------------------------------------
 
+
 def _build_conditional_sheet(wb: Workbook, aggregated: AggregatedResults) -> None:
     ws = wb.create_sheet("Conditional Checks")
     ws.freeze_panes = "A2"
 
     headers = [
-        ("Документ",   35),
-        ("Тип",        15),
-        ("Триггер",    22),
-        ("Проверка",   30),
-        ("Результат",  12),
-        ("Severity",   12),
-        ("Evidence",   45),
-        ("Стр.",        6),
+        ("Документ", 35),
+        ("Тип", 15),
+        ("Триггер", 22),
+        ("Проверка", 30),
+        ("Результат", 12),
+        ("Severity", 12),
+        ("Evidence", 45),
+        ("Стр.", 6),
         ("Confidence", 12),
-        ("Флаги",      22),
+        ("Флаги", 22),
     ]
     fields = [
         "document_name",
@@ -621,19 +628,20 @@ def _build_conditional_sheet(wb: Workbook, aggregated: AggregatedResults) -> Non
 # Лист 6: Extracted Values — структурированные значения
 # ---------------------------------------------------------------------------
 
+
 def _build_extracted_values_sheet(wb: Workbook, aggregated: AggregatedResults) -> None:
     ws = wb.create_sheet("Extracted Values")
     ws.freeze_panes = "A2"
 
     headers = [
-        ("Документ",  35),
-        ("Тип",       15),
-        ("Проверка",  30),
-        ("Поле",      20),
-        ("Значение",  35),
-        ("Формат",    15),
-        ("Стр.",       6),
-        ("Пункт",     10),
+        ("Документ", 35),
+        ("Тип", 15),
+        ("Проверка", 30),
+        ("Поле", 20),
+        ("Значение", 35),
+        ("Формат", 15),
+        ("Стр.", 6),
+        ("Пункт", 10),
     ]
     fields = [
         "document_name",

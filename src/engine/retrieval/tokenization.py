@@ -27,6 +27,3 @@ def count_tokens(text: str) -> int:
         return 0
     words = len([w for w in text.split() if w])
     return int(words * CYRILLIC_TOKEN_FACTOR)
-
-
-

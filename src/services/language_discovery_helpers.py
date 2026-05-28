@@ -157,7 +157,3 @@ async def recompute_deal_discovery_or_log(
             extra=log_context,
         )
         return {}
-    
-
-    
-

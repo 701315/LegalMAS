@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ._config import TOC_SCORE_STRONG, TOC_SCORE_WEAK
 from ._detectors import (
@@ -28,7 +28,7 @@ from ._text_utils import _normalize_text, _safe_int
 from ._toc_context import _TocContext
 
 if TYPE_CHECKING:
-    from ._classify_reason import ClassificationResult
+    pass
 
 
 # Константы типов элементов (локальные для этого модуля)
@@ -79,9 +79,7 @@ def _classify_single_element(
         return ClassificationResult(
             element_type=ELEMENT_TYPE_UNKNOWN_LAYOUT,
             confidence=0.55,
-            reasons=[ClassificationReason(
-                "empty_text", 0.55, "Empty or whitespace-only text"
-            )],
+            reasons=[ClassificationReason("empty_text", 0.55, "Empty or whitespace-only text")],
             raw_type=raw_type,
         )
 
@@ -89,11 +87,13 @@ def _classify_single_element(
 
     # 2. Page artifact
     if _looks_like_page_artifact(text=text, top_ratio=top_ratio, bottom_ratio=bottom_ratio):
-        reasons.append(ClassificationReason(
-            "page_artifact_pattern",
-            0.97,
-            "Looks like page number/header/footer artifact near page edge",
-        ))
+        reasons.append(
+            ClassificationReason(
+                "page_artifact_pattern",
+                0.97,
+                "Looks like page number/header/footer artifact near page edge",
+            )
+        )
         return ClassificationResult(
             element_type=ELEMENT_TYPE_PAGE_ARTIFACT,
             confidence=0.97,
@@ -105,9 +105,7 @@ def _classify_single_element(
     if _is_toc_header(text):
         toc_ctx.header_seen = True
         toc_ctx.header_page = page
-        reasons.append(ClassificationReason(
-            "toc_header", 0.98, "Explicit TOC header detected"
-        ))
+        reasons.append(ClassificationReason("toc_header", 0.98, "Explicit TOC header detected"))
         return ClassificationResult(
             element_type=ELEMENT_TYPE_TOC_HEADER,
             confidence=0.98,
@@ -118,13 +116,11 @@ def _classify_single_element(
     # 4. TOC line scoring с contextual boost
     toc_score, toc_score_reasons = _toc_line_score(text)
 
-    prev_text = (
-        _normalize_text(str(elements[index - 1].get("text") or ""))
-        if index > 0 else ""
-    )
+    prev_text = _normalize_text(str(elements[index - 1].get("text") or "")) if index > 0 else ""
     next_text = (
         _normalize_text(str(elements[index + 1].get("text") or ""))
-        if index + 1 < len(elements) else ""
+        if index + 1 < len(elements)
+        else ""
     )
 
     contextual_boost = 0.0
@@ -138,7 +134,11 @@ def _classify_single_element(
         contextual_boost += 0.06
 
     # Boost если соседи — сильные TOC lines
-    if _is_toc_header(prev_text) or _looks_like_toc_line(prev_text) or _looks_like_toc_line(next_text):
+    if (
+        _is_toc_header(prev_text)
+        or _looks_like_toc_line(prev_text)
+        or _looks_like_toc_line(next_text)
+    ):
         contextual_boost += 0.06
 
     toc_score = min(1.0, toc_score + contextual_boost)
@@ -149,22 +149,28 @@ def _classify_single_element(
         toc_ctx.recent_strong_toc_indexes[:] = toc_ctx.recent_strong_toc_indexes[-8:]
 
         for reason_code in toc_score_reasons:
-            reasons.append(ClassificationReason(
-                f"toc_signal:{reason_code}", toc_score, "Strong TOC line signal"
-            ))
+            reasons.append(
+                ClassificationReason(
+                    f"toc_signal:{reason_code}", toc_score, "Strong TOC line signal"
+                )
+            )
         if contextual_boost > 0:
-            reasons.append(ClassificationReason(
-                "toc_contextual_boost",
-                contextual_boost,
-                "Nearby TOC header or strong TOC line increased confidence",
-            ))
+            reasons.append(
+                ClassificationReason(
+                    "toc_contextual_boost",
+                    contextual_boost,
+                    "Nearby TOC header or strong TOC line increased confidence",
+                )
+            )
 
         if _looks_like_toc_false_positive(text):
-            reasons.append(ClassificationReason(
-                "toc_false_positive_local",
-                0.86,
-                "Line has substantive/body-like signals despite high TOC score",
-            ))
+            reasons.append(
+                ClassificationReason(
+                    "toc_false_positive_local",
+                    0.86,
+                    "Line has substantive/body-like signals despite high TOC score",
+                )
+            )
             return ClassificationResult(
                 element_type=ELEMENT_TYPE_TOC_FALSE_POSITIVE,
                 confidence=0.86,
@@ -190,24 +196,30 @@ def _classify_single_element(
     # Средний TOC signal
     if TOC_SCORE_WEAK <= toc_score < TOC_SCORE_STRONG:
         for reason_code in toc_score_reasons:
-            reasons.append(ClassificationReason(
-                f"possible_toc_signal:{reason_code}",
-                toc_score,
-                "Weak or partial TOC signal",
-            ))
+            reasons.append(
+                ClassificationReason(
+                    f"possible_toc_signal:{reason_code}",
+                    toc_score,
+                    "Weak or partial TOC signal",
+                )
+            )
         if contextual_boost > 0:
-            reasons.append(ClassificationReason(
-                "possible_toc_contextual_boost",
-                contextual_boost,
-                "Nearby TOC context slightly increased confidence",
-            ))
+            reasons.append(
+                ClassificationReason(
+                    "possible_toc_contextual_boost",
+                    contextual_boost,
+                    "Nearby TOC context slightly increased confidence",
+                )
+            )
 
         if _looks_like_toc_false_positive(text):
-            reasons.append(ClassificationReason(
-                "possible_toc_false_positive_local",
-                0.80,
-                "Weak TOC signal overridden by substantive/body-like features",
-            ))
+            reasons.append(
+                ClassificationReason(
+                    "possible_toc_false_positive_local",
+                    0.80,
+                    "Weak TOC signal overridden by substantive/body-like features",
+                )
+            )
             return ClassificationResult(
                 element_type=ELEMENT_TYPE_TOC_FALSE_POSITIVE,
                 confidence=0.80,
@@ -232,9 +244,11 @@ def _classify_single_element(
 
     # 5. Signature block
     if _looks_like_signature_block(text):
-        reasons.append(ClassificationReason(
-            "signature_keywords", 0.94, "Contains signature/seal/representative markers"
-        ))
+        reasons.append(
+            ClassificationReason(
+                "signature_keywords", 0.94, "Contains signature/seal/representative markers"
+            )
+        )
         return ClassificationResult(
             element_type=ELEMENT_TYPE_SIGNATURE_BLOCK,
             confidence=0.94,
@@ -244,9 +258,11 @@ def _classify_single_element(
 
     # 6. Requisites block
     if _looks_like_requisites_block(text):
-        reasons.append(ClassificationReason(
-            "requisites_keywords", 0.93, "Contains requisites/banking/address identifiers"
-        ))
+        reasons.append(
+            ClassificationReason(
+                "requisites_keywords", 0.93, "Contains requisites/banking/address identifiers"
+            )
+        )
         return ClassificationResult(
             element_type=ELEMENT_TYPE_REQUISITES_BLOCK,
             confidence=0.93,
@@ -256,9 +272,11 @@ def _classify_single_element(
 
     # 7. Table content
     if _looks_like_table_content(text):
-        reasons.append(ClassificationReason(
-            "table_structure", 0.83, "Looks like row-like or delimiter-heavy table content"
-        ))
+        reasons.append(
+            ClassificationReason(
+                "table_structure", 0.83, "Looks like row-like or delimiter-heavy table content"
+            )
+        )
         return ClassificationResult(
             element_type=ELEMENT_TYPE_TABLE_CONTENT,
             confidence=0.83,
@@ -269,9 +287,11 @@ def _classify_single_element(
     # 8. List item
     if raw_type == "listitem" or _looks_like_list_item(text):
         conf = 0.9 if raw_type == "listitem" else 0.82
-        reasons.append(ClassificationReason(
-            "list_item_pattern", conf, "Extractor or regex indicates list item"
-        ))
+        reasons.append(
+            ClassificationReason(
+                "list_item_pattern", conf, "Extractor or regex indicates list item"
+            )
+        )
         return ClassificationResult(
             element_type=ELEMENT_TYPE_LIST_ITEM,
             confidence=conf,
@@ -282,11 +302,13 @@ def _classify_single_element(
     # 9. Heading candidate
     heading_conf = _heading_candidate_confidence(text=text, raw_type=raw_type)
     if heading_conf >= 0.75:
-        reasons.append(ClassificationReason(
-            "heading_candidate",
-            heading_conf,
-            "Heading-like numbering, uppercase, or upstream heading label",
-        ))
+        reasons.append(
+            ClassificationReason(
+                "heading_candidate",
+                heading_conf,
+                "Heading-like numbering, uppercase, or upstream heading label",
+            )
+        )
         return ClassificationResult(
             element_type=ELEMENT_TYPE_HEADING_CANDIDATE,
             confidence=heading_conf,
@@ -296,9 +318,9 @@ def _classify_single_element(
 
     # 10. Unknown layout
     if _looks_like_unknown_layout(text):
-        reasons.append(ClassificationReason(
-            "unknown_layout_noise", 0.72, "Noise-heavy or layout-broken line"
-        ))
+        reasons.append(
+            ClassificationReason("unknown_layout_noise", 0.72, "Noise-heavy or layout-broken line")
+        )
         return ClassificationResult(
             element_type=ELEMENT_TYPE_UNKNOWN_LAYOUT,
             confidence=0.72,
@@ -308,9 +330,9 @@ def _classify_single_element(
 
     # 11. Default body text
     conf = 0.8 if raw_type == "text" else 0.7
-    reasons.append(ClassificationReason(
-        "default_body_text", conf, "Falls back to ordinary body text"
-    ))
+    reasons.append(
+        ClassificationReason("default_body_text", conf, "Falls back to ordinary body text")
+    )
     return ClassificationResult(
         element_type=ELEMENT_TYPE_BODY_TEXT,
         confidence=conf,
@@ -325,5 +347,3 @@ def _looks_like_toc_line(text: str) -> bool:
         return False
     score, _ = _toc_line_score(text)
     return score >= TOC_SCORE_STRONG
-
-

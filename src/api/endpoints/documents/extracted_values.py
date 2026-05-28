@@ -66,10 +66,7 @@ async def get_document_extracted_values(
             documents=documents_dict,
         )
 
-        rows = [
-            r for r in agg.structured_value_rows
-            if r.document_id == str(doc_id)
-        ]
+        rows = [r for r in agg.structured_value_rows if r.document_id == str(doc_id)]
 
     if not rows:
         return DocumentExtractedValuesResponse(
@@ -100,4 +97,3 @@ async def get_document_extracted_values(
         extracted_values=extracted_values,
         total_extracted=len(extracted_values),
     )
-

@@ -90,4 +90,3 @@ def build_source_stage(
         meta=base_meta,
         preview=preview,
     )
-

@@ -15,14 +15,15 @@ dict-чанками, и с новыми объектами RetrievalChunk.
 
 from __future__ import annotations
 
-from typing import Any, Iterable, List
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 from rank_bm25 import BM25Okapi
 
 from core.config import settings
-from services.embeddings.embedding_service import embedding_service
 from engine.retrieval.models import RetrievalChunk
+from services.embeddings.embedding_service import embedding_service
 
 
 class RetrievalEngine:
@@ -75,8 +76,8 @@ class RetrievalEngine:
         """
         # Нормализуем вход, чтобы внутри всегда был один формат self.chunks:
         # список dict с ключами "id", "text", "metadata".
-        self.chunks: List[dict] = []
-        texts_for_index: List[str] = []
+        self.chunks: list[dict] = []
+        texts_for_index: list[str] = []
 
         for c in chunks:
             if isinstance(c, RetrievalChunk):
@@ -97,7 +98,7 @@ class RetrievalEngine:
                 self.chunks.append(
                     {
                         "id": legacy.get("id"),
-                        "text": text,        # исходный текст чанка
+                        "text": text,  # исходный текст чанка
                         "metadata": meta,
                     }
                 )
@@ -116,7 +117,7 @@ class RetrievalEngine:
                 self.chunks.append(
                     {
                         "id": c.get("id"),
-                        "text": text,        # исходный текст чанка
+                        "text": text,  # исходный текст чанка
                         "metadata": meta,
                     }
                 )
@@ -139,7 +140,7 @@ class RetrievalEngine:
 
         # Если чанков нет — деградирующий режим (поиск ничего не вернёт).
         if not self.chunks:
-            self.tokenized: List[List[str]] = []
+            self.tokenized: list[list[str]] = []
             self.bm25: BM25Okapi | None = None
             self.emb_vectors: np.ndarray | None = None
             return
@@ -287,24 +288,12 @@ class RetrievalEngine:
         important_terms = getattr(self, "important_terms_lower", []) or []
 
         # Читаем конфигurable веса из settings (с дефолтами, как было хардкожено).
-        kind_bonus_subclause = float(
-            getattr(settings, "RUNNER_METADATA_KIND_BONUS_SUBCLAUSE", 0.3)
-        )
-        kind_penalty_section = float(
-            getattr(settings, "RUNNER_METADATA_KIND_PENALTY_SECTION", 0.1)
-        )
-        section_title_boost = float(
-            getattr(settings, "RUNNER_METADATA_SECTION_TITLE_BOOST", 1.0)
-        )
-        position_mid_boost = float(
-            getattr(settings, "RUNNER_METADATA_POSITION_MID_BOOST", 0.3)
-        )
-        path_titles_boost = float(
-            getattr(settings, "RUNNER_METADATA_PATH_TITLES_BOOST", 0.5)
-        )
-        summary_boost = float(
-            getattr(settings, "RUNNER_METADATA_SUMMARY_BOOST", 0.2)
-        )
+        kind_bonus_subclause = float(getattr(settings, "RUNNER_METADATA_KIND_BONUS_SUBCLAUSE", 0.3))
+        kind_penalty_section = float(getattr(settings, "RUNNER_METADATA_KIND_PENALTY_SECTION", 0.1))
+        section_title_boost = float(getattr(settings, "RUNNER_METADATA_SECTION_TITLE_BOOST", 1.0))
+        position_mid_boost = float(getattr(settings, "RUNNER_METADATA_POSITION_MID_BOOST", 0.3))
+        path_titles_boost = float(getattr(settings, "RUNNER_METADATA_PATH_TITLES_BOOST", 0.5))
+        summary_boost = float(getattr(settings, "RUNNER_METADATA_SUMMARY_BOOST", 0.2))
 
         for idx, ch in enumerate(self.chunks):
             meta = ch.get("metadata", {}) or {}
@@ -352,4 +341,3 @@ class RetrievalEngine:
                     scores[idx] += summary_boost
 
         return scores
-    

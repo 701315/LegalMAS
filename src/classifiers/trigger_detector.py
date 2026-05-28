@@ -40,7 +40,6 @@ TriggerDetector — определение активных триггеров �
 from __future__ import annotations
 
 import re
-from typing import Dict, List
 
 from .yaml_registry import YAMLRegistry
 
@@ -89,7 +88,7 @@ def _is_trigger_active(trigger_cfg: dict, text_lower: str) -> bool:
     return False
 
 
-def detect_triggers(text: str, doctype: str) -> List[str]:
+def detect_triggers(text: str, doctype: str) -> list[str]:
     """
     Определить, какие триггеры активны для конкретного типа документа.
 
@@ -103,7 +102,7 @@ def detect_triggers(text: str, doctype: str) -> List[str]:
         * тип не найден в реестре,
         * у типа нет trigger_definitions,
         * или ни один триггер не сработал.
-    
+
     Для непрофессионального программиста:
     - Получаем singleton YAMLRegistry (уже валидирован при старте).
     - Находим конфиг типа документа.
@@ -111,7 +110,7 @@ def detect_triggers(text: str, doctype: str) -> List[str]:
     """
     registry = YAMLRegistry.get_instance(validate=False)
     cfg = registry.get_config(doctype)
-    
+
     if not cfg:
         return []
 
@@ -120,7 +119,7 @@ def detect_triggers(text: str, doctype: str) -> List[str]:
         return []
 
     text_lower = (text or "").lower()
-    triggered: List[str] = []
+    triggered: list[str] = []
 
     for trigger_name, trigger_cfg in trigger_defs.items():
         if _is_trigger_active(trigger_cfg, text_lower):
@@ -129,7 +128,7 @@ def detect_triggers(text: str, doctype: str) -> List[str]:
     return triggered
 
 
-def detect_all_triggers(text: str) -> Dict[str, List[str]]:
+def detect_all_triggers(text: str) -> dict[str, list[str]]:
     """
     Определить активные триггеры сразу для ВСЕХ типов документов.
 
@@ -149,7 +148,7 @@ def detect_all_triggers(text: str) -> Dict[str, List[str]]:
           ...
         }
       Только те типы, у которых реально нашли активные триггеры.
-    
+
     Для непрофессионального программиста:
     - Получаем singleton YAMLRegistry.
     - Обходим все типы документов.
@@ -157,7 +156,7 @@ def detect_all_triggers(text: str) -> Dict[str, List[str]]:
     - Возвращаем только те типы, у которых хоть один триггер сработал.
     """
     registry = YAMLRegistry.get_instance(validate=False)
-    result: Dict[str, List[str]] = {}
+    result: dict[str, list[str]] = {}
     text_lower = (text or "").lower()  # Оптимизация: приводим к нижнему регистру один раз
 
     for cfg in registry.get_all_configs():
@@ -169,7 +168,7 @@ def detect_all_triggers(text: str) -> Dict[str, List[str]]:
         if not trigger_defs or not isinstance(trigger_defs, dict):
             continue
 
-        triggered: List[str] = []
+        triggered: list[str] = []
         for trigger_name, trigger_cfg in trigger_defs.items():
             if _is_trigger_active(trigger_cfg, text_lower):
                 triggered.append(trigger_name)
@@ -178,5 +177,3 @@ def detect_all_triggers(text: str) -> Dict[str, List[str]]:
             result[doctype] = triggered
 
     return result
-
-

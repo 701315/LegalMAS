@@ -16,7 +16,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
-from db.session import get_db
 from api.deps.security import require_project_role
 from api.schemas.qc import (
     ReviewQCBulkUpdateRequest,
@@ -24,6 +23,7 @@ from api.schemas.qc import (
     ReviewQCUpdateRequest,
     ReviewQCUpdateResponse,
 )
+from db.session import get_db
 from services.review_qc_service import (
     apply_bulk_review_qc_update,
     apply_review_qc_update,
@@ -91,6 +91,3 @@ async def bulk_update_review_qc(
     )
     await db.commit()
     return build_bulk_review_qc_response(result)
-
-
-

@@ -21,17 +21,19 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import delete, select, func, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.document import DocumentSegment
-from core.logging import get_logger
 from classifiers.yaml_registry import YAMLRegistry
+from core.logging import get_logger
 from db.repositories.document_type_instruction_version_repo import (
     DocumentTypeInstructionVersionRepository,
 )
 
+from ..models.document import DocumentSegment
+
 logger = get_logger(__name__)
+
 
 class DocumentSegmentRepository:
     """
@@ -241,14 +243,20 @@ class DocumentSegmentRepository:
                 "segments_with_chunks": <сколько сегментов имеют segment_chunks_ref != NULL>,
             }
         """
-        total_stmt = select(func.count()).select_from(DocumentSegment).where(
-            DocumentSegment.document_version_id == document_version_id
+        total_stmt = (
+            select(func.count())
+            .select_from(DocumentSegment)
+            .where(DocumentSegment.document_version_id == document_version_id)
         )
         total = (await self.session.execute(total_stmt)).scalar_one()
 
-        with_chunks_stmt = select(func.count()).select_from(DocumentSegment).where(
-            DocumentSegment.document_version_id == document_version_id,
-            DocumentSegment.segment_chunks_ref.is_not(None),
+        with_chunks_stmt = (
+            select(func.count())
+            .select_from(DocumentSegment)
+            .where(
+                DocumentSegment.document_version_id == document_version_id,
+                DocumentSegment.segment_chunks_ref.is_not(None),
+            )
         )
         with_chunks = (await self.session.execute(with_chunks_stmt)).scalar_one()
 
@@ -540,8 +548,7 @@ class DocumentSegmentRepository:
                 },
             )
         return row
-    
-    
+
     async def _resolve_segment_instruction_version_id(
         self,
         *,
@@ -578,6 +585,3 @@ class DocumentSegmentRepository:
             semver=semver,
         )
         return resolved.version.id
-    
-
-        

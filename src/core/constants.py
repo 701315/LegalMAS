@@ -228,10 +228,8 @@ class PIITokenPolicy(str, Enum):
 class ClassificationLevel(str, Enum):
     """Classification cascade levels."""
 
-    L1_RULES = "L1"      # Filename/path/extension — weak hint only
-    L2_KEYWORDS = "L2"   # Keywords/phrases/regex from YAML
-    L3_SEMANTIC = "L3"   # Embeddings similarity
-    L4_LLM = "L4"        # LLM fallback (local GGUF or cloud API)
-    HYBRID = "HYBRID"    # Weighted voting across levels
-
-
+    L1_RULES = "L1"  # Filename/path/extension — weak hint only
+    L2_KEYWORDS = "L2"  # Keywords/phrases/regex from YAML
+    L3_SEMANTIC = "L3"  # Embeddings similarity
+    L4_LLM = "L4"  # LLM fallback (local GGUF or cloud API)
+    HYBRID = "HYBRID"  # Weighted voting across levels

@@ -485,7 +485,7 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
                     start_index=cluster_start,
                     end_index=cluster_last + 1,
                     reason="toc_entry_cluster",
-                    elements=elements[cluster_start:cluster_last + 1],
+                    elements=elements[cluster_start : cluster_last + 1],
                 )
 
             cluster_start = None
@@ -497,7 +497,7 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
                 start_index=cluster_start,
                 end_index=cluster_last + 1,
                 reason="toc_entry_cluster_end",
-                elements=elements[cluster_start:cluster_last + 1],
+                elements=elements[cluster_start : cluster_last + 1],
             )
 
         return TOCBlock(
@@ -765,9 +765,7 @@ def compute_partial_reliability(
             reasons=["toc_detected_but_no_entries_parsed"],
         )
 
-    page_hint_ratio = (
-        sum(1 for e in parsed_toc.entries if e.page_hint is not None) / entries_total
-    )
+    page_hint_ratio = sum(1 for e in parsed_toc.entries if e.page_hint is not None) / entries_total
     multiline_penalty = (
         sum(1 for e in parsed_toc.entries if e.diagnostics.get("multiline")) / entries_total
     )
@@ -807,5 +805,3 @@ def compute_partial_reliability(
         confidence_band=band,
         reasons=reasons,
     )
-
-

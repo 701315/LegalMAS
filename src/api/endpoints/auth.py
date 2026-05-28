@@ -43,6 +43,7 @@ class LoginRequest(BaseModel):
     Потом:
     - поля можно оставить те же, а внутри искать пользователя в БД.
     """
+
     username: str
     password: str
 
@@ -56,6 +57,7 @@ class LoginResponse(BaseModel):
     - token_type : тип токена, по умолчанию "bearer".
     - user       : объект CurrentUser (см. src/api/deps/auth.py).
     """
+
     access_token: str
     token_type: str = "bearer"
     user: CurrentUser
@@ -126,9 +128,9 @@ async def login(payload: LoginRequest) -> LoginResponse:
         )
 
     user = CurrentUser(
-        id=payload.username,                      # пока строка, позже UUID из таблицы users
-        global_role=config["global_role"],        # GlobalRole: superadmin/admin/editor/viewer
-        tenant_id=uuid.UUID(int=0),               # временный tenant_id
+        id=payload.username,  # пока строка, позже UUID из таблицы users
+        global_role=config["global_role"],  # GlobalRole: superadmin/admin/editor/viewer
+        tenant_id=uuid.UUID(int=0),  # временный tenant_id
         email=config["email"],
     )
 

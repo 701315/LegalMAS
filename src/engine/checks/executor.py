@@ -32,21 +32,18 @@ CheckExecutor: запуск одной проверки (check) для одно�
 """
 
 import time
-from typing import Tuple
 
 from core.config import settings
 from core.logging import get_logger
-
 from engine.content.chunking import build_chunk_summary
 from engine.retrieval.tokenization import count_tokens
+from ops.metrics import METRICS
 
-from .extraction import ExtractionExecutor
 from ..detectors.hybrid_detector import HybridDetector
 from ..detectors.models import RetrievedChunk
 from ..playbook.models import CheckDefinition
 from ..retrieval.engine import RetrievalEngine
-from ops.metrics import METRICS
-
+from .extraction import ExtractionExecutor
 
 logger = get_logger(__name__)
 
@@ -112,7 +109,7 @@ class CheckExecutor:
         retrieved_chunks: list[RetrievedChunk],
         important_terms: list[str],
         max_tokens: int | None,
-    ) -> Tuple[str, list[RetrievedChunk], list[dict], int, bool]:
+    ) -> tuple[str, list[RetrievedChunk], list[dict], int, bool]:
         """
         Построить текстовый контекст для LLM с учётом лимита по токенам.
 
@@ -126,8 +123,7 @@ class CheckExecutor:
         # Ветка без лимита: склеиваем всё как есть
         if not isinstance(max_tokens, int) or max_tokens <= 0:
             context_parts = [
-                self._build_chunk_piece(c, rc)
-                for c, rc in zip(contexts, retrieved_chunks)
+                self._build_chunk_piece(c, rc) for c, rc in zip(contexts, retrieved_chunks)
             ]
             joined_text = "\n\n---\n\n".join(context_parts)
             total_tokens = count_tokens(joined_text)
@@ -144,7 +140,6 @@ class CheckExecutor:
             items.append((score, count_tokens(piece), c, rc, piece))
 
         items.sort(key=lambda t: t[0], reverse=True)
-
 
         reserve_ratio = getattr(settings, "LLM_CONTEXT_RESERVE_RATIO", 0.3)
         try:
@@ -227,7 +222,7 @@ class CheckExecutor:
                 piece_tokens = count_tokens(piece)
 
             # score=0.0 — fallback-чанк, в sort по start_page это нейтрально
-            compressed_items = [(0.0, piece_tokens, c, rc, piece)]   # ← 5-tuple ✓
+            compressed_items = [(0.0, piece_tokens, c, rc, piece)]  # ← 5-tuple ✓
             total_tokens = piece_tokens
             truncated = True
         else:
@@ -265,9 +260,7 @@ class CheckExecutor:
         # Ошибку берём сначала из верхнего уровня raw (HybridDetector кладёт её туда
         # в rules-fallback ветке), затем из llm_details.
         llm_error_type = raw_details.get("llm_error_type") or llm_details.get("error_type")
-        llm_error_message = (
-            raw_details.get("llm_error_message") or llm_details.get("error_message")
-        )
+        llm_error_message = raw_details.get("llm_error_message") or llm_details.get("error_message")
         llm_attempts = raw_details.get("llm_attempts") or llm_details.get("llm_attempts")
 
         rules_llm_decision = raw_details.get("rules_llm_decision") or detection.get("reason")
@@ -332,9 +325,7 @@ class CheckExecutor:
 
         boost_keywords = raw_boost_keywords
         query = (
-            f"{check.name} {' '.join(boost_keywords[:3])}".strip()
-            if boost_keywords
-            else check.name
+            f"{check.name} {' '.join(boost_keywords[:3])}".strip() if boost_keywords else check.name
         )
 
         retr_cfg = getattr(check, "retrieval", None)
@@ -449,8 +440,7 @@ class CheckExecutor:
             required_kind_lower = str(required_kind).lower()
             # Строим индекс contexts по element_id для ресинхронизации после перестановки
             _ctx_by_id_kind: dict[str, dict] = {
-                str(rc.element_id): c
-                for rc, c in zip(retrieved_chunks, contexts)
+                str(rc.element_id): c for rc, c in zip(retrieved_chunks, contexts)
             }
             primary: list[RetrievedChunk] = []
             fallback: list[RetrievedChunk] = []
@@ -469,7 +459,6 @@ class CheckExecutor:
                 if len(contexts) != len(retrieved_chunks):
                     retrieved_chunks = retrieved_chunks[: len(contexts)]
 
-
         if len(retrieved_chunks) > context_k:
             retrieved_chunks = retrieved_chunks[:context_k]
             contexts = contexts[:context_k]
@@ -486,9 +475,7 @@ class CheckExecutor:
 
         doc_type = getattr(doc, "doc_type", "") or ""
         try:
-            classification_confidence = float(
-                getattr(doc, "classification_confidence", 1.0) or 0.0
-            )
+            classification_confidence = float(getattr(doc, "classification_confidence", 1.0) or 0.0)
         except (TypeError, ValueError):
             classification_confidence = 0.0
 
@@ -649,10 +636,7 @@ class CheckExecutor:
                     page = first_src.get("page")
                 if clause_uid is None:
                     # effective_uid (canonical Sprint 3) или clause_uid (legacy)
-                    clause_uid = (
-                        first_src.get("effective_uid")
-                        or first_src.get("clause_uid")
-                    )
+                    clause_uid = first_src.get("effective_uid") or first_src.get("clause_uid")
 
         # ------------------------------------------------------------------
         # Metrics
@@ -700,6 +684,3 @@ class CheckExecutor:
             "llm_required": llm_flags["llm_required"],
             "llm_degraded": llm_flags["llm_degraded"],
         }
-    
-
-

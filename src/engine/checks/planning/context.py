@@ -15,10 +15,9 @@ Immutable value objects для checks planning pipeline.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import uuid
-from typing import FrozenSet, Literal
-
+from dataclasses import dataclass
+from typing import Literal
 
 CheckScope = Literal["document", "segment"]
 
@@ -53,7 +52,7 @@ class CheckContext:
     segment_doc_type: str | None
 
     # применимые триггеры (doc- или segment-level)
-    triggers: FrozenSet[str]
+    triggers: frozenset[str]
 
     @property
     def effective_doc_type(self) -> str | None:
@@ -102,7 +101,3 @@ class SegmentInfo:
     def has_doc_type(self) -> bool:
         """Есть ли у сегмента определённый segment_doc_type."""
         return bool(self.segment_doc_type)
-    
-
-    
-

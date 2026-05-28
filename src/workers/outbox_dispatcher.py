@@ -105,5 +105,3 @@ def outbox_dispatcher(
         }
 
     return run_async(_wrapper())
-
-

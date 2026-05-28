@@ -43,8 +43,8 @@ from services.structure.legal_unit_models import (
     ClauseFunction,
     CrossRefStub,
     LegalUnit,
-    LegalUnitType,
     LegalUnitsSnapshot,
+    LegalUnitType,
 )
 
 logger = get_logger(__name__)
@@ -58,113 +58,146 @@ logger = get_logger(__name__)
 # Порядок важен: более специфичные паттерны должны идти раньше.
 _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
     # Определения
-    (re.compile(
-        r"\b(definitions?|defined terms?|interpretation|meanings?|"
-        r"определени[яей]|термины|толкование)\b",
-        re.IGNORECASE,
-    ), LegalUnitType.DEFINITION),
-
+    (
+        re.compile(
+            r"\b(definitions?|defined terms?|interpretation|meanings?|"
+            r"определени[яей]|термины|толкование)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.DEFINITION,
+    ),
     # Платёжные условия
-    (re.compile(
-        r"\b(payment|price|consideration|fee|remuneration|compensation|"
-        r"оплат[аы]|цена|вознаграждение|платёж|стоимость|сумма)\b",
-        re.IGNORECASE,
-    ), LegalUnitType.PAYMENT_TERM),
-
+    (
+        re.compile(
+            r"\b(payment|price|consideration|fee|remuneration|compensation|"
+            r"оплат[аы]|цена|вознаграждение|платёж|стоимость|сумма)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.PAYMENT_TERM,
+    ),
     # Гарантии
-    (re.compile(
-        r"\b(warrant(y|ies)|representation|guarantee|indemnif|"
-        r"гарантии?|заверени[яей]|поручительство|возмещение)\b",
-        re.IGNORECASE,
-    ), LegalUnitType.WARRANTY),
-
+    (
+        re.compile(
+            r"\b(warrant(y|ies)|representation|guarantee|indemnif|"
+            r"гарантии?|заверени[яей]|поручительство|возмещение)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.WARRANTY,
+    ),
     # Уведомления
-    (re.compile(
-        r"\b(notice[s]?|notification|communication|correspondence|"
-        r"уведомлени[яей]|извещени[яей]|сообщени[яей]|адреса?)\b",
-        re.IGNORECASE,
-    ), LegalUnitType.NOTICE),
-
+    (
+        re.compile(
+            r"\b(notice[s]?|notification|communication|correspondence|"
+            r"уведомлени[яей]|извещени[яей]|сообщени[яей]|адреса?)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.NOTICE,
+    ),
     # Применимое право
-    (re.compile(
-        r"\b(governing law|applicable law|choice of law|"
-        r"применимое право|право[,\s]которое|выбор права)\b",
-        re.IGNORECASE,
-    ), LegalUnitType.GOVERNING_LAW),
-
+    (
+        re.compile(
+            r"\b(governing law|applicable law|choice of law|"
+            r"применимое право|право[,\s]которое|выбор права)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.GOVERNING_LAW,
+    ),
     # Подсудность / арбитраж
-    (re.compile(
-        r"\b(jurisdiction|arbitration|dispute resolution|"
-        r"competent court|forum|venue|"
-        r"подсудность|арбитраж|разрешение споров|суд)\b",
-        re.IGNORECASE,
-    ), LegalUnitType.JURISDICTION),
-
+    (
+        re.compile(
+            r"\b(jurisdiction|arbitration|dispute resolution|"
+            r"competent court|forum|venue|"
+            r"подсудность|арбитраж|разрешение споров|суд)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.JURISDICTION,
+    ),
     # Ссылки на приложения
-    (re.compile(
-        r"\b(appendix|annex|exhibit|schedule|attachment|"
-        r"приложени[еяй]|приложение\s*[№#]?\s*\d|перечень)\b",
-        re.IGNORECASE,
-    ), LegalUnitType.APPENDIX_REFERENCE),
-
+    (
+        re.compile(
+            r"\b(appendix|annex|exhibit|schedule|attachment|"
+            r"приложени[еяй]|приложение\s*[№#]?\s*\d|перечень)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.APPENDIX_REFERENCE,
+    ),
     # Обязательства (broad pattern — идёт последним среди специфичных)
-    (re.compile(
-        r"\b(obligation[s]?|undertaking|covenant|duty|duties|"
-        r"обязательств[ао]|обязанности|обязан|должен)\b",
-        re.IGNORECASE,
-    ), LegalUnitType.OBLIGATION),
+    (
+        re.compile(
+            r"\b(obligation[s]?|undertaking|covenant|duty|duties|"
+            r"обязательств[ао]|обязанности|обязан|должен)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.OBLIGATION,
+    ),
 ]
 
 # Паттерны для определения ClauseFunction по тексту или заголовку
 _FUNCTION_PATTERNS: list[tuple[re.Pattern, ClauseFunction]] = [
-    (re.compile(
-        r"\b(definitions?|defined terms?|means|shall mean|"
-        r"определени[яей]|означает|понимается)\b",
-        re.IGNORECASE,
-    ), ClauseFunction.DEFINITIONS),
-
-    (re.compile(
-        r"\b(warrant(y|ies)|represents?|representation[s]?|"
-        r"гарантирует|заверяет|подтверждает)\b",
-        re.IGNORECASE,
-    ), ClauseFunction.REPRESENTATIONS),
-
-    (re.compile(
-        r"\b(shall not|must not|limitation|liability|cap|ceiling|"
-        r"не вправе|не несёт|ограничение|предел ответственности)\b",
-        re.IGNORECASE,
-    ), ClauseFunction.LIMITATIONS),
-
-    (re.compile(
-        r"\b(remedy|remedies|indemnif|damages|compensation|"
-        r"средства защиты|возмещение убытков|ущерб|компенсация)\b",
-        re.IGNORECASE,
-    ), ClauseFunction.REMEDIES),
-
-    (re.compile(
-        r"\b(procedure|process|mechanism|step[s]?|timeline|"
-        r"порядок|процедура|механизм|этапы?|сроки?)\b",
-        re.IGNORECASE,
-    ), ClauseFunction.PROCEDURES),
-
-    (re.compile(
-        r"\b(shall|must|obliged|required|undertakes|"
-        r"обязан|должен|обязуется|обязательство)\b",
-        re.IGNORECASE,
-    ), ClauseFunction.OBLIGATIONS),
-
-    (re.compile(
-        r"\b(entitled|right to|may|permitted|"
-        r"вправе|имеет право|может)\b",
-        re.IGNORECASE,
-    ), ClauseFunction.RIGHTS),
-
-    (re.compile(
-        r"\b(governing law|jurisdiction|arbitration|notice[s]?|"
-        r"entire agreement|severability|waiver|amendment|"
-        r"применимое право|подсудность|уведомлени|вся сделка)\b",
-        re.IGNORECASE,
-    ), ClauseFunction.BOILERPLATE),
+    (
+        re.compile(
+            r"\b(definitions?|defined terms?|means|shall mean|"
+            r"определени[яей]|означает|понимается)\b",
+            re.IGNORECASE,
+        ),
+        ClauseFunction.DEFINITIONS,
+    ),
+    (
+        re.compile(
+            r"\b(warrant(y|ies)|represents?|representation[s]?|"
+            r"гарантирует|заверяет|подтверждает)\b",
+            re.IGNORECASE,
+        ),
+        ClauseFunction.REPRESENTATIONS,
+    ),
+    (
+        re.compile(
+            r"\b(shall not|must not|limitation|liability|cap|ceiling|"
+            r"не вправе|не несёт|ограничение|предел ответственности)\b",
+            re.IGNORECASE,
+        ),
+        ClauseFunction.LIMITATIONS,
+    ),
+    (
+        re.compile(
+            r"\b(remedy|remedies|indemnif|damages|compensation|"
+            r"средства защиты|возмещение убытков|ущерб|компенсация)\b",
+            re.IGNORECASE,
+        ),
+        ClauseFunction.REMEDIES,
+    ),
+    (
+        re.compile(
+            r"\b(procedure|process|mechanism|step[s]?|timeline|"
+            r"порядок|процедура|механизм|этапы?|сроки?)\b",
+            re.IGNORECASE,
+        ),
+        ClauseFunction.PROCEDURES,
+    ),
+    (
+        re.compile(
+            r"\b(shall|must|obliged|required|undertakes|"
+            r"обязан|должен|обязуется|обязательство)\b",
+            re.IGNORECASE,
+        ),
+        ClauseFunction.OBLIGATIONS,
+    ),
+    (
+        re.compile(
+            r"\b(entitled|right to|may|permitted|" r"вправе|имеет право|может)\b",
+            re.IGNORECASE,
+        ),
+        ClauseFunction.RIGHTS,
+    ),
+    (
+        re.compile(
+            r"\b(governing law|jurisdiction|arbitration|notice[s]?|"
+            r"entire agreement|severability|waiver|amendment|"
+            r"применимое право|подсудность|уведомлени|вся сделка)\b",
+            re.IGNORECASE,
+        ),
+        ClauseFunction.BOILERPLATE,
+    ),
 ]
 
 # Паттерны для извлечения cross-references из текста
@@ -196,6 +229,7 @@ _DEFINITION_REF_PATTERN = re.compile(
 # ---------------------------------------------------------------------------
 # Вспомогательные функции
 # ---------------------------------------------------------------------------
+
 
 def _classify_unit_type(title: str, text: str | None) -> LegalUnitType:
     """
@@ -231,7 +265,7 @@ def _classify_clause_function(
     - Сначала используем unit_type как strong prior.
     - Если unit_type=UNKNOWN или GENERAL_PROVISION — проверяем паттерны.
     """
-    _TYPE_TO_FUNCTION: dict[LegalUnitType, ClauseFunction] = {
+    _type_to_function: dict[LegalUnitType, ClauseFunction] = {
         LegalUnitType.DEFINITION: ClauseFunction.DEFINITIONS,
         LegalUnitType.WARRANTY: ClauseFunction.REPRESENTATIONS,
         LegalUnitType.GOVERNING_LAW: ClauseFunction.BOILERPLATE,
@@ -242,8 +276,8 @@ def _classify_clause_function(
         LegalUnitType.PAYMENT_TERM: ClauseFunction.OBLIGATIONS,
     }
 
-    if unit_type in _TYPE_TO_FUNCTION:
-        return _TYPE_TO_FUNCTION[unit_type]
+    if unit_type in _type_to_function:
+        return _type_to_function[unit_type]
 
     search_text = title + " " + (text[:300] if text else "")
     for pattern, function in _FUNCTION_PATTERNS:
@@ -277,13 +311,15 @@ def _extract_cross_refs(
         key = f"clause:{target_hint}"
         if key not in seen_refs:
             seen_refs.add(key)
-            refs.append(CrossRefStub(
-                source_unit_id=unit_id,
-                raw_ref_text=raw_text,
-                ref_type="clause_ref",
-                target_hint=target_hint,
-                resolved=False,
-            ))
+            refs.append(
+                CrossRefStub(
+                    source_unit_id=unit_id,
+                    raw_ref_text=raw_text,
+                    ref_type="clause_ref",
+                    target_hint=target_hint,
+                    resolved=False,
+                )
+            )
 
     for match in _APPENDIX_REF_PATTERN.finditer(text):
         raw_text = match.group(0).strip()
@@ -291,13 +327,15 @@ def _extract_cross_refs(
         key = f"appendix:{target_hint}"
         if key not in seen_refs:
             seen_refs.add(key)
-            refs.append(CrossRefStub(
-                source_unit_id=unit_id,
-                raw_ref_text=raw_text,
-                ref_type="appendix_ref",
-                target_hint=target_hint,
-                resolved=False,
-            ))
+            refs.append(
+                CrossRefStub(
+                    source_unit_id=unit_id,
+                    raw_ref_text=raw_text,
+                    ref_type="appendix_ref",
+                    target_hint=target_hint,
+                    resolved=False,
+                )
+            )
 
     for match in _DEFINITION_REF_PATTERN.finditer(text):
         term = match.group(1).strip()
@@ -306,13 +344,15 @@ def _extract_cross_refs(
         key = f"def:{term.lower()}"
         if key not in seen_refs:
             seen_refs.add(key)
-            refs.append(CrossRefStub(
-                source_unit_id=unit_id,
-                raw_ref_text=f'"{term}"',
-                ref_type="definition_ref",
-                target_hint=term,
-                resolved=False,
-            ))
+            refs.append(
+                CrossRefStub(
+                    source_unit_id=unit_id,
+                    raw_ref_text=f'"{term}"',
+                    ref_type="definition_ref",
+                    target_hint=term,
+                    resolved=False,
+                )
+            )
 
     return refs
 
@@ -390,6 +430,7 @@ def _compute_citability(node: dict[str, Any]) -> CitabilityMetrics:
 # ---------------------------------------------------------------------------
 # Builder
 # ---------------------------------------------------------------------------
+
 
 class LegalUnitBuilder:
     """
@@ -494,6 +535,7 @@ class LegalUnitBuilder:
         # Ошибка tagger-а не должна ломать весь snapshot.
         try:
             from services.structure.topic_tagger import TopicTagger
+
             tagger = TopicTagger()
             tagger.tag_units(snapshot.units)
         except Exception as tagger_exc:
@@ -508,6 +550,7 @@ class LegalUnitBuilder:
         # Ошибка resolver-а не должна ломать весь snapshot.
         try:
             from services.structure.cross_ref_resolver import CrossRefResolver
+
             resolver = CrossRefResolver()
             resolver.resolve(snapshot.units)
         except Exception as resolver_exc:
@@ -523,9 +566,7 @@ class LegalUnitBuilder:
         total_nodes = len(units)
         heading_only_count = sum(1 for u in units if u.citability.is_heading_only)
         best_effort_count = sum(1 for u in units if u.recovered_via_best_effort)
-        units_with_known_type = sum(
-            1 for u in units if u.unit_type != LegalUnitType.UNKNOWN
-        )
+        units_with_known_type = sum(1 for u in units if u.unit_type != LegalUnitType.UNKNOWN)
 
         snapshot.total_nodes_processed = total_nodes
         snapshot.units_with_known_type = units_with_known_type
@@ -603,7 +644,7 @@ class LegalUnitBuilder:
                     "title": title[:80] if title else None,
                 },
             )
-            for child in (node.get("children") or []):
+            for child in node.get("children") or []:
                 if isinstance(child, dict):
                     self._collect_units(
                         node=child,
@@ -643,7 +684,7 @@ class LegalUnitBuilder:
             own_text=own_text,
             subtree_text=subtree_text,
             own_element_ids=own_element_ids,
-            topic_tags=[],      # заполнит TopicTagger на шаге 2
+            topic_tags=[],  # заполнит TopicTagger на шаге 2
             cross_refs=cross_refs,
             citability=citability,
             node_kind=node_kind,
@@ -652,9 +693,7 @@ class LegalUnitBuilder:
             fallback_reason=fallback_reason,
             diagnostics={
                 "unit_type_source": (
-                    "title_pattern"
-                    if unit_type != LegalUnitType.UNKNOWN
-                    else "not_classified"
+                    "title_pattern" if unit_type != LegalUnitType.UNKNOWN else "not_classified"
                 ),
                 "cross_refs_count": len(cross_refs),
             },
@@ -679,7 +718,7 @@ class LegalUnitBuilder:
         )
 
         # Рекурсия в children
-        for child in (node.get("children") or []):
+        for child in node.get("children") or []:
             if isinstance(child, dict):
                 self._collect_units(
                     node=child,
@@ -689,5 +728,3 @@ class LegalUnitBuilder:
                     warnings=warnings,
                     document_id=document_id,
                 )
-
-

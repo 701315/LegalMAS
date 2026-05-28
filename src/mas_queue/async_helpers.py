@@ -44,7 +44,6 @@ import asyncio
 from collections.abc import Coroutine
 from typing import Any, TypeVar
 
-
 T = TypeVar("T")
 
 
@@ -156,18 +155,14 @@ def close_worker_loop() -> None:
             current = None
 
         pending = {
-            task
-            for task in asyncio.all_tasks(loop)
-            if not task.done() and task is not current
+            task for task in asyncio.all_tasks(loop) if not task.done() and task is not current
         }
 
         for task in pending:
             task.cancel()
 
         if pending:
-            loop.run_until_complete(
-                asyncio.gather(*pending, return_exceptions=True)
-            )
+            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
 
         loop.run_until_complete(loop.shutdown_asyncgens())
 
@@ -176,5 +171,3 @@ def close_worker_loop() -> None:
     finally:
         loop.close()
         _worker_loop = None
-
-

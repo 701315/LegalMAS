@@ -304,14 +304,9 @@ def _add_request_list(doc: Document, agg: AggregatedResults) -> None:
         )
         doc.add_paragraph(f"Адресат: {req.addressee}")
         doc.add_paragraph(req.text)
-        doc.add_paragraph(
-            f"Документы ({req.document_count}): "
-            + ", ".join(req.document_names[:5])
-        )
+        doc.add_paragraph(f"Документы ({req.document_count}): " + ", ".join(req.document_names[:5]))
         if req.structured_values:
-            sv_text = "; ".join(
-                f"{sv['field']}={sv['value']}" for sv in req.structured_values[:5]
-            )
+            sv_text = "; ".join(f"{sv['field']}={sv['value']}" for sv in req.structured_values[:5])
             doc.add_paragraph(f"Связанные значения: {sv_text}")
         doc.add_paragraph("")
 

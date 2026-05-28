@@ -100,5 +100,3 @@ class FileStructureResult:
             (tree for tree in self.segment_trees if tree.segment_id == normalized_segment_id),
             None,
         )
-    
-

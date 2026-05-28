@@ -71,5 +71,3 @@ def is_numeric_uid(uid: str) -> bool:
     Проверяет, соответствует ли UID формату 1.2.3
     """
     return bool(_NUMERIC_UID_RE.fullmatch(str(uid or "").strip()))
-
-

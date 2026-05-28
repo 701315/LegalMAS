@@ -6,12 +6,11 @@
 """
 
 from __future__ import annotations
-from typing import Any
 
 from ._heading_builder._core import (
-    build_heading_candidates, 
-    filter_heading_sequence, 
-    collect_scored_heading_candidates
+    build_heading_candidates,
+    collect_scored_heading_candidates,
+    filter_heading_sequence,
 )
 
 __all__ = [

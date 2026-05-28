@@ -8,7 +8,8 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +17,7 @@ from core.logging import get_logger
 from core.pipeline_snapshots import DocumentSnapshot, snapshot_document
 from db.repositories.document_repo import DocumentRepository
 from engine.doc_type_checks.loader import DocTypeCheckLoader
+
 from .context import CheckContext
 
 logger = get_logger(__name__)
@@ -52,7 +54,7 @@ def _normalize_triggers(raw: Any) -> list[str]:
     - Если raw — список/кортеж и т.п. → берём только строковые элементы.
     - Если raw — строка или вообще не итерируемый объект → возвращаем пустой список.
     """
-    if isinstance(raw, Iterable) and not isinstance(raw, (str, bytes)):
+    if isinstance(raw, Iterable) and not isinstance(raw, str | bytes):
         return [t for t in raw if isinstance(t, str)]
     return []
 
@@ -376,9 +378,7 @@ class CheckPlanner:
         # через shared контракт core.pipeline_snapshots.
         # Цикл планирования не делает await, но snapshot защищает
         # от будущих добавлений await в этот метод.
-        doc_snaps: list[DocumentSnapshot] = [
-            snapshot_document(doc) for doc in docs
-        ]
+        doc_snaps: list[DocumentSnapshot] = [snapshot_document(doc) for doc in docs]
 
         for doc_snap in doc_snaps:
             try:
@@ -461,6 +461,3 @@ class CheckPlanner:
             "total_checks": total_checks,
             "errors": errors,
         }
-        
-    
-    

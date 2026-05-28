@@ -16,4 +16,3 @@
 from engine.checks.check_runner import CheckRunner
 
 __all__ = ["CheckRunner"]
-

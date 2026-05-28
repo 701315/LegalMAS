@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from ._config import (
     BOUNDARY_KEYWORDS_RU,
@@ -336,8 +335,7 @@ def _looks_like_unknown_layout(text: str) -> bool:
         return True
 
     weird_ratio = sum(
-        1 for ch in normalized
-        if not (ch.isalnum() or ch.isspace() or ch in ".,:;!?()/-№\"'")
+        1 for ch in normalized if not (ch.isalnum() or ch.isspace() or ch in ".,:;!?()/-№\"'")
     ) / max(len(normalized), 1)
     if weird_ratio >= 0.25:
         return True
@@ -348,4 +346,3 @@ def _looks_like_unknown_layout(text: str) -> bool:
             return True
 
     return False
-

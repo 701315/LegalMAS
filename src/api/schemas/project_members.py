@@ -15,7 +15,6 @@ Pydantic схемы для управления участниками прое�
 - UpdateProjectMember — частичное обновление участника (все поля опциональны).
 """
 
-
 from __future__ import annotations
 
 from datetime import datetime

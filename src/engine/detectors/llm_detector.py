@@ -109,19 +109,16 @@ str.replace() заменяет только те строки, которые я
 в словаре переменных, и не трогает всё остальное.
 """
 
-
 from __future__ import annotations
 
-from typing import Any
-
-from core.logging import get_logger
 from core.config import settings
-from core.exceptions import TransientError, PermanentError
-from .models import DetectionResult, EvidenceChunk, RetrievedChunk
-from ..llm.client import LLMClient, LLMContextLimitError, LLMResponse
+from core.logging import get_logger
+from engine.retrieval.tokenization import count_tokens
+
+from ..llm.client import LLMClient, LLMResponse
 from ..playbook.models import LLMConfig
 from ..prompts.loader import get_promptloader
-from engine.retrieval.tokenization import count_tokens
+from .models import DetectionResult, EvidenceChunk, RetrievedChunk
 
 logger = get_logger(__name__)
 
@@ -202,7 +199,12 @@ class LLMDetector:
         _max_out = int(config.max_tokens or settings.LLM_MAX_TOKENS)
         _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
         if _limit > 0:
-            _context_budget = _limit - _max_out - int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 512)) - _template_tokens
+            _context_budget = (
+                _limit
+                - _max_out
+                - int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 512))
+                - _template_tokens
+            )
             _context_budget = max(200, _context_budget)
             context_text = self._fit_context_to_budget(context_chunks, _context_budget)
         else:
@@ -290,10 +292,7 @@ class LLMDetector:
 
         # Рендерим template со ВСЕМИ переменными кроме {context}
         template_only_vars = {k: v for k, v in variables.items() if k != "{context}"}
-        template_rendered_no_context, _ = self._render_prompt(
-            prompt_template, 
-            template_only_vars
-        )
+        template_rendered_no_context, _ = self._render_prompt(prompt_template, template_only_vars)
         _template_tokens = count_tokens(template_rendered_no_context)
 
         logger.debug(
@@ -306,7 +305,12 @@ class LLMDetector:
         _max_out = int(config.max_tokens or settings.LLM_MAX_TOKENS)
         _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
         if _limit > 0:
-            _context_budget = _limit - _max_out - int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 512)) - _template_tokens
+            _context_budget = (
+                _limit
+                - _max_out
+                - int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 512))
+                - _template_tokens
+            )
             _context_budget = max(200, _context_budget)
             context_text = self._fit_context_to_budget(context_chunks, _context_budget)
         else:
@@ -517,7 +521,9 @@ class LLMDetector:
                 # не полный effective_uid ("main_contract:5.2").
                 # effective_uid используется для anchor, а не для LLM промпта.
                 _full_clause_uid = getattr(chunk, "clause_uid", "") or ""
-                clause_uid = _full_clause_uid.split(":")[-1] if ":" in _full_clause_uid else _full_clause_uid
+                clause_uid = (
+                    _full_clause_uid.split(":")[-1] if ":" in _full_clause_uid else _full_clause_uid
+                )
                 text = getattr(chunk, "text", "")
 
             clause_info = f" [clause {clause_uid}]" if clause_uid else ""
@@ -525,7 +531,6 @@ class LLMDetector:
             parts.append(f"{header}\n{text}\n")
 
         return "\n".join(parts)
-
 
     @staticmethod
     def _fit_context_to_budget(
@@ -557,7 +562,9 @@ class LLMDetector:
                 # не полный effective_uid ("main_contract:5.2").
                 # effective_uid используется для anchor, а не для LLM промпта.
                 _full_clause_uid = getattr(chunk, "clause_uid", "") or ""
-                clause_uid = _full_clause_uid.split(":")[-1] if ":" in _full_clause_uid else _full_clause_uid
+                clause_uid = (
+                    _full_clause_uid.split(":")[-1] if ":" in _full_clause_uid else _full_clause_uid
+                )
                 text = getattr(chunk, "text", "")
 
             clause_info = f" [clause {clause_uid}]" if clause_uid else ""
@@ -589,7 +596,6 @@ class LLMDetector:
         )
 
         return "\n".join(parts)
-
 
     def _build_result(
         self,
@@ -652,9 +658,7 @@ class LLMDetector:
                     "best_chunk_element_id": (
                         evidence_chunks[0].element_id if evidence_chunks else None
                     ),
-                    "best_chunk_page": (
-                        evidence_chunks[0].page if evidence_chunks else None
-                    ),
+                    "best_chunk_page": (evidence_chunks[0].page if evidence_chunks else None),
                     "best_chunk_clause_uid": (
                         evidence_chunks[0].clause_uid if evidence_chunks else None
                     ),
@@ -747,9 +751,7 @@ class LLMDetector:
                 "best_chunk_element_id": getattr(best_chunk, "element_id", None)
                 if best_chunk
                 else None,
-                "best_chunk_page": getattr(best_chunk, "page", None)
-                if best_chunk
-                else None,
+                "best_chunk_page": getattr(best_chunk, "page", None) if best_chunk else None,
                 "best_chunk_clause_uid": getattr(best_chunk, "clause_uid", None)
                 if best_chunk
                 else None,
@@ -757,5 +759,3 @@ class LLMDetector:
         )
 
         return best_chunk if best_overlap >= 3 else None
-    
-    

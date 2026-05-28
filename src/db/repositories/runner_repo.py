@@ -20,17 +20,17 @@ Repository for Runner integration (Stage 7–10).
 напрямую, а используют этот репозиторий как единую точку доступа.
 """
 
-
 import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.result import CheckResult
+from classifiers.yaml_registry import YAMLRegistry
+
 from ..models.document import Document
 from ..models.relation import DocumentFamily, DocumentFamilyMember
+from ..models.result import CheckResult
 
-from classifiers.yaml_registry import YAMLRegistry
 
 class RunnerRepository:
     """Работает с non-duplicate документами и семьями документов."""
@@ -109,7 +109,6 @@ class RunnerRepository:
 
         return family_docs[0] if family_docs else None
 
-
     async def load_documents_for_run(self, run_id: uuid.UUID) -> dict[str, dict]:
         """
         Вернуть словарь {document_id: {...}} для всех документов,
@@ -139,7 +138,6 @@ class RunnerRepository:
                 "applicable_triggers": d.applicable_triggers or [],
             }
         return docs_dict
-
 
     async def load_check_results_for_run(self, run_id: uuid.UUID) -> list[dict]:
         """
@@ -187,5 +185,3 @@ class RunnerRepository:
             )
 
         return out
-
-

@@ -2,18 +2,14 @@
 Document structure and viewer endpoints.
 """
 
-
 from __future__ import annotations
-
 
 import logging
 from uuid import UUID
 
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-
 
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
@@ -24,12 +20,10 @@ from db.session import get_db
 from engine.content.document_content_service import DocumentContentService
 from storage.artifact_store import ArtifactStore
 
-
 logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
-
 
 
 class ViewerLayoutElement(BaseModel):
@@ -38,11 +32,9 @@ class ViewerLayoutElement(BaseModel):
     bbox: list[float]
 
 
-
 class ViewerLayoutResponse(BaseModel):
     document_id: str
     elements: list[ViewerLayoutElement]
-
 
 
 class ViewerSizedChunkMeta(BaseModel):
@@ -51,11 +43,9 @@ class ViewerSizedChunkMeta(BaseModel):
     clause_uids: list[str] = Field(default_factory=list)
 
 
-
 class ViewerSizedChunksResponse(BaseModel):
     document_id: str
     chunks: list[ViewerSizedChunkMeta]
-
 
 
 class DocumentLayoutsDebugResponse(BaseModel):
@@ -65,7 +55,6 @@ class DocumentLayoutsDebugResponse(BaseModel):
     sanitized_layout_ref: str | None = None
     raw_layout: dict | None = None
     sanitized_layout: dict | None = None
-
 
 
 @router.get(
@@ -83,7 +72,6 @@ async def get_document_layout_for_viewer(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-
     await require_project_role(
         db=db,
         user=user,
@@ -91,12 +79,10 @@ async def get_document_layout_for_viewer(
         allowed_roles=("viewer", "editor", "admin"),
     )
 
-
     ver_repo = DocumentVersionRepository(db)
     version = await ver_repo.get_latest(doc_id)
     if not version:
         raise HTTPException(status_code=404, detail="DocumentVersion not found")
-
 
     # ИЗМЕНЕНО: читаем layout по v2-контракту.
     # Приоритет:
@@ -104,16 +90,14 @@ async def get_document_layout_for_viewer(
     #   2) layout_primary_ref           — fallback, если PII ещё не выполнен.
     # Старые поля text_layout_sanitized_ref / text_layout_raw_ref — legacy,
     # у новых v2-документов они не заполняются.
-    layout_ref = (
-        getattr(version, "layout_primary_sanitized_ref", None)
-        or getattr(version, "layout_primary_ref", None)
+    layout_ref = getattr(version, "layout_primary_sanitized_ref", None) or getattr(
+        version, "layout_primary_ref", None
     )
     if not layout_ref:
         raise HTTPException(
             status_code=404,
             detail="Layout not available for this document",
         )
-
 
     store = ArtifactStore()
     try:
@@ -131,20 +115,16 @@ async def get_document_layout_for_viewer(
             detail="Layout temporarily unavailable",
         )
 
-
     elements = layout_json.get("elements") or []
     viewer_elements: list[ViewerLayoutElement] = []
-
 
     for el in elements:
         element_id = el.get("element_id")
         page = el.get("page")
         bbox = el.get("bbox")
 
-
         if not element_id or not isinstance(page, int) or not bbox:
             continue
-
 
         try:
             x0, top, x1, bottom = bbox
@@ -158,12 +138,10 @@ async def get_document_layout_for_viewer(
         except Exception:
             continue
 
-
     return ViewerLayoutResponse(
         document_id=str(doc_id),
         elements=viewer_elements,
     )
-
 
 
 @router.get(
@@ -186,7 +164,6 @@ async def get_document_structured_data(
             },
         )
 
-
     await require_project_role(
         db=db,
         user=user,
@@ -194,10 +171,8 @@ async def get_document_structured_data(
         allowed_roles=("viewer", "editor", "admin"),
     )
 
-
     ver_repo = DocumentVersionRepository(db)
     version = await ver_repo.get_latest(doc_id)
-
 
     if not version or not version.clause_tree_ref:
         raise HTTPException(
@@ -207,7 +182,6 @@ async def get_document_structured_data(
                 "message": "Structured data not available",
             },
         )
-
 
     store = ArtifactStore()
     try:
@@ -237,9 +211,7 @@ async def get_document_structured_data(
             },
         )
 
-
     return payload
-
 
 
 @router.get(
@@ -257,14 +229,12 @@ async def get_document_sized_chunks_for_viewer(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-
     await require_project_role(
         db=db,
         user=user,
         deal_id=doc.deal_id,
         allowed_roles=("viewer", "editor", "admin"),
     )
-
 
     service = DocumentContentService(session=db)
     try:
@@ -279,7 +249,6 @@ async def get_document_sized_chunks_for_viewer(
             detail="Sized chunks temporarily unavailable",
         )
 
-
     viewer_chunks: list[ViewerSizedChunkMeta] = []
     for ch in sized_chunks:
         ch_id = ch.get("id")
@@ -288,10 +257,8 @@ async def get_document_sized_chunks_for_viewer(
         clause_uid = meta.get("clause_uid")
         clause_uids = [str(clause_uid)] if clause_uid else []
 
-
         if not ch_id:
             continue
-
 
         viewer_chunks.append(
             ViewerSizedChunkMeta(
@@ -301,12 +268,10 @@ async def get_document_sized_chunks_for_viewer(
             )
         )
 
-
     return ViewerSizedChunksResponse(
         document_id=str(doc_id),
         chunks=viewer_chunks,
     )
-
 
 
 @router.get(
@@ -329,7 +294,6 @@ async def get_document_layouts_debug(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-
     await require_project_role(
         db=db,
         user=user,
@@ -337,34 +301,27 @@ async def get_document_layouts_debug(
         allowed_roles=("viewer", "editor", "admin"),
     )
 
-
     ver_repo = DocumentVersionRepository(db)
     version = await ver_repo.get_latest(doc_id)
     if not version:
         raise HTTPException(status_code=404, detail="DocumentVersion not found")
-
 
     # ИЗМЕНЕНО: оба рефа теперь берём по v2-контракту.
     # raw_ref   — layout до PII-фильтрации (layout_primary_ref).
     # sanitized_ref — layout после PII-фильтрации (layout_primary_sanitized_ref).
     # Старые поля text_layout_raw_ref / text_layout_sanitized_ref — legacy,
     # у новых v2-документов они не заполняются и здесь не используются.
-    raw_ref = (
-        getattr(version, "layout_primary_ref", None)
-        or getattr(version, "text_layout_raw_ref", None)
+    raw_ref = getattr(version, "layout_primary_ref", None) or getattr(
+        version, "text_layout_raw_ref", None
     )
-    sanitized_ref = (
-        getattr(version, "layout_primary_sanitized_ref", None)
-        or getattr(version, "text_layout_sanitized_ref", None)
+    sanitized_ref = getattr(version, "layout_primary_sanitized_ref", None) or getattr(
+        version, "text_layout_sanitized_ref", None
     )
-
 
     store = ArtifactStore()
 
-
     raw_layout: dict | None = None
     sanitized_layout: dict | None = None
-
 
     if include_raw and raw_ref:
         try:
@@ -379,7 +336,6 @@ async def get_document_layouts_debug(
                 },
             )
 
-
     if include_sanitized and sanitized_ref:
         try:
             sanitized_layout = store.get_json(sanitized_ref)
@@ -392,7 +348,6 @@ async def get_document_layouts_debug(
                     "error": str(e),
                 },
             )
-
 
     return DocumentLayoutsDebugResponse(
         document_id=str(doc_id),

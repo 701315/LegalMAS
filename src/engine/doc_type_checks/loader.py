@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import yaml
 from pydantic import ValidationError
@@ -81,7 +81,7 @@ class DocTypeCheckLoader:
     # ПУБЛИЧНЫЕ МЕТОДЫ
     # ──────────────────────────────────────────────────────────────
 
-    def load_checks_for_context(self, ctx: "CheckContext") -> list[CheckDefinition]:
+    def load_checks_for_context(self, ctx: CheckContext) -> list[CheckDefinition]:
         """
         Загрузить checks по контексту (document или segment).
 
@@ -343,22 +343,14 @@ class DocTypeCheckLoader:
         # Мягкий guard: предупреждаем, если rules-конфиг совсем пустой.
         has_flat_keywords = bool(flat_keywords)
         has_grouped_keywords = (
-            any(
-                isinstance(v, list) and len(v) > 0
-                for v in keyword_groups.values()
-            )
+            any(isinstance(v, list) and len(v) > 0 for v in keyword_groups.values())
             if keyword_groups
             else False
         )
         has_regex = bool(regex_patterns)
         has_clause = bool(rules_raw.get("clause_patterns"))
 
-        if (
-            not has_flat_keywords
-            and not has_grouped_keywords
-            and not has_regex
-            and not has_clause
-        ):
+        if not has_flat_keywords and not has_grouped_keywords and not has_regex and not has_clause:
             logger.warning(
                 "DocTypeCheckLoader: RulesConfig has no keywords, keyword_groups, "
                 "regex_patterns or clause_patterns — rules scoring will be skipped entirely. "
@@ -694,7 +686,3 @@ class DocTypeCheckLoader:
                 },
             )
             return None
-        
-        
-
-        

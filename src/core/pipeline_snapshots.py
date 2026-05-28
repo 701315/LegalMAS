@@ -28,14 +28,14 @@ Shared immutable pipeline snapshots.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
-from collections.abc import Iterable
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Internal normalization helpers
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _normalize_optional_str(value: Any) -> str | None:
     if value is None:
@@ -78,7 +78,7 @@ def _normalize_str_tuple(value: Any) -> tuple[str, ...]:
     - берём только строковые элементы;
     - tuple используется для immutability snapshot'а.
     """
-    if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
+    if isinstance(value, Iterable) and not isinstance(value, str | bytes):
         return tuple(item for item in value if isinstance(item, str))
     return ()
 
@@ -86,6 +86,7 @@ def _normalize_str_tuple(value: Any) -> tuple[str, ...]:
 # ──────────────────────────────────────────────────────────────────────────────
 # Run snapshot
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True, slots=True)
 class RunSnapshot:
@@ -99,6 +100,7 @@ class RunSnapshot:
 
     Не все поля обязательны для каждого caller'а.
     """
+
     id: uuid.UUID
     status: str
 
@@ -137,16 +139,12 @@ def snapshot_run(run: Any) -> RunSnapshot:
         id=run.id,
         status=str(getattr(run, "status", "") or ""),
         deal_id=getattr(run, "deal_id", None),
-        pipeline_strategy=_normalize_optional_str(
-            getattr(run, "pipeline_strategy", None)
-        ),
+        pipeline_strategy=_normalize_optional_str(getattr(run, "pipeline_strategy", None)),
         checks_mode=_normalize_optional_str(getattr(run, "checks_mode", None)),
         checks_scope=getattr(run, "checks_scope", None),
         playbook_version_id=getattr(run, "playbook_version_id", None),
         total_checks=_normalize_int(getattr(run, "total_checks", 0), default=0),
-        completed_checks=_normalize_int(
-            getattr(run, "completed_checks", 0), default=0
-        ),
+        completed_checks=_normalize_int(getattr(run, "completed_checks", 0), default=0),
         has_errors=_normalize_bool(getattr(run, "has_errors", False)),
     )
 
@@ -154,6 +152,7 @@ def snapshot_run(run: Any) -> RunSnapshot:
 # ──────────────────────────────────────────────────────────────────────────────
 # Document snapshot
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True, slots=True)
 class DocumentSnapshot:
@@ -165,6 +164,7 @@ class DocumentSnapshot:
     - language_discovery_orchestrator
     - checks execution stack
     """
+
     id: uuid.UUID
 
     status: str = ""
@@ -195,24 +195,17 @@ def snapshot_document(doc: Any) -> DocumentSnapshot:
         id=doc.id,
         status=str(getattr(doc, "status", "") or ""),
         doc_type=_normalize_optional_str(getattr(doc, "doc_type", None)),
-        classification_level=_normalize_optional_str(
-            getattr(doc, "classification_level", None)
-        ),
-        classification_confidence=_normalize_float(
-            getattr(doc, "classification_confidence", None)
-        ),
-        applicable_triggers=_normalize_str_tuple(
-            getattr(doc, "applicable_triggers", None)
-        ),
-        detected_languages=_normalize_str_tuple(
-            getattr(doc, "detected_languages", None)
-        ),
+        classification_level=_normalize_optional_str(getattr(doc, "classification_level", None)),
+        classification_confidence=_normalize_float(getattr(doc, "classification_confidence", None)),
+        applicable_triggers=_normalize_str_tuple(getattr(doc, "applicable_triggers", None)),
+        detected_languages=_normalize_str_tuple(getattr(doc, "detected_languages", None)),
     )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Version snapshot
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True, slots=True)
 class VersionSnapshot:
@@ -223,6 +216,7 @@ class VersionSnapshot:
     - run_orchestrator
     - language_discovery_orchestrator
     """
+
     id: uuid.UUID
 
     origin_filetype: str | None = None
@@ -256,26 +250,16 @@ def snapshot_version(version: Any) -> VersionSnapshot:
     """
     segments_count_raw = getattr(version, "segments_count", None)
     segments_count = (
-        _normalize_int(segments_count_raw, default=0)
-        if segments_count_raw is not None
-        else None
+        _normalize_int(segments_count_raw, default=0) if segments_count_raw is not None else None
     )
 
     return VersionSnapshot(
         id=version.id,
-        origin_filetype=_normalize_optional_lower_str(
-            getattr(version, "origin_filetype", None)
-        ),
+        origin_filetype=_normalize_optional_lower_str(getattr(version, "origin_filetype", None)),
         original_ref=_normalize_optional_str(getattr(version, "original_ref", None)),
-        converted_pdf_ref=_normalize_optional_str(
-            getattr(version, "converted_pdf_ref", None)
-        ),
-        primary_source_ref=_normalize_optional_str(
-            getattr(version, "primary_source_ref", None)
-        ),
-        layout_primary_ref=_normalize_optional_str(
-            getattr(version, "layout_primary_ref", None)
-        ),
+        converted_pdf_ref=_normalize_optional_str(getattr(version, "converted_pdf_ref", None)),
+        primary_source_ref=_normalize_optional_str(getattr(version, "primary_source_ref", None)),
+        layout_primary_ref=_normalize_optional_str(getattr(version, "layout_primary_ref", None)),
         layout_primary_sanitized_ref=_normalize_optional_str(
             getattr(version, "layout_primary_sanitized_ref", None)
         ),
@@ -292,5 +276,3 @@ def snapshot_version(version: Any) -> VersionSnapshot:
         ),
         ocr_confidence=_normalize_float(getattr(version, "ocr_confidence", None)),
     )
-
-

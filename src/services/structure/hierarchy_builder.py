@@ -6,12 +6,11 @@
 """
 
 from __future__ import annotations
-from typing import Any, Callable
 
-from ._hierarchy_builder._types import HeadingCandidate
 from ._hierarchy_builder._core import build_clause_hierarchy
 from ._hierarchy_builder._traversal import populate_subtree_element_ids
-from ._hierarchy_builder._utils import level_from_uid, find_parent_raw_uid_within_scope
+from ._hierarchy_builder._types import HeadingCandidate
+from ._hierarchy_builder._utils import find_parent_raw_uid_within_scope, level_from_uid
 
 __all__ = [
     "HeadingCandidate",
@@ -20,6 +19,3 @@ __all__ = [
     "level_from_uid",
     "find_parent_raw_uid_within_scope",
 ]
-        
-        
-        

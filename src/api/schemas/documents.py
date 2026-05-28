@@ -60,9 +60,9 @@ Pydantic‑схемы для документов и связанных сущн
   «просмотренного юристом».
 """
 
-from uuid import UUID
 from datetime import datetime
-from typing import Optional, List, Literal
+from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -83,12 +83,13 @@ class ClassificationMetadata(BaseModel):
     По сути, doc_type + applicable_triggers образуют «профиль документа»
     для UI: тип договора и связанные с ним сценарии/триггеры.
     """
+
     doc_type: str
-    classification_level: str          # "L0", "L1", "L2", "L3", "L4", "L_manual"
+    classification_level: str  # "L0", "L1", "L2", "L3", "L4", "L_manual"
     classification_confidence: float
     applicable_triggers: list[str] = Field(default_factory=list)
-    yaml_instruction_available: bool   # True, если есть playbooks/document_types/{doc_type}.yaml
-    low_confidence: bool               # True, если confidence < 0.6
+    yaml_instruction_available: bool  # True, если есть playbooks/document_types/{doc_type}.yaml
+    low_confidence: bool  # True, если confidence < 0.6
 
 
 class DocumentCompositionSummary(BaseModel):
@@ -123,6 +124,7 @@ class DocumentCompositionSummary(BaseModel):
     - is_composite_file:
         True, если файл содержит несколько логических документов (segment_count >= 2).
     """
+
     composition_type: Literal["single", "multi"]
     segment_count: int
     primary_segment_id: str | None = None
@@ -153,6 +155,7 @@ class DocumentResponse(BaseModel):
     - composition — краткое описание того, содержит ли файл один или несколько
       логических документов (сегментов) и как называется основной сегмент.
     """
+
     id: UUID
     deal_id: UUID
     filename: str
@@ -168,7 +171,7 @@ class DocumentResponse(BaseModel):
 
     classification_level: str | None = None
     classification_confidence: float | None = None
-    applicable_triggers: List[str] = Field(default_factory=list)
+    applicable_triggers: list[str] = Field(default_factory=list)
 
     # Флаг «нужна ручная проверка» по результатам классификации.
     # True, если HybridClassifier определил зону low-confidence или unknown.
@@ -196,14 +199,15 @@ class DocumentVersionResponse(BaseModel):
     - показать, где лежит исходник и результаты пайплайна;
     - диагностировать проблемы (например, отсутствует text_layout_raw_ref).
     """
+
     id: UUID
     document_id: UUID
     version_num: int
     original_ref: str | None
     text_layout_raw_ref: str | None
     text_layout_sanitized_ref: str | None
-    layout_primary_ref: str | None = None              # добавить
-    layout_primary_sanitized_ref: str | None = None    # добавить ← ключевое
+    layout_primary_ref: str | None = None  # добавить
+    layout_primary_sanitized_ref: str | None = None  # добавить ← ключевое
     clause_tree_ref: str | None
     extraction_strategy: str | None
     ocr_confidence: float | None
@@ -225,6 +229,7 @@ class DocumentDetailResponse(BaseModel):
     - метаданные классификации (ClassificationMetadata);
     - family_id — идентификатор семьи документов (если реализовано).
     """
+
     document: DocumentResponse
     latest_version: DocumentVersionResponse | None
     family_id: UUID | None = None
@@ -245,6 +250,7 @@ class ReclassifyRequest(BaseModel):
     - rerun_checks — [DEPRECATED] раньше ставил задачи на per-document checks
       через legacy Runner; сейчас не используется и игнорируется.
     """
+
     doc_type: str
     reason: str
     # [DEPRECATED] не влияет на поведение бэкенда, игнорируется
@@ -260,6 +266,7 @@ class ReclassifyResponse(BaseModel):
     - показа нового профиля документа (doc_type + applicable_triggers);
     - индикации, были ли перезапущены проверки.
     """
+
     document_id: UUID
     previous_doc_type: str | None
     new_doc_type: str
@@ -282,6 +289,7 @@ class ReclassifyBatchRequest(BaseModel):
     - rerun_checks больше не используется, поле оставлено
       только для обратной совместимости.
     """
+
     document_ids: list[UUID] = Field(default_factory=list)
     doc_type: str
     reason: str
@@ -297,6 +305,7 @@ class RelationResponse(BaseModel):
     - отображения связей между договором и приложениями;
     - показа уверенности и краткого текста‑доказательства.
     """
+
     id: UUID
     source_doc_id: UUID
     target_doc_id: UUID
@@ -318,6 +327,7 @@ class FamilyResponse(BaseModel):
 
     Используется в UI для показа связанной группы документов в одном блоке.
     """
+
     family_id: UUID
     master_document: DocumentResponse
     related_documents: list[DocumentResponse] = Field(default_factory=list)
@@ -337,6 +347,7 @@ class DocumentReviewedUpdateRequest(BaseModel):
     Обычно этот запрос отправляется при клике «Отметить как проверенный»
     в карточке документа или в таблице.
     """
+
     reviewed_by_person: bool
 
 
@@ -345,10 +356,10 @@ class ExtractedValue(BaseModel):
 
     check_id: str
     check_name: str
-    field_name: str       # e.g. "purchase_price", "effective_date"
-    field_value: str      # e.g. "10 000 000 EUR", "01.01.2025"
-    field_format: str     # e.g. "money_or_not_found", "date", "entity_name"
-    page: Optional[int] = None
+    field_name: str  # e.g. "purchase_price", "effective_date"
+    field_value: str  # e.g. "10 000 000 EUR", "01.01.2025"
+    field_format: str  # e.g. "money_or_not_found", "date", "entity_name"
+    page: int | None = None
     clause_uid: str = ""
 
 
@@ -361,8 +372,6 @@ class DocumentExtractedValuesResponse(BaseModel):
 
     document_id: str
     filename: str
-    doc_type: Optional[str] = None
-    extracted_values: List[ExtractedValue]
+    doc_type: str | None = None
+    extracted_values: list[ExtractedValue]
     total_extracted: int
-    
-    

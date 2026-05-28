@@ -12,15 +12,15 @@ from __future__ import annotations
 
 from core.logging import get_logger
 from services.structure.models import (
-    SegmentDocument,
     SEGMENT_CONFIDENCE_HIGH,
     SEGMENT_TYPE_CONTRACT,
+    SegmentDocument,
     make_segment_id,
 )
 from services.structure.segmenter import segment_elements
 
-from ._utils import pages_for_elements
 from ._element_validation import segment_slice_is_valid
+from ._utils import pages_for_elements
 
 logger = get_logger(__name__)
 
@@ -93,10 +93,7 @@ def segment_document(
             elements=elements,
         )
 
-    valid_segments = [
-        seg for seg in segments
-        if segment_slice_is_valid(seg, len(elements))
-    ]
+    valid_segments = [seg for seg in segments if segment_slice_is_valid(seg, len(elements))]
 
     if len(valid_segments) != len(segments):
         logger.warning(
@@ -113,4 +110,3 @@ def segment_document(
         seg.document_version_id = document_version_id
 
     return valid_segments
-

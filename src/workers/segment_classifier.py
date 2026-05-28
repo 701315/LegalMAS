@@ -265,7 +265,9 @@ async def _classify_document_segments_async(
 
             document_version_id = str(version.id)
             deal_id = str(doc.deal_id) if getattr(doc, "deal_id", None) else None
-            tenant_id = str(getattr(doc, "tenant_id", None)) if getattr(doc, "tenant_id", None) else None
+            tenant_id = (
+                str(getattr(doc, "tenant_id", None)) if getattr(doc, "tenant_id", None) else None
+            )
 
             segments = await seg_repo.list_by_version(version.id)
             total_segments = len(segments)
@@ -549,6 +551,3 @@ async def _get_segment_text(
         "DocumentContentService.get_segment_text(...) is not implemented yet. "
         "Add segment-aware text extraction before enabling segment worker."
     )
-
-
-

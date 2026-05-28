@@ -22,10 +22,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
+
 
 class LegalUnitType(str, Enum):
     """
@@ -48,6 +48,7 @@ class LegalUnitType(str, Enum):
     - GENERAL_PROVISION:   общая норма без специфической функции
     - UNKNOWN:             тип не определён
     """
+
     DEFINITION = "definition"
     OBLIGATION = "obligation"
     WARRANTY = "warranty"
@@ -80,6 +81,7 @@ class ClauseFunction(str, Enum):
     - BOILERPLATE:      стандартная норма (подсудность, право, реквизиты)
     - UNKNOWN:          функция не определена
     """
+
     RIGHTS = "rights"
     OBLIGATIONS = "obligations"
     LIMITATIONS = "limitations"
@@ -94,6 +96,7 @@ class ClauseFunction(str, Enum):
 # ---------------------------------------------------------------------------
 # CitabilityMetrics
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class CitabilityMetrics:
@@ -118,6 +121,7 @@ class CitabilityMetrics:
     - "medium" = score >= 0.4
     - "low"    = score < 0.4
     """
+
     citability_score: float = 0.0
     citability_band: str = "low"
     has_own_text: bool = False
@@ -142,6 +146,7 @@ class CitabilityMetrics:
 # CrossRefStub
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CrossRefStub:
     """
@@ -159,6 +164,7 @@ class CrossRefStub:
     resolved:         True если target_unit_id уже заполнен
     target_unit_id:   effective_uid целевого LegalUnit (None если ещё не резолвлен)
     """
+
     source_unit_id: str
     raw_ref_text: str
     ref_type: str = "clause_ref"
@@ -180,6 +186,7 @@ class CrossRefStub:
 # ---------------------------------------------------------------------------
 # LegalUnit
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class LegalUnit:
@@ -222,7 +229,7 @@ class LegalUnit:
     """
 
     # ── Anchor ────────────────────────────────────────────────────────────────
-    unit_id: str                    # = effective_uid ClauseNode
+    unit_id: str  # = effective_uid ClauseNode
     raw_uid: str
     scope: str
     title: str
@@ -292,6 +299,7 @@ class LegalUnit:
 # LegalUnitsSnapshot — артефакт legal_units_v1.json
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class LegalUnitsSnapshot:
     """
@@ -305,6 +313,7 @@ class LegalUnitsSnapshot:
       сколько unit-ов построено, сколько из них с известным типом,
       какой segment_id и т.д.
     """
+
     document_id: str
     document_version_id: str
     segment_id: str
@@ -322,10 +331,7 @@ class LegalUnitsSnapshot:
     build_warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        units_with_known = sum(
-            1 for u in self.units
-            if u.unit_type != LegalUnitType.UNKNOWN
-        )
+        units_with_known = sum(1 for u in self.units if u.unit_type != LegalUnitType.UNKNOWN)
         return {
             "schema_version": self.schema_version,
             "document_id": self.document_id,
@@ -346,5 +352,3 @@ class LegalUnitsSnapshot:
             },
             "units": [u.to_dict() for u in self.units],
         }
-    
-

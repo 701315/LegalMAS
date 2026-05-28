@@ -3,7 +3,9 @@
 """Обход дерева и агрегация текстовых свойств."""
 
 from __future__ import annotations
-from typing import Generator
+
+from collections.abc import Generator
+
 from core.logging import get_logger
 from services.structure._models._nodes import ClauseNode
 
@@ -11,11 +13,13 @@ logger = get_logger(__name__)
 
 _SUSPICIOUS_OWN_SHARE_RATIO = 0.8
 
+
 def _walk_postorder(node: ClauseNode) -> Generator[ClauseNode, None, None]:
     """Bottom-up обход дерева."""
     for child in node.children:
         yield from _walk_postorder(child)
     yield node
+
 
 def populate_subtree_element_ids(
     root_nodes: list[ClauseNode],
@@ -23,7 +27,6 @@ def populate_subtree_element_ids(
     document_id: str,
 ) -> None:
     """Агрегация subtree_element_ids и текстов снизу вверх."""
-    doc_id = str(document_id or "").strip()
     if not root_nodes:
         return
 
@@ -33,7 +36,9 @@ def populate_subtree_element_ids(
 
             if node.citability_hint is None:
                 is_semantic_negative = node.semantic_node_type in {
-                    "definition_item", "signature_block", "body_text"
+                    "definition_item",
+                    "signature_block",
+                    "body_text",
                 }
                 has_own_text = bool(node.own_text and node.own_text.strip())
                 has_children = bool(node.children)
@@ -65,7 +70,7 @@ def populate_subtree_element_ids(
             own_count = len(node.own_element_ids or [])
             subtree_count = len(node.subtree_element_ids or [])
             node.diagnostics["suspicious_own_scope"] = bool(
-                node.children and subtree_count > 0 and 
-                own_count >= _SUSPICIOUS_OWN_SHARE_RATIO * subtree_count
+                node.children
+                and subtree_count > 0
+                and own_count >= _SUSPICIOUS_OWN_SHARE_RATIO * subtree_count
             )
-

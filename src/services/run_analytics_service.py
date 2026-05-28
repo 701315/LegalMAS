@@ -19,16 +19,15 @@
 в api.endpoints.runs для отдачи отчёта по качеству классификации Run.
 """
 
-
 import uuid
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.repositories.run_repo import RunRepository
+from api.schemas.runs import ClassificationReportResponse, ClassificationStats
 from db.models.document import Document
-from api.schemas.runs import ClassificationStats, ClassificationReportResponse
+from db.repositories.run_repo import RunRepository
 
 
 class RunNotFoundError(Exception):

@@ -24,24 +24,24 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
 from core.pipeline_snapshots import DocumentSnapshot, snapshot_document
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_segment_repo import DocumentSegmentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.run_repo import RunRepository
 from db.repositories.runner_repo import RunnerRepository
 from db.uow import db_uow
-from db.repositories.document_version_repo import DocumentVersionRepository
-from db.repositories.document_segment_repo import DocumentSegmentRepository
-from db.repositories.document_repo import DocumentRepository
 from engine.checks.executor import CheckExecutor
 from engine.checks.planning.chunks import ChunksPreparer
+from engine.checks.planning.context import CheckContext, SegmentInfo
 from engine.checks.planning.planner import CheckPlanner
 from engine.checks.planning.scope import ScopeResolver
 from engine.checks.result_saver import save_check_result, save_not_applicable_result
-from engine.checks.planning.context import SegmentInfo, CheckContext
 
 logger = get_logger(__name__)
 
@@ -50,6 +50,7 @@ MAX_ERRORS_PER_RUN = 50
 
 
 # ─── Document snapshot helper ────────────────────────────────────────────────
+
 
 def _snapshot_check_doc(doc: Any) -> DocumentSnapshot:
     """
@@ -76,7 +77,7 @@ class CheckRunner:
         llm_client=None,
         playbook_version_id: uuid.UUID | None = None,
         checks_mode: str = "global_and_doc_type",
-        run_repo: Optional[RunRepository] = None,
+        run_repo: RunRepository | None = None,
         checks_scope: dict[str, Any] | None = None,
     ) -> None:
         self.llm_client = llm_client
@@ -137,9 +138,7 @@ class CheckRunner:
         async with db_uow() as uow_for_docs:
             runner_repo = RunnerRepository(uow_for_docs.session)
             docs = await runner_repo.get_non_duplicate_docs(deal_id)
-            doc_snaps: list[DocumentSnapshot] = [
-                _snapshot_check_doc(doc) for doc in docs
-            ]
+            doc_snaps: list[DocumentSnapshot] = [_snapshot_check_doc(doc) for doc in docs]
 
         if not doc_snaps:
             logger.info(
@@ -338,7 +337,7 @@ class CheckRunner:
         doc_snap: DocumentSnapshot,
         run_id: uuid.UUID,
         playbook,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """
         Выполнить все релевантные checks для одного документа.
 
@@ -485,9 +484,7 @@ class CheckRunner:
 
             for segment in segments:
                 segment_doc_type = getattr(segment, "segment_doc_type", None)
-                segment_triggers = (
-                    getattr(segment, "segment_applicable_triggers", None) or []
-                )
+                segment_triggers = getattr(segment, "segment_applicable_triggers", None) or []
 
                 if not segment_doc_type:
                     logger.info(
@@ -590,11 +587,7 @@ class CheckRunner:
             effective_doc_type = (
                 ctx.segment_doc_type if ctx.scope == "segment" else ctx.document_type
             )
-            available_triggers = {
-                str(t).strip()
-                for t in (ctx.triggers or ())
-                if str(t).strip()
-            }
+            available_triggers = {str(t).strip() for t in (ctx.triggers or ()) if str(t).strip()}
 
             for check in checks or []:
                 if check is None:
@@ -635,9 +628,7 @@ class CheckRunner:
                     extra={
                         "document_id": str(ctx.document_id),
                         "document_version_id": (
-                            str(ctx.document_version_id)
-                            if ctx.document_version_id
-                            else None
+                            str(ctx.document_version_id) if ctx.document_version_id else None
                         ),
                         "scope": ctx.scope,
                         "segment_id": ctx.segment_id,
@@ -652,8 +643,3 @@ class CheckRunner:
                 )
         except Exception:
             pass
-
-
-        
-
-        

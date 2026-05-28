@@ -7,43 +7,42 @@
 экспортировать основные схемы, которые нужны в нескольких модулях.
 """
 
+from .admin import YamlInstructionDTO
+from .deal_review import (
+    CheckItemDTO,
+    ConditionalCheckDTO,
+    DDRequestDTO,
+    DocumentDetailDTO,
+    DocumentSummaryDTO,
+    ExtractedValueDTO,
+)
 from .documents import (
     ClassificationMetadata,
+    DocumentDetailResponse,
     DocumentResponse,
     DocumentVersionResponse,
-    DocumentDetailResponse,
+    FamilyResponse,
+    ReclassifyBatchRequest,
     ReclassifyRequest,
     ReclassifyResponse,
-    ReclassifyBatchRequest,
-    FamilyResponse,
     RelationResponse,
 )
-from .runs import (
-    RunCreate,
-    RunResponse,
-    ClassificationStats,
-    ClassificationReportResponse,
+from .requests import (
+    DDRequestCreate,
+    DDRequestResponse,
+    DDRequestUpdate,
 )
 from .results import (
     CheckResultResponse,
     EvidenceResponse,
     StructuredDataResponse,
 )
-from .requests import (
-    DDRequestCreate,
-    DDRequestUpdate,
-    DDRequestResponse,
+from .runs import (
+    ClassificationReportResponse,
+    ClassificationStats,
+    RunCreate,
+    RunResponse,
 )
-from .deal_review import (
-    DocumentSummaryDTO,
-    DocumentDetailDTO,
-    CheckItemDTO,
-    DDRequestDTO,
-    ConditionalCheckDTO,
-    ExtractedValueDTO,
-)
-
-from .admin import YamlInstructionDTO
 
 __all__ = [
     # documents

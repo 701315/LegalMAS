@@ -114,11 +114,7 @@ class TOCGuardVerdict:
         self.toc_reliability = max(0.0, min(1.0, _safe_float(self.toc_reliability)))
         self.suppress_body_elements = bool(self.suppress_body_elements)
         self.preserve_body_candidates = bool(self.preserve_body_candidates)
-        self.reasons = [
-            str(x).strip()
-            for x in (self.reasons or [])
-            if str(x).strip()
-        ]
+        self.reasons = [str(x).strip() for x in (self.reasons or []) if str(x).strip()]
         self.false_positive_indexes = _norm_index_set(self.false_positive_indexes)
         self.recoverable_indexes = _norm_index_set(self.recoverable_indexes)
         self.diagnostics = dict(self.diagnostics or {})
@@ -190,10 +186,25 @@ def _looks_substantive(text: str) -> bool:
 
     # Юридические маркеры, типичные для тела договора
     markers = (
-        "обяз", "долж", "вправе", "обязан", "гарант", "ответствен",
-        "убыт", "неустой", "расторжен", "оплат", "цена", "расчет",
-        "передач", "товар", "имуще", "продав", "покупат",
-        "стороны договорились", "настоящ",
+        "обяз",
+        "долж",
+        "вправе",
+        "обязан",
+        "гарант",
+        "ответствен",
+        "убыт",
+        "неустой",
+        "расторжен",
+        "оплат",
+        "цена",
+        "расчет",
+        "передач",
+        "товар",
+        "имуще",
+        "продав",
+        "покупат",
+        "стороны договорились",
+        "настоящ",
     )
     if any(marker in lower for marker in markers):
         return True
@@ -344,7 +355,8 @@ def evaluate_toc_guard(
     # Это более стабильная метрика: один длинный multiline entry
     # не должен перевешивать всё просто потому что у него много source indexes.
     fp_entries_count = sum(
-        1 for entry in entries
+        1
+        for entry in entries
         if _looks_substantive(_entry_text(entry)) or _looks_definition_like(_entry_text(entry))
     )
     total_entries = len(entries)
@@ -420,4 +432,3 @@ def evaluate_toc_guard(
         extra={"document_id": doc_id, **verdict.to_dict()},
     )
     return verdict
-

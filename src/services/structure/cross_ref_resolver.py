@@ -35,6 +35,7 @@ logger = get_logger(__name__)
 # Вспомогательные типы
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ResolveResult:
     """
@@ -46,6 +47,7 @@ class ResolveResult:
                     "scope_match" / "title_match" / "unresolved")
     confidence:     уверенность в резолвинге [0.0..1.0]
     """
+
     resolved: bool
     target_unit_id: str | None
     resolve_method: str
@@ -62,6 +64,7 @@ class CrossRefResolveReport:
     unresolved_count: сколько не удалось
     by_type:          разбивка по ref_type
     """
+
     total_stubs: int
     resolved_count: int
     unresolved_count: int
@@ -72,9 +75,7 @@ class CrossRefResolveReport:
             "total_stubs": self.total_stubs,
             "resolved_count": self.resolved_count,
             "unresolved_count": self.unresolved_count,
-            "resolve_rate": round(
-                self.resolved_count / max(self.total_stubs, 1), 3
-            ),
+            "resolve_rate": round(self.resolved_count / max(self.total_stubs, 1), 3),
             "by_type": self.by_type,
         }
 
@@ -82,6 +83,7 @@ class CrossRefResolveReport:
 # ---------------------------------------------------------------------------
 # CrossRefResolver
 # ---------------------------------------------------------------------------
+
 
 class CrossRefResolver:
     """
@@ -233,7 +235,7 @@ class CrossRefResolver:
                 continue
             if unit.title:
                 # Нормализуем
-                normalized = unit.title.lower().strip().strip('"\'')
+                normalized = unit.title.lower().strip().strip("\"'")
                 # Также удаляем uid prefix если есть ("1.1 Definitions")
                 normalized = re.sub(r"^\d+(?:\.\d+)*\s+", "", normalized).strip()
                 if normalized:
@@ -378,9 +380,12 @@ class CrossRefResolver:
 
         # Title match — ищем в title_index по appendix + hint
         appendix_pattern = re.compile(
-            r"appendix\s*" + re.escape(hint_lower) +
-            r"|annex\s*" + re.escape(hint_lower) +
-            r"|приложение\s*" + re.escape(hint_lower),
+            r"appendix\s*"
+            + re.escape(hint_lower)
+            + r"|annex\s*"
+            + re.escape(hint_lower)
+            + r"|приложение\s*"
+            + re.escape(hint_lower),
             re.IGNORECASE,
         )
         for title_key, unit_id in title_index.items():
@@ -419,7 +424,7 @@ class CrossRefResolver:
                 confidence=0.0,
             )
 
-        hint_normalized = hint.lower().strip().strip('"\'')
+        hint_normalized = hint.lower().strip().strip("\"'")
 
         # Exact match
         target = definition_index.get(hint_normalized)
@@ -448,5 +453,3 @@ class CrossRefResolver:
             resolve_method="unresolved",
             confidence=0.0,
         )
-    
-

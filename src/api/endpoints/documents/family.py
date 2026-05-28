@@ -46,9 +46,7 @@ async def _get_family_for_document(
         return family
 
     stmt_member = (
-        select(DocumentFamilyMember.family_id)
-        .where(DocumentFamilyMember.doc_id == doc_id)
-        .limit(1)
+        select(DocumentFamilyMember.family_id).where(DocumentFamilyMember.doc_id == doc_id).limit(1)
     )
     result_member = await db.execute(stmt_member)
     family_id = result_member.scalar_one_or_none()
@@ -113,8 +111,7 @@ async def get_document_family(
 
     member_doc_ids = [member.doc_id for member in family.members]
     related_doc_ids = [
-        member_id for member_id in member_doc_ids
-        if member_id != family.master_doc_id
+        member_id for member_id in member_doc_ids if member_id != family.master_doc_id
     ]
 
     related_docs: list[Document] = []
@@ -129,4 +126,3 @@ async def get_document_family(
         related_documents=[map_document_to_response(d) for d in related_docs],
         relations=[],
     )
-

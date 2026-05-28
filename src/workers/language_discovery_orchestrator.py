@@ -340,9 +340,7 @@ async def _start_language_discovery_async(
 
     deal = await deal_repo.get_by_id(deal_uuid)
     if not deal:
-        raise PermanentError(
-            f"Deal {deal_id} not found for language discovery orchestration"
-        )
+        raise PermanentError(f"Deal {deal_id} not found for language discovery orchestration")
     # deal ORM-объект больше не используется после этой точки
 
     await _write_deal_audit(
@@ -356,9 +354,7 @@ async def _start_language_discovery_async(
             "requested_document_ids": (
                 [str(x) for x in requested_doc_ids] if requested_doc_ids else []
             ),
-            "documents_requested_count": len(requested_doc_ids)
-            if requested_doc_ids
-            else None,
+            "documents_requested_count": len(requested_doc_ids) if requested_doc_ids else None,
             "source": "language_discovery_orchestrator",
         },
     )
@@ -410,12 +406,8 @@ async def _start_language_discovery_async(
                     "documents_total": result["documents_total"],
                     "documents_enqueued": result["documents_enqueued"],
                     "documents_skipped": result["documents_skipped"],
-                    "documents_skipped_as_duplicate": result[
-                        "documents_skipped_as_duplicate"
-                    ],
-                    "documents_failed_pre_dispatch": result[
-                        "documents_failed_pre_dispatch"
-                    ],
+                    "documents_skipped_as_duplicate": result["documents_skipped_as_duplicate"],
+                    "documents_failed_pre_dispatch": result["documents_failed_pre_dispatch"],
                     "detected_languages": result["languages"],
                     "language_discovery_status": result["status"],
                     "source": "language_discovery_orchestrator",
@@ -443,8 +435,7 @@ async def _start_language_discovery_async(
         # VersionSnapshot содержит все нужные поля для routing:
         # origin_filetype, pipeline_strategy, extraction_strategy, ocr_confidence.
         version_snaps: dict[uuid.UUID, VersionSnapshot] = {
-            doc_id: snapshot_version(ver)
-            for doc_id, ver in latest_versions_orm.items()
+            doc_id: snapshot_version(ver) for doc_id, ver in latest_versions_orm.items()
         }
 
         # ── DECISION + WRITE: per-document loop ──────────────────────────────
@@ -477,9 +468,7 @@ async def _start_language_discovery_async(
             # detected_languages берём из DocumentSnapshot.
             # tuple → list для совместимости с API repo-метода.
             preserve_languages: list[str] | None = (
-                list(doc_snap.detected_languages)
-                if doc_snap.detected_languages
-                else None
+                list(doc_snap.detected_languages) if doc_snap.detected_languages else None
             )
 
             claimed_doc = await doc_repo.try_mark_language_discovery_pending(
@@ -590,12 +579,8 @@ async def _start_language_discovery_async(
                 "documents_total": result["documents_total"],
                 "documents_enqueued": result["documents_enqueued"],
                 "documents_skipped": result["documents_skipped"],
-                "documents_skipped_as_duplicate": result[
-                    "documents_skipped_as_duplicate"
-                ],
-                "documents_failed_pre_dispatch": result[
-                    "documents_failed_pre_dispatch"
-                ],
+                "documents_skipped_as_duplicate": result["documents_skipped_as_duplicate"],
+                "documents_failed_pre_dispatch": result["documents_failed_pre_dispatch"],
                 "detected_languages": result["languages"],
                 "language_discovery_status": result["status"],
                 "source": "language_discovery_orchestrator",
@@ -628,5 +613,3 @@ async def _start_language_discovery_async(
             },
         )
         raise
-
-    
