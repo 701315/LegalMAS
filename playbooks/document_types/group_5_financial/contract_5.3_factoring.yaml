@@ -290,35 +290,13 @@ classification_runtime_v1:
           context: any
           description: "Финансовый агент как фактор по ст. 825 ГК РФ"
 
-        - pattern: "(?i)фактор[а-я]*"
-          weight: 0.9
-          distinctiveness: high
-          context: any
-          description: "Фактор как сторона договора факторинга"
-
         - pattern: "(?i)уступк[аеи]\\s+денежн[огоой\\s]*требован[ияи]"
           weight: 0.9
           distinctiveness: high
           context: any
           description: "Уступка денежного требования в пользу фактора"
 
-        - pattern: "(?i)дебиторск[аяое]\\s+задолженн[остьости]"
-          weight: 0.85
-          distinctiveness: medium
-          context: any
-          description: "Дебиторская задолженность как объект финансирования"
 
-        - pattern: "(?i)клиент[а-я]*"
-          weight: 0.8
-          distinctiveness: medium
-          context: any
-          description: "Клиент (поставщик) как сторона договора факторинга"
-
-        - pattern: "(?i)должник[ауы]"
-          weight: 0.8
-          distinctiveness: medium
-          context: any
-          description: "Должник по уступаемому требованию"
 
       medium:
         - pattern: "(?i)\\bрегресс\\b"
@@ -411,6 +389,24 @@ classification_runtime_v1:
           distinctiveness: low
           context: any
           description: "Зачёт взаимных требований, возможный в структуре факторинговых расчётов"
+
+        - pattern: "(?i)дебиторск[аяое]\\s+задолженн[остьости]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Дебиторская задолженность как объект финансирования"
+
+        - pattern: "(?i)клиент[а-я]*"
+          weight: 0.15
+          distinctiveness: low
+          context: any
+          description: "Клиент (поставщик) как сторона договора факторинга"
+
+        - pattern: "(?i)должник[ауы]"
+          weight: 0.15
+          distinctiveness: low
+          context: any
+          description: "Должник по уступаемому требованию"
 
     exclusions:
       - pattern: "(?i)договор\\s+цесси[ии]"

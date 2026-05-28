@@ -1,0 +1,329 @@
+# src/services/structure/element_classifier/_classify_single.py
+
+# src/services/structure/element_classifier/_classify_single.py
+"""Ядро классификации одного элемента документа.
+
+Содержит основную логику _classify_single_element с иерархией проверок.
+"""
+
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING
+
+from ._config import TOC_SCORE_STRONG, TOC_SCORE_WEAK
+from ._detectors import (
+    _heading_candidate_confidence,
+    _is_toc_header,
+    _looks_like_list_item,
+    _looks_like_page_artifact,
+    _looks_like_requisites_block,
+    _looks_like_signature_block,
+    _looks_like_table_content,
+    _looks_like_toc_false_positive,
+    _looks_like_unknown_layout,
+    _toc_line_score,
+)
+from ._page_stats import _relative_page_position
+from ._text_utils import _normalize_text, _safe_int
+from ._toc_context import _TocContext
+
+if TYPE_CHECKING:
+    from ._classify_reason import ClassificationResult
+
+
+# Константы типов элементов (локальные для этого модуля)
+ELEMENT_TYPE_HEADING_CANDIDATE = "heading_candidate"
+ELEMENT_TYPE_BODY_TEXT = "body_text"
+ELEMENT_TYPE_TABLE_CONTENT = "table_content"
+ELEMENT_TYPE_REQUISITES_BLOCK = "requisites_block"
+ELEMENT_TYPE_SIGNATURE_BLOCK = "signature_block"
+ELEMENT_TYPE_TOC_HEADER = "toc_header"
+ELEMENT_TYPE_TOC_LINE = "toc_line"
+ELEMENT_TYPE_POSSIBLE_TOC = "possible_toc"
+ELEMENT_TYPE_TOC_FALSE_POSITIVE = "toc_false_positive"
+ELEMENT_TYPE_LIST_ITEM = "list_item"
+ELEMENT_TYPE_PAGE_ARTIFACT = "page_artifact"
+ELEMENT_TYPE_UNKNOWN_LAYOUT = "unknown_layout"
+
+
+def _classify_single_element(
+    *,
+    element: dict[str, Any],
+    index: int,
+    elements: list[dict[str, Any]],
+    page_stats: dict[int, dict[str, float]],
+    toc_ctx: _TocContext,
+):
+    """Классифицирует один элемент.
+
+    Args:
+        element: Элемент для классификации
+        index: Индекс элемента в списке
+        elements: Полный список элементов (для доступа к соседям)
+        page_stats: Статистика по страницам
+        toc_ctx: TOC-контекст
+
+    Returns:
+        ClassificationResult с типом и уверенностью
+    """
+    # Импорт внутри функции для избежания циклических зависимостей
+    from ._classify_reason import ClassificationReason, ClassificationResult
+
+    text = _normalize_text(str(element.get("text") or ""))
+    raw_type = str(element.get("type") or "").strip().lower() or None
+    top_ratio, bottom_ratio = _relative_page_position(element, page_stats)
+    page = _safe_int(element.get("page"), default=1)
+
+    # 1. Пустой текст
+    if not text:
+        return ClassificationResult(
+            element_type=ELEMENT_TYPE_UNKNOWN_LAYOUT,
+            confidence=0.55,
+            reasons=[ClassificationReason(
+                "empty_text", 0.55, "Empty or whitespace-only text"
+            )],
+            raw_type=raw_type,
+        )
+
+    reasons: list[ClassificationReason] = []
+
+    # 2. Page artifact
+    if _looks_like_page_artifact(text=text, top_ratio=top_ratio, bottom_ratio=bottom_ratio):
+        reasons.append(ClassificationReason(
+            "page_artifact_pattern",
+            0.97,
+            "Looks like page number/header/footer artifact near page edge",
+        ))
+        return ClassificationResult(
+            element_type=ELEMENT_TYPE_PAGE_ARTIFACT,
+            confidence=0.97,
+            reasons=reasons,
+            raw_type=raw_type,
+        )
+
+    # 3. TOC header
+    if _is_toc_header(text):
+        toc_ctx.header_seen = True
+        toc_ctx.header_page = page
+        reasons.append(ClassificationReason(
+            "toc_header", 0.98, "Explicit TOC header detected"
+        ))
+        return ClassificationResult(
+            element_type=ELEMENT_TYPE_TOC_HEADER,
+            confidence=0.98,
+            reasons=reasons,
+            raw_type=raw_type,
+        )
+
+    # 4. TOC line scoring с contextual boost
+    toc_score, toc_score_reasons = _toc_line_score(text)
+
+    prev_text = (
+        _normalize_text(str(elements[index - 1].get("text") or ""))
+        if index > 0 else ""
+    )
+    next_text = (
+        _normalize_text(str(elements[index + 1].get("text") or ""))
+        if index + 1 < len(elements) else ""
+    )
+
+    contextual_boost = 0.0
+
+    # Boost если рядом TOC header на той же или следующей странице
+    if (
+        toc_ctx.header_seen
+        and toc_ctx.header_page is not None
+        and page in {toc_ctx.header_page, toc_ctx.header_page + 1}
+    ):
+        contextual_boost += 0.06
+
+    # Boost если соседи — сильные TOC lines
+    if _is_toc_header(prev_text) or _looks_like_toc_line(prev_text) or _looks_like_toc_line(next_text):
+        contextual_boost += 0.06
+
+    toc_score = min(1.0, toc_score + contextual_boost)
+
+    # Сильный TOC signal
+    if toc_score >= TOC_SCORE_STRONG:
+        toc_ctx.recent_strong_toc_indexes.append(index)
+        toc_ctx.recent_strong_toc_indexes[:] = toc_ctx.recent_strong_toc_indexes[-8:]
+
+        for reason_code in toc_score_reasons:
+            reasons.append(ClassificationReason(
+                f"toc_signal:{reason_code}", toc_score, "Strong TOC line signal"
+            ))
+        if contextual_boost > 0:
+            reasons.append(ClassificationReason(
+                "toc_contextual_boost",
+                contextual_boost,
+                "Nearby TOC header or strong TOC line increased confidence",
+            ))
+
+        if _looks_like_toc_false_positive(text):
+            reasons.append(ClassificationReason(
+                "toc_false_positive_local",
+                0.86,
+                "Line has substantive/body-like signals despite high TOC score",
+            ))
+            return ClassificationResult(
+                element_type=ELEMENT_TYPE_TOC_FALSE_POSITIVE,
+                confidence=0.86,
+                reasons=reasons,
+                raw_type=raw_type,
+                metadata={
+                    "toc_semantic_role": "toc_false_positive",
+                    "toc_score": round(toc_score, 3),
+                },
+            )
+
+        return ClassificationResult(
+            element_type=ELEMENT_TYPE_TOC_LINE,
+            confidence=round(toc_score, 3),
+            reasons=reasons,
+            raw_type=raw_type,
+            metadata={
+                "toc_semantic_role": "toc_line",
+                "toc_score": round(toc_score, 3),
+            },
+        )
+
+    # Средний TOC signal
+    if TOC_SCORE_WEAK <= toc_score < TOC_SCORE_STRONG:
+        for reason_code in toc_score_reasons:
+            reasons.append(ClassificationReason(
+                f"possible_toc_signal:{reason_code}",
+                toc_score,
+                "Weak or partial TOC signal",
+            ))
+        if contextual_boost > 0:
+            reasons.append(ClassificationReason(
+                "possible_toc_contextual_boost",
+                contextual_boost,
+                "Nearby TOC context slightly increased confidence",
+            ))
+
+        if _looks_like_toc_false_positive(text):
+            reasons.append(ClassificationReason(
+                "possible_toc_false_positive_local",
+                0.80,
+                "Weak TOC signal overridden by substantive/body-like features",
+            ))
+            return ClassificationResult(
+                element_type=ELEMENT_TYPE_TOC_FALSE_POSITIVE,
+                confidence=0.80,
+                reasons=reasons,
+                raw_type=raw_type,
+                metadata={
+                    "toc_semantic_role": "toc_false_positive",
+                    "toc_score": round(toc_score, 3),
+                },
+            )
+
+        return ClassificationResult(
+            element_type=ELEMENT_TYPE_POSSIBLE_TOC,
+            confidence=round(toc_score, 3),
+            reasons=reasons,
+            raw_type=raw_type,
+            metadata={
+                "toc_semantic_role": "possible_toc",
+                "toc_score": round(toc_score, 3),
+            },
+        )
+
+    # 5. Signature block
+    if _looks_like_signature_block(text):
+        reasons.append(ClassificationReason(
+            "signature_keywords", 0.94, "Contains signature/seal/representative markers"
+        ))
+        return ClassificationResult(
+            element_type=ELEMENT_TYPE_SIGNATURE_BLOCK,
+            confidence=0.94,
+            reasons=reasons,
+            raw_type=raw_type,
+        )
+
+    # 6. Requisites block
+    if _looks_like_requisites_block(text):
+        reasons.append(ClassificationReason(
+            "requisites_keywords", 0.93, "Contains requisites/banking/address identifiers"
+        ))
+        return ClassificationResult(
+            element_type=ELEMENT_TYPE_REQUISITES_BLOCK,
+            confidence=0.93,
+            reasons=reasons,
+            raw_type=raw_type,
+        )
+
+    # 7. Table content
+    if _looks_like_table_content(text):
+        reasons.append(ClassificationReason(
+            "table_structure", 0.83, "Looks like row-like or delimiter-heavy table content"
+        ))
+        return ClassificationResult(
+            element_type=ELEMENT_TYPE_TABLE_CONTENT,
+            confidence=0.83,
+            reasons=reasons,
+            raw_type=raw_type,
+        )
+
+    # 8. List item
+    if raw_type == "listitem" or _looks_like_list_item(text):
+        conf = 0.9 if raw_type == "listitem" else 0.82
+        reasons.append(ClassificationReason(
+            "list_item_pattern", conf, "Extractor or regex indicates list item"
+        ))
+        return ClassificationResult(
+            element_type=ELEMENT_TYPE_LIST_ITEM,
+            confidence=conf,
+            reasons=reasons,
+            raw_type=raw_type,
+        )
+
+    # 9. Heading candidate
+    heading_conf = _heading_candidate_confidence(text=text, raw_type=raw_type)
+    if heading_conf >= 0.75:
+        reasons.append(ClassificationReason(
+            "heading_candidate",
+            heading_conf,
+            "Heading-like numbering, uppercase, or upstream heading label",
+        ))
+        return ClassificationResult(
+            element_type=ELEMENT_TYPE_HEADING_CANDIDATE,
+            confidence=heading_conf,
+            reasons=reasons,
+            raw_type=raw_type,
+        )
+
+    # 10. Unknown layout
+    if _looks_like_unknown_layout(text):
+        reasons.append(ClassificationReason(
+            "unknown_layout_noise", 0.72, "Noise-heavy or layout-broken line"
+        ))
+        return ClassificationResult(
+            element_type=ELEMENT_TYPE_UNKNOWN_LAYOUT,
+            confidence=0.72,
+            reasons=reasons,
+            raw_type=raw_type,
+        )
+
+    # 11. Default body text
+    conf = 0.8 if raw_type == "text" else 0.7
+    reasons.append(ClassificationReason(
+        "default_body_text", conf, "Falls back to ordinary body text"
+    ))
+    return ClassificationResult(
+        element_type=ELEMENT_TYPE_BODY_TEXT,
+        confidence=conf,
+        reasons=reasons,
+        raw_type=raw_type,
+    )
+
+
+def _looks_like_toc_line(text: str) -> bool:
+    """Вспомогательная функция для проверки TOC line (избегает циклических импортов)."""
+    if not text:
+        return False
+    score, _ = _toc_line_score(text)
+    return score >= TOC_SCORE_STRONG
+
+

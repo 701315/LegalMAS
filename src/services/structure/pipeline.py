@@ -443,7 +443,6 @@ def _build_toc_diagnostics(
         body_recovered_from_toc=body_recovered_count,
         toc_skipped_elements=len(suppressed_indexes),
         parser_status=_resolve_parser_status(analysis),
-        parse_quality_toc_status = _resolve_parser_status(analysis),
         parser_reasons=list(analysis.reliability.reasons),
         extra={
             "index_space": "segment_local",
