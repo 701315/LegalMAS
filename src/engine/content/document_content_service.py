@@ -44,9 +44,8 @@ Canonical contract (Sprint 3):
 
 from __future__ import annotations
 
-import re
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,12 +54,35 @@ from db.models.document import DocumentVersion
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
+from engine.content._document_content_chunks import (
+    build_canonical_chunk_payload,
+    build_retrieval_chunk_from_canonical,
+    join_chunk_texts,
+    normalize_snapshot_chunk_metadata,
+)
+from engine.content._document_content_chunks import (
+    build_retrieval_chunk_meta as build_retrieval_chunk_meta_impl,
+)
+from engine.content._document_content_layout import (
+    build_legacy_snippet_from_leaf_chunks,
+)
+from engine.content._document_content_layout import (
+    extract_snippet_from_layout as extract_snippet_from_layout_impl,
+)
+from engine.content._document_content_layout import (
+    extract_title_and_preamble_from_layout as extract_title_and_preamble_from_layout_impl,
+)
+from engine.content._document_content_semantic import (
+    build_no_legal_units_result,
+    build_profile_not_found_result,
+    load_legal_units_from_segments,
+    restore_legal_units,
+    serialize_primary_units_for_bundle,
+)
 from engine.content.chunk_canonicalization import add_summary, build_sized_chunks_from_leaf
 from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
-from engine.content.chunking import build_chunk_summary
 from engine.content.clause_tree_builder import ClauseTreeBuilder
 from engine.retrieval.models import RetrievalChunk
-from engine.retrieval.tokenization import count_tokens
 from storage.artifact_store import ArtifactStore
 
 logger = get_logger(__name__)
@@ -179,14 +201,14 @@ class DocumentContentService:
     # Внутренние helpers: загрузка последней версии, clause tree и layout
     # -------------------------------------------------------------------------
 
-    async def _get_latest_version(self, doc_id: uuid.UUID) -> Optional[DocumentVersion]:
+    async def _get_latest_version(self, doc_id: uuid.UUID) -> DocumentVersion | None:
         """
         Получить последнюю версию документа (по version_num).
         Если версий нет, вернёт None.
         """
         return await self.versions.get_latest(doc_id)
 
-    async def _load_clause_tree(self, version: DocumentVersion) -> Optional[Dict[str, Any]]:
+    async def _load_clause_tree(self, version: DocumentVersion) -> dict[str, Any] | None:
         """
         Legacy-путь для clause tree.
 
@@ -198,7 +220,7 @@ class DocumentContentService:
             return None
         return await self.storage.load_json(version.clause_tree_ref)
 
-    async def _load_layout(self, version: DocumentVersion) -> Optional[Dict[str, Any]]:
+    async def _load_layout(self, version: DocumentVersion) -> dict[str, Any] | None:
         """
         Загрузить рабочий layout документа по единому контракту пайплайна.
 
@@ -206,9 +228,8 @@ class DocumentContentService:
         1) layout_primary_sanitized_ref — основной source of truth после PII;
         2) layout_primary_ref — recovery fallback для случаев, когда PII ещё не выполнен.
         """
-        layout_ref = (
-            getattr(version, "layout_primary_sanitized_ref", None)
-            or getattr(version, "layout_primary_ref", None)
+        layout_ref = getattr(version, "layout_primary_sanitized_ref", None) or getattr(
+            version, "layout_primary_ref", None
         )
         if not layout_ref:
             return None
@@ -223,19 +244,7 @@ class DocumentContentService:
         Сформировать meta для RetrievalChunk, сохранив canonical поля и
         downstream-полезные атрибуты, но не дублируя top-level RetrievalChunk fields.
         """
-        excluded = {
-            "doc_id",
-            "chunk_kind",
-            "node_kind",
-            "level",
-            "path_titles",
-            "start_page",
-            "end_page",
-            "element_ids",
-            "token_count",
-            "summary",
-        }
-        return {k: v for k, v in meta.items() if k not in excluded}
+        return build_retrieval_chunk_meta_impl(meta)
 
     async def _load_chunks_from_snapshot(
         self,
@@ -255,6 +264,7 @@ class DocumentContentService:
             session=self.session,
             artifact_store=self._artifact_store,
         )
+
         try:
             v2_chunks = await v2_reader.load(doc_id=doc_id, levels=levels)
         except Exception as e:
@@ -279,7 +289,7 @@ class DocumentContentService:
         doc_id: uuid.UUID,
         max_pages: int = 2,
         max_length: int = 1500,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Извлечь шапку документа (title + преамбула) напрямую из layout.
 
@@ -300,59 +310,11 @@ class DocumentContentService:
         if not layout:
             return None
 
-        elements = layout.get("elements") or []
-        if not elements:
-            return None
-
-        layout_meta = layout.get("metadata") or {}
-        total_pages: int | None = None
-        for key in ("page_count", "pages", "num_pages", "total_pages"):
-            value = layout_meta.get(key)
-            if isinstance(value, int) and value > 0:
-                total_pages = value
-                break
-
-        effective_max_pages = max_pages
-        if total_pages is not None:
-            effective_max_pages = 2 if total_pages <= 4 else 3
-
-        header_elements: List[Dict[str, Any]] = []
-        for el in elements:
-            page = el.get("page")
-            if not isinstance(page, int) or page > effective_max_pages:
-                continue
-
-            text = (el.get("text") or "").strip()
-            if not text:
-                continue
-
-            upper = text.upper()
-
-            if "TABLE OF CONTENTS" in upper or "СОДЕРЖАНИЕ" in upper:
-                break
-
-            if re.match(r"^\d{1,2}(\.\d{1,2})*\.\s+.+", text):
-                break
-
-            header_elements.append(el)
-
-        if not header_elements:
-            return None
-
-        parts: List[str] = []
-        for el in header_elements:
-            t = (el.get("text") or "").strip()
-            if t:
-                parts.append(t)
-
-        full = "\n".join(parts).strip()
-        if not full:
-            return None
-
-        if len(full) > max_length:
-            full = full[:max_length]
-
-        return full or None
+        return extract_title_and_preamble_from_layout_impl(
+            layout,
+            max_pages=max_pages,
+            max_length=max_length,
+        )
 
     async def get_snippet_from_layout(
         self,
@@ -360,7 +322,7 @@ class DocumentContentService:
         skip_pages: int = 2,
         max_length: int = 1500,
         min_element_len: int = 40,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Извлечь сниппет тела документа напрямую из layout (v2-артефакт).
 
@@ -393,39 +355,14 @@ class DocumentContentService:
         if not elements:
             return None
 
-        layout_meta = layout.get("metadata") or {}
-        total_pages: int | None = None
-        for key in ("page_count", "pages", "num_pages", "total_pages"):
-            value = layout_meta.get(key)
-            if isinstance(value, int) and value > 0:
-                total_pages = value
-                break
+        snippet, total_pages, effective_skip_pages = extract_snippet_from_layout_impl(
+            layout,
+            skip_pages=skip_pages,
+            max_length=max_length,
+            min_element_len=min_element_len,
+        )
 
-        if total_pages is not None:
-            effective_skip_pages = 1 if total_pages <= 4 else 3
-            effective_skip_pages = min(effective_skip_pages, max(0, total_pages - 1))
-        else:
-            effective_skip_pages = skip_pages
-
-        parts: List[str] = []
-        total_len = 0
-
-        for el in elements:
-            page = el.get("page")
-            if isinstance(page, int) and page <= effective_skip_pages:
-                continue
-
-            text = (el.get("text") or "").strip()
-            if len(text) < min_element_len:
-                continue
-
-            parts.append(text)
-            total_len += len(text)
-
-            if total_len >= max_length:
-                break
-
-        if not parts:
+        if not snippet:
             logger.info(
                 "get_snippet_from_layout: no body elements found after effective_skip_pages",
                 extra={
@@ -436,16 +373,12 @@ class DocumentContentService:
             )
             return None
 
-        snippet = "\n\n".join(parts).strip()
-        if len(snippet) > max_length:
-            snippet = snippet[:max_length]
-
         return snippet or None
 
     async def get_chunks(
         self,
         doc_id: uuid.UUID,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Вернуть canonical clause chunks из CHUNKS v2 snapshot.
 
@@ -486,7 +419,7 @@ class DocumentContentService:
             )
             return []
 
-        canonical_chunks: List[Dict[str, Any]] = []
+        canonical_chunks: list[dict[str, Any]] = []
 
         for ch in snapshot_chunks:
             text = (ch.get("text") or "").strip()
@@ -511,29 +444,19 @@ class DocumentContentService:
                 )
                 continue
 
-            meta["doc_id"] = meta.get("doc_id") or str(doc_id)
-            meta["chunk_kind"] = "clause"
-            meta["token_count"] = meta.get("token_count") or count_tokens(text)
-
-            if "path_titles" in meta:
-                meta["path_titles"] = list(meta.get("path_titles") or [])
-            if "element_ids" in meta:
-                meta["element_ids"] = [str(e) for e in meta.get("element_ids") or []]
-
-            if not meta.get("summary"):
-                summary = build_chunk_summary(
-                    list(meta.get("path_titles") or []),
-                    text,
-                )
-                if summary:
-                    meta["summary"] = summary
+            normalized_meta = normalize_snapshot_chunk_metadata(
+                doc_id=doc_id,
+                text=text,
+                meta=meta,
+                chunk_kind="clause",
+            )
 
             canonical_chunks.append(
-                {
-                    "id": ch.get("id"),
-                    "text": text,
-                    "metadata": meta,
-                }
+                build_canonical_chunk_payload(
+                    chunk_id=ch.get("id"),
+                    text=text,
+                    meta=normalized_meta,
+                )
             )
 
         return canonical_chunks
@@ -543,7 +466,7 @@ class DocumentContentService:
         doc_id: uuid.UUID,
         max_snippet_len: int = 1500,
         max_leaf_clauses: int = 3,
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> tuple[str | None, str | None]:
         """
         Вернуть:
         - header_text: заголовки верхнего уровня / шапка документа —
@@ -599,26 +522,11 @@ class DocumentContentService:
         if not leaf_chunks_all:
             return header_text, None
 
-        MIN_CLAUSE_LEN = 80
-        EXTRA_CLAUSES = 5
-
-        first_two_len = sum(len(ch.get("text") or "") for ch in leaf_chunks_all[:2])
-        if first_two_len < MIN_CLAUSE_LEN:
-            leaf_chunks = leaf_chunks_all[:EXTRA_CLAUSES]
-        else:
-            leaf_chunks = leaf_chunks_all[:max_leaf_clauses]
-
-        texts_for_snippet: List[str] = []
-        for ch in leaf_chunks:
-            text = (ch.get("text") or "").strip()
-            if text:
-                texts_for_snippet.append(text)
-
-        snippet_text = "\n\n".join(texts_for_snippet).strip()
-
-        if snippet_text and len(snippet_text) > max_snippet_len:
-            snippet_text = snippet_text[:max_snippet_len]
-            snippet_text = snippet_text.rsplit(" ", 1)[0].strip()
+        snippet_text = build_legacy_snippet_from_leaf_chunks(
+            leaf_chunks_all,
+            max_snippet_len=max_snippet_len,
+            max_leaf_clauses=max_leaf_clauses,
+        )
 
         return header_text, (snippet_text or None)
 
@@ -645,7 +553,6 @@ class DocumentContentService:
                 continue
 
             effective_uid = meta.get("effective_uid")
-            chunk_kind = meta.get("chunk_kind") or "clause"
 
             if not effective_uid:
                 logger.warning(
@@ -660,22 +567,13 @@ class DocumentContentService:
                 )
                 continue
 
-            rc = RetrievalChunk(
-                id=str(ch.get("id")),
-                doc_id=meta.get("doc_id") or str(doc_id),
-                kind=chunk_kind,
-                clause_uid=effective_uid,
-                level=meta.get("level"),
-                text=text,
-                token_count=meta.get("token_count") or count_tokens(text),
-                path_titles=list(meta.get("path_titles") or []),
-                start_page=meta.get("start_page"),
-                end_page=meta.get("end_page"),
-                element_ids=[str(e) for e in meta.get("element_ids") or []],
-                summary=meta.get("summary"),
-                meta=self._build_retrieval_chunk_meta(meta),
+            retrieval_chunk = build_retrieval_chunk_from_canonical(
+                chunk=ch,
+                doc_id=doc_id,
+                default_kind="clause",
             )
-            retrieval_chunks.append(rc)
+            if retrieval_chunk is not None:
+                retrieval_chunks.append(retrieval_chunk)
 
         return retrieval_chunks
 
@@ -709,7 +607,6 @@ class DocumentContentService:
                 continue
 
             effective_uid = meta.get("effective_uid")
-            chunk_kind = meta.get("chunk_kind") or "subclause"
 
             if not effective_uid:
                 logger.warning(
@@ -725,22 +622,13 @@ class DocumentContentService:
                 )
                 continue
 
-            rc = RetrievalChunk(
-                id=str(ch.get("id")),
-                doc_id=meta.get("doc_id") or str(doc_id),
-                kind=chunk_kind,
-                clause_uid=effective_uid,
-                level=meta.get("level"),
-                text=text,
-                token_count=meta.get("token_count") or count_tokens(text),
-                path_titles=list(meta.get("path_titles") or []),
-                start_page=meta.get("start_page"),
-                end_page=meta.get("end_page"),
-                element_ids=[str(e) for e in meta.get("element_ids") or []],
-                summary=meta.get("summary"),
-                meta=self._build_retrieval_chunk_meta(meta),
+            retrieval_chunk = build_retrieval_chunk_from_canonical(
+                chunk=ch,
+                doc_id=doc_id,
+                default_kind="subclause",
             )
-            retrieval_chunks.append(rc)
+            if retrieval_chunk is not None:
+                retrieval_chunks.append(retrieval_chunk)
 
         return retrieval_chunks
 
@@ -750,7 +638,7 @@ class DocumentContentService:
         target_tokens: int = 300,
         max_tokens: int = 800,
         overlap_ratio: float = 0.15,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Построить canonical subclause chunks из canonical clause chunks.
 
@@ -790,7 +678,7 @@ class DocumentContentService:
         target_tokens: int = 300,
         max_tokens: int = 800,
         overlap_ratio: float = 0.15,
-    ) -> Dict[str, List[Dict[str, Any]]]:
+    ) -> dict[str, list[dict[str, Any]]]:
         """
         Вернуть многоуровневые чанки по документу.
 
@@ -806,9 +694,9 @@ class DocumentContentService:
             ["section", "clause", "subclause"],
         )
 
-        section_chunks: List[Dict[str, Any]] = []
-        clause_chunks: List[Dict[str, Any]] = []
-        subclause_chunks: List[Dict[str, Any]] = []
+        section_chunks: list[dict[str, Any]] = []
+        clause_chunks: list[dict[str, Any]] = []
+        subclause_chunks: list[dict[str, Any]] = []
 
         for ch in snapshot_chunks:
             text = (ch.get("text") or "").strip()
@@ -832,36 +720,25 @@ class DocumentContentService:
                 )
                 continue
 
-            meta["doc_id"] = meta.get("doc_id") or str(doc_id)
-            meta["token_count"] = meta.get("token_count") or count_tokens(text)
-
-            if "path_titles" in meta:
-                meta["path_titles"] = list(meta.get("path_titles") or [])
-            if "element_ids" in meta:
-                meta["element_ids"] = [str(e) for e in meta.get("element_ids") or []]
-
-            if not meta.get("summary"):
-                summary = build_chunk_summary(
-                    list(meta.get("path_titles") or []),
-                    text,
-                )
-                if summary:
-                    meta["summary"] = summary
-
-            normalized = {
-                "id": ch.get("id"),
-                "text": text,
-                "metadata": meta,
-            }
+            normalized_meta = normalize_snapshot_chunk_metadata(
+                doc_id=doc_id,
+                text=text,
+                meta=meta,
+            )
+            normalized = build_canonical_chunk_payload(
+                chunk_id=ch.get("id"),
+                text=text,
+                meta=normalized_meta,
+            )
 
             if kind == "section":
-                meta["chunk_kind"] = "section"
+                normalized_meta["chunk_kind"] = "section"
                 section_chunks.append(normalized)
             elif kind == "clause":
-                meta["chunk_kind"] = "clause"
+                normalized_meta["chunk_kind"] = "clause"
                 clause_chunks.append(normalized)
             elif kind == "subclause":
-                meta["chunk_kind"] = "subclause"
+                normalized_meta["chunk_kind"] = "subclause"
                 subclause_chunks.append(normalized)
 
         if not clause_chunks:
@@ -902,11 +779,7 @@ class DocumentContentService:
         if levels is None:
             levels = ["subclause", "section"]
 
-        levels = [
-            lvl.strip().lower()
-            for lvl in levels
-            if isinstance(lvl, str) and lvl.strip()
-        ]
+        levels = [lvl.strip().lower() for lvl in levels if isinstance(lvl, str) and lvl.strip()]
         levels = list(dict.fromkeys(levels))
 
         if not levels:
@@ -988,9 +861,7 @@ class DocumentContentService:
             levels = ["clause", "subclause"]
 
         normalized_levels = [
-            lvl.strip().lower()
-            for lvl in levels
-            if isinstance(lvl, str) and lvl.strip()
+            lvl.strip().lower() for lvl in levels if isinstance(lvl, str) and lvl.strip()
         ]
         normalized_levels = list(dict.fromkeys(normalized_levels))
 
@@ -1026,8 +897,6 @@ class DocumentContentService:
                 doc_id=doc_id,
                 segment_id=segment_id,
                 levels=normalized_levels,
-                # Передаём version_id явно чтобы reader читал именно ту версию
-                # которую нашёл caller, а не latest (которая может отличаться).
                 version_id=document_version_id,
             )
         except Exception as e:
@@ -1055,37 +924,7 @@ class DocumentContentService:
             )
             return None
 
-        parts: list[str] = []
-        total_len = 0
-        separator = "\n\n"
-
-        for ch in chunks:
-            text = (ch.get("text") or "").strip()
-            if not text:
-                continue
-
-            sep_len = len(separator) if parts else 0
-            remaining = max_chars - total_len - sep_len
-            if remaining <= 0:
-                break
-
-            if len(text) > remaining:
-                text = text[:remaining].rstrip()
-
-            if not text:
-                break
-
-            if parts:
-                total_len += len(separator)
-
-            parts.append(text)
-            total_len += len(text)
-
-        if not parts:
-            return None
-
-        segment_text = separator.join(parts).strip()
-        return segment_text or None
+        return join_chunk_texts(chunks, max_chars)
 
     # -------------------------------------------------------------------------
     # Публичные методы — Этап 6: semantic layer (legal units + evidence bundles)
@@ -1116,8 +955,6 @@ class DocumentContentService:
         Возвращает:
         - Список dict-ов из LegalUnit.to_dict() в порядке page_start.
         """
-        from anyio.to_thread import run_sync
-
         version = await self._get_latest_version(doc_id)
         if not version:
             logger.warning(
@@ -1126,7 +963,6 @@ class DocumentContentService:
             )
             return []
 
-        # Читаем сегменты чтобы найти legal_units_ref в segment_meta
         seg_repo = DocumentSegmentRepository(self.session)
         segments = await seg_repo.list_by_version(version.id)
 
@@ -1140,107 +976,13 @@ class DocumentContentService:
             )
             return []
 
-        # Фильтруем по primary_only
-        target_segments = (
-            [s for s in segments if bool(s.is_primary)]
-            if primary_only
-            else list(segments)
+        return await load_legal_units_from_segments(
+            segments=segments,
+            artifact_store=self._artifact_store,
+            doc_id=doc_id,
+            primary_only=primary_only,
+            logger=logger,
         )
-
-        if not target_segments:
-            logger.info(
-                "DocumentContentService.get_legal_units: no target segments after filter",
-                extra={
-                    "doc_id": str(doc_id),
-                    "primary_only": primary_only,
-                    "total_segments": len(segments),
-                },
-            )
-            return []
-
-        all_units: list[dict[str, Any]] = []
-
-        for segment in target_segments:
-            segment_meta = dict(segment.segment_meta or {})
-            legal_units_ref = segment_meta.get("legal_units_ref")
-
-            if not legal_units_ref:
-                logger.debug(
-                    "DocumentContentService.get_legal_units: no legal_units_ref for segment",
-                    extra={
-                        "doc_id": str(doc_id),
-                        "segment_id": segment.segment_id,
-                        "is_primary": bool(segment.is_primary),
-                    },
-                )
-                continue
-
-            try:
-                def _load(ref: str = legal_units_ref) -> dict[str, Any]:
-                    return self._artifact_store.get_json(ref)
-
-                snapshot_dict = await run_sync(_load)
-
-                if not isinstance(snapshot_dict, dict):
-                    logger.warning(
-                        "DocumentContentService.get_legal_units: invalid snapshot format",
-                        extra={
-                            "doc_id": str(doc_id),
-                            "segment_id": segment.segment_id,
-                            "legal_units_ref": legal_units_ref,
-                            "type": type(snapshot_dict).__name__,
-                        },
-                    )
-                    continue
-
-                units_raw = snapshot_dict.get("units") or []
-                if not isinstance(units_raw, list):
-                    continue
-
-                # Валидируем каждый unit минимально
-                for unit in units_raw:
-                    if not isinstance(unit, dict):
-                        continue
-                    if not unit.get("unit_id"):
-                        continue
-                    all_units.append(unit)
-
-                logger.debug(
-                    "DocumentContentService.get_legal_units: loaded units from segment",
-                    extra={
-                        "doc_id": str(doc_id),
-                        "segment_id": segment.segment_id,
-                        "units_count": len(units_raw),
-                        "legal_units_ref": legal_units_ref,
-                    },
-                )
-
-            except Exception as e:
-                logger.warning(
-                    "DocumentContentService.get_legal_units: failed to load legal units for segment",
-                    extra={
-                        "doc_id": str(doc_id),
-                        "segment_id": segment.segment_id,
-                        "legal_units_ref": legal_units_ref,
-                        "error": str(e),
-                    },
-                )
-                continue
-
-        # Сортируем по page_start для deterministic порядка
-        all_units.sort(key=lambda u: (int(u.get("page_start") or 1), str(u.get("unit_id") or "")))
-
-        logger.info(
-            "DocumentContentService.get_legal_units: loaded",
-            extra={
-                "doc_id": str(doc_id),
-                "total_units": len(all_units),
-                "primary_only": primary_only,
-                "segments_checked": len(target_segments),
-            },
-        )
-
-        return all_units
 
     async def get_evidence_bundle(
         self,
@@ -1271,16 +1013,10 @@ class DocumentContentService:
         - dict из EvidenceBundle.to_dict() + поле "units" с текстами primary units.
         """
         # Импортируем здесь чтобы не создавать circular dependency на уровне модуля
-        from engine.content.evidence_bundle_builder import EvidenceBundleBuilder
         from playbook.retrieval_profiles import get_profile
-        from services.structure.legal_unit_models import (
-            CitabilityMetrics,
-            ClauseFunction,
-            LegalUnit,
-            LegalUnitType,
-        )
 
-        # Ищем профиль
+        from engine.content.evidence_bundle_builder import EvidenceBundleBuilder
+
         profile = get_profile(profile_id)
         if profile is None:
             logger.warning(
@@ -1290,19 +1026,8 @@ class DocumentContentService:
                     "profile_id": profile_id,
                 },
             )
-            return {
-                "query_topic": profile_id,
-                "primary_units_count": 0,
-                "supporting_units_count": 0,
-                "confidence": 0.0,
-                "missing_topics": [],
-                "primary_unit_ids": [],
-                "supporting_unit_ids": [],
-                "diagnostics": {"reason": "profile_not_found"},
-                "units": [],
-            }
+            return build_profile_not_found_result(profile_id)
 
-        # Загружаем units как dict
         units_raw = await self.get_legal_units(doc_id, primary_only=primary_only)
 
         if not units_raw:
@@ -1313,90 +1038,17 @@ class DocumentContentService:
                     "profile_id": profile_id,
                 },
             )
-            return {
-                "query_topic": profile.query_topic,
-                "primary_units_count": 0,
-                "supporting_units_count": 0,
-                "confidence": 0.0,
-                "missing_topics": list(profile.required_topics),
-                "primary_unit_ids": [],
-                "supporting_unit_ids": [],
-                "diagnostics": {"reason": "no_legal_units"},
-                "units": [],
-            }
+            return build_no_legal_units_result(
+                query_topic=profile.query_topic,
+                required_topics=list(profile.required_topics),
+            )
 
-        # Восстанавливаем LegalUnit объекты из dict
-        # Используем упрощённое восстановление: только поля нужные для EvidenceBundleBuilder
-        legal_units: list[LegalUnit] = []
-        for raw in units_raw:
-            try:
-                # Восстанавливаем unit_type
-                unit_type_str = str(raw.get("unit_type") or "unknown").lower()
-                try:
-                    unit_type = LegalUnitType(unit_type_str)
-                except ValueError:
-                    unit_type = LegalUnitType.UNKNOWN
+        legal_units = restore_legal_units(
+            units_raw=units_raw,
+            doc_id=doc_id,
+            logger=logger,
+        )
 
-                # Восстанавливаем clause_function
-                func_str = str(raw.get("clause_function") or "unknown").lower()
-                try:
-                    clause_function = ClauseFunction(func_str)
-                except ValueError:
-                    clause_function = ClauseFunction.UNKNOWN
-
-                # Восстанавливаем citability из вложенного dict
-                citability_raw = raw.get("citability") or {}
-                citability = CitabilityMetrics(
-                    citability_score=float(citability_raw.get("citability_score") or 0.0),
-                    citability_band=str(citability_raw.get("citability_band") or "low"),
-                    has_own_text=bool(citability_raw.get("has_own_text", False)),
-                    has_subtree_text=bool(citability_raw.get("has_subtree_text", False)),
-                    is_heading_only=bool(citability_raw.get("is_heading_only", False)),
-                    recovered_via_best_effort=bool(
-                        citability_raw.get("recovered_via_best_effort", False)
-                    ),
-                    parse_confidence=citability_raw.get("parse_confidence"),
-                )
-
-                unit = LegalUnit(
-                    unit_id=str(raw.get("unit_id") or ""),
-                    raw_uid=str(raw.get("raw_uid") or ""),
-                    scope=str(raw.get("scope") or ""),
-                    title=str(raw.get("title") or ""),
-                    level=int(raw.get("level") or 1),
-                    unit_type=unit_type,
-                    clause_function=clause_function,
-                    segment_id=str(raw.get("segment_id") or ""),
-                    segment_type=str(raw.get("segment_type") or "unknown"),
-                    page_start=int(raw.get("page_start") or 1),
-                    page_end=int(raw.get("page_end") or 1),
-                    own_text=raw.get("own_text") or None,
-                    subtree_text=raw.get("subtree_text") or None,
-                    own_element_ids=list(raw.get("own_element_ids") or []),
-                    topic_tags=list(raw.get("topic_tags") or []),
-                    cross_refs=[],  # cross_refs не нужны для bundle building
-                    citability=citability,
-                    node_kind=str(raw.get("node_kind") or "leaf"),
-                    semantic_node_type=raw.get("semantic_node_type") or None,
-                    recovered_via_best_effort=bool(
-                        raw.get("recovered_via_best_effort", False)
-                    ),
-                    fallback_reason=raw.get("fallback_reason") or None,
-                )
-                legal_units.append(unit)
-
-            except Exception as unit_exc:
-                logger.debug(
-                    "DocumentContentService.get_evidence_bundle: failed to restore unit",
-                    extra={
-                        "doc_id": str(doc_id),
-                        "unit_id": raw.get("unit_id"),
-                        "error": str(unit_exc),
-                    },
-                )
-                continue
-
-        # Строим bundle
         builder = EvidenceBundleBuilder()
         bundle = builder.build(units=legal_units, profile=profile)
 
@@ -1413,25 +1065,6 @@ class DocumentContentService:
             },
         )
 
-        # Добавляем текст primary units в результат
-        # чтобы detector не делал дополнительный запрос
-        primary_unit_texts: list[dict[str, Any]] = []
-        for unit in bundle.primary_units:
-            primary_unit_texts.append({
-                "unit_id": unit.unit_id,
-                "raw_uid": unit.raw_uid,
-                "title": unit.title,
-                "own_text": unit.own_text,
-                "page_start": unit.page_start,
-                "page_end": unit.page_end,
-                "unit_type": unit.unit_type.value,
-                "topic_tags": unit.topic_tags,
-                "citability_band": unit.citability.citability_band,
-            })
-
         result = bundle.to_dict()
-        result["units"] = primary_unit_texts
+        result["units"] = serialize_primary_units_for_bundle(bundle.primary_units)
         return result
-
-
-

@@ -50,66 +50,41 @@ from services.structure.legal_heading_rules import (
 # Импорты из внутренних модулей (не экспортируются наружу)
 # ============================================================================
 
-from services.structure.element_classifier._config import *
-from services.structure.element_classifier._text_utils import (
+from services.structure._element_classifier._config import *
+from services.structure._element_classifier._text_utils import (
     _normalize_text,
 )
-from services.structure.element_classifier._toc_context import _TocContext
-from services.structure.element_classifier._page_stats import _build_page_stats
-from services.structure.element_classifier._semantic_resolver import (
+from services.structure._element_classifier._toc_context import _TocContext
+from services.structure._element_classifier._page_stats import _build_page_stats
+from services.structure._element_classifier._semantic_resolver import (
     _compute_semantic_element_type,
     _compute_heading_confidence_from_classification,
 )
-from services.structure.element_classifier._classify_single import _classify_single_element
-from services.structure.element_classifier._classify_reason import ClassificationReason, ClassificationResult
-from services.structure.element_classifier._logging import _log_classification_summary
-
-
-logger = get_logger(__name__)
-
+from services.structure._element_classifier._classify_single import _classify_single_element
+from services.structure._element_classifier._classify_reason import ClassificationReason, ClassificationResult
+from services.structure._element_classifier._logging import _log_classification_summary
 
 # ============================================================================
-# Public element type constants
+# Публичные константы (Импортируются из конфига)
 # ============================================================================
 
-ELEMENT_TYPE_HEADING_CANDIDATE = "heading_candidate"
-ELEMENT_TYPE_BODY_TEXT = "body_text"
-ELEMENT_TYPE_TABLE_CONTENT = "table_content"
-ELEMENT_TYPE_REQUISITES_BLOCK = "requisites_block"
-ELEMENT_TYPE_SIGNATURE_BLOCK = "signature_block"
-
-# TOC semantic types.
-# Важно: это semantic labels, а не policy decisions.
-# toc_header   — явный заголовок оглавления ("Содержание", "Table of Contents").
-# toc_line     — строка с высоким локальным TOC score (>= 0.78).
-# possible_toc — строка со средним TOC score (0.52–0.78).
-# toc_false_positive — строка похожа на TOC локально, но по природе является body/definition.
-ELEMENT_TYPE_TOC_HEADER = "toc_header"
-ELEMENT_TYPE_TOC_LINE = "toc_line"
-ELEMENT_TYPE_POSSIBLE_TOC = "possible_toc"
-ELEMENT_TYPE_TOC_FALSE_POSITIVE = "toc_false_positive"
-
-ELEMENT_TYPE_LIST_ITEM = "list_item"
-ELEMENT_TYPE_PAGE_ARTIFACT = "page_artifact"
-ELEMENT_TYPE_UNKNOWN_LAYOUT = "unknown_layout"
-
-SUPPORTED_ELEMENT_TYPES: frozenset[str] = frozenset(
-    {
-        ELEMENT_TYPE_HEADING_CANDIDATE,
-        ELEMENT_TYPE_BODY_TEXT,
-        ELEMENT_TYPE_TABLE_CONTENT,
-        ELEMENT_TYPE_REQUISITES_BLOCK,
-        ELEMENT_TYPE_SIGNATURE_BLOCK,
-        ELEMENT_TYPE_TOC_HEADER,
-        ELEMENT_TYPE_TOC_LINE,
-        ELEMENT_TYPE_POSSIBLE_TOC,
-        ELEMENT_TYPE_TOC_FALSE_POSITIVE,
-        ELEMENT_TYPE_LIST_ITEM,
-        ELEMENT_TYPE_PAGE_ARTIFACT,
-        ELEMENT_TYPE_UNKNOWN_LAYOUT,
-    }
+from ._element_classifier._config import (
+    ELEMENT_TYPE_HEADING_CANDIDATE,
+    ELEMENT_TYPE_BODY_TEXT,
+    ELEMENT_TYPE_TABLE_CONTENT,
+    ELEMENT_TYPE_REQUISITES_BLOCK,
+    ELEMENT_TYPE_SIGNATURE_BLOCK,
+    ELEMENT_TYPE_TOC_HEADER,
+    ELEMENT_TYPE_TOC_LINE,
+    ELEMENT_TYPE_POSSIBLE_TOC,
+    ELEMENT_TYPE_TOC_FALSE_POSITIVE,
+    ELEMENT_TYPE_LIST_ITEM,
+    ELEMENT_TYPE_PAGE_ARTIFACT,
+    ELEMENT_TYPE_UNKNOWN_LAYOUT,
+    SUPPORTED_ELEMENT_TYPES,
 )
 
+logger = get_logger(__name__)
 
 # ============================================================================
 # Public API

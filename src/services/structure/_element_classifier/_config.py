@@ -13,6 +13,43 @@ from __future__ import annotations
 
 import re
 
+
+# ============================================================================
+# Публичные константы типов элементов (Element Types)
+# ============================================================================
+
+ELEMENT_TYPE_HEADING_CANDIDATE = "heading_candidate"
+ELEMENT_TYPE_BODY_TEXT = "body_text"
+ELEMENT_TYPE_TABLE_CONTENT = "table_content"
+ELEMENT_TYPE_REQUISITES_BLOCK = "requisites_block"
+ELEMENT_TYPE_SIGNATURE_BLOCK = "signature_block"
+ELEMENT_TYPE_TOC_HEADER = "toc_header"
+ELEMENT_TYPE_TOC_LINE = "toc_line"
+ELEMENT_TYPE_POSSIBLE_TOC = "possible_toc"
+ELEMENT_TYPE_TOC_FALSE_POSITIVE = "toc_false_positive"
+ELEMENT_TYPE_LIST_ITEM = "list_item"
+ELEMENT_TYPE_PAGE_ARTIFACT = "page_artifact"
+ELEMENT_TYPE_UNKNOWN_LAYOUT = "unknown_layout"
+
+SUPPORTED_ELEMENT_TYPES: frozenset[str] = frozenset(
+    {
+        ELEMENT_TYPE_HEADING_CANDIDATE,
+        ELEMENT_TYPE_BODY_TEXT,
+        ELEMENT_TYPE_TABLE_CONTENT,
+        ELEMENT_TYPE_REQUISITES_BLOCK,
+        ELEMENT_TYPE_SIGNATURE_BLOCK,
+        ELEMENT_TYPE_TOC_HEADER,
+        ELEMENT_TYPE_TOC_LINE,
+        ELEMENT_TYPE_POSSIBLE_TOC,
+        ELEMENT_TYPE_TOC_FALSE_POSITIVE,
+        ELEMENT_TYPE_LIST_ITEM,
+        ELEMENT_TYPE_PAGE_ARTIFACT,
+        ELEMENT_TYPE_UNKNOWN_LAYOUT,
+    }
+)
+
+
+
 # ============================================================================
 # Пороговые значения TOC scoring
 # ============================================================================
