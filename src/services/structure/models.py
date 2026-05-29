@@ -7,7 +7,6 @@ Data models for document structure tree and file-level graph.
 
 from __future__ import annotations
 
-# Константы
 from services.structure._models._constants import (
     BODY_SEMANTIC_TYPES,
     DEFAULT_SCOPE,
@@ -39,6 +38,8 @@ from services.structure._models._constants import (
     SEMANTIC_ELEMENT_TYPE_SECTION_HEADING,
     SEMANTIC_ELEMENT_TYPE_SIGNATURE_BLOCK,
     SEMANTIC_ELEMENT_TYPE_SUBSECTION_HEADING,
+    STRUCTURAL_HASH_FIELDS,
+    STRUCTURAL_HASH_VERSION,
     STRUCTURE_CONFIDENCE_FAILED,
     STRUCTURE_CONFIDENCE_HIGH,
     STRUCTURE_CONFIDENCE_LOW,
@@ -57,7 +58,6 @@ from services.structure._models._constants import (
     VALID_TOC_CONFIDENCE_BANDS,
 )
 
-# Diagnostics
 from services.structure._models._diagnostics import (
     ParseQualityDiagnostics,
     TOCDiagnostics,
@@ -65,14 +65,17 @@ from services.structure._models._diagnostics import (
     embed_toc_diagnostics,
 )
 
-# Graph
 from services.structure._models._graph import (
     CrossDocumentLink,
     FileGraph,
     SegmentDocument,
 )
 
-# Identity
+from services.structure._models._crossref_graph import (
+    CrossReferenceGraph,
+    CrossReferenceStats,
+)
+
 from services.structure._models._identity import (
     generate_scope_name,
     make_effective_uid,
@@ -80,18 +83,72 @@ from services.structure._models._identity import (
     split_effective_uid,
 )
 
-# Nodes
 from services.structure._models._nodes import (
-    ClauseNode,
     CrossReference,
     CrossSegmentRef,
+    FrozenHierarchyNode,
+    MutableHierarchyNode,
+    freeze,
 )
 
-# Result
-from services.structure._models._result import FileStructureResult
+from services.structure._models._structural_hash import (
+    compute_structural_hash,
+    structural_hash_version,
+)
 
-# Tree
+from services.structure._models._semantic_metadata import (
+    RecoveryInfo,
+    SemanticNodeMetadata,
+)
+
+from services.structure._models._result import FileStructureResult
 from services.structure._models._tree import ClauseTree
+
+from services.structure._models._syntax import (
+    HEADING_CONFIDENCE_THRESHOLD,
+    HierarchyTokenType,
+    SyntaxHeadingCandidate,
+)
+from services.structure._models._syntax_adapter import (
+    scored_to_syntax_candidate,
+)
+
+from services.structure._models._fsm import (
+    FSMAttachResult,
+    FSMEvent,
+    FSMEventType,
+)
+from services.structure._models._fsm_summary import FSMBuildSummary
+
+from services.structure._models._resolution import (
+    ResolutionAuditLog,
+    ResolutionResult,
+    RewriteType,
+    StructuralRewrite,
+)
+
+from services.structure._models._recovery import (
+    CandidateWindow,
+    DEFAULT_CANDIDATE_WINDOW,
+    RecoveryCandidate,
+    RecoveryDecision,
+    RecoveryReport,
+    RecoveryStrategyType,
+    TieBreakPolicy,
+)
+
+from services.structure._models._confidence import (
+    ConfidenceInput,
+    DegradedModeConfig,
+    RETRIEVAL_SAFE_THRESHOLD,
+    StructuralConfidence,
+)
+
+from services.structure._models._artifacts import (
+    CanonicalArtifactRefs,
+    CanonicalArtifactRegistry,
+    SegmentArtifactRefs,
+)
 
 __all__ = [
     "DEFAULT_SCOPE",
@@ -140,6 +197,10 @@ __all__ = [
     "HEADING_SEMANTIC_TYPES",
     "BODY_SEMANTIC_TYPES",
     "NEGATIVE_HEADING_SEMANTIC_TYPES",
+    "STRUCTURAL_HASH_VERSION",
+    "STRUCTURAL_HASH_FIELDS",
+    "compute_structural_hash",
+    "structural_hash_version",
     "make_effective_uid",
     "split_effective_uid",
     "generate_scope_name",
@@ -148,12 +209,46 @@ __all__ = [
     "ParseQualityDiagnostics",
     "embed_toc_diagnostics",
     "embed_parse_quality_diagnostics",
-    "ClauseNode",
+    "MutableHierarchyNode",
+    "FrozenHierarchyNode",
+    "freeze",
+    "SemanticNodeMetadata",
+    "RecoveryInfo",
     "CrossReference",
     "CrossSegmentRef",
+    "CrossReferenceGraph",
+    "CrossReferenceStats",
     "ClauseTree",
     "SegmentDocument",
     "CrossDocumentLink",
     "FileGraph",
     "FileStructureResult",
+    "HierarchyTokenType",
+    "SyntaxHeadingCandidate",
+    "HEADING_CONFIDENCE_THRESHOLD",
+    "scored_to_syntax_candidate",
+    "FSMEventType",
+    "FSMEvent",
+    "FSMAttachResult",
+    "FSMBuildSummary",
+    "RewriteType",
+    "StructuralRewrite",
+    "ResolutionAuditLog",
+    "ResolutionResult",
+    "RecoveryStrategyType",
+    "TieBreakPolicy",
+    "CandidateWindow",
+    "DEFAULT_CANDIDATE_WINDOW",
+    "RecoveryCandidate",
+    "RecoveryDecision",
+    "RecoveryReport",
+    "RETRIEVAL_SAFE_THRESHOLD",
+    "ConfidenceInput",
+    "DegradedModeConfig",
+    "StructuralConfidence",
+    "SegmentArtifactRefs",
+    "CanonicalArtifactRefs",
+    "CanonicalArtifactRegistry",
 ]
+
+

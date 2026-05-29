@@ -37,6 +37,8 @@ from typing import Any
 from services.structure.heading_patterns import normalize_spaces, parse_raw_heading
 
 _TOC_MAX_PAGES = 5
+_TOC_MIN_CLUSTER_ENTRIES = 3
+_TOC_MAX_CONSECUTIVE_NOISE = 2
 
 _TOC_MARKERS = frozenset(
     {
@@ -276,22 +278,52 @@ def _normalize_toc_title(title: str) -> str:
 def _is_likely_toc_marker(text: str) -> bool:
     """
     Проверяет, выглядит ли строка как явный TOC marker.
-
-    Примеры:
-    - "Contents"
-    - "Table of Contents"
-    - "Содержание"
-    - "Оглавление"
     """
     return _normalize_toc_text(text).lower() in _TOC_MARKERS
+
+
+def _looks_like_appendix_uid(uid: str | None) -> bool:
+    if not uid:
+        return False
+    u = normalize_spaces(uid).lower()
+    return u.startswith("appendix-") or u.startswith("приложение-")
+
+
+def _looks_like_root_numeric_uid(uid: str | None) -> bool:
+    if not uid:
+        return False
+    return bool(re.fullmatch(r"\d+", uid.strip()))
+
+
+def _extract_root_numeric_value(uid: str | None) -> int | None:
+    if not _looks_like_root_numeric_uid(uid):
+        return None
+    try:
+        return int(uid.strip())
+    except Exception:
+        return None
+
+
+def _longest_consecutive_chain(values: list[int]) -> int:
+    if not values:
+        return 0
+    uniq = sorted(set(v for v in values if v >= 1))
+    if not uniq:
+        return 0
+    best = 1
+    cur = 1
+    for i in range(1, len(uniq)):
+        if uniq[i] == uniq[i - 1] + 1:
+            cur += 1
+            best = max(best, cur)
+        else:
+            cur = 1
+    return best
 
 
 def _looks_substantive_toc_false_positive_text(text: str) -> bool:
     """
     Parser-level negative filter против ложноположительных TOC-строк.
-
-    Это не юридическая классификация "на 100%", а ранний защитный фильтр,
-    чтобы detect_toc_block() не захватывал очевидные body/definition-like линии.
     """
     t = _normalize_toc_text(text)
     if not t:
@@ -319,14 +351,6 @@ def _looks_substantive_toc_false_positive_text(text: str) -> bool:
 def _is_likely_toc_entry_line(text: str) -> bool:
     """
     Проверяет, похожа ли строка на самостоятельную TOC entry line.
-
-    Строгие сигналы:
-    - строка должна иметь page_hint в конце;
-    - строка должна быть короткой;
-    - либо есть dot leaders,
-      либо строка heading-like после извлечения page_hint.
-
-    Negative-фильтры применяются до positive logic.
     """
     t = _normalize_toc_text(text)
     if not t:
@@ -347,7 +371,7 @@ def _is_likely_toc_entry_line(text: str) -> bool:
     if len(text_wo_page.split()) > 20:
         return False
 
-    if len(text_wo_page) > 140:
+    if len(text_wo_page) > 160:
         return False
 
     if has_dot_leader:
@@ -356,7 +380,7 @@ def _is_likely_toc_entry_line(text: str) -> bool:
     parsed = parse_raw_heading(text_wo_page)
     if parsed is not None:
         _, title = parsed
-        if len(title.split()) <= 16 and len(title) <= 140:
+        if len(title.split()) <= 18 and len(title) <= 160:
             return True
 
     return False
@@ -365,13 +389,6 @@ def _is_likely_toc_entry_line(text: str) -> bool:
 def _is_toc_continuation_line(text: str) -> bool:
     """
     Проверяет, выглядит ли строка как continuation line для multi-line TOC entry.
-
-    Правило строгое:
-    - continuation line допустима только после уже начатой TOC entry;
-    - строка не должна быть TOC marker;
-    - строка не должна выглядеть как новая самостоятельная TOC entry;
-    - строка не должна быть слишком длинной;
-    - строка не должна быть явным substantive false positive.
     """
     t = _normalize_toc_text(text)
     if not t:
@@ -427,6 +444,76 @@ def _is_toc_tail_line(text: str) -> bool:
     return True
 
 
+def _is_toc_weak_start_line(text: str) -> bool:
+    """
+    Строка может быть началом multiline TOC entry даже без page_hint,
+    но только если она достаточно похожа на TOC-строку и не похожа на body.
+    """
+    t = _normalize_toc_text(text)
+    if not t:
+        return False
+
+    if _looks_substantive_toc_false_positive_text(t):
+        return False
+
+    if _DOT_LEADER_RE.search(t):
+        return True
+
+    parsed = parse_raw_heading(t)
+    if parsed is None:
+        return False
+
+    uid, title = parsed
+    title = normalize_spaces(title or "")
+    if not uid or not title:
+        return False
+
+    if len(title.split()) > 14:
+        return False
+
+    if len(title) > 110:
+        return False
+
+    if title.endswith((".", ";", ":")):
+        return False
+
+    return True
+
+
+def _score_toc_like_line(text: str) -> int:
+    """
+    Лёгкий parser-level scoring для detect_toc_block().
+    Нужен только для детекта кластера и мягкого расширения блока.
+    """
+    t = _normalize_toc_text(text)
+    if not t:
+        return 0
+
+    score = 0
+    if _is_likely_toc_marker(t):
+        score += 5
+    if _is_likely_toc_entry_line(t):
+        score += 4
+    elif _is_toc_tail_line(t):
+        score += 3
+    elif _is_toc_continuation_line(t):
+        score += 2
+
+    text_wo_page, page_hint = _extract_page_hint(t)
+    if page_hint is not None:
+        score += 1
+
+    parsed = parse_raw_heading(text_wo_page)
+    if parsed is not None:
+        uid, _ = parsed
+        if uid:
+            score += 1
+        if _looks_like_appendix_uid(uid):
+            score += 1
+
+    return score
+
+
 def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
     """
     Выделяет границы TOC блока на ранних страницах документа.
@@ -453,88 +540,143 @@ def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
     first_page = _safe_page(elements[0].get("page", 1), default=1)
     page_threshold = first_page + max(_TOC_MAX_PAGES - 1, 0)
 
-    start_index: int | None = None
+    early_indexes: list[int] = []
     for i, el in enumerate(elements):
         if _safe_page(el.get("page", 1), default=1) > page_threshold:
             break
-        text = _normalize_toc_text(str(el.get("text") or ""))
-        if _is_likely_toc_marker(text):
-            start_index = i
-            break
+        early_indexes.append(i)
 
-    if start_index is None:
-        cluster_start: int | None = None
-        cluster_count = 0
-        cluster_last = 0
-
-        for i, el in enumerate(elements):
-            if _safe_page(el.get("page", 1), default=1) > page_threshold:
-                break
-
-            text = _normalize_toc_text(str(el.get("text") or ""))
-            if _is_likely_toc_entry_line(text):
-                if cluster_start is None:
-                    cluster_start = i
-                cluster_count += 1
-                cluster_last = i
-                continue
-
-            if cluster_count >= 3 and cluster_start is not None:
-                return TOCBlock(
-                    detected=True,
-                    start_index=cluster_start,
-                    end_index=cluster_last + 1,
-                    reason="toc_entry_cluster",
-                    elements=elements[cluster_start : cluster_last + 1],
-                )
-
-            cluster_start = None
-            cluster_count = 0
-
-        if cluster_count >= 3 and cluster_start is not None:
-            return TOCBlock(
-                detected=True,
-                start_index=cluster_start,
-                end_index=cluster_last + 1,
-                reason="toc_entry_cluster_end",
-                elements=elements[cluster_start : cluster_last + 1],
-            )
-
+    if not early_indexes:
         return TOCBlock(
             detected=False,
             start_index=None,
             end_index=0,
-            reason="not_detected",
+            reason="no_early_pages",
             elements=[],
         )
 
-    end_index = start_index + 1
-    seen_toc_entry = False
-
-    for i in range(start_index + 1, len(elements)):
-        el = elements[i]
-        if _safe_page(el.get("page", 1), default=1) > page_threshold:
+    start_index: int | None = None
+    for i in early_indexes:
+        text = _normalize_toc_text(str(elements[i].get("text") or ""))
+        if _is_likely_toc_marker(text):
+            start_index = i
             break
 
-        text = _normalize_toc_text(str(el.get("text") or ""))
-        if not text:
-            end_index = i + 1
+    if start_index is not None:
+        end_index = start_index + 1
+        seen_toc_entry = False
+        consecutive_noise = 0
+        entry_like_count = 0
+
+        for i in range(start_index + 1, len(elements)):
+            el = elements[i]
+            if _safe_page(el.get("page", 1), default=1) > page_threshold:
+                break
+
+            text = _normalize_toc_text(str(el.get("text") or ""))
+            if not text:
+                end_index = i + 1
+                continue
+
+            score = _score_toc_like_line(text)
+            if score >= 2:
+                seen_toc_entry = True
+                if _is_likely_toc_entry_line(text) or _is_toc_tail_line(text):
+                    entry_like_count += 1
+                consecutive_noise = 0
+                end_index = i + 1
+                continue
+
+            if seen_toc_entry:
+                consecutive_noise += 1
+                if consecutive_noise <= _TOC_MAX_CONSECUTIVE_NOISE:
+                    end_index = i + 1
+                    continue
+                break
+
+        if not entry_like_count:
+            return TOCBlock(
+                detected=False,
+                start_index=None,
+                end_index=0,
+                reason="marker_without_entries",
+                elements=[],
+            )
+
+        return TOCBlock(
+            detected=True,
+            start_index=start_index,
+            end_index=end_index,
+            reason="marker_detected",
+            elements=elements[start_index:end_index],
+        )
+
+    cluster_start: int | None = None
+    cluster_last: int | None = None
+    cluster_score = 0
+    cluster_entry_like_count = 0
+    noise_run = 0
+
+    for i in early_indexes:
+        text = _normalize_toc_text(str(elements[i].get("text") or ""))
+        score = _score_toc_like_line(text)
+
+        if score >= 3:
+            if cluster_start is None:
+                cluster_start = i
+            cluster_last = i
+            cluster_score += score
+            if _is_likely_toc_entry_line(text) or _is_toc_tail_line(text):
+                cluster_entry_like_count += 1
+            noise_run = 0
             continue
 
-        if _is_likely_toc_entry_line(text) or _is_toc_continuation_line(text):
-            seen_toc_entry = True
-            end_index = i + 1
+        if cluster_start is not None and score >= 2 and noise_run < _TOC_MAX_CONSECUTIVE_NOISE:
+            cluster_last = i
+            cluster_score += score
+            noise_run += 1
             continue
 
-        if seen_toc_entry:
-            break
+        if (
+            cluster_start is not None
+            and cluster_last is not None
+            and cluster_entry_like_count >= _TOC_MIN_CLUSTER_ENTRIES
+            and cluster_score >= 10
+        ):
+            return TOCBlock(
+                detected=True,
+                start_index=cluster_start,
+                end_index=cluster_last + 1,
+                reason="toc_entry_cluster",
+                elements=elements[cluster_start : cluster_last + 1],
+            )
+
+        cluster_start = None
+        cluster_last = None
+        cluster_score = 0
+        cluster_entry_like_count = 0
+        noise_run = 0
+
+    if (
+        cluster_start is not None
+        and cluster_last is not None
+        and cluster_entry_like_count >= _TOC_MIN_CLUSTER_ENTRIES
+        and cluster_score >= 10
+    ):
+        return TOCBlock(
+            detected=True,
+            start_index=cluster_start,
+            end_index=cluster_last + 1,
+            reason="toc_entry_cluster_end",
+            elements=elements[cluster_start : cluster_last + 1],
+        )
 
     return TOCBlock(
-        detected=True,
-        start_index=start_index,
-        end_index=end_index,
-        reason="marker_detected",
-        elements=elements[start_index:end_index],
+        detected=False,
+        start_index=None,
+        end_index=0,
+        reason="not_detected",
+        elements=[],
     )
 
 
@@ -567,8 +709,12 @@ def parse_toc_entries(toc_block: TOCBlock) -> ParsedTOC:
     buffer_texts: list[str] = []
     buffer_indexes: list[int] = []
 
+    skipped_marker_lines = 0
+    skipped_noise_lines = 0
+    weak_start_entries = 0
+
     def flush_buffer() -> None:
-        nonlocal buffer_texts, buffer_indexes
+        nonlocal buffer_texts, buffer_indexes, weak_start_entries
 
         if not buffer_texts:
             return
@@ -584,7 +730,32 @@ def parse_toc_entries(toc_block: TOCBlock) -> ParsedTOC:
             title = parsed_title or text_wo_page
 
         normalized_title = _normalize_toc_title(title)
-        if normalized_title:
+
+        weak_start = bool(buffer_texts) and _is_toc_weak_start_line(buffer_texts[0])
+        body_like_false_positive = _looks_substantive_toc_false_positive_text(title)
+
+        if (
+            normalized_title
+            and not body_like_false_positive
+            and (
+                page_hint is not None
+                or weak_start
+            )
+        ):
+            has_page_hint = page_hint is not None
+            diagnostics = {
+                "multiline": len(buffer_indexes) > 1,
+                "has_uid": uid is not None,
+                "is_appendix_uid": _looks_like_appendix_uid(uid),
+                "is_root_numeric_uid": _looks_like_root_numeric_uid(uid),
+                "source_line_count": len(buffer_indexes),
+                "weak_entry_no_page_hint": uid is not None and not has_page_hint,
+                "weak_start_line": weak_start,
+            }
+
+            if diagnostics["weak_start_line"]:
+                weak_start_entries += 1
+
             entries.append(
                 ParsedTOCEntry(
                     entry_index=len(entries),
@@ -595,9 +766,7 @@ def parse_toc_entries(toc_block: TOCBlock) -> ParsedTOC:
                     title=title,
                     normalized_title=normalized_title,
                     page_hint=page_hint,
-                    diagnostics={
-                        "multiline": len(buffer_indexes) > 1,
-                    },
+                    diagnostics=diagnostics,
                 )
             )
 
@@ -612,17 +781,25 @@ def parse_toc_entries(toc_block: TOCBlock) -> ParsedTOC:
             continue
 
         if _is_likely_toc_marker(text):
+            skipped_marker_lines += 1
             continue
 
-        # Приоритет 1: tail line для уже начатой multiline entry
         if buffer_texts and _is_toc_tail_line(text):
+            if _extract_page_hint(" ".join(buffer_texts))[1] is not None:
+                flush_buffer()
+                if _is_likely_toc_entry_line(text):
+                    buffer_texts = [text]
+                    buffer_indexes = [global_idx]
+                    if _extract_page_hint(text)[1] is not None:
+                        flush_buffer()
+                continue
+
             buffer_texts.append(text)
             buffer_indexes.append(global_idx)
             if _extract_page_hint(" ".join(buffer_texts))[1] is not None:
                 flush_buffer()
             continue
 
-        # Приоритет 2: самостоятельная TOC entry с page_hint
         if _is_likely_toc_entry_line(text):
             flush_buffer()
             buffer_texts = [text]
@@ -631,15 +808,13 @@ def parse_toc_entries(toc_block: TOCBlock) -> ParsedTOC:
                 flush_buffer()
             continue
 
-        # Приоритет 3: строка с heading uid, но без page_hint — начинаем multiline
         parsed = parse_raw_heading(text)
-        if parsed is not None:
+        if parsed is not None and _is_toc_weak_start_line(text):
             flush_buffer()
             buffer_texts = [text]
             buffer_indexes = [global_idx]
             continue
 
-        # Приоритет 4: continuation line для уже открытой entry
         if _is_toc_continuation_line(text) and buffer_texts:
             buffer_texts.append(text)
             buffer_indexes.append(global_idx)
@@ -647,10 +822,29 @@ def parse_toc_entries(toc_block: TOCBlock) -> ParsedTOC:
                 flush_buffer()
             continue
 
-        # Fallback: строка не подошла ни под один паттерн
+        skipped_noise_lines += 1
         flush_buffer()
 
     flush_buffer()
+
+    entries_total = len(entries)
+    entries_with_page_hint = sum(1 for e in entries if e.page_hint is not None)
+    multiline_entries = sum(1 for e in entries if e.diagnostics.get("multiline"))
+    entries_with_uid = sum(1 for e in entries if e.uid is not None)
+    numeric_uid_entries = sum(
+        1 for e in entries if e.uid is not None and re.fullmatch(r"\d+(?:\.\d+)*", e.uid)
+    )
+    appendix_uid_entries = sum(1 for e in entries if e.diagnostics.get("is_appendix_uid"))
+    entries_without_uid_with_page_hint = sum(
+        1 for e in entries if e.uid is None and e.page_hint is not None
+    )
+
+    root_numeric_values = [
+        v
+        for v in (_extract_root_numeric_value(e.uid) for e in entries)
+        if v is not None
+    ]
+    root_numeric_chain_len = _longest_consecutive_chain(root_numeric_values)
 
     return ParsedTOC(
         detected=True,
@@ -659,9 +853,18 @@ def parse_toc_entries(toc_block: TOCBlock) -> ParsedTOC:
         end_index=toc_block.end_index,
         reason=toc_block.reason,
         parser_diagnostics={
-            "entries_total": len(entries),
-            "multiline_entries": sum(1 for e in entries if e.diagnostics.get("multiline")),
-            "entries_with_page_hint": sum(1 for e in entries if e.page_hint is not None),
+            "entries_total": entries_total,
+            "multiline_entries": multiline_entries,
+            "entries_with_page_hint": entries_with_page_hint,
+            "entries_with_uid": entries_with_uid,
+            "numeric_uid_entries": numeric_uid_entries,
+            "appendix_uid_entries": appendix_uid_entries,
+            "entries_without_uid_with_page_hint": entries_without_uid_with_page_hint,
+            "root_numeric_uids": sorted(set(root_numeric_values)),
+            "root_numeric_chain_len": root_numeric_chain_len,
+            "skipped_marker_lines": skipped_marker_lines,
+            "skipped_noise_lines": skipped_noise_lines,
+            "weak_start_entries": weak_start_entries,
         },
     )
 
@@ -741,12 +944,9 @@ def compute_partial_reliability(
     - alignment score;
     - доля entries с page_hint;
     - penalty за большое число multi-line entries,
-      так как они повышают parser ambiguity.
-
-    Возвращает:
-    - is_reliable для сильного TOC сигнала;
-    - partial_reliability для weak/partial evidence;
-    - confidence_band для diagnostics.
+      так как они повышают parser ambiguity;
+    - bonus за наличие в TOC root numeric chain,
+      так как это сильный structural signal для main agreement.
     """
     if not parsed_toc.detected:
         return TOCReliabilityResult(
@@ -769,11 +969,14 @@ def compute_partial_reliability(
     multiline_penalty = (
         sum(1 for e in parsed_toc.entries if e.diagnostics.get("multiline")) / entries_total
     )
+    root_numeric_chain_len = int(parsed_toc.parser_diagnostics.get("root_numeric_chain_len", 0) or 0)
+    root_chain_bonus = min(root_numeric_chain_len / 8.0, 1.0)
 
     reliability = (
-        alignment.toc_alignment_score * 0.65
-        + page_hint_ratio * 0.25
+        alignment.toc_alignment_score * 0.55
+        + page_hint_ratio * 0.20
         + (1.0 - multiline_penalty) * 0.10
+        + root_chain_bonus * 0.15
     )
     reliability = max(0.0, min(1.0, round(reliability, 4)))
 
@@ -788,6 +991,10 @@ def compute_partial_reliability(
         reasons.append("low_page_hint_coverage")
     if multiline_penalty > 0.3:
         reasons.append("many_multiline_entries")
+    if root_numeric_chain_len >= 4:
+        reasons.append("has_root_numeric_chain")
+    if int(parsed_toc.parser_diagnostics.get("appendix_uid_entries", 0) or 0) > 0:
+        reasons.append("has_appendix_entries")
 
     if reliability >= 0.75:
         band = "high"
@@ -799,9 +1006,13 @@ def compute_partial_reliability(
         band = "low"
         is_reliable = False
 
+    if band == "partial":
+        reasons.append("usable_as_weak_hint")
+
     return TOCReliabilityResult(
         is_reliable=is_reliable,
         partial_reliability=reliability,
         confidence_band=band,
         reasons=reasons,
     )
+

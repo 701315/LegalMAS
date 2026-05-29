@@ -432,3 +432,5 @@ def evaluate_toc_guard(
         extra={"document_id": doc_id, **verdict.to_dict()},
     )
     return verdict
+
+

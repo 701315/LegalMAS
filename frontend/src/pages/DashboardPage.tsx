@@ -6,24 +6,11 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
-import client from "../api/client";
-import type { ProjectRole } from "../api/auth";
+import { useUserProjects } from "../hooks/useUserProjects";
+import { useDeleteProject } from "../hooks/useDeleteProject";
 import type { ApiError } from "../types";
 import Button from "../components/ui/Button";
-
-interface UserProject {
-  deal_id: string;
-  deal_name: string;
-  role: ProjectRole;
-  created_at: string;
-  contact_person?: string | null;
-}
-
-async function fetchUserProjects(userId: string): Promise<UserProject[]> {
-  const res = await client.get<UserProject[]>(`/api/v1/user/${userId}/projects`);
-  return res.data;
-}
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 
 function formatDate(value: string): string {
   const d = new Date(value);
@@ -35,6 +22,12 @@ function formatDate(value: string): string {
   });
 }
 
+/** Данные проекта, который пользователь хочет удалить. */
+interface DeleteTarget {
+  dealId: string;
+  dealName: string;
+}
+
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { userId, userName, globalRole } = useAuth();
@@ -42,17 +35,19 @@ const DashboardPage: React.FC = () => {
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
+  // Состояние модального окна подтверждения удаления
+  const [deleteTarget, setDeleteTarget] = React.useState<DeleteTarget | null>(
+    null,
+  );
+
   React.useEffect(() => {
     if (!userId) {
       navigate("/login");
     }
   }, [userId, navigate]);
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["user-projects", userId],
-    queryFn: () => fetchUserProjects(userId!),
-    enabled: !!userId,
-  });
+  const { data, isLoading, error } = useUserProjects(userId);
+  const deleteProjectMutation = useDeleteProject(userId);
 
   const projects = data ?? [];
 
@@ -64,19 +59,29 @@ const DashboardPage: React.FC = () => {
     navigate("/projects/new");
   };
 
-  const handleDeleteProject = async (dealId: string, dealName: string) => {
-    const ok = window.confirm(
-      `Удалить проект "${dealName}"?\n\n` +
-        "Это действие нельзя отменить. Все связанные данные могут быть удалены безвозвратно.",
-    );
-    if (!ok) return;
+  /** Открыть диалог подтверждения удаления. */
+  const handleRequestDelete = (dealId: string, dealName: string) => {
+    setDeleteError(null);
+    setDeleteTarget({ dealId, dealName });
+  };
+
+  /** Закрыть диалог без удаления. */
+  const handleCancelDelete = () => {
+    setDeleteTarget(null);
+  };
+
+  /** Подтвердить удаление. */
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    const { dealId } = deleteTarget;
 
     setDeleteError(null);
     setDeletingId(dealId);
 
     try {
-      await client.delete(`/api/v1/deals/${dealId}`);
-      await refetch();
+      await deleteProjectMutation.mutateAsync(dealId);
+      setDeleteTarget(null);
     } catch (err: unknown) {
       const e = err as unknown;
 
@@ -112,6 +117,7 @@ const DashboardPage: React.FC = () => {
         "Не удалось удалить проект. Возможно, есть связанные данные в системе.";
 
       setDeleteError(msg);
+      setDeleteTarget(null);
     } finally {
       setDeletingId(null);
     }
@@ -124,6 +130,7 @@ const DashboardPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 md:px-6">
       <div className="mx-auto max-w-6xl animate-fadein space-y-5">
+        {/* Шапка */}
         <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
           <div className="flex flex-col gap-4">
             <div className="min-w-0">
@@ -146,12 +153,14 @@ const DashboardPage: React.FC = () => {
           </div>
         </header>
 
+        {/* Ошибка удаления */}
         {deleteError && (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {deleteError}
           </div>
         )}
 
+        {/* Скелетон */}
         {isLoading && (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
             <div className="mb-4 h-4 w-40 skeleton" />
@@ -163,12 +172,14 @@ const DashboardPage: React.FC = () => {
           </div>
         )}
 
+        {/* Ошибка загрузки */}
         {error && !isLoading && (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-700">
             Не удалось загрузить проекты.
           </div>
         )}
 
+        {/* Пусто */}
         {!isLoading && !error && projects.length === 0 && (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <div className="mx-auto max-w-md">
@@ -190,6 +201,7 @@ const DashboardPage: React.FC = () => {
           </div>
         )}
 
+        {/* Карточки проектов */}
         {!isLoading && !error && projects.length > 0 && (
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {projects.map((p) => (
@@ -247,7 +259,9 @@ const DashboardPage: React.FC = () => {
                       type="button"
                       size="sm"
                       variant="danger"
-                      onClick={() => handleDeleteProject(p.deal_id, p.deal_name)}
+                      onClick={() =>
+                        handleRequestDelete(p.deal_id, p.deal_name)
+                      }
                       isLoading={deletingId === p.deal_id}
                     >
                       {deletingId === p.deal_id ? "Удаляем…" : "Удалить"}
@@ -259,6 +273,19 @@ const DashboardPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Диалог подтверждения удаления */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={`Удалить проект «${deleteTarget?.dealName ?? ""}»?`}
+        description="Это действие нельзя отменить. Все связанные данные могут быть удалены безвозвратно."
+        confirmLabel="Удалить"
+        cancelLabel="Отмена"
+        confirmVariant="danger"
+        isLoading={deletingId !== null}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
     </div>
   );
 };

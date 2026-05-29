@@ -1,58 +1,42 @@
 # src/services/structure/_hierarchy_builder/_traversal.py
 
-"""Обход дерева и агрегация текстовых свойств."""
+"""Обход дерева и агрегация structural свойств."""
 
 from __future__ import annotations
 
 from collections.abc import Generator
 
 from core.logging import get_logger
-from services.structure._models._nodes import ClauseNode
+from services.structure.models import (
+    MutableHierarchyNode,
+    NODE_KIND_LEAF,
+    NODE_KIND_SECTION,
+)
 
 logger = get_logger(__name__)
 
 _SUSPICIOUS_OWN_SHARE_RATIO = 0.8
 
 
-def _walk_postorder(node: ClauseNode) -> Generator[ClauseNode, None, None]:
-    """Bottom-up обход дерева."""
+def _walk_postorder(
+    node: MutableHierarchyNode,
+) -> Generator[MutableHierarchyNode, None, None]:
     for child in node.children:
         yield from _walk_postorder(child)
     yield node
 
 
 def populate_subtree_element_ids(
-    root_nodes: list[ClauseNode],
+    root_nodes: list[MutableHierarchyNode],
     *,
     document_id: str,
 ) -> None:
-    """Агрегация subtree_element_ids и текстов снизу вверх."""
     if not root_nodes:
         return
 
     for root_node in root_nodes:
         for node in _walk_postorder(root_node):
-            node.node_kind = "section" if node.children else "leaf"
-
-            if node.citability_hint is None:
-                is_semantic_negative = node.semantic_node_type in {
-                    "definition_item",
-                    "signature_block",
-                    "body_text",
-                }
-                has_own_text = bool(node.own_text and node.own_text.strip())
-                has_children = bool(node.children)
-
-                if is_semantic_negative:
-                    node.citability_hint = "low"
-                elif node.recovered_via_best_effort:
-                    node.citability_hint = "medium"
-                elif not has_own_text and not has_children:
-                    node.citability_hint = "low"
-                elif not has_own_text and has_children:
-                    node.citability_hint = "medium"
-                else:
-                    node.citability_hint = "high"
+            node.node_kind = NODE_KIND_SECTION if node.children else NODE_KIND_LEAF
 
             subtree_ids: list[str] = list(node.own_element_ids or [])
             for child in node.children:
@@ -74,3 +58,7 @@ def populate_subtree_element_ids(
                 and subtree_count > 0
                 and own_count >= _SUSPICIOUS_OWN_SHARE_RATIO * subtree_count
             )
+            node.diagnostics["document_id"] = document_id
+
+
+            

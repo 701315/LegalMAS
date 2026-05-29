@@ -14,9 +14,10 @@ LegalUnitBuilder — построение semantic layer LegalUnit поверх 
    - по title (regex patterns),
    - по semantic_node_type из classifier,
    - по уровню вложенности,
-   - по наличию текста.
+   - по наличию текста,
+   - по scope/node_origin/content_mode.
 4. Вычисляет CitabilityMetrics.
-5. Извлекает CrossRefStub-ы из текста (базовые паттерны).
+5. Извлекает CrossRefStub-ы из текста (расширенные паттерны, включая appendix/item refs).
 6. Применяет TopicTagger (Этап 6) — добавляет topic_tags.
 7. Применяет CrossRefResolver (Этап 6) — резолвит ссылки между units.
 
@@ -49,15 +50,11 @@ from services.structure.legal_unit_models import (
 
 logger = get_logger(__name__)
 
-
 # ---------------------------------------------------------------------------
 # Regex patterns для классификации по title
 # ---------------------------------------------------------------------------
 
-# Паттерны для определения LegalUnitType по заголовку клаузы.
-# Порядок важен: более специфичные паттерны должны идти раньше.
 _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
-    # Определения
     (
         re.compile(
             r"\b(definitions?|defined terms?|interpretation|meanings?|"
@@ -66,7 +63,6 @@ _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
         ),
         LegalUnitType.DEFINITION,
     ),
-    # Платёжные условия
     (
         re.compile(
             r"\b(payment|price|consideration|fee|remuneration|compensation|"
@@ -75,7 +71,6 @@ _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
         ),
         LegalUnitType.PAYMENT_TERM,
     ),
-    # Гарантии
     (
         re.compile(
             r"\b(warrant(y|ies)|representation|guarantee|indemnif|"
@@ -84,7 +79,6 @@ _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
         ),
         LegalUnitType.WARRANTY,
     ),
-    # Уведомления
     (
         re.compile(
             r"\b(notice[s]?|notification|communication|correspondence|"
@@ -93,16 +87,14 @@ _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
         ),
         LegalUnitType.NOTICE,
     ),
-    # Применимое право
     (
         re.compile(
             r"\b(governing law|applicable law|choice of law|"
-            r"применимое право|право[,\s]которое|выбор права)\b",
+            r"применимое право|выбор права)\b",
             re.IGNORECASE,
         ),
         LegalUnitType.GOVERNING_LAW,
     ),
-    # Подсудность / арбитраж
     (
         re.compile(
             r"\b(jurisdiction|arbitration|dispute resolution|"
@@ -112,7 +104,6 @@ _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
         ),
         LegalUnitType.JURISDICTION,
     ),
-    # Ссылки на приложения
     (
         re.compile(
             r"\b(appendix|annex|exhibit|schedule|attachment|"
@@ -121,7 +112,6 @@ _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
         ),
         LegalUnitType.APPENDIX_REFERENCE,
     ),
-    # Обязательства (broad pattern — идёт последним среди специфичных)
     (
         re.compile(
             r"\b(obligation[s]?|undertaking|covenant|duty|duties|"
@@ -132,7 +122,6 @@ _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
     ),
 ]
 
-# Паттерны для определения ClauseFunction по тексту или заголовку
 _FUNCTION_PATTERNS: list[tuple[re.Pattern, ClauseFunction]] = [
     (
         re.compile(
@@ -184,7 +173,7 @@ _FUNCTION_PATTERNS: list[tuple[re.Pattern, ClauseFunction]] = [
     ),
     (
         re.compile(
-            r"\b(entitled|right to|may|permitted|" r"вправе|имеет право|может)\b",
+            r"\b(entitled|right to|may|permitted|вправе|имеет право|может)\b",
             re.IGNORECASE,
         ),
         ClauseFunction.RIGHTS,
@@ -200,11 +189,11 @@ _FUNCTION_PATTERNS: list[tuple[re.Pattern, ClauseFunction]] = [
     ),
 ]
 
-# Паттерны для извлечения cross-references из текста
 _CLAUSE_REF_PATTERN = re.compile(
     r"""
     (?:
-        (?:section|clause|article|paragraph|п\.?|ст\.?|разд\.?)\s*
+        (?:section|clause|article|paragraph|item|п\.?|ст\.?|разд\.?|пункт(?:а|е|ом)?)
+        \s*
         (\d+(?:\.\d+)*)
     )
     """,
@@ -214,7 +203,29 @@ _CLAUSE_REF_PATTERN = re.compile(
 _APPENDIX_REF_PATTERN = re.compile(
     r"""
     (?:
-        (?:appendix|annex|exhibit|schedule|attachment|приложени[еяй])\s*
+        (?:appendix|annex|exhibit|schedule|attachment|приложени[еяй])
+        \s*
+        (?:no\.?|№|#)?
+        \s*
+        ([A-Z]|\d+|[IVX]+)
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_APPENDIX_ITEM_REF_PATTERN = re.compile(
+    r"""
+    (?:
+        (?:item|clause|section|п\.?|пункт(?:а|е|ом)?)
+        \s*
+        (\d+(?:\.\d+)*)
+        \s+
+        (?:of|in|under|в|из|согласно|according\ to)
+        \s+
+        (?:appendix|annex|exhibit|schedule|attachment|приложени[еяй])
+        \s*
+        (?:no\.?|№|#)?
+        \s*
         ([A-Z]|\d+|[IVX]+)
     )
     """,
@@ -222,7 +233,7 @@ _APPENDIX_REF_PATTERN = re.compile(
 )
 
 _DEFINITION_REF_PATTERN = re.compile(
-    r'"([A-ZА-Я][^"]{1,60})"',  # термин в кавычках с большой буквы
+    r'"([A-ZА-Я][^"]{1,60})"',
 )
 
 
@@ -230,16 +241,84 @@ _DEFINITION_REF_PATTERN = re.compile(
 # Вспомогательные функции
 # ---------------------------------------------------------------------------
 
+def _normalize_text(value: Any) -> str:
+    return str(value or "").strip()
 
-def _classify_unit_type(title: str, text: str | None) -> LegalUnitType:
-    """
-    Определить LegalUnitType по заголовку и (опционально) тексту.
 
-    Для непрофессионального программиста:
-    - Сначала проверяем title — это самый надёжный сигнал.
-    - Если по title ничего не нашли — проверяем первые 500 символов текста.
-    - Если и там ничего — возвращаем UNKNOWN.
-    """
+def _looks_like_appendix_scope(scope: str) -> bool:
+    s = _normalize_text(scope).lower()
+    return s.startswith("appendix") or s.startswith("приложение")
+
+
+def _looks_like_technical_chunk_title(title: str) -> bool:
+    t = _normalize_text(title).lower()
+    return bool(
+        t.startswith("chunk ")
+        or t.startswith("[technical fallback]")
+        or t.startswith("fragment ")
+    )
+
+
+def _safe_semantic_title(
+    *,
+    title: str,
+    raw_uid: str,
+    scope: str,
+    is_technical_fallback: bool,
+    is_heading_only: bool,
+) -> str:
+    normalized_title = _normalize_text(title)
+    if is_technical_fallback:
+        return ""
+
+    if normalized_title and not _looks_like_technical_chunk_title(normalized_title):
+        return normalized_title
+
+    if _looks_like_appendix_scope(scope) and raw_uid:
+        return f"Appendix {raw_uid}"
+
+    if is_heading_only and raw_uid:
+        return f"Section {raw_uid}"
+
+    return normalized_title
+
+
+def _classify_unit_type(
+    *,
+    title: str,
+    text: str | None,
+    scope: str,
+    node_kind: str,
+    content_mode: str,
+    node_origin: str,
+    raw_uid: str,
+    semantic_node_type: Any,
+    is_technical_fallback: bool,
+) -> LegalUnitType:
+    if is_technical_fallback:
+        return LegalUnitType.UNKNOWN
+
+    normalized_scope = _normalize_text(scope).lower()
+    normalized_kind = _normalize_text(node_kind).lower()
+    normalized_content_mode = _normalize_text(content_mode).lower()
+    normalized_node_origin = _normalize_text(node_origin).lower()
+    normalized_semantic_node_type = _normalize_text(semantic_node_type).lower()
+
+    if _looks_like_appendix_scope(normalized_scope):
+        return LegalUnitType.APPENDIX_REFERENCE
+
+    if normalized_content_mode == "heading_only":
+        return LegalUnitType.UNKNOWN
+
+    if normalized_semantic_node_type in {"definition", "definitions"}:
+        return LegalUnitType.DEFINITION
+    if normalized_semantic_node_type in {"payment", "payment_term"}:
+        return LegalUnitType.PAYMENT_TERM
+    if normalized_semantic_node_type in {"warranty", "representation"}:
+        return LegalUnitType.WARRANTY
+    if normalized_semantic_node_type in {"notice"}:
+        return LegalUnitType.NOTICE
+
     for pattern, unit_type in _TITLE_TYPE_PATTERNS:
         if pattern.search(title):
             return unit_type
@@ -250,21 +329,33 @@ def _classify_unit_type(title: str, text: str | None) -> LegalUnitType:
             if pattern.search(text_sample):
                 return unit_type
 
+    if normalized_kind in {"root", "branch"} and raw_uid.isdigit():
+        return LegalUnitType.OBLIGATION
+
+    if normalized_node_origin == "semantic":
+        return LegalUnitType.UNKNOWN
+
     return LegalUnitType.UNKNOWN
 
 
 def _classify_clause_function(
+    *,
     title: str,
     text: str | None,
     unit_type: LegalUnitType,
+    scope: str,
+    content_mode: str,
+    is_technical_fallback: bool,
 ) -> ClauseFunction:
-    """
-    Определить ClauseFunction по заголовку, тексту и уже известному unit_type.
+    if is_technical_fallback:
+        return ClauseFunction.UNKNOWN
 
-    Для непрофессионального программиста:
-    - Сначала используем unit_type как strong prior.
-    - Если unit_type=UNKNOWN или GENERAL_PROVISION — проверяем паттерны.
-    """
+    if _looks_like_appendix_scope(scope):
+        return ClauseFunction.BOILERPLATE
+
+    if _normalize_text(content_mode).lower() == "heading_only":
+        return ClauseFunction.UNKNOWN
+
     _type_to_function: dict[LegalUnitType, ClauseFunction] = {
         LegalUnitType.DEFINITION: ClauseFunction.DEFINITIONS,
         LegalUnitType.WARRANTY: ClauseFunction.REPRESENTATIONS,
@@ -291,19 +382,28 @@ def _extract_cross_refs(
     unit_id: str,
     text: str | None,
 ) -> list[CrossRefStub]:
-    """
-    Извлечь cross-references из текста клаузы.
-
-    Для непрофессионального программиста:
-    - Ищем упоминания вида "раздел 5.2", "Appendix 1", "термин X".
-    - Создаём CrossRefStub с raw_ref_text и target_hint.
-    - resolved=False — резолвинг происходит позже в cross_ref_resolver.py.
-    """
     if not text:
         return []
 
     refs: list[CrossRefStub] = []
     seen_refs: set[str] = set()
+
+    for match in _APPENDIX_ITEM_REF_PATTERN.finditer(text):
+        raw_text = match.group(0).strip()
+        item_hint = match.group(1)
+        appendix_hint = match.group(2)
+        key = f"appendix_item:{appendix_hint}:{item_hint}"
+        if key not in seen_refs:
+            seen_refs.add(key)
+            refs.append(
+                CrossRefStub(
+                    source_unit_id=unit_id,
+                    raw_ref_text=raw_text,
+                    ref_type="appendix_item_ref",
+                    target_hint=f"appendix:{appendix_hint}:item:{item_hint}",
+                    resolved=False,
+                )
+            )
 
     for match in _CLAUSE_REF_PATTERN.finditer(text):
         raw_text = match.group(0).strip()
@@ -358,24 +458,34 @@ def _extract_cross_refs(
 
 
 def _compute_citability(node: dict[str, Any]) -> CitabilityMetrics:
-    """
-    Вычислить CitabilityMetrics для ClauseNode (переданного как dict).
-
-    Для непрофессионального программиста:
-    - node — это dict из ClauseNode.to_dict().
-    - Читаем поля Этапа 4: citability_hint, recovered_via_best_effort,
-      parse_confidence, own_text, subtree_text.
-    - Вычисляем числовой score и band.
-    """
     citability_hint = node.get("citability_hint")
     recovered = bool(node.get("recovered_via_best_effort", False))
     parse_confidence = node.get("parse_confidence")
     own_text = node.get("own_text") or ""
     subtree_text = node.get("subtree_text") or ""
+    content_mode = str(node.get("content_mode") or "full_text").strip().lower()
+    node_origin = str(node.get("node_origin") or "unknown").strip().lower()
 
     has_own_text = bool(own_text.strip())
     has_subtree_text = bool(subtree_text.strip())
-    is_heading_only = not has_own_text and not has_subtree_text
+    is_heading_only = content_mode == "heading_only" or (not has_own_text and not has_subtree_text)
+    is_technical_fallback = (
+        content_mode == "technical_fragment"
+        or node_origin == "technical_fallback"
+        or bool(node.get("diagnostics", {}).get("degraded_chunk", False))
+    )
+
+    if is_technical_fallback:
+        return CitabilityMetrics(
+            citability_score=0.0,
+            citability_band="low",
+            has_own_text=has_own_text,
+            has_subtree_text=has_subtree_text,
+            is_heading_only=False,
+            recovered_via_best_effort=False,
+            parse_confidence=parse_confidence,
+            is_technical_fallback=True,
+        )
 
     if citability_hint == "high":
         score = 0.9
@@ -384,7 +494,6 @@ def _compute_citability(node: dict[str, Any]) -> CitabilityMetrics:
     elif citability_hint == "low":
         score = 0.2
     else:
-        # Fallback для старых документов без citability_hint
         if is_heading_only:
             score = 0.1
         elif recovered:
@@ -424,6 +533,7 @@ def _compute_citability(node: dict[str, Any]) -> CitabilityMetrics:
         is_heading_only=is_heading_only,
         recovered_via_best_effort=recovered,
         parse_confidence=parse_confidence,
+        is_technical_fallback=False,
     )
 
 
@@ -431,23 +541,9 @@ def _compute_citability(node: dict[str, Any]) -> CitabilityMetrics:
 # Builder
 # ---------------------------------------------------------------------------
 
-
 class LegalUnitBuilder:
     """
     Строит LegalUnitsSnapshot из clause tree одного сегмента.
-
-    Использование:
-        builder = LegalUnitBuilder()
-        snapshot = builder.build_from_clause_tree(
-            clause_tree=tree_dict,
-            segment_id="seg-uuid",
-            segment_type="contract",
-            segment_order=0,
-            is_primary_segment=True,
-            document_id="doc-uuid",
-            document_version_id="ver-uuid",
-        )
-        artifact = snapshot.to_dict()
     """
 
     def build_from_clause_tree(
@@ -461,19 +557,6 @@ class LegalUnitBuilder:
         document_id: str,
         document_version_id: str,
     ) -> LegalUnitsSnapshot:
-        """
-        Построить LegalUnitsSnapshot из clause tree одного сегмента.
-
-        Параметры:
-        - clause_tree: dict из ClauseTree.to_dict() (уже загруженный из MinIO)
-        - остальные параметры: метаданные сегмента из DocumentSegment
-
-        Порядок операций:
-        1. Рекурсивный обход дерева -> создаём LegalUnit для каждого узла.
-        2. TopicTagger -> добавляем topic_tags ко всем units.
-        3. CrossRefResolver -> резолвим ссылки между units.
-        4. Считаем финальную статистику snapshot.
-        """
         snapshot = LegalUnitsSnapshot(
             document_id=str(document_id),
             document_version_id=str(document_version_id),
@@ -509,7 +592,6 @@ class LegalUnitBuilder:
             },
         )
 
-        # Шаг 1: рекурсивный обход дерева
         units: list[LegalUnit] = []
 
         for root_node in root_nodes:
@@ -530,9 +612,6 @@ class LegalUnitBuilder:
 
         snapshot.units = units
 
-        # Шаг 2: TopicTagger — добавляем topic_tags
-        # Делается после сборки ВСЕХ units чтобы не зависеть от порядка обхода.
-        # Ошибка tagger-а не должна ломать весь snapshot.
         try:
             from services.structure.topic_tagger import TopicTagger
 
@@ -545,9 +624,6 @@ class LegalUnitBuilder:
                 extra={"document_id": document_id, "error": str(tagger_exc)},
             )
 
-        # Шаг 3: CrossRefResolver — резолвим ссылки между units
-        # Делается после TopicTagger (порядок не критичен, но логически после).
-        # Ошибка resolver-а не должна ломать весь snapshot.
         try:
             from services.structure.cross_ref_resolver import CrossRefResolver
 
@@ -560,18 +636,24 @@ class LegalUnitBuilder:
                 extra={"document_id": document_id, "error": str(resolver_exc)},
             )
 
-        # Шаг 4: финальная статистика
-        # Считаем после TopicTagger и CrossRefResolver — они не меняют unit_type,
-        # поэтому порядок не влияет на результат.
         total_nodes = len(units)
         heading_only_count = sum(1 for u in units if u.citability.is_heading_only)
         best_effort_count = sum(1 for u in units if u.recovered_via_best_effort)
         units_with_known_type = sum(1 for u in units if u.unit_type != LegalUnitType.UNKNOWN)
+        technical_fallback_units = sum(
+            1 for u in units if bool(u.diagnostics.get("is_technical_fallback", False))
+        )
 
         snapshot.total_nodes_processed = total_nodes
         snapshot.units_with_known_type = units_with_known_type
         snapshot.units_heading_only = heading_only_count
         snapshot.units_best_effort = best_effort_count
+
+        snapshot.build_warnings.extend(
+            [
+                f"technical_fallback_units={technical_fallback_units}"
+            ] if technical_fallback_units else []
+        )
 
         logger.info(
             "LegalUnitBuilder: legal units built",
@@ -583,6 +665,7 @@ class LegalUnitBuilder:
                 "units_with_known_type": units_with_known_type,
                 "units_heading_only": heading_only_count,
                 "units_best_effort": best_effort_count,
+                "technical_fallback_units": technical_fallback_units,
                 "warnings_count": len(snapshot.build_warnings),
             },
         )
@@ -599,24 +682,6 @@ class LegalUnitBuilder:
         warnings: list[str],
         document_id: str,
     ) -> None:
-        """
-        Рекурсивно обходит дерево ClauseNode и создаёт LegalUnit для каждого узла.
-
-        Для непрофессионального программиста:
-        - Создаём unit для КАЖДОГО узла — и для листьев, и для секций.
-        - Это нужно чтобы иметь anchor для любой клаузы в документе.
-        - Heading-only узлы тоже получают unit, но с citability_band="low".
-        - Рекурсия идёт в children — дерево может быть произвольной глубины.
-
-        Параметры:
-        - node:        dict из ClauseNode.to_dict()
-        - segment_id:  ID логического сегмента
-        - segment_type: тип сегмента ("contract", "appendix", ...)
-        - units:       накапливаемый список LegalUnit (мутируется in-place)
-        - warnings:    накапливаемый список предупреждений (мутируется in-place)
-        - document_id: для логов
-        """
-        # Читаем все поля узла
         effective_uid = str(node.get("effective_uid") or "").strip()
         raw_uid = str(node.get("raw_uid") or "").strip()
         scope = str(node.get("scope") or "").strip()
@@ -629,10 +694,12 @@ class LegalUnitBuilder:
         page_start = int(node.get("start_page") or 1)
         page_end = int(node.get("end_page") or page_start)
         semantic_node_type = node.get("semantic_node_type") or None
+        node_origin = str(node.get("node_origin") or "unknown").strip()
+        content_mode = str(node.get("content_mode") or "full_text").strip()
         recovered = bool(node.get("recovered_via_best_effort", False))
         fallback_reason = node.get("fallback_reason") or None
+        diagnostics = dict(node.get("diagnostics") or {})
 
-        # Узлы без effective_uid — пропускаем но всё равно рекурсируем в children
         if not effective_uid:
             warnings.append(f"node missing effective_uid: raw_uid={raw_uid!r}")
             logger.warning(
@@ -656,24 +723,60 @@ class LegalUnitBuilder:
                     )
             return
 
-        # Классификация: unit_type и clause_function
-        # own_text предпочтительнее subtree_text — он содержит только эту клаузу
-        # без текста дочерних узлов которые могут "размыть" сигнал.
-        classify_text = own_text or subtree_text
-        unit_type = _classify_unit_type(title, classify_text)
-        clause_function = _classify_clause_function(title, classify_text, unit_type)
+        is_technical_fallback = (
+            content_mode.lower() == "technical_fragment"
+            or node_origin.lower() == "technical_fallback"
+            or bool(diagnostics.get("degraded_chunk", False))
+        )
 
-        # Citability из полей Этапа 4
         citability = _compute_citability(node)
+        is_heading_only = bool(citability.is_heading_only)
+        semantic_title = _safe_semantic_title(
+            title=title,
+            raw_uid=raw_uid,
+            scope=scope,
+            is_technical_fallback=is_technical_fallback,
+            is_heading_only=is_heading_only,
+        )
 
-        # Cross-refs из own_text (не из subtree_text чтобы не дублировать)
-        cross_refs = _extract_cross_refs(effective_uid, own_text)
+        if is_technical_fallback:
+            unit_type = LegalUnitType.UNKNOWN
+            clause_function = ClauseFunction.UNKNOWN
+            cross_refs: list[CrossRefStub] = []
+            recovered = False
+            fallback_reason = fallback_reason or "technical_fallback"
+            if _looks_like_technical_chunk_title(title):
+                warnings.append(
+                    f"technical fallback node detected for unit_id={effective_uid}"
+                )
+        else:
+            classify_text = own_text or subtree_text
+            unit_type = _classify_unit_type(
+                title=semantic_title or title,
+                text=classify_text,
+                scope=scope,
+                node_kind=node_kind,
+                content_mode=content_mode,
+                node_origin=node_origin,
+                raw_uid=raw_uid,
+                semantic_node_type=semantic_node_type,
+                is_technical_fallback=is_technical_fallback,
+            )
+            clause_function = _classify_clause_function(
+                title=semantic_title or title,
+                text=classify_text,
+                unit_type=unit_type,
+                scope=scope,
+                content_mode=content_mode,
+                is_technical_fallback=is_technical_fallback,
+            )
+            cross_refs = _extract_cross_refs(effective_uid, own_text or subtree_text)
 
         unit = LegalUnit(
             unit_id=effective_uid,
             raw_uid=raw_uid,
             scope=scope,
-            title=title,
+            title=semantic_title,
             level=level,
             unit_type=unit_type,
             clause_function=clause_function,
@@ -684,18 +787,28 @@ class LegalUnitBuilder:
             own_text=own_text,
             subtree_text=subtree_text,
             own_element_ids=own_element_ids,
-            topic_tags=[],  # заполнит TopicTagger на шаге 2
+            topic_tags=[],
             cross_refs=cross_refs,
             citability=citability,
             node_kind=node_kind,
             semantic_node_type=semantic_node_type,
+            node_origin=node_origin,
+            content_mode=content_mode,
             recovered_via_best_effort=recovered,
             fallback_reason=fallback_reason,
             diagnostics={
                 "unit_type_source": (
-                    "title_pattern" if unit_type != LegalUnitType.UNKNOWN else "not_classified"
+                    "technical_fallback"
+                    if is_technical_fallback
+                    else ("title_pattern" if unit_type != LegalUnitType.UNKNOWN else "not_classified")
                 ),
                 "cross_refs_count": len(cross_refs),
+                "is_technical_fallback": is_technical_fallback,
+                "is_appendix_scope": _looks_like_appendix_scope(scope),
+                "is_heading_only": is_heading_only,
+                "raw_title": title,
+                "semantic_title_sanitized": semantic_title != title,
+                "user_facing_semantic": not is_technical_fallback,
             },
         )
 
@@ -708,16 +821,19 @@ class LegalUnitBuilder:
                 "segment_id": segment_id,
                 "unit_id": effective_uid,
                 "raw_uid": raw_uid,
-                "title": title[:80] if title else None,
+                "title": semantic_title[:80] if semantic_title else None,
+                "raw_title": title[:80] if title else None,
                 "unit_type": unit_type.value,
                 "clause_function": clause_function.value,
                 "citability_band": citability.citability_band,
                 "node_kind": node_kind,
+                "node_origin": node_origin,
+                "content_mode": content_mode,
                 "recovered": recovered,
+                "is_technical_fallback": is_technical_fallback,
             },
         )
 
-        # Рекурсия в children
         for child in node.get("children") or []:
             if isinstance(child, dict):
                 self._collect_units(
@@ -728,3 +844,5 @@ class LegalUnitBuilder:
                     warnings=warnings,
                     document_id=document_id,
                 )
+
+

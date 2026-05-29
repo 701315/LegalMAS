@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "scope": "file",
+  "document_id": "7e90117a-8b16-49f5-b81c-1d2c26b9732c",
+  "document_version_id": "204553d1-0469-4be1-9f3c-3f7b5f4e6626",
+  "built_at": "2026-05-29T10:04:20.777863+00:00",
+  "source": {
+    "layout_ref": "tenants/51c78ff3-01df-4f92-a6fc-3aee2abf84d6/deals/51c78ff3-01df-4f92-a6fc-3aee2abf84d6/layouts/7e90117a-8b16-49f5-b81c-1d2c26b9732c/primary_sanitized.json",
+    "file_graph_ref": "s3://mas-artifacts/tenants/51c78ff3-01df-4f92-a6fc-3aee2abf84d6/deals/51c78ff3-01df-4f92-a6fc-3aee2abf84d6/structures/7e90117a-8b16-49f5-b81c-1d2c26b9732c/file_graph.json"
+  },
+  "primary_segment_id": "a044a577-6d96-5674-b5f2-84c2f8a6c999",
+  "degraded": false,
+  "degradation_reason": null,
+  "segments": [
+    {
+      "segment_id": "a044a577-6d96-5674-b5f2-84c2f8a6c999",
+      "segment_type": "contract",
+      "segment_title": "ДОГОВОР КУПЛИ-ПРОДАЖИ ИМУЩЕСТВА",
+      "segment_order": 0,
+      "is_primary": true,
+      "page_start": 1,
+      "page_end": 15,
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/51c78ff3-01df-4f92-a6fc-3aee2abf84d6/deals/51c78ff3-01df-4f92-a6fc-3aee2abf84d6/structures/7e90117a-8b16-49f5-b81c-1d2c26b9732c/segment_a044a577.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/51c78ff3-01df-4f92-a6fc-3aee2abf84d6/structures/7e90117a-8b16-49f5-b81c-1d2c26b9732c/chunks_a044a577.json",
+      "section_count": 0,
+      "clause_count": 6,
+      "subclause_count": 16
+    }
+  ],
+  "totals": {
+    "segment_count": 1,
+    "section_count": 0,
+    "clause_count": 6,
+    "subclause_count": 16,
+    "total_leaf_nodes": 6,
+    "leaf_nodes_without_chunks": 0,
+    "leaf_nodes_without_element_ids": 0,
+    "leaf_nodes_empty_after_filtering": 0,
+    "chunking_incomplete": false,
+    "heading_only_leaf_nodes": 0,
+    "best_effort_leaf_nodes": 0
+  }
+}

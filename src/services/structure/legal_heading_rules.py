@@ -9,8 +9,9 @@
 - дать переиспользуемые helpers для:
   1) definition item detection,
   2) appendix heading detection,
-  3) signature / requisites negative rules,
-  4) continuity / monotonic-series helpers.
+  3) TOC-like legal line detection,
+  4) signature / requisites negative rules,
+  5) continuity / monotonic-series helpers.
 
 Для непрофессионального программиста:
 - heading_patterns.py отвечает за формальный парсинг строки как (uid, title)
@@ -26,9 +27,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from services.structure.heading_patterns import normalize_spaces
-from services.structure.models import (
-    BODY_SEMANTIC_TYPES,
-)
+from services.structure.models import BODY_SEMANTIC_TYPES
 from services.structure.models import (
     HEADING_SEMANTIC_TYPES as HEADING_LIKE_SEMANTIC_TYPES,
 )
@@ -44,18 +43,18 @@ from services.structure.models import (
 # Держим расширенный вариант локально.
 BODY_LIKE_SEMANTIC_TYPES: frozenset[str] = frozenset(BODY_SEMANTIC_TYPES | {"table_content"})
 
-
 # ============================================================================
 # Regex / паттерны
 # ============================================================================
 
 _NUMERIC_UID_RE = re.compile(r"^\d+(?:\.\d+)*$")
+
 _OPTIONAL_NUMERIC_PREFIX_RE = re.compile(
     r"""
     ^\s*
     (?:
-        \d+(?:\.\d+)*   # 1 / 1.1 / 2.3.4
-        [\.\)]?         # optional trailing separator
+        \d+(?:\.\d+)*      # 1 / 1.1 / 2.3.4
+        [\.\)]?            # optional trailing separator
         \s+
     )?
     (?P<body>.+?)\s*$
@@ -66,9 +65,13 @@ _OPTIONAL_NUMERIC_PREFIX_RE = re.compile(
 _HAS_LETTERS_RE = re.compile(r"[A-Za-zА-Яа-яЁё]")
 _STARTS_WITH_LOWER_RE = re.compile(r"^\s*[a-zа-яё]")
 _SENTENCE_END_RE = re.compile(r"[.!?…;:]$")
+
 _QUOTED_TERM_START_RE = re.compile(
     r'^\s*(?:"[^"]{1,120}"|«[^»]{1,120}»|„[^“]{1,120}“|“[^”]{1,120}”)'
 )
+
+_TOC_DOTTED_LEADER_RE = re.compile(r"\.{2,}\s*\d{1,4}\s*$")
+_TOC_TRAILING_PAGE_RE = re.compile(r"(?:\.{2,}\s*|\s+)\d{1,4}\s*$")
 
 _DEFINITION_VERB_RE = re.compile(
     r"""
@@ -128,17 +131,68 @@ _DEFINITION_COLON_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+_APPENDIX_TOKEN_RE = re.compile(
+    r"""
+    \b(
+        appendix
+        |appendices
+        |annex
+        |annexes
+        |annexure
+        |annexures
+        |schedule
+        |schedules
+        |exhibit
+        |exhibits
+        |attachment
+        |attachments
+        |appendix\s+no\.?
+        |annex\s+no\.?
+        |schedule\s+no\.?
+        |приложение
+        |приложения
+    )\b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 _APPENDIX_START_RE = re.compile(
     r"""
     ^\s*
     (?:
         приложение
+        |приложения
         |appendix
+        |appendices
         |annex
+        |annexes
+        |annexure
+        |annexures
         |schedule
+        |schedules
         |exhibit
+        |exhibits
+        |attachment
+        |attachments
     )
     \b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_APPENDICES_BLOCK_RE = re.compile(
+    r"""
+    ^\s*
+    (?:
+        appendices
+        |annexes
+        |annexures
+        |attachments
+        |schedules
+        |exhibits
+        |приложения
+    )
+    \s*$
     """,
     re.IGNORECASE | re.VERBOSE,
 )
@@ -150,13 +204,20 @@ _APPENDIX_HEADING_RE = re.compile(
         приложение
         |appendix
         |annex
+        |annexure
         |schedule
         |exhibit
+        |attachment
     )
     \b
     \s*
     (?:
-        №|n|no\.?
+        №
+        |n
+        |n\.
+        |no
+        |no\.
+        |number
     )?
     \s*
     (?:
@@ -164,9 +225,13 @@ _APPENDIX_HEADING_RE = re.compile(
         |
         \d{1,3}
         |
-        [IVXLCM]{1,8}
+        [IVXLCM]{1,12}
     )?
-    (?:\s*[-–—:]\s*.+)?                 # optional short title
+    (?:
+        \s*[-–—:]\s*.+        # short title after dash/colon
+        |
+        \s+[A-ZА-ЯЁ0-9][^\n]{0,180}  # title immediately after number/token
+    )?
     (?:\s+(?:к|to)\s+(?:договору|контракту|agreement|contract).+)?  # optional tail
     \s*$
     """,
@@ -260,19 +325,15 @@ _SUBSTANTIVE_CONNECTORS_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-
 # ============================================================================
 # Базовые helpers
 # ============================================================================
 
-
 def _normalized_text(text: str) -> str:
     return normalize_spaces(text or "")
 
-
 def _has_letters(text: str) -> bool:
     return bool(_HAS_LETTERS_RE.search(text or ""))
-
 
 def _strip_optional_numeric_prefix(text: str) -> str:
     """
@@ -293,10 +354,8 @@ def _strip_optional_numeric_prefix(text: str) -> str:
     body = _normalized_text(m.group("body"))
     return body or t
 
-
 def _normalize_semantic_type(value: Any) -> str:
     return _normalized_text(str(value or "")).lower()
-
 
 def get_semantic_element_type(element: Mapping[str, Any] | None) -> str | None:
     """
@@ -317,11 +376,9 @@ def get_semantic_element_type(element: Mapping[str, Any] | None) -> str | None:
     fallback = _normalize_semantic_type(element.get("element_type"))
     return fallback or None
 
-
 # ============================================================================
 # Definition item detection
 # ============================================================================
-
 
 def looks_like_definition_item(text: str) -> bool:
     """
@@ -345,12 +402,19 @@ def looks_like_definition_item(text: str) -> bool:
     if not body or not _has_letters(body):
         return False
 
-    # Appendix / signature / requisites не считаем определением
+    if len(body) > 350:
+        return False
+
+    # Appendix / signature / requisites / TOC lines не считаем определением
     if looks_like_appendix_heading(body):
+        return False
+    if looks_like_appendices_block_heading(body):
         return False
     if looks_like_signature_heading(body):
         return False
     if looks_like_requisites_heading(body):
+        return False
+    if looks_like_toc_line(body):
         return False
 
     words = body.split()
@@ -365,12 +429,10 @@ def looks_like_definition_item(text: str) -> bool:
     if _DEFINITION_COLON_RE.search(body):
         return True
 
-    # Более мягкий случай:
     # quoted term + definition verb дальше по строке
     if _QUOTED_TERM_START_RE.search(body) and _DEFINITION_VERB_RE.search(body):
         return True
 
-    # Ещё один полезный случай:
     # строка начинается с TitleCase-термина и дальше идёт means/означает
     first_chunk = body[:120]
     if _DEFINITION_VERB_RE.search(first_chunk):
@@ -380,16 +442,12 @@ def looks_like_definition_item(text: str) -> bool:
 
     return False
 
-
 def looks_like_definition_series(
     lines: Sequence[str],
     *,
     min_hits: int = 2,
     min_ratio: float = 0.6,
 ) -> bool:
-    # Нормализуем min_ratio в допустимый диапазон [0.0, 1.0].
-    # Это защита от случайных ошибок вызывающего кода:
-    # например если передали 60 вместо 0.6.
     min_ratio = max(0.0, min(1.0, float(min_ratio)))
 
     non_empty = [_normalized_text(line) for line in lines if _normalized_text(line)]
@@ -403,11 +461,21 @@ def looks_like_definition_series(
     ratio = hits / len(non_empty)
     return ratio >= min_ratio
 
-
 # ============================================================================
-# Appendix detection
+# Appendix / TOC detection
 # ============================================================================
 
+def looks_like_appendices_block_heading(text: str) -> bool:
+    """
+    Ловит самостоятельные block headings вроде:
+    - APPENDICES
+    - ANNEXES
+    - ПРИЛОЖЕНИЯ
+    """
+    t = _normalized_text(text)
+    if not t:
+        return False
+    return bool(_APPENDICES_BLOCK_RE.search(t))
 
 def looks_like_appendix_heading(text: str) -> bool:
     """
@@ -416,18 +484,23 @@ def looks_like_appendix_heading(text: str) -> bool:
     Примеры:
     - Приложение №1
     - Appendix 2
+    - Appendix No. 8 Real Estate
     - Annex A
     - Schedule I
+    - Attachment 3
     """
     t = _normalized_text(text)
     if not t:
         return False
 
+    if looks_like_appendices_block_heading(t):
+        return True
+
     if not _APPENDIX_START_RE.search(t):
         return False
 
     # Слишком длинные substantive строки не считаем appendix heading
-    if len(t) > 220 or len(t.split()) > 18:
+    if len(t) > 260 or len(t.split()) > 24:
         return False
 
     if _SUBSTANTIVE_VERBS_RE.search(t):
@@ -438,11 +511,56 @@ def looks_like_appendix_heading(text: str) -> bool:
 
     return False
 
+def looks_like_toc_line(text: str) -> bool:
+    """
+    Эвристика для строки содержания / TOC.
+    Ловит dotted leaders и строки, заканчивающиеся page number.
+
+    Примеры:
+    - 1. DEFINITIONS ........ 4
+    - APPENDIX No. 4 REAL ESTATE 12
+    """
+    t = _normalized_text(text)
+    if not t:
+        return False
+
+    if len(t) < 4:
+        return False
+
+    if _TOC_DOTTED_LEADER_RE.search(t):
+        return True
+
+    if _TOC_TRAILING_PAGE_RE.search(t):
+        stripped = _TOC_TRAILING_PAGE_RE.sub("", t).strip()
+        if not stripped:
+            return False
+
+        if (
+            looks_like_appendix_heading(stripped)
+            or looks_like_appendices_block_heading(stripped)
+            or bool(_NUMERIC_UID_RE.match(stripped.split(maxsplit=1)[0].rstrip(".") if stripped.split() else ""))
+        ):
+            return True
+
+    return False
+
+def looks_like_toc_appendix_entry(text: str) -> bool:
+    """
+    TOC-строка, содержащая appendix-like legal heading.
+    """
+    t = _normalized_text(text)
+    if not t:
+        return False
+
+    if not looks_like_toc_line(t):
+        return False
+
+    stripped = _TOC_TRAILING_PAGE_RE.sub("", t).strip()
+    return looks_like_appendix_heading(stripped) or looks_like_appendices_block_heading(stripped)
 
 # ============================================================================
 # Signature / requisites negative rules
 # ============================================================================
-
 
 def looks_like_signature_heading(text: str) -> bool:
     """
@@ -465,7 +583,6 @@ def looks_like_signature_heading(text: str) -> bool:
 
     return False
 
-
 def looks_like_requisites_heading(text: str) -> bool:
     """
     Похоже ли на реквизиты / банковский блок / адресный блок.
@@ -483,26 +600,21 @@ def looks_like_requisites_heading(text: str) -> bool:
 
     return False
 
-
 def looks_like_signature_or_requisites_heading(text: str) -> bool:
     """
     Объединённый negative rule для scorer-а и classifier-а.
     """
     return looks_like_signature_heading(text) or looks_like_requisites_heading(text)
 
-
 # ============================================================================
 # Continuity helpers
 # ============================================================================
 
-
 def is_heading_like_semantic_type(value: Any) -> bool:
     return _normalize_semantic_type(value) in HEADING_LIKE_SEMANTIC_TYPES
 
-
 def is_body_like_semantic_type(value: Any) -> bool:
     return _normalize_semantic_type(value) in BODY_LIKE_SEMANTIC_TYPES
-
 
 def compute_heading_continuity_signals(
     *,
@@ -515,10 +627,8 @@ def compute_heading_continuity_signals(
     Зачем это нужно:
     - если после heading идёт обычный body -> это хороший знак;
     - если после heading сразу идёт другой heading -> это слабый знак;
-    - если next line похожа на definition/body sentence -> штрафной сигнал.
-
-    Функция ничего не "решает" сама.
-    Она только возвращает признаки для scorer-а / builder-а.
+    - если next line похожа на definition/body sentence -> штрафной сигнал;
+    - если next line выглядит как TOC line -> это отдельный негативный сигнал.
     """
     prev_type = get_semantic_element_type(prev_element)
     next_type = get_semantic_element_type(next_element)
@@ -527,7 +637,9 @@ def compute_heading_continuity_signals(
 
     next_is_definition_like = looks_like_definition_item(next_text)
     next_is_appendix_heading = looks_like_appendix_heading(next_text)
+    next_is_appendices_block = looks_like_appendices_block_heading(next_text)
     next_is_signature_or_requisites = looks_like_signature_or_requisites_heading(next_text)
+    next_is_toc_like = looks_like_toc_line(next_text)
 
     signals = {
         "prev_semantic_type": prev_type,
@@ -538,43 +650,42 @@ def compute_heading_continuity_signals(
         "next_is_body_like": is_body_like_semantic_type(next_type),
         "next_is_definition_like": next_is_definition_like,
         "next_is_appendix_heading": next_is_appendix_heading,
+        "next_is_appendices_block": next_is_appendices_block,
         "next_is_signature_or_requisites": next_is_signature_or_requisites,
-        "next_starts_with_lowercase": bool(_STARTS_WITH_LOWER_RE.search(next_text))
-        if next_text
-        else False,
+        "next_is_toc_like": next_is_toc_like,
+        "next_starts_with_lowercase": bool(_STARTS_WITH_LOWER_RE.search(next_text)) if next_text else False,
         "next_ends_like_sentence": bool(_SENTENCE_END_RE.search(next_text)) if next_text else False,
-        "next_has_substantive_verb": bool(_SUBSTANTIVE_VERBS_RE.search(next_text))
-        if next_text
-        else False,
-        "next_has_substantive_connector": bool(_SUBSTANTIVE_CONNECTORS_RE.search(next_text))
-        if next_text
-        else False,
+        "next_has_substantive_verb": bool(_SUBSTANTIVE_VERBS_RE.search(next_text)) if next_text else False,
+        "next_has_substantive_connector": bool(_SUBSTANTIVE_CONNECTORS_RE.search(next_text)) if next_text else False,
         "continuity_body_positive": False,
         "continuity_heading_negative": False,
         "continuity_definition_negative": False,
+        "continuity_toc_negative": False,
     }
 
     # Позитивный continuity:
     # после заголовка идёт body/list/enumerated clause/table-like line
-    if signals["next_is_body_like"] and not next_is_definition_like:
+    if signals["next_is_body_like"] and not next_is_definition_like and not next_is_toc_like:
         signals["continuity_body_positive"] = True
 
     # Негативный continuity:
     # после заголовка сразу идёт ещё один heading
-    if signals["next_is_heading_like"] or next_is_appendix_heading:
+    if signals["next_is_heading_like"] or next_is_appendix_heading or next_is_appendices_block:
         signals["continuity_heading_negative"] = True
 
     # Отдельный негатив для definition-like continuation
     if next_is_definition_like or next_is_signature_or_requisites:
         signals["continuity_definition_negative"] = True
 
-    return signals
+    # TOC-like continuation
+    if next_is_toc_like:
+        signals["continuity_toc_negative"] = True
 
+    return signals
 
 # ============================================================================
 # Numeric UID / monotonic-series helpers
 # ============================================================================
-
 
 def parse_numeric_uid_parts(uid: str) -> tuple[int, ...] | None:
     """
@@ -599,20 +710,18 @@ def parse_numeric_uid_parts(uid: str) -> tuple[int, ...] | None:
 
     return parts
 
-
 def numeric_uid_depth(uid: str) -> int:
     parts = parse_numeric_uid_parts(uid)
     if not parts:
         return 1
     return len(parts)
 
-
 def is_direct_child_uid(parent_uid: str, candidate_uid: str) -> bool:
     """
     Проверяет отношение parent -> direct child.
 
     Примеры:
-    - 1 -> 1.1  = True
+    - 1 -> 1.1 = True
     - 1.1 -> 1.1.1 = True
     - 1 -> 1.2.1 = False
     """
@@ -626,7 +735,6 @@ def is_direct_child_uid(parent_uid: str, candidate_uid: str) -> bool:
         return False
 
     return candidate_parts[: len(parent_parts)] == parent_parts
-
 
 def is_next_peer_uid(prev_uid: str, candidate_uid: str) -> bool:
     """
@@ -654,7 +762,6 @@ def is_next_peer_uid(prev_uid: str, candidate_uid: str) -> bool:
         return False
 
     return candidate_parts[-1] == prev_parts[-1] + 1
-
 
 def build_numeric_uid_continuity(
     *,
@@ -690,3 +797,5 @@ def build_numeric_uid_continuity(
             current_uid and next_uid and is_direct_child_uid(current_uid, next_uid)
         ),
     }
+
+

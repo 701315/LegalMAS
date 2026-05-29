@@ -62,20 +62,20 @@ class LeafChunkBuildResult:
     Этап 4 — новые поля диагностики:
     heading_only_leaf_nodes:
       - сколько листов содержали только heading-элемент без body;
-      - такие узлы маркируются is_heading_only_leaf=True и citability_hint="low";
-      - они НЕ используют heading text как body — это тихий fallback который создавал
-        шумные чанки типа "1.1 Definitions" без содержимого.
-    best_effort_leaf_nodes:
-      - сколько листов были прикреплены через best-effort recovery.
+      - такие узлы НЕ попадают в список chunks, а считаются пустыми после фильтрации;
+      - это предотвращает шумные чанки типа "1.1 Definitions" без содержимого.
+    missing_effective_uid_leaf_nodes:
+      - сколько листов были без effective_uid и поэтому были пропущены;
     """
 
     chunks: list[dict[str, Any]]
     total_leaf_nodes: int
     leaf_nodes_without_element_ids: int
     leaf_nodes_empty_after_filtering: int
-    # ── Этап 4: новые счётчики ────────────────────────────────────────────────
     heading_only_leaf_nodes: int = 0
     best_effort_leaf_nodes: int = 0
+    # Листовые узлы, у которых не оказалось effective_uid
+    missing_effective_uid_leaf_nodes: int = 0
 
 
 class ClauseTreeBuilder:
@@ -298,6 +298,7 @@ class ClauseTreeBuilder:
         leaf_nodes_empty_after_filtering = 0
         heading_only_leaf_nodes = 0
         best_effort_leaf_nodes = 0
+        missing_effective_uid_leaf_nodes = 0
 
         for child in root_children:
             if not isinstance(child, dict):
@@ -316,12 +317,13 @@ class ClauseTreeBuilder:
                 inc_empty,
                 inc_heading_only,
                 inc_best_effort,
+                inc_missing_uid,
             ) = cls._collect_leaf_chunks(
                 doc_id=doc_id,
                 node=child,
                 element_index=element_index,
                 out=chunks,
-                path_titles=[],
+                path_titles=None,
             )
 
             total_leaf_nodes += inc_total
@@ -329,6 +331,7 @@ class ClauseTreeBuilder:
             leaf_nodes_empty_after_filtering += inc_empty
             heading_only_leaf_nodes += inc_heading_only
             best_effort_leaf_nodes += inc_best_effort
+            missing_effective_uid_leaf_nodes += inc_missing_uid
 
         leaf_count = len(chunks)
 
@@ -349,6 +352,7 @@ class ClauseTreeBuilder:
                 "total_leaf_nodes": total_leaf_nodes,
                 "leaf_nodes_without_element_ids": leaf_nodes_without_element_ids,
                 "leaf_nodes_empty_after_filtering": leaf_nodes_empty_after_filtering,
+                "leaf_nodes_missing_effective_uid": missing_effective_uid_leaf_nodes,
                 # ── Этап 4 ───────────────────────────────────────────────────
                 "heading_only_leaf_nodes": heading_only_leaf_nodes,
                 "best_effort_leaf_nodes": best_effort_leaf_nodes,
@@ -376,6 +380,7 @@ class ClauseTreeBuilder:
             leaf_nodes_empty_after_filtering=leaf_nodes_empty_after_filtering,
             heading_only_leaf_nodes=heading_only_leaf_nodes,
             best_effort_leaf_nodes=best_effort_leaf_nodes,
+            missing_effective_uid_leaf_nodes=missing_effective_uid_leaf_nodes,
         )
 
     @classmethod
@@ -386,24 +391,19 @@ class ClauseTreeBuilder:
         element_index: dict[str, dict[str, Any]],
         out: list[dict[str, Any]],
         path_titles: list[str] | None = None,
-    ) -> tuple[int, int, int, int, int]:
+    ) -> tuple[int, int, int, int, int, int]:
         """
         Рекурсивно обходит дерево и строит leaf-чанки.
 
-        Возвращает кортеж из 5 счётчиков:
+        Возвращает кортеж из 6 счётчиков:
         (
-            leaf_seen_inc,           # сколько leaf узлов встретили
-            no_element_ids_inc,      # сколько leaf узлов без element_ids
-            empty_after_filtering_inc, # сколько дали пустой текст
-            heading_only_inc,        # сколько были heading-only (Этап 4)
-            best_effort_inc,         # сколько были best-effort recovery (Этап 4)
+            leaf_seen_inc,
+            no_element_ids_inc,
+            empty_after_filtering_inc,
+            heading_only_inc,
+            best_effort_inc,
+            missing_uid_inc,
         )
-
-        Изменения Этапа 4:
-        - убран silent fallback "heading text as body" для single-heading leaf;
-        - такие узлы теперь маркируются is_heading_only_leaf=True, citability_hint="low"
-          и пропускаются как пустые (empty_after_filtering_inc++);
-        - это предотвращает downstream от получения бессодержательных чанков.
         """
 
         def _extract_section_title(path: list[str]) -> str | None:
@@ -416,6 +416,7 @@ class ClauseTreeBuilder:
         empty_after_filtering_inc = 0
         heading_only_inc = 0
         best_effort_inc = 0
+        missing_uid_inc = 0
 
         current_path: list[str] = list(path_titles or [])
         node_title = cls._normalize_title(node.get("title"))
@@ -425,12 +426,10 @@ class ClauseTreeBuilder:
         children = node.get("children") or []
 
         if not children:
-            # ── Это leaf узел ─────────────────────────────────────────────────
             leaf_seen_inc += 1
 
             effective_uid, raw_uid, scope = cls._node_chunk_identity(node)
 
-            # Читаем новые поля Этапа 4
             etap4 = cls._extract_node_etap4_fields(node)
             is_best_effort = etap4["recovered_via_best_effort"]
             citability_hint = etap4["citability_hint"]
@@ -460,12 +459,11 @@ class ClauseTreeBuilder:
                     empty_after_filtering_inc,
                     heading_only_inc,
                     best_effort_inc,
+                    missing_uid_inc,
                 )
 
             element_ids = own_element_ids
 
-            # Проверяем heading-only ситуацию ДО сборки текста
-            # чтобы сразу решить — пропускать или нет.
             is_single_heading_only = False
             if len(element_ids) == 1:
                 el0 = element_index.get(element_ids[0])
@@ -527,19 +525,8 @@ class ClauseTreeBuilder:
                     },
                 )
 
-            # ── Этап 4: heading-only fallback убран ───────────────────────────
-            # Раньше здесь был код:
-            #   if not full_text and single_heading_element and heading_raw_text:
-            #       full_text = heading_raw_text
-            # Это создавало чанки где text == "1.1 Definitions" — бесполезно для retrieval.
-            #
-            # Теперь: если текста нет и это heading-only узел —
-            # маркируем как heading_only_leaf, логируем с правильным уровнем,
-            # и пропускаем без создания чанка.
             if not full_text and is_single_heading_only:
                 heading_only_inc += 1
-                # citability_hint от hierarchy_builder должен уже быть "low"
-                # но на случай старых документов — переопределяем здесь
                 effective_citability = citability_hint or "low"
                 logger.info(
                     "ClauseTreeBuilder: heading_only_leaf_skipped",
@@ -555,7 +542,6 @@ class ClauseTreeBuilder:
                         "reason": "single_heading_element_no_body_text",
                     },
                 )
-                # Считаем как empty — чанк не создаём
                 empty_after_filtering_inc += 1
                 return (
                     leaf_seen_inc,
@@ -563,6 +549,7 @@ class ClauseTreeBuilder:
                     empty_after_filtering_inc,
                     heading_only_inc,
                     best_effort_inc,
+                    missing_uid_inc,
                 )
 
             if not full_text:
@@ -587,6 +574,7 @@ class ClauseTreeBuilder:
                     empty_after_filtering_inc,
                     heading_only_inc,
                     best_effort_inc,
+                    missing_uid_inc,
                 )
 
             start_page = min(pages) if pages else node.get("start_page")
@@ -602,8 +590,10 @@ class ClauseTreeBuilder:
                         "scope": scope,
                         "title": node_title,
                         "level": node.get("level"),
+                        "element_ids_count": len(element_ids),
                     },
                 )
+                missing_uid_inc += 1
                 empty_after_filtering_inc += 1
                 return (
                     leaf_seen_inc,
@@ -611,11 +601,9 @@ class ClauseTreeBuilder:
                     empty_after_filtering_inc,
                     heading_only_inc,
                     best_effort_inc,
+                    missing_uid_inc,
                 )
 
-            # Финальный citability_hint для этого чанка.
-            # Приоритет: значение от hierarchy_builder > вычисленное здесь.
-            # Если оба None — "high" как safe default для чанка с реальным текстом.
             effective_citability = citability_hint or "high"
 
             metadata = {
@@ -632,15 +620,12 @@ class ClauseTreeBuilder:
                 "start_page": start_page,
                 "end_page": end_page,
                 "element_ids": element_ids,
-                # ── Этап 4: новые поля ────────────────────────────────────────
-                # Эти поля позволяют downstream (detectors, retrieval) знать
-                # качество и семантику каждого чанка без обращения к clause tree.
                 "semantic_node_type": etap4["semantic_node_type"],
                 "parse_confidence": etap4["parse_confidence"],
                 "citability_hint": effective_citability,
                 "recovered_via_best_effort": is_best_effort,
                 "fallback_reason": etap4["fallback_reason"],
-                "is_heading_only_leaf": False,  # True только если бы мы дошли сюда
+                "is_heading_only_leaf": False,
                 "is_structural_fallback": is_best_effort,
             }
 
@@ -688,9 +673,9 @@ class ClauseTreeBuilder:
                 empty_after_filtering_inc,
                 heading_only_inc,
                 best_effort_inc,
+                missing_uid_inc,
             )
 
-        # ── Это section узел — рекурсируем в children ─────────────────────────
         for child in children:
             if not isinstance(child, dict):
                 logger.warning(
@@ -711,6 +696,7 @@ class ClauseTreeBuilder:
                 c_empty,
                 c_heading_only,
                 c_best_effort,
+                c_missing_uid,
             ) = cls._collect_leaf_chunks(
                 doc_id=doc_id,
                 node=child,
@@ -723,6 +709,7 @@ class ClauseTreeBuilder:
             empty_after_filtering_inc += c_empty
             heading_only_inc += c_heading_only
             best_effort_inc += c_best_effort
+            missing_uid_inc += c_missing_uid
 
         return (
             leaf_seen_inc,
@@ -730,6 +717,7 @@ class ClauseTreeBuilder:
             empty_after_filtering_inc,
             heading_only_inc,
             best_effort_inc,
+            missing_uid_inc,
         )
 
     # ------------------------------------------------------------------
@@ -747,18 +735,20 @@ class ClauseTreeBuilder:
         Построить section-чанки по узлам верхнего уровня (root children)
         на основе clause tree + layout.
 
-        ВАЖНО (Sprint 3):
-        - Это legacy-only метод для старых документов.
-        - Для современных документов section chunks идут из CHUNKS v2 snapshot.
-        - Section chunking разрешён только при открытом quality gate.
-        - Если quality_gates.section_chunking_allowed == False, возвращается пустой список.
+        Важно:
+        - Для leaf-чанков текст строится только по non-heading элементам (body).
+        - Для section-чанков текст строится по subtree_element_ids с включением heading-элементов;
+        это осознанно даёт более широкий контекст уровня раздела.
 
         Этап 4:
         - Section chunks от best-effort узлов логируются с предупреждением.
         - metadata дополняется новыми полями semantic/citability.
         """
 
-        quality_gates = (tree.get("structure_diagnostics") or {}).get("quality_gates") or {}
+        structure_diagnostics = tree.get("structure_diagnostics") or {}
+        quality_gates = structure_diagnostics.get("quality_gates") or {}
+        coverage = structure_diagnostics.get("coverage")
+
         if not quality_gates.get("section_chunking_allowed", True):
             logger.warning(
                 "ClauseTreeBuilder: section_chunking_blocked_by_quality_gate",
@@ -766,6 +756,7 @@ class ClauseTreeBuilder:
                     "document_id": str(doc_id),
                     "structure_confidence": quality_gates.get("structure_confidence"),
                     "technical_fallback_only": quality_gates.get("technical_fallback_only"),
+                    "coverage": coverage,
                 },
             )
             return []

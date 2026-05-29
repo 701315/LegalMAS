@@ -3,9 +3,9 @@
 """
 Константы и валидационные наборы для structure models.
 
-Содержит все публичные константы уровней confidence, типов сегментов,
-semantic element types и прочие справочные значения, используемые
-в доменной логике структуры документа.
+Разделены на два блока:
+  - Structural constants  — используются в MutableHierarchyNode / FrozenHierarchyNode
+  - Semantic constants    — используются в SemanticNodeMetadata
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 
 # ---------------------------------------------------------------------------
-# Общие константы
+# Scope
 # ---------------------------------------------------------------------------
 
 DEFAULT_SCOPE = "main_contract"
@@ -82,21 +82,16 @@ VALID_SEGMENT_TYPES: frozenset[str] = frozenset(
 )
 
 # ---------------------------------------------------------------------------
-# Node kinds
+# Node kinds  (structural)
 # ---------------------------------------------------------------------------
 
 NODE_KIND_LEAF = "leaf"
 NODE_KIND_SECTION = "section"
 
-VALID_NODE_KINDS: frozenset[str] = frozenset(
-    {
-        NODE_KIND_LEAF,
-        NODE_KIND_SECTION,
-    }
-)
+VALID_NODE_KINDS: frozenset[str] = frozenset({NODE_KIND_LEAF, NODE_KIND_SECTION})
 
 # ---------------------------------------------------------------------------
-# Range end reasons
+# Range end reasons  (structural)
 # ---------------------------------------------------------------------------
 
 VALID_RANGE_END_REASONS: frozenset[str] = frozenset(
@@ -147,6 +142,8 @@ VALID_PARSE_QUALITY_STATUS: frozenset[str] = frozenset(
 
 # ---------------------------------------------------------------------------
 # Semantic element types
+# Используются ТОЛЬКО в SemanticNodeMetadata и downstream (Phase 5+, Phase 12).
+# НЕ используются в FSM, Resolution, Recovery.
 # ---------------------------------------------------------------------------
 
 SEMANTIC_ELEMENT_TYPE_SECTION_HEADING = "section_heading"
@@ -188,6 +185,8 @@ BODY_SEMANTIC_TYPES: frozenset[str] = frozenset(
     }
 )
 
+# Используется Recovery Engine (Phase 4) при вычислении attachment score.
+# НЕ используется в FSM напрямую.
 NEGATIVE_HEADING_SEMANTIC_TYPES: frozenset[str] = frozenset(
     {
         SEMANTIC_ELEMENT_TYPE_DEFINITION_ITEM,
@@ -195,3 +194,14 @@ NEGATIVE_HEADING_SEMANTIC_TYPES: frozenset[str] = frozenset(
         SEMANTIC_ELEMENT_TYPE_BODY_TEXT,
     }
 )
+
+# ---------------------------------------------------------------------------
+# Structural hash contract
+# Изменение STRUCTURAL_HASH_VERSION или STRUCTURAL_HASH_FIELDS делает
+# все существующие хэши невалидными — требует миграции canonical artifacts.
+# ---------------------------------------------------------------------------
+
+STRUCTURAL_HASH_FIELDS = ("normalized_path", "stable_level", "sibling_index", "scope_id")
+STRUCTURAL_HASH_VERSION = 1
+
+

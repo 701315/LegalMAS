@@ -38,7 +38,7 @@ def test_collect_scored_heading_candidates_propagates_toc_metadata():
     assert candidate.decision == "accepted"
     assert candidate.metadata["toc_match"] is not None
     assert candidate.metadata["toc_match_type"] == "exact"
-    assert candidate.metadata["toc_match_score"] == 0.08
+    assert candidate.metadata["toc_match_score"] == 0.05
 
 
 

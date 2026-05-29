@@ -1,5 +1,3 @@
-# src/storage/artifact_store.py
-
 """
 Abstraction over MinIO/S3 for storing and retrieving artifacts.
 
@@ -37,7 +35,8 @@ class ArtifactPath:
     @staticmethod
     def converted_pdf(tenant_id: str, deal_id: str, document_id: str) -> str:
         """
-        Путь к PDF-версии документа, сконвертированной из офисного формата (DOCX, DOC и т.п.).
+        Путь к PDF-версии документа, сконвертированной из офисного формата
+        (DOCX, DOC и т.п.).
 
         Используется в convert_worker, когда исходный файл не PDF:
         - original_ref хранит ссылку на DOCX-оригинал,
@@ -103,7 +102,8 @@ class ArtifactPath:
         segment_id: str,
     ) -> str:
         """
-        Путь к дереву одного логического сегмента (один из нескольких документов в файле).
+        Путь к дереву одного логического сегмента (один из нескольких документов
+        в файле).
 
         Для непрофессионального программиста:
         Если файл содержит договор + приложение + акт — для каждого из них
@@ -123,9 +123,6 @@ class ArtifactPath:
         - document_id: ID физического файла
         - segment_id:  полный UUID сегмента (make_segment_id из models.py)
         """
-        # Берём первые 8 символов UUID для читаемого имени файла.
-        # Коллизии внутри одного document_id практически исключены:
-        # uuid5 детерминирован и уникален по (document_id, segment_order).
         short_id = segment_id[:8]
         return (
             f"tenants/{tenant_id}/deals/{deal_id}/structures/"
@@ -249,7 +246,8 @@ class ArtifactPath:
     @staticmethod
     def layout_primary(tenant_id: str, deal_id: str, document_id: str) -> str:
         """
-        Одноязычный layout под выбранный основной язык сделки (Deal.primary_language).
+        Одноязычный layout под выбранный основной язык сделки
+        (Deal.primary_language).
 
         Формируется на основе layout_raw фильтрацией по языку.
         Используется всеми downstream-стадиями (PII, структура, LLM и т.п.).
@@ -273,10 +271,11 @@ class ArtifactPath:
         segment_id: str,
     ) -> str:
         """
-        Путь к semantic layer legal units для одного логического сегмента (Этап 5).
+        Путь к semantic layer legal units для одного логического сегмента
+        (Этап 5).
 
         Для непрофессионального программиста:
-        - Это новый артефакт появляющийся после стадии CHUNKS.
+        - Это новый артефакт, появляющийся после стадии CHUNKS.
         - Один файл на каждый сегмент (аналогично segment_chunks).
         - Содержит LegalUnitsSnapshot — список юридических единиц с типами,
           citability metrics и cross-references.
@@ -290,6 +289,68 @@ class ArtifactPath:
         return (
             f"tenants/{tenant_id}/deals/{deal_id}/structures/"
             f"{document_id}/legal_units_{short_id}.json"
+        )
+
+    @staticmethod
+    def artifact_manifest(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Путь к document-level manifest канонических артефактов.
+
+        Для непрофессионального программиста:
+        - Это единая точка входа в structure/retrieval artifacts документа.
+        - Файл не заменяет DocumentVersion / DocumentSegment как источник истины,
+          а дублирует их refs в удобном JSON-виде для downstream, debugging и export.
+        - Внутри могут лежать ссылки на:
+            * file_graph.json
+            * clause_tree.json
+            * segment_*.json
+            * chunks_manifest_v2.json
+            * future cross_ref_graph.json
+            * future confidence_map.json
+
+        Пример пути:
+        tenants/abc/deals/xyz/structures/{document_id}/artifact_manifest.json
+        """
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/structures/"
+            f"{document_id}/artifact_manifest.json"
+        )
+
+    @staticmethod
+    def cross_ref_graph(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Путь к document-level графу перекрёстных ссылок.
+
+        Для непрофессионального программиста:
+        - Этот файл хранит найденные legal references между разделами/сегментами:
+          например, "see Section 4.1", "pursuant to Article II", "defined in Annex A".
+        - Используется downstream для retrieval, diagnostics и legal navigation.
+
+        Пример пути:
+        tenants/abc/deals/xyz/structures/{document_id}/cross_ref_graph.json
+        """
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/structures/"
+            f"{document_id}/cross_ref_graph.json"
+        )
+
+    @staticmethod
+    def confidence_map(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Путь к confidence artifact для структуры документа.
+
+        Для непрофессионального программиста:
+        - Этот файл хранит document-level structural confidence и,
+          при необходимости, confidence по узлам/сегментам.
+        - Используется downstream для retrieval gating, degraded mode
+          и quality diagnostics.
+
+        Пример пути:
+        tenants/abc/deals/xyz/structures/{document_id}/confidence_map.json
+        """
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/structures/"
+            f"{document_id}/confidence_map.json"
         )
 
 
@@ -324,6 +385,13 @@ class ArtifactStore:
                 details={"bucket": self.bucket, "error": str(e)},
             )
 
+    def _normalize_object_path(self, path: str) -> str:
+        """
+        Привести путь вида s3://bucket/... или относительный путь
+        к object_name внутри текущего bucket.
+        """
+        return path.replace(f"s3://{self.bucket}/", "")
+
     def put_json(self, path: str, data: dict | list) -> str:
         """Serialize data to JSON and upload to MinIO."""
         try:
@@ -348,8 +416,7 @@ class ArtifactStore:
     def get_json(self, path: str) -> dict | list:
         """Download JSON artifact from MinIO and deserialize."""
         try:
-            # Очистка пути от префикса s3:// если он передан
-            clean_path = path.replace(f"s3://{self.bucket}/", "")
+            clean_path = self._normalize_object_path(path)
 
             response = self.client.get_object(
                 bucket_name=self.bucket,
@@ -398,7 +465,7 @@ class ArtifactStore:
     def get_file(self, path: str) -> bytes:
         """Download binary file from MinIO."""
         try:
-            clean_path = path.replace(f"s3://{self.bucket}/", "")
+            clean_path = self._normalize_object_path(path)
             response = self.client.get_object(
                 bucket_name=self.bucket,
                 object_name=clean_path,
@@ -414,13 +481,14 @@ class ArtifactStore:
 
     def get_http_url(self, path: str) -> str:
         """
-        Вернуть HTTP/HTTPS URL для объекта в MinIO по s3://... или относительному пути.
+        Вернуть HTTP/HTTPS URL для объекта в MinIO по s3://... или
+        относительному пути.
 
         На dev-стенде этого достаточно, чтобы браузер смог открыть/скачать файл.
         При желании можно заменить реализацию на presigned URL.
         """
-        clean_path = path.replace(f"s3://{self.bucket}/", "")
-        object_name = quote(clean_path)
+        clean_path = self._normalize_object_path(path)
+        object_name = quote(clean_path, safe="/")
         scheme = "https" if self._secure else "http"
         return f"{scheme}://{self._endpoint}/{self.bucket}/{object_name}"
 
@@ -430,7 +498,7 @@ class ArtifactStore:
 
         path может быть как s3://bucket/..., так и относительным путём.
         """
-        clean_path = path.replace(f"s3://{self.bucket}/", "")
+        clean_path = self._normalize_object_path(path)
         expires = timedelta(seconds=expires_seconds)
         return self.client.presigned_get_object(
             bucket_name=self.bucket,
@@ -441,7 +509,7 @@ class ArtifactStore:
     def exists(self, path: str) -> bool:
         """Check if an object exists at the given path."""
         try:
-            clean_path = path.replace(f"s3://{self.bucket}/", "")
+            clean_path = self._normalize_object_path(path)
             self.client.stat_object(bucket_name=self.bucket, object_name=clean_path)
             return True
         except S3Error as e:
@@ -452,7 +520,7 @@ class ArtifactStore:
     def delete(self, path: str) -> None:
         """Delete an object at the given path."""
         try:
-            clean_path = path.replace(f"s3://{self.bucket}/", "")
+            clean_path = self._normalize_object_path(path)
             self.client.remove_object(bucket_name=self.bucket, object_name=clean_path)
         except S3Error as e:
             raise TransientError(f"Failed to delete artifact: {e}")
@@ -474,7 +542,9 @@ class ArtifactStore:
             ext = "json"
         elif content_type == "text/csv":
             ext = "csv"
-        elif content_type in ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",):
+        elif content_type in (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ):
             ext = "xlsx"
         elif content_type in (
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

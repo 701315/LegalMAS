@@ -197,3 +197,5 @@ class HeadingCandidateScored:
     @property
     def title(self) -> str:
         return self.raw.title
+
+

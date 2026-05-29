@@ -59,3 +59,5 @@ def validate_heading_candidate(
         next_heading_uid=next_heading_uid,
     )
     return ok
+
+

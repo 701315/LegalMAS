@@ -1,10 +1,13 @@
-# src/services/structure/models/_nodes.py
+# src/services/structure/_models/_nodes.py
 
 """
-Модели узлов дерева и ссылок между узлами.
+Модели узлов иерархии документа.
 
-Содержит ClauseNode (узел дерева структуры документа), CrossReference
-(внутрисегментная ссылка) и CrossSegmentRef (межсегментная ссылка).
+MutableHierarchyNode  — mutable узел во время FSM assembly
+FrozenHierarchyNode   — immutable узел после freeze(), используется downstream
+freeze()              — явная точка перехода mutable → frozen
+CrossReference        — внутрисегментная ссылка между узлами
+CrossSegmentRef       — межсегментная ссылка
 """
 
 from __future__ import annotations
@@ -12,15 +15,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from ._constants import (
-    NODE_KIND_LEAF,
-    NODE_KIND_SECTION,
-    VALID_SEMANTIC_ELEMENT_TYPES,
-)
+from ._constants import NODE_KIND_LEAF, NODE_KIND_SECTION
 from ._identity import make_effective_uid, split_effective_uid
 from ._normalization import (
     _ensure_dict,
-    _norm_bool,
     _norm_opt_str,
     _norm_str,
     _normalize_node_kind,
@@ -28,69 +26,160 @@ from ._normalization import (
     _normalize_probability,
     _normalize_range_end_reason,
     _normalize_unique_string_list,
+    _normalize_unique_string_tuple,
     _validate_scope_name,
 )
+from ._structural_hash import compute_structural_hash
 
 
-def _ensure_clause_nodes(values: Any, field_name: str) -> list[ClauseNode]:
-    """Валидирует list[ClauseNode]."""
-    if values is None:
-        return []
-    if not isinstance(values, list):
-        raise ValueError(f"{field_name} must be a list[ClauseNode]")
-    normalized: list[ClauseNode] = []
-    for idx, value in enumerate(values):
-        if not isinstance(value, ClauseNode):
-            raise ValueError(f"{field_name}[{idx}] must be ClauseNode")
-        normalized.append(value)
+_ALLOWED_NODE_ORIGINS = {
+    "semantic_heading",
+    "toc_rebuild",
+    "appendix_recovery",
+    "technical_fallback",
+    "unknown",
+}
+
+_ALLOWED_CONTENT_MODES = {
+    "full_text",
+    "heading_only",
+    "skeleton",
+    "technical_fragment",
+}
+
+_ALLOWED_CITABILITY = {
+    "high",
+    "medium",
+    "low",
+    "technical",
+}
+
+
+def _normalize_node_origin(value: Any) -> str:
+    normalized = (_norm_opt_str(value) or "unknown").lower()
+    if normalized not in _ALLOWED_NODE_ORIGINS:
+        raise ValueError(f"Unsupported node_origin: {value!r}")
     return normalized
 
 
-def _ensure_cross_refs(values: Any, field_name: str) -> list[CrossReference]:
-    """Валидирует list[CrossReference]."""
-    if values is None:
-        return []
-    if not isinstance(values, list):
-        raise ValueError(f"{field_name} must be a list[CrossReference]")
-    normalized: list[CrossReference] = []
-    for idx, value in enumerate(values):
-        if not isinstance(value, CrossReference):
-            raise ValueError(f"{field_name}[{idx}] must be CrossReference")
-        normalized.append(value)
+def _normalize_content_mode(value: Any) -> str:
+    normalized = (_norm_opt_str(value) or "full_text").lower()
+    if normalized not in _ALLOWED_CONTENT_MODES:
+        raise ValueError(f"Unsupported content_mode: {value!r}")
     return normalized
 
 
-def _ensure_cross_segment_refs(values: Any, field_name: str) -> list[CrossSegmentRef]:
-    """Валидирует list[CrossSegmentRef]."""
+def _normalize_citability(value: Any) -> str:
+    normalized = (_norm_opt_str(value) or "low").lower()
+    if normalized not in _ALLOWED_CITABILITY:
+        raise ValueError(f"Unsupported citability: {value!r}")
+    return normalized
+
+
+def _ensure_mutable_nodes(values: Any, field_name: str) -> list["MutableHierarchyNode"]:
+    if values is None:
+        return []
+    if not isinstance(values, list):
+        raise ValueError(f"{field_name} must be a list[MutableHierarchyNode]")
+    for idx, value in enumerate(values):
+        if not isinstance(value, MutableHierarchyNode):
+            raise ValueError(f"{field_name}[{idx}] must be MutableHierarchyNode")
+    return list(values)
+
+
+def _ensure_frozen_nodes(values: Any, field_name: str) -> tuple["FrozenHierarchyNode", ...]:
+    if values is None:
+        return ()
+    if not isinstance(values, (list, tuple)):
+        raise ValueError(f"{field_name} must be list|tuple[FrozenHierarchyNode]")
+    normalized: list[FrozenHierarchyNode] = []
+    for idx, value in enumerate(values):
+        if not isinstance(value, FrozenHierarchyNode):
+            raise ValueError(f"{field_name}[{idx}] must be FrozenHierarchyNode")
+        normalized.append(value)
+    return tuple(normalized)
+
+
+def _ensure_cross_segment_refs(values: Any, field_name: str) -> list["CrossSegmentRef"]:
     if values is None:
         return []
     if not isinstance(values, list):
         raise ValueError(f"{field_name} must be a list[CrossSegmentRef]")
-    normalized: list[CrossSegmentRef] = []
     for idx, value in enumerate(values):
         if not isinstance(value, CrossSegmentRef):
             raise ValueError(f"{field_name}[{idx}] must be CrossSegmentRef")
-        normalized.append(value)
-    return normalized
+    return list(values)
+
+
+def _validate_child_invariants(
+    parent_uid: str,
+    parent_level: int,
+    parent_scope: str,
+    parent_start_page: int,
+    parent_end_page: int,
+    children: list["MutableHierarchyNode"],
+) -> None:
+    for child in children:
+        if child.level <= parent_level:
+            raise ValueError(
+                f"Child level must be > parent level: "
+                f"parent={parent_uid!r} level={parent_level}, "
+                f"child={child.effective_uid!r} level={child.level}"
+            )
+        if child.scope != parent_scope:
+            raise ValueError(
+                f"Child scope mismatch: parent.scope={parent_scope!r}, "
+                f"child.scope={child.scope!r}, child={child.effective_uid!r}"
+            )
+        if child.start_page < parent_start_page or child.end_page > parent_end_page:
+            raise ValueError(
+                f"Child page range must be within parent range: "
+                f"parent={parent_uid!r} [{parent_start_page}, {parent_end_page}], "
+                f"child={child.effective_uid!r} [{child.start_page}, {child.end_page}]"
+            )
+
+
+def _validate_frozen_child_invariants(
+    parent_uid: str,
+    parent_level: int,
+    parent_scope: str,
+    parent_start_page: int,
+    parent_end_page: int,
+    children: tuple["FrozenHierarchyNode", ...],
+) -> None:
+    for child in children:
+        if child.level <= parent_level:
+            raise ValueError(
+                f"Child level must be > parent level: "
+                f"parent={parent_uid!r} level={parent_level}, "
+                f"child={child.effective_uid!r} level={child.level}"
+            )
+        if child.scope != parent_scope:
+            raise ValueError(
+                f"Child scope mismatch: parent.scope={parent_scope!r}, "
+                f"child.scope={child.scope!r}, child={child.effective_uid!r}"
+            )
+        if child.start_page < parent_start_page or child.end_page > parent_end_page:
+            raise ValueError(
+                f"Child page range must be within parent range: "
+                f"parent={parent_uid!r} [{parent_start_page}, {parent_end_page}], "
+                f"child={child.effective_uid!r} [{child.start_page}, {child.end_page}]"
+            )
 
 
 @dataclass
-class ClauseNode:
-    """
-    Узел дерева структуры документа.
-
-    Canonical identity: effective_uid = "scope:raw_uid".
-    Может быть leaf (без children) или section (с children).
-    Содержит element IDs, text, page range и метаданные о качестве парсинга.
-    """
-
+class MutableHierarchyNode:
     effective_uid: str
     title: str
     level: int
+
     raw_uid: str | None = None
     scope: str | None = None
-
     node_kind: str = NODE_KIND_LEAF
+
+    node_origin: str = "unknown"
+    content_mode: str = "full_text"
+    citability: str = "low"
 
     own_element_ids: list[str] = field(default_factory=list)
     subtree_element_ids: list[str] = field(default_factory=list)
@@ -99,75 +188,40 @@ class ClauseNode:
 
     start_page: int = 1
     end_page: int = 1
-    children: list[ClauseNode] = field(default_factory=list)
 
+    children: list["MutableHierarchyNode"] = field(default_factory=list)
     range_end_reason: str | None = None
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
-    # Typed metadata полей для downstream consumers
-    semantic_node_type: str | None = None
-    parse_confidence: float | None = None
-    citability_hint: str | None = None
-    recovered_via_best_effort: bool = False
-    fallback_reason: str | None = None
+    structural_hash: str | None = None
 
     def __post_init__(self) -> None:
         self.effective_uid = _norm_str(self.effective_uid)
         self.title = _norm_str(self.title)
-        self.level = _normalize_positive_int(self.level, "ClauseNode.level")
+        self.level = _normalize_positive_int(self.level, "MutableHierarchyNode.level")
         self.raw_uid = _norm_opt_str(self.raw_uid)
         self.scope = _norm_opt_str(self.scope)
         self.node_kind = _normalize_node_kind(self.node_kind)
 
+        self.node_origin = _normalize_node_origin(self.node_origin)
+        self.content_mode = _normalize_content_mode(self.content_mode)
+        self.citability = _normalize_citability(self.citability)
+
         self.own_element_ids = _normalize_unique_string_list(
-            self.own_element_ids,
-            "ClauseNode.own_element_ids",
+            self.own_element_ids, "MutableHierarchyNode.own_element_ids"
         )
         self.subtree_element_ids = _normalize_unique_string_list(
-            self.subtree_element_ids,
-            "ClauseNode.subtree_element_ids",
+            self.subtree_element_ids, "MutableHierarchyNode.subtree_element_ids"
         )
         self.own_text = _norm_opt_str(self.own_text)
         self.subtree_text = _norm_opt_str(self.subtree_text)
 
-        self.start_page = _normalize_positive_int(self.start_page, "ClauseNode.start_page")
-        self.end_page = _normalize_positive_int(self.end_page, "ClauseNode.end_page")
-        self.children = _ensure_clause_nodes(self.children, "ClauseNode.children")
+        self.start_page = _normalize_positive_int(self.start_page, "MutableHierarchyNode.start_page")
+        self.end_page = _normalize_positive_int(self.end_page, "MutableHierarchyNode.end_page")
 
+        self.children = _ensure_mutable_nodes(self.children, "MutableHierarchyNode.children")
         self.range_end_reason = _normalize_range_end_reason(self.range_end_reason)
-        self.diagnostics = _ensure_dict(self.diagnostics, "ClauseNode.diagnostics")
-
-        # Валидация typed metadata
-        if self.semantic_node_type is not None:
-            normalized_snt = _norm_str(self.semantic_node_type).lower()
-            if normalized_snt not in VALID_SEMANTIC_ELEMENT_TYPES:
-                raise ValueError(
-                    f"ClauseNode.semantic_node_type={self.semantic_node_type!r} is not valid. "
-                    f"Expected one of {sorted(VALID_SEMANTIC_ELEMENT_TYPES)} or None"
-                )
-            self.semantic_node_type = normalized_snt
-
-        if self.parse_confidence is not None:
-            self.parse_confidence = _normalize_probability(
-                self.parse_confidence,
-                "ClauseNode.parse_confidence",
-            )
-
-        _valid_citability_hints: frozenset[str] = frozenset({"high", "medium", "low"})
-        if self.citability_hint is not None:
-            normalized_ch = _norm_str(self.citability_hint).lower()
-            if normalized_ch not in _valid_citability_hints:
-                raise ValueError(
-                    f"ClauseNode.citability_hint={self.citability_hint!r} is not valid. "
-                    f"Expected one of {sorted(_valid_citability_hints)} or None"
-                )
-            self.citability_hint = normalized_ch
-
-        self.recovered_via_best_effort = _norm_bool(self.recovered_via_best_effort)
-        self.fallback_reason = _norm_opt_str(self.fallback_reason)
-
-        if self.end_page < self.start_page:
-            raise ValueError("ClauseNode.end_page must be >= ClauseNode.start_page")
+        self.diagnostics = _ensure_dict(self.diagnostics, "MutableHierarchyNode.diagnostics")
 
         inferred_scope, inferred_raw_uid = split_effective_uid(self.effective_uid)
         self.effective_uid = make_effective_uid(inferred_scope, inferred_raw_uid)
@@ -183,54 +237,182 @@ class ClauseNode:
             self.raw_uid = _norm_str(self.raw_uid)
 
         if not self.raw_uid:
-            raise ValueError("ClauseNode.raw_uid must be non-empty")
+            raise ValueError("MutableHierarchyNode.raw_uid must be non-empty")
 
         if self.scope != inferred_scope:
             raise ValueError(
-                f"ClauseNode scope mismatch: scope={self.scope!r}, "
+                f"MutableHierarchyNode scope mismatch: scope={self.scope!r}, "
                 f"effective_uid implies {inferred_scope!r}"
             )
-
         if self.raw_uid != inferred_raw_uid:
             raise ValueError(
-                f"ClauseNode raw_uid mismatch: raw_uid={self.raw_uid!r}, "
+                f"MutableHierarchyNode raw_uid mismatch: raw_uid={self.raw_uid!r}, "
                 f"effective_uid implies {inferred_raw_uid!r}"
             )
 
-        if self.node_kind == NODE_KIND_LEAF and self.children:
-            raise ValueError("ClauseNode with node_kind='leaf' must not have children")
+        if self.end_page < self.start_page:
+            raise ValueError("MutableHierarchyNode.end_page must be >= start_page")
 
+        if self.content_mode == "technical_fragment":
+            self.node_origin = "technical_fallback"
+            self.citability = "technical"
+
+        if self.node_kind == NODE_KIND_LEAF and self.children:
+            raise ValueError("MutableHierarchyNode with node_kind='leaf' must not have children")
         if self.node_kind == NODE_KIND_SECTION and not self.children:
-            raise ValueError("ClauseNode with node_kind='section' must have children")
+            raise ValueError("MutableHierarchyNode with node_kind='section' must have children")
 
         own_set = set(self.own_element_ids)
         subtree_set = set(self.subtree_element_ids)
         if own_set and not own_set.issubset(subtree_set):
             raise ValueError(
-                "ClauseNode.own_element_ids must be a subset of ClauseNode.subtree_element_ids"
+                "MutableHierarchyNode.own_element_ids must be a subset of subtree_element_ids"
             )
 
-        for child in self.children:
-            if child.level <= self.level:
-                raise ValueError(
-                    f"ClauseNode child level must be greater than parent level: "
-                    f"parent={self.effective_uid!r} level={self.level}, "
-                    f"child={child.effective_uid!r} level={child.level}"
-                )
-            if child.scope != self.scope:
-                raise ValueError(
-                    f"ClauseNode child scope mismatch: parent.scope={self.scope!r}, "
-                    f"child.scope={child.scope!r}, child={child.effective_uid!r}"
-                )
-            if child.start_page < self.start_page or child.end_page > self.end_page:
-                raise ValueError(
-                    f"ClauseNode child page range must be within parent range: "
-                    f"parent={self.effective_uid!r} [{self.start_page}, {self.end_page}], "
-                    f"child={child.effective_uid!r} [{child.start_page}, {child.end_page}]"
-                )
+        if self.children:
+            _validate_child_invariants(
+                self.effective_uid,
+                self.level,
+                self.scope,
+                self.start_page,
+                self.end_page,
+                self.children,
+            )
+
+    def compute_and_set_structural_hash(
+        self,
+        *,
+        normalized_path: str,
+        sibling_index: int,
+    ) -> str:
+        h = compute_structural_hash(
+            normalized_path=normalized_path,
+            stable_level=self.level,
+            sibling_index=sibling_index,
+            scope_id=self.scope or "main_contract",
+        )
+        self.structural_hash = h
+        return h
+
+
+@dataclass(frozen=True)
+class FrozenHierarchyNode:
+    effective_uid: str
+    title: str
+    level: int
+    raw_uid: str
+    scope: str
+    node_kind: str
+    structural_hash: str
+
+    node_origin: str = "unknown"
+    content_mode: str = "full_text"
+    citability: str = "low"
+
+    own_element_ids: tuple[str, ...] = ()
+    subtree_element_ids: tuple[str, ...] = ()
+    own_text: str | None = None
+    subtree_text: str | None = None
+
+    start_page: int = 1
+    end_page: int = 1
+
+    children: tuple["FrozenHierarchyNode", ...] = ()
+    range_end_reason: str | None = None
+    diagnostics: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        effective_uid = _norm_str(self.effective_uid)
+        title = _norm_str(self.title)
+        level = _normalize_positive_int(self.level, "FrozenHierarchyNode.level")
+        raw_uid = _norm_str(self.raw_uid)
+        scope = _validate_scope_name(self.scope)
+        node_kind = _normalize_node_kind(self.node_kind)
+        structural_hash = _norm_str(self.structural_hash)
+
+        node_origin = _normalize_node_origin(self.node_origin)
+        content_mode = _normalize_content_mode(self.content_mode)
+        citability = _normalize_citability(self.citability)
+
+        own_element_ids = _normalize_unique_string_tuple(
+            self.own_element_ids, "FrozenHierarchyNode.own_element_ids"
+        )
+        subtree_element_ids = _normalize_unique_string_tuple(
+            self.subtree_element_ids, "FrozenHierarchyNode.subtree_element_ids"
+        )
+        own_text = _norm_opt_str(self.own_text)
+        subtree_text = _norm_opt_str(self.subtree_text)
+        start_page = _normalize_positive_int(self.start_page, "FrozenHierarchyNode.start_page")
+        end_page = _normalize_positive_int(self.end_page, "FrozenHierarchyNode.end_page")
+        children = _ensure_frozen_nodes(self.children, "FrozenHierarchyNode.children")
+        range_end_reason = _normalize_range_end_reason(self.range_end_reason)
+        diagnostics = _ensure_dict(self.diagnostics, "FrozenHierarchyNode.diagnostics")
+
+        inferred_scope, inferred_raw_uid = split_effective_uid(effective_uid)
+        effective_uid = make_effective_uid(inferred_scope, inferred_raw_uid)
+
+        if scope != inferred_scope:
+            raise ValueError(
+                f"FrozenHierarchyNode scope mismatch: scope={scope!r}, "
+                f"effective_uid implies {inferred_scope!r}"
+            )
+        if raw_uid != inferred_raw_uid:
+            raise ValueError(
+                f"FrozenHierarchyNode raw_uid mismatch: raw_uid={raw_uid!r}, "
+                f"effective_uid implies {inferred_raw_uid!r}"
+            )
+        if end_page < start_page:
+            raise ValueError("FrozenHierarchyNode.end_page must be >= start_page")
+        if not structural_hash:
+            raise ValueError("FrozenHierarchyNode.structural_hash must be non-empty")
+
+        if content_mode == "technical_fragment":
+            node_origin = "technical_fallback"
+            citability = "technical"
+
+        if node_kind == NODE_KIND_LEAF and children:
+            raise ValueError("FrozenHierarchyNode with node_kind='leaf' must not have children")
+        if node_kind == NODE_KIND_SECTION and not children:
+            raise ValueError("FrozenHierarchyNode with node_kind='section' must have children")
+
+        own_set = set(own_element_ids)
+        subtree_set = set(subtree_element_ids)
+        if own_set and not own_set.issubset(subtree_set):
+            raise ValueError(
+                "FrozenHierarchyNode.own_element_ids must be a subset of subtree_element_ids"
+            )
+
+        if children:
+            _validate_frozen_child_invariants(
+                effective_uid,
+                level,
+                scope,
+                start_page,
+                end_page,
+                children,
+            )
+
+        object.__setattr__(self, "effective_uid", effective_uid)
+        object.__setattr__(self, "title", title)
+        object.__setattr__(self, "level", level)
+        object.__setattr__(self, "raw_uid", raw_uid)
+        object.__setattr__(self, "scope", scope)
+        object.__setattr__(self, "node_kind", node_kind)
+        object.__setattr__(self, "structural_hash", structural_hash)
+        object.__setattr__(self, "node_origin", node_origin)
+        object.__setattr__(self, "content_mode", content_mode)
+        object.__setattr__(self, "citability", citability)
+        object.__setattr__(self, "own_element_ids", own_element_ids)
+        object.__setattr__(self, "subtree_element_ids", subtree_element_ids)
+        object.__setattr__(self, "own_text", own_text)
+        object.__setattr__(self, "subtree_text", subtree_text)
+        object.__setattr__(self, "start_page", start_page)
+        object.__setattr__(self, "end_page", end_page)
+        object.__setattr__(self, "children", children)
+        object.__setattr__(self, "range_end_reason", range_end_reason)
+        object.__setattr__(self, "diagnostics", diagnostics)
 
     def to_dict(self) -> dict[str, Any]:
-        """Сериализовать в dict для JSON."""
         return {
             "effective_uid": self.effective_uid,
             "raw_uid": self.raw_uid,
@@ -238,6 +420,10 @@ class ClauseNode:
             "title": self.title,
             "level": self.level,
             "node_kind": self.node_kind,
+            "structural_hash": self.structural_hash,
+            "node_origin": self.node_origin,
+            "content_mode": self.content_mode,
+            "citability": self.citability,
             "own_element_ids": list(self.own_element_ids),
             "subtree_element_ids": list(self.subtree_element_ids),
             "own_text": self.own_text,
@@ -247,22 +433,44 @@ class ClauseNode:
             "range_end_reason": self.range_end_reason,
             "diagnostics": dict(self.diagnostics),
             "children": [child.to_dict() for child in self.children],
-            "semantic_node_type": self.semantic_node_type,
-            "parse_confidence": self.parse_confidence,
-            "citability_hint": self.citability_hint,
-            "recovered_via_best_effort": self.recovered_via_best_effort,
-            "fallback_reason": self.fallback_reason,
         }
 
 
-@dataclass
+def freeze(node: MutableHierarchyNode) -> FrozenHierarchyNode:
+    if node.structural_hash is None:
+        raise ValueError(
+            f"Cannot freeze MutableHierarchyNode {node.effective_uid!r}: "
+            f"structural_hash not computed. "
+            f"Call node.compute_and_set_structural_hash() before freeze()."
+        )
+
+    frozen_children = tuple(freeze(child) for child in node.children)
+
+    return FrozenHierarchyNode(
+        effective_uid=node.effective_uid,
+        title=node.title,
+        level=node.level,
+        raw_uid=node.raw_uid or "",
+        scope=node.scope or "main_contract",
+        node_kind=node.node_kind,
+        structural_hash=node.structural_hash,
+        node_origin=node.node_origin,
+        content_mode=node.content_mode,
+        citability=node.citability,
+        own_element_ids=tuple(node.own_element_ids),
+        subtree_element_ids=tuple(node.subtree_element_ids),
+        own_text=node.own_text,
+        subtree_text=node.subtree_text,
+        start_page=node.start_page,
+        end_page=node.end_page,
+        children=frozen_children,
+        range_end_reason=node.range_end_reason,
+        diagnostics=dict(node.diagnostics),
+    )
+
+
+@dataclass(frozen=True)
 class CrossReference:
-    """
-    Ссылка между двумя узлами внутри одного ClauseTree.
-
-    Canonical identity: (source_effective_uid, target_effective_uid).
-    """
-
     source_effective_uid: str
     target_effective_uid: str
     reference_text: str
@@ -271,68 +479,83 @@ class CrossReference:
     source_scope: str | None = None
     target_scope: str | None = None
     resolution_mode: str = "resolved"
+    reference_kind: str = "clause"
 
     def __post_init__(self) -> None:
-        self.source_effective_uid = _norm_str(self.source_effective_uid)
-        self.target_effective_uid = _norm_str(self.target_effective_uid)
-        self.reference_text = _norm_str(self.reference_text)
-        self.source_raw_uid = _norm_opt_str(self.source_raw_uid)
-        self.target_raw_uid = _norm_opt_str(self.target_raw_uid)
-        self.source_scope = _norm_opt_str(self.source_scope)
-        self.target_scope = _norm_opt_str(self.target_scope)
-        self.resolution_mode = _norm_str(self.resolution_mode) or "resolved"
+        source_effective_uid = _norm_str(self.source_effective_uid)
+        target_effective_uid = _norm_str(self.target_effective_uid)
+        reference_text = _norm_str(self.reference_text)
+        source_raw_uid = _norm_opt_str(self.source_raw_uid)
+        target_raw_uid = _norm_opt_str(self.target_raw_uid)
+        source_scope = _norm_opt_str(self.source_scope)
+        target_scope = _norm_opt_str(self.target_scope)
+        resolution_mode = _norm_str(self.resolution_mode) or "resolved"
+        reference_kind = _norm_str(self.reference_kind).lower() or "clause"
 
-        if not self.source_effective_uid:
+        if not source_effective_uid:
             raise ValueError("CrossReference.source_effective_uid must be non-empty")
-        if not self.target_effective_uid:
+        if not target_effective_uid:
             raise ValueError("CrossReference.target_effective_uid must be non-empty")
-        if not self.reference_text:
+        if not reference_text:
             raise ValueError("CrossReference.reference_text must be non-empty")
 
-        source_scope, source_raw_uid = split_effective_uid(self.source_effective_uid)
-        target_scope, target_raw_uid = split_effective_uid(self.target_effective_uid)
+        normalized_source_scope, normalized_source_raw_uid = split_effective_uid(source_effective_uid)
+        normalized_target_scope, normalized_target_raw_uid = split_effective_uid(target_effective_uid)
 
-        self.source_effective_uid = make_effective_uid(source_scope, source_raw_uid)
-        self.target_effective_uid = make_effective_uid(target_scope, target_raw_uid)
+        source_effective_uid = make_effective_uid(normalized_source_scope, normalized_source_raw_uid)
+        target_effective_uid = make_effective_uid(normalized_target_scope, normalized_target_raw_uid)
 
-        if self.source_scope is None:
-            self.source_scope = source_scope
+        if source_scope is None:
+            source_scope = normalized_source_scope
         else:
-            self.source_scope = _validate_scope_name(self.source_scope)
-            if self.source_scope != source_scope:
+            source_scope = _validate_scope_name(source_scope)
+            if source_scope != normalized_source_scope:
                 raise ValueError(
-                    f"CrossReference source_scope mismatch: source_scope={self.source_scope!r}, "
-                    f"source_effective_uid implies {source_scope!r}"
+                    f"CrossReference source_scope mismatch: "
+                    f"source_scope={source_scope!r}, "
+                    f"source_effective_uid implies {normalized_source_scope!r}"
                 )
 
-        if self.target_scope is None:
-            self.target_scope = target_scope
+        if target_scope is None:
+            target_scope = normalized_target_scope
         else:
-            self.target_scope = _validate_scope_name(self.target_scope)
-            if self.target_scope != target_scope:
+            target_scope = _validate_scope_name(target_scope)
+            if target_scope != normalized_target_scope:
                 raise ValueError(
-                    f"CrossReference target_scope mismatch: target_scope={self.target_scope!r}, "
-                    f"target_effective_uid implies {target_scope!r}"
+                    f"CrossReference target_scope mismatch: "
+                    f"target_scope={target_scope!r}, "
+                    f"target_effective_uid implies {normalized_target_scope!r}"
                 )
 
-        if self.source_raw_uid is None:
-            self.source_raw_uid = source_raw_uid
-        elif _norm_str(self.source_raw_uid) != source_raw_uid:
+        if source_raw_uid is None:
+            source_raw_uid = normalized_source_raw_uid
+        elif _norm_str(source_raw_uid) != normalized_source_raw_uid:
             raise ValueError(
-                f"CrossReference source_raw_uid mismatch: source_raw_uid={self.source_raw_uid!r}, "
-                f"source_effective_uid implies {source_raw_uid!r}"
+                f"CrossReference source_raw_uid mismatch: "
+                f"source_raw_uid={source_raw_uid!r}, "
+                f"source_effective_uid implies {normalized_source_raw_uid!r}"
             )
 
-        if self.target_raw_uid is None:
-            self.target_raw_uid = target_raw_uid
-        elif _norm_str(self.target_raw_uid) != target_raw_uid:
+        if target_raw_uid is None:
+            target_raw_uid = normalized_target_raw_uid
+        elif _norm_str(target_raw_uid) != normalized_target_raw_uid:
             raise ValueError(
-                f"CrossReference target_raw_uid mismatch: target_raw_uid={self.target_raw_uid!r}, "
-                f"target_effective_uid implies {target_raw_uid!r}"
+                f"CrossReference target_raw_uid mismatch: "
+                f"target_raw_uid={target_raw_uid!r}, "
+                f"target_effective_uid implies {normalized_target_raw_uid!r}"
             )
+
+        object.__setattr__(self, "source_effective_uid", source_effective_uid)
+        object.__setattr__(self, "target_effective_uid", target_effective_uid)
+        object.__setattr__(self, "reference_text", reference_text)
+        object.__setattr__(self, "source_raw_uid", source_raw_uid)
+        object.__setattr__(self, "target_raw_uid", target_raw_uid)
+        object.__setattr__(self, "source_scope", source_scope)
+        object.__setattr__(self, "target_scope", target_scope)
+        object.__setattr__(self, "resolution_mode", resolution_mode)
+        object.__setattr__(self, "reference_kind", reference_kind)
 
     def to_dict(self) -> dict[str, Any]:
-        """Сериализовать в dict для JSON."""
         return {
             "source_effective_uid": self.source_effective_uid,
             "target_effective_uid": self.target_effective_uid,
@@ -342,17 +565,12 @@ class CrossReference:
             "target_scope": self.target_scope,
             "reference_text": self.reference_text,
             "resolution_mode": self.resolution_mode,
+            "reference_kind": self.reference_kind,
         }
 
 
-@dataclass
+@dataclass(frozen=True)
 class CrossSegmentRef:
-    """
-    Ссылка из узла одного segment tree на узел в другом segment tree.
-
-    Может быть resolved (target_effective_uid заполнен) или unresolved.
-    """
-
     source_effective_uid: str
     target_raw_uid: str | None = None
     target_scope_hint: str | None = None
@@ -362,46 +580,52 @@ class CrossSegmentRef:
     reference_text: str | None = None
 
     def __post_init__(self) -> None:
-        self.source_effective_uid = _norm_str(self.source_effective_uid)
-        self.target_raw_uid = _norm_opt_str(self.target_raw_uid)
-        self.target_scope_hint = _norm_opt_str(self.target_scope_hint)
-        self.target_effective_uid = _norm_opt_str(self.target_effective_uid)
-        self.reference_text = _norm_opt_str(self.reference_text)
-        self.resolution_method = _norm_str(self.resolution_method) or "unresolved"
-        self.resolution_confidence = _normalize_probability(
+        source_effective_uid = _norm_str(self.source_effective_uid)
+        target_raw_uid = _norm_opt_str(self.target_raw_uid)
+        target_scope_hint = _norm_opt_str(self.target_scope_hint)
+        target_effective_uid = _norm_opt_str(self.target_effective_uid)
+        reference_text = _norm_opt_str(self.reference_text)
+        resolution_method = _norm_str(self.resolution_method) or "unresolved"
+        resolution_confidence = _normalize_probability(
             self.resolution_confidence,
             "CrossSegmentRef.resolution_confidence",
         )
 
-        if not self.source_effective_uid:
+        if not source_effective_uid:
             raise ValueError("CrossSegmentRef.source_effective_uid must be non-empty")
 
-        source_scope, source_raw_uid = split_effective_uid(self.source_effective_uid)
-        self.source_effective_uid = make_effective_uid(source_scope, source_raw_uid)
+        source_scope, source_raw_uid = split_effective_uid(source_effective_uid)
+        source_effective_uid = make_effective_uid(source_scope, source_raw_uid)
 
-        if self.target_scope_hint is not None:
-            self.target_scope_hint = _validate_scope_name(self.target_scope_hint)
+        if target_scope_hint is not None:
+            target_scope_hint = _validate_scope_name(target_scope_hint)
 
-        if self.target_effective_uid is not None:
-            target_scope, target_raw_uid = split_effective_uid(self.target_effective_uid)
-            self.target_effective_uid = make_effective_uid(target_scope, target_raw_uid)
+        if target_effective_uid is not None:
+            target_scope, target_raw_uid_from_effective = split_effective_uid(target_effective_uid)
+            target_effective_uid = make_effective_uid(target_scope, target_raw_uid_from_effective)
 
-            if self.target_scope_hint is not None and self.target_scope_hint != target_scope:
+            if target_scope_hint is not None and target_scope_hint != target_scope:
                 raise ValueError(
                     f"CrossSegmentRef target_scope_hint mismatch: "
-                    f"target_scope_hint={self.target_scope_hint!r}, "
+                    f"target_scope_hint={target_scope_hint!r}, "
                     f"target_effective_uid implies {target_scope!r}"
                 )
-
-            if self.target_raw_uid is not None and _norm_str(self.target_raw_uid) != target_raw_uid:
+            if target_raw_uid is not None and _norm_str(target_raw_uid) != target_raw_uid_from_effective:
                 raise ValueError(
                     f"CrossSegmentRef target_raw_uid mismatch: "
-                    f"target_raw_uid={self.target_raw_uid!r}, "
-                    f"target_effective_uid implies {target_raw_uid!r}"
+                    f"target_raw_uid={target_raw_uid!r}, "
+                    f"target_effective_uid implies {target_raw_uid_from_effective!r}"
                 )
 
+        object.__setattr__(self, "source_effective_uid", source_effective_uid)
+        object.__setattr__(self, "target_raw_uid", target_raw_uid)
+        object.__setattr__(self, "target_scope_hint", target_scope_hint)
+        object.__setattr__(self, "target_effective_uid", target_effective_uid)
+        object.__setattr__(self, "resolution_confidence", resolution_confidence)
+        object.__setattr__(self, "resolution_method", resolution_method)
+        object.__setattr__(self, "reference_text", reference_text)
+
     def to_dict(self) -> dict[str, Any]:
-        """Сериализовать в dict для JSON."""
         return {
             "source_effective_uid": self.source_effective_uid,
             "target_raw_uid": self.target_raw_uid,
@@ -411,3 +635,4 @@ class CrossSegmentRef:
             "resolution_method": self.resolution_method,
             "reference_text": self.reference_text,
         }
+

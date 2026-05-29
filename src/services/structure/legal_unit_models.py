@@ -22,10 +22,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
-
 
 class LegalUnitType(str, Enum):
     """
@@ -44,8 +44,10 @@ class LegalUnitType(str, Enum):
     - NOTICE:              уведомление (порядок, сроки, адреса)
     - GOVERNING_LAW:       применимое право
     - JURISDICTION:        подсудность / арбитраж
-    - APPENDIX_REFERENCE:  ссылка на приложение
+    - APPENDIX_REFERENCE:  ссылка/узел приложения
     - GENERAL_PROVISION:   общая норма без специфической функции
+    - STRUCTURAL_ANCHOR:   структурный heading-only узел, слабая цитируемость
+    - TECHNICAL_FRAGMENT:  технический fallback fragment, не semantic clause
     - UNKNOWN:             тип не определён
     """
 
@@ -58,6 +60,8 @@ class LegalUnitType(str, Enum):
     JURISDICTION = "jurisdiction"
     APPENDIX_REFERENCE = "appendix_reference"
     GENERAL_PROVISION = "general_provision"
+    STRUCTURAL_ANCHOR = "structural_anchor"
+    TECHNICAL_FRAGMENT = "technical_fragment"
     UNKNOWN = "unknown"
 
 
@@ -67,19 +71,8 @@ class ClauseFunction(str, Enum):
 
     Для непрофессионального программиста:
     Это ответ на вопрос "для чего эта норма в договоре?".
-    Например: "это норма устанавливает права", "это норма ограничивает ответственность",
-    "это норма описывает процедуру".
-
-    Значения:
-    - RIGHTS:           норма устанавливает права стороны
-    - OBLIGATIONS:      норма устанавливает обязанности
-    - LIMITATIONS:      норма ограничивает (ответственность, права и т.п.)
-    - PROCEDURES:       норма описывает процедуру (уведомление, расчёт и т.п.)
-    - DEFINITIONS:      норма определяет термины
-    - REPRESENTATIONS:  норма содержит заверения/гарантии
-    - REMEDIES:         норма описывает средства защиты
-    - BOILERPLATE:      стандартная норма (подсудность, право, реквизиты)
-    - UNKNOWN:          функция не определена
+    Например: "эта норма устанавливает права", "эта норма ограничивает ответственность",
+    "эта норма описывает процедуру".
     """
 
     RIGHTS = "rights"
@@ -97,29 +90,10 @@ class ClauseFunction(str, Enum):
 # CitabilityMetrics
 # ---------------------------------------------------------------------------
 
-
 @dataclass
 class CitabilityMetrics:
     """
     Метрики пригодности LegalUnit для цитирования в downstream.
-
-    Для непрофессионального программиста:
-    Когда детектор хочет сослаться на конкретную норму договора,
-    ему важно знать:
-    - насколько этот unit структурно надёжен (confidence)?
-    - есть ли у него реальный текст или только заголовок?
-    - был ли он восстановлен через best-effort или построен нормально?
-
-    citability_score:
-    - 1.0 = полностью надёжен, структурный heading + body
-    - 0.7 = нормальный unit без идеального parse
-    - 0.4 = best-effort recovery или heading-only
-    - 0.0 = технический fallback, не цитировать
-
-    citability_band:
-    - "high"   = score >= 0.7
-    - "medium" = score >= 0.4
-    - "low"    = score < 0.4
     """
 
     citability_score: float = 0.0
@@ -129,6 +103,7 @@ class CitabilityMetrics:
     is_heading_only: bool = False
     recovered_via_best_effort: bool = False
     parse_confidence: float | None = None
+    is_technical_fallback: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -139,13 +114,13 @@ class CitabilityMetrics:
             "is_heading_only": self.is_heading_only,
             "recovered_via_best_effort": self.recovered_via_best_effort,
             "parse_confidence": self.parse_confidence,
+            "is_technical_fallback": self.is_technical_fallback,
         }
 
 
 # ---------------------------------------------------------------------------
 # CrossRefStub
 # ---------------------------------------------------------------------------
-
 
 @dataclass
 class CrossRefStub:
@@ -154,15 +129,20 @@ class CrossRefStub:
 
     Для непрофессионального программиста:
     Это "черновик" ссылки: мы знаем что в тексте упоминается
-    "см. раздел 5.2" или "Приложение 1", но ещё не резолвили
-    куда именно это указывает в дереве.
+    "см. раздел 5.2", "Приложение 1", "item 5.1 of Appendix No. 8",
+    но ещё не резолвили куда именно это указывает в дереве.
 
-    source_unit_id:   effective_uid LegalUnit который содержит ссылку
-    raw_ref_text:     текст ссылки как он есть в документе ("раздел 5.2")
-    ref_type:         тип ссылки: "clause_ref" / "appendix_ref" / "definition_ref"
-    target_hint:      строковый hint для резолвера (например "5.2" или "appendix_1")
-    resolved:         True если target_unit_id уже заполнен
-    target_unit_id:   effective_uid целевого LegalUnit (None если ещё не резолвлен)
+    ref_type:
+    - "clause_ref"
+    - "appendix_ref"
+    - "appendix_item_ref"
+    - "definition_ref"
+
+    resolve_method:
+    - как именно ссылка была зарезолвлена
+      ("same_scope_exact_uid", "appendix_scoped_exact_item", ...)
+    resolve_confidence:
+    - уверенность резолвера [0.0..1.0]
     """
 
     source_unit_id: str
@@ -171,6 +151,8 @@ class CrossRefStub:
     target_hint: str | None = None
     resolved: bool = False
     target_unit_id: str | None = None
+    resolve_method: str | None = None
+    resolve_confidence: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -180,13 +162,14 @@ class CrossRefStub:
             "target_hint": self.target_hint,
             "resolved": self.resolved,
             "target_unit_id": self.target_unit_id,
+            "resolve_method": self.resolve_method,
+            "resolve_confidence": self.resolve_confidence,
         }
 
 
 # ---------------------------------------------------------------------------
 # LegalUnit
 # ---------------------------------------------------------------------------
-
 
 @dataclass
 class LegalUnit:
@@ -201,31 +184,6 @@ class LegalUnit:
       * на каких страницах она находится (anchor),
       * насколько она пригодна для цитирования (citability),
       * какие cross-references она содержит (cross_refs).
-
-    Поля:
-
-    unit_id:         уникальный ID = effective_uid ClauseNode
-    raw_uid:         номер клаузы ("1.2.3")
-    scope:           пространство нумерации ("main_contract", "appendix_1")
-    title:           заголовок клаузы
-    level:           уровень вложенности (1 = root, 2 = subsection и т.д.)
-    unit_type:       LegalUnitType — семантический тип
-    clause_function: ClauseFunction — функциональная роль
-    segment_id:      ID логического сегмента документа
-    segment_type:    тип сегмента ("contract", "appendix", ...)
-    page_start:      первая страница
-    page_end:        последняя страница
-    own_text:        собственный текст клаузы (без дочерних)
-    subtree_text:    полный текст клаузы включая дочерние
-    own_element_ids: element_ids принадлежащие только этому узлу
-    topic_tags:      темы (["definitions", "purchase_price", ...]) — заполняется topic_tagger-ом
-    cross_refs:      list[CrossRefStub] — ссылки внутри текста
-    citability:      CitabilityMetrics — метрики цитируемости
-    node_kind:       "leaf" или "section"
-    semantic_node_type: тип из classifier/scorer
-    recovered_via_best_effort: был ли узел восстановлен через best-effort
-    fallback_reason: причина fallback если recovered_via_best_effort=True
-    diagnostics:     дополнительные диагностические данные
     """
 
     # ── Anchor ────────────────────────────────────────────────────────────────
@@ -247,12 +205,12 @@ class LegalUnit:
     page_start: int = 1
     page_end: int = 1
 
-    # ── Text ─────────────────────────────────────────────────────────────────
+    # ── Text ──────────────────────────────────────────────────────────────────
     own_text: str | None = None
     subtree_text: str | None = None
     own_element_ids: list[str] = field(default_factory=list)
 
-    # ── Topics / cross-refs (заполняются позже) ───────────────────────────────
+    # ── Topics / cross-refs ───────────────────────────────────────────────────
     topic_tags: list[str] = field(default_factory=list)
     cross_refs: list[CrossRefStub] = field(default_factory=list)
 
@@ -262,11 +220,25 @@ class LegalUnit:
     # ── Structure metadata ────────────────────────────────────────────────────
     node_kind: str = "leaf"
     semantic_node_type: str | None = None
+    node_origin: str = "unknown"
+    content_mode: str = "full_text"
     recovered_via_best_effort: bool = False
     fallback_reason: str | None = None
 
     # ── Diagnostics ───────────────────────────────────────────────────────────
     diagnostics: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def is_heading_only(self) -> bool:
+        return bool(self.citability.is_heading_only)
+
+    @property
+    def is_technical_fallback(self) -> bool:
+        return bool(self.citability.is_technical_fallback)
+
+    @property
+    def is_user_facing_semantic(self) -> bool:
+        return not self.is_technical_fallback
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -289,9 +261,14 @@ class LegalUnit:
             "citability": self.citability.to_dict(),
             "node_kind": self.node_kind,
             "semantic_node_type": self.semantic_node_type,
+            "node_origin": self.node_origin,
+            "content_mode": self.content_mode,
             "recovered_via_best_effort": self.recovered_via_best_effort,
             "fallback_reason": self.fallback_reason,
             "diagnostics": dict(self.diagnostics),
+            "is_heading_only": self.is_heading_only,
+            "is_technical_fallback": self.is_technical_fallback,
+            "is_user_facing_semantic": self.is_user_facing_semantic,
         }
 
 
@@ -299,19 +276,10 @@ class LegalUnit:
 # LegalUnitsSnapshot — артефакт legal_units_v1.json
 # ---------------------------------------------------------------------------
 
-
 @dataclass
 class LegalUnitsSnapshot:
     """
     Snapshot всех LegalUnit для одного логического сегмента.
-
-    Это финальный артефакт который сохраняется как legal_units_v1.json.
-
-    Для непрофессионального программиста:
-    - Один сегмент (договор, приложение) = один snapshot.
-    - Snapshot содержит все LegalUnit этого сегмента плюс метаданные:
-      сколько unit-ов построено, сколько из них с известным типом,
-      какой segment_id и т.д.
     """
 
     document_id: str
@@ -321,7 +289,7 @@ class LegalUnitsSnapshot:
     segment_order: int
     is_primary_segment: bool
     units: list[LegalUnit] = field(default_factory=list)
-    schema_version: str = "1"
+    schema_version: str = "2"
 
     # Диагностика
     total_nodes_processed: int = 0
@@ -332,6 +300,9 @@ class LegalUnitsSnapshot:
 
     def to_dict(self) -> dict[str, Any]:
         units_with_known = sum(1 for u in self.units if u.unit_type != LegalUnitType.UNKNOWN)
+        technical_fallback_units = sum(1 for u in self.units if u.is_technical_fallback)
+        structural_anchor_units = sum(1 for u in self.units if u.unit_type == LegalUnitType.STRUCTURAL_ANCHOR)
+
         return {
             "schema_version": self.schema_version,
             "document_id": self.document_id,
@@ -347,8 +318,12 @@ class LegalUnitsSnapshot:
                 "units_with_known_type": units_with_known,
                 "units_heading_only": self.units_heading_only,
                 "units_best_effort": self.units_best_effort,
+                "technical_fallback_units": technical_fallback_units,
+                "structural_anchor_units": structural_anchor_units,
                 "total_nodes_processed": self.total_nodes_processed,
                 "build_warnings": list(self.build_warnings),
             },
             "units": [u.to_dict() for u in self.units],
         }
+
+

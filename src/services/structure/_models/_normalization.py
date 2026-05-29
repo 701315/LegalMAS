@@ -3,9 +3,7 @@
 """
 Приватные helper-функции для нормализации и валидации примитивных типов.
 
-Эти функции используются внутри dataclass `__post_init__` для приведения
-входных данных к каноническому виду и ранней валидации инвариантов.
-Не являются частью публичного API.
+Используются внутри dataclass __post_init__. Не являются частью публичного API.
 """
 
 from __future__ import annotations
@@ -32,29 +30,24 @@ from ._constants import (
 
 
 def _norm_str(value: Any) -> str:
-    """Нормализует значение к строке, убирает trailing whitespace."""
     return str(value or "").strip()
 
 
 def _norm_opt_str(value: Any) -> str | None:
-    """Нормализует значение к строке или None если пусто."""
     normalized = _norm_str(value)
     return normalized or None
 
 
 def _norm_bool(value: Any) -> bool:
-    """Нормализует значение к bool."""
     return bool(value)
 
 
 def _norm_scope(value: Any) -> str:
-    """Нормализует scope к строке, возвращает DEFAULT_SCOPE если пусто."""
     scope = _norm_opt_str(value)
     return scope or DEFAULT_SCOPE
 
 
 def _normalize_structure_confidence(value: Any) -> str:
-    """Нормализует и валидирует structure confidence."""
     confidence = _norm_str(value).upper() or STRUCTURE_CONFIDENCE_MEDIUM
     if confidence not in VALID_STRUCTURE_CONFIDENCE:
         raise ValueError(
@@ -65,7 +58,6 @@ def _normalize_structure_confidence(value: Any) -> str:
 
 
 def _normalize_segment_confidence(value: Any) -> str:
-    """Нормализует и валидирует segment confidence."""
     confidence = _norm_str(value).upper() or SEGMENT_CONFIDENCE_MEDIUM
     if confidence not in VALID_SEGMENT_CONFIDENCE:
         raise ValueError(
@@ -76,7 +68,6 @@ def _normalize_segment_confidence(value: Any) -> str:
 
 
 def _normalize_segment_type(value: Any) -> str:
-    """Нормализует и валидирует segment type."""
     segment_type = _norm_str(value).lower() or SEGMENT_TYPE_UNKNOWN
     if segment_type not in VALID_SEGMENT_TYPES:
         raise ValueError(
@@ -87,17 +78,16 @@ def _normalize_segment_type(value: Any) -> str:
 
 
 def _validate_scope_name(scope_name: str) -> str:
-    """Валидирует и нормализует scope name (snake_case ASCII)."""
     normalized = _norm_scope(scope_name)
     if not SCOPE_NAME_RE.fullmatch(normalized):
         raise ValueError(
-            f"Invalid scope_name={normalized!r}. " f"Expected ASCII snake_case matching [a-z0-9_]+"
+            f"Invalid scope_name={normalized!r}. "
+            f"Expected ASCII snake_case matching [a-z0-9_]+"
         )
     return normalized
 
 
 def _normalize_range_end_reason(value: Any) -> str | None:
-    """Нормализует и валидирует range_end_reason."""
     reason = _norm_opt_str(value)
     if reason is None:
         return None
@@ -110,17 +100,16 @@ def _normalize_range_end_reason(value: Any) -> str | None:
 
 
 def _normalize_node_kind(value: Any) -> str:
-    """Нормализует и валидирует node kind."""
     node_kind = _norm_str(value).lower() or NODE_KIND_LEAF
     if node_kind not in VALID_NODE_KINDS:
         raise ValueError(
-            f"Invalid node_kind={node_kind!r}. " f"Expected one of {sorted(VALID_NODE_KINDS)}"
+            f"Invalid node_kind={node_kind!r}. "
+            f"Expected one of {sorted(VALID_NODE_KINDS)}"
         )
     return node_kind
 
 
 def _normalize_toc_confidence_band(value: Any) -> str:
-    """Нормализует и валидирует TOC confidence band."""
     band = _norm_str(value).lower() or TOC_CONFIDENCE_NONE
     if band not in VALID_TOC_CONFIDENCE_BANDS:
         raise ValueError(
@@ -131,7 +120,6 @@ def _normalize_toc_confidence_band(value: Any) -> str:
 
 
 def _normalize_parse_quality_status(value: Any) -> str:
-    """Нормализует и валидирует parse quality status."""
     status = _norm_str(value).lower() or PARSE_QUALITY_OK
     if status not in VALID_PARSE_QUALITY_STATUS:
         raise ValueError(
@@ -142,7 +130,8 @@ def _normalize_parse_quality_status(value: Any) -> str:
 
 
 def _normalize_non_negative_int(value: Any, field_name: str) -> int:
-    """Нормализует к int >= 0."""
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be int-like, bool is not allowed")
     normalized = int(value)
     if normalized < 0:
         raise ValueError(f"{field_name} must be >= 0")
@@ -150,7 +139,8 @@ def _normalize_non_negative_int(value: Any, field_name: str) -> int:
 
 
 def _normalize_positive_int(value: Any, field_name: str) -> int:
-    """Нормализует к int >= 1."""
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be int-like, bool is not allowed")
     normalized = int(value)
     if normalized < 1:
         raise ValueError(f"{field_name} must be >= 1")
@@ -158,7 +148,8 @@ def _normalize_positive_int(value: Any, field_name: str) -> int:
 
 
 def _normalize_probability(value: Any, field_name: str) -> float:
-    """Нормализует к float в диапазоне [0.0, 1.0]."""
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be numeric, bool is not allowed")
     normalized = float(value)
     if not (0.0 <= normalized <= 1.0):
         raise ValueError(f"{field_name} must be in [0.0, 1.0]")
@@ -166,7 +157,6 @@ def _normalize_probability(value: Any, field_name: str) -> float:
 
 
 def _normalize_string_list(values: Any, field_name: str) -> list[str]:
-    """Нормализует к list[str], проверяет что все элементы непустые."""
     if values is None:
         return []
     if not isinstance(values, list):
@@ -181,7 +171,6 @@ def _normalize_string_list(values: Any, field_name: str) -> list[str]:
 
 
 def _normalize_unique_string_list(values: Any, field_name: str) -> list[str]:
-    """Нормализует к list[str] с уникальными элементами (сохраняет порядок)."""
     normalized = _normalize_string_list(values, field_name)
     seen: set[str] = set()
     unique: list[str] = []
@@ -193,10 +182,50 @@ def _normalize_unique_string_list(values: Any, field_name: str) -> list[str]:
     return unique
 
 
+def _normalize_string_tuple(values: Any, field_name: str) -> tuple[str, ...]:
+    if values is None:
+        return ()
+    if not isinstance(values, (list, tuple)):
+        raise ValueError(f"{field_name} must be a list|tuple of strings")
+    normalized: list[str] = []
+    for idx, value in enumerate(values):
+        item = _norm_str(value)
+        if not item:
+            raise ValueError(f"{field_name}[{idx}] must be non-empty")
+        normalized.append(item)
+    return tuple(normalized)
+
+
+def _normalize_unique_string_tuple(values: Any, field_name: str) -> tuple[str, ...]:
+    normalized = _normalize_string_tuple(values, field_name)
+    seen: set[str] = set()
+    unique: list[str] = []
+    for item in normalized:
+        if item in seen:
+            continue
+        seen.add(item)
+        unique.append(item)
+    return tuple(unique)
+
+
+def _normalize_string_tuple_mapping(values: Any, field_name: str) -> dict[str, tuple[str, ...]]:
+    raw = _ensure_dict(values, field_name)
+    normalized: dict[str, tuple[str, ...]] = {}
+    for key, val in raw.items():
+        norm_key = _norm_str(key)
+        if not norm_key:
+            raise ValueError(f"{field_name} keys must be non-empty strings")
+        normalized[norm_key] = _normalize_unique_string_tuple(
+            val,
+            f"{field_name}[{norm_key!r}]",
+        )
+    return normalized
+
+
 def _ensure_dict(value: Any, field_name: str) -> dict[str, Any]:
-    """Нормализует к dict[str, Any]."""
     if value is None:
         return {}
     if not isinstance(value, dict):
         raise ValueError(f"{field_name} must be a dict")
     return dict(value)
+

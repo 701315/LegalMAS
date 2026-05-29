@@ -1,10 +1,7 @@
-# src/services/structure/models/_tree.py
+# src/services/structure/_models/_tree.py
 
 """
 Модель дерева структуры одного логического документа (segment).
-
-ClauseTree — результат hierarchy_builder для одного сегмента.
-Содержит дерево узлов, индекс, ссылки и diagnostics.
 """
 
 from __future__ import annotations
@@ -12,13 +9,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ._crossref_graph import CrossReferenceGraph
 from ._diagnostics import ParseQualityDiagnostics, TOCDiagnostics
 from ._nodes import (
-    ClauseNode,
-    CrossReference,
     CrossSegmentRef,
-    _ensure_clause_nodes,
-    _ensure_cross_refs,
+    FrozenHierarchyNode,
     _ensure_cross_segment_refs,
 )
 from ._normalization import (
@@ -34,24 +29,30 @@ from ._normalization import (
 )
 
 
+def _ensure_frozen_root(values: Any, field_name: str) -> list[FrozenHierarchyNode]:
+    if values is None:
+        return []
+    if not isinstance(values, list):
+        raise ValueError(f"{field_name} must be a list[FrozenHierarchyNode]")
+    normalized: list[FrozenHierarchyNode] = []
+    for idx, value in enumerate(values):
+        if not isinstance(value, FrozenHierarchyNode):
+            raise ValueError(f"{field_name}[{idx}] must be FrozenHierarchyNode")
+        normalized.append(value)
+    return normalized
+
+
 @dataclass
 class ClauseTree:
-    """
-    Дерево структуры одного логического сегмента документа.
-
-    Canonical model для результата structure builder.
-    Содержит корневые узлы, индекс всех узлов, ссылки, diagnostics и метаданные сегмента.
-    """
-
     document_id: str
-    root: list[ClauseNode]
-    references_index: list[CrossReference]
+    root: list[FrozenHierarchyNode]
+    cross_reference_graph: CrossReferenceGraph
     structure_confidence: str
+
     degraded: bool = False
     structure_diagnostics: dict[str, Any] = field(default_factory=dict)
     cross_segment_refs: list[CrossSegmentRef] = field(default_factory=list)
-
-    nodes_index: dict[str, ClauseNode] = field(default_factory=dict)
+    nodes_index: dict[str, FrozenHierarchyNode] = field(default_factory=dict)
 
     segment_id: str | None = None
     segment_type: str | None = None
@@ -60,15 +61,11 @@ class ClauseTree:
     segment_order: int | None = None
     scope_name: str | None = None
     is_primary_segment: bool = False
-    schema_version: str = "3.0"
+    schema_version: str = "4.0"
 
     def __post_init__(self) -> None:
         self.document_id = _norm_str(self.document_id)
-        self.root = _ensure_clause_nodes(self.root, "ClauseTree.root")
-        self.references_index = _ensure_cross_refs(
-            self.references_index,
-            "ClauseTree.references_index",
-        )
+        self.root = _ensure_frozen_root(self.root, "ClauseTree.root")
         self.structure_confidence = _normalize_structure_confidence(self.structure_confidence)
         self.degraded = _norm_bool(self.degraded)
         self.structure_diagnostics = _ensure_dict(
@@ -83,6 +80,9 @@ class ClauseTree:
 
         self.segment_id = _norm_opt_str(self.segment_id)
         self.segment_title = _norm_opt_str(self.segment_title)
+
+        if not isinstance(self.cross_reference_graph, CrossReferenceGraph):
+            raise ValueError("ClauseTree.cross_reference_graph must be CrossReferenceGraph")
 
         if self.segment_type is not None:
             self.segment_type = _normalize_segment_type(self.segment_type)
@@ -114,14 +114,21 @@ class ClauseTree:
 
         if not self.document_id:
             raise ValueError("ClauseTree.document_id must be non-empty")
+        if self.cross_reference_graph.document_id != self.document_id:
+            raise ValueError(
+                "ClauseTree.cross_reference_graph.document_id mismatch: "
+                f"tree={self.document_id!r}, graph={self.cross_reference_graph.document_id!r}"
+            )
 
-        normalized_index: dict[str, ClauseNode] = {}
+        normalized_index: dict[str, FrozenHierarchyNode] = {}
         for key, node in self.nodes_index.items():
             normalized_key = _norm_str(key)
             if not normalized_key:
                 raise ValueError("ClauseTree.nodes_index keys must be non-empty")
-            if not isinstance(node, ClauseNode):
-                raise ValueError(f"ClauseTree.nodes_index[{normalized_key!r}] must be ClauseNode")
+            if not isinstance(node, FrozenHierarchyNode):
+                raise ValueError(
+                    f"ClauseTree.nodes_index[{normalized_key!r}] must be FrozenHierarchyNode"
+                )
             if normalized_key != node.effective_uid:
                 raise ValueError(
                     f"ClauseTree.nodes_index key mismatch: key={normalized_key!r}, "
@@ -169,24 +176,23 @@ class ClauseTree:
                         f"node={node.effective_uid!r} [{node.start_page}, {node.end_page}]"
                     )
 
-        for ref in self.references_index:
+        for ref in self.cross_reference_graph.references:
             if ref.source_effective_uid not in self.nodes_index:
                 raise ValueError(
-                    f"ClauseTree.references_index contains unknown source_effective_uid="
+                    f"ClauseTree.cross_reference_graph contains unknown source_effective_uid="
                     f"{ref.source_effective_uid!r}"
                 )
             if ref.target_effective_uid not in self.nodes_index:
                 raise ValueError(
-                    f"ClauseTree.references_index contains unknown target_effective_uid="
+                    f"ClauseTree.cross_reference_graph contains unknown target_effective_uid="
                     f"{ref.target_effective_uid!r}"
                 )
 
     @staticmethod
-    def _build_nodes_index_from_root(root: list[ClauseNode]) -> dict[str, ClauseNode]:
-        """Построить nodes_index обходом дерева от корня."""
-        index: dict[str, ClauseNode] = {}
+    def _build_nodes_index_from_root(root: list[FrozenHierarchyNode]) -> dict[str, FrozenHierarchyNode]:
+        index: dict[str, FrozenHierarchyNode] = {}
 
-        def _walk(node: ClauseNode) -> None:
+        def _walk(node: FrozenHierarchyNode) -> None:
             if node.effective_uid in index:
                 raise ValueError(
                     f"ClauseTree contains duplicate effective_uid={node.effective_uid!r}"
@@ -202,7 +208,6 @@ class ClauseTree:
 
     @property
     def toc_diagnostics(self) -> TOCDiagnostics | None:
-        """Извлечь typed TOCDiagnostics из structure_diagnostics."""
         raw = self.structure_diagnostics.get("toc_diagnostics")
         if raw is None:
             return None
@@ -216,7 +221,6 @@ class ClauseTree:
 
     @property
     def parse_quality(self) -> ParseQualityDiagnostics | None:
-        """Извлечь typed ParseQualityDiagnostics из structure_diagnostics."""
         raw = self.structure_diagnostics.get("parse_quality")
         if raw is None:
             return None
@@ -243,16 +247,16 @@ class ClauseTree:
         return ParseQualityDiagnostics(**normalized)
 
     def to_dict(self) -> dict[str, Any]:
-        """Сериализовать в dict для JSON."""
         result: dict[str, Any] = {
             "document_id": self.document_id,
             "root": [node.to_dict() for node in self.root],
-            "references_index": [ref.to_dict() for ref in self.references_index],
+            "cross_reference_graph": self.cross_reference_graph.to_dict(),
             "cross_segment_refs": [ref.to_dict() for ref in self.cross_segment_refs],
             "structure_confidence": self.structure_confidence,
             "structure_diagnostics": self.structure_diagnostics,
             "degraded": self.degraded,
             "schema_version": self.schema_version,
+            "is_primary_segment": self.is_primary_segment,
         }
 
         if self.segment_id is not None:
@@ -268,5 +272,5 @@ class ClauseTree:
         if self.scope_name is not None:
             result["scope_name"] = self.scope_name
 
-        result["is_primary_segment"] = self.is_primary_segment
         return result
+    

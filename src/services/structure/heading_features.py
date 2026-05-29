@@ -14,7 +14,7 @@ Feature / predicate слой для heading detection.
   "можно ли формально распарсить строку как заголовок?"
 - heading_features.py отвечает на вопрос:
   "какими свойствами обладает этот кандидат?"
-- heading_scoring.py позже будет отвечать:
+- heading_scoring._core позже отвечает:
   "принимаем, отвергаем или отправляем в ambiguous?"
 """
 
@@ -60,7 +60,9 @@ _BODYISH_START = re.compile(
 )
 _COLON_END = re.compile(r":$")
 
-_QUOTED_TERM_START = re.compile(r'^\s*(?:"[^"]{1,120}"|«[^»]{1,120}»|„[^“]{1,120}“|“[^”]{1,120}”)')
+_QUOTED_TERM_START = re.compile(
+    r'^\s*(?:"[^"]{1,120}"|«[^»]{1,120}»|„[^“]{1,120}“|“[^”]{1,120}”)'
+)
 
 _DEFINITION_TERM_START = re.compile(
     r"""
@@ -109,7 +111,7 @@ _SUBSTANTIVE_CLAUSE_CONNECTORS = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-# Полезно для будущего scoring-слоя:
+# Полезно для будущего scoring‑слоя:
 # заголовок вида ".", "-", "1 ,", "7 , ," и похожий мусор.
 _GARBAGE_TITLE = re.compile(r"^[\s\d,.;:()\-–—]+$")
 
@@ -146,7 +148,7 @@ def starts_with_quoted_term(text: str) -> bool:
     Начинается ли строка с quoted term:
     - "Term"
     - «Термин»
-    Это сильный сигнал definition-like строки.
+    Это сильный сигнал definition‑like строки.
     """
     t = normalize_spaces(text)
     if not t:
@@ -219,15 +221,14 @@ def looks_like_toc_line(text: str) -> bool:
     - "1. Definitions .......... 4"
     - "2. Scope 7"
 
-    Это важно, потому что TOC-строки часто формально похожи на заголовки,
+    Это важно, потому что TOC‑строки часто формально похожи на заголовки,
     но не должны попадать в реальное дерево документа.
     """
     t = normalize_spaces(text)
     if not t:
         return False
 
-    # У нас уже есть cleanup-хвостов в heading_patterns, но здесь нам важно
-    # отдельно подсветить TOC-подобное поведение для scoring.
+    # Длинные dotted‑leaders
     if _TRAILING_TOC_DOTS.search(t):
         return True
 
@@ -341,7 +342,7 @@ def looks_like_substantive_clause_line(title: str) -> bool:
     - есть "оперативные" глаголы обязательства/права/гарантии;
     - есть clause connectors;
     - строка достаточно длинная;
-    - часто есть запятая, но не обязательно есть sentence-ending punctuation.
+    - часто есть запятая, но не обязательно есть sentence‑ending punctuation.
     """
     t = normalize_spaces(title)
     if not t:

@@ -21,7 +21,9 @@ logger = get_logger(__name__)
 
 _MAX_TITLE_LEN = max(160, int(settings.STRUCTURE_MAX_CLAUSE_TITLE_LEN or 160))
 
+
 # --- Паттерны uid / заголовков ---
+
 
 # Явные sectional-заголовки:
 # "Section 2 Payment terms", "Article 3. Liability", "Clause 4: ..."
@@ -38,6 +40,35 @@ _SECTIONAL = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+
+# Appendix / Приложение:
+# "APPENDIX No. 4 Real estate ...",
+# "Appendix 4 - Property",
+# "ПРИЛОЖЕНИЕ № 4 ОПИСАНИЕ ОБЪЕКТА"
+_APPENDIX_HEADING = re.compile(
+    r"""
+    ^\s*
+    (?P<prefix>
+        appendix
+        |
+        app\.
+        |
+        приложение
+        |
+        прил\.
+    )
+    \s*
+    (?:no\.?|№)?
+    \s*
+    (?P<num>\d+(?:\.\d+)*)
+    (?:[\.\:\-\)]\s*|\s+)
+    (?P<title>.{1,320}?)
+    \s*$
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
 # Основной numeric-паттерн:
 # "3.1 Продавец обязан", "2.2.4 Наименование ..."
 # Требуем нормальный textual tail после uid.
@@ -52,6 +83,7 @@ _NUMERIC_MAIN = re.compile(
     re.VERBOSE,
 )
 
+
 # Более осторожный fallback для OCR/плотной вёрстки:
 # "3.1.Обязанности сторон" или "2.2)Порядок расчетов"
 # Используем только если после uid сразу идёт буква/кавычка/скобка,
@@ -60,13 +92,14 @@ _NUMERIC_TIGHT = re.compile(
     r"""
     ^\s*
     (?P<uid>\d+(?:\.\d+)*)
-    (?P<sep>[\.\)])                       # separator обязателен
-    (?=\S)                                # сразу что-то есть
+    (?P<sep>[\.\)])                     # separator обязателен
+    (?=\S)                              # сразу что-то есть
     (?P<title>[A-Za-zА-Яа-яЁё«"(\[].+?)
     \s*$
     """,
     re.VERBOSE,
 )
+
 
 # Legacy numeric-формы
 _NUMERIC_FULL = re.compile(
@@ -81,6 +114,7 @@ _NUMERIC_FULL = re.compile(
     re.VERBOSE,
 )
 
+
 _NUMERIC_NO_DOT = re.compile(
     r"""
     ^\s*
@@ -91,6 +125,7 @@ _NUMERIC_NO_DOT = re.compile(
     """,
     re.VERBOSE,
 )
+
 
 # Roman / Alpha оставляем только как fallback
 _ROMAN_L1 = re.compile(
@@ -105,6 +140,7 @@ _ROMAN_L1 = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+
 _ALPHA = re.compile(
     r"""
     ^\s*
@@ -117,8 +153,10 @@ _ALPHA = re.compile(
     re.VERBOSE,
 )
 
+
 # Защита от строк вида "1 что-то" без явного разделителя "1." / "1)"
 _SIMPLE_BAD = re.compile(r"^(\d+)\s+\S")
+
 
 # Внутренние list-маркеры в title
 _INNER_LIST_MARKER = re.compile(
@@ -126,7 +164,9 @@ _INNER_LIST_MARKER = re.compile(
     re.IGNORECASE,
 )
 
+
 _HAS_LETTERS = re.compile(r"[A-Za-zА-Яа-яЁё]")
+
 
 # TOC/pagination-like noise в хвосте строки
 _TOC_DOTS_TAIL = re.compile(r"\s?(?:\.{3,}|·{3,}|•{3,})\s*\d{1,4}\s*$")
@@ -144,8 +184,10 @@ _PAGINATION_TAIL = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+
 # Шумовые хвосты / висячая пунктуация
 _TRAILING_PUNCT_NOISE = re.compile(r"[\s,;:\-–—]+$")
+
 
 # Полезное начало title: буква, кавычка, скобка, цифра в особых legal-formulations
 _TITLE_START_OK = re.compile(r'^[A-Za-zА-Яа-яЁё«"\(\[]')
@@ -331,6 +373,25 @@ def cleanup_heading_title(uid: str, raw_title: str) -> str:
     return title
 
 
+def _normalize_appendix_uid(prefix: str, num: str) -> str:
+    """
+    Нормализация uid для appendix/приложение.
+
+    Задача: получить стабильный uid, пригодный для построения
+    appendix-scope и последующего резолва ссылок, не теряя номер.
+    """
+    p = normalize_spaces(prefix).lower()
+    n = _normalize_uid(num)
+
+    # Отдельно различаем en/ru только в префиксе, номер всегда числовой.
+    if "app" in p:
+        base = "appendix"
+    else:
+        base = "приложение"
+
+    return f"{base}-{n}"
+
+
 def _try_match(pattern: re.Pattern[str], stripped: str) -> tuple[str, str] | None:
     m = pattern.match(stripped)
     if not m:
@@ -409,7 +470,19 @@ def parse_raw_heading(text: str) -> tuple[str, str] | None:
     if result is not None:
         return result
 
-    # 3. Осторожный tight fallback
+    # 3. Appendix / Приложение
+    m_app = _APPENDIX_HEADING.match(stripped)
+    if m_app:
+        prefix = m_app.group("prefix")
+        num = m_app.group("num")
+        title = m_app.group("title") or ""
+        uid = _normalize_appendix_uid(prefix, num)
+        cleaned_title = cleanup_heading_title(uid, title)
+
+        if cleaned_title and _looks_like_minimally_valid_title(cleaned_title):
+            return uid, cleaned_title
+
+    # 4. Осторожный tight fallback
     result = _try_match(_NUMERIC_TIGHT, stripped)
     if result is not None:
         uid, title = result
@@ -417,13 +490,13 @@ def parse_raw_heading(text: str) -> tuple[str, str] | None:
         if _TITLE_START_OK.search(title):
             return uid, title
 
-    # 4. Legacy numeric fallback-формы
+    # 5. Legacy numeric fallback-формы
     for pattern in (_NUMERIC_FULL, _NUMERIC_NO_DOT):
         result = _try_match(pattern, stripped)
         if result is not None:
             return result
 
-    # 5. Roman / Alpha fallback — самые рискованные, держим в самом конце
+    # 6. Roman / Alpha fallback — самые рискованные, держим в самом конце
     for pattern in (_ROMAN_L1, _ALPHA):
         result = _try_match(pattern, stripped)
         if result is not None:
@@ -432,3 +505,5 @@ def parse_raw_heading(text: str) -> tuple[str, str] | None:
                 return uid, title
 
     return None
+
+

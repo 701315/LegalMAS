@@ -74,7 +74,7 @@ class TOCAnalysisBundle:
         """
         Возвращает плоский dict для записи в diagnostics["toc"].
 
-        Используется в _build_single_segment_tree() для обновления
+        Используется в build_single_segment_tree() для обновления
         diagnostics после authoritative guard.
         """
         return {
@@ -178,3 +178,6 @@ def analyze_toc_with_guard(
         guard=guard,
         toc_match_index=toc_match_index,
     )
+
+
+

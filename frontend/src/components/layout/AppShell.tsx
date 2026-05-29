@@ -16,39 +16,143 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../hooks/useAuth";
-import client from "../../api/client";
-import type { ProjectRole } from "../../api/auth";
+import { useUserProjects } from "../../hooks/useUserProjects";
 import Button from "../ui/Button";
 
-interface AppShellProps {
-  children: React.ReactNode;
-}
-
-interface UserProjectNavItem {
-  deal_id: string;
-  deal_name: string;
-  role: ProjectRole;
-  created_at: string;
-  contact_person?: string | null;
-}
+// -------------------------------------------------------------
+// Константы
+// -------------------------------------------------------------
 
 const NAV_WIDTH_EXPANDED = 248;
 const NAV_WIDTH_COLLAPSED = 64;
 const MAX_PROJECTS_IN_SIDEBAR = 6;
 
-async function fetchUserProjects(userId: string): Promise<UserProjectNavItem[]> {
-  const res = await client.get<UserProjectNavItem[]>(
-    `/api/v1/user/${userId}/projects`,
-  );
-  return res.data;
-}
-
 const navItemBaseClassName =
   "group flex items-center gap-3 rounded-xl px-3 py-2 font-medium transition-all duration-150 " +
   "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]";
 
+// -------------------------------------------------------------
+// Типы
+// -------------------------------------------------------------
+
+interface AppShellProps {
+  children: React.ReactNode;
+}
+
+interface NavItemProps {
+  to: string;
+  label: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  collapsed: boolean;
+}
+
+interface DashboardNavItemProps {
+  collapsed: boolean;
+  isActive: boolean;
+  onClick: () => void;
+}
+
+// -------------------------------------------------------------
+// Вспомогательные компоненты навигации
+// -------------------------------------------------------------
+
+/**
+ * Обычный пункт навигации с иконкой и текстом.
+ * В свёрнутом состоянии показывает только иконку.
+ */
+const NavItem: React.FC<NavItemProps> = ({
+  to,
+  label,
+  icon: Icon,
+  collapsed,
+}) => (
+  <NavLink
+    to={to}
+    className={({ isActive }) =>
+      [
+        navItemBaseClassName,
+        "w-full",
+        isActive
+          ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+          : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
+        collapsed && "justify-center px-2",
+      ]
+        .filter(Boolean)
+        .join(" ")
+    }
+  >
+    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+    {!collapsed && <span className="truncate">{label}</span>}
+  </NavLink>
+);
+
+/**
+ * Кнопка перехода на Dashboard.
+ * Используется как button вместо NavLink, потому что клик
+ * дополнительно открывает секцию проектов в сайдбаре.
+ */
+const DashboardNavItem: React.FC<DashboardNavItemProps> = ({
+  collapsed,
+  isActive,
+  onClick,
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-current={isActive ? "page" : undefined}
+    className={[
+      navItemBaseClassName,
+      "w-full",
+      isActive
+        ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+        : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
+      collapsed && "justify-center px-2",
+    ]
+      .filter(Boolean)
+      .join(" ")}
+  >
+    <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden="true" />
+    {!collapsed && <span className="truncate">Dashboard</span>}
+  </button>
+);
+
+/**
+ * Заголовок секции в сайдбаре с иконкой и текстом.
+ */
+const SidebarSectionLabel: React.FC<{
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  label: string;
+}> = ({ icon: Icon, label }) => (
+  <div className="flex items-center gap-2 px-1">
+    <Icon
+      className="h-3.5 w-3.5 text-[var(--text-muted)]"
+      aria-hidden="true"
+    />
+    <span className="text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+      {label}
+    </span>
+  </div>
+);
+
+// -------------------------------------------------------------
+// Основной компонент
+// -------------------------------------------------------------
+
+/**
+ * Основной каркас приложения.
+ *
+ * Содержит:
+ * - Боковую навигацию с поддержкой сворачивания.
+ * - Список проектов пользователя в сайдбаре.
+ *   Данные берутся из общего hook useUserProjects, который
+ *   использует тот же queryKey, что и DashboardPage.
+ *   Благодаря этому после удаления проекта на Dashboard
+ *   сайдбар автоматически синхронизируется без дополнительных
+ *   запросов или пробросов колбэков.
+ * - Верхнюю шапку рабочей области.
+ * - Диалог подтверждения выхода из профиля.
+ */
 const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const { globalRole, userId } = useAuth();
   const location = useLocation();
@@ -72,17 +176,17 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const navWidth = collapsed ? NAV_WIDTH_COLLAPSED : NAV_WIDTH_EXPANDED;
   const isSuperadmin = globalRole === "superadmin";
 
-  const { data: projectsData } = useQuery({
-    queryKey: ["sidebar-user-projects", userId],
-    queryFn: () => fetchUserProjects(userId!),
-    enabled: !!userId,
-    staleTime: 60_000,
-  });
+  // Используем общий hook с единым queryKey.
+  // DashboardPage использует тот же hook, поэтому после
+  // invalidateQueries в useDeleteProject оба компонента
+  // получат обновлённый список одновременно.
+  const { data: projectsData } = useUserProjects(userId);
 
   const sidebarProjects = (projectsData ?? []).slice(
     0,
     MAX_PROJECTS_IN_SIDEBAR,
   );
+
   const hiddenProjectsCount = Math.max(
     0,
     (projectsData?.length ?? 0) - MAX_PROJECTS_IN_SIDEBAR,
@@ -95,13 +199,8 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
     setIsProjectsOpen(true);
   };
 
-  const handleOpenLogout = () => {
-    setIsLogoutOpen(true);
-  };
-
-  const handleCloseLogout = () => {
-    setIsLogoutOpen(false);
-  };
+  const handleOpenLogout = () => setIsLogoutOpen(true);
+  const handleCloseLogout = () => setIsLogoutOpen(false);
 
   const handleConfirmLogout = () => {
     setIsLogoutOpen(false);
@@ -110,11 +209,15 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   return (
     <div className="flex h-screen min-h-0 w-full overflow-hidden bg-[var(--bg-base)] text-[var(--text-primary)]">
+      {/* --------------------------------------------------------
+          Сайдбар
+      -------------------------------------------------------- */}
       <aside
         className="relative flex h-full min-h-0 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-card)] transition-all duration-200"
         style={{ width: navWidth }}
         aria-label="Основная боковая навигация"
       >
+        {/* Кнопка сворачивания */}
         <div className="absolute -right-3 top-4 z-20">
           <Button
             type="button"
@@ -133,6 +236,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
           </Button>
         </div>
 
+        {/* Логотип */}
         <div className="flex shrink-0 items-center gap-3 px-4 py-5">
           <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--accent-primary)] text-xs font-semibold text-white shadow-sm">
             <span className="tracking-tight">LM</span>
@@ -147,6 +251,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
           )}
         </div>
 
+        {/* Навигация */}
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           <nav className="space-y-1" aria-label="Основная навигация">
             <DashboardNavItem
@@ -155,6 +260,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               onClick={handleDashboardClick}
             />
 
+            {/* Список проектов — только в развёрнутом состоянии */}
             {!collapsed && isProjectsOpen && (
               <div className="mt-1 pl-2">
                 <SidebarSectionLabel
@@ -165,7 +271,8 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
                   {sidebarProjects.length > 0 ? (
                     sidebarProjects.map((project) => {
                       const isActive =
-                        location.pathname === `/projects/${project.deal_id}` ||
+                        location.pathname ===
+                          `/projects/${project.deal_id}` ||
                         location.pathname.startsWith(
                           `/projects/${project.deal_id}/`,
                         );
@@ -213,6 +320,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               </div>
             )}
 
+            {/* Создать новый проект — только для superadmin */}
             {isSuperadmin && (
               <div className="mt-4">
                 <NavItem
@@ -226,6 +334,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
           </nav>
         </div>
 
+        {/* Кнопка профиля / выхода */}
         <div className="shrink-0 border-t border-[var(--border)] px-3 py-3">
           <Button
             type="button"
@@ -260,6 +369,9 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
         </div>
       </aside>
 
+      {/* --------------------------------------------------------
+          Рабочая область
+      -------------------------------------------------------- */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--bg-base)]">
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-card)] px-5">
           <div className="flex items-center gap-2">
@@ -281,6 +393,9 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
         </div>
       </main>
 
+      {/* --------------------------------------------------------
+          Диалог подтверждения выхода
+      -------------------------------------------------------- */}
       {isLogoutOpen && (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 backdrop-blur-[2px]"
@@ -327,82 +442,6 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
     </div>
   );
 };
-
-interface NavItemProps {
-  to: string;
-  label: string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  collapsed: boolean;
-}
-
-const NavItem: React.FC<NavItemProps> = ({
-  to,
-  label,
-  icon: Icon,
-  collapsed,
-}) => (
-  <NavLink
-    to={to}
-    className={({ isActive }) =>
-      [
-        navItemBaseClassName,
-        "w-full",
-        isActive
-          ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
-          : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
-        collapsed && "justify-center px-2",
-      ]
-        .filter(Boolean)
-        .join(" ")
-    }
-  >
-    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-    {!collapsed && <span className="truncate">{label}</span>}
-  </NavLink>
-);
-
-interface DashboardNavItemProps {
-  collapsed: boolean;
-  isActive: boolean;
-  onClick: () => void;
-}
-
-const DashboardNavItem: React.FC<DashboardNavItemProps> = ({
-  collapsed,
-  isActive,
-  onClick,
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-current={isActive ? "page" : undefined}
-    className={[
-      navItemBaseClassName,
-      "w-full",
-      isActive
-        ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
-        : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
-      collapsed && "justify-center px-2",
-    ]
-      .filter(Boolean)
-      .join(" ")}
-  >
-    <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden="true" />
-    {!collapsed && <span className="truncate">Dashboard</span>}
-  </button>
-);
-
-const SidebarSectionLabel: React.FC<{
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  label: string;
-}> = ({ icon: Icon, label }) => (
-  <div className="flex items-center gap-2 px-1">
-    <Icon className="h-3.5 w-3.5 text-[var(--text-muted)]" aria-hidden="true" />
-    <span className="text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-      {label}
-    </span>
-  </div>
-);
 
 export default AppShell;
 

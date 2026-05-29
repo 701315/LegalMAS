@@ -65,27 +65,52 @@ _NUMBER_MARKER_RE = r"(?:№|n|no\.?)\s*"
 _CYRILLIC_WORD_RE = r"[\u0401\u0451\u0410-\u044f]+"
 
 _APPENDIX_RE = re.compile(
-    rf"^(?:appendix|schedule|exhibit|annex)\s+\w+|^приложение(?:\s+{_NUMBER_MARKER_RE})?\s*[\w\dа-яёa-z-]+(?::)?$",
-    re.IGNORECASE,
+    rf"""
+    ^
+    (?:
+        appendix|schedule|exhibit|annex
+    )
+    (?:\s+(?:no\.?\s*)?[\w.-]+)?
+    (?:\s*[:\-–—]\s*.*)?
+    $
+    |
+    ^
+    приложение
+    (?:\s+{_NUMBER_MARKER_RE})?
+    \s*[\w\dа-яёa-z.-]+
+    (?:\s*[:\-–—]\s*.*)?
+    $
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 
 _AMENDMENT_RE = re.compile(
-    rf"^(?:addendum\s+\w+|amendment\s+(?:no\.?\s*)?\w+|supplemental agreement|дополнительное\s+соглашение(?:\s+{_NUMBER_MARKER_RE})?\s*[\w\dа-яёa-z-]*)[:.]?$",
-    re.IGNORECASE,
+    rf"""
+    ^
+    (?:
+        addendum\s+\w+|
+        amendment\s+(?:no\.?\s*)?\w+|
+        supplemental\ agreement|
+        дополнительное\s+соглашение(?:\s+{_NUMBER_MARKER_RE})?\s*[\w\dа-яёa-z-]*
+    )
+    [:.]?
+    $
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 
 _ACT_RE = re.compile(
-    r"^(?:передаточный\s+акт|акт\s+(?:приема|приёма|сдачи|выполненных\s+работ|оказанных\s+услуг)|acceptance act|delivery act)[:.]?$",
+    r"^(?:передаточный\s+акт|акт\s+(?:приема|приёма|сдачи|выполненных\s+работ|оказанных\s+услуг)|acceptance act|delivery act)(?:\s*[:\-–—]\s*.*)?$",
     re.IGNORECASE,
 )
 
 _INVOICE_RE = re.compile(
-    r"^(?:счет|счёт)\s*(?:на\s+оплату)?[:.]?$|^invoice\b[:.]?$",
+    r"^(?:(?:счет|счёт)\s*(?:на\s+оплату)?|invoice\b)(?:\s*[:\-–—]\s*.*)?$",
     re.IGNORECASE,
 )
 
 _PROTOCOL_RE = re.compile(
-    r"^(?:protocol|протокол)\b[:.]?$",
+    r"^(?:protocol|протокол)\b(?:\s*[:\-–—]\s*.*)?$",
     re.IGNORECASE,
 )
 
@@ -99,6 +124,20 @@ _SIGNATURE_LINE_RE = re.compile(
 _REQUISITES_LINE_RE = re.compile(
     r"^(?:реквизиты|адреса\s+и\s+реквизиты|юридический\s+адрес|инн|кпп|огрн|расчетный\s+счет|р/с|к/с|банк|бик)\b",
     re.IGNORECASE,
+)
+
+_APPENDIX_NUMBER_RE = re.compile(
+    rf"""
+    (?:
+        appendix|schedule|exhibit|annex|приложение
+    )
+    \s*
+    (?:
+        {_NUMBER_MARKER_RE}
+    )?
+    (?P<num>[\w\dа-яёa-z.-]+)
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 
 
@@ -306,6 +345,8 @@ def _collect_boundary_candidates(
     artifacts = artifacts or set()
     candidates: list[_BoundaryCandidate] = []
 
+    appendix_series_seen = False
+
     for idx, element in enumerate(elements):
         if idx == 0:
             continue
@@ -431,6 +472,28 @@ def _collect_boundary_candidates(
             )
             reasons.append("segment_start_context")
 
+        if seg_type == SEGMENT_TYPE_APPENDIX:
+            appendix_number = _extract_appendix_number(text)
+            signals.append(
+                _BoundarySignal(
+                    name="appendix_boundary",
+                    weight=0.12,
+                    details={"appendix_number": appendix_number},
+                )
+            )
+            reasons.append("appendix_boundary")
+
+            if not appendix_series_seen:
+                signals.append(
+                    _BoundarySignal(
+                        name="appendix_series_start",
+                        weight=0.08,
+                        details={},
+                    )
+                )
+                reasons.append("appendix_series_start")
+                appendix_series_seen = True
+
         confidence_score = max(0.0, min(sum(signal.weight for signal in signals), 1.0))
         confidence_label = _confidence_label(confidence_score)
 
@@ -544,9 +607,7 @@ def _build_segments_from_candidates(
                 (c for c in candidates if c.element_index == start_idx),
                 None,
             )
-            segment_type = (
-                boundary_candidate.segment_type if boundary_candidate else SEGMENT_TYPE_UNKNOWN
-            )
+            segment_type = boundary_candidate.segment_type if boundary_candidate else SEGMENT_TYPE_UNKNOWN
             segment_title = boundary_candidate.title if boundary_candidate else None
             confidence_score = boundary_candidate.confidence_score if boundary_candidate else 0.60
 
@@ -613,6 +674,13 @@ def _attach_scope_names(segments: list[SegmentDocument]) -> None:
             continue
 
         type_counters[seg_type] += 1
+
+        appendix_number = _extract_appendix_number(seg.segment_title or "")
+        if seg_type == SEGMENT_TYPE_APPENDIX and appendix_number:
+            normalized_num = re.sub(r"[^a-zA-Z0-9а-яА-ЯёЁ]+", "_", appendix_number).strip("_")
+            seg.scope_name = f"appendix_{normalized_num.lower()}"
+            continue
+
         seg.scope_name = _generate_scope_name(
             segment_type=seg_type,
             index_within_type=type_counters[seg_type],
@@ -710,6 +778,17 @@ def _infer_segment_title(text: str) -> str | None:
     return title or None
 
 
+def _extract_appendix_number(text: str) -> str | None:
+    normalized = normalize_spaces(text)
+    if not normalized:
+        return None
+    m = _APPENDIX_NUMBER_RE.search(normalized)
+    if not m:
+        return None
+    value = normalize_spaces(str(m.group("num") or ""))
+    return value or None
+
+
 def _infer_first_segment_type(
     elements: list[dict[str, Any]],
     candidates: list[_BoundaryCandidate],
@@ -749,7 +828,7 @@ def _infer_first_segment_title(elements: list[dict[str, Any]]) -> str | None:
         text = normalize_spaces(str(element.get("text", "") or ""))
         if not text:
             continue
-        if len(text) > 200:
+        if len(text) > 240:
             continue
         if _looks_like_non_boundary_block(text):
             continue
@@ -829,12 +908,14 @@ def _is_heading_like(text: str) -> bool:
             pass
 
     words = text.split()
-    if 1 <= len(words) <= 10 and len(text) <= 100:
+    if 1 <= len(words) <= 14 and len(text) <= 160:
         if text.isupper():
             return True
         if text.endswith(":"):
             return True
         if words[0][:1].isdigit():
+            return True
+        if _APPENDIX_RE.match(text):
             return True
 
     return False
@@ -880,6 +961,9 @@ def _is_boundary_position(
     if _is_heading_like(text):
         return True
 
+    if _infer_segment_type_from_text(text) == SEGMENT_TYPE_APPENDIX and len(text.split()) <= 20:
+        return True
+
     if _looks_like_segment_start_context(elements, index):
         return True
 
@@ -893,7 +977,7 @@ def _looks_like_mid_paragraph_reference(
     idx = candidate.element_index
     text = candidate.text.lower()
 
-    if len(text.split()) > 16:
+    if len(text.split()) > 24:
         return True
 
     prev_text = ""
@@ -904,14 +988,20 @@ def _looks_like_mid_paragraph_reference(
     if idx + 1 < len(elements):
         next_text = normalize_spaces(str(elements[idx + 1].get("text", "") or "")).lower()
 
+    is_appendix_marker = candidate.segment_type == SEGMENT_TYPE_APPENDIX
+    looks_compact_heading = len(candidate.text.split()) <= 16
+
     if prev_text and not prev_text.endswith((".", ":", ";")) and _page_offset(elements, idx) > 0:
-        if "appendix" in text or "приложение" in text or "акт" in text or "протокол" in text:
+        if (
+            ("appendix" in text or "приложение" in text or "акт" in text or "протокол" in text)
+            and not looks_compact_heading
+        ):
             return True
 
     if text.startswith(("see appendix", "see annex", "см. приложение", "согласно приложению")):
         return True
 
-    if next_text and len(candidate.text.split()) > 8 and len(next_text.split()) > 8:
+    if next_text and len(candidate.text.split()) > 10 and len(next_text.split()) > 10 and not is_appendix_marker:
         return True
 
     return False
@@ -967,7 +1057,7 @@ def _detect_formatting_shift(
     font_size = fmt.get("font_size")
 
     strong_visual = (
-        is_all_caps or is_centered or (isinstance(font_size, int | float) and font_size >= 13)
+        is_all_caps or is_centered or (isinstance(font_size, (int, float)) and font_size >= 13)
     )
 
     if strong_visual:
@@ -1068,3 +1158,6 @@ def _generate_scope_name(
 
     segment_type = re.sub(r"[^a-z0-9_]+", "_", segment_type).strip("_") or "unknown"
     return f"{segment_type}_{index_within_type}"
+
+
+

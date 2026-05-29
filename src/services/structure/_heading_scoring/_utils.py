@@ -9,12 +9,27 @@ import re
 from services.structure.heading_patterns import normalize_spaces
 
 _NUMERIC_UID_RE = re.compile(r"^\d+(?:\.\d+)*$")
+_APPENDIX_UID_RE = re.compile(r"^(appendix|приложение)-[\w.-]+$", re.IGNORECASE)
 
 
 def _is_strict_numeric_uid(uid: str | None) -> bool:
     if not uid:
         return False
     return bool(_NUMERIC_UID_RE.fullmatch(uid.strip()))
+
+
+def _looks_like_root_numeric_uid(uid: str | None) -> bool:
+    if not uid:
+        return False
+    normalized = normalize_spaces(uid)
+    return normalized.isdigit()
+
+
+def _looks_like_appendix_uid(uid: str | None) -> bool:
+    if not uid:
+        return False
+    normalized = normalize_spaces(uid)
+    return bool(_APPENDIX_UID_RE.fullmatch(normalized))
 
 
 def level_from_uid(uid: str) -> int:
@@ -37,11 +52,14 @@ def _is_effectively_empty_title(title: str) -> bool:
 def _looks_too_long_for_heading(title: str, *, level: int) -> bool:
     normalized = normalize_spaces(title)
     word_count = len(normalized.split())
+
+    # Для root legal sections слегка мягче пороги —
+    # такие заголовки часто длинные, но структурно валидные.
     if level <= 1:
-        return len(normalized) > 220 or word_count > 22
+        return len(normalized) > 260 or word_count > 26
     if level == 2:
-        return len(normalized) > 180 or word_count > 18
-    return len(normalized) > 150 or word_count > 16
+        return len(normalized) > 190 or word_count > 19
+    return len(normalized) > 160 or word_count > 16
 
 
 def _normalize_element_type(element_type: str | None) -> str:
@@ -63,3 +81,5 @@ def _is_strong_heading_element_type(element_type: str | None) -> bool:
         "subsection_heading",
         "appendix_heading",
     }
+
+

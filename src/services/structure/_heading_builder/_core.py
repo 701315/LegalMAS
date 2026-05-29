@@ -1,9 +1,10 @@
 # src/services/structure/_heading_builder/_core.py
 
-"""Основной оркестратор сборкиHeadingCandidate."""
+"""Основной оркестратор сборки HeadingCandidate и StructureEvidenceBundle."""
 
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -17,6 +18,18 @@ from services.structure.heading_patterns import normalize_spaces, parse_raw_head
 from services.structure.heading_scoring import score_heading_candidate
 from services.structure.hierarchy_builder import HeadingCandidate
 from services.structure.toc_match_utils import toc_match_payload
+from services.structure._heading_scoring._types import (
+    AppendixMarker,
+    CrossRefAnchor,
+    CrossRefKind,
+    GlobalStructureSignals,
+    HeadingCandidate as EvidenceHeadingCandidate,
+    HeadingScheme,
+    NumberingSequence,
+    PageStructureSignals,
+    ScopeType,
+    StructureEvidenceBundle,
+)
 
 from ._constants import _MAX_HEADING_RAW_TEXT_LEN
 from ._logic import (
@@ -30,6 +43,8 @@ from ._logic import (
 from ._ranking import _select_best_candidates_by_uid
 from ._utils import (
     _is_strict_numeric_uid,
+    _looks_like_appendix_uid,
+    _looks_like_root_numeric_uid,
     _normalize_reject_reason,
     _normalize_scope,
     _patched_scored_candidate,
@@ -41,6 +56,389 @@ from ._utils import (
 
 logger = get_logger(__name__)
 
+_APPENDIX_NUMBER_RE = re.compile(
+    r"""
+    (?:
+        appendix|appendices|annex|annexure|schedule|exhibit|attachment|приложени[еяй]
+    )
+    \s*
+    (?:
+        №|n\.?|no\.?|number
+    )?
+    \s*
+    (?P<num>[A-ZА-ЯЁ]|\d{1,3}|[IVXLCM]{1,12})
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_CROSSREF_ITEM_RE = re.compile(
+    r"\b(?:item|clause|section|article|paragraph|п\.|ст\.|разд\.)\s*(\d+(?:\.\d+)*)\b",
+    re.IGNORECASE,
+)
+
+_CROSSREF_APPENDIX_RE = re.compile(
+    r"""
+    \b
+    (?:
+        appendix|annex|annexure|schedule|exhibit|attachment|приложени[еяй]
+    )
+    \s*
+    (?:
+        №|n\.?|no\.?|number
+    )?
+    \s*
+    ([A-ZА-ЯЁ]|\d{1,3}|[IVXLCM]{1,12})
+    \b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _has_strong_toc_confirmation(match_type: str | None, match_score: float | None) -> bool:
+    if match_type == "exact":
+        return True
+    if match_type == "fuzzy" and (match_score or 0.0) >= 0.08:
+        return True
+    return False
+
+
+def _heading_scheme_from_uid(uid: str, *, is_appendix: bool = False) -> HeadingScheme:
+    u = normalize_spaces(uid)
+    if not u:
+        return HeadingScheme.UNKNOWN
+    if is_appendix:
+        return HeadingScheme.APPENDIX
+    if _is_strict_numeric_uid(u):
+        return HeadingScheme.DECIMAL
+    if re.fullmatch(r"[IVXLCM]+", u.upper()):
+        return HeadingScheme.ROMAN
+    if len(u) == 1 and u.isalpha():
+        return HeadingScheme.ALPHABETIC
+    return HeadingScheme.UNKNOWN
+
+
+def _scope_type_from_scope(scope: str | None, *, is_appendix: bool = False) -> ScopeType:
+    s = normalize_spaces(scope or "").lower()
+    if is_appendix or "appendix" in s:
+        return ScopeType.APPENDIX
+    if s == "toc":
+        return ScopeType.TOC
+    if s == "signatures":
+        return ScopeType.SIGNATURES
+    if s in {"main", "contract", "agreement", ""}:
+        return ScopeType.MAIN
+    return ScopeType.UNKNOWN
+
+
+def _appendix_number_from_text(text: str) -> str | None:
+    t = normalize_spaces(text)
+    if not t:
+        return None
+    m = _APPENDIX_NUMBER_RE.search(t)
+    if not m:
+        return None
+    return normalize_spaces(m.group("num")) or None
+
+
+def _build_numbering_sequences(
+    candidates: list[EvidenceHeadingCandidate],
+) -> list[NumberingSequence]:
+    by_bucket: dict[tuple[ScopeType, HeadingScheme], list[EvidenceHeadingCandidate]] = defaultdict(list)
+
+    for cand in candidates:
+        if not cand.numbering:
+            continue
+        if cand.is_toc_entry:
+            continue
+        by_bucket[(cand.scope_type, cand.scheme)].append(cand)
+
+    sequences: list[NumberingSequence] = []
+    for (scope_type, scheme), items in by_bucket.items():
+        items.sort(key=lambda c: ((c.page_number or 0), c.element_id))
+        values = [str(c.numbering) for c in items if c.numbering]
+        normalized_values = [normalize_spaces(v) for v in values]
+        element_ids = [c.element_id for c in items]
+
+        duplicates = sorted(v for v, cnt in Counter(normalized_values).items() if cnt > 1)
+        gaps: list[str] = []
+        continuity_ratio = 0.0
+        is_contiguous = False
+
+        if scheme == HeadingScheme.DECIMAL:
+            top_level_nums: list[int] = []
+            for value in normalized_values:
+                if re.fullmatch(r"\d+", value):
+                    top_level_nums.append(int(value))
+            if top_level_nums:
+                unique_sorted = sorted(set(top_level_nums))
+                expected = list(range(unique_sorted[0], unique_sorted[-1] + 1))
+                missing = [str(v) for v in expected if v not in unique_sorted]
+                gaps = missing
+                continuity_ratio = (
+                    len(unique_sorted) / len(expected) if expected else 0.0
+                )
+                is_contiguous = len(missing) == 0
+
+        elif scheme == HeadingScheme.APPENDIX:
+            appendix_nums: list[int] = []
+            for value in normalized_values:
+                if re.fullmatch(r"\d+", value):
+                    appendix_nums.append(int(value))
+            if appendix_nums:
+                unique_sorted = sorted(set(appendix_nums))
+                expected = list(range(unique_sorted[0], unique_sorted[-1] + 1))
+                missing = [str(v) for v in expected if v not in unique_sorted]
+                gaps = missing
+                continuity_ratio = (
+                    len(unique_sorted) / len(expected) if expected else 0.0
+                )
+                is_contiguous = len(missing) == 0
+
+        sequence = NumberingSequence(
+            scope_type=scope_type,
+            scheme=scheme,
+            values=values,
+            normalized_values=normalized_values,
+            element_ids=element_ids,
+            is_contiguous=is_contiguous,
+            continuity_ratio=round(float(continuity_ratio), 4),
+            start_value=normalized_values[0] if normalized_values else None,
+            end_value=normalized_values[-1] if normalized_values else None,
+            gaps=gaps,
+            duplicates=duplicates,
+        )
+        sequences.append(sequence)
+
+    return sequences
+
+
+def _build_appendix_markers(
+    candidates: list[EvidenceHeadingCandidate],
+) -> list[AppendixMarker]:
+    markers: list[AppendixMarker] = []
+    for cand in candidates:
+        raw = cand.text
+        appendix_num = _appendix_number_from_text(raw)
+        is_appendix = cand.scheme == HeadingScheme.APPENDIX or cand.scope_type == ScopeType.APPENDIX
+        if not is_appendix and appendix_num is None:
+            continue
+
+        lowered = normalize_spaces(raw).lower()
+        if "annexure" in lowered:
+            kind = "annexure"
+        elif "annex" in lowered:
+            kind = "annex"
+        elif "schedule" in lowered:
+            kind = "schedule"
+        elif "exhibit" in lowered:
+            kind = "exhibit"
+        elif "attachment" in lowered:
+            kind = "attachment"
+        elif "appendices" in lowered or "приложения" in lowered:
+            kind = "appendices"
+        elif "appendix" in lowered or "приложение" in lowered:
+            kind = "appendix"
+        else:
+            kind = "unknown"
+
+        markers.append(
+            AppendixMarker(
+                element_id=cand.element_id,
+                raw_text=raw,
+                normalized_text=cand.normalized_text,
+                appendix_number=appendix_num or cand.numbering,
+                scope_uid=f"appendix.{appendix_num}" if appendix_num else None,
+                marker_kind=kind,
+                page_number=cand.page_number,
+                confidence=round(float(cand.score), 4),
+            )
+        )
+    return markers
+
+
+def _build_crossref_anchors(elements: list[dict[str, Any]]) -> list[CrossRefAnchor]:
+    anchors: list[CrossRefAnchor] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    for idx, element in enumerate(elements):
+        text = normalize_spaces(str(element.get("text") or ""))
+        if not text:
+            continue
+        element_id = str(element.get("element_id") or element.get("id") or f"el-{idx}")
+        page_number = _safe_int(element.get("page"))
+        scope_type = _scope_type_from_scope(_element_scope(element))
+
+        for match in _CROSSREF_ITEM_RE.finditer(text):
+            raw = normalize_spaces(match.group(0))
+            number = normalize_spaces(match.group(1))
+            key = (element_id, "item", number)
+            if key in seen:
+                continue
+            seen.add(key)
+            anchors.append(
+                CrossRefAnchor(
+                    element_id=element_id,
+                    raw_text=raw,
+                    normalized_text=raw.lower(),
+                    ref_kind=CrossRefKind.ITEM,
+                    target_number=number,
+                    target_scope_hint=None,
+                    source_scope_type=scope_type,
+                    page_number=page_number,
+                    confidence=0.7,
+                )
+            )
+
+        for match in _CROSSREF_APPENDIX_RE.finditer(text):
+            raw = normalize_spaces(match.group(0))
+            number = normalize_spaces(match.group(1))
+            key = (element_id, "appendix", number)
+            if key in seen:
+                continue
+            seen.add(key)
+            anchors.append(
+                CrossRefAnchor(
+                    element_id=element_id,
+                    raw_text=raw,
+                    normalized_text=raw.lower(),
+                    ref_kind=CrossRefKind.APPENDIX,
+                    target_number=number,
+                    target_scope_hint=f"appendix.{number}",
+                    source_scope_type=scope_type,
+                    page_number=page_number,
+                    confidence=0.75,
+                )
+            )
+
+    return anchors
+
+
+def _page_signals_from_candidates(
+    candidates: list[EvidenceHeadingCandidate],
+    appendix_markers: list[AppendixMarker],
+    crossref_anchors: list[CrossRefAnchor],
+) -> list[PageStructureSignals]:
+    by_page: dict[int, PageStructureSignals] = {}
+
+    def get_page(page: int) -> PageStructureSignals:
+        if page not in by_page:
+            by_page[page] = PageStructureSignals(page_number=page)
+        return by_page[page]
+
+    for cand in candidates:
+        if cand.page_number is None:
+            continue
+        page = get_page(cand.page_number)
+        page.heading_candidate_ids.append(cand.element_id)
+        if cand.is_toc_entry:
+            page.toc_entry_ids.append(cand.element_id)
+            page.has_toc_title = page.has_toc_title or (
+                "table of contents" in cand.normalized_text.lower()
+            )
+
+    for marker in appendix_markers:
+        if marker.page_number is None:
+            continue
+        page = get_page(marker.page_number)
+        page.appendix_marker_ids.append(marker.element_id)
+        page.has_appendix_marker = True
+
+    for anchor in crossref_anchors:
+        if anchor.page_number is None:
+            continue
+        page = get_page(anchor.page_number)
+        page.crossref_anchor_ids.append(anchor.element_id)
+
+    for page in by_page.values():
+        total = max(1, len(page.heading_candidate_ids))
+        page.page_top_heading_density = round(len(page.heading_candidate_ids) / total, 4)
+        page.numbering_density = round(
+            sum(1 for _ in page.heading_candidate_ids) / total,
+            4,
+        )
+
+    return [by_page[p] for p in sorted(by_page)]
+
+
+def _global_signals_from_bundle(
+    *,
+    evidence_candidates: list[EvidenceHeadingCandidate],
+    numbering_sequences: list[NumberingSequence],
+    toc_detected: bool,
+    crossref_anchors: list[CrossRefAnchor],
+    elements: list[dict[str, Any]],
+) -> GlobalStructureSignals:
+    main_len = 0
+    appendix_len = 0
+
+    for seq in numbering_sequences:
+        if seq.scope_type == ScopeType.MAIN and seq.scheme == HeadingScheme.DECIMAL:
+            top_level = [v for v in seq.normalized_values if re.fullmatch(r"\d+", v)]
+            main_len = max(main_len, len(top_level))
+        if seq.scheme == HeadingScheme.APPENDIX:
+            appendix_len = max(appendix_len, len(seq.normalized_values))
+
+    extraction_quality_score = 1.0 if elements else 0.0
+
+    return GlobalStructureSignals(
+        toc_detected=toc_detected,
+        toc_confidence=0.9 if toc_detected else 0.0,
+        main_section_chain_length=main_len,
+        appendix_chain_length=appendix_len,
+        crossref_anchor_count=len(crossref_anchors),
+        heading_candidates_count=len(evidence_candidates),
+        extraction_quality_score=extraction_quality_score,
+        document_quality_signals={
+            "elements_count": len(elements),
+            "has_candidates": bool(evidence_candidates),
+        },
+        notes=[],
+    )
+
+
+def _scored_to_evidence_candidate(
+    scored: ScoredHeadingCandidate,
+) -> EvidenceHeadingCandidate | None:
+    meta = dict(scored.metadata or {})
+    raw_uid = normalize_spaces(str(meta.get("raw_uid") or scored.uid or ""))
+    if not raw_uid:
+        return None
+
+    normalized_title = normalize_spaces(str(meta.get("normalized_title") or scored.title or ""))
+    raw_text = normalize_spaces(str(scored.raw_text or ""))
+    is_appendix = bool(meta.get("is_appendix_uid"))
+    scope_type = _scope_type_from_scope(scored.scope, is_appendix=is_appendix)
+    numbering = _appendix_number_from_text(raw_text) if is_appendix else raw_uid
+    scheme = _heading_scheme_from_uid(raw_uid, is_appendix=is_appendix)
+
+    features: dict[str, float | bool | str | int | None] = {
+        "decision": str(scored.decision),
+        "reason": str(scored.reason),
+        "uid_depth": _safe_int(meta.get("uid_depth")),
+        "toc_match_type": meta.get("toc_match_type"),
+        "toc_match_score": float(meta.get("toc_match_score") or 0.0),
+        "strong_toc_confirmation": bool(meta.get("strong_toc_confirmation")),
+        "continuity_bonus": float(meta.get("continuity_bonus") or 0.0),
+        "semantic_element_type": meta.get("semantic_element_type"),
+        "element_type": meta.get("element_type"),
+        "possible_toc": bool(meta.get("possible_toc")),
+    }
+
+    return EvidenceHeadingCandidate(
+        element_id=str(meta.get("element_id") or f"elem_{scored.elem_i}"),
+        text=raw_text,
+        normalized_text=normalized_title or raw_text,
+        level_hint=_uid_depth(raw_uid),
+        scheme=scheme,
+        score=float(scored.score),
+        features=features,
+        numbering=numbering,
+        scope_type=scope_type,
+        is_toc_entry=bool(meta.get("possible_toc")) and bool(meta.get("strong_toc_confirmation")),
+        page_number=_safe_int(scored.page),
+        evidence_refs=[],
+    )
+
 
 def collect_scored_heading_candidates(
     elements: list[dict[str, Any]],
@@ -48,8 +446,14 @@ def collect_scored_heading_candidates(
     document_id: str,
     toc_match_index: dict[tuple[str, str], dict[str, Any]] | None = None,
 ) -> list[ScoredHeadingCandidate]:
-    # Сначала строим контекст UID (соседние заголовки)
-    parsed_by_scope = defaultdict(list)
+    """
+    Собирает ScoredHeadingCandidate из layout-элементов, учитывая:
+    - parse_raw_heading;
+    - heading scoring;
+    - TOC match index;
+    - continuity context по scope.
+    """
+    parsed_by_scope: dict[str | None, list[tuple[int, str]]] = defaultdict(list)
     for i, el in enumerate(elements):
         try:
             txt = normalize_spaces(str(el.get("text") or ""))
@@ -61,7 +465,7 @@ def collect_scored_heading_candidates(
         except Exception:
             continue
 
-    context_map = {}
+    context_map: dict[int, dict[str, Any]] = {}
     for scope, items in parsed_by_scope.items():
         items.sort(key=lambda x: x[0])
         for pos, (elem_i, r_uid) in enumerate(items):
@@ -70,11 +474,12 @@ def collect_scored_heading_candidates(
                 "next_heading_uid": items[pos + 1][1] if pos + 1 < len(items) else None,
             }
 
-    scored_candidates = []
-    reject_stats = Counter()
+    scored_candidates: list[ScoredHeadingCandidate] = []
+    reject_stats: Counter[str] = Counter()
 
     for elem_i, element in enumerate(elements):
         _require_element_structure_contract(element, elem_i, document_id)
+
         raw_text = normalize_spaces(str(element.get("text") or ""))
         if not raw_text or len(raw_text) > _MAX_HEADING_RAW_TEXT_LEN:
             continue
@@ -86,11 +491,19 @@ def collect_scored_heading_candidates(
         parsed = parse_raw_heading(raw_text)
         if not parsed or not parsed[0]:
             continue
-        p_uid, p_title = normalize_spaces(str(parsed[0])), normalize_spaces(str(parsed[1]))
+
+        p_uid = normalize_spaces(str(parsed[0]))
+        p_title = normalize_spaces(str(parsed[1]))
 
         el_meta = dict(element.get("metadata") or {})
+        scope = _element_scope(element)
         ctx = context_map.get(elem_i, {})
-        t_match = toc_match_payload(p_uid, p_title, toc_match_index)
+
+        t_match = toc_match_payload(
+            raw_uid=p_uid,
+            title=p_title,
+            toc_match_index=toc_match_index,
+        )
 
         res = score_heading_candidate(
             uid=p_uid,
@@ -108,19 +521,25 @@ def collect_scored_heading_candidates(
         reason = _normalize_reject_reason(res.primary_reason)
         score = float(res.score)
 
-        # ── БЛОК ПРАВИЛ ТИПОВ (ВОССТАНОВЛЕНО ПОЛНОСТЬЮ) ──
         is_strong = _is_strong_structural_element_type(el_type)
         is_weak = _is_weak_structural_element_type(el_type)
         is_rec_toc = _is_recoverable_toc_like_element_type(el_type)
 
+        strong_toc = _has_strong_toc_confirmation(res.toc_match_type, res.toc_match_score)
+        is_root_numeric = _looks_like_root_numeric_uid(p_uid)
+        is_appendix_uid = _looks_like_appendix_uid(p_uid)
+
+        # 1. Корректировки по element_type / TOC / uid
         if is_strong and decision == "ambiguous" and score >= 0.55:
             decision, reason = "accepted", "strong_structural_element_type"
+
         if is_weak and decision == "accepted" and score < 0.70:
             decision, reason = "ambiguous", "weak_structural_element_type_requires_stronger_score"
 
         if is_rec_toc:
-            has_strong_t = (res.toc_match_type == "exact" and res.toc_match_score > 0) or (
-                res.toc_match_type == "fuzzy" and res.toc_match_score >= 0.045
+            has_strong_t = (
+                (res.toc_match_type == "exact" and (res.toc_match_score or 0.0) > 0)
+                or (res.toc_match_type == "fuzzy" and (res.toc_match_score or 0.0) >= 0.045)
             )
             if decision == "accepted" and score < 0.85 and not has_strong_t:
                 decision, reason = "ambiguous", "recoverable_toc_like_requires_stronger_evidence"
@@ -157,17 +576,18 @@ def collect_scored_heading_candidates(
                     "enumerated_clause_deep_uid_requires_stronger_evidence",
                 )
 
-        # ── СБОР ПОЛНЫХ МЕТАДАННЫХ ──
-        metadata = {
+        # 2. Metadata для дальнейших фаз
+        metadata: dict[str, Any] = {
+            "element_id": str(element.get("element_id") or element.get("id") or f"el-{elem_i}"),
             "accept_reasons": list(res.accept_reasons),
             "reject_reasons": list(res.reject_reasons),
             "parsed_uid": p_uid,
             "raw_uid": p_uid,
-            "effective_uid": _scope_aware_effective_uid(_element_scope(element), p_uid),
+            "effective_uid": _scope_aware_effective_uid(scope, p_uid),
             "parsed_title": p_title,
             "normalized_title": p_title,
             "freeze_structural_fields": _is_strict_numeric_uid(p_uid),
-            "scope": _element_scope(element),
+            "scope": scope,
             "segment_id": element.get("segment_id"),
             "segment_type": element.get("segment_type"),
             "segment_order": element.get("segment_order"),
@@ -188,6 +608,12 @@ def collect_scored_heading_candidates(
             "toc_guard_decision": str(el_meta.get("toc_guard_decision") or ""),
             "body_recoverable_from_toc": bool(el_meta.get("body_recoverable_from_toc")),
             "possible_toc": bool(el_meta.get("possible_toc")),
+            # Новые explainable признаки
+            "strong_toc_confirmation": strong_toc,
+            "is_root_numeric_uid": is_root_numeric,
+            "is_appendix_uid": is_appendix_uid,
+            "decision_before_element_type_adjustment": _status_to_decision(res.status),
+            "decision_after_element_type_adjustment": decision,
         }
 
         candidate = ScoredHeadingCandidate(
@@ -201,9 +627,10 @@ def collect_scored_heading_candidates(
             score=score,
             decision_source="rules",
             metadata=metadata,
-            scope=_element_scope(element),
+            scope=scope,
         )
         scored_candidates.append(candidate)
+
         if decision not in {"accepted", "ambiguous"}:
             reject_stats[reason] += 1
 
@@ -211,17 +638,23 @@ def collect_scored_heading_candidates(
 
 
 def filter_heading_sequence(
-    candidates: list[HeadingCandidate], *, document_id: str
+    candidates: list[HeadingCandidate],
+    *,
+    document_id: str,
 ) -> list[HeadingCandidate]:
-    """Дедупликация финального спискаHeadingCandidate."""
+    """Дедупликация финального списка HeadingCandidate."""
     if not candidates:
         return []
-    filtered, seen = [], set()
+
+    filtered: list[HeadingCandidate] = []
+    seen: set[tuple[str, str]] = set()
+
     for cand in candidates:
         key = (str(cand.scope), str(cand.raw_uid))
         if key not in seen:
             seen.add(key)
             filtered.append(cand)
+
     return filtered
 
 
@@ -231,9 +664,11 @@ def build_heading_candidates(
     document_id: str,
     toc_match_index: dict[tuple[str, str], dict[str, Any]] | None = None,
 ) -> list[HeadingCandidate]:
-    """Верхнеуровневый процесс построения кандидатов с опциональным LLM-рефайнером."""
+    """Backward-compatible: строит только accepted HeadingCandidate."""
     scored = collect_scored_heading_candidates(
-        elements, document_id=document_id, toc_match_index=toc_match_index
+        elements,
+        document_id=document_id,
+        toc_match_index=toc_match_index,
     )
     if not scored:
         return []
@@ -241,12 +676,13 @@ def build_heading_candidates(
     if bool(getattr(settings, "STRUCTURE_ENABLE_HEADING_LLM_REFINER", False)):
         try:
             refined = refine_ambiguous_candidates(scored, elements, document_id)
-            new_scored = []
+            new_scored: list[ScoredHeadingCandidate] = []
             for c in refined:
                 m = dict(c.metadata or {})
                 m["raw_uid"] = normalize_spaces(str(m.get("raw_uid") or c.uid or ""))
                 m["effective_uid"] = m.get("effective_uid") or _scope_aware_effective_uid(
-                    _normalize_scope(c.scope), m["raw_uid"]
+                    _normalize_scope(c.scope),
+                    m["raw_uid"],
                 )
                 m["normalized_title"] = normalize_spaces(
                     str(m.get("normalized_title") or c.title or "")
@@ -255,27 +691,124 @@ def build_heading_candidates(
             scored = new_scored
         except Exception:
             logger.exception(
-                "STRUCTURE heading_llm_refiner_failed", extra={"document_id": document_id}
+                "STRUCTURE heading_llm_refiner_failed",
+                extra={"document_id": document_id},
             )
 
     accepted: list[HeadingCandidate] = []
+
     for s in scored:
         if str(s.decision).lower() != "accepted":
             continue
+
         raw_uid = str((s.metadata or {}).get("raw_uid") or s.uid or "")
         if not raw_uid:
             continue
+
         meta = s.metadata or {}
+        scope = _normalize_scope(s.scope)
+
+        normalized_title = normalize_spaces(str(meta.get("normalized_title") or s.title or ""))
+        toc_match_type = str(meta.get("toc_match_type") or "")
+        toc_match_score = float(meta.get("toc_match_score") or 0.0)
+        strong_toc = bool(meta.get("strong_toc_confirmation"))
+        is_appendix_uid = bool(meta.get("is_appendix_uid"))
+
         accepted.append(
             HeadingCandidate(
                 elem_i=_safe_int(s.elem_i),
                 uid=raw_uid,
                 page=_safe_int(s.page),
-                title=normalize_spaces(str(meta.get("normalized_title") or s.title or "")),
-                scope=_normalize_scope(s.scope),
+                title=normalized_title,
+                scope=scope,
                 raw_uid=raw_uid,
                 effective_uid=str(meta.get("effective_uid") or ""),
                 metadata=dict(meta),
+                normalized_title=normalized_title,
+                toc_entry=strong_toc,
+                toc_match_type=toc_match_type or None,
+                toc_match_score=toc_match_score if toc_match_score > 0 else None,
+                is_appendix=is_appendix_uid,
+                is_toc_like=bool(meta.get("possible_toc")),
             )
         )
+
     return filter_heading_sequence(accepted, document_id=document_id)
+
+
+def build_structure_evidence_bundle(
+    elements: list[dict[str, Any]],
+    *,
+    document_id: str,
+    toc_match_index: dict[tuple[str, str], dict[str, Any]] | None = None,
+) -> StructureEvidenceBundle:
+    """
+    Новый Phase 2 API:
+    строит explainable StructureEvidenceBundle для downstream phases.
+    """
+    scored = collect_scored_heading_candidates(
+        elements,
+        document_id=document_id,
+        toc_match_index=toc_match_index,
+    )
+
+    if bool(getattr(settings, "STRUCTURE_ENABLE_HEADING_LLM_REFINER", False)) and scored:
+        try:
+            refined = refine_ambiguous_candidates(scored, elements, document_id)
+            patched: list[ScoredHeadingCandidate] = []
+            for c in refined:
+                m = dict(c.metadata or {})
+                m["raw_uid"] = normalize_spaces(str(m.get("raw_uid") or c.uid or ""))
+                m["effective_uid"] = m.get("effective_uid") or _scope_aware_effective_uid(
+                    _normalize_scope(c.scope),
+                    m["raw_uid"],
+                )
+                m["normalized_title"] = normalize_spaces(
+                    str(m.get("normalized_title") or c.title or "")
+                )
+                patched.append(_patched_scored_candidate(c, metadata_updates=m))
+            scored = patched
+        except Exception:
+            logger.exception(
+                "STRUCTURE heading_llm_refiner_failed_in_evidence_bundle",
+                extra={"document_id": document_id},
+            )
+
+    evidence_candidates: list[EvidenceHeadingCandidate] = []
+    for s in scored:
+        ev = _scored_to_evidence_candidate(s)
+        if ev is not None:
+            evidence_candidates.append(ev)
+
+    numbering_sequences = _build_numbering_sequences(evidence_candidates)
+    appendix_markers = _build_appendix_markers(evidence_candidates)
+    crossref_anchors = _build_crossref_anchors(elements)
+    page_signals = _page_signals_from_candidates(
+        evidence_candidates,
+        appendix_markers,
+        crossref_anchors,
+    )
+
+    toc_detected = any(c.is_toc_entry for c in evidence_candidates)
+    global_signals = _global_signals_from_bundle(
+        evidence_candidates=evidence_candidates,
+        numbering_sequences=numbering_sequences,
+        toc_detected=toc_detected,
+        crossref_anchors=crossref_anchors,
+        elements=elements,
+    )
+
+    return StructureEvidenceBundle(
+        heading_candidates=evidence_candidates,
+        numbering_sequences=numbering_sequences,
+        toc_blocks=[],
+        appendix_markers=appendix_markers,
+        crossref_anchors=crossref_anchors,
+        page_signals=page_signals,
+        global_signals=global_signals,
+    )
+
+
+
+
+

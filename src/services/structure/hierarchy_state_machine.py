@@ -1,31 +1,20 @@
 # src/services/structure/hierarchy_state_machine.py
 
 """
-HierarchyStateMachine — state machine для сборки ClauseNode дерева.
+HierarchyStateMachine — state machine для сборки mutable дерева иерархии.
 
 Роль модуля:
 - инкапсулировать логику transitions между узлами дерева;
 - правильно закрывать peer-level sections при встрече следующего peer heading;
 - не поднимать definition_item в sibling sections;
 - строить best-effort tree даже при средних confidence headings;
-- запрещать total downgrade при наличии валидных headings.
-
-Для непрофессионального программиста:
-- hierarchy_builder.py — это оркестратор: он получает список heading candidates
-  и вызывает state machine для каждого из них по очереди;
-- hierarchy_state_machine.py — это сам механизм дерева: он знает
-  "куда прикрепить следующий heading" и "как закрыть предыдущий раздел".
-
-Ключевые правила:
-1. Переход 1 -> 1.1 -> 1.1.1: каждый более глубокий uid становится child.
-2. Переход 1.1 -> 1.2: закрываем 1.1, прикрепляем 1.2 к родителю (1).
-3. Переход 1.1 -> 2: закрываем весь subtree 1.x, начинаем новый root.
-4. definition_item не поднимается как sibling section.
-5. Best-effort: если parent не найден — прикрепляем к root, не теряем узел.
+- запрещать total downgrade при наличии валидных headings;
+- минимизировать ложные root-level best-effort узлы для numeric descendants.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -33,61 +22,62 @@ from core.logging import get_logger
 from services.structure.models import (
     DEFAULT_SCOPE,
     NEGATIVE_HEADING_SEMANTIC_TYPES,
-    ClauseNode,
+    MutableHierarchyNode,
+    NODE_KIND_LEAF,
+    NODE_KIND_SECTION,
 )
 
 logger = get_logger(__name__)
 
-# ============================================================================
-# Вспомогательные типы
-# ============================================================================
+_NUMERIC_UID_RE = re.compile(r"^\d+(?:\.\d+)*$")
+_ROOT_NUMERIC_UID_RE = re.compile(r"^\d+$")
 
 
 @dataclass(slots=True)
 class AttachResult:
-    """
-    Результат операции attach одного узла в дерево.
-
-    attached: узел успешно прикреплён (к parent или к root).
-    attach_mode: "child" / "root" / "best_effort_root" / "skipped".
-    parent_effective_uid: к какому parent прикреплён (None если root).
-    reject_reason: почему узел был пропущен (только если skipped).
-    """
-
     attached: bool
     attach_mode: str
     parent_effective_uid: str | None = None
     reject_reason: str | None = None
 
 
+@dataclass(slots=True)
+class _DeferredNode:
+    node: MutableHierarchyNode
+    raw_uid: str
+    semantic_type: str | None = None
+
+
 @dataclass
 class HierarchyBuildSummary:
-    """
-    Итоговая статистика сборки дерева через state machine.
-
-    Используется для:
-    - quality gates в structure_diagnostics;
-    - diagnostics/logging;
-    - решения о structure_degraded.
-    """
-
     total_candidates: int = 0
     attached_as_child: int = 0
     attached_as_root: int = 0
     attached_best_effort: int = 0
+    attached_deferred_child: int = 0
+
     skipped_semantic_negative: int = 0
     skipped_invalid: int = 0
     duplicate_uid_skipped: int = 0
     parent_level_rejected: int = 0
 
-    # Качество дерева
+    deferred_numeric_total: int = 0
+    deferred_numeric_attached: int = 0
+    deferred_numeric_unresolved: int = 0
+    numeric_parent_chain_attach_count: int = 0
+    best_effort_due_to_missing_parent: int = 0
+    best_effort_due_to_deferred_failure: int = 0
+
     root_count: int = 0
     max_depth_reached: int = 0
     has_valid_root_sections: bool = False
     structure_degraded: bool = False
     degradation_reasons: list[str] = field(default_factory=list)
 
-    # Quality gates для downstream
+    numeric_root_count: int = 0
+    appendix_root_count: int = 0
+    consecutive_root_numeric_chain_len: int = 0
+
     quality_gates: dict[str, Any] = field(default_factory=dict)
 
     def mark_degraded(self, reason: str) -> None:
@@ -96,28 +86,38 @@ class HierarchyBuildSummary:
         if reason not in self.degradation_reasons:
             self.degradation_reasons.append(reason)
 
+    def clear_degraded(self, reason: str | None = None) -> None:
+        self.structure_degraded = False
+        if reason and reason not in self.degradation_reasons:
+            self.degradation_reasons.append(reason)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "total_candidates": self.total_candidates,
             "attached_as_child": self.attached_as_child,
             "attached_as_root": self.attached_as_root,
             "attached_best_effort": self.attached_best_effort,
+            "attached_deferred_child": self.attached_deferred_child,
             "skipped_semantic_negative": self.skipped_semantic_negative,
             "skipped_invalid": self.skipped_invalid,
             "duplicate_uid_skipped": self.duplicate_uid_skipped,
             "parent_level_rejected": self.parent_level_rejected,
+            "deferred_numeric_total": self.deferred_numeric_total,
+            "deferred_numeric_attached": self.deferred_numeric_attached,
+            "deferred_numeric_unresolved": self.deferred_numeric_unresolved,
+            "numeric_parent_chain_attach_count": self.numeric_parent_chain_attach_count,
+            "best_effort_due_to_missing_parent": self.best_effort_due_to_missing_parent,
+            "best_effort_due_to_deferred_failure": self.best_effort_due_to_deferred_failure,
             "root_count": self.root_count,
             "max_depth_reached": self.max_depth_reached,
             "has_valid_root_sections": self.has_valid_root_sections,
             "structure_degraded": self.structure_degraded,
             "degradation_reasons": list(self.degradation_reasons),
+            "numeric_root_count": self.numeric_root_count,
+            "appendix_root_count": self.appendix_root_count,
+            "consecutive_root_numeric_chain_len": self.consecutive_root_numeric_chain_len,
             "quality_gates": dict(self.quality_gates),
         }
-
-
-# ============================================================================
-# Вспомогательные функции
-# ============================================================================
 
 
 def _normalize_uid(value: Any) -> str:
@@ -130,18 +130,45 @@ def _normalize_scope(value: Any) -> str:
 
 
 def _is_numeric_uid(uid: str) -> bool:
-    """Проверяет что uid это чистый numeric uid типа 1 / 1.2 / 3.1.4."""
-    import re
+    return bool(_NUMERIC_UID_RE.fullmatch(_normalize_uid(uid)))
 
-    return bool(re.fullmatch(r"\d+(?:\.\d+)*", uid.strip()))
+
+def _is_root_numeric_uid(uid: str) -> bool:
+    return bool(_ROOT_NUMERIC_UID_RE.fullmatch(_normalize_uid(uid)))
+
+
+def _is_appendix_uid(uid: str) -> bool:
+    uid = _normalize_uid(uid).lower()
+    return uid.startswith("appendix-") or uid.startswith("приложение-")
+
+
+def _extract_root_numeric_value(uid: str) -> int | None:
+    if not _is_root_numeric_uid(uid):
+        return None
+    try:
+        return int(uid.strip())
+    except Exception:
+        return None
+
+
+def _longest_consecutive_chain(values: list[int]) -> int:
+    if not values:
+        return 0
+    uniq = sorted(set(v for v in values if v >= 1))
+    if not uniq:
+        return 0
+    best = 1
+    cur = 1
+    for i in range(1, len(uniq)):
+        if uniq[i] == uniq[i - 1] + 1:
+            cur += 1
+            best = max(best, cur)
+        else:
+            cur = 1
+    return best
 
 
 def _uid_level(uid: str) -> int:
-    """
-    Возвращает уровень numeric uid.
-    "1" -> 1, "1.2" -> 2, "3.1.4" -> 3.
-    Для нечисловых uid возвращаем 1.
-    """
     uid = _normalize_uid(uid)
     if not _is_numeric_uid(uid):
         return 1
@@ -149,12 +176,6 @@ def _uid_level(uid: str) -> int:
 
 
 def _uid_parent_raw(uid: str) -> str | None:
-    """
-    Возвращает raw_uid родителя для numeric uid.
-    "1.2.3" -> "1.2"
-    "1.2" -> "1"
-    "1" -> None
-    """
     uid = _normalize_uid(uid)
     if not _is_numeric_uid(uid) or "." not in uid:
         return None
@@ -162,41 +183,12 @@ def _uid_parent_raw(uid: str) -> str | None:
 
 
 def _is_semantic_negative_for_section(semantic_type: str | None) -> bool:
-    """
-    Возвращает True если semantic_type говорит что узел НЕ должен
-    становиться section heading в иерархии.
-
-    Важно: appendix_heading — это NOT negative здесь.
-    Appendix heading может быть root-level section.
-    Negative — только definition_item и signature_block и body_text.
-    """
     if not semantic_type:
         return False
     return semantic_type.lower().strip() in NEGATIVE_HEADING_SEMANTIC_TYPES
 
 
-# ============================================================================
-# Основной класс
-# ============================================================================
-
-
 class HierarchyStateMachine:
-    """
-    State machine для построения ClauseNode дерева.
-
-    Использование:
-        sm = HierarchyStateMachine(scope="main_contract", document_id="...")
-        for heading in headings:
-            sm.attach(heading_node, raw_uid=heading.raw_uid, ...)
-        root_nodes = sm.root_nodes
-        summary = sm.build_summary()
-
-    Принципы:
-    - один экземпляр на один scope;
-    - порядок вызовов attach() должен совпадать с порядком headings в документе;
-    - machine не делает никакого parsing — только tree assembly.
-    """
-
     def __init__(
         self,
         *,
@@ -210,56 +202,49 @@ class HierarchyStateMachine:
         self._allow_best_effort = bool(allow_best_effort)
         self._max_uid_depth = int(max_uid_depth)
 
-        # Основные структуры
-        self._root_nodes: list[ClauseNode] = []
-        self._nodes_by_raw_uid: dict[str, ClauseNode] = {}
+        self._root_nodes: list[MutableHierarchyNode] = []
+        self._nodes_by_raw_uid: dict[str, MutableHierarchyNode] = {}
+        self._open_stack: list[tuple[str, MutableHierarchyNode]] = []
+        self._last_node_by_level: dict[int, MutableHierarchyNode] = {}
+        self._deferred_numeric_nodes: list[_DeferredNode] = []
 
-        # Стек текущей "открытой" ветки для быстрого поиска parent
-        # Каждый элемент: (raw_uid, node)
-        self._open_stack: list[tuple[str, ClauseNode]] = []
-
-        # Счётчики для summary
         self._total = 0
         self._attached_child = 0
         self._attached_root = 0
         self._attached_best_effort = 0
+        self._attached_deferred_child = 0
         self._skipped_semantic = 0
         self._skipped_invalid = 0
         self._duplicate_skipped = 0
         self._parent_level_rejected = 0
         self._max_depth = 0
 
-    # ── Public API ────────────────────────────────────────────────────────────
+        self._deferred_numeric_total = 0
+        self._deferred_numeric_attached = 0
+        self._deferred_numeric_unresolved = 0
+        self._numeric_parent_chain_attach_count = 0
+        self._best_effort_due_to_missing_parent = 0
+        self._best_effort_due_to_deferred_failure = 0
 
     @property
-    def root_nodes(self) -> list[ClauseNode]:
+    def root_nodes(self) -> list[MutableHierarchyNode]:
+        self.resolve_deferred()
         return list(self._root_nodes)
 
     @property
-    def nodes_by_raw_uid(self) -> dict[str, ClauseNode]:
+    def nodes_by_raw_uid(self) -> dict[str, MutableHierarchyNode]:
         return dict(self._nodes_by_raw_uid)
 
     def attach(
         self,
-        node: ClauseNode,
+        node: MutableHierarchyNode,
         *,
         raw_uid: str,
         semantic_type: str | None = None,
     ) -> AttachResult:
-        """
-        Прикрепляет узел в дерево согласно его raw_uid и текущему состоянию стека.
-
-        Параметры:
-        - node: уже созданный ClauseNode (без children — их добавим здесь);
-        - raw_uid: числовой uid вида "1", "1.2", "3.1.4";
-        - semantic_type: semantic_element_type из classifier/scorer.
-
-        Возвращает AttachResult с объяснением что произошло.
-        """
         self._total += 1
         raw_uid = _normalize_uid(raw_uid)
 
-        # ── Guard: невалидный uid ─────────────────────────────────────────────
         if not raw_uid:
             self._skipped_invalid += 1
             logger.warning(
@@ -276,7 +261,6 @@ class HierarchyStateMachine:
                 reject_reason="empty_raw_uid",
             )
 
-        # ── Guard: дубликат uid в этом scope ─────────────────────────────────
         if raw_uid in self._nodes_by_raw_uid:
             self._duplicate_skipped += 1
             logger.warning(
@@ -295,9 +279,6 @@ class HierarchyStateMachine:
                 reject_reason="duplicate_uid",
             )
 
-        # ── Guard: semantic negative (definition_item, signature_block) ───────
-        # НЕ поднимаем их как section siblings.
-        # Но всё равно регистрируем в nodes_by_raw_uid, чтобы не потерять.
         if _is_semantic_negative_for_section(semantic_type):
             self._skipped_semantic += 1
             node.diagnostics["semantic_attach_skipped"] = True
@@ -312,7 +293,6 @@ class HierarchyStateMachine:
                     "effective_uid": node.effective_uid,
                 },
             )
-            # Регистрируем но не добавляем в дерево
             self._nodes_by_raw_uid[raw_uid] = node
             return AttachResult(
                 attached=False,
@@ -320,38 +300,41 @@ class HierarchyStateMachine:
                 reject_reason=f"semantic_negative:{semantic_type}",
             )
 
-        # ── Определяем уровень и ищем parent ─────────────────────────────────
         numeric = _is_numeric_uid(raw_uid)
         level = _uid_level(raw_uid) if numeric else 1
-
-        # Ограничение глубины
         if level > self._max_uid_depth:
             level = self._max_uid_depth
 
         self._max_depth = max(self._max_depth, level)
 
-        # ── Закрываем стек до нужного уровня ─────────────────────────────────
-        # Смысл: если мы были на 1.1.1 и встречаем 1.2 —
-        # нужно "закрыть" 1.1.1 и 1.1, оставить 1 открытым.
-        self._pop_stack_to_level(level)
-
-        # ── Ищем parent в стеке ───────────────────────────────────────────────
-        parent_node = self._find_parent_in_stack(raw_uid=raw_uid, level=level)
-
-        # ── Прикрепляем узел ─────────────────────────────────────────────────
+        node.level = max(1, level)
         node.diagnostics["semantic_type_at_attach"] = semantic_type
         node.diagnostics["attach_level"] = level
         node.diagnostics["numeric_uid"] = numeric
+        node.diagnostics["scope"] = self._scope
+        node.diagnostics["raw_uid"] = raw_uid
 
         self._nodes_by_raw_uid[raw_uid] = node
 
+        if self._is_plausible_root(raw_uid=raw_uid, semantic_type=semantic_type):
+            node.diagnostics["parent_attach_status"] = "root"
+            node.diagnostics["root_reason"] = self._classify_root_reason(raw_uid, semantic_type)
+            self._attach_to_root(node, raw_uid=raw_uid)
+            self._attached_root += 1
+            return AttachResult(
+                attached=True,
+                attach_mode="root",
+                parent_effective_uid=None,
+            )
+
+        parent_node = self._find_parent_candidate(raw_uid=raw_uid, level=level)
+
         if parent_node is not None:
-            # Проверяем что уровень parent < level нашего узла
             if parent_node.level >= level:
-                # Это аномалия — parent должен быть выше нас
                 self._parent_level_rejected += 1
                 node.diagnostics["parent_attach_status"] = "rejected_invalid_parent_level"
                 node.diagnostics["parent_level_mismatch"] = True
+                node.diagnostics["parent_raw_uid_candidate"] = parent_node.raw_uid
 
                 logger.warning(
                     "STRUCTURE hsm_parent_level_mismatch",
@@ -365,14 +348,25 @@ class HierarchyStateMachine:
                     },
                 )
 
-                # Best effort: прикрепляем к root
+                if numeric and level > 1:
+                    return self._defer_numeric_node(
+                        node=node,
+                        raw_uid=raw_uid,
+                        semantic_type=semantic_type,
+                        reason="parent_level_mismatch",
+                    )
+
                 if self._allow_best_effort:
-                    self._attach_to_root(node, raw_uid=raw_uid)
-                    self._attached_best_effort += 1
+                    self._attach_best_effort_root(
+                        node=node,
+                        raw_uid=raw_uid,
+                        reason="parent_level_mismatch",
+                    )
                     return AttachResult(
                         attached=True,
                         attach_mode="best_effort_root",
                         parent_effective_uid=None,
+                        reject_reason="parent_level_mismatch",
                     )
 
                 self._skipped_invalid += 1
@@ -382,99 +376,144 @@ class HierarchyStateMachine:
                     reject_reason="parent_level_mismatch",
                 )
 
-            # Нормальный attach: узел становится child parent-а
-            parent_node.children.append(node)
-            node.diagnostics["parent_attach_status"] = "attached_as_child"
-
-            # Обновляем стек: добавляем текущий узел
-            self._open_stack.append((raw_uid, node))
-
-            self._attached_child += 1
-
-            logger.debug(
-                "STRUCTURE hsm_attached_as_child",
-                extra={
-                    "document_id": self._document_id,
-                    "scope": self._scope,
-                    "raw_uid": raw_uid,
-                    "level": level,
-                    "parent_raw_uid": parent_node.raw_uid,
-                    "parent_level": parent_node.level,
-                },
-            )
-
+            self._attach_as_child(parent_node=parent_node, node=node, raw_uid=raw_uid)
+            if numeric:
+                self._numeric_parent_chain_attach_count += 1
+                node.diagnostics["attached_via_numeric_parent_chain"] = True
             return AttachResult(
                 attached=True,
                 attach_mode="child",
                 parent_effective_uid=parent_node.effective_uid,
             )
 
-        # Parent не найден — прикрепляем к root
-        node.diagnostics["parent_attach_status"] = "root"
-
-        if level == 1 or not self._allow_best_effort:
-            # Это нормальный root-level узел
-            self._attach_to_root(node, raw_uid=raw_uid)
-            self._attached_root += 1
-            return AttachResult(
-                attached=True,
-                attach_mode="root",
-                parent_effective_uid=None,
+        if numeric and level > 1:
+            return self._defer_numeric_node(
+                node=node,
+                raw_uid=raw_uid,
+                semantic_type=semantic_type,
+                reason="numeric_parent_missing",
             )
 
-        # level > 1 но parent не найден — best effort
-        node.diagnostics["parent_attach_status"] = "best_effort_root"
-        node.diagnostics["best_effort_reason"] = "parent_not_found_in_stack"
+        if not self._allow_best_effort:
+            self._skipped_invalid += 1
+            node.diagnostics["parent_attach_status"] = "skipped"
+            node.diagnostics["skip_reason"] = "parent_not_found_best_effort_disabled"
+            return AttachResult(
+                attached=False,
+                attach_mode="skipped",
+                reject_reason="parent_not_found_best_effort_disabled",
+            )
 
-        logger.debug(
-            "STRUCTURE hsm_best_effort_root",
-            extra={
-                "document_id": self._document_id,
-                "scope": self._scope,
-                "raw_uid": raw_uid,
-                "level": level,
-                "reason": "parent_not_found",
-            },
+        self._attach_best_effort_root(
+            node=node,
+            raw_uid=raw_uid,
+            reason="parent_not_found_in_stack",
         )
-
-        self._attach_to_root(node, raw_uid=raw_uid)
-        self._attached_best_effort += 1
-
+        self._best_effort_due_to_missing_parent += 1
         return AttachResult(
             attached=True,
             attach_mode="best_effort_root",
             parent_effective_uid=None,
+            reject_reason="parent_not_found_in_stack",
         )
 
-    def build_summary(self) -> HierarchyBuildSummary:
-        """
-        Строит итоговый summary после того как все узлы прикреплены.
+    def resolve_deferred(self) -> None:
+        if not self._deferred_numeric_nodes:
+            return
 
-        Вызывать после того как все attach() завершены.
-        """
+        pending = list(self._deferred_numeric_nodes)
+        self._deferred_numeric_nodes = []
+
+        progress = True
+        while pending and progress:
+            progress = False
+            still_pending: list[_DeferredNode] = []
+
+            for item in pending:
+                node = item.node
+                raw_uid = item.raw_uid
+                parent = self._find_parent_candidate(raw_uid=raw_uid, level=node.level)
+
+                if parent is not None and parent.level < node.level:
+                    self._attach_as_child(parent_node=parent, node=node, raw_uid=raw_uid)
+                    node.diagnostics["deferred_resolution_status"] = "attached"
+                    self._deferred_numeric_attached += 1
+                    self._attached_deferred_child += 1
+                    progress = True
+                    continue
+
+                still_pending.append(item)
+
+            pending = still_pending
+
+        if pending:
+            for item in pending:
+                node = item.node
+                raw_uid = item.raw_uid
+                self._deferred_numeric_unresolved += 1
+                if self._allow_best_effort:
+                    self._attach_best_effort_root(
+                        node=node,
+                        raw_uid=raw_uid,
+                        reason="deferred_resolution_failed",
+                    )
+                    self._best_effort_due_to_deferred_failure += 1
+                else:
+                    self._skipped_invalid += 1
+                    node.diagnostics["parent_attach_status"] = "skipped"
+                    node.diagnostics["skip_reason"] = "deferred_resolution_failed"
+
+    def build_summary(self) -> HierarchyBuildSummary:
+        self.resolve_deferred()
+
         summary = HierarchyBuildSummary(
             total_candidates=self._total,
             attached_as_child=self._attached_child,
             attached_as_root=self._attached_root,
             attached_best_effort=self._attached_best_effort,
+            attached_deferred_child=self._attached_deferred_child,
             skipped_semantic_negative=self._skipped_semantic,
             skipped_invalid=self._skipped_invalid,
             duplicate_uid_skipped=self._duplicate_skipped,
             parent_level_rejected=self._parent_level_rejected,
+            deferred_numeric_total=self._deferred_numeric_total,
+            deferred_numeric_attached=self._deferred_numeric_attached,
+            deferred_numeric_unresolved=self._deferred_numeric_unresolved,
+            numeric_parent_chain_attach_count=self._numeric_parent_chain_attach_count,
+            best_effort_due_to_missing_parent=self._best_effort_due_to_missing_parent,
+            best_effort_due_to_deferred_failure=self._best_effort_due_to_deferred_failure,
             root_count=len(self._root_nodes),
             max_depth_reached=self._max_depth,
         )
 
-        # Есть ли реальные root sections
         summary.has_valid_root_sections = bool(
             self._root_nodes
-            and any(
-                not node.diagnostics.get("semantic_attach_skipped") for node in self._root_nodes
-            )
+            and any(not node.diagnostics.get("semantic_attach_skipped") for node in self._root_nodes)
         )
 
-        # Оцениваем degradation
-        total_attached = self._attached_child + self._attached_root + self._attached_best_effort
+        summary.numeric_root_count = sum(
+            1 for node in self._root_nodes if _is_root_numeric_uid(_normalize_uid(node.raw_uid))
+        )
+        summary.appendix_root_count = sum(
+            1 for node in self._root_nodes if _is_appendix_uid(_normalize_uid(node.raw_uid))
+        )
+        summary.consecutive_root_numeric_chain_len = _longest_consecutive_chain(
+            [
+                value
+                for value in (
+                    _extract_root_numeric_value(_normalize_uid(node.raw_uid))
+                    for node in self._root_nodes
+                )
+                if value is not None
+            ]
+        )
+
+        total_attached = (
+            self._attached_child
+            + self._attached_root
+            + self._attached_best_effort
+            + self._attached_deferred_child
+        )
 
         if self._total > 0 and total_attached == 0:
             summary.mark_degraded("no_nodes_attached")
@@ -492,146 +531,299 @@ class HierarchyStateMachine:
             if reject_ratio >= 0.25:
                 summary.mark_degraded("high_parent_level_rejection")
 
-        if self._attached_best_effort > 0:
+        if total_attached > 0:
             be_ratio = self._attached_best_effort / max(total_attached, 1)
             if be_ratio >= 0.4:
                 summary.mark_degraded("high_best_effort_ratio")
 
-        # Quality gates для clause_tree_builder и downstream
-        summary.quality_gates = self._compute_quality_gates(summary)
+        if self._deferred_numeric_unresolved > 0:
+            unresolved_ratio = self._deferred_numeric_unresolved / max(self._deferred_numeric_total, 1)
+            if unresolved_ratio >= 0.4:
+                summary.mark_degraded("high_unresolved_deferred_numeric_ratio")
 
+        if (
+            summary.structure_degraded
+            and summary.has_valid_root_sections
+            and summary.numeric_root_count >= 3
+            and summary.consecutive_root_numeric_chain_len >= 3
+        ):
+            retained_reasons = [
+                reason
+                for reason in summary.degradation_reasons
+                if reason in {"no_nodes_attached", "no_root_nodes"}
+            ]
+            if not retained_reasons:
+                summary.clear_degraded("recovered_by_numeric_root_chain")
+
+        summary.quality_gates = self._compute_quality_gates(summary)
         return summary
 
-    # ── Private helpers ───────────────────────────────────────────────────────
+    def _is_plausible_root(self, *, raw_uid: str, semantic_type: str | None) -> bool:
+        if _is_root_numeric_uid(raw_uid):
+            return True
+        if _is_appendix_uid(raw_uid):
+            return True
+
+        semantic = str(semantic_type or "").strip().lower()
+        if semantic in {
+            "section_heading",
+            "appendix_heading",
+            "document_heading",
+            "title",
+            "contract_heading",
+        } and not _is_numeric_uid(raw_uid):
+            return True
+
+        return False
+
+    def _classify_root_reason(self, raw_uid: str, semantic_type: str | None) -> str:
+        if _is_root_numeric_uid(raw_uid):
+            return "root_numeric_uid"
+        if _is_appendix_uid(raw_uid):
+            return "appendix_uid"
+        semantic = str(semantic_type or "").strip().lower()
+        if semantic:
+            return f"semantic_root:{semantic}"
+        return "root_fallback"
 
     def _pop_stack_to_level(self, incoming_level: int) -> None:
-        """
-        Закрывает открытые узлы в стеке у которых level >= incoming_level.
-
-        Логика:
-        - если мы были на 1.1.1 (level=3) и встречаем 1.2 (level=2):
-          нужно закрыть 1.1.1 (уровень 3 >= 2) и 1.1 (уровень 2 >= 2);
-          оставить 1 (уровень 1 < 2).
-        - если встречаем 2 (level=1):
-          закрываем всё что есть в стеке.
-        """
         while self._open_stack:
-            top_uid, top_node = self._open_stack[-1]
+            top_uid, _top_node = self._open_stack[-1]
             top_level = _uid_level(top_uid) if _is_numeric_uid(top_uid) else 1
             if top_level >= incoming_level:
                 self._open_stack.pop()
             else:
                 break
 
-    def _find_parent_in_stack(
+    def _find_numeric_parent(self, raw_uid: str) -> MutableHierarchyNode | None:
+        parent_raw = _uid_parent_raw(raw_uid)
+        while parent_raw:
+            parent = self._nodes_by_raw_uid.get(parent_raw)
+            if parent is not None:
+                return parent
+            parent_raw = _uid_parent_raw(parent_raw)
+        return None
+
+    def _find_parent_candidate(
         self,
         *,
         raw_uid: str,
         level: int,
-    ) -> ClauseNode | None:
-        """
-        Ищет подходящего parent для нового узла.
-
-        Алгоритм:
-        1. Для numeric uid пробуем найти явный parent по uid-цепочке:
-           "1.2.3" -> parent должен быть "1.2".
-        2. Если не нашли по uid — берём верхний элемент стека,
-           если его level = level - 1 (прямой parent по уровню).
-        3. Иначе — parent не найден.
-        """
-        if not self._open_stack:
-            return None
-
+    ) -> MutableHierarchyNode | None:
         numeric = _is_numeric_uid(raw_uid)
 
         if numeric and level > 1:
-            # Пробуем найти явный parent по uid
-            parent_raw = _uid_parent_raw(raw_uid)
-            if parent_raw and parent_raw in self._nodes_by_raw_uid:
-                parent_node = self._nodes_by_raw_uid[parent_raw]
-                if parent_node.level == level - 1:
-                    return parent_node
+            parent = self._find_numeric_parent(raw_uid)
+            if parent is not None:
+                return parent
 
-            # Явный parent не найден — берём верхушку стека
-            top_uid, top_node = self._open_stack[-1]
-            top_level = _uid_level(top_uid) if _is_numeric_uid(top_uid) else 1
-            if top_level == level - 1:
-                return top_node
+        self._pop_stack_to_level(level)
 
-            return None
-
-        # Для нечисловых uid берём верхушку стека если уровень подходит
-        if self._open_stack:
-            top_uid, top_node = self._open_stack[-1]
+        for top_uid, top_node in reversed(self._open_stack):
             top_level = _uid_level(top_uid) if _is_numeric_uid(top_uid) else 1
             if top_level < level:
                 return top_node
 
+        if numeric and level > 1:
+            for candidate_level in range(level - 1, 0, -1):
+                candidate = self._last_node_by_level.get(candidate_level)
+                if candidate is not None:
+                    return candidate
+
         return None
 
-    def _attach_to_root(self, node: ClauseNode, *, raw_uid: str) -> None:
-        """
-        Добавляет узел в root_nodes и обновляет открытый стек.
-        """
+    def _attach_as_child(
+        self,
+        *,
+        parent_node: MutableHierarchyNode,
+        node: MutableHierarchyNode,
+        raw_uid: str,
+    ) -> None:
+        if parent_node.node_kind != NODE_KIND_SECTION:
+            parent_node.node_kind = NODE_KIND_SECTION
+
+        parent_node.children.append(node)
+        node.diagnostics["parent_attach_status"] = "attached_as_child"
+        node.diagnostics["parent_effective_uid"] = parent_node.effective_uid
+        node.diagnostics["parent_raw_uid"] = parent_node.raw_uid
+
+        self._open_stack.append((raw_uid, node))
+        self._last_node_by_level[node.level] = node
+        self._attached_child += 1
+
+        logger.debug(
+            "STRUCTURE hsm_attached_as_child",
+            extra={
+                "document_id": self._document_id,
+                "scope": self._scope,
+                "raw_uid": raw_uid,
+                "level": node.level,
+                "parent_raw_uid": parent_node.raw_uid,
+                "parent_level": parent_node.level,
+            },
+        )
+
+    def _attach_to_root(self, node: MutableHierarchyNode, *, raw_uid: str) -> None:
+        node.node_kind = NODE_KIND_LEAF if not node.children else NODE_KIND_SECTION
         self._root_nodes.append(node)
-        # Когда прикрепляем к root — открываем этот узел в стеке
-        # (предварительно очистив стек от старых root-level элементов того же уровня)
+
         node_level = node.level
         while self._open_stack:
-            top_uid, top_node = self._open_stack[-1]
+            top_uid, _top_node = self._open_stack[-1]
             top_level = _uid_level(top_uid) if _is_numeric_uid(top_uid) else 1
             if top_level >= node_level:
                 self._open_stack.pop()
             else:
                 break
+
         self._open_stack.append((raw_uid, node))
+        self._last_node_by_level[node.level] = node
+
+    def _attach_best_effort_root(
+        self,
+        *,
+        node: MutableHierarchyNode,
+        raw_uid: str,
+        reason: str,
+    ) -> None:
+        node.diagnostics["parent_attach_status"] = "best_effort_root"
+        node.diagnostics["best_effort_reason"] = reason
+        node.citability = "low" if node.citability != "technical" else node.citability
+
+        logger.debug(
+            "STRUCTURE hsm_best_effort_root",
+            extra={
+                "document_id": self._document_id,
+                "scope": self._scope,
+                "raw_uid": raw_uid,
+                "level": node.level,
+                "reason": reason,
+            },
+        )
+
+        self._attach_to_root(node, raw_uid=raw_uid)
+        self._attached_best_effort += 1
+
+    def _defer_numeric_node(
+        self,
+        *,
+        node: MutableHierarchyNode,
+        raw_uid: str,
+        semantic_type: str | None,
+        reason: str,
+    ) -> AttachResult:
+        node.diagnostics["parent_attach_status"] = "deferred_child"
+        node.diagnostics["deferred_reason"] = reason
+        node.diagnostics["deferred_scope"] = self._scope
+
+        self._deferred_numeric_nodes.append(
+            _DeferredNode(node=node, raw_uid=raw_uid, semantic_type=semantic_type)
+        )
+        self._deferred_numeric_total += 1
+
+        logger.debug(
+            "STRUCTURE hsm_deferred_numeric_child",
+            extra={
+                "document_id": self._document_id,
+                "scope": self._scope,
+                "raw_uid": raw_uid,
+                "level": node.level,
+                "reason": reason,
+            },
+        )
+
+        return AttachResult(
+            attached=False,
+            attach_mode="deferred_child",
+            parent_effective_uid=None,
+            reject_reason=reason,
+        )
 
     def _compute_quality_gates(
         self,
         summary: HierarchyBuildSummary,
     ) -> dict[str, Any]:
-        """
-        Вычисляет quality gates для downstream consumers.
-
-        section_chunking_allowed:
-        - True только если дерево не degraded и есть реальные root sections;
-        - clause_tree_builder.py читает именно это поле.
-
-        technical_fallback_only:
-        - True если структура деградировала до уровня fallback.
-        """
-        total_attached = self._attached_child + self._attached_root + self._attached_best_effort
+        total_attached = (
+            self._attached_child
+            + self._attached_root
+            + self._attached_best_effort
+            + self._attached_deferred_child
+        )
         best_effort_ratio = (
             self._attached_best_effort / max(total_attached, 1) if total_attached > 0 else 0.0
         )
 
-        section_chunking_allowed = (
-            not summary.structure_degraded
-            and summary.has_valid_root_sections
-            and summary.root_count > 0
-            and best_effort_ratio < 0.5
+        recoverable_numeric_backbone = (
+            summary.has_valid_root_sections
+            and summary.numeric_root_count >= 3
+            and summary.consecutive_root_numeric_chain_len >= 3
         )
 
-        technical_fallback_only = summary.structure_degraded or not summary.has_valid_root_sections
+        deferred_resolution_good = (
+            summary.deferred_numeric_total == 0
+            or summary.deferred_numeric_attached >= summary.deferred_numeric_unresolved
+        )
+
+        if not summary.has_valid_root_sections:
+            structure_confidence = "LOW"
+        elif summary.structure_degraded:
+            structure_confidence = "MEDIUM" if recoverable_numeric_backbone else "LOW"
+        else:
+            if best_effort_ratio < 0.25 and deferred_resolution_good:
+                structure_confidence = "HIGH"
+            elif best_effort_ratio < 0.45 or recoverable_numeric_backbone:
+                structure_confidence = "MEDIUM"
+            else:
+                structure_confidence = "LOW"
+
+        section_chunking_allowed = (
+            summary.has_valid_root_sections
+            and (
+                not summary.structure_degraded
+                or recoverable_numeric_backbone
+            )
+            and (
+                best_effort_ratio < 0.5
+                or recoverable_numeric_backbone
+            )
+            and summary.root_count > 0
+        )
+
+        technical_fallback_only = (
+            not summary.has_valid_root_sections
+            or (summary.structure_degraded and not recoverable_numeric_backbone)
+        )
+
+        hierarchy_quality = (
+            "good"
+            if structure_confidence == "HIGH"
+            else "partial"
+            if structure_confidence == "MEDIUM"
+            else "failed"
+        )
 
         return {
             "section_chunking_allowed": section_chunking_allowed,
             "technical_fallback_only": technical_fallback_only,
-            "structure_confidence": (
-                "HIGH"
-                if not summary.structure_degraded and summary.has_valid_root_sections
-                else "LOW"
-                if summary.structure_degraded
-                else "MEDIUM"
+            "structure_confidence": structure_confidence,
+            "recoverable_hierarchy_used": (
+                self._attached_best_effort > 0
+                or recoverable_numeric_backbone
+                or self._deferred_numeric_attached > 0
             ),
-            "recoverable_hierarchy_used": self._attached_best_effort > 0,
+            "recoverable_numeric_backbone": recoverable_numeric_backbone,
+            "deferred_resolution_good": deferred_resolution_good,
             "total_fallback_blocked": self._skipped_invalid + self._skipped_semantic,
-            "hierarchy_quality": (
-                "good"
-                if not summary.structure_degraded and summary.has_valid_root_sections
-                else "partial"
-                if summary.has_valid_root_sections
-                else "failed"
-            ),
+            "hierarchy_quality": hierarchy_quality,
             "best_effort_ratio": round(best_effort_ratio, 4),
+            "numeric_root_count": summary.numeric_root_count,
+            "appendix_root_count": summary.appendix_root_count,
+            "consecutive_root_numeric_chain_len": summary.consecutive_root_numeric_chain_len,
+            "deferred_numeric_total": summary.deferred_numeric_total,
+            "deferred_numeric_attached": summary.deferred_numeric_attached,
+            "deferred_numeric_unresolved": summary.deferred_numeric_unresolved,
+            "numeric_parent_chain_attach_count": summary.numeric_parent_chain_attach_count,
         }
+    
+
+    

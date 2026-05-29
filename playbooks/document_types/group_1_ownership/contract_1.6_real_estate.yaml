@@ -359,25 +359,26 @@ classification_runtime_v1:
           context: header
           description: "Титульная форма Land Sale Contract в заголовке"
 
-      medium:
         - pattern: "(?i)недвижимост[ьи]"
           weight: 0.7
-          distinctiveness: medium
+          distinctiveness: high
           context: any
           description: "Общий термин недвижимости — важен, но не уникален для купли-продажи"
 
         - pattern: "(?i)квартир[аеиу]"
           weight: 0.65
-          distinctiveness: medium
+          distinctiveness: high
           context: any
           description: "Квартира — встречается также в аренде, ДДУ, дарении"
 
         - pattern: "(?i)земельн[а-я\\s]*участ"
           weight: 0.65
-          distinctiveness: medium
+          distinctiveness: high
           context: any
           description: "Земельный участок — встречается в аренде, контрактации, залоге"
 
+
+      medium:
         - pattern: "(?i)переход\\s+права\\s+собственност[иьи]"
           weight: 0.45
           distinctiveness: medium
