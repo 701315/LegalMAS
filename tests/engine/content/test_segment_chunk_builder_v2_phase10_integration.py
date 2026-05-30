@@ -868,9 +868,7 @@ class TestBuildSingleSegmentSnapshot:
         snap = self._build(chunk_plan=plan)
 
         assert snap.degraded is True
-        assert "layout_fallback_preferred_but_not_yet_implemented" in (
-            snap.degradation_reason or ""
-        )
+        assert snap.degradation_reason == "layout_fallback_chunker_used"
 
     def test_mode_c_disables_subclause_splitting(self):
         seg_plan = _make_segment_plan(

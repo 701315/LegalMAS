@@ -61,6 +61,8 @@ from services.structure.chunk_planner import FileChunkPlan
 from services.structure.legal_unit_builder import LegalUnitBuilder
 from services.structure.legal_unit_models import LegalUnitsSnapshot
 from storage.artifact_store import ArtifactStore
+from engine.content.layout_fallback_chunker import build_layout_fallback_chunks
+
 
 logger = get_logger(__name__)
 
@@ -1052,9 +1054,21 @@ class SegmentChunkBuilderV2:
             segment_plan is not None
             and segment_plan.mode == RecommendedChunkingMode.LAYOUT_FALLBACK
         )
+
+        # ── Phase 11: Layout Fallback Builder ────────────────────────────────
+        # Если Mode C → строим snapshot через layout fallback chunker
+        # и возвращаем его сразу, минуя clause-based logic.
         if prefer_layout_fallback:
-            degradation_reasons.append(
-                "layout_fallback_preferred_but_not_yet_implemented"
+            return self._build_layout_fallback_snapshot(
+                document_id=document_id,
+                document_version_id=document_version_id,
+                segment=segment,
+                layout=layout,
+                layout_ref=layout_ref,
+                file_graph_ref=file_graph_ref,
+                segment_clause_tree_ref=segment_clause_tree_ref,
+                total_pages=total_pages,
+                segment_plan=segment_plan,
             )
 
         degradation_reason = (
@@ -1160,6 +1174,115 @@ class SegmentChunkBuilderV2:
             legal_units_snapshot=legal_units_snapshot,
             planning=planning_payload,
         )
+
+    def _build_layout_fallback_snapshot(
+        self,
+        *,
+        document_id: uuid.UUID,
+        document_version_id: uuid.UUID,
+        segment: DocumentSegment,
+        layout: dict[str, Any],
+        layout_ref: str,
+        file_graph_ref: str,
+        segment_clause_tree_ref: str,
+        total_pages: int | None,
+        segment_plan: Any | None,
+    ) -> SegmentChunkSnapshotV2:
+        """
+        Построить snapshot через layout fallback chunker (Mode C).
+
+        Используется когда prefer_layout_fallback=True.
+        Clause tree полностью игнорируется.
+        """
+        logger.info(
+            "SegmentChunkBuilderV2: building layout fallback snapshot",
+            extra={
+                "document_id": str(document_id),
+                "document_version_id": str(document_version_id),
+                "segment_id": segment.segment_id,
+            },
+        )
+
+        max_tokens = (
+            segment_plan.token_params.max_tokens
+            if segment_plan is not None
+            else 800
+        )
+
+        layout_chunks = build_layout_fallback_chunks(
+            doc_id=document_id,
+            layout=layout,
+            segment_id=segment.segment_id,
+            segment_type=segment.segment_type,
+            max_tokens=max_tokens,
+        )
+
+        # Enrich с segment metadata
+        layout_chunks = self._enrich_segment_metadata(
+            chunks=layout_chunks,
+            segment=segment,
+            file_graph_ref=file_graph_ref,
+            layout_ref=layout_ref,
+            segment_clause_tree_ref=segment_clause_tree_ref,
+            total_pages=total_pages,
+        )
+        layout_chunks = add_summary(layout_chunks)
+
+        effective_params = {
+            "target_tokens": max_tokens,
+            "max_tokens": max_tokens,
+            "overlap_ratio": 0.0,
+        }
+
+        filtered_technical_fallback_nodes = 0
+        planning_payload = _build_segment_planning_payload(
+            segment_plan=segment_plan,
+            filtered_technical_fallback_nodes=filtered_technical_fallback_nodes,
+            effective_params=effective_params,
+        )
+
+        degradation_reason = "layout_fallback_chunker_used"
+
+        logger.info(
+            "SegmentChunkBuilderV2: layout fallback snapshot built",
+            extra={
+                "document_id": str(document_id),
+                "document_version_id": str(document_version_id),
+                "segment_id": segment.segment_id,
+                "layout_fallback_chunks": len(layout_chunks),
+            },
+        )
+
+        return SegmentChunkSnapshotV2(
+            document_id=document_id,
+            document_version_id=document_version_id,
+            segment_id=segment.segment_id,
+            segment_type=segment.segment_type,
+            segment_title=segment.segment_title,
+            segment_order=segment.segment_order,
+            is_primary_segment=bool(segment.is_primary),
+            segment_page_start=segment.page_start,
+            segment_page_end=segment.page_end,
+            layout_ref=layout_ref,
+            file_graph_ref=file_graph_ref,
+            segment_clause_tree_ref=segment_clause_tree_ref,
+            params=effective_params,
+            section_chunks=[],
+            clause_chunks=layout_chunks,
+            subclause_chunks=[],
+            degraded=True,
+            degradation_reason=degradation_reason,
+            total_leaf_nodes=None,
+            leaf_nodes_without_chunks=None,
+            leaf_nodes_without_element_ids=None,
+            leaf_nodes_empty_after_filtering=None,
+            chunking_incomplete=False,
+            heading_only_leaf_nodes=0,
+            best_effort_leaf_nodes=0,
+            legal_units_snapshot=None,
+            planning=planning_payload,
+        )
+
 
     def _build_section_chunks_safe(
         self,
