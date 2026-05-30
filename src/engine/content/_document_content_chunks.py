@@ -127,6 +127,43 @@ def build_retrieval_chunk_from_canonical(
     )
 
 
+def enrich_chunk_with_planning_signal(
+    chunk: dict[str, Any],
+    *,
+    segment_planning: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """
+    Добавить planning signal в chunk metadata.
+
+    Если segment_planning отсутствует → backward compatible:
+    retrieval_safe=True.
+    """
+    if not isinstance(chunk, dict):
+        return chunk
+
+    text = chunk.get("text")
+    meta = dict(chunk.get("metadata") or {})
+
+    if segment_planning is None:
+        meta.setdefault("retrieval_safe", True)
+        meta.setdefault("chunking_mode", None)
+        meta.setdefault("prefer_layout_fallback", False)
+    else:
+        meta["retrieval_safe"] = bool(
+            segment_planning.get("retrieval_safe", True)
+        )
+        meta["chunking_mode"] = segment_planning.get("mode")
+        meta["prefer_layout_fallback"] = bool(
+            segment_planning.get("prefer_layout_fallback", False)
+        )
+
+    return {
+        "id": chunk.get("id"),
+        "text": text,
+        "metadata": meta,
+    }
+
+
 def join_chunk_texts(
     chunks: list[dict[str, Any]],
     max_chars: int,

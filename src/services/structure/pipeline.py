@@ -32,6 +32,7 @@ from ._pipeline._segment_utils import (
     make_single_segment_list,
     segment_document,
 )
+from services.structure.chunk_planner import plan_chunking
 
 logger = get_logger(__name__)
 
@@ -181,4 +182,18 @@ def build_file_structure_with_analysis(
     )
 
 
-
+def build_file_structure_with_chunk_plan(
+    document_id: str,
+    elements: list[dict] | None,
+    *,
+    document_version_id: str | None = None,
+    quality_thresholds: QualityThresholds | None = None,
+):
+    analysis = build_file_structure_with_analysis(
+        document_id=document_id,
+        elements=elements,
+        document_version_id=document_version_id,
+        quality_thresholds=quality_thresholds,
+    )
+    plan = plan_chunking(analysis)
+    return analysis, plan

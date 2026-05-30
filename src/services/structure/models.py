@@ -222,13 +222,31 @@ from services.structure._models._analysis import (
     WarningSeverity,
 )
 
+
+# ---------------------------------------------------------------------------
+# Chunk Planner (Phase 10)
+# ---------------------------------------------------------------------------
+
+from services.structure.chunk_planner._types import (
+    ChunkingModeDecision,
+    ChunkingTokenParams,
+    FileChunkPlan,
+    SegmentChunkPlan,
+    TOKENS_MODE_A,
+    TOKENS_MODE_B,
+    TOKENS_MODE_C,
+)
+
+
 # ---------------------------------------------------------------------------
 # Pipeline result
 # ---------------------------------------------------------------------------
 
 from services.structure._models._result import FileStructureResult
 
-
+from services.structure.chunk_planner._retrieval_readiness import (
+    RetrievalReadinessReport,
+)
 
 # Public facade contract.
 # Keep explicit ordering by domain to reduce accidental API drift.
@@ -354,5 +372,14 @@ __all__ = [
     "StructureQualityReport",
     "SegmentAnalysisArtifacts",
     "FileStructureAnalysisResult",
+    # Chunk Planner (Phase 10)
+    "ChunkingModeDecision",
+    "ChunkingTokenParams",
+    "FileChunkPlan",
+    "SegmentChunkPlan",
+    "TOKENS_MODE_A",
+    "TOKENS_MODE_B",
+    "TOKENS_MODE_C",
+    "RetrievalReadinessReport",
 ]
 

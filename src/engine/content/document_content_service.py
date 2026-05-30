@@ -84,6 +84,13 @@ from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
 from engine.content.clause_tree_builder import ClauseTreeBuilder
 from engine.retrieval.models import RetrievalChunk
 from storage.artifact_store import ArtifactStore
+from services.structure.chunk_planner import (
+    build_retrieval_readiness_report,
+)
+from engine.content._document_content_chunks import (
+    enrich_chunk_with_planning_signal,
+)
+
 
 logger = get_logger(__name__)
 
@@ -200,6 +207,43 @@ class DocumentContentService:
     # -------------------------------------------------------------------------
     # Внутренние helpers: загрузка последней версии, clause tree и layout
     # -------------------------------------------------------------------------
+
+    async def _load_segment_planning_map(
+        self,
+        doc_id: uuid.UUID,
+        version: DocumentVersion,
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Загрузить planning metadata per segment из file manifest.
+        """
+        manifest_ref = getattr(version, "chunks_manifest_v2_ref", None)
+        if not manifest_ref:
+            return {}
+
+        try:
+            manifest = await self.layout_storage.load_json(manifest_ref)
+        except Exception:
+            return {}
+
+        if not isinstance(manifest, dict):
+            return {}
+
+        segments = manifest.get("segments") or []
+        if not isinstance(segments, list):
+            return {}
+
+        planning_map: dict[str, dict[str, Any]] = {}
+
+        for seg in segments:
+            if not isinstance(seg, dict):
+                continue
+            segment_id = seg.get("segment_id")
+            planning = seg.get("planning")
+            if segment_id and isinstance(planning, dict):
+                planning_map[str(segment_id)] = planning
+
+        return planning_map
+
 
     async def _get_latest_version(self, doc_id: uuid.UUID) -> DocumentVersion | None:
         """
@@ -762,6 +806,8 @@ class DocumentContentService:
         self,
         doc_id: uuid.UUID,
         levels: list[str] | None = None,
+        *,
+        filter_unsafe_chunks: bool = False,
     ) -> list[dict[str, Any]]:
         """
         Удобный фасад для CheckRunner: вернуть плоский список чанков для checks.
@@ -839,7 +885,46 @@ class DocumentContentService:
                 continue
             normalized_chunks.append(ch)
 
-        return normalized_chunks
+        # ── Phase 11: enrich with planning signal ─────────────────────────
+        segment_planning_map = await self._load_segment_planning_map(
+            doc_id=doc_id,
+            version=version,
+        )
+
+        enriched_chunks: list[dict[str, Any]] = []
+
+        for ch in normalized_chunks:
+            meta = ch.get("metadata") or {}
+            segment_id = meta.get("segment_id")
+            planning = segment_planning_map.get(str(segment_id))
+            enriched = enrich_chunk_with_planning_signal(
+                ch,
+                segment_planning=planning,
+            )
+            enriched_chunks.append(enriched)
+
+        if filter_unsafe_chunks:
+            enriched_chunks = [
+                ch for ch in enriched_chunks
+                if (ch.get("metadata") or {}).get("retrieval_safe", True)
+            ]
+
+        return enriched_chunks
+
+
+    async def get_retrieval_readiness_report(
+        self,
+        doc_id: uuid.UUID,
+    ):
+        """
+        Вернуть RetrievalReadinessReport для документа.
+        """
+        chunks = await self.get_retrieval_chunks_for_checks(doc_id)
+        return build_retrieval_readiness_report(
+            document_id=str(doc_id),
+            chunks=chunks,
+        )
+
 
     async def get_segment_text(
         self,

@@ -56,11 +56,212 @@ from engine.content.chunk_canonicalization import (
     propagate_language_filter,
 )
 from engine.content.clause_tree_builder import ClauseTreeBuilder
+from services.structure._models._analysis import RecommendedChunkingMode
+from services.structure.chunk_planner import FileChunkPlan
 from services.structure.legal_unit_builder import LegalUnitBuilder
 from services.structure.legal_unit_models import LegalUnitsSnapshot
 from storage.artifact_store import ArtifactStore
 
 logger = get_logger(__name__)
+
+
+def _normalize_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _is_technical_fallback_node(node: dict[str, Any]) -> bool:
+    """
+    Определить technical fallback node по tree-level сигналам.
+
+    ВАЖНО:
+    - НЕ используем best-effort recovery как признак technical fallback;
+    - НЕ выкидываем recovered but valid clauses;
+    - опираемся на те же сигналы, что Phase 9 использует
+      для fallback fragment detection.
+    """
+    if not isinstance(node, dict):
+        return False
+
+    title = _normalize_text(node.get("title")).lower()
+    node_origin = _normalize_text(node.get("node_origin")).lower()
+    content_mode = _normalize_text(node.get("content_mode")).lower()
+    fallback_reason = _normalize_text(node.get("fallback_reason")).lower()
+    citability_hint = _normalize_text(node.get("citability_hint")).lower()
+
+    diagnostics = node.get("diagnostics") or {}
+    if not isinstance(diagnostics, dict):
+        diagnostics = {}
+
+    diagnostics_fallback_reason = _normalize_text(
+        diagnostics.get("fallback_reason")
+    ).lower()
+    diagnostics_source_mode = _normalize_text(
+        diagnostics.get("source_mode")
+    ).lower()
+    diagnostics_degraded_chunk = bool(
+        diagnostics.get("degraded_chunk", False)
+    )
+
+    return any(
+        (
+            title.startswith("[technical fallback]"),
+            node_origin == "technical_fallback",
+            content_mode == "technical_fragment",
+            fallback_reason == "technical_fallback",
+            diagnostics_fallback_reason == "technical_fallback",
+            diagnostics_source_mode == "technical_fallback",
+            diagnostics_degraded_chunk,
+            citability_hint == "technical",
+        )
+    )
+
+
+def _filter_technical_fallback_tree(
+    tree: dict[str, Any],
+) -> tuple[dict[str, Any], int]:
+    """
+    Удалить technical fallback nodes из clause tree dict.
+
+    Поведение:
+    - fallback node удаляется;
+    - его НЕ-fallback потомки поднимаются вверх (promote children),
+      чтобы не потерять полезные узлы если fallback был только оболочкой;
+    - остальные поля tree сохраняются как есть.
+
+    Возвращает:
+    - filtered_tree
+    - removed_nodes_count
+    """
+    if not isinstance(tree, dict):
+        return tree, 0
+
+    root_nodes = tree.get("root") or []
+    if not isinstance(root_nodes, list):
+        return tree, 0
+
+    removed_nodes_count = 0
+
+    def _filter_node(node: dict[str, Any]) -> list[dict[str, Any]]:
+        nonlocal removed_nodes_count
+
+        if not isinstance(node, dict):
+            return []
+
+        children = node.get("children") or []
+        filtered_children: list[dict[str, Any]] = []
+
+        for child in children:
+            if isinstance(child, dict):
+                filtered_children.extend(_filter_node(child))
+
+        if _is_technical_fallback_node(node):
+            removed_nodes_count += 1
+            return filtered_children
+
+        cloned = dict(node)
+        cloned["children"] = filtered_children
+        return [cloned]
+
+    filtered_root: list[dict[str, Any]] = []
+    for root_node in root_nodes:
+        if isinstance(root_node, dict):
+            filtered_root.extend(_filter_node(root_node))
+
+    filtered_tree = dict(tree)
+    filtered_tree["root"] = filtered_root
+
+    structure_diagnostics = dict(filtered_tree.get("structure_diagnostics") or {})
+    structure_diagnostics["technical_fallback_nodes_filtered"] = removed_nodes_count
+    filtered_tree["structure_diagnostics"] = structure_diagnostics
+
+    return filtered_tree, removed_nodes_count
+
+
+def _build_segment_planning_payload(
+    *,
+    segment_plan: Any | None,
+    filtered_technical_fallback_nodes: int,
+    effective_params: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Построить planning metadata для segment snapshot.
+    """
+    if segment_plan is None:
+        return {
+            "applied": False,
+            "mode": None,
+            "retrieval_safe": None,
+            "allow_section_chunks": None,
+            "allow_subclause_splitting": None,
+            "drop_technical_fallback_nodes": None,
+            "prefer_layout_fallback": None,
+            "filtered_technical_fallback_nodes": filtered_technical_fallback_nodes,
+            "token_params": effective_params,
+            "warnings": [],
+        }
+
+    prefer_layout_fallback = (
+        segment_plan.mode == RecommendedChunkingMode.LAYOUT_FALLBACK
+    )
+
+    return {
+        "applied": True,
+        "mode": segment_plan.mode.value,
+        "retrieval_safe": segment_plan.retrieval_safe,
+        "allow_section_chunks": segment_plan.allow_section_chunks,
+        "allow_subclause_splitting": segment_plan.allow_subclause_splitting,
+        "drop_technical_fallback_nodes": segment_plan.drop_technical_fallback_nodes,
+        "prefer_layout_fallback": prefer_layout_fallback,
+        "fallback_fragment_ratio": round(
+            float(segment_plan.fallback_fragment_ratio), 4
+        ),
+        "filtered_technical_fallback_nodes": filtered_technical_fallback_nodes,
+        "token_params": effective_params,
+        "warnings": list(segment_plan.warnings),
+    }
+
+
+def _build_file_planning_payload(
+    *,
+    chunk_plan: FileChunkPlan | None,
+    segment_snapshots: list["SegmentChunkSnapshotV2"],
+) -> dict[str, Any]:
+    """
+    Построить planning metadata для file manifest.
+    """
+    if chunk_plan is None:
+        return {
+            "applied": False,
+            "mode": None,
+            "retrieval_safe": None,
+            "allow_section_chunks": None,
+            "allow_subclause_splitting": None,
+            "drop_technical_fallback_nodes": None,
+            "prefer_layout_fallback": None,
+            "warnings": [],
+            "segment_modes": {
+                snap.segment_id: (snap.planning or {}).get("mode")
+                for snap in segment_snapshots
+            },
+        }
+
+    decision = chunk_plan.mode_decision
+
+    return {
+        "applied": True,
+        "mode": decision.mode.value,
+        "retrieval_safe": decision.retrieval_safe,
+        "allow_section_chunks": decision.allow_section_chunks,
+        "allow_subclause_splitting": decision.allow_subclause_splitting,
+        "drop_technical_fallback_nodes": decision.drop_technical_fallback_nodes,
+        "prefer_layout_fallback": decision.prefer_layout_fallback,
+        "token_params": decision.token_params.to_dict(),
+        "warnings": list(decision.warnings),
+        "segment_modes": {
+            snap.segment_id: (snap.planning or {}).get("mode")
+            for snap in segment_snapshots
+        },
+    }
 
 
 @dataclass
@@ -116,6 +317,9 @@ class SegmentChunkSnapshotV2:
     # None если legal unit builder был отключён или упал с ошибкой.
     # Это НЕ ломает основной chunk pipeline — всегда опциональный.
     legal_units_snapshot: LegalUnitsSnapshot | None = None
+    # ── Phase 10: planning metadata ─────────────────────────────────────────
+    planning: dict[str, Any] | None = None
+
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -156,6 +360,11 @@ class SegmentChunkSnapshotV2:
                 "clause": self.clause_chunks,
                 "subclause": self.subclause_chunks,
             },
+            "planning": (
+                dict(self.planning)
+                if isinstance(self.planning, dict)
+                else None
+            ),
         }
 
 
@@ -177,6 +386,7 @@ class FileChunkManifestSegmentV2:
     section_count: int
     clause_count: int
     subclause_count: int
+    planning: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -216,6 +426,7 @@ class FileChunkManifestV2:
     # ── Этап 4: агрегированные счётчики по всем сегментам ────────────────────
     heading_only_leaf_nodes: int = 0
     best_effort_leaf_nodes: int = 0
+    planning: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -231,6 +442,11 @@ class FileChunkManifestV2:
             "primary_segment_id": self.primary_segment_id,
             "degraded": self.degraded,
             "degradation_reason": self.degradation_reason,
+            "planning": (
+                dict(self.planning)
+                if isinstance(self.planning, dict)
+                else None
+            ),
             "segments": [s.to_dict() for s in self.segments],
             "totals": {
                 "segment_count": len(self.segments),
@@ -274,7 +490,9 @@ class SegmentChunkBuilderV2:
         target_tokens: int = 300,
         max_tokens: int = 800,
         overlap_ratio: float = 0.15,
+        chunk_plan: FileChunkPlan | None = None,
     ) -> tuple[FileChunkManifestV2, list[SegmentChunkSnapshotV2]]:
+        
         logger.info(
             "SegmentChunkBuilderV2: build_for_version start",
             extra={
@@ -282,6 +500,12 @@ class SegmentChunkBuilderV2:
                 "target_tokens": target_tokens,
                 "max_tokens": max_tokens,
                 "overlap_ratio": overlap_ratio,
+                "chunk_plan_applied": chunk_plan is not None,
+                "chunk_plan_mode": (
+                    chunk_plan.mode_decision.mode.value
+                    if chunk_plan is not None
+                    else None
+                ),
             },
         )
 
@@ -397,6 +621,7 @@ class SegmentChunkBuilderV2:
                 max_tokens=max_tokens,
                 overlap_ratio=overlap_ratio,
                 total_pages=total_pages,
+                chunk_plan=chunk_plan,
             )
             segment_snapshots.append(snapshot)
 
@@ -426,6 +651,7 @@ class SegmentChunkBuilderV2:
                     section_count=len(snap.section_chunks),
                     clause_count=len(snap.clause_chunks),
                     subclause_count=len(snap.subclause_chunks),
+                    planning=snap.planning,
                 )
             )
 
@@ -454,6 +680,27 @@ class SegmentChunkBuilderV2:
             total_heading_only_leaf_nodes += snap.heading_only_leaf_nodes or 0
             total_best_effort_leaf_nodes += snap.best_effort_leaf_nodes or 0
 
+        any_snapshot_degraded = any(bool(snap.degraded) for snap in segment_snapshots)
+        any_layout_fallback_preferred = any(
+            bool((snap.planning or {}).get("prefer_layout_fallback", False))
+            for snap in segment_snapshots
+        )
+
+        file_degradation_reasons: list[str] = []
+        if any_chunking_incomplete:
+            file_degradation_reasons.append("chunking_incomplete_in_segments")
+        if any_layout_fallback_preferred:
+            file_degradation_reasons.append(
+                "layout_fallback_preferred_but_not_yet_implemented"
+            )
+
+        file_degradation_reason = (
+            ",".join(file_degradation_reasons)
+            if file_degradation_reasons
+            else None
+        )
+
+
         file_manifest = FileChunkManifestV2(
             document_id=doc.id,
             document_version_id=version.id,
@@ -461,18 +708,19 @@ class SegmentChunkBuilderV2:
             file_graph_ref=file_graph_ref,
             primary_segment_id=primary_segment_id,
             segments=manifest_segments,
-            degraded=any_chunking_incomplete,
-            degradation_reason="chunking_incomplete_in_segments"
-            if any_chunking_incomplete
-            else None,
+            degraded=any_snapshot_degraded,
+            degradation_reason=file_degradation_reason,
             total_leaf_nodes=total_leaf_nodes,
             leaf_nodes_without_chunks=leaf_nodes_without_chunks,
             leaf_nodes_without_element_ids=leaf_nodes_without_element_ids,
             leaf_nodes_empty_after_filtering=leaf_nodes_empty_after_filtering,
             chunking_incomplete=any_chunking_incomplete,
-            # ── Этап 4 ───────────────────────────────────────────────────────
             heading_only_leaf_nodes=total_heading_only_leaf_nodes,
             best_effort_leaf_nodes=total_best_effort_leaf_nodes,
+            planning=_build_file_planning_payload(
+                chunk_plan=chunk_plan,
+                segment_snapshots=segment_snapshots,
+            ),
         )
 
         logger.info(
@@ -490,6 +738,16 @@ class SegmentChunkBuilderV2:
                 "leaf_nodes_without_element_ids": leaf_nodes_without_element_ids,
                 "leaf_nodes_empty_after_filtering": leaf_nodes_empty_after_filtering,
                 "chunking_incomplete": any_chunking_incomplete,
+                "file_planning_mode": (
+                    file_manifest.planning.get("mode")
+                    if isinstance(file_manifest.planning, dict)
+                    else None
+                ),
+                "file_planning_applied": (
+                    file_manifest.planning.get("applied")
+                    if isinstance(file_manifest.planning, dict)
+                    else False
+                ),
             },
         )
 
@@ -510,6 +768,7 @@ class SegmentChunkBuilderV2:
         max_tokens: int,
         overlap_ratio: float,
         total_pages: int | None,
+        chunk_plan: FileChunkPlan | None = None,
     ) -> SegmentChunkSnapshotV2:
         segment_clause_tree_ref = getattr(segment, "segment_clause_tree_ref", None)
         if not segment_clause_tree_ref:
@@ -543,11 +802,45 @@ class SegmentChunkBuilderV2:
                 f"Segment clause tree {segment_clause_tree_ref} has invalid root: expected list"
             )
 
+        segment_plan = (
+            chunk_plan.plan_for_segment(segment.segment_id)
+            if chunk_plan is not None
+            else None
+        )
+
+        effective_target_tokens = target_tokens
+        effective_max_tokens = max_tokens
+        effective_overlap_ratio = overlap_ratio
+
+        if segment_plan is not None:
+            effective_target_tokens = segment_plan.token_params.target_tokens
+            effective_max_tokens = segment_plan.token_params.max_tokens
+            effective_overlap_ratio = segment_plan.token_params.overlap_ratio
+
+        working_clause_tree = clause_tree
+        filtered_technical_fallback_nodes = 0
+
+        if (
+            segment_plan is not None
+            and segment_plan.drop_technical_fallback_nodes
+        ):
+            working_clause_tree, filtered_technical_fallback_nodes = (
+                _filter_technical_fallback_tree(clause_tree)
+            )
+
+        working_clause_root = working_clause_tree.get("root") or []
+        if not isinstance(working_clause_root, list):
+            raise PermanentError(
+                f"Filtered segment clause tree {segment_clause_tree_ref} "
+                f"has invalid root: expected list"
+            )
+
         leaf_result = ClauseTreeBuilder.build_leaf_chunks(
             doc_id=document_id,
-            tree=clause_tree,
+            tree=working_clause_tree,
             layout=layout,
         )
+
         leaf_chunks = leaf_result.chunks
 
         # ── Этап 4: читаем новые счётчики ────────────────────────────────────
@@ -561,7 +854,13 @@ class SegmentChunkBuilderV2:
                 "document_version_id": str(document_version_id),
                 "segment_id": segment.segment_id,
                 "leaf_count": len(leaf_chunks),
-                "clause_tree_root_count": len(clause_root),
+                "clause_tree_root_count": len(working_clause_root),
+                "segment_plan_mode": (
+                    segment_plan.mode.value
+                    if segment_plan is not None
+                    else None
+                ),
+                "filtered_technical_fallback_nodes": filtered_technical_fallback_nodes,
                 "total_leaf_nodes": leaf_result.total_leaf_nodes,
                 "leaf_nodes_without_element_ids": leaf_result.leaf_nodes_without_element_ids,
                 "leaf_nodes_empty_after_filtering": leaf_result.leaf_nodes_empty_after_filtering,
@@ -625,14 +924,29 @@ class SegmentChunkBuilderV2:
         )
         clause_chunks = add_summary(clause_chunks)
 
-        subclause_chunks = build_sized_chunks_from_leaf(
-            doc_id=document_id,
-            leaf_chunks=leaf_chunks,
-            target_tokens=target_tokens,
-            max_tokens=max_tokens,
-            overlap_ratio=overlap_ratio,
-            total_pages=total_pages,
-        )
+        if (
+            segment_plan is not None
+            and not segment_plan.allow_subclause_splitting
+        ):
+            logger.info(
+                "SegmentChunkBuilderV2: subclause splitting disabled by chunk plan",
+                extra={
+                    "document_id": str(document_id),
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment.segment_id,
+                    "segment_mode": segment_plan.mode.value,
+                },
+            )
+            subclause_chunks = []
+        else:
+            subclause_chunks = build_sized_chunks_from_leaf(
+                doc_id=document_id,
+                leaf_chunks=leaf_chunks,
+                target_tokens=effective_target_tokens,
+                max_tokens=effective_max_tokens,
+                overlap_ratio=effective_overlap_ratio,
+                total_pages=total_pages,
+            )
 
         invalid_subclause_kinds = [
             ch
@@ -660,16 +974,40 @@ class SegmentChunkBuilderV2:
         )
         subclause_chunks = add_summary(subclause_chunks)
 
-        section_chunks = self._build_section_chunks_safe(
-            document_id=document_id,
-            document_version_id=document_version_id,
-            segment=segment,
-            clause_tree=clause_tree,
-            layout=layout,
-            file_graph_ref=file_graph_ref,
-            layout_ref=layout_ref,
-            segment_clause_tree_ref=segment_clause_tree_ref,
-            total_pages=total_pages,
+        if segment_plan is not None and not segment_plan.allow_section_chunks:
+            logger.info(
+                "SegmentChunkBuilderV2: section chunks disabled by chunk plan",
+                extra={
+                    "document_id": str(document_id),
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment.segment_id,
+                    "segment_mode": segment_plan.mode.value,
+                },
+            )
+            section_chunks = []
+        else:
+            section_chunks = self._build_section_chunks_safe(
+                document_id=document_id,
+                document_version_id=document_version_id,
+                segment=segment,
+                clause_tree=working_clause_tree,
+                layout=layout,
+                file_graph_ref=file_graph_ref,
+                layout_ref=layout_ref,
+                segment_clause_tree_ref=segment_clause_tree_ref,
+                total_pages=total_pages,
+            )
+
+        effective_params = {
+            "target_tokens": effective_target_tokens,
+            "max_tokens": effective_max_tokens,
+            "overlap_ratio": effective_overlap_ratio,
+        }
+
+        planning_payload = _build_segment_planning_payload(
+            segment_plan=segment_plan,
+            filtered_technical_fallback_nodes=filtered_technical_fallback_nodes,
+            effective_params=effective_params,
         )
 
         total_leaf_nodes = leaf_result.total_leaf_nodes
@@ -710,7 +1048,20 @@ class SegmentChunkBuilderV2:
         if leaf_nodes_empty_after_filtering > 0:
             degradation_reasons.append("leaf_nodes_empty_after_filtering>0")
 
-        degradation_reason = ",".join(degradation_reasons) if degradation_reasons else None
+        prefer_layout_fallback = (
+            segment_plan is not None
+            and segment_plan.mode == RecommendedChunkingMode.LAYOUT_FALLBACK
+        )
+        if prefer_layout_fallback:
+            degradation_reasons.append(
+                "layout_fallback_preferred_but_not_yet_implemented"
+            )
+
+        degradation_reason = (
+            ",".join(degradation_reasons)
+            if degradation_reasons
+            else None
+        )
 
         logger.info(
             "SegmentChunkBuilderV2: segment coverage stats",
@@ -751,7 +1102,7 @@ class SegmentChunkBuilderV2:
         try:
             lu_builder = LegalUnitBuilder()
             legal_units_snapshot = lu_builder.build_from_clause_tree(
-                clause_tree=clause_tree,
+                clause_tree=working_clause_tree,
                 segment_id=segment.segment_id,
                 segment_type=segment.segment_type,
                 segment_order=segment.segment_order,
@@ -793,21 +1144,21 @@ class SegmentChunkBuilderV2:
             layout_ref=layout_ref,
             file_graph_ref=file_graph_ref,
             segment_clause_tree_ref=segment_clause_tree_ref,
-            params=params,
+            params=effective_params,
             section_chunks=section_chunks,
             clause_chunks=clause_chunks,
             subclause_chunks=subclause_chunks,
-            degraded=chunking_incomplete,
+            degraded=(chunking_incomplete or prefer_layout_fallback),
             degradation_reason=degradation_reason,
             total_leaf_nodes=total_leaf_nodes,
             leaf_nodes_without_chunks=leaf_nodes_without_chunks,
             leaf_nodes_without_element_ids=leaf_nodes_without_element_ids,
             leaf_nodes_empty_after_filtering=leaf_nodes_empty_after_filtering,
             chunking_incomplete=chunking_incomplete,
-            # ── Этап 4 ───────────────────────────────────────────────────────
             heading_only_leaf_nodes=heading_only_leaf_nodes,
             best_effort_leaf_nodes=best_effort_leaf_nodes,
             legal_units_snapshot=legal_units_snapshot,
+            planning=planning_payload,
         )
 
     def _build_section_chunks_safe(
