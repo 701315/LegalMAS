@@ -4,26 +4,60 @@
 Вычисление structural_hash для узлов иерархии.
 
 structural_hash — content-independent идентификатор узла:
-  - стабилен при OCR-вариациях текста заголовка
-  - не зависит от raw text, embeddings, semantic metadata
-  - детерминирован: одинаковый input → одинаковый hash
-  - версионирован через STRUCTURAL_HASH_VERSION
+ - стабилен при OCR-вариациях текста заголовка
+ - не зависит от raw text, embeddings, semantic metadata
+ - детерминирован: одинаковый input → одинаковый hash
+ - версионирован через STRUCTURAL_HASH_VERSION
 
-Поля hash (зафиксированы в STRUCTURAL_HASH_FIELDS):
-  normalized_path  — полный структурный путь от корня ("1.2.3")
-  stable_level     — уровень вложенности (int)
-  sibling_index    — порядковый номер среди siblings (0-based)
-  scope_id         — canonical scope name
+Поля hash:
+ - normalized_path  — полный структурный путь от корня ("1.2.3")
+ - stable_level     — уровень вложенности (int)
+ - sibling_index    — порядковый номер среди siblings (0-based)
+ - scope_id         — canonical scope name
 
-НЕ входит в hash: raw text, OCR wording, embeddings, semantic metadata.
+НЕ входит в hash:
+ - raw text
+ - OCR wording
+ - embeddings
+ - semantic metadata
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 from ._constants import STRUCTURAL_HASH_VERSION
+
+_STRUCTURAL_HASH_PREFIX = "v"
+_STRUCTURAL_HASH_DIGEST_LENGTH = 64
+_STRUCTURAL_HASH_RE = re.compile(r"^v(?P<version>\d+):(?P<digest>[0-9a-f]{64})$")
+
+
+def _normalize_non_empty_str(value: str, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be str, got {type(value).__name__}")
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"{field_name} must be non-empty")
+    return normalized
+
+
+def _normalize_positive_int(value: int, field_name: str) -> int:
+    if not isinstance(value, int):
+        raise ValueError(f"{field_name} must be int, got {type(value).__name__}")
+    if value < 1:
+        raise ValueError(f"{field_name} must be >= 1, got {value}")
+    return value
+
+
+def _normalize_non_negative_int(value: int, field_name: str) -> int:
+    if not isinstance(value, int):
+        raise ValueError(f"{field_name} must be int, got {type(value).__name__}")
+    if value < 0:
+        raise ValueError(f"{field_name} must be >= 0, got {value}")
+    return value
 
 
 def compute_structural_hash(
@@ -37,27 +71,23 @@ def compute_structural_hash(
     Вычислить structural_hash узла.
 
     Returns:
-        "v{STRUCTURAL_HASH_VERSION}:{sha256hex}" — строка длиной 67 символов.
+        "v{STRUCTURAL_HASH_VERSION}:{sha256hex}"
 
     Raises:
         ValueError: если параметры невалидны.
     """
-    if not normalized_path or not normalized_path.strip():
-        raise ValueError("normalized_path must be non-empty")
-    if stable_level < 1:
-        raise ValueError(f"stable_level must be >= 1, got {stable_level}")
-    if sibling_index < 0:
-        raise ValueError(f"sibling_index must be >= 0, got {sibling_index}")
-    if not scope_id or not scope_id.strip():
-        raise ValueError("scope_id must be non-empty")
+    normalized_path = _normalize_non_empty_str(normalized_path, "normalized_path")
+    stable_level = _normalize_positive_int(stable_level, "stable_level")
+    sibling_index = _normalize_non_negative_int(sibling_index, "sibling_index")
+    scope_id = _normalize_non_empty_str(scope_id, "scope_id")
 
     payload = json.dumps(
         {
             "v": STRUCTURAL_HASH_VERSION,
-            "path": normalized_path.strip(),
+            "path": normalized_path,
             "level": stable_level,
             "sibling": sibling_index,
-            "scope": scope_id.strip(),
+            "scope": scope_id,
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -65,7 +95,31 @@ def compute_structural_hash(
     ).encode("utf-8")
 
     digest = hashlib.sha256(payload).hexdigest()
-    return f"v{STRUCTURAL_HASH_VERSION}:{digest}"
+    return f"{_STRUCTURAL_HASH_PREFIX}{STRUCTURAL_HASH_VERSION}:{digest}"
+
+
+def parse_structural_hash(hash_str: str) -> tuple[int, str]:
+    """
+    Разобрать structural_hash на (version, digest).
+
+    Raises:
+        ValueError: если строка не соответствует canonical structural_hash format.
+    """
+    normalized = _normalize_non_empty_str(hash_str, "hash_str")
+    match = _STRUCTURAL_HASH_RE.fullmatch(normalized)
+    if not match:
+        raise ValueError(f"Invalid structural_hash format: {hash_str!r}")
+
+    version = int(match.group("version"))
+    digest = match.group("digest")
+
+    if len(digest) != _STRUCTURAL_HASH_DIGEST_LENGTH:
+        raise ValueError(
+            f"Invalid structural_hash digest length: {len(digest)} "
+            f"(expected {_STRUCTURAL_HASH_DIGEST_LENGTH})"
+        )
+
+    return version, digest
 
 
 def structural_hash_version(hash_str: str) -> int:
@@ -75,14 +129,19 @@ def structural_hash_version(hash_str: str) -> int:
     Raises:
         ValueError: если строка не соответствует формату.
     """
-    if not hash_str or ":" not in hash_str:
-        raise ValueError(f"Invalid structural_hash format: {hash_str!r}")
-    prefix, _ = hash_str.split(":", 1)
-    if not prefix.startswith("v"):
-        raise ValueError(f"Invalid structural_hash prefix: {prefix!r}")
+    version, _digest = parse_structural_hash(hash_str)
+    return version
+
+
+def is_structural_hash(hash_str: str) -> bool:
+    """
+    Проверить, является ли строка корректным structural_hash.
+    """
     try:
-        return int(prefix[1:])
-    except ValueError:
-        raise ValueError(f"Invalid structural_hash version: {prefix!r}")
+        parse_structural_hash(hash_str)
+        return True
+    except Exception:
+        return False
+    
     
     

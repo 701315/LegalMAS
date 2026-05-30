@@ -1,11 +1,25 @@
 # src/services/structure/models.py
 
 """
-Data models for document structure tree and file-level graph.
-Публичный фасад, перенаправляющий запросы во внутренний пакет _models.
+Public data-model facade for the document structure subsystem.
+
+Назначение:
+- предоставить стабильную публичную точку импорта для consumers;
+- скрыть внутреннюю организацию services.structure._models.*;
+- удерживать совместимость во время phase-by-phase refactoring.
+
+Важно:
+- этот модуль является только facade/re-export layer;
+- бизнес-логика, validation и orchestration здесь не размещаются;
+- новые модели добавляются сюда только если они являются частью публичного API;
+- внутренние/экспериментальные модели не должны реэкспортироваться автоматически.
 """
 
 from __future__ import annotations
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 
 from services.structure._models._constants import (
     BODY_SEMANTIC_TYPES,
@@ -58,12 +72,20 @@ from services.structure._models._constants import (
     VALID_TOC_CONFIDENCE_BANDS,
 )
 
+# ---------------------------------------------------------------------------
+# Diagnostics
+# ---------------------------------------------------------------------------
+
 from services.structure._models._diagnostics import (
     ParseQualityDiagnostics,
     TOCDiagnostics,
     embed_parse_quality_diagnostics,
     embed_toc_diagnostics,
 )
+
+# ---------------------------------------------------------------------------
+# File / cross-document graph
+# ---------------------------------------------------------------------------
 
 from services.structure._models._graph import (
     CrossDocumentLink,
@@ -76,12 +98,25 @@ from services.structure._models._crossref_graph import (
     CrossReferenceStats,
 )
 
+# ---------------------------------------------------------------------------
+# Identity / deterministic IDs
+# ---------------------------------------------------------------------------
+
 from services.structure._models._identity import (
     generate_scope_name,
     make_effective_uid,
     make_segment_id,
     split_effective_uid,
 )
+
+from services.structure._models._structural_hash import (
+    compute_structural_hash,
+    structural_hash_version,
+)
+
+# ---------------------------------------------------------------------------
+# Tree nodes / metadata
+# ---------------------------------------------------------------------------
 
 from services.structure._models._nodes import (
     CrossReference,
@@ -91,34 +126,42 @@ from services.structure._models._nodes import (
     freeze,
 )
 
-from services.structure._models._structural_hash import (
-    compute_structural_hash,
-    structural_hash_version,
-)
-
 from services.structure._models._semantic_metadata import (
     RecoveryInfo,
     SemanticNodeMetadata,
 )
 
-from services.structure._models._result import FileStructureResult
 from services.structure._models._tree import ClauseTree
+
+# ---------------------------------------------------------------------------
+# Syntax / heading candidates
+# ---------------------------------------------------------------------------
 
 from services.structure._models._syntax import (
     HEADING_CONFIDENCE_THRESHOLD,
     HierarchyTokenType,
     SyntaxHeadingCandidate,
 )
+
 from services.structure._models._syntax_adapter import (
     scored_to_syntax_candidate,
 )
+
+# ---------------------------------------------------------------------------
+# FSM
+# ---------------------------------------------------------------------------
 
 from services.structure._models._fsm import (
     FSMAttachResult,
     FSMEvent,
     FSMEventType,
 )
+
 from services.structure._models._fsm_summary import FSMBuildSummary
+
+# ---------------------------------------------------------------------------
+# Resolution
+# ---------------------------------------------------------------------------
 
 from services.structure._models._resolution import (
     ResolutionAuditLog,
@@ -126,6 +169,10 @@ from services.structure._models._resolution import (
     RewriteType,
     StructuralRewrite,
 )
+
+# ---------------------------------------------------------------------------
+# Recovery
+# ---------------------------------------------------------------------------
 
 from services.structure._models._recovery import (
     CandidateWindow,
@@ -137,6 +184,10 @@ from services.structure._models._recovery import (
     TieBreakPolicy,
 )
 
+# ---------------------------------------------------------------------------
+# Confidence
+# ---------------------------------------------------------------------------
+
 from services.structure._models._confidence import (
     ConfidenceInput,
     DegradedModeConfig,
@@ -144,13 +195,45 @@ from services.structure._models._confidence import (
     StructuralConfidence,
 )
 
+# ---------------------------------------------------------------------------
+# Canonical artifacts
+# ---------------------------------------------------------------------------
+
 from services.structure._models._artifacts import (
     CanonicalArtifactRefs,
     CanonicalArtifactRegistry,
     SegmentArtifactRefs,
 )
 
+# ---------------------------------------------------------------------------
+# Analysis / postbuild quality (Phase 9)
+# ---------------------------------------------------------------------------
+
+from services.structure._models._analysis import (
+    CohesionMetrics,
+    FileStructureAnalysisResult,
+    QualityThresholds,
+    QualityWarning,
+    QualityWarningCode,
+    RecommendedChunkingMode,
+    SegmentAnalysisArtifacts,
+    StructureMetrics,
+    StructureQualityReport,
+    WarningSeverity,
+)
+
+# ---------------------------------------------------------------------------
+# Pipeline result
+# ---------------------------------------------------------------------------
+
+from services.structure._models._result import FileStructureResult
+
+
+
+# Public facade contract.
+# Keep explicit ordering by domain to reduce accidental API drift.
 __all__ = [
+    # Constants
     "DEFAULT_SCOPE",
     "SCOPE_NAME_RE",
     "STRUCTURE_CONFIDENCE_HIGH",
@@ -199,16 +282,19 @@ __all__ = [
     "NEGATIVE_HEADING_SEMANTIC_TYPES",
     "STRUCTURAL_HASH_VERSION",
     "STRUCTURAL_HASH_FIELDS",
+    # Identity / hashing
     "compute_structural_hash",
     "structural_hash_version",
     "make_effective_uid",
     "split_effective_uid",
     "generate_scope_name",
     "make_segment_id",
+    # Diagnostics
     "TOCDiagnostics",
     "ParseQualityDiagnostics",
     "embed_toc_diagnostics",
     "embed_parse_quality_diagnostics",
+    # Tree / nodes
     "MutableHierarchyNode",
     "FrozenHierarchyNode",
     "freeze",
@@ -216,25 +302,29 @@ __all__ = [
     "RecoveryInfo",
     "CrossReference",
     "CrossSegmentRef",
-    "CrossReferenceGraph",
-    "CrossReferenceStats",
     "ClauseTree",
+    # File / graph
     "SegmentDocument",
     "CrossDocumentLink",
     "FileGraph",
-    "FileStructureResult",
+    "CrossReferenceGraph",
+    "CrossReferenceStats",
+    # Syntax
     "HierarchyTokenType",
     "SyntaxHeadingCandidate",
     "HEADING_CONFIDENCE_THRESHOLD",
     "scored_to_syntax_candidate",
+    # FSM
     "FSMEventType",
     "FSMEvent",
     "FSMAttachResult",
     "FSMBuildSummary",
+    # Resolution
     "RewriteType",
     "StructuralRewrite",
     "ResolutionAuditLog",
     "ResolutionResult",
+    # Recovery
     "RecoveryStrategyType",
     "TieBreakPolicy",
     "CandidateWindow",
@@ -242,13 +332,27 @@ __all__ = [
     "RecoveryCandidate",
     "RecoveryDecision",
     "RecoveryReport",
+    # Confidence
     "RETRIEVAL_SAFE_THRESHOLD",
     "ConfidenceInput",
     "DegradedModeConfig",
     "StructuralConfidence",
+    # Canonical artifacts
     "SegmentArtifactRefs",
     "CanonicalArtifactRefs",
     "CanonicalArtifactRegistry",
+    # Pipeline result
+    "FileStructureResult",
+    # Analysis / postbuild quality (Phase 9)
+    "RecommendedChunkingMode",
+    "WarningSeverity",
+    "QualityWarningCode",
+    "QualityWarning",
+    "QualityThresholds",
+    "StructureMetrics",
+    "CohesionMetrics",
+    "StructureQualityReport",
+    "SegmentAnalysisArtifacts",
+    "FileStructureAnalysisResult",
 ]
-
 

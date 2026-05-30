@@ -205,7 +205,7 @@ _APPENDIX_REF_PATTERN = re.compile(
     (?:
         (?:appendix|annex|exhibit|schedule|attachment|приложени[еяй])
         \s*
-        (?:no\.?|№|#)?
+        (?:no\.?|[№#])?
         \s*
         ([A-Z]|\d+|[IVX]+)
     )
@@ -224,7 +224,7 @@ _APPENDIX_ITEM_REF_PATTERN = re.compile(
         \s+
         (?:appendix|annex|exhibit|schedule|attachment|приложени[еяй])
         \s*
-        (?:no\.?|№|#)?
+        (?:no\.?|[№#])?
         \s*
         ([A-Z]|\d+|[IVX]+)
     )

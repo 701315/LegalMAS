@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from typing import Any
 
 from core.config import settings
@@ -93,6 +94,35 @@ _CROSSREF_APPENDIX_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+
+# ============================================================================
+# Phase 2 canonical result type
+# ============================================================================
+
+@dataclass(slots=True)
+class Phase2Result:
+    """
+    Результат единственного прохода Phase 2.
+
+    Создаётся один раз через run_phase2(...).
+    Содержит оба выхода — accepted headings и evidence bundle —
+    как проекции одного и того же набора scored candidates.
+
+    Поля:
+    - evidence_bundle: StructureEvidenceBundle для downstream phases.
+    - accepted_headings: список HeadingCandidate для иерархии.
+    - scored_candidates: полный список ScoredHeadingCandidate (для diagnostics).
+    - llm_refiner_applied: был ли применён LLM-refiner в этом проходе.
+    """
+    evidence_bundle: StructureEvidenceBundle
+    accepted_headings: list[HeadingCandidate]
+    scored_candidates: list[ScoredHeadingCandidate]
+    llm_refiner_applied: bool = False
+
+
+# ============================================================================
+# Вспомогательные функции (без изменений)
+# ============================================================================
 
 def _has_strong_toc_confirmation(match_type: str | None, match_score: float | None) -> bool:
     if match_type == "exact":
@@ -440,6 +470,222 @@ def _scored_to_evidence_candidate(
     )
 
 
+def _scored_to_heading_candidate(scored: ScoredHeadingCandidate) -> HeadingCandidate | None:
+    """
+    Конвертирует ScoredHeadingCandidate в HeadingCandidate для иерархии.
+
+    Выделена из build_heading_candidates в отдельную функцию,
+    чтобы оба вывода run_phase2 использовали один и тот же код преобразования.
+    Возвращает None если у кандидата нет raw_uid — такие кандидаты пропускаются.
+    """
+    if str(scored.decision).lower() != "accepted":
+        return None
+
+    meta = scored.metadata or {}
+    raw_uid = str(meta.get("raw_uid") or scored.uid or "")
+    if not raw_uid:
+        return None
+
+    scope = _normalize_scope(scored.scope)
+    normalized_title = normalize_spaces(str(meta.get("normalized_title") or scored.title or ""))
+    toc_match_type = str(meta.get("toc_match_type") or "")
+    toc_match_score = float(meta.get("toc_match_score") or 0.0)
+    strong_toc = bool(meta.get("strong_toc_confirmation"))
+    is_appendix_uid = bool(meta.get("is_appendix_uid"))
+
+    return HeadingCandidate(
+        elem_i=_safe_int(scored.elem_i),
+        uid=raw_uid,
+        page=_safe_int(scored.page),
+        title=normalized_title,
+        scope=scope,
+        raw_uid=raw_uid,
+        effective_uid=str(meta.get("effective_uid") or ""),
+        metadata=dict(meta),
+        normalized_title=normalized_title,
+        toc_entry=strong_toc,
+        toc_match_type=toc_match_type or None,
+        toc_match_score=toc_match_score if toc_match_score > 0 else None,
+        is_appendix=is_appendix_uid,
+        is_toc_like=bool(meta.get("possible_toc")),
+    )
+
+
+def _apply_llm_refiner(
+    scored: list[ScoredHeadingCandidate],
+    elements: list[dict[str, Any]],
+    document_id: str,
+    *,
+    log_context: str = "phase2",
+) -> list[ScoredHeadingCandidate]:
+    """
+    Применяет LLM-refiner к списку scored candidates.
+
+    Выделена в отдельную функцию чтобы:
+    1. Не дублировать блок try/except в двух местах.
+    2. Использовать корректный вызов refine_ambiguous_candidates
+       через keyword arguments (сигнатура функции требует это).
+    3. Применять post-refine patching в одном месте.
+
+    Возвращает обновлённый список (или исходный при ошибке).
+    """
+    try:
+        # ВАЖНО: refine_ambiguous_candidates требует keyword-only аргументы.
+        # Старый вызов refine_ambiguous_candidates(scored, elements, document_id)
+        # был неправильным (positional args) и упал бы с TypeError.
+        # Здесь исправлен на keyword аргументы.
+        refined = refine_ambiguous_candidates(
+            scored_candidates=scored,
+            elements=elements,
+            document_id=document_id,
+        )
+
+        patched: list[ScoredHeadingCandidate] = []
+        for c in refined:
+            m = dict(c.metadata or {})
+            m["raw_uid"] = normalize_spaces(str(m.get("raw_uid") or c.uid or ""))
+            m["effective_uid"] = m.get("effective_uid") or _scope_aware_effective_uid(
+                _normalize_scope(c.scope),
+                m["raw_uid"],
+            )
+            m["normalized_title"] = normalize_spaces(
+                str(m.get("normalized_title") or c.title or "")
+            )
+            patched.append(_patched_scored_candidate(c, metadata_updates=m))
+
+        return patched
+
+    except Exception:
+        logger.exception(
+            "STRUCTURE heading_llm_refiner_failed",
+            extra={"document_id": document_id, "context": log_context},
+        )
+        # При ошибке возвращаем исходный список без изменений.
+        # Pipeline не должен падать из-за LLM-refiner.
+        return scored
+
+
+def _build_evidence_bundle_from_scored(
+    scored: list[ScoredHeadingCandidate],
+    elements: list[dict[str, Any]],
+) -> StructureEvidenceBundle:
+    """
+    Строит StructureEvidenceBundle из уже готовых scored candidates.
+
+    Не вызывает collect_scored_heading_candidates повторно.
+    Вся логика идентична build_structure_evidence_bundle,
+    но получает scored candidates как готовый ввод.
+    """
+    evidence_candidates: list[EvidenceHeadingCandidate] = []
+    for s in scored:
+        ev = _scored_to_evidence_candidate(s)
+        if ev is not None:
+            evidence_candidates.append(ev)
+
+    numbering_sequences = _build_numbering_sequences(evidence_candidates)
+    appendix_markers = _build_appendix_markers(evidence_candidates)
+    crossref_anchors = _build_crossref_anchors(elements)
+    page_signals = _page_signals_from_candidates(
+        evidence_candidates,
+        appendix_markers,
+        crossref_anchors,
+    )
+
+    toc_detected = any(c.is_toc_entry for c in evidence_candidates)
+    global_signals = _global_signals_from_bundle(
+        evidence_candidates=evidence_candidates,
+        numbering_sequences=numbering_sequences,
+        toc_detected=toc_detected,
+        crossref_anchors=crossref_anchors,
+        elements=elements,
+    )
+
+    return StructureEvidenceBundle(
+        heading_candidates=evidence_candidates,
+        numbering_sequences=numbering_sequences,
+        # toc_blocks: зарезервировано, пока не реализована TOC block extraction.
+        # Поле существует в контракте StructureEvidenceBundle, но всегда пустое.
+        # Будет заполняться в будущих фазах.
+        toc_blocks=[],
+        appendix_markers=appendix_markers,
+        crossref_anchors=crossref_anchors,
+        page_signals=page_signals,
+        global_signals=global_signals,
+    )
+
+
+def _build_accepted_headings_from_scored(
+    scored: list[ScoredHeadingCandidate],
+    document_id: str,
+) -> list[HeadingCandidate]:
+    """
+    Извлекает accepted HeadingCandidate из уже готовых scored candidates.
+
+    Не вызывает collect_scored_heading_candidates повторно.
+    Логика конвертации идентична build_heading_candidates,
+    но получает scored candidates как готовый ввод.
+    """
+    accepted: list[HeadingCandidate] = []
+    for s in scored:
+        candidate = _scored_to_heading_candidate(s)
+        if candidate is not None:
+            accepted.append(candidate)
+
+    return filter_heading_sequence(accepted, document_id=document_id)
+
+
+# ============================================================================
+# Canonical Phase 2 entry point
+# ============================================================================
+
+def run_phase2(
+    elements: list[dict[str, Any]],
+    *,
+    document_id: str,
+    toc_match_index: dict[tuple[str, str], dict[str, Any]] | None = None,
+) -> Phase2Result:
+    """
+    Единственная точка входа Phase 2.
+
+    Выполняет ровно один проход scoring + optional LLM-refiner.
+    Возвращает Phase2Result с двумя проекциями одного результата:
+    - evidence_bundle: для downstream Phase 3+ (иерархия, assessment).
+    - accepted_headings: для build_clause_hierarchy.
+
+    Заменяет парный вызов build_heading_candidates + build_structure_evidence_bundle.
+    Оба старых вызова сохранены как backward-compatible адаптеры.
+    """
+    # Шаг 1: единственный проход scoring
+    scored = collect_scored_heading_candidates(
+        elements,
+        document_id=document_id,
+        toc_match_index=toc_match_index,
+    )
+
+    # Шаг 2: optional LLM-refiner (один раз, не два)
+    llm_applied = False
+    if bool(getattr(settings, "STRUCTURE_ENABLE_HEADING_LLM_REFINER", False)) and scored:
+        scored = _apply_llm_refiner(scored, elements, document_id)
+        llm_applied = True
+
+    # Шаг 3: evidence bundle из готовых scored candidates
+    evidence_bundle = _build_evidence_bundle_from_scored(scored, elements)
+
+    # Шаг 4: accepted headings из тех же готовых scored candidates
+    accepted_headings = _build_accepted_headings_from_scored(scored, document_id)
+
+    return Phase2Result(
+        evidence_bundle=evidence_bundle,
+        accepted_headings=accepted_headings,
+        scored_candidates=scored,
+        llm_refiner_applied=llm_applied,
+    )
+
+
+# ============================================================================
+# Scoring pipeline (без изменений)
+# ============================================================================
+
 def collect_scored_heading_candidates(
     elements: list[dict[str, Any]],
     *,
@@ -608,7 +854,6 @@ def collect_scored_heading_candidates(
             "toc_guard_decision": str(el_meta.get("toc_guard_decision") or ""),
             "body_recoverable_from_toc": bool(el_meta.get("body_recoverable_from_toc")),
             "possible_toc": bool(el_meta.get("possible_toc")),
-            # Новые explainable признаки
             "strong_toc_confirmation": strong_toc,
             "is_root_numeric_uid": is_root_numeric,
             "is_appendix_uid": is_appendix_uid,
@@ -637,6 +882,10 @@ def collect_scored_heading_candidates(
     return _select_best_candidates_by_uid(scored_candidates, document_id)
 
 
+# ============================================================================
+# Dedup (без изменений)
+# ============================================================================
+
 def filter_heading_sequence(
     candidates: list[HeadingCandidate],
     *,
@@ -658,82 +907,31 @@ def filter_heading_sequence(
     return filtered
 
 
+# ============================================================================
+# Backward-compatible adapters
+# ============================================================================
+
 def build_heading_candidates(
     elements: list[dict[str, Any]],
     *,
     document_id: str,
     toc_match_index: dict[tuple[str, str], dict[str, Any]] | None = None,
 ) -> list[HeadingCandidate]:
-    """Backward-compatible: строит только accepted HeadingCandidate."""
-    scored = collect_scored_heading_candidates(
+    """
+    Backward-compatible адаптер.
+
+    Внутри вызывает run_phase2(...) и возвращает только accepted headings.
+    Scoring проходит ровно один раз, а не два как раньше.
+
+    Используйте run_phase2(...) напрямую если нужны оба артефакта —
+    это избегает повторного вызова scoring при необходимости и bundle.
+    """
+    result = run_phase2(
         elements,
         document_id=document_id,
         toc_match_index=toc_match_index,
     )
-    if not scored:
-        return []
-
-    if bool(getattr(settings, "STRUCTURE_ENABLE_HEADING_LLM_REFINER", False)):
-        try:
-            refined = refine_ambiguous_candidates(scored, elements, document_id)
-            new_scored: list[ScoredHeadingCandidate] = []
-            for c in refined:
-                m = dict(c.metadata or {})
-                m["raw_uid"] = normalize_spaces(str(m.get("raw_uid") or c.uid or ""))
-                m["effective_uid"] = m.get("effective_uid") or _scope_aware_effective_uid(
-                    _normalize_scope(c.scope),
-                    m["raw_uid"],
-                )
-                m["normalized_title"] = normalize_spaces(
-                    str(m.get("normalized_title") or c.title or "")
-                )
-                new_scored.append(_patched_scored_candidate(c, metadata_updates=m))
-            scored = new_scored
-        except Exception:
-            logger.exception(
-                "STRUCTURE heading_llm_refiner_failed",
-                extra={"document_id": document_id},
-            )
-
-    accepted: list[HeadingCandidate] = []
-
-    for s in scored:
-        if str(s.decision).lower() != "accepted":
-            continue
-
-        raw_uid = str((s.metadata or {}).get("raw_uid") or s.uid or "")
-        if not raw_uid:
-            continue
-
-        meta = s.metadata or {}
-        scope = _normalize_scope(s.scope)
-
-        normalized_title = normalize_spaces(str(meta.get("normalized_title") or s.title or ""))
-        toc_match_type = str(meta.get("toc_match_type") or "")
-        toc_match_score = float(meta.get("toc_match_score") or 0.0)
-        strong_toc = bool(meta.get("strong_toc_confirmation"))
-        is_appendix_uid = bool(meta.get("is_appendix_uid"))
-
-        accepted.append(
-            HeadingCandidate(
-                elem_i=_safe_int(s.elem_i),
-                uid=raw_uid,
-                page=_safe_int(s.page),
-                title=normalized_title,
-                scope=scope,
-                raw_uid=raw_uid,
-                effective_uid=str(meta.get("effective_uid") or ""),
-                metadata=dict(meta),
-                normalized_title=normalized_title,
-                toc_entry=strong_toc,
-                toc_match_type=toc_match_type or None,
-                toc_match_score=toc_match_score if toc_match_score > 0 else None,
-                is_appendix=is_appendix_uid,
-                is_toc_like=bool(meta.get("possible_toc")),
-            )
-        )
-
-    return filter_heading_sequence(accepted, document_id=document_id)
+    return result.accepted_headings
 
 
 def build_structure_evidence_bundle(
@@ -743,70 +941,19 @@ def build_structure_evidence_bundle(
     toc_match_index: dict[tuple[str, str], dict[str, Any]] | None = None,
 ) -> StructureEvidenceBundle:
     """
-    Новый Phase 2 API:
-    строит explainable StructureEvidenceBundle для downstream phases.
+    Backward-compatible адаптер.
+
+    Внутри вызывает run_phase2(...) и возвращает только evidence bundle.
+    Scoring проходит ровно один раз, а не два как раньше.
+
+    Используйте run_phase2(...) напрямую если нужны оба артефакта.
     """
-    scored = collect_scored_heading_candidates(
+    result = run_phase2(
         elements,
         document_id=document_id,
         toc_match_index=toc_match_index,
     )
-
-    if bool(getattr(settings, "STRUCTURE_ENABLE_HEADING_LLM_REFINER", False)) and scored:
-        try:
-            refined = refine_ambiguous_candidates(scored, elements, document_id)
-            patched: list[ScoredHeadingCandidate] = []
-            for c in refined:
-                m = dict(c.metadata or {})
-                m["raw_uid"] = normalize_spaces(str(m.get("raw_uid") or c.uid or ""))
-                m["effective_uid"] = m.get("effective_uid") or _scope_aware_effective_uid(
-                    _normalize_scope(c.scope),
-                    m["raw_uid"],
-                )
-                m["normalized_title"] = normalize_spaces(
-                    str(m.get("normalized_title") or c.title or "")
-                )
-                patched.append(_patched_scored_candidate(c, metadata_updates=m))
-            scored = patched
-        except Exception:
-            logger.exception(
-                "STRUCTURE heading_llm_refiner_failed_in_evidence_bundle",
-                extra={"document_id": document_id},
-            )
-
-    evidence_candidates: list[EvidenceHeadingCandidate] = []
-    for s in scored:
-        ev = _scored_to_evidence_candidate(s)
-        if ev is not None:
-            evidence_candidates.append(ev)
-
-    numbering_sequences = _build_numbering_sequences(evidence_candidates)
-    appendix_markers = _build_appendix_markers(evidence_candidates)
-    crossref_anchors = _build_crossref_anchors(elements)
-    page_signals = _page_signals_from_candidates(
-        evidence_candidates,
-        appendix_markers,
-        crossref_anchors,
-    )
-
-    toc_detected = any(c.is_toc_entry for c in evidence_candidates)
-    global_signals = _global_signals_from_bundle(
-        evidence_candidates=evidence_candidates,
-        numbering_sequences=numbering_sequences,
-        toc_detected=toc_detected,
-        crossref_anchors=crossref_anchors,
-        elements=elements,
-    )
-
-    return StructureEvidenceBundle(
-        heading_candidates=evidence_candidates,
-        numbering_sequences=numbering_sequences,
-        toc_blocks=[],
-        appendix_markers=appendix_markers,
-        crossref_anchors=crossref_anchors,
-        page_signals=page_signals,
-        global_signals=global_signals,
-    )
+    return result.evidence_bundle
 
 
 

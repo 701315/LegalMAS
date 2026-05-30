@@ -6,6 +6,7 @@
 MutableHierarchyNode  — mutable узел во время FSM assembly
 FrozenHierarchyNode   — immutable узел после freeze(), используется downstream
 freeze()              — явная точка перехода mutable → frozen
+freeze_forest()       — freeze для набора корневых узлов (forest)
 CrossReference        — внутрисегментная ссылка между узлами
 CrossSegmentRef       — межсегментная ссылка
 """
@@ -13,6 +14,7 @@ CrossSegmentRef       — межсегментная ссылка
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any
 
 from ._constants import NODE_KIND_LEAF, NODE_KIND_SECTION
@@ -167,6 +169,36 @@ def _validate_frozen_child_invariants(
             )
 
 
+def _validate_mutable_child_invariants_soft(
+    parent_uid: str,
+    parent_level: int,
+    parent_scope: str,
+    children: list["MutableHierarchyNode"],
+) -> None:
+    """
+    Soft validation for assembly-time mutable trees.
+
+    Здесь проверяем только то, что точно нельзя допускать уже на mutable стадии:
+    - child.level должен быть строго больше parent.level;
+    - child.scope должен совпадать со scope parent.
+
+    Page ranges намеренно НЕ валидируются жёстко на mutable стадии:
+    они могут быть стабилизированы позднее.
+    """
+    for child in children:
+        if child.level <= parent_level:
+            raise ValueError(
+                f"Child level must be > parent level: "
+                f"parent={parent_uid!r} level={parent_level}, "
+                f"child={child.effective_uid!r} level={child.level}"
+            )
+        if child.scope != parent_scope:
+            raise ValueError(
+                f"Child scope mismatch: parent.scope={parent_scope!r}, "
+                f"child.scope={child.scope!r}, child={child.effective_uid!r}"
+            )
+
+
 @dataclass
 class MutableHierarchyNode:
     effective_uid: str
@@ -257,10 +289,10 @@ class MutableHierarchyNode:
             self.node_origin = "technical_fallback"
             self.citability = "technical"
 
-        if self.node_kind == NODE_KIND_LEAF and self.children:
-            raise ValueError("MutableHierarchyNode with node_kind='leaf' must not have children")
-        if self.node_kind == NODE_KIND_SECTION and not self.children:
-            raise ValueError("MutableHierarchyNode with node_kind='section' must have children")
+        # Mutable stage: children => section.
+        # But section without children is allowed temporarily during assembly.
+        if self.children and self.node_kind == NODE_KIND_LEAF:
+            self.node_kind = NODE_KIND_SECTION
 
         own_set = set(self.own_element_ids)
         subtree_set = set(self.subtree_element_ids)
@@ -270,12 +302,10 @@ class MutableHierarchyNode:
             )
 
         if self.children:
-            _validate_child_invariants(
+            _validate_mutable_child_invariants_soft(
                 self.effective_uid,
                 self.level,
                 self.scope,
-                self.start_page,
-                self.end_page,
                 self.children,
             )
 
@@ -291,8 +321,15 @@ class MutableHierarchyNode:
             sibling_index=sibling_index,
             scope_id=self.scope or "main_contract",
         )
-        self.structural_hash = h
-        return h
+        if self.structural_hash is None:
+            self.structural_hash = h
+            return h
+        if self.structural_hash != h:
+            raise ValueError(
+                f"Conflicting structural_hash recomputation for {self.effective_uid!r}: "
+                f"existing={self.structural_hash!r}, new={h!r}"
+            )
+        return self.structural_hash
 
 
 @dataclass(frozen=True)
@@ -346,7 +383,7 @@ class FrozenHierarchyNode:
         end_page = _normalize_positive_int(self.end_page, "FrozenHierarchyNode.end_page")
         children = _ensure_frozen_nodes(self.children, "FrozenHierarchyNode.children")
         range_end_reason = _normalize_range_end_reason(self.range_end_reason)
-        diagnostics = _ensure_dict(self.diagnostics, "FrozenHierarchyNode.diagnostics")
+        diagnostics_dict = _ensure_dict(self.diagnostics, "FrozenHierarchyNode.diagnostics")
 
         inferred_scope, inferred_raw_uid = split_effective_uid(effective_uid)
         effective_uid = make_effective_uid(inferred_scope, inferred_raw_uid)
@@ -410,7 +447,7 @@ class FrozenHierarchyNode:
         object.__setattr__(self, "end_page", end_page)
         object.__setattr__(self, "children", children)
         object.__setattr__(self, "range_end_reason", range_end_reason)
-        object.__setattr__(self, "diagnostics", diagnostics)
+        object.__setattr__(self, "diagnostics", MappingProxyType(dict(diagnostics_dict)))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -437,6 +474,58 @@ class FrozenHierarchyNode:
 
 
 def freeze(node: MutableHierarchyNode) -> FrozenHierarchyNode:
+    return _freeze_node(
+        node,
+        seen_node_ids=set(),
+        seen_effective_uids=set(),
+    )
+
+
+def freeze_forest(nodes: list[MutableHierarchyNode]) -> tuple[FrozenHierarchyNode, ...]:
+    if nodes is None:
+        return ()
+    if not isinstance(nodes, list):
+        raise ValueError("freeze_forest(nodes): nodes must be list[MutableHierarchyNode]")
+
+    seen_node_ids: set[int] = set()
+    seen_effective_uids: set[str] = set()
+    frozen: list[FrozenHierarchyNode] = []
+
+    for idx, node in enumerate(nodes):
+        if not isinstance(node, MutableHierarchyNode):
+            raise ValueError(f"freeze_forest(nodes)[{idx}] must be MutableHierarchyNode")
+        frozen.append(
+            _freeze_node(
+                node,
+                seen_node_ids=seen_node_ids,
+                seen_effective_uids=seen_effective_uids,
+            )
+        )
+    return tuple(frozen)
+
+
+def _freeze_node(
+    node: MutableHierarchyNode,
+    *,
+    seen_node_ids: set[int],
+    seen_effective_uids: set[str],
+) -> FrozenHierarchyNode:
+    if not isinstance(node, MutableHierarchyNode):
+        raise ValueError("_freeze_node(node): node must be MutableHierarchyNode")
+
+    node_id = id(node)
+    if node_id in seen_node_ids:
+        raise ValueError(
+            f"Cannot freeze hierarchy: cycle or shared mutable node detected for "
+            f"{node.effective_uid!r}"
+        )
+
+    if node.effective_uid in seen_effective_uids:
+        raise ValueError(
+            f"Cannot freeze hierarchy: duplicate effective_uid encountered during freeze: "
+            f"{node.effective_uid!r}"
+        )
+
     if node.structural_hash is None:
         raise ValueError(
             f"Cannot freeze MutableHierarchyNode {node.effective_uid!r}: "
@@ -444,29 +533,45 @@ def freeze(node: MutableHierarchyNode) -> FrozenHierarchyNode:
             f"Call node.compute_and_set_structural_hash() before freeze()."
         )
 
-    frozen_children = tuple(freeze(child) for child in node.children)
+    seen_node_ids.add(node_id)
+    seen_effective_uids.add(node.effective_uid)
+    try:
+        frozen_children = tuple(
+            _freeze_node(
+                child,
+                seen_node_ids=seen_node_ids,
+                seen_effective_uids=seen_effective_uids,
+            )
+            for child in node.children
+        )
 
-    return FrozenHierarchyNode(
-        effective_uid=node.effective_uid,
-        title=node.title,
-        level=node.level,
-        raw_uid=node.raw_uid or "",
-        scope=node.scope or "main_contract",
-        node_kind=node.node_kind,
-        structural_hash=node.structural_hash,
-        node_origin=node.node_origin,
-        content_mode=node.content_mode,
-        citability=node.citability,
-        own_element_ids=tuple(node.own_element_ids),
-        subtree_element_ids=tuple(node.subtree_element_ids),
-        own_text=node.own_text,
-        subtree_text=node.subtree_text,
-        start_page=node.start_page,
-        end_page=node.end_page,
-        children=frozen_children,
-        range_end_reason=node.range_end_reason,
-        diagnostics=dict(node.diagnostics),
-    )
+        node_kind = node.node_kind
+        if frozen_children and node_kind == NODE_KIND_LEAF:
+            node_kind = NODE_KIND_SECTION
+
+        return FrozenHierarchyNode(
+            effective_uid=node.effective_uid,
+            title=node.title,
+            level=node.level,
+            raw_uid=node.raw_uid or "",
+            scope=node.scope or "main_contract",
+            node_kind=node_kind,
+            structural_hash=node.structural_hash,
+            node_origin=node.node_origin,
+            content_mode=node.content_mode,
+            citability=node.citability,
+            own_element_ids=tuple(node.own_element_ids),
+            subtree_element_ids=tuple(node.subtree_element_ids),
+            own_text=node.own_text,
+            subtree_text=node.subtree_text,
+            start_page=node.start_page,
+            end_page=node.end_page,
+            children=frozen_children,
+            range_end_reason=node.range_end_reason,
+            diagnostics=dict(node.diagnostics),
+        )
+    finally:
+        seen_node_ids.remove(node_id)
 
 
 @dataclass(frozen=True)
@@ -480,6 +585,9 @@ class CrossReference:
     target_scope: str | None = None
     resolution_mode: str = "resolved"
     reference_kind: str = "clause"
+    match_start: int | None = None
+    match_end: int | None = None
+    pattern_family: str | None = None
 
     def __post_init__(self) -> None:
         source_effective_uid = _norm_str(self.source_effective_uid)
@@ -491,6 +599,10 @@ class CrossReference:
         target_scope = _norm_opt_str(self.target_scope)
         resolution_mode = _norm_str(self.resolution_mode) or "resolved"
         reference_kind = _norm_str(self.reference_kind).lower() or "clause"
+        pattern_family = _norm_opt_str(self.pattern_family)
+
+        match_start = self.match_start
+        match_end = self.match_end
 
         if not source_effective_uid:
             raise ValueError("CrossReference.source_effective_uid must be non-empty")
@@ -498,6 +610,21 @@ class CrossReference:
             raise ValueError("CrossReference.target_effective_uid must be non-empty")
         if not reference_text:
             raise ValueError("CrossReference.reference_text must be non-empty")
+
+        if match_start is not None:
+            if not isinstance(match_start, int):
+                raise ValueError("CrossReference.match_start must be int | None")
+            if match_start < 0:
+                raise ValueError("CrossReference.match_start must be >= 0")
+
+        if match_end is not None:
+            if not isinstance(match_end, int):
+                raise ValueError("CrossReference.match_end must be int | None")
+            if match_end < 0:
+                raise ValueError("CrossReference.match_end must be >= 0")
+
+        if match_start is not None and match_end is not None and match_end < match_start:
+            raise ValueError("CrossReference.match_end must be >= match_start")
 
         normalized_source_scope, normalized_source_raw_uid = split_effective_uid(source_effective_uid)
         normalized_target_scope, normalized_target_raw_uid = split_effective_uid(target_effective_uid)
@@ -554,6 +681,9 @@ class CrossReference:
         object.__setattr__(self, "target_scope", target_scope)
         object.__setattr__(self, "resolution_mode", resolution_mode)
         object.__setattr__(self, "reference_kind", reference_kind)
+        object.__setattr__(self, "match_start", match_start)
+        object.__setattr__(self, "match_end", match_end)
+        object.__setattr__(self, "pattern_family", pattern_family)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -566,6 +696,9 @@ class CrossReference:
             "reference_text": self.reference_text,
             "resolution_mode": self.resolution_mode,
             "reference_kind": self.reference_kind,
+            "match_start": self.match_start,
+            "match_end": self.match_end,
+            "pattern_family": self.pattern_family,
         }
 
 
@@ -635,4 +768,5 @@ class CrossSegmentRef:
             "resolution_method": self.resolution_method,
             "reference_text": self.reference_text,
         }
-
+    
+    

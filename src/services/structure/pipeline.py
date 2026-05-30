@@ -4,7 +4,12 @@
 Структурный пайплайн: elements -> ClauseTree / FileStructureResult.
 
 Публичный фасад.
-Вся реализация вынесена во внутренний пакет services.structure.pipeline.*
+Вся реализация вынесена во внутренний пакет services.structure.pipeline.*.
+
+API:
+- build_structure()                     — legacy wrapper
+- build_file_structure()                — Phase 1-7 (текущий основной)
+- build_file_structure_with_analysis()  — Phase 1-9 (Phase 8 + 9 postbuild)
 """
 
 from __future__ import annotations
@@ -12,9 +17,17 @@ from __future__ import annotations
 from core.logging import get_logger
 from services.structure.file_graph_builder import build_file_graph
 from services.structure.models import FileStructureResult
+from services.structure._models._analysis import (
+    FileStructureAnalysisResult,
+    QualityThresholds,
+)
 
 from ._pipeline._core_builder import build_single_segment_tree
-from ._pipeline._element_validation import clean_elements, ensure_element_segment_metadata
+from ._pipeline._element_validation import (
+    clean_elements,
+    ensure_element_segment_metadata,
+)
+from ._pipeline._postbuild_analysis import analyze_file_structure
 from ._pipeline._segment_utils import (
     make_single_segment_list,
     segment_document,
@@ -84,7 +97,7 @@ def build_file_structure(
             file_graph=file_graph,
         )
 
-    classified = clean  # классификация уже вызывается выше по проекту
+    classified = clean
     segments = segment_document(
         document_id=document_id,
         document_version_id=document_version_id,
@@ -128,3 +141,44 @@ def build_file_structure(
         segment_trees=segment_trees,
         file_graph=file_graph,
     )
+
+
+def build_file_structure_with_analysis(
+    document_id: str,
+    elements: list[dict] | None,
+    *,
+    document_version_id: str | None = None,
+    quality_thresholds: QualityThresholds | None = None,
+    sliding_window: int = 5,
+    crossref_neighborhood: int = 2,
+) -> FileStructureAnalysisResult:
+    """
+    Phase 1-9: elements → structure → cohesion → quality evaluation.
+
+    Не ломает старый build_file_structure().
+    Используется downstream слоями (Phase 10 Chunk Planner).
+
+    Параметры:
+    - quality_thresholds: кастомные пороги Phase 9 (None → дефолты)
+    - sliding_window: размер окна Phase 8 cohesion (default=5)
+    - crossref_neighborhood: locality Phase 8 crossref edges (default=2)
+
+    Возвращает FileStructureAnalysisResult:
+    - file_structure: оригинальный FileStructureResult
+    - segment_artifacts: Phase 8 + Phase 9 артефакты по сегментам
+    """
+    base_result = build_file_structure(
+        document_id=document_id,
+        elements=elements,
+        document_version_id=document_version_id,
+    )
+
+    return analyze_file_structure(
+        base_result,
+        thresholds=quality_thresholds,
+        sliding_window=sliding_window,
+        crossref_neighborhood=crossref_neighborhood,
+    )
+
+
+

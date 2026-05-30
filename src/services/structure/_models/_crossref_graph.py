@@ -46,6 +46,10 @@ class CrossReferenceStats:
     duplicate_effective_uid_count: int = 0
     duplicate_scoped_raw_uid_count: int = 0
 
+    appendix_scoped_resolved_count: int = 0
+    appendix_scope_miss_count: int = 0
+    toc_like_reference_skipped_count: int = 0
+
     def __post_init__(self) -> None:
         for field_name in (
             "references_count",
@@ -60,6 +64,9 @@ class CrossReferenceStats:
             "index_node_skipped_count",
             "duplicate_effective_uid_count",
             "duplicate_scoped_raw_uid_count",
+            "appendix_scoped_resolved_count",
+            "appendix_scope_miss_count",
+            "toc_like_reference_skipped_count",
         ):
             value = getattr(self, field_name)
             object.__setattr__(
@@ -82,6 +89,9 @@ class CrossReferenceStats:
             "index_node_skipped_count": self.index_node_skipped_count,
             "duplicate_effective_uid_count": self.duplicate_effective_uid_count,
             "duplicate_scoped_raw_uid_count": self.duplicate_scoped_raw_uid_count,
+            "appendix_scoped_resolved_count": self.appendix_scoped_resolved_count,
+            "appendix_scope_miss_count": self.appendix_scope_miss_count,
+            "toc_like_reference_skipped_count": self.toc_like_reference_skipped_count,
         }
 
 

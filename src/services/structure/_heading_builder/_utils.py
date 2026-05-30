@@ -98,3 +98,14 @@ def _patched_scored_candidate(
     if decision_source is not None:
         updates["decision_source"] = decision_source
     return replace(candidate, **updates)
+
+
+def _looks_like_root_numeric_uid(uid: str | None) -> bool:
+    u = str(uid or "").strip()
+    return u.isdigit()
+
+
+def _looks_like_appendix_uid(uid: str | None) -> bool:
+    u = str(uid or "").strip().lower()
+    return u.startswith(("appendix-", "приложение-", "annex-", "schedule-", "exhibit-"))
+
