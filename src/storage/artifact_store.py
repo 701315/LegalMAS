@@ -291,6 +291,35 @@ class ArtifactPath:
             f"{document_id}/legal_units_{short_id}.json"
         )
 
+
+    @staticmethod
+    def legal_units_enrichment_v1(
+        tenant_id: str,
+        deal_id: str,
+        document_id: str,
+        segment_id: str,
+    ) -> str:
+        """
+        Путь к Phase 12 enrichment sidecar для одного логического сегмента.
+
+        Для непрофессионального программиста:
+        - Это LLM-enrichment artifact, хранится РЯДОМ с legal_units_{short_id}.json.
+        - НЕ заменяет baseline legal units — это sidecar (дополнение).
+        - Downstream применяет project_enriched_units() чтобы получить
+        effective units = baseline + enrichment overrides.
+        - Если файл отсутствует (старый документ / enrichment отключён)
+        — baseline используется без изменений.
+
+        Пример пути (segment_id = "550e8400-e29b-41d4-a716-446655440000"):
+        tenants/abc/deals/xyz/structures/{document_id}/legal_units_enrichment_550e8400.json
+        """
+        short_id = segment_id[:8]
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/structures/"
+            f"{document_id}/legal_units_enrichment_{short_id}.json"
+        )
+
+
     @staticmethod
     def artifact_manifest(tenant_id: str, deal_id: str, document_id: str) -> str:
         """

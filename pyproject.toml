@@ -10,12 +10,13 @@ pythonpath = [".", "src"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short -p no:pytest_asyncio --strict-markers"
+addopts = "-v --tb=short -p no:pytest_asyncio --strict-markers -m 'not llm_integration'"
 asyncio_default_fixture_loop_scope = "function"
 markers = [
     "integration: integration tests",
     "phase7: Phase 7 cross-reference tests",
     "regression: regression tests for stable artifact outputs",
+    "llm_integration: tests that require a live LLM (excluded from default pytest run)",
 ]
 
 [tool.ruff]

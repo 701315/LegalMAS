@@ -25,7 +25,16 @@ async def load_legal_units_from_segments(
     logger: Any,
 ) -> list[dict[str, Any]]:
     """
-    Загрузить legal units из segment snapshots с сохранением текущего поведения.
+    Загрузить legal units из segment snapshots.
+
+    Phase 12.1.6: если для сегмента есть enrichment sidecar
+    (segment_meta["legal_units_enrichment_ref"]), применяет
+    project_enriched_units() и возвращает effective enriched dicts.
+
+    Fallback: если sidecar отсутствует или projection падает —
+    возвращает baseline units без изменений.
+
+    Контракт не изменился: возвращает list[dict[str, Any]].
     """
     from anyio.to_thread import run_sync
 
@@ -64,7 +73,6 @@ async def load_legal_units_from_segments(
             continue
 
         try:
-
             def _load(ref: str = legal_units_ref) -> dict[str, Any]:
                 return artifact_store.get_json(ref)
 
@@ -86,6 +94,22 @@ async def load_legal_units_from_segments(
             if not isinstance(units_raw, list):
                 continue
 
+            # ── Phase 12.1.6: apply enrichment projection ─────────────────
+            # Если enrichment sidecar существует — применяем projection.
+            # Результат: effective units с LLM-обогащёнными полями.
+            # Если sidecar отсутствует или projection падает —
+            # units_raw используется без изменений (baseline).
+            enrichment_ref = segment_meta.get("legal_units_enrichment_ref")
+            units_raw = await _apply_enrichment_if_available(
+                units_raw=units_raw,
+                snapshot_dict=snapshot_dict,
+                enrichment_ref=enrichment_ref,
+                artifact_store=artifact_store,
+                doc_id=doc_id,
+                segment_id=str(segment.segment_id),
+                logger=logger,
+            )
+
             for unit in units_raw:
                 if not isinstance(unit, dict):
                     continue
@@ -100,6 +124,7 @@ async def load_legal_units_from_segments(
                     "segment_id": segment.segment_id,
                     "units_count": len(units_raw),
                     "legal_units_ref": legal_units_ref,
+                    "enrichment_applied": enrichment_ref is not None,
                 },
             )
 
@@ -171,6 +196,119 @@ def build_no_legal_units_result(
         "diagnostics": {"reason": "no_legal_units"},
         "units": [],
     }
+
+
+async def _apply_enrichment_if_available(
+    *,
+    units_raw: list[dict[str, Any]],
+    snapshot_dict: dict[str, Any],
+    enrichment_ref: str | None,
+    artifact_store: ArtifactStore,
+    doc_id: uuid.UUID,
+    segment_id: str,
+    logger: Any,
+) -> list[dict[str, Any]]:
+    """
+    Загрузить enrichment sidecar и применить projection к baseline units.
+
+    Принимает уже загруженный snapshot_dict (baseline) чтобы не
+    перечитывать MinIO повторно.
+
+    Возвращает effective units (enriched dicts) если projection успешна,
+    иначе возвращает оригинальный units_raw без изменений.
+
+    Failure-isolated: любая ошибка → fallback к baseline.
+    """
+    if not enrichment_ref:
+        return units_raw
+
+    from anyio.to_thread import run_sync
+
+    try:
+        # 1. Загружаем enrichment sidecar
+        def _load_enrichment(ref: str = enrichment_ref) -> dict[str, Any]:
+            return artifact_store.get_json(ref)
+
+        enrichment_dict = await run_sync(_load_enrichment)
+
+        if not isinstance(enrichment_dict, dict):
+            logger.warning(
+                "load_legal_units: enrichment sidecar invalid format, using baseline",
+                extra={
+                    "doc_id": str(doc_id),
+                    "segment_id": segment_id,
+                    "enrichment_ref": enrichment_ref,
+                    "type": type(enrichment_dict).__name__,
+                },
+            )
+            return units_raw
+
+        # 2. Восстанавливаем LegalUnitsEnrichmentResult из dict
+        from services.structure.semantic_enrichment._types import (
+            LegalUnitsEnrichmentResult,
+        )
+
+        enrichment_result = LegalUnitsEnrichmentResult.from_dict(enrichment_dict)
+
+        # Если нет applied enrichments — нет смысла в проекции
+        applied_count = len(
+            [e for e in enrichment_result.enrichments
+             if e.status.value == "applied"]
+        )
+        if applied_count == 0:
+            logger.debug(
+                "load_legal_units: enrichment sidecar has no applied enrichments, using baseline",
+                extra={
+                    "doc_id": str(doc_id),
+                    "segment_id": segment_id,
+                    "total_enrichments": len(enrichment_result.enrichments),
+                },
+            )
+            return units_raw
+
+        # 3. Восстанавливаем LegalUnitsSnapshot из уже загруженного dict
+        from services.structure.legal_unit_models import LegalUnitsSnapshot
+
+        snapshot = LegalUnitsSnapshot.from_dict(snapshot_dict)
+
+        # 4. Применяем projection
+        from services.structure.semantic_enrichment.projection import (
+            project_enriched_units,
+        )
+
+        effective_units = project_enriched_units(
+            snapshot=snapshot,
+            enrichment_result=enrichment_result,
+        )
+
+        # 5. Сериализуем обратно в dicts
+        effective_dicts = [u.to_dict() for u in effective_units]
+
+        logger.debug(
+            "load_legal_units: enrichment projection applied",
+            extra={
+                "doc_id": str(doc_id),
+                "segment_id": segment_id,
+                "enrichment_ref": enrichment_ref,
+                "baseline_count": len(units_raw),
+                "effective_count": len(effective_dicts),
+                "applied_count": applied_count,
+            },
+        )
+
+        return effective_dicts
+
+    except Exception as proj_exc:
+        logger.warning(
+            "load_legal_units: enrichment projection failed, using baseline units",
+            extra={
+                "doc_id": str(doc_id),
+                "segment_id": segment_id,
+                "enrichment_ref": enrichment_ref,
+                "error": str(proj_exc),
+            },
+        )
+        return units_raw
 
 
 def restore_legal_units(

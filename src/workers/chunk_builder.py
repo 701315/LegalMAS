@@ -31,6 +31,12 @@ Chunk Builder Worker (V2_ONLY).
 - Ошибка сохранения legal units НЕ ломает основной chunk pipeline.
 - Если legal_units_snapshot отсутствует (builder упал или отключён)
   — продолжаем как обычно, segment_meta не обновляется.
+Phase 12 — dual-write enrichment sidecar:
+- для каждого сегмента опционально сохраняем legal_units_enrichment_v1.json;
+- ссылку legal_units_enrichment_ref пишем в segment_meta рядом с legal_units_ref;
+- ошибка сохранения sidecar не прерывает основной pipeline;
+- если enrichment_result отсутствует (LLM недоступна / enrichment отключён)
+- продолжаем как обычно, legal_units_enrichment_ref не записывается.
 
 Audit trail:
 - На успешном завершении пишет CHUNK_BUILD_COMPLETED.
@@ -399,6 +405,11 @@ async def _build_chunks_v2_async(
     legal_units_saved_count = 0  # сколько сегментов успешно сохранили legal units
     legal_units_refs: list[str] = []  # все сохранённые refs
 
+    # ── Phase 12: счётчики для enrichment sidecar ────────────────────────────
+    enrichment_saved_count = 0
+    enrichment_refs: list[str] = []
+
+
     for snapshot in segment_snapshots:
         seg = segments_by_id.get(snapshot.segment_id)
         if seg is None:
@@ -498,6 +509,57 @@ async def _build_chunks_v2_async(
                 segment_id=snapshot.segment_id,
             )
 
+        # ── Phase 12: dual-write legal_units_enrichment_v1.json ──────────────────
+        # Сохраняем enrichment sidecar опционально, рядом с legal_units_v1.json.
+        # Ошибка сохранения НЕ ломает основной pipeline.
+        # Если enrichment отключён или LLM недоступна — enrichment_result будет None.
+        legal_units_enrichment_ref: str | None = None
+        enrichment_result = getattr(snapshot, "legal_units_enrichment_result", None)
+
+        if enrichment_result is not None:
+            enrichment_path = ArtifactPath.legal_units_enrichment_v1(
+                tenant_id=tenant_id,
+                deal_id=deal_id,
+                document_id=str(doc.id),
+                segment_id=snapshot.segment_id,
+            )
+            try:
+                legal_units_enrichment_ref = store.put_json(
+                    enrichment_path,
+                    enrichment_result.to_dict(),
+                )
+                enrichment_saved_count += 1
+                enrichment_refs.append(legal_units_enrichment_ref)
+
+                logger.info(
+                    "Chunk builder: legal units enrichment sidecar saved",
+                    document_id=str(doc.id),
+                    document_version_id=str(v_id),
+                    segment_id=snapshot.segment_id,
+                    legal_units_enrichment_ref=legal_units_enrichment_ref,
+                    applied_count=enrichment_result.applied_count
+                    if hasattr(enrichment_result, "applied_count")
+                    else len(
+                        [e for e in enrichment_result.enrichments
+                        if e.status.value == "applied"]
+                    ),
+                )
+            except Exception as enr_store_exc:
+                logger.warning(
+                    "Chunk builder: failed to store enrichment sidecar, continuing without it",
+                    document_id=str(doc.id),
+                    document_version_id=str(v_id),
+                    segment_id=snapshot.segment_id,
+                    error=str(enr_store_exc),
+                )
+        else:
+            logger.debug(
+                "Chunk builder: no enrichment result for segment, skipping enrichment dual-write",
+                document_id=str(doc.id),
+                document_version_id=str(v_id),
+                segment_id=snapshot.segment_id,
+            )
+
         # Обновляем segment_meta: добавляем legal_units_ref если есть.
         # Важно: НЕ заменяем весь segment_meta — мерджим поверх существующего.
         # Это защищает другие поля которые могли быть записаны предыдущими стадиями
@@ -505,6 +567,8 @@ async def _build_chunks_v2_async(
         existing_meta = dict(seg.segment_meta or {})
         if legal_units_ref is not None:
             existing_meta["legal_units_ref"] = legal_units_ref
+        if legal_units_enrichment_ref is not None:
+            existing_meta["legal_units_enrichment_ref"] = legal_units_enrichment_ref
 
         segment_rows_to_replace.append(
             {
@@ -682,6 +746,8 @@ async def _build_chunks_v2_async(
                 # Если 0 — builder упал или отключён, это не ошибка.
                 "legal_units_saved_count": legal_units_saved_count,
                 "legal_units_refs": legal_units_refs,
+                "enrichment_saved_count": enrichment_saved_count,
+                "enrichment_refs": enrichment_refs,
             },
         )
     except Exception:
@@ -721,6 +787,8 @@ async def _build_chunks_v2_async(
         # Оба поля могут быть пустыми если builder упал — это не ошибка.
         "legal_units_refs": legal_units_refs,
         "legal_units_count": len(legal_units_refs),
+        "enrichment_refs": enrichment_refs,
+        "enrichment_count": len(enrichment_refs),
     }
 
 

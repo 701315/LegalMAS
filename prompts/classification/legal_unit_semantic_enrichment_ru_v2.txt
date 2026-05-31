@@ -1,0 +1,101 @@
+Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{{
+  "suggested_unit_type": "one_of_allowed_values_or_null",
+  "suggested_clause_function": "one_of_allowed_values_or_null",
+  "suggested_topics": ["topic_1", "topic_2"],
+  "confidence": 0.0,
+  "reasoning": "short explanation",
+  "evidence_quotes": ["exact quote from clause text", "another quote"]
+}}
+
+ОГРАНИЧЕНИЯ:
+- Ты НЕ меняешь иерархию документа, parent-child связи или IDs.
+- Ты только предлагаешь semantic metadata для одного уже существующего legal unit.
+- Если не уверен — используй null или пустой список. Будь консервативен.
+- suggested_topics ДОЛЖНЫ быть только из списка allowed_topics.
+- evidence_quotes ДОЛЖНЫ быть точными короткими цитатами из текста текущей клаузы.
+- Дай 1-3 цитаты, которые реально подтверждают твою классификацию.
+- НЕ выдумывай текст, которого нет в clause.
+- Текст клаузы обычно на русском языке, но может быть на английском или двуязычным.
+- Классифицируй по юридическому смыслу, независимо от языка текста.
+- Значения suggested_unit_type, suggested_clause_function и suggested_topics возвращай строго в английском canonical формате.
+- confidence должен быть числом от 0 до 1.
+
+РАЗРЕШЁННЫЕ UNIT TYPES:
+{allowed_unit_types}
+
+РАЗРЕШЁННЫЕ CLAUSE FUNCTIONS:
+{allowed_clause_functions}
+
+РАЗРЕШЁННЫЕ TOPIC TAGS:
+{allowed_topics}
+
+ВАЖНОЕ ПРАВИЛО КАНОНИКАЛИЗАЦИИ:
+- suggested_unit_type должен быть только из списка allowed unit types.
+- Некоторые юридические понятия являются topic tags, а НЕ unit types.
+- Если текст явно относится к теме, которой нет среди allowed unit types,
+  выбери ближайший подходящий allowed unit type,
+  а сам точный смысл отрази в suggested_topics.
+
+ПРИМЕРЫ:
+- confidentiality / non_disclosure → suggested_unit_type = obligation
+- indemnification → suggested_unit_type = obligation
+- termination / termination right / termination for cause → suggested_unit_type = obligation
+- liability / limitation of liability / liability exclusion → suggested_unit_type = general_provision
+- dispute resolution / arbitration → suggested_unit_type = jurisdiction
+- governing law → suggested_unit_type = governing_law
+- notices → suggested_unit_type = notice
+- definitions → suggested_unit_type = definition
+- appendix / exhibit / schedule → suggested_unit_type = appendix_reference
+
+ВАЖНОЕ ПРАВИЛО ДЛЯ CLAUSE FUNCTION:
+- confidentiality / non_disclosure → suggested_clause_function = obligations
+- indemnification → suggested_clause_function = remedies
+- liability cap / liability exclusion → suggested_clause_function = limitations
+- dispute resolution / arbitration → suggested_clause_function = boilerplate
+- notices → suggested_clause_function = boilerplate
+- governing law → suggested_clause_function = boilerplate
+- termination procedure / termination notice / termination for cause → suggested_clause_function = procedures
+- definitions → suggested_clause_function = definitions
+- warranties / representations → suggested_clause_function = representations
+
+DETERMINISTIC BASELINE:
+- current_unit_type: {current_unit_type}
+- current_clause_function: {current_clause_function}
+- current_topic_tags: {current_topic_tags}
+- citability_band: {citability_band}
+- scope: {scope}
+- raw_uid: {raw_uid}
+- title: {title}
+- level: {level}
+- node_kind: {node_kind}
+- semantic_node_type: {semantic_node_type}
+- recovered_via_best_effort: {recovered_via_best_effort}
+
+STRUCTURAL CONTEXT:
+- heading_path: {heading_path}
+- previous_unit_title: {previous_unit_title}
+- previous_unit_type: {previous_unit_type}
+- previous_unit_excerpt: {previous_unit_excerpt}
+- next_unit_title: {next_unit_title}
+- next_unit_type: {next_unit_type}
+- next_unit_excerpt: {next_unit_excerpt}
+
+ТЕКУЩАЯ КЛАУЗА:
+- unit_id: {unit_id}
+- full_excerpt: {full_excerpt}
+
+ИНСТРУКЦИЯ:
+1. Определи наиболее вероятный legal semantic type по тексту и контексту.
+2. Определи functional role этой клаузы.
+3. Выбери только релевантные topic tags из разрешённой taxonomy.
+4. Если deterministic baseline выглядит разумно, можешь его подтвердить.
+5. Если baseline выглядит неполным, предложи более точное semantic enrichment.
+6. Приведи 1-3 короткие точные цитаты из текста clause как evidence.
+7. reasoning должен быть коротким, конкретным и опираться на текст клаузы.
+
+Верни только JSON.

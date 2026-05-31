@@ -37,18 +37,23 @@ class LegalUnitType(str, Enum):
     "это гарантия", "это условие платежа".
 
     Значения:
-    - DEFINITION:          определение термина ("X означает...")
-    - OBLIGATION:          обязательство стороны ("Сторона обязана...")
-    - WARRANTY:            гарантия ("Продавец гарантирует...")
-    - PAYMENT_TERM:        условие оплаты (сумма, срок, порядок)
-    - NOTICE:              уведомление (порядок, сроки, адреса)
-    - GOVERNING_LAW:       применимое право
-    - JURISDICTION:        подсудность / арбитраж
-    - APPENDIX_REFERENCE:  ссылка/узел приложения
-    - GENERAL_PROVISION:   общая норма без специфической функции
-    - STRUCTURAL_ANCHOR:   структурный heading-only узел, слабая цитируемость
-    - TECHNICAL_FRAGMENT:  технический fallback fragment, не semantic clause
-    - UNKNOWN:             тип не определён
+    - DEFINITION:              определение термина ("X означает...")
+    - OBLIGATION:              общее обязательство стороны ("Сторона обязана...")
+    - WARRANTY:                гарантия / заверение ("Продавец гарантирует...")
+    - PAYMENT_TERM:            условие оплаты (сумма, срок, порядок)
+    - NOTICE:                  уведомление (порядок, сроки, адреса)
+    - GOVERNING_LAW:           применимое право
+    - JURISDICTION:            подсудность / forum / суд
+    - APPENDIX_REFERENCE:      ссылка/узел приложения
+    - CONFIDENTIALITY:         clause о конфиденциальности / неразглашении
+    - INDEMNIFICATION:         clause о возмещении убытков / indemnity
+    - DISPUTE_RESOLUTION:      clause о разрешении споров / arbitration
+    - TERMINATION_PROVISION:   clause о расторжении / termination mechanics
+    - LIABILITY_PROVISION:     clause об ограничении/исключении ответственности
+    - GENERAL_PROVISION:       общая норма без более точной semantic категории
+    - STRUCTURAL_ANCHOR:       структурный heading-only узел, слабая цитируемость
+    - TECHNICAL_FRAGMENT:      технический fallback fragment, не semantic clause
+    - UNKNOWN:                 тип не определён
     """
 
     DEFINITION = "definition"
@@ -59,6 +64,13 @@ class LegalUnitType(str, Enum):
     GOVERNING_LAW = "governing_law"
     JURISDICTION = "jurisdiction"
     APPENDIX_REFERENCE = "appendix_reference"
+
+    CONFIDENTIALITY = "confidentiality"
+    INDEMNIFICATION = "indemnification"
+    DISPUTE_RESOLUTION = "dispute_resolution"
+    TERMINATION_PROVISION = "termination_provision"
+    LIABILITY_PROVISION = "liability_provision"
+    
     GENERAL_PROVISION = "general_provision"
     STRUCTURAL_ANCHOR = "structural_anchor"
     TECHNICAL_FRAGMENT = "technical_fragment"
@@ -272,6 +284,88 @@ class LegalUnit:
         }
 
 
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "LegalUnit":
+        """
+        Восстановить LegalUnit из сериализованного dict.
+
+        Используется в LegalUnitsSnapshot.from_dict().
+        Неизвестные/невалидные значения enum заменяются на UNKNOWN.
+        """
+        unit_type_str = str(raw.get("unit_type") or "unknown").lower()
+        try:
+            unit_type = LegalUnitType(unit_type_str)
+        except ValueError:
+            unit_type = LegalUnitType.UNKNOWN
+
+        func_str = str(raw.get("clause_function") or "unknown").lower()
+        try:
+            clause_function = ClauseFunction(func_str)
+        except ValueError:
+            clause_function = ClauseFunction.UNKNOWN
+
+        citability_raw = raw.get("citability") or {}
+        citability = CitabilityMetrics(
+            citability_score=float(citability_raw.get("citability_score") or 0.0),
+            citability_band=str(citability_raw.get("citability_band") or "low"),
+            has_own_text=bool(citability_raw.get("has_own_text", False)),
+            has_subtree_text=bool(citability_raw.get("has_subtree_text", False)),
+            is_heading_only=bool(citability_raw.get("is_heading_only", False)),
+            recovered_via_best_effort=bool(
+                citability_raw.get("recovered_via_best_effort", False)
+            ),
+            parse_confidence=citability_raw.get("parse_confidence"),
+            is_technical_fallback=bool(
+                citability_raw.get("is_technical_fallback", False)
+            ),
+        )
+
+        cross_refs_raw = raw.get("cross_refs") or []
+        cross_refs = []
+        for cr in cross_refs_raw:
+            if not isinstance(cr, dict):
+                continue
+            cross_refs.append(
+                CrossRefStub(
+                    source_unit_id=str(cr.get("source_unit_id") or ""),
+                    raw_ref_text=str(cr.get("raw_ref_text") or ""),
+                    ref_type=str(cr.get("ref_type") or "clause_ref"),
+                    target_hint=cr.get("target_hint"),
+                    resolved=bool(cr.get("resolved", False)),
+                    target_unit_id=cr.get("target_unit_id"),
+                    resolve_method=cr.get("resolve_method"),
+                    resolve_confidence=cr.get("resolve_confidence"),
+                )
+            )
+
+        return cls(
+            unit_id=str(raw.get("unit_id") or ""),
+            raw_uid=str(raw.get("raw_uid") or ""),
+            scope=str(raw.get("scope") or ""),
+            title=str(raw.get("title") or ""),
+            level=int(raw.get("level") or 1),
+            unit_type=unit_type,
+            clause_function=clause_function,
+            segment_id=str(raw.get("segment_id") or ""),
+            segment_type=str(raw.get("segment_type") or "unknown"),
+            page_start=int(raw.get("page_start") or 1),
+            page_end=int(raw.get("page_end") or 1),
+            own_text=raw.get("own_text") or None,
+            subtree_text=raw.get("subtree_text") or None,
+            own_element_ids=list(raw.get("own_element_ids") or []),
+            topic_tags=list(raw.get("topic_tags") or []),
+            cross_refs=cross_refs,
+            citability=citability,
+            node_kind=str(raw.get("node_kind") or "leaf"),
+            semantic_node_type=raw.get("semantic_node_type"),
+            node_origin=str(raw.get("node_origin") or "unknown"),
+            content_mode=str(raw.get("content_mode") or "full_text"),
+            recovered_via_best_effort=bool(raw.get("recovered_via_best_effort", False)),
+            fallback_reason=raw.get("fallback_reason"),
+            diagnostics=dict(raw.get("diagnostics") or {}),
+        )
+
+
 # ---------------------------------------------------------------------------
 # LegalUnitsSnapshot — артефакт legal_units_v1.json
 # ---------------------------------------------------------------------------
@@ -325,5 +419,43 @@ class LegalUnitsSnapshot:
             },
             "units": [u.to_dict() for u in self.units],
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "LegalUnitsSnapshot":
+        """
+        Восстановить LegalUnitsSnapshot из сериализованного dict.
+
+        Используется в Phase 12.1.6 для восстановления snapshot
+        перед применением enrichment projection.
+        Неизвестные поля игнорируются (forward-compatible).
+        """
+        segment = data.get("segment") or {}
+        stats = data.get("stats") or {}
+
+        units_raw = data.get("units") or []
+        units = []
+        for u in units_raw:
+            if not isinstance(u, dict):
+                continue
+            try:
+                units.append(LegalUnit.from_dict(u))
+            except Exception:
+                continue
+
+        return cls(
+            document_id=str(data.get("document_id") or ""),
+            document_version_id=str(data.get("document_version_id") or ""),
+            segment_id=str(segment.get("segment_id") or ""),
+            segment_type=str(segment.get("segment_type") or "unknown"),
+            segment_order=int(segment.get("segment_order") or 0),
+            is_primary_segment=bool(segment.get("is_primary_segment", False)),
+            units=units,
+            schema_version=str(data.get("schema_version") or "2"),
+            total_nodes_processed=int(stats.get("total_nodes_processed") or 0),
+            units_with_known_type=int(stats.get("units_with_known_type") or 0),
+            units_heading_only=int(stats.get("units_heading_only") or 0),
+            units_best_effort=int(stats.get("units_best_effort") or 0),
+            build_warnings=list(stats.get("build_warnings") or []),
+        )
 
 

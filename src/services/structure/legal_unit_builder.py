@@ -55,6 +55,7 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 
 _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
+    # ── Definitions ────────────────────────────────────────────────────────
     (
         re.compile(
             r"\b(definitions?|defined terms?|interpretation|meanings?|"
@@ -63,22 +64,60 @@ _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
         ),
         LegalUnitType.DEFINITION,
     ),
+
+    # ── Payments ───────────────────────────────────────────────────────────
     (
         re.compile(
-            r"\b(payment|price|consideration|fee|remuneration|compensation|"
+            r"\b(payment|price|consideration|fee|remuneration|"
             r"оплат[аы]|цена|вознаграждение|платёж|стоимость|сумма)\b",
             re.IGNORECASE,
         ),
         LegalUnitType.PAYMENT_TERM,
     ),
+
+    # ── Confidentiality ────────────────────────────────────────────────────
     (
         re.compile(
-            r"\b(warrant(y|ies)|representation|guarantee|indemnif|"
-            r"гарантии?|заверени[яей]|поручительство|возмещение)\b",
+            r"\b(confidential(ity)?|non.?disclosure|secret|proprietary information|"
+            r"конфиденциальност[ьи]|неразглашени[еяй]|коммерческая тайна)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.CONFIDENTIALITY,
+    ),
+
+    # ── Indemnification ────────────────────────────────────────────────────
+    (
+        re.compile(
+            r"\b(indemnif(y|ication)|hold harmless|"
+            r"возмещени[еяй] убытков|возместить убытки|возместить ущерб)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.INDEMNIFICATION,
+    ),
+
+    # ── Liability ──────────────────────────────────────────────────────────
+    (
+        re.compile(
+            r"\b(liabilit(y|ies)|limitation of liability|liability cap|"
+            r"cap on liability|exclusion of liability|consequential damages|indirect damages|"
+            r"ответственность|ограничение ответственности|предел ответственности|"
+            r"освобождени[еяй] от ответственности|косвенные убытки)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.LIABILITY_PROVISION,
+    ),
+
+    # ── Warranties ─────────────────────────────────────────────────────────
+    (
+        re.compile(
+            r"\b(warrant(y|ies)|representation|guarantee|"
+            r"гарантии?|заверени[яей]|поручительство)\b",
             re.IGNORECASE,
         ),
         LegalUnitType.WARRANTY,
     ),
+
+    # ── Notices ────────────────────────────────────────────────────────────
     (
         re.compile(
             r"\b(notice[s]?|notification|communication|correspondence|"
@@ -87,6 +126,8 @@ _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
         ),
         LegalUnitType.NOTICE,
     ),
+
+    # ── Governing law ──────────────────────────────────────────────────────
     (
         re.compile(
             r"\b(governing law|applicable law|choice of law|"
@@ -95,15 +136,29 @@ _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
         ),
         LegalUnitType.GOVERNING_LAW,
     ),
+
+    # ── Dispute resolution / arbitration ───────────────────────────────────
     (
         re.compile(
-            r"\b(jurisdiction|arbitration|dispute resolution|"
-            r"competent court|forum|venue|"
-            r"подсудность|арбитраж|разрешение споров|суд)\b",
+            r"\b(dispute resolution|dispute[s]?|arbitration|arbitral|mediation|"
+            r"разрешение споров|урегулирование споров|арбитраж|третейский суд|"
+            r"медиац(?:ия|ии)|мкас)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.DISPUTE_RESOLUTION,
+    ),
+
+    # ── Jurisdiction / forum / court ───────────────────────────────────────
+    (
+        re.compile(
+            r"\b(jurisdiction|competent court|courts? of|forum|venue|exclusive jurisdiction|"
+            r"подсудность|компетентный суд|суд по месту)\b",
             re.IGNORECASE,
         ),
         LegalUnitType.JURISDICTION,
     ),
+
+    # ── Appendices ─────────────────────────────────────────────────────────
     (
         re.compile(
             r"\b(appendix|annex|exhibit|schedule|attachment|"
@@ -112,6 +167,20 @@ _TITLE_TYPE_PATTERNS: list[tuple[re.Pattern, LegalUnitType]] = [
         ),
         LegalUnitType.APPENDIX_REFERENCE,
     ),
+
+    # ── Termination ────────────────────────────────────────────────────────
+    (
+        re.compile(
+            r"\b(terminat(e|ion)|rescind|rescission|termination for cause|"
+            r"right to terminate|termination notice|"
+            r"расторжени[еяй]|прекращени[еяй] договора|"
+            r"право расторжения|уведомление о расторжении)\b",
+            re.IGNORECASE,
+        ),
+        LegalUnitType.TERMINATION_PROVISION,
+    ),
+
+    # ── Generic obligations — only after specific categories ──────────────
     (
         re.compile(
             r"\b(obligation[s]?|undertaking|covenant|duty|duties|"
@@ -318,6 +387,24 @@ def _classify_unit_type(
         return LegalUnitType.WARRANTY
     if normalized_semantic_node_type in {"notice"}:
         return LegalUnitType.NOTICE
+    if normalized_semantic_node_type in {"governing_law", "choice_of_law"}:
+        return LegalUnitType.GOVERNING_LAW
+    if normalized_semantic_node_type in {"jurisdiction", "forum"}:
+        return LegalUnitType.JURISDICTION
+    if normalized_semantic_node_type in {"dispute_resolution", "arbitration", "mediation"}:
+        return LegalUnitType.DISPUTE_RESOLUTION
+    if normalized_semantic_node_type in {"confidentiality", "non_disclosure"}:
+        return LegalUnitType.CONFIDENTIALITY
+    if normalized_semantic_node_type in {"indemnification", "indemnity"}:
+        return LegalUnitType.INDEMNIFICATION
+    if normalized_semantic_node_type in {"termination", "termination_provision"}:
+        return LegalUnitType.TERMINATION_PROVISION
+    if normalized_semantic_node_type in {
+        "liability",
+        "liability_provision",
+        "limitation_of_liability",
+    }:
+        return LegalUnitType.LIABILITY_PROVISION
 
     for pattern, unit_type in _TITLE_TYPE_PATTERNS:
         if pattern.search(title):
@@ -363,8 +450,15 @@ def _classify_clause_function(
         LegalUnitType.JURISDICTION: ClauseFunction.BOILERPLATE,
         LegalUnitType.NOTICE: ClauseFunction.BOILERPLATE,
         LegalUnitType.APPENDIX_REFERENCE: ClauseFunction.BOILERPLATE,
+        LegalUnitType.DISPUTE_RESOLUTION: ClauseFunction.BOILERPLATE,
+
         LegalUnitType.OBLIGATION: ClauseFunction.OBLIGATIONS,
         LegalUnitType.PAYMENT_TERM: ClauseFunction.OBLIGATIONS,
+        LegalUnitType.CONFIDENTIALITY: ClauseFunction.OBLIGATIONS,
+
+        LegalUnitType.INDEMNIFICATION: ClauseFunction.REMEDIES,
+        LegalUnitType.TERMINATION_PROVISION: ClauseFunction.PROCEDURES,
+        LegalUnitType.LIABILITY_PROVISION: ClauseFunction.LIMITATIONS,
     }
 
     if unit_type in _type_to_function:

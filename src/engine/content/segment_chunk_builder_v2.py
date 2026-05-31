@@ -60,8 +60,14 @@ from services.structure._models._analysis import RecommendedChunkingMode
 from services.structure.chunk_planner import FileChunkPlan
 from services.structure.legal_unit_builder import LegalUnitBuilder
 from services.structure.legal_unit_models import LegalUnitsSnapshot
+from services.structure.semantic_enrichment import (
+    enrich_legal_units,
+    make_policy_from_settings,
+)
+from services.structure.semantic_enrichment._types import LegalUnitsEnrichmentResult
 from storage.artifact_store import ArtifactStore
 from engine.content.layout_fallback_chunker import build_layout_fallback_chunks
+from core.config import settings as _app_settings
 
 
 logger = get_logger(__name__)
@@ -319,6 +325,12 @@ class SegmentChunkSnapshotV2:
     # None если legal unit builder был отключён или упал с ошибкой.
     # Это НЕ ломает основной chunk pipeline — всегда опциональный.
     legal_units_snapshot: LegalUnitsSnapshot | None = None
+    # ── Phase 12: semantic enrichment sidecar (опциональный) ─────────────────
+    # None если LLM недоступна, не сконфигурирована или упала с ошибкой.
+    # Это НЕ ломает основной chunk pipeline — всегда опциональный.
+    # Сохраняется worker-ом в MinIO как legal_units_enrichment_v1.json.
+    # Ссылка пишется в DocumentSegment.segment_meta["legal_units_enrichment_ref"].
+    legal_units_enrichment_result: LegalUnitsEnrichmentResult | None = None
     # ── Phase 10: planning metadata ─────────────────────────────────────────
     planning: dict[str, Any] | None = None
 
@@ -366,6 +378,16 @@ class SegmentChunkSnapshotV2:
                 dict(self.planning)
                 if isinstance(self.planning, dict)
                 else None
+            ),
+            "semantic_enrichment": (
+                {
+                    "applied": True,
+                    "status_counts": self.legal_units_enrichment_result.status_counts,
+                    "policy_version": self.legal_units_enrichment_result.policy_version,
+                    "llm_model": self.legal_units_enrichment_result.llm_model,
+                }
+                if self.legal_units_enrichment_result is not None
+                else {"applied": False}
             ),
         }
 
@@ -1109,10 +1131,10 @@ class SegmentChunkBuilderV2:
             },
         )
 
-        # ── Этап 5: dual-write legal units (опциональный) ────────────────────
-        # Строим LegalUnitsSnapshot параллельно с chunk snapshot.
-        # Ошибка здесь НЕ должна ломать основной chunk pipeline.
+        # ── Этап 5 + Phase 12: legal units + semantic enrichment ─────────────
         legal_units_snapshot: LegalUnitsSnapshot | None = None
+        legal_units_enrichment_result: LegalUnitsEnrichmentResult | None = None
+
         try:
             lu_builder = LegalUnitBuilder()
             legal_units_snapshot = lu_builder.build_from_clause_tree(
@@ -1136,7 +1158,8 @@ class SegmentChunkBuilderV2:
             )
         except Exception as lu_exc:
             logger.warning(
-                "SegmentChunkBuilderV2: legal unit builder failed, continuing without legal units",
+                "SegmentChunkBuilderV2: legal unit builder failed, "
+                "continuing without legal units",
                 extra={
                     "document_id": str(document_id),
                     "document_version_id": str(document_version_id),
@@ -1144,6 +1167,38 @@ class SegmentChunkBuilderV2:
                     "error": str(lu_exc),
                 },
             )
+
+        # Phase 12: semantic enrichment поверх legal units (опционально)
+        if legal_units_snapshot is not None and _app_settings.SEMANTIC_ENRICHMENT_ENABLED:
+            try:
+                enrichment_policy = make_policy_from_settings()
+                legal_units_enrichment_result = enrich_legal_units(
+                    legal_units_snapshot,
+                    policy=enrichment_policy,
+                )
+                logger.info(
+                    "SegmentChunkBuilderV2: semantic enrichment complete",
+                    extra={
+                        "document_id": str(document_id),
+                        "document_version_id": str(document_version_id),
+                        "segment_id": segment.segment_id,
+                        "status_counts": (
+                            legal_units_enrichment_result.status_counts
+                        ),
+                        "llm_model": legal_units_enrichment_result.llm_model,
+                    },
+                )
+            except Exception as enrich_exc:
+                logger.warning(
+                    "SegmentChunkBuilderV2: semantic enrichment failed, "
+                    "continuing without enrichment",
+                    extra={
+                        "document_id": str(document_id),
+                        "document_version_id": str(document_version_id),
+                        "segment_id": segment.segment_id,
+                        "error": str(enrich_exc),
+                    },
+                )
 
         return SegmentChunkSnapshotV2(
             document_id=document_id,
@@ -1172,6 +1227,7 @@ class SegmentChunkBuilderV2:
             heading_only_leaf_nodes=heading_only_leaf_nodes,
             best_effort_leaf_nodes=best_effort_leaf_nodes,
             legal_units_snapshot=legal_units_snapshot,
+            legal_units_enrichment_result=legal_units_enrichment_result,
             planning=planning_payload,
         )
 
@@ -1464,3 +1520,5 @@ class SegmentChunkBuilderV2:
         if relative > 1.0:
             return 1.0
         return relative
+
+

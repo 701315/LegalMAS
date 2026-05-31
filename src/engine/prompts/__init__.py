@@ -1,3 +1,5 @@
+# src/engine/prompts/__init__.py
+
 """MVP PromptLoader без кэша (Stage 8)"""
 
 from pathlib import Path

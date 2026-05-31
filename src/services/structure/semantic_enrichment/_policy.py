@@ -1,0 +1,504 @@
+# src/services/semantic_enrichment/_policy.py
+
+"""
+Conservative merge-policy для semantic enrichment.
+
+Этот модуль решает главный вопрос Phase 12 / 12.1:
+"Как безопасно объединить deterministic baseline и LLM proposal?"
+
+Принципы policy:
+1. Deterministic layer — база. LLM может дополнять, но не молча заменять.
+2. Missing fields (UNKNOWN) можно заполнять при достаточной уверенности.
+3. Topic tags можно расширять add-only (не удалять rule-based теги).
+4. Override существующего unit_type / clause_function по умолчанию запрещён.
+5. Если LLM не предложила ничего значимого — status = REJECTED или NO_CHANGE.
+6. Все решения policy документируются в diagnostics для аудита.
+7. Evidence quotes проверяются на grounding:
+   если цитаты не находятся в тексте clause, доверие к proposal понижается.
+
+Tiered approach:
+- Tier A (fill missing):      confidence >= min_confidence_fill_missing
+- Tier B (add topics):        confidence >= min_confidence_add_topics
+- Tier C (override existing): confidence >= min_confidence_override_existing
+                              AND policy.allow_override_existing_type = True
+
+Безопасность:
+- Topic tags фильтруются через KNOWN_TOPICS taxonomy.
+- Неизвестные topics отклоняются и логируются.
+- Clause function может автоматически выводиться из unit_type
+  через deterministic default mapping.
+- Evidence grounding проверяется только по exact substring matching
+  внутри текста текущего unit.
+"""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+from services.structure.legal_unit_models import ClauseFunction, LegalUnit, LegalUnitType
+from services.structure.semantic_enrichment._types import (
+    LLMEnrichmentProposal,
+    LegalUnitEnrichment,
+    SemanticEnrichmentPolicy,
+    SemanticEnrichmentStatus,
+)
+from services.structure.topic_tagger import KNOWN_TOPICS
+
+_DEFAULT_TYPE_TO_FUNCTION: dict[LegalUnitType, ClauseFunction] = {
+    LegalUnitType.DEFINITION: ClauseFunction.DEFINITIONS,
+    LegalUnitType.WARRANTY: ClauseFunction.REPRESENTATIONS,
+    LegalUnitType.GOVERNING_LAW: ClauseFunction.BOILERPLATE,
+    LegalUnitType.JURISDICTION: ClauseFunction.BOILERPLATE,
+    LegalUnitType.NOTICE: ClauseFunction.BOILERPLATE,
+    LegalUnitType.APPENDIX_REFERENCE: ClauseFunction.BOILERPLATE,
+    LegalUnitType.DISPUTE_RESOLUTION: ClauseFunction.BOILERPLATE,
+
+    LegalUnitType.OBLIGATION: ClauseFunction.OBLIGATIONS,
+    LegalUnitType.PAYMENT_TERM: ClauseFunction.OBLIGATIONS,
+    LegalUnitType.CONFIDENTIALITY: ClauseFunction.OBLIGATIONS,
+
+    LegalUnitType.INDEMNIFICATION: ClauseFunction.REMEDIES,
+    LegalUnitType.TERMINATION_PROVISION: ClauseFunction.PROCEDURES,
+    LegalUnitType.LIABILITY_PROVISION: ClauseFunction.LIMITATIONS,
+}
+
+
+def _normalize_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _get_unit_text(unit: LegalUnit) -> str:
+    return _normalize_text(unit.own_text or unit.subtree_text or "")
+
+
+def _normalize_topic_name(value: Any) -> str:
+    text = _normalize_text(value).lower()
+    if not text:
+        return ""
+    text = re.sub(r"[^a-z0-9_ ]+", "_", text)
+    text = re.sub(r"\s+", "_", text)
+    text = re.sub(r"_+", "_", text)
+    return text.strip("_")
+
+
+def _normalize_topics(
+    topics: list[str],
+    *,
+    max_topics: int,
+) -> tuple[list[str], list[str]]:
+    accepted: list[str] = []
+    rejected: list[str] = []
+    seen: set[str] = set()
+
+    for raw_topic in topics:
+        normalized = _normalize_topic_name(raw_topic)
+        if not normalized:
+            continue
+        if normalized not in KNOWN_TOPICS:
+            rejected.append(normalized)
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        accepted.append(normalized)
+
+    accepted = accepted[:max_topics]
+    rejected = sorted(set(rejected))
+    return accepted, rejected
+
+
+def _default_clause_function_for_type(unit_type: LegalUnitType) -> ClauseFunction:
+    return _DEFAULT_TYPE_TO_FUNCTION.get(unit_type, ClauseFunction.UNKNOWN)
+
+
+def _verify_evidence_grounding(
+    evidence_quotes: list[str],
+    unit_text: str,
+) -> tuple[list[str], list[str], float]:
+    """
+    Проверяет что evidence quotes реально присутствуют в тексте unit.
+
+    Возвращает:
+    - grounded_quotes: цитаты найденные в тексте
+    - ungrounded_quotes: цитаты НЕ найденные в тексте
+    - grounding_ratio: доля подтверждённых цитат [0.0..1.0]
+    """
+    if not evidence_quotes:
+        return [], [], 0.0
+
+    normalized_text = unit_text.lower().strip()
+    grounded: list[str] = []
+    ungrounded: list[str] = []
+
+    for quote in evidence_quotes:
+        normalized_quote = quote.lower().strip()
+        if not normalized_quote:
+            continue
+        if normalized_quote in normalized_text:
+            grounded.append(quote)
+        else:
+            ungrounded.append(quote)
+
+    total = len(grounded) + len(ungrounded)
+    ratio = len(grounded) / total if total > 0 else 0.0
+
+    return grounded, ungrounded, round(ratio, 3)
+
+
+def _base_enrichment(
+    unit: LegalUnit,
+    *,
+    status: SemanticEnrichmentStatus,
+    decision_reason: str,
+    policy_version: str,
+    llm_proposal: LLMEnrichmentProposal | None = None,
+    diagnostics: dict[str, Any] | None = None,
+) -> LegalUnitEnrichment:
+    merged_diagnostics = {
+        "policy_version": policy_version,
+        **dict(diagnostics or {}),
+    }
+
+    return LegalUnitEnrichment(
+        unit_id=unit.unit_id,
+        status=status,
+        base_unit_type=unit.unit_type,
+        base_clause_function=unit.clause_function,
+        base_topic_tags=list(unit.topic_tags),
+        effective_unit_type=unit.unit_type,
+        effective_clause_function=unit.clause_function,
+        effective_topic_tags=list(unit.topic_tags),
+        applied_fields=[],
+        llm_proposal=llm_proposal,
+        decision_reason=decision_reason,
+        diagnostics=merged_diagnostics,
+    )
+
+
+def is_unit_eligible_for_enrichment(
+    unit: LegalUnit,
+    *,
+    policy: SemanticEnrichmentPolicy,
+) -> tuple[bool, str | None]:
+    """
+    Проверяет, стоит ли отправлять LegalUnit в LLM enrichment.
+
+    Quality-first, но безопасно:
+    - technical fallback исключаем;
+    - heading-only исключаем;
+    - пустой/слишком короткий текст исключаем.
+    """
+    if not unit.unit_id:
+        return False, "missing_unit_id"
+
+    if policy.skip_technical_fallback_units and unit.is_technical_fallback:
+        return False, "technical_fallback"
+
+    if policy.skip_heading_only_units and unit.is_heading_only:
+        return False, "heading_only"
+
+    text = _get_unit_text(unit)
+    if len(text) < policy.min_text_chars:
+        return False, "text_too_short"
+
+    return True, None
+
+
+def build_skipped_enrichment(
+    unit: LegalUnit,
+    *,
+    policy: SemanticEnrichmentPolicy,
+    reason: str,
+    diagnostics: dict[str, Any] | None = None,
+) -> LegalUnitEnrichment:
+    return _base_enrichment(
+        unit,
+        status=SemanticEnrichmentStatus.SKIPPED,
+        decision_reason=reason,
+        policy_version=policy.policy_version,
+        diagnostics=diagnostics,
+    )
+
+
+def build_failed_enrichment(
+    unit: LegalUnit,
+    *,
+    policy: SemanticEnrichmentPolicy,
+    reason: str,
+    llm_proposal: LLMEnrichmentProposal | None = None,
+    diagnostics: dict[str, Any] | None = None,
+) -> LegalUnitEnrichment:
+    return _base_enrichment(
+        unit,
+        status=SemanticEnrichmentStatus.FAILED,
+        decision_reason=reason,
+        policy_version=policy.policy_version,
+        llm_proposal=llm_proposal,
+        diagnostics=diagnostics,
+    )
+
+
+def apply_enrichment_policy(
+    unit: LegalUnit,
+    *,
+    proposal: LLMEnrichmentProposal,
+    policy: SemanticEnrichmentPolicy,
+) -> LegalUnitEnrichment:
+    """
+    Применяет conservative merge-policy к LLM proposal.
+
+    Правила:
+    - missing fields можно заполнять при достаточной уверенности;
+    - topic_tags можно расширять add-only;
+    - override существующего unit_type / clause_function по умолчанию запрещён;
+    - evidence grounding понижает effective confidence если цитаты
+      не подтверждаются текстом;
+    - если policy не приняла ни одно изменение, enrichment становится REJECTED
+      или NO_CHANGE.
+    """
+    base_unit_type = unit.unit_type
+    base_clause_function = unit.clause_function
+    base_topics = list(unit.topic_tags)
+
+    effective_unit_type = base_unit_type
+    effective_clause_function = base_clause_function
+    effective_topics = list(base_topics)
+
+    applied_fields: list[str] = []
+    notes: list[str] = []
+
+    confidence = round(max(0.0, min(1.0, float(proposal.confidence or 0.0))), 3)
+
+    suggested_unit_type = proposal.suggested_unit_type
+    suggested_clause_function = proposal.suggested_clause_function
+
+    normalized_topics, rejected_topics = _normalize_topics(
+        proposal.suggested_topics,
+        max_topics=policy.max_topics_from_llm,
+    )
+
+    # ── Evidence grounding ────────────────────────────────────────────────
+    unit_text = _get_unit_text(unit)
+    evidence_quotes = list(proposal.evidence_quotes or [])
+
+    grounded_quotes, ungrounded_quotes, grounding_ratio = _verify_evidence_grounding(
+        evidence_quotes,
+        unit_text,
+    )
+
+    if evidence_quotes and grounding_ratio < 0.5:
+        confidence = round(confidence * 0.7, 3)
+        notes.append("low_evidence_grounding")
+
+    has_meaningful_suggestion = False
+
+    if suggested_unit_type is not None and suggested_unit_type != LegalUnitType.UNKNOWN:
+        has_meaningful_suggestion = True
+
+        if base_unit_type == LegalUnitType.UNKNOWN:
+            if confidence >= policy.min_confidence_fill_missing:
+                effective_unit_type = suggested_unit_type
+                applied_fields.append("unit_type")
+            else:
+                notes.append("unit_type_below_fill_threshold")
+        elif base_unit_type != suggested_unit_type:
+            if (
+                policy.allow_override_existing_type
+                and confidence >= policy.min_confidence_override_existing
+            ):
+                effective_unit_type = suggested_unit_type
+                applied_fields.append("unit_type_override")
+            else:
+                notes.append("unit_type_override_rejected")
+
+    if suggested_clause_function is not None and suggested_clause_function != ClauseFunction.UNKNOWN:
+        has_meaningful_suggestion = True
+
+        if base_clause_function == ClauseFunction.UNKNOWN:
+            if confidence >= policy.min_confidence_fill_missing:
+                effective_clause_function = suggested_clause_function
+                applied_fields.append("clause_function")
+            else:
+                notes.append("clause_function_below_fill_threshold")
+        elif base_clause_function != suggested_clause_function:
+            if (
+                policy.allow_override_existing_clause_function
+                and confidence >= policy.min_confidence_override_existing
+            ):
+                effective_clause_function = suggested_clause_function
+                applied_fields.append("clause_function_override")
+            else:
+                notes.append("clause_function_override_rejected")
+
+    if normalized_topics:
+        has_meaningful_suggestion = True
+
+        if confidence >= policy.min_confidence_add_topics:
+            if not base_topics:
+                effective_topics = list(normalized_topics)
+                applied_fields.append("topic_tags")
+            elif policy.allow_add_topics_to_existing:
+                additions = sorted(
+                    topic for topic in normalized_topics
+                    if topic not in set(base_topics)
+                )
+                if additions:
+                    effective_topics = list(base_topics) + additions
+                    applied_fields.append("topic_tags")
+            else:
+                notes.append("topic_addition_disabled")
+        else:
+            notes.append("topics_below_add_threshold")
+
+    if rejected_topics:
+        notes.append("some_topics_rejected_by_taxonomy")
+
+    # Если unit_type уже применился, а clause_function всё ещё UNKNOWN,
+    # можно безопасно вывести default mapping.
+    if (
+        effective_clause_function == ClauseFunction.UNKNOWN
+        and effective_unit_type != LegalUnitType.UNKNOWN
+    ):
+        derived_function = _default_clause_function_for_type(effective_unit_type)
+        if derived_function != ClauseFunction.UNKNOWN:
+            effective_clause_function = derived_function
+            if (
+                "clause_function" not in applied_fields
+                and "clause_function_override" not in applied_fields
+            ):
+                applied_fields.append("clause_function")
+
+    diagnostics = {
+        "policy_version": policy.policy_version,
+        "llm_confidence": confidence,
+        "normalized_topics": list(normalized_topics),
+        "rejected_topics": list(rejected_topics),
+        "notes": list(notes),
+        "reasoning_excerpt": _normalize_text(proposal.reasoning)[: policy.max_reasoning_chars],
+        "evidence_quotes": list(evidence_quotes),
+        "grounded_evidence_quotes": list(grounded_quotes),
+        "ungrounded_evidence_quotes": list(ungrounded_quotes),
+        "evidence_grounding_ratio": grounding_ratio,
+    }
+
+    if applied_fields:
+        return LegalUnitEnrichment(
+            unit_id=unit.unit_id,
+            status=SemanticEnrichmentStatus.APPLIED,
+            base_unit_type=base_unit_type,
+            base_clause_function=base_clause_function,
+            base_topic_tags=list(base_topics),
+            effective_unit_type=effective_unit_type,
+            effective_clause_function=effective_clause_function,
+            effective_topic_tags=list(effective_topics),
+            applied_fields=list(dict.fromkeys(applied_fields)),
+            llm_proposal=proposal,
+            decision_reason="fields_applied",
+            diagnostics=diagnostics,
+        )
+
+    if not has_meaningful_suggestion:
+        return LegalUnitEnrichment(
+            unit_id=unit.unit_id,
+            status=SemanticEnrichmentStatus.REJECTED,
+            base_unit_type=base_unit_type,
+            base_clause_function=base_clause_function,
+            base_topic_tags=list(base_topics),
+            effective_unit_type=base_unit_type,
+            effective_clause_function=base_clause_function,
+            effective_topic_tags=list(base_topics),
+            applied_fields=[],
+            llm_proposal=proposal,
+            decision_reason="empty_or_unknown_proposal",
+            diagnostics=diagnostics,
+        )
+
+    proposal_matches_base = (
+        (suggested_unit_type is None or suggested_unit_type == base_unit_type)
+        and (
+            suggested_clause_function is None
+            or suggested_clause_function == base_clause_function
+        )
+        and (not normalized_topics or set(normalized_topics).issubset(set(base_topics)))
+    )
+
+    if proposal_matches_base:
+        return LegalUnitEnrichment(
+            unit_id=unit.unit_id,
+            status=SemanticEnrichmentStatus.NO_CHANGE,
+            base_unit_type=base_unit_type,
+            base_clause_function=base_clause_function,
+            base_topic_tags=list(base_topics),
+            effective_unit_type=base_unit_type,
+            effective_clause_function=base_clause_function,
+            effective_topic_tags=list(base_topics),
+            applied_fields=[],
+            llm_proposal=proposal,
+            decision_reason="proposal_matches_base",
+            diagnostics=diagnostics,
+        )
+
+    return LegalUnitEnrichment(
+        unit_id=unit.unit_id,
+        status=SemanticEnrichmentStatus.REJECTED,
+        base_unit_type=base_unit_type,
+        base_clause_function=base_clause_function,
+        base_topic_tags=list(base_topics),
+        effective_unit_type=base_unit_type,
+        effective_clause_function=base_clause_function,
+        effective_topic_tags=list(base_topics),
+        applied_fields=[],
+        llm_proposal=proposal,
+        decision_reason="policy_rejected",
+        diagnostics=diagnostics,
+    )
+
+
+def make_policy_from_settings() -> SemanticEnrichmentPolicy:
+    """
+    Создаёт SemanticEnrichmentPolicy из runtime settings.
+
+    Позволяет настраивать поведение enrichment без правки кода:
+    - SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL
+    - SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_TOPICS
+    - SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_OVERRIDE
+    - SEMANTIC_ENRICHMENT_ALLOW_OVERRIDE_TYPE
+    - SEMANTIC_ENRICHMENT_ALLOW_OVERRIDE_FUNCTION
+    - SEMANTIC_ENRICHMENT_ALLOW_ADD_TOPICS
+    - SEMANTIC_ENRICHMENT_MAX_TOPICS_FROM_LLM
+    - SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS
+    """
+    try:
+        from core.config import settings
+
+        return SemanticEnrichmentPolicy(
+            min_confidence_fill_missing=float(
+                getattr(settings, "SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL", 0.72)
+            ),
+            min_confidence_add_topics=float(
+                getattr(settings, "SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_TOPICS", 0.72)
+            ),
+            min_confidence_override_existing=float(
+                getattr(settings, "SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_OVERRIDE", 0.92)
+            ),
+            allow_override_existing_type=bool(
+                getattr(settings, "SEMANTIC_ENRICHMENT_ALLOW_OVERRIDE_TYPE", False)
+            ),
+            allow_override_existing_clause_function=bool(
+                getattr(settings, "SEMANTIC_ENRICHMENT_ALLOW_OVERRIDE_FUNCTION", False)
+            ),
+            allow_add_topics_to_existing=bool(
+                getattr(settings, "SEMANTIC_ENRICHMENT_ALLOW_ADD_TOPICS", True)
+            ),
+            max_topics_from_llm=int(
+                getattr(settings, "SEMANTIC_ENRICHMENT_MAX_TOPICS_FROM_LLM", 8)
+            ),
+            min_text_chars=int(
+                getattr(settings, "SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS", 40)
+            ),
+        )
+    except Exception:
+        return SemanticEnrichmentPolicy()
+    
+    

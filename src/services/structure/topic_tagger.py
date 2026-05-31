@@ -690,6 +690,13 @@ class TopicTagger:
             LegalUnitType.GOVERNING_LAW: ["governing_law"],
             LegalUnitType.JURISDICTION: ["jurisdiction"],
             LegalUnitType.APPENDIX_REFERENCE: ["appendix_reference"],
+
+            LegalUnitType.CONFIDENTIALITY: ["confidentiality"],
+            LegalUnitType.INDEMNIFICATION: ["indemnification"],
+            LegalUnitType.DISPUTE_RESOLUTION: ["dispute_resolution"],
+            LegalUnitType.TERMINATION_PROVISION: ["termination"],
+            LegalUnitType.LIABILITY_PROVISION: ["liability"],
+
             LegalUnitType.GENERAL_PROVISION: [],
             LegalUnitType.UNKNOWN: [],
         }
