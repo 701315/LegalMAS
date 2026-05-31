@@ -19,15 +19,15 @@ Orchestrator для semantic enrichment всех LegalUnit в snapshot.
 - Stateless: можно безопасно запускать параллельно для разных сегментов.
 - Deterministic baseline никогда не мутируется — результат в sidecar.
 
-Вызывается как postbuild layer:
-    snapshot = LegalUnitBuilder().build_from_clause_tree(...)
-    enrichment_result = enrich_legal_units(snapshot, policy=policy)
-    effective_units = project_enriched_units(snapshot, enrichment_result)
+Phase 13.1 — Telemetry:
+- enrich_legal_units() принимает опциональный collector;
+- если collector передан — emit EnrichmentCompletedEvent после обхода;
+- failure-isolated: ошибка emit не ломает enrichment pipeline.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from core.logging import get_logger
 from services.structure.legal_unit_models import LegalUnit, LegalUnitsSnapshot
@@ -53,6 +53,9 @@ from services.structure.semantic_enrichment._types import (
 )
 from services.structure.semantic_enrichment._validator import parse_llm_enrichment_response
 
+if TYPE_CHECKING:
+    from services.telemetry._collector import TelemetryCollector
+
 logger = get_logger(__name__)
 
 
@@ -77,6 +80,49 @@ def _resolve_llm_info() -> tuple[str | None, str | None]:
         return provider, model
     except Exception:
         return None, None
+
+
+def _emit_enrichment_telemetry(
+    collector: "TelemetryCollector",
+    result: LegalUnitsEnrichmentResult,
+    *,
+    llm_unavailable: bool,
+) -> None:
+    """
+    Phase 13.1: emit EnrichmentCompletedEvent в collector.
+
+    Failure-isolated: любая ошибка логируется и игнорируется.
+    Вынесено в отдельную функцию для чистоты enrich_legal_units().
+    """
+    try:
+        from services.telemetry._events import EnrichmentCompletedEvent
+
+        status_counts = result.status_counts
+        total_units = len(result.enrichments)
+        applied = status_counts.get("applied", 0)
+
+        collector.emit(EnrichmentCompletedEvent(
+            document_id=result.document_id,
+            segment_id=result.segment_id,
+            total_units=total_units,
+            applied_count=applied,
+            rejected_count=status_counts.get("rejected", 0),
+            skipped_count=status_counts.get("skipped", 0),
+            failed_count=status_counts.get("failed", 0),
+            applied_ratio=(
+                round(applied / total_units, 4) if total_units > 0 else 0.0
+            ),
+            llm_provider=result.llm_provider,
+            llm_model=result.llm_model,
+            policy_version=result.policy_version,
+            llm_unavailable=llm_unavailable,
+        ))
+    except Exception as exc:
+        logger.warning(
+            "TELEMETRY enrichment_emit_failed",
+            document_id=result.document_id,
+            error=str(exc),
+        )
 
 
 def enrich_single_unit(
@@ -190,6 +236,7 @@ def enrich_legal_units(
     snapshot: LegalUnitsSnapshot,
     *,
     policy: SemanticEnrichmentPolicy | None = None,
+    collector: "TelemetryCollector | None" = None,
 ) -> LegalUnitsEnrichmentResult:
     """
     Обогащает все LegalUnit в snapshot через LLM.
@@ -201,6 +248,10 @@ def enrich_legal_units(
       с reason="llm_unavailable", без попыток вызова.
     - Это предотвращает N бесполезных попыток вызова LLM
       при некорректной конфигурации.
+
+    Phase 13.1:
+    - если передан collector → emit EnrichmentCompletedEvent по завершении;
+    - failure-isolated: ошибка emit не ломает enrichment.
 
     Возвращает sidecar artifact (LegalUnitsEnrichmentResult),
     который не заменяет snapshot, а дополняет его.
@@ -228,9 +279,7 @@ def enrich_legal_units(
     if not units:
         return result
 
-    # ── Preflight Gate ────────────────────────────────────────────────
-    # Проверяем доступность LLM один раз перед обходом всех units.
-    # Если LLM недоступна — пропускаем enrichment для всего сегмента.
+    # ── Preflight Gate ────────────────────────────────────────────────────
     llm_available = is_semantic_enrichment_llm_available()
 
     if not llm_available:
@@ -252,8 +301,17 @@ def enrich_legal_units(
                     reason="llm_unavailable",
                 )
             )
+
+        # ── Phase 13.1: telemetry ─────────────────────────────────────────
+        if collector is not None:
+            _emit_enrichment_telemetry(
+                collector=collector,
+                result=result,
+                llm_unavailable=True,
+            )
+
         return result
-    # ── End Preflight Gate ────────────────────────────────────────────
+    # ── End Preflight Gate ────────────────────────────────────────────────
 
     logger.info(
         "STRUCTURE semantic_enrichment_start",
@@ -309,5 +367,14 @@ def enrich_legal_units(
         },
     )
 
+    # ── Phase 13.1: telemetry ─────────────────────────────────────────────
+    if collector is not None:
+        _emit_enrichment_telemetry(
+            collector=collector,
+            result=result,
+            llm_unavailable=False,
+        )
+
     return result
+
 

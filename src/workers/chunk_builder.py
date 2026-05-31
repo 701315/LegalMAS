@@ -281,6 +281,12 @@ async def _build_chunks_v2_async(
     tenant_uuid = uuid.UUID(tenant_id)
     deal_uuid = uuid.UUID(deal_id)
 
+    # ── Phase 13.1: Telemetry collector для этого документа ──────────────────
+    from services.telemetry._collector import TelemetryCollector
+    from services.telemetry._events import ChunkingCompletedEvent
+
+    telemetry_collector = TelemetryCollector(document_id=str(d_id))
+
     if stage_execution_id:
         try:
             await dse_repo.mark_started(uuid.UUID(stage_execution_id))
@@ -334,6 +340,7 @@ async def _build_chunks_v2_async(
             target_tokens=300,
             max_tokens=800,
             overlap_ratio=0.15,
+            collector=telemetry_collector,
         )
     except PermanentError:
         raise
@@ -429,6 +436,29 @@ async def _build_chunks_v2_async(
         subclause_chunks = snapshot_chunks.get("subclause", []) or []
 
         snapshot_chunk_count = len(section_chunks) + len(clause_chunks) + len(subclause_chunks)
+
+        # ── Phase 13.1: emit ChunkingCompletedEvent per segment ──────────────
+        try:
+            telemetry_collector.emit(ChunkingCompletedEvent(
+                document_id=str(doc.id),
+                segment_id=snapshot.segment_id,
+                total_chunks=snapshot_chunk_count,
+                section_chunks=len(section_chunks),
+                clause_chunks=len(clause_chunks),
+                subclause_chunks=len(subclause_chunks),
+                chunking_mode=(
+                    (snapshot.planning or {}).get("mode") or "unknown"
+                ),
+                retrieval_recommended_action="proceed",  # уточняется ниже
+            ))
+        except Exception as _tel_exc:
+            logger.debug(
+                "Chunk builder: telemetry ChunkingCompletedEvent failed (non-critical)",
+                document_id=str(doc.id),
+                segment_id=snapshot.segment_id,
+                error=str(_tel_exc),
+            )
+
         chunk_count_total += snapshot_chunk_count
 
         chunk_path = ArtifactPath.segment_chunks(
@@ -725,6 +755,35 @@ async def _build_chunks_v2_async(
 
     duration = round(time.time() - start, 2)
 
+    # ── Phase 13.1 + 13.2: telemetry summary — строим ДО audit log ───────────
+    # doc_summary нужен в audit details, поэтому строим его первым.
+    doc_summary = None
+    try:
+        doc_summary = telemetry_collector.build_document_summary()
+        logger.info(
+            "TELEMETRY document_processed",
+            document_id=str(doc.id),
+            document_version_id=str(v_id),
+            total_segments=doc_summary.total_segments,
+            total_chunks=doc_summary.total_chunks,
+            total_units=doc_summary.total_units,
+            avg_orphan_ratio=doc_summary.avg_orphan_ratio,
+            avg_retrieval_safety_score=doc_summary.avg_retrieval_safety_score,
+            enrichment_applied_count=doc_summary.enrichment_applied_count,
+            enrichment_failed_count=doc_summary.enrichment_failed_count,
+            enrichment_llm_unavailable=doc_summary.enrichment_llm_unavailable,
+            overall_retrieval_safe=doc_summary.overall_retrieval_safe,
+            recommended_action=doc_summary.recommended_action,
+            elapsed_ms=doc_summary.elapsed_ms,
+        )
+    except Exception as _tel_exc:
+        logger.debug(
+            "Chunk builder: telemetry summary failed (non-critical)",
+            document_id=str(doc.id),
+            error=str(_tel_exc),
+        )
+
+    # ── CHUNK_BUILD_COMPLETED audit — после summary, т.к. включает его ───────
     try:
         await audit_repo.log(
             tenant_id=tenant_uuid,
@@ -742,12 +801,16 @@ async def _build_chunks_v2_async(
                 "duration_seconds": duration,
                 "run_id": run_id,
                 # ── Этап 5 ───────────────────────────────────────────────────
-                # Сколько сегментов получили legal units artifact.
-                # Если 0 — builder упал или отключён, это не ошибка.
                 "legal_units_saved_count": legal_units_saved_count,
                 "legal_units_refs": legal_units_refs,
                 "enrichment_saved_count": enrichment_saved_count,
                 "enrichment_refs": enrichment_refs,
+                # ── Phase 13.2: telemetry summary для future temporal drift ──
+                # Сохраняем всегда — даже если drift alerts нет.
+                # Это накапливает historical baseline для следующего уровня.
+                "telemetry_summary": (
+                    doc_summary.to_dict() if doc_summary is not None else None
+                ),
             },
         )
     except Exception:
@@ -758,6 +821,68 @@ async def _build_chunks_v2_async(
             stage_execution_id=stage_execution_id,
         )
 
+    # ── Phase 13.2: Drift Detection — один раз, после всех сегментов ─────────
+    # Запускается только если telemetry summary успешно построен.
+    # Non-blocking: любая ошибка логируется и игнорируется.
+    if doc_summary is not None:
+        try:
+            from services.telemetry._drift import DriftDetector
+
+            drift_detector = DriftDetector()
+            drift_report = drift_detector.check(doc_summary)
+
+            if drift_report.has_alerts:
+                logger.warning(
+                    "DRIFT processing_degradation_detected",
+                    document_id=str(doc.id),
+                    document_version_id=str(v_id),
+                    has_critical=drift_report.has_critical,
+                    alert_count=drift_report.alert_count,
+                    critical_count=drift_report.critical_count,
+                    warning_count=drift_report.warning_count,
+                    alerts=[a.to_dict() for a in drift_report.alerts],
+                )
+
+                # Persist drift alert — отдельный UoW, т.к. основной uow
+                # уже закрыт после commit выше.
+                try:
+                    async with db_uow() as uow_drift:
+                        drift_audit_repo = AuditRepository(uow_drift.session)
+                        await drift_audit_repo.log(
+                            tenant_id=tenant_uuid,
+                            deal_id=deal_uuid,
+                            action="PROCESSING_DEGRADATION_ALERT",
+                            actor="system",
+                            actor_role="drift_detector",
+                            details={
+                                "document_id": str(doc.id),
+                                "document_version_id": str(v_id),
+                                "run_id": run_id,
+                                "has_critical": drift_report.has_critical,
+                                "alert_count": drift_report.alert_count,
+                                "critical_count": drift_report.critical_count,
+                                "warning_count": drift_report.warning_count,
+                                "alerts": [
+                                    a.to_dict() for a in drift_report.alerts
+                                ],
+                                "document_summary": doc_summary.to_dict(),
+                            },
+                        )
+                        await uow_drift.session.commit()
+                except Exception as _drift_audit_exc:
+                    logger.warning(
+                        "DRIFT failed to persist alert to audit log (non-critical)",
+                        document_id=str(doc.id),
+                        error=str(_drift_audit_exc),
+                    )
+
+        except Exception as _drift_exc:
+            logger.warning(
+                "DRIFT detector_failed (non-critical)",
+                document_id=str(doc.id),
+                error=str(_drift_exc),
+            )
+
     logger.info(
         "Segment chunks and file manifest v2 built and committed successfully",
         document_id=str(doc.id),
@@ -767,7 +892,6 @@ async def _build_chunks_v2_async(
         chunk_count_total=chunk_count_total,
         duration_seconds=duration,
         status=DocumentStatus.CHUNKED.value,
-        # Этап 5
         legal_units_saved_count=legal_units_saved_count,
         legal_units_count=len(legal_units_refs),
     )
@@ -781,10 +905,6 @@ async def _build_chunks_v2_async(
         "chunk_count_total": chunk_count_total,
         "duration_seconds": duration,
         "committed": True,
-        # ── Этап 5: legal units результаты ───────────────────────────────────
-        # legal_units_refs: список S3 URI для всех сохранённых legal units.
-        # legal_units_count: сколько сегментов получили legal units artifact.
-        # Оба поля могут быть пустыми если builder упал — это не ошибка.
         "legal_units_refs": legal_units_refs,
         "legal_units_count": len(legal_units_refs),
         "enrichment_refs": enrichment_refs,

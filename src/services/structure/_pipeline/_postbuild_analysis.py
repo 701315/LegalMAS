@@ -14,6 +14,11 @@ Postbuild orchestration for Phase 8 + Phase 9.
 - graceful degradation: если Phase 8 падает — Phase 9 продолжает
   без cohesion penalties;
 - если Phase 9 падает — возвращает безопасный fallback report.
+
+Phase 13.1 — Telemetry:
+- analyze_segment_tree() принимает опциональный collector;
+- если collector передан — emit QualityEvaluatedEvent после Phase 9;
+- failure-isolated: ошибка emit не ломает pipeline.
 """
 
 from __future__ import annotations
@@ -42,6 +47,7 @@ if TYPE_CHECKING:
     from services.structure.cohesion._types import SemanticCohesionGraph
     from services.structure._models._tree import ClauseTree
     from services.structure._models._result import FileStructureResult
+    from services.telemetry._collector import TelemetryCollector
 
 logger = get_logger(__name__)
 
@@ -119,8 +125,8 @@ def _build_fallback_quality_report(
         crossref_references_count=0,
         crossref_unresolved_count=0,
         crossref_unresolved_ratio=0.0,
-        fallback_fragment_nodes=0,  
-        fallback_fragment_ratio=0.0, 
+        fallback_fragment_nodes=0,
+        fallback_fragment_ratio=0.0,
     )
 
     return StructureQualityReport(
@@ -165,17 +171,67 @@ def _make_report_with_extra_warning(
     )
 
 
+def _emit_quality_telemetry(
+    collector: "TelemetryCollector",
+    quality_report: StructureQualityReport,
+    document_id: str,
+    segment_id: str | None,
+) -> None:
+    """
+    Phase 13.1: emit QualityEvaluatedEvent в collector.
+
+    Failure-isolated: любая ошибка логируется и игнорируется.
+    Вынесено в отдельную функцию для чистоты analyze_segment_tree().
+    """
+    try:
+        from services.telemetry._events import QualityEvaluatedEvent
+
+        collector.emit(QualityEvaluatedEvent(
+            document_id=document_id,
+            segment_id=segment_id,
+            retrieval_safety_score=quality_report.retrieval_safety_score,
+            retrieval_safe=quality_report.retrieval_safe,
+            recommended_chunking_mode=(
+                quality_report.recommended_chunking_mode.value
+            ),
+            warnings_count=len(quality_report.warnings),
+            critical_warnings_count=sum(
+                1 for w in quality_report.warnings
+                if w.severity == WarningSeverity.CRITICAL
+            ),
+            cohesion_available=quality_report.cohesion_metrics.available,
+            cohesion_avg_score=(
+                quality_report.cohesion_metrics.avg_score
+                if quality_report.cohesion_metrics.available else None
+            ),
+            fallback_fragment_ratio=(
+                quality_report.structure_metrics.fallback_fragment_ratio
+            ),
+        ))
+    except Exception as exc:
+        logger.warning(
+            "TELEMETRY postbuild_emit_quality_failed",
+            document_id=document_id,
+            segment_id=segment_id,
+            error=str(exc),
+        )
+
+
 def analyze_segment_tree(
     tree: "ClauseTree",
     *,
     thresholds: QualityThresholds | None = None,
     sliding_window: int = 5,
     crossref_neighborhood: int = 2,
+    collector: "TelemetryCollector | None" = None,
 ) -> SegmentAnalysisArtifacts:
     """
     Анализирует один ClauseTree:
     - Phase 8 → SemanticCohesionGraph
     - Phase 9 → StructureQualityReport
+
+    Phase 13.1:
+    - если передан collector → emit QualityEvaluatedEvent после Phase 9.
     """
     effective_thresholds = thresholds or QualityThresholds()
 
@@ -262,6 +318,15 @@ def analyze_segment_tree(
             ),
         )
 
+    # ── Phase 13.1: Telemetry ─────────────────────────────────────────────
+    if collector is not None:
+        _emit_quality_telemetry(
+            collector=collector,
+            quality_report=quality_report,
+            document_id=document_id,
+            segment_id=segment_id,
+        )
+
     logger.info(
         "STRUCTURE postbuild_segment_analysis_complete",
         extra={
@@ -289,12 +354,16 @@ def analyze_file_structure(
     thresholds: QualityThresholds | None = None,
     sliding_window: int = 5,
     crossref_neighborhood: int = 2,
+    collector: "TelemetryCollector | None" = None,
 ) -> FileStructureAnalysisResult:
     """
     Анализирует FileStructureResult целиком по всем segment trees.
 
     Для каждого segment tree запускает Phase 8 + Phase 9.
     Если segment_trees пусто — анализирует primary_tree.
+
+    Phase 13.1:
+    - если передан collector → передаётся в каждый analyze_segment_tree().
     """
     if file_structure is None:
         raise ValueError("file_structure must not be None")
@@ -315,6 +384,7 @@ def analyze_file_structure(
                 thresholds=thresholds,
                 sliding_window=sliding_window,
                 crossref_neighborhood=crossref_neighborhood,
+                collector=collector,
             )
         )
 
@@ -322,5 +392,7 @@ def analyze_file_structure(
         file_structure=file_structure,
         segment_artifacts=tuple(artifacts),
     )
+
+
 
 

@@ -15,7 +15,10 @@ Core builder: один сегмент -> ClauseTree.
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from services.telemetry._collector import TelemetryCollector
 
 from core.logging import get_logger
 from services.structure.crossrefs import (
@@ -823,6 +826,89 @@ def _build_early_fallback_quality_diagnostics(reason: str) -> dict[str, Any]:
     }
 
 
+def _emit_structure_built_telemetry(
+    collector: "TelemetryCollector",
+    *,
+    document_id: str,
+    segment_id: str | None,
+    assessment: Any,
+    gate_decision: Any,
+    recovery_audit: Any,
+    resolution_audit: Any,
+    root_nodes: list,
+    nodes: dict,
+    headings: list,
+    elapsed_ms: float,
+) -> None:
+    """
+    Phase 13.2: emit StructureBuiltEvent в collector.
+
+    Failure-isolated: любая ошибка логируется и игнорируется.
+    Вынесено в отдельную функцию для чистоты build_single_segment_tree().
+    """
+    try:
+        from services.telemetry._events import StructureBuiltEvent
+
+        orphans_detected = _safe_int(
+            getattr(recovery_audit, "orphans_detected", 0)
+        )
+        orphans_unresolved = _safe_int(
+            getattr(recovery_audit, "orphans_unresolved", 0)
+        )
+        headings_count = len(headings)
+        orphan_ratio = (
+            min(1.0, orphans_unresolved / max(1, headings_count))
+            if headings_count > 0 else 0.0
+        )
+
+        # grammar_violation_ratio берём из grammar_consistency компонента
+        # assessment, а не из tree_consistency_confidence (это score, не ratio).
+        grammar_violation_ratio = _safe_float(
+            getattr(
+                getattr(assessment, "grammar_consistency", None),
+                "violation_ratio",
+                0.0,
+            )
+        )
+
+        rewrite_ratio: float | None = None
+        if resolution_audit is not None:
+            raw_rr = getattr(resolution_audit, "rewrite_ratio", None)
+            if raw_rr is not None:
+                rewrite_ratio = round(_safe_float(raw_rr), 4)
+
+        collector.emit(StructureBuiltEvent(
+            document_id=document_id,
+            segment_id=segment_id,
+            elapsed_ms=elapsed_ms,
+            total_nodes=len(nodes),
+            root_nodes_count=len(root_nodes),
+            headings_count=headings_count,
+            orphans_detected=orphans_detected,
+            orphans_unresolved=orphans_unresolved,
+            orphan_ratio=round(min(1.0, max(0.0, orphan_ratio)), 4),
+            grammar_violation_ratio=round(
+                min(1.0, max(0.0, grammar_violation_ratio)), 4
+            ),
+            rewrite_ratio=rewrite_ratio,
+            overall_score=round(_safe_float(
+                getattr(assessment, "overall_score", 0.0)
+            ), 4),
+            retrieval_safe_phase5=_safe_bool(
+                getattr(assessment, "retrieval_safe", False)
+            ),
+            degraded=_safe_bool(getattr(assessment, "degraded", True)),
+            final_mode=_safe_str(getattr(gate_decision, "final_mode", "unknown")),
+        ))
+    except Exception as exc:
+        logger.warning(
+            "TELEMETRY structure_built_emit_failed",
+            document_id=document_id,
+            segment_id=segment_id,
+            error=str(exc),
+        )
+
+
 def build_single_segment_tree(
     document_id: str,
     elements: list[dict],
@@ -835,6 +921,7 @@ def build_single_segment_tree(
     scope_name: str | None = None,
     is_primary_segment: bool = False,
     log_prefix: str = "STRUCTURE",
+    collector: "TelemetryCollector | None" = None,  # Phase 13.2
 ) -> ClauseTree:
     build_started = time.perf_counter()
     normalized_scope_name = _safe_str(scope_name, default="main_contract").strip() or "main_contract"
@@ -1128,5 +1215,25 @@ def build_single_segment_tree(
         schema_version="4.0",
     )
 
+    # ── Phase 13.2: emit StructureBuiltEvent ─────────────────────────────
+    if collector is not None:
+        _emit_structure_built_telemetry(
+            collector,
+            document_id=document_id,
+            segment_id=segment_id,
+            assessment=assessment,
+            gate_decision=gate_decision,
+            recovery_audit=recovery_audit,
+            resolution_audit=resolution_audit,
+            root_nodes=root_nodes,
+            nodes=nodes,
+            headings=headings,
+            elapsed_ms=round(
+                (time.perf_counter() - build_started) * 1000, 1
+            ),
+        )
+
     log_timing(f"{log_prefix} build_total", build_started)
     return result
+
+

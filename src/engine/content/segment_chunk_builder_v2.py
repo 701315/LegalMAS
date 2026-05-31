@@ -68,7 +68,10 @@ from services.structure.semantic_enrichment._types import LegalUnitsEnrichmentRe
 from storage.artifact_store import ArtifactStore
 from engine.content.layout_fallback_chunker import build_layout_fallback_chunks
 from core.config import settings as _app_settings
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from services.telemetry._collector import TelemetryCollector
 
 logger = get_logger(__name__)
 
@@ -515,6 +518,7 @@ class SegmentChunkBuilderV2:
         max_tokens: int = 800,
         overlap_ratio: float = 0.15,
         chunk_plan: FileChunkPlan | None = None,
+        collector: "TelemetryCollector | None" = None,
     ) -> tuple[FileChunkManifestV2, list[SegmentChunkSnapshotV2]]:
         
         logger.info(
@@ -646,6 +650,7 @@ class SegmentChunkBuilderV2:
                 overlap_ratio=overlap_ratio,
                 total_pages=total_pages,
                 chunk_plan=chunk_plan,
+                collector=collector,
             )
             segment_snapshots.append(snapshot)
 
@@ -793,6 +798,7 @@ class SegmentChunkBuilderV2:
         overlap_ratio: float,
         total_pages: int | None,
         chunk_plan: FileChunkPlan | None = None,
+        collector: "TelemetryCollector | None" = None,
     ) -> SegmentChunkSnapshotV2:
         segment_clause_tree_ref = getattr(segment, "segment_clause_tree_ref", None)
         if not segment_clause_tree_ref:
@@ -1175,6 +1181,7 @@ class SegmentChunkBuilderV2:
                 legal_units_enrichment_result = enrich_legal_units(
                     legal_units_snapshot,
                     policy=enrichment_policy,
+                    collector=collector,
                 )
                 logger.info(
                     "SegmentChunkBuilderV2: semantic enrichment complete",
