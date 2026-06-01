@@ -53,6 +53,7 @@ _DEFAULT_TYPE_TO_FUNCTION: dict[LegalUnitType, ClauseFunction] = {
     LegalUnitType.NOTICE: ClauseFunction.BOILERPLATE,
     LegalUnitType.APPENDIX_REFERENCE: ClauseFunction.BOILERPLATE,
     LegalUnitType.DISPUTE_RESOLUTION: ClauseFunction.BOILERPLATE,
+    LegalUnitType.GENERAL_PROVISION: ClauseFunction.BOILERPLATE,
 
     LegalUnitType.OBLIGATION: ClauseFunction.OBLIGATIONS,
     LegalUnitType.PAYMENT_TERM: ClauseFunction.OBLIGATIONS,
@@ -61,6 +62,9 @@ _DEFAULT_TYPE_TO_FUNCTION: dict[LegalUnitType, ClauseFunction] = {
     LegalUnitType.INDEMNIFICATION: ClauseFunction.REMEDIES,
     LegalUnitType.TERMINATION_PROVISION: ClauseFunction.PROCEDURES,
     LegalUnitType.LIABILITY_PROVISION: ClauseFunction.LIMITATIONS,
+
+    LegalUnitType.STRUCTURAL_ANCHOR: ClauseFunction.UNKNOWN,
+    LegalUnitType.TECHNICAL_FRAGMENT: ClauseFunction.UNKNOWN,
 }
 
 

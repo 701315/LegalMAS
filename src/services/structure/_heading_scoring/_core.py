@@ -56,9 +56,15 @@ from ._utils import (
 
 
 def _has_strong_toc_confirmation(toc_match_type: str | None, toc_bonus: float) -> bool:
+    """Strong TOC confirmation: exact match или сильный fuzzy match.
+
+    Phase 13.5:
+    fuzzy threshold снижен до 0.03, потому что _toc_match_bonus()
+    возвращает для fuzzy максимум 0.04. Старый порог 0.08 был недостижим.
+    """
     if toc_match_type == "exact":
         return True
-    if toc_match_type == "fuzzy" and toc_bonus >= 0.08:
+    if toc_match_type == "fuzzy" and toc_bonus >= 0.03:
         return True
     return False
 

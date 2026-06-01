@@ -40,7 +40,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from services.structure.legal_unit_models import ClauseFunction, LegalUnitType
+from services.structure.legal_unit_models import (
+    ClauseFunction,
+    LegalUnitType,
+    normalize_clause_function_label,
+)
 
 
 class SemanticEnrichmentStatus(str, Enum):
@@ -302,10 +306,8 @@ def _legal_unit_enrichment_from_dict(raw: dict[str, Any]) -> "LegalUnitEnrichmen
             return LegalUnitType.UNKNOWN
 
     def _parse_clause_function(val: Any) -> ClauseFunction:
-        try:
-            return ClauseFunction(str(val or "unknown").lower())
-        except ValueError:
-            return ClauseFunction.UNKNOWN
+        normalized = normalize_clause_function_label(val)
+        return normalized or ClauseFunction.UNKNOWN
 
     # Восстанавливаем LLM proposal если есть
     proposal_raw = raw.get("llm_proposal")

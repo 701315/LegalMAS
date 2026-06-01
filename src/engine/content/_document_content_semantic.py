@@ -325,6 +325,7 @@ def restore_legal_units(
         ClauseFunction,
         LegalUnit,
         LegalUnitType,
+        normalize_clause_function_label,
     )
 
     legal_units: list[Any] = []
@@ -337,11 +338,10 @@ def restore_legal_units(
             except ValueError:
                 unit_type = LegalUnitType.UNKNOWN
 
-            func_str = str(raw.get("clause_function") or "unknown").lower()
-            try:
-                clause_function = ClauseFunction(func_str)
-            except ValueError:
-                clause_function = ClauseFunction.UNKNOWN
+            clause_function = (
+                normalize_clause_function_label(raw.get("clause_function"))
+                or ClauseFunction.UNKNOWN
+            )
 
             citability_raw = raw.get("citability") or {}
             citability = CitabilityMetrics(

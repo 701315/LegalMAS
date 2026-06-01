@@ -31,6 +31,19 @@
 РАЗРЕШЁННЫЕ CLAUSE FUNCTIONS:
 {allowed_clause_functions}
 
+ONTOLOGY ДЛЯ CLAUSE FUNCTION:
+{clause_function_ontology}
+
+КРИТИЧЕСКОЕ УТОЧНЕНИЕ ПО suggested_clause_function:
+- Выбирай clause_function по ПЕРВИЧНОЙ функции клаузы, а не по отдельным словам.
+- Не выбирай obligations только потому, что в тексте есть "shall", "must", "обязан", "должен".
+- Если основная функция — ограничить/исключить ответственность или убытки, выбирай limitations.
+- Если основная функция — описать последствия нарушения, indemnity, damages, compensation, cure, penalty, выбирай remedies.
+- Если основная функция — описать порядок действий, механизм, сроки, notice workflow, termination mechanics, выбирай procedures.
+- Если основная функция — заверения, гарантии, representations/warranties, выбирай representations.
+- Если основная функция — определение термина, выбирай definitions.
+- Если это institutional / miscellaneous contract clause (governing law, jurisdiction, notices, waiver, severability, amendment, entire agreement) и более специфичная функция не доминирует, выбирай boilerplate.
+
 РАЗРЕШЁННЫЕ TOPIC TAGS:
 {allowed_topics}
 
@@ -62,11 +75,22 @@ STRUCTURAL CONTEXT:
 
 ИНСТРУКЦИЯ:
 1. Определи наиболее вероятный legal semantic type по тексту и контексту.
-2. Определи functional role этой клаузы.
-3. Выбери только релевантные topic tags из разрешённой taxonomy.
-4. Если deterministic baseline выглядит разумно, можешь его подтвердить.
-5. Если baseline выглядит неполным, предложи более точное semantic enrichment.
-6. Приведи 1-3 короткие точные цитаты из текста clause как evidence.
-7. reasoning должен быть коротким, конкретным и опираться на текст клаузы.
+2. Определи PRIMARY functional role этой клаузы.
+3. Для clause_function выбирай по основной юридической функции, а не по отдельным словам.
+4. Выбери только релевантные topic tags из разрешённой taxonomy.
+5. Если deterministic baseline выглядит разумно, можешь его подтвердить.
+6. Если baseline выглядит неполным, предложи более точное semantic enrichment.
+7. Приведи 1-3 короткие точные цитаты из текста clause как evidence.
+8. reasoning должен быть коротким, конкретным и опираться на текст клаузы.
+
+ПРАВИЛА ПРИОРИТЕТА ДЛЯ CLAUSE FUNCTION:
+- term definition / "means" / "означает" -> definitions
+- representations / warranties / guarantees / заверяет / гарантирует -> representations
+- limitation / exclusion / cap on liability / consequential damages / ограничение ответственности -> limitations
+- indemnity / damages / compensation / penalty / cure / возмещение убытков / неустойка -> remedies
+- process / procedure / steps / timeline / termination mechanics / порядок / процедура / сроки -> procedures
+- governing law / jurisdiction / notices / waiver / severability / amendment / entire agreement -> boilerplate
+- duties / mandatory performance / обязуется / обязан / shall perform -> obligations
+- rights / entitlement / may / вправе / имеет право -> rights
 
 Верни только JSON.

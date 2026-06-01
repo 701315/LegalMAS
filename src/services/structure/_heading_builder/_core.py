@@ -125,9 +125,15 @@ class Phase2Result:
 # ============================================================================
 
 def _has_strong_toc_confirmation(match_type: str | None, match_score: float | None) -> bool:
+    """Strong TOC confirmation: exact match или сильный fuzzy match.
+
+    Phase 13.5:
+    match_score здесь — это toc bonus из scorer, а не raw fuzzy score.
+    Поэтому порог 0.03 согласован с _heading_scoring._logic._toc_match_bonus().
+    """
     if match_type == "exact":
         return True
-    if match_type == "fuzzy" and (match_score or 0.0) >= 0.08:
+    if match_type == "fuzzy" and (match_score or 0.0) >= 0.03:
         return True
     return False
 
@@ -783,10 +789,7 @@ def collect_scored_heading_candidates(
             decision, reason = "ambiguous", "weak_structural_element_type_requires_stronger_score"
 
         if is_rec_toc:
-            has_strong_t = (
-                (res.toc_match_type == "exact" and (res.toc_match_score or 0.0) > 0)
-                or (res.toc_match_type == "fuzzy" and (res.toc_match_score or 0.0) >= 0.045)
-            )
+            has_strong_t = strong_toc
             if decision == "accepted" and score < 0.85 and not has_strong_t:
                 decision, reason = "ambiguous", "recoverable_toc_like_requires_stronger_evidence"
             if (
@@ -821,6 +824,16 @@ def collect_scored_heading_candidates(
                     "ambiguous",
                     "enumerated_clause_deep_uid_requires_stronger_evidence",
                 )
+
+        # Phase 13.5: score/decision alignment after builder overrides.
+        # Builder может изменить decision после scorer'а, поэтому
+        # финальный score калибруем под итоговый decision.
+        if decision == "accepted" and score < 0.65:
+            score = 0.65
+        elif decision == "ambiguous" and score >= 0.85:
+            score = 0.84
+        elif decision == "rejected" and score >= 0.50:
+            score = 0.49
 
         # 2. Metadata для дальнейших фаз
         metadata: dict[str, Any] = {

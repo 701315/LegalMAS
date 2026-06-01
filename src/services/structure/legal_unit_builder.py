@@ -218,16 +218,19 @@ _FUNCTION_PATTERNS: list[tuple[re.Pattern, ClauseFunction]] = [
     ),
     (
         re.compile(
-            r"\b(remedy|remedies|indemnif|damages|compensation|"
-            r"средства защиты|возмещение убытков|ущерб|компенсация)\b",
+            r"\b(remedy|remedies|indemnif|indemnity|indemnification|damages|compensation|"
+            r"cure|penalt(y|ies)|"
+            r"средства защиты|возмещени[еяй] убытков|ущерб|компенсация|неустойк[аи])\b",
             re.IGNORECASE,
         ),
         ClauseFunction.REMEDIES,
     ),
     (
         re.compile(
-            r"\b(procedure|process|mechanism|step[s]?|timeline|"
-            r"порядок|процедура|механизм|этапы?|сроки?)\b",
+            r"\b(procedure|process|mechanism|step[s]?|timeline|termination|"
+            r"notice period|written notice|"
+            r"порядок|процедура|механизм|этапы?|сроки?|расторжени[еяй]|"
+            r"уведомлени[яей]\s+о\s+расторжении)\b",
             re.IGNORECASE,
         ),
         ClauseFunction.PROCEDURES,
@@ -451,6 +454,7 @@ def _classify_clause_function(
         LegalUnitType.NOTICE: ClauseFunction.BOILERPLATE,
         LegalUnitType.APPENDIX_REFERENCE: ClauseFunction.BOILERPLATE,
         LegalUnitType.DISPUTE_RESOLUTION: ClauseFunction.BOILERPLATE,
+        LegalUnitType.GENERAL_PROVISION: ClauseFunction.BOILERPLATE,
 
         LegalUnitType.OBLIGATION: ClauseFunction.OBLIGATIONS,
         LegalUnitType.PAYMENT_TERM: ClauseFunction.OBLIGATIONS,
@@ -459,6 +463,9 @@ def _classify_clause_function(
         LegalUnitType.INDEMNIFICATION: ClauseFunction.REMEDIES,
         LegalUnitType.TERMINATION_PROVISION: ClauseFunction.PROCEDURES,
         LegalUnitType.LIABILITY_PROVISION: ClauseFunction.LIMITATIONS,
+
+        LegalUnitType.STRUCTURAL_ANCHOR: ClauseFunction.UNKNOWN,
+        LegalUnitType.TECHNICAL_FRAGMENT: ClauseFunction.UNKNOWN,
     }
 
     if unit_type in _type_to_function:

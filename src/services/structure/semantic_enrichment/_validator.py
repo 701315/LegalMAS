@@ -30,7 +30,11 @@ import json
 import re
 from typing import Any
 
-from services.structure.legal_unit_models import ClauseFunction, LegalUnitType
+from services.structure.legal_unit_models import (
+    ClauseFunction,
+    LegalUnitType,
+    normalize_clause_function_label,
+)
 from services.structure.semantic_enrichment._types import LLMEnrichmentProposal
 
 
@@ -72,10 +76,10 @@ def _parse_clause_function(value: Any) -> tuple[ClauseFunction | None, str | Non
     if not raw or raw in {"null", "none", "unknown"}:
         return None, None
 
-    try:
-        return ClauseFunction(raw), None
-    except Exception:
-        return None, raw
+    normalized = normalize_clause_function_label(raw)
+    if normalized is not None:
+        return normalized, None
+    return None, raw
 
 
 def _parse_string_list(value: Any) -> list[str]:

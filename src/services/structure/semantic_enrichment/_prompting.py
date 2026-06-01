@@ -33,7 +33,12 @@ import json
 from typing import Iterable
 
 from engine.prompts.loader import get_promptloader
-from services.structure.legal_unit_models import ClauseFunction, LegalUnit, LegalUnitType
+from services.structure.legal_unit_models import (
+    ClauseFunction,
+    LegalUnit,
+    LegalUnitType,
+    build_clause_function_ontology_payload,
+)
 from services.structure.topic_tagger import KNOWN_TOPICS
 
 PROMPT_VERSION = "phase12_semantic_enrichment_v3_ru"
@@ -124,6 +129,7 @@ def build_semantic_enrichment_prompt(
     """
     allowed_unit_types = _enum_values(LegalUnitType)
     allowed_clause_functions = _enum_values(ClauseFunction)
+    clause_function_ontology = build_clause_function_ontology_payload()
     allowed_topics = sorted(KNOWN_TOPICS)
 
     unit_text = _excerpt(unit.own_text or unit.subtree_text, max_chars=max_unit_text_chars)
@@ -141,6 +147,7 @@ def build_semantic_enrichment_prompt(
     variables = {
         "allowed_unit_types": _json_dump(allowed_unit_types),
         "allowed_clause_functions": _json_dump(allowed_clause_functions),
+        "clause_function_ontology": _json_dump(clause_function_ontology),
         "allowed_topics": _json_dump(allowed_topics),
         "current_unit_type": _json_dump(unit.unit_type.value),
         "current_clause_function": _json_dump(unit.clause_function.value),

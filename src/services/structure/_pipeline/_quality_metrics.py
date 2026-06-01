@@ -166,6 +166,7 @@ class EvidenceAssessmentInput:
     max_depth_observed: int = 0
     scope_count: int = 0
     document_quality_signals: dict[str, Any] = field(default_factory=dict)
+    avg_accepted_heading_score: float = 0.0  # Phase 13.5
 
     def __post_init__(self) -> None:
         self.present = _safe_bool(self.present)
@@ -182,7 +183,9 @@ class EvidenceAssessmentInput:
         self.max_depth_observed = max(0, _safe_int(self.max_depth_observed))
         self.scope_count = max(0, _safe_int(self.scope_count))
         self.document_quality_signals = _safe_dict(self.document_quality_signals)
-
+        self.avg_accepted_heading_score = _clamp01(
+            _safe_float(self.avg_accepted_heading_score)
+        )
 
 @dataclass(slots=True)
 class HierarchyAssessmentInput:
@@ -747,24 +750,82 @@ def _extract_evidence_metrics(structure_evidence: Any | None) -> EvidenceAssessm
         global_signals = getattr(structure_evidence, "global_signals", None)
         stats = getattr(structure_evidence, "stats", None)
         scope_boundaries = getattr(structure_evidence, "scope_boundaries", None) or []
-        candidates = getattr(structure_evidence, "candidates", None) or []
+
+        # Phase 13.5:
+        # canonical StructureEvidenceBundle хранит кандидатов в heading_candidates.
+        # Оставляем fallback на legacy candidates для backward compatibility.
+        candidates = (
+            getattr(structure_evidence, "heading_candidates", None)
+            or getattr(structure_evidence, "candidates", None)
+            or []
+        )
+
+        accepted_scores: list[float] = []
+        for candidate in candidates:
+            try:
+                if _safe_bool(getattr(candidate, "is_toc_entry", False)):
+                    continue
+
+                features = _safe_dict(getattr(candidate, "features", {}) or {})
+                decision = _safe_str(features.get("decision")).strip().lower()
+
+                # Если decision присутствует — учитываем только accepted.
+                # Если decision отсутствует (legacy shape), берём score как fallback.
+                if decision and decision != "accepted":
+                    continue
+
+                accepted_scores.append(
+                    _clamp01(_safe_float(getattr(candidate, "score", 0.0)))
+                )
+            except Exception:
+                continue
+
+        avg_accepted_heading_score = (
+            round(sum(accepted_scores) / len(accepted_scores), 4)
+            if accepted_scores
+            else 0.0
+        )
 
         return EvidenceAssessmentInput(
             present=True,
             toc_detected=_safe_bool(getattr(global_signals, "toc_detected", False)),
-            toc_confidence=_safe_float(getattr(global_signals, "toc_confidence", 0.0), default=0.0),
-            main_chain_len=max(0, _safe_int(getattr(global_signals, "main_section_chain_length", 0))),
-            appendix_chain_len=max(0, _safe_int(getattr(global_signals, "appendix_chain_length", 0))),
-            crossref_anchor_count=max(0, _safe_int(getattr(global_signals, "crossref_anchor_count", 0))),
+            toc_confidence=_safe_float(
+                getattr(global_signals, "toc_confidence", 0.0),
+                default=0.0,
+            ),
+            main_chain_len=max(
+                0,
+                _safe_int(getattr(global_signals, "main_section_chain_length", 0)),
+            ),
+            appendix_chain_len=max(
+                0,
+                _safe_int(getattr(global_signals, "appendix_chain_length", 0)),
+            ),
+            crossref_anchor_count=max(
+                0,
+                _safe_int(getattr(global_signals, "crossref_anchor_count", 0)),
+            ),
             appendix_marker_count=len(getattr(structure_evidence, "appendix_markers", []) or []),
             candidate_count=max(
                 0,
                 _safe_int(getattr(stats, "candidate_count", 0) or len(candidates)),
             ),
-            numeric_heading_count=max(0, _safe_int(getattr(stats, "numeric_heading_count", 0))),
-            roman_heading_count=max(0, _safe_int(getattr(stats, "roman_heading_count", 0))),
-            alpha_heading_count=max(0, _safe_int(getattr(stats, "alpha_heading_count", 0))),
-            max_depth_observed=max(0, _safe_int(getattr(stats, "max_depth_observed", 0))),
+            numeric_heading_count=max(
+                0,
+                _safe_int(getattr(stats, "numeric_heading_count", 0)),
+            ),
+            roman_heading_count=max(
+                0,
+                _safe_int(getattr(stats, "roman_heading_count", 0)),
+            ),
+            alpha_heading_count=max(
+                0,
+                _safe_int(getattr(stats, "alpha_heading_count", 0)),
+            ),
+            max_depth_observed=max(
+                0,
+                _safe_int(getattr(stats, "max_depth_observed", 0)),
+            ),
             scope_count=max(
                 0,
                 _safe_int(getattr(stats, "scope_count", 0) or len(scope_boundaries)),
@@ -772,7 +833,9 @@ def _extract_evidence_metrics(structure_evidence: Any | None) -> EvidenceAssessm
             document_quality_signals=_safe_dict(
                 getattr(global_signals, "document_quality_signals", {}) or {}
             ),
+            avg_accepted_heading_score=avg_accepted_heading_score,
         )
+
     except Exception:
         return EvidenceAssessmentInput(present=True)
 
@@ -916,28 +979,32 @@ def _calculate_heading_quality_score(
             toc_validated=False,
         )
 
-    score = 0.35
+    structural_score = 0.35
     if headings_count >= 3:
-        score += 0.15
+        structural_score += 0.15
     if headings_count >= 8:
-        score += 0.15
+        structural_score += 0.15
     if numeric_ratio >= 0.30:
-        score += 0.15
+        structural_score += 0.15
     if numeric_ratio >= 0.60:
-        score += 0.10
+        structural_score += 0.10
 
     if empty_title_count == 0:
-        score += 0.10
+        structural_score += 0.10
     elif empty_title_count >= max(2, headings_count // 2):
         reasons.append("too_many_empty_heading_titles")
-        score -= 0.20
+        structural_score -= 0.20
 
     toc_validated = evidence.toc_detected and evidence.toc_confidence >= 0.50
     if toc_validated:
-        score += 0.05
+        structural_score += 0.05
 
-    low_confidence_ratio = 1.0 if headings_count == 0 else min(1.0, empty_title_count / max(1, headings_count))
-    avg_heading_confidence = min(
+    low_confidence_ratio = 1.0 if headings_count == 0 else min(
+        1.0,
+        empty_title_count / max(1, headings_count),
+    )
+
+    structural_confidence = min(
         1.0,
         0.40
         + 0.30 * numeric_ratio
@@ -945,9 +1012,25 @@ def _calculate_heading_quality_score(
         + 0.10 * (1.0 if toc_validated else 0.0),
     )
 
+    # Phase 13.5:
+    # blending structural heuristic with real accepted heading scores
+    # extracted from StructureEvidenceBundle.heading_candidates.
+    real_scores_component = _clamp01(
+        _safe_float(getattr(evidence, "avg_accepted_heading_score", 0.0))
+    )
+
+    if real_scores_component > 0.0:
+        score = _clamp01(0.75 * structural_score + 0.25 * real_scores_component)
+        avg_heading_confidence = _clamp01(
+            0.60 * structural_confidence + 0.40 * real_scores_component
+        )
+    else:
+        score = _clamp01(structural_score)
+        avg_heading_confidence = _clamp01(structural_confidence)
+
     return HeadingQualityScore(
-        score=_clamp01(score),
-        avg_heading_confidence=_clamp01(avg_heading_confidence),
+        score=score,
+        avg_heading_confidence=avg_heading_confidence,
         low_confidence_ratio=_clamp01(low_confidence_ratio),
         toc_validated=toc_validated,
     )

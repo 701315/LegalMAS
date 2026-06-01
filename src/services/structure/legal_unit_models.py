@@ -99,6 +99,225 @@ class ClauseFunction(str, Enum):
 
 
 # ---------------------------------------------------------------------------
+# ClauseFunction ontology helpers (Phase 13.8)
+# ---------------------------------------------------------------------------
+
+def _normalize_clause_function_key(value: Any) -> str:
+    """
+    Normalize raw clause-function label to a stable lookup key.
+
+    Примеры:
+    - "Representations" -> "representations"
+    - "representations and warranties" -> "representations_and_warranties"
+    - "governing-law" -> "governing_law"
+    """
+    if isinstance(value, ClauseFunction):
+        return value.value
+
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+
+    for old, new in (("-", "_"), ("/", "_"), (" ", "_")):
+        text = text.replace(old, new)
+
+    while "__" in text:
+        text = text.replace("__", "_")
+
+    return text.strip("_")
+
+
+_CLAUSE_FUNCTION_ALIASES: dict[str, ClauseFunction] = {
+    # canonical
+    "rights": ClauseFunction.RIGHTS,
+    "obligations": ClauseFunction.OBLIGATIONS,
+    "limitations": ClauseFunction.LIMITATIONS,
+    "procedures": ClauseFunction.PROCEDURES,
+    "definitions": ClauseFunction.DEFINITIONS,
+    "representations": ClauseFunction.REPRESENTATIONS,
+    "remedies": ClauseFunction.REMEDIES,
+    "boilerplate": ClauseFunction.BOILERPLATE,
+    "unknown": ClauseFunction.UNKNOWN,
+
+    # rights-like
+    "right": ClauseFunction.RIGHTS,
+    "entitlement": ClauseFunction.RIGHTS,
+    "entitlements": ClauseFunction.RIGHTS,
+    "permission": ClauseFunction.RIGHTS,
+    "permissions": ClauseFunction.RIGHTS,
+    "option": ClauseFunction.RIGHTS,
+    "options": ClauseFunction.RIGHTS,
+
+    # obligations-like
+    "obligation": ClauseFunction.OBLIGATIONS,
+    "duty": ClauseFunction.OBLIGATIONS,
+    "duties": ClauseFunction.OBLIGATIONS,
+    "covenant": ClauseFunction.OBLIGATIONS,
+    "covenants": ClauseFunction.OBLIGATIONS,
+    "undertaking": ClauseFunction.OBLIGATIONS,
+    "undertakings": ClauseFunction.OBLIGATIONS,
+
+    # limitations-like
+    "limitation": ClauseFunction.LIMITATIONS,
+    "cap": ClauseFunction.LIMITATIONS,
+    "caps": ClauseFunction.LIMITATIONS,
+    "liability_cap": ClauseFunction.LIMITATIONS,
+    "liability_exclusion": ClauseFunction.LIMITATIONS,
+    "exclusion": ClauseFunction.LIMITATIONS,
+    "exclusions": ClauseFunction.LIMITATIONS,
+
+    # procedures-like
+    "procedure": ClauseFunction.PROCEDURES,
+    "process": ClauseFunction.PROCEDURES,
+    "processes": ClauseFunction.PROCEDURES,
+    "mechanism": ClauseFunction.PROCEDURES,
+    "mechanisms": ClauseFunction.PROCEDURES,
+    "steps": ClauseFunction.PROCEDURES,
+    "timeline": ClauseFunction.PROCEDURES,
+    "termination_mechanics": ClauseFunction.PROCEDURES,
+
+    # definitions-like
+    "definition": ClauseFunction.DEFINITIONS,
+    "interpretation": ClauseFunction.DEFINITIONS,
+
+    # representations-like
+    "representation": ClauseFunction.REPRESENTATIONS,
+    "warranty": ClauseFunction.REPRESENTATIONS,
+    "warranties": ClauseFunction.REPRESENTATIONS,
+    "representations_and_warranties": ClauseFunction.REPRESENTATIONS,
+    "representation_and_warranty": ClauseFunction.REPRESENTATIONS,
+
+    # remedies-like
+    "remedy": ClauseFunction.REMEDIES,
+    "indemnity": ClauseFunction.REMEDIES,
+    "indemnification": ClauseFunction.REMEDIES,
+    "damages": ClauseFunction.REMEDIES,
+    "compensation": ClauseFunction.REMEDIES,
+    "cure": ClauseFunction.REMEDIES,
+    "penalty": ClauseFunction.REMEDIES,
+    "penalties": ClauseFunction.REMEDIES,
+
+    # boilerplate-like / institutional clause names
+    "misc": ClauseFunction.BOILERPLATE,
+    "miscellaneous": ClauseFunction.BOILERPLATE,
+    "general": ClauseFunction.BOILERPLATE,
+    "standard_terms": ClauseFunction.BOILERPLATE,
+    "institutional": ClauseFunction.BOILERPLATE,
+    "governing_law": ClauseFunction.BOILERPLATE,
+    "jurisdiction": ClauseFunction.BOILERPLATE,
+    "notice": ClauseFunction.BOILERPLATE,
+    "notices": ClauseFunction.BOILERPLATE,
+    "dispute_resolution": ClauseFunction.BOILERPLATE,
+    "arbitration": ClauseFunction.BOILERPLATE,
+    "entire_agreement": ClauseFunction.BOILERPLATE,
+    "severability": ClauseFunction.BOILERPLATE,
+    "waiver": ClauseFunction.BOILERPLATE,
+    "amendment": ClauseFunction.BOILERPLATE,
+}
+
+_CLAUSE_FUNCTION_DESCRIPTIONS: dict[ClauseFunction, str] = {
+    ClauseFunction.RIGHTS:
+        "Clause primarily grants a party a right, entitlement, permission, option, or ability to act.",
+    ClauseFunction.OBLIGATIONS:
+        "Clause primarily imposes a duty, undertaking, covenant, or mandatory performance obligation.",
+    ClauseFunction.LIMITATIONS:
+        "Clause primarily limits, excludes, caps, or restricts liability, damages, claims, or legal exposure.",
+    ClauseFunction.PROCEDURES:
+        "Clause primarily describes a process, mechanics, steps, timeline, or operational workflow.",
+    ClauseFunction.DEFINITIONS:
+        "Clause primarily defines the meaning of a term or interpretive rule.",
+    ClauseFunction.REPRESENTATIONS:
+        "Clause primarily states facts, assurances, representations, or warranties.",
+    ClauseFunction.REMEDIES:
+        "Clause primarily describes consequences of breach, indemnity, damages, compensation, cure, or penalty.",
+    ClauseFunction.BOILERPLATE:
+        "Clause is primarily an institutional or miscellaneous contract framework provision such as governing law, jurisdiction, notices, waiver, severability, amendment, or entire agreement.",
+    ClauseFunction.UNKNOWN:
+        "Primary function is not clear from the available clause text.",
+}
+
+_CLAUSE_FUNCTION_DECISION_RULES: dict[ClauseFunction, list[str]] = {
+    ClauseFunction.RIGHTS: [
+        "Use when the clause primarily grants a party a right, option, permission, or entitlement.",
+        "Do not use if the main purpose is to impose a duty rather than grant a right.",
+    ],
+    ClauseFunction.OBLIGATIONS: [
+        "Use when the clause primarily imposes a duty, mandatory action, or undertaking.",
+        "Do not use merely because the text contains 'shall' or 'must' if the primary purpose is limitation, remedy, or procedure.",
+    ],
+    ClauseFunction.LIMITATIONS: [
+        "Use when the clause primarily caps, excludes, narrows, or restricts liability, damages, remedies, or claims.",
+        "Prefer this over obligations when the core effect is risk allocation through restriction.",
+    ],
+    ClauseFunction.PROCEDURES: [
+        "Use when the clause primarily describes how something must happen: steps, mechanism, sequence, notice workflow, timeline, or termination mechanics.",
+        "Prefer this over boilerplate when the clause is operational and process-oriented.",
+    ],
+    ClauseFunction.DEFINITIONS: [
+        "Use when the clause defines a term or interpretive meaning.",
+        "Prefer this whenever the clause follows a 'means / означает' pattern.",
+    ],
+    ClauseFunction.REPRESENTATIONS: [
+        "Use when the clause primarily states assurances, facts, representations, or warranties.",
+        "Prefer this for classic reps & warranties clauses.",
+    ],
+    ClauseFunction.REMEDIES: [
+        "Use when the clause primarily addresses breach consequences, indemnity, damages, compensation, cure, or penalty.",
+        "Prefer this over limitations if the main effect is recovery rather than restriction.",
+    ],
+    ClauseFunction.BOILERPLATE: [
+        "Use for institutional contract framework clauses such as governing law, jurisdiction, notices, waiver, severability, amendment, or entire agreement.",
+        "Do not use if a more specific primary function clearly applies.",
+    ],
+    ClauseFunction.UNKNOWN: [
+        "Use only if the primary function cannot be determined reliably.",
+    ],
+}
+
+
+def normalize_clause_function_label(value: Any) -> ClauseFunction | None:
+    """
+    Normalize raw / legacy / alias clause-function label to canonical ClauseFunction.
+
+    Returns:
+        - ClauseFunction if label is recognized
+        - None if label is empty or not recognized
+    """
+    key = _normalize_clause_function_key(value)
+    if not key:
+        return None
+    return _CLAUSE_FUNCTION_ALIASES.get(key)
+
+
+def build_clause_function_ontology_payload() -> list[dict[str, Any]]:
+    """
+    Build stable ontology payload for prompt / explainability layers.
+
+    UNKNOWN intentionally excluded from the main guidance payload.
+    """
+    ordered = [
+        ClauseFunction.RIGHTS,
+        ClauseFunction.OBLIGATIONS,
+        ClauseFunction.LIMITATIONS,
+        ClauseFunction.PROCEDURES,
+        ClauseFunction.DEFINITIONS,
+        ClauseFunction.REPRESENTATIONS,
+        ClauseFunction.REMEDIES,
+        ClauseFunction.BOILERPLATE,
+    ]
+    payload: list[dict[str, Any]] = []
+    for function in ordered:
+        payload.append({
+            "name": function.value,
+            "description": _CLAUSE_FUNCTION_DESCRIPTIONS[function],
+            "decision_rules": list(_CLAUSE_FUNCTION_DECISION_RULES[function]),
+        })
+    return payload
+
+
+
+
+# ---------------------------------------------------------------------------
 # CitabilityMetrics
 # ---------------------------------------------------------------------------
 
@@ -298,11 +517,11 @@ class LegalUnit:
         except ValueError:
             unit_type = LegalUnitType.UNKNOWN
 
-        func_str = str(raw.get("clause_function") or "unknown").lower()
-        try:
-            clause_function = ClauseFunction(func_str)
-        except ValueError:
-            clause_function = ClauseFunction.UNKNOWN
+        clause_function = (
+            normalize_clause_function_label(raw.get("clause_function"))
+            or ClauseFunction.UNKNOWN
+        )
+
 
         citability_raw = raw.get("citability") or {}
         citability = CitabilityMetrics(
