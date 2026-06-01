@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import json
 from typing import Iterable
+from dataclasses import dataclass
 
 from engine.prompts.loader import get_promptloader
 from services.structure.legal_unit_models import (
@@ -43,6 +44,85 @@ from services.structure.topic_tagger import KNOWN_TOPICS
 
 PROMPT_VERSION = "phase12_semantic_enrichment_v3_ru"
 PROMPT_TEMPLATE_NAME = "classification/legal_unit_semantic_enrichment_ru_v1"
+
+@dataclass(frozen=True, slots=True)
+class SemanticEnrichmentPromptContext:
+    """
+    Предвычисленный segment-scoped context для semantic enrichment prompt.
+
+    Зачем нужен:
+    - не пересчитывать одинаковые prompt invariants на каждый LegalUnit;
+    - не строить uid_to_title map заново для каждого heading_path;
+    - не делать повторный json.dumps() для одинаковых enum/topic/ontology payloads.
+
+    Важно:
+    - содержит только segment-invariant данные;
+    - per-unit значения (title, raw_uid, excerpts, current_unit_type и т.д.)
+      по-прежнему строятся на каждый unit отдельно;
+    - prompt output при использовании context должен быть IDENTICAL
+      старому path без context.
+    """
+
+    allowed_unit_types_json: str
+    allowed_clause_functions_json: str
+    clause_function_ontology_json: str
+    allowed_topics_json: str
+    uid_to_title: dict[str, str]
+
+
+def _build_uid_to_title_map(
+    all_units: list[LegalUnit] | None,
+) -> dict[str, str]:
+    """
+    Построить map raw_uid -> title один раз на весь segment.
+
+    Используется для heading_path, чтобы не проходить по all_units
+    на каждый LegalUnit отдельно.
+    """
+    if not all_units:
+        return {}
+
+    uid_to_title: dict[str, str] = {}
+    for u in all_units:
+        raw_uid = str(getattr(u, "raw_uid", "") or "").strip()
+        title = str(getattr(u, "title", "") or "").strip()
+        if raw_uid and title:
+            uid_to_title[raw_uid] = title
+    return uid_to_title
+
+
+def build_semantic_enrichment_prompt_context(
+    all_units: list[LegalUnit] | None,
+) -> SemanticEnrichmentPromptContext:
+    """
+    Построить предвычисленный prompt context для всех units сегмента.
+
+    Что предвычисляем:
+    - allowed_unit_types
+    - allowed_clause_functions
+    - clause_function_ontology
+    - allowed_topics
+    - uid_to_title map
+
+    Это безопасный batching/context reuse:
+    - не меняет per-unit prompt semantics;
+    - не меняет LLM call contract;
+    - не меняет prompt template;
+    - только убирает повторную CPU-работу.
+    """
+    allowed_unit_types = _enum_values(LegalUnitType)
+    allowed_clause_functions = _enum_values(ClauseFunction)
+    clause_function_ontology = build_clause_function_ontology_payload()
+    allowed_topics = sorted(KNOWN_TOPICS)
+    uid_to_title = _build_uid_to_title_map(all_units)
+
+    return SemanticEnrichmentPromptContext(
+        allowed_unit_types_json=_json_dump(allowed_unit_types),
+        allowed_clause_functions_json=_json_dump(allowed_clause_functions),
+        clause_function_ontology_json=_json_dump(clause_function_ontology),
+        allowed_topics_json=_json_dump(allowed_topics),
+        uid_to_title=uid_to_title,
+    )
 
 
 def _excerpt(text: str | None, *, max_chars: int) -> str:
@@ -70,10 +150,15 @@ def _json_dump(value: object) -> str:
 
 def _build_heading_path(
     unit: LegalUnit,
-    all_units: list[LegalUnit] | None,
+    all_units: list[LegalUnit] | None = None,
+    uid_to_title: dict[str, str] | None = None,
 ) -> str:
     """
     Строит heading path от текущего unit вверх по hierarchy.
+
+    Варианты источника heading metadata:
+    - uid_to_title: precomputed map (предпочтительно, Phase 14.2 batching)
+    - all_units: fallback для backward compatibility
 
     Использует raw_uid для поиска parent: если raw_uid = "7.2.1",
     то parent = "7.2", grandparent = "7".
@@ -81,16 +166,14 @@ def _build_heading_path(
     Возвращает строку вида:
         "7 Платежи → 7.2 Порядок оплаты"
     """
-    if all_units is None or not all_units:
+    if uid_to_title is None:
+        uid_to_title = _build_uid_to_title_map(all_units)
+
+    if not uid_to_title:
         return ""
 
-    uid_to_title: dict[str, str] = {}
-    for u in all_units:
-        if u.raw_uid and u.title:
-            uid_to_title[u.raw_uid] = u.title
-
     parts: list[str] = []
-    current_uid = unit.raw_uid or ""
+    current_uid = str(unit.raw_uid or "").strip()
 
     for _ in range(5):
         if not current_uid:
@@ -116,6 +199,7 @@ def build_semantic_enrichment_prompt(
     previous_unit: LegalUnit | None = None,
     next_unit: LegalUnit | None = None,
     all_units: list[LegalUnit] | None = None,
+    prompt_context: SemanticEnrichmentPromptContext | None = None,
     max_unit_text_chars: int = 3000,
     max_neighbor_text_chars: int = 500,
 ) -> str:
@@ -124,15 +208,38 @@ def build_semantic_enrichment_prompt(
 
     Шаги:
     1. Подготавливает локальный контекст и deterministic baseline.
-    2. Загружает template из prompts/.
-    3. Подставляет переменные через общий PromptLoader.
-    """
-    allowed_unit_types = _enum_values(LegalUnitType)
-    allowed_clause_functions = _enum_values(ClauseFunction)
-    clause_function_ontology = build_clause_function_ontology_payload()
-    allowed_topics = sorted(KNOWN_TOPICS)
+    2. При наличии prompt_context переиспользует segment-scoped invariants
+       (Phase 14.2 batching).
+    3. Загружает template из prompts/.
+    4. Подставляет переменные через общий PromptLoader.
 
-    unit_text = _excerpt(unit.own_text or unit.subtree_text, max_chars=max_unit_text_chars)
+    Phase 14.2:
+    - prompt_context позволяет не пересчитывать одинаковые segment-invariant
+      payloads на каждый LegalUnit;
+    - output prompt должен оставаться IDENTICAL старому пути.
+    """
+    if prompt_context is not None:
+        allowed_unit_types_json = prompt_context.allowed_unit_types_json
+        allowed_clause_functions_json = prompt_context.allowed_clause_functions_json
+        clause_function_ontology_json = prompt_context.clause_function_ontology_json
+        allowed_topics_json = prompt_context.allowed_topics_json
+        heading_path = _build_heading_path(
+            unit,
+            uid_to_title=prompt_context.uid_to_title,
+        )
+    else:
+        allowed_unit_types_json = _json_dump(_enum_values(LegalUnitType))
+        allowed_clause_functions_json = _json_dump(_enum_values(ClauseFunction))
+        clause_function_ontology_json = _json_dump(
+            build_clause_function_ontology_payload()
+        )
+        allowed_topics_json = _json_dump(sorted(KNOWN_TOPICS))
+        heading_path = _build_heading_path(unit, all_units=all_units)
+
+    unit_text = _excerpt(
+        unit.own_text or unit.subtree_text,
+        max_chars=max_unit_text_chars,
+    )
     prev_text = _excerpt(
         previous_unit.own_text or previous_unit.subtree_text if previous_unit else "",
         max_chars=max_neighbor_text_chars,
@@ -142,13 +249,11 @@ def build_semantic_enrichment_prompt(
         max_chars=max_neighbor_text_chars,
     )
 
-    heading_path = _build_heading_path(unit, all_units)
-
     variables = {
-        "allowed_unit_types": _json_dump(allowed_unit_types),
-        "allowed_clause_functions": _json_dump(allowed_clause_functions),
-        "clause_function_ontology": _json_dump(clause_function_ontology),
-        "allowed_topics": _json_dump(allowed_topics),
+        "allowed_unit_types": allowed_unit_types_json,
+        "allowed_clause_functions": allowed_clause_functions_json,
+        "clause_function_ontology": clause_function_ontology_json,
+        "allowed_topics": allowed_topics_json,
         "current_unit_type": _json_dump(unit.unit_type.value),
         "current_clause_function": _json_dump(unit.clause_function.value),
         "current_topic_tags": _json_dump(list(unit.topic_tags)),
@@ -159,15 +264,23 @@ def build_semantic_enrichment_prompt(
         "level": _json_dump(unit.level),
         "node_kind": _json_dump(unit.node_kind),
         "semantic_node_type": _json_dump(unit.semantic_node_type),
-        "recovered_via_best_effort": _json_dump(bool(unit.recovered_via_best_effort)),
+        "recovered_via_best_effort": _json_dump(
+            bool(unit.recovered_via_best_effort)
+        ),
         "heading_path": _json_dump(heading_path),
-        "previous_unit_title": _json_dump(previous_unit.title if previous_unit else ""),
+        "previous_unit_title": _json_dump(
+            previous_unit.title if previous_unit else ""
+        ),
         "previous_unit_type": _json_dump(
             previous_unit.unit_type.value if previous_unit else ""
         ),
         "previous_unit_excerpt": _json_dump(prev_text),
-        "next_unit_title": _json_dump(next_unit.title if next_unit else ""),
-        "next_unit_type": _json_dump(next_unit.unit_type.value if next_unit else ""),
+        "next_unit_title": _json_dump(
+            next_unit.title if next_unit else ""
+        ),
+        "next_unit_type": _json_dump(
+            next_unit.unit_type.value if next_unit else ""
+        ),
         "next_unit_excerpt": _json_dump(next_text),
         "unit_id": _json_dump(unit.unit_id),
         "full_excerpt": _json_dump(unit_text),

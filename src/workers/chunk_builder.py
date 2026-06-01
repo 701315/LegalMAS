@@ -590,15 +590,22 @@ async def _build_chunks_v2_async(
                 segment_id=snapshot.segment_id,
             )
 
-        # Обновляем segment_meta: добавляем legal_units_ref если есть.
-        # Важно: НЕ заменяем весь segment_meta — мерджим поверх существующего.
-        # Это защищает другие поля которые могли быть записаны предыдущими стадиями
-        # (например, structure stage мог записать туда свои диагностические данные).
+        # ── Phase 14.4: clean segment_meta — удаляем stale refs ──────────────
+        # Если на текущем прогоне legal_units / enrichment не были построены,
+        # то старые refs больше не валидны и должны быть удалены.
+        # Это предотвращает downstream чтение устаревших артефактов.
         existing_meta = dict(seg.segment_meta or {})
+
         if legal_units_ref is not None:
             existing_meta["legal_units_ref"] = legal_units_ref
+        else:
+            existing_meta.pop("legal_units_ref", None)
+
         if legal_units_enrichment_ref is not None:
             existing_meta["legal_units_enrichment_ref"] = legal_units_enrichment_ref
+        else:
+            existing_meta.pop("legal_units_enrichment_ref", None)
+
 
         segment_rows_to_replace.append(
             {
@@ -649,6 +656,31 @@ async def _build_chunks_v2_async(
                     "reason": ChunkingV2ErrorReason.MANIFEST_INCONSISTENT_WITH_SEGMENTS,
                 },
             )
+
+    # ── Phase 14.4: snapshot old artifact refs for post-commit cleanup ────────
+    old_chunk_refs: list[str] = []
+    old_legal_units_refs: list[str] = []
+    old_enrichment_refs: list[str] = []
+    try:
+        for seg in segments:
+            old_chunks_ref = getattr(seg, "segment_chunks_ref", None)
+            if old_chunks_ref:
+                old_chunk_refs.append(old_chunks_ref)
+
+            old_meta = getattr(seg, "segment_meta", None) or {}
+            old_lu_ref = old_meta.get("legal_units_ref")
+            if old_lu_ref:
+                old_legal_units_refs.append(old_lu_ref)
+            old_enr_ref = old_meta.get("legal_units_enrichment_ref")
+            if old_enr_ref:
+                old_enrichment_refs.append(old_enr_ref)
+    except Exception as _snap_exc:
+        logger.debug(
+            "Chunk builder: failed to snapshot old artifact refs (non-critical)",
+            document_id=str(doc.id),
+            error=str(_snap_exc),
+        )
+
 
     await seg_repo.replace_segments(
         document_version_id=v_id,
@@ -752,6 +784,87 @@ async def _build_chunks_v2_async(
                 stage_execution_id=stage_execution_id,
                 error=str(e),
             )
+
+    # ── Phase 14.4: post-commit cleanup stale chunk/legal/enrichment artifacts ─
+    current_chunk_refs: set[str] = set()
+    current_lu_refs: set[str] = set()
+    current_enr_refs: set[str] = set()
+
+    for row in segment_rows_to_replace:
+        chunks_ref = row.get("segment_chunks_ref")
+        if chunks_ref:
+            current_chunk_refs.add(chunks_ref)
+        meta = row.get("segment_meta") or {}
+        lu_ref = meta.get("legal_units_ref")
+        if lu_ref:
+            current_lu_refs.add(lu_ref)
+        enr_ref = meta.get("legal_units_enrichment_ref")
+        if enr_ref:
+            current_enr_refs.add(enr_ref)
+
+    stale_all: list[str] = []
+    stale_all.extend(r for r in old_chunk_refs if r not in current_chunk_refs)
+    stale_all.extend(r for r in old_legal_units_refs if r not in current_lu_refs)
+    stale_all.extend(r for r in old_enrichment_refs if r not in current_enr_refs)
+    stale_all = list(dict.fromkeys(stale_all))  # deduplicate, preserve order
+
+    if stale_all:
+        try:
+            cleanup_result = store.delete_many_best_effort(stale_all)
+            logger.info(
+                "Chunk builder: post-commit cleanup stale artifacts",
+                document_id=str(doc.id),
+                stale_count=len(stale_all),
+                deleted=cleanup_result.get("deleted", 0),
+                failed=cleanup_result.get("failed", 0),
+            )
+        except Exception as _cleanup_exc:
+            logger.warning(
+                "Chunk builder: post-commit cleanup failed (non-critical)",
+                document_id=str(doc.id),
+                error=str(_cleanup_exc),
+            )
+
+    # ── Phase 14.4: write artifact manifest best-effort ──────────────────────
+    try:
+        from storage._artifact_manifest import write_artifact_manifest_best_effort
+
+        manifest_segment_refs = []
+        for row in segment_rows_to_replace:
+            meta = row.get("segment_meta") or {}
+            manifest_segment_refs.append({
+                "segment_id": row.get("segment_id", ""),
+                "segment_clause_tree_ref": row.get("segment_clause_tree_ref"),
+                "segment_chunks_ref": row.get("segment_chunks_ref"),
+                "legal_units_ref": meta.get("legal_units_ref"),
+                "legal_units_enrichment_ref": meta.get("legal_units_enrichment_ref"),
+            })
+
+        # Для clause_tree_ref и file_graph_ref берём из version,
+        # т.к. chunk_builder их не меняет.
+        write_artifact_manifest_best_effort(
+            store=store,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=str(doc.id),
+            document_version_id=str(v_id),
+            clause_tree_ref=getattr(version, "clause_tree_ref", None),
+            file_graph_ref=getattr(version, "file_graph_ref", None),
+            chunks_manifest_v2_ref=chunks_manifest_v2_ref,
+            segment_refs=manifest_segment_refs,
+            stage="chunking",
+            extra={
+                "chunk_count_total": chunk_count_total,
+                "legal_units_saved_count": legal_units_saved_count,
+                "enrichment_saved_count": enrichment_saved_count,
+            },
+        )
+    except Exception as _manifest_exc:
+        logger.warning(
+            "Chunk builder: failed to write artifact manifest (non-critical)",
+            document_id=str(doc.id),
+            error=str(_manifest_exc),
+        )
 
     duration = round(time.time() - start, 2)
 

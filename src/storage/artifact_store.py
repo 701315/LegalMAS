@@ -9,6 +9,7 @@ import io
 import json
 from datetime import timedelta
 from urllib.parse import quote
+from typing import Any
 
 from minio import Minio
 from minio.error import S3Error
@@ -553,6 +554,63 @@ class ArtifactStore:
             self.client.remove_object(bucket_name=self.bucket, object_name=clean_path)
         except S3Error as e:
             raise TransientError(f"Failed to delete artifact: {e}")
+
+    def delete_many_best_effort(self, paths: list[str]) -> dict[str, Any]:
+        """
+        Best-effort удаление нескольких объектов.
+
+        Не бросает исключений — логирует ошибки и продолжает.
+        Возвращает summary с количеством удалённых / проваленных.
+
+        Предназначен для post-commit cleanup stale artifacts.
+        Никогда не должен ломать основной pipeline.
+
+        Parameters
+        ----------
+        paths : list[str]
+            Список S3 path'ей или s3://bucket/... URI для удаления.
+
+        Returns
+        -------
+        dict с ключами:
+            - requested: int — сколько путей запрошено
+            - deleted: int — сколько успешно удалено
+            - failed: int — сколько не удалось
+            - errors: list[dict] — детали ошибок (path + error message)
+        """
+        result: dict[str, Any] = {
+            "requested": len(paths),
+            "deleted": 0,
+            "failed": 0,
+            "errors": [],
+        }
+
+        for path in paths:
+            try:
+                clean_path = self._normalize_object_path(path)
+                self.client.remove_object(
+                    bucket_name=self.bucket,
+                    object_name=clean_path,
+                )
+                result["deleted"] += 1
+            except Exception as e:
+                result["failed"] += 1
+                result["errors"].append({"path": path, "error": str(e)})
+                logger.debug(
+                    "delete_many_best_effort: failed to delete artifact",
+                    path=path,
+                    error=str(e),
+                )
+
+        if result["failed"] > 0:
+            logger.warning(
+                "delete_many_best_effort: some deletions failed",
+                requested=result["requested"],
+                deleted=result["deleted"],
+                failed=result["failed"],
+            )
+
+        return result
 
     def save_export_artifact(
         self,

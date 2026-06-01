@@ -300,11 +300,31 @@ class Settings(BaseSettings):
     SEMANTIC_ENRICHMENT_MAX_TOPICS_FROM_LLM: int = 8
     SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS: int = 40
 
+    # --- Semantic Enrichment Cache (Phase 14.3.A) ---
+    # Exact-match cache для raw LLM responses.
+    # Scope безопасности: document_version-scoped (в key строится выше по стеку).
+    # Важно:
+    # - cache process-local, in-memory;
+    # - не используется для shared межпроцессного reuse;
+    # - по умолчанию выключен до явного включения в .env.
+    SEMANTIC_ENRICHMENT_CACHE_ENABLED: bool = False
+    SEMANTIC_ENRICHMENT_CACHE_TTL_SECONDS: int = 86400
+    SEMANTIC_ENRICHMENT_CACHE_MAX_ITEMS: int = 10000
+
+
     # --- Embedding Recovery (Phase 13.4) ---
     RECOVERY_EMBEDDING_ENABLED: bool = True
     RECOVERY_EMBEDDING_SIMILARITY_THRESHOLD: float = 0.72
     RECOVERY_EMBEDDING_MAX_PAGE_DISTANCE: int = 3
     RECOVERY_EMBEDDING_MAX_LEVEL_DELTA: int = 2
+
+    # --- Embedding Vector Cache (Phase 14.3.B) ---
+    # Process-local in-memory cache для embedding vectors.
+    # Ускоряет повторные encode() при reprocessing / retries / benchmark.
+    # По умолчанию выключен.
+    EMBEDDING_CACHE_ENABLED: bool = False
+    EMBEDDING_CACHE_TTL_SECONDS: int = 86400
+    EMBEDDING_CACHE_MAX_ITEMS: int = 50000
 
 
     # --- Drift Detection (Phase 13.2) ---

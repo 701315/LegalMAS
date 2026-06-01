@@ -98,3 +98,55 @@ def call_semantic_enrichment_llm(
     return text.strip()
 
 
+async def call_semantic_enrichment_llm_async(
+    *,
+    prompt: str,
+    max_retries: int = 2,
+) -> str:
+    """
+    Async версия call_semantic_enrichment_llm().
+
+    Provider-specific behaviour:
+    - llamacpp: выполняется в thread pool через run_in_executor.
+      Event loop не блокируется во время CPU-bound инференса.
+      Semaphore(1) в LLMClient гарантирует отсутствие race condition.
+    - ollama/openai: реальный async I/O через httpx.AsyncClient.
+
+    Возвращает raw string для parse_llm_enrichment_response().
+
+    Raises:
+        RuntimeError: LLM недоступна, call упал, пустой ответ.
+    """
+    try:
+        from engine.llm.client import LLMClient
+    except ImportError as exc:
+        raise RuntimeError(f"LLMClient not available: {exc}") from exc
+
+    client = LLMClient()
+
+    if not client.is_available():
+        raise RuntimeError(
+            "LLM is not available (provider not configured or model not loaded)"
+        )
+
+    response, error_details = await client.call_with_retries_async(
+        prompt=prompt,
+        temperature=0.0,
+        max_tokens=_MAX_ENRICHMENT_TOKENS,
+        max_retries=max_retries,
+    )
+
+    if response is None:
+        error_type = error_details.get("error_type", "unknown")
+        error_message = error_details.get("error_message", "no details")
+        raise RuntimeError(
+            f"LLM async call failed: error_type={error_type}, "
+            f"message={error_message}"
+        )
+
+    text = getattr(response, "text", None)
+    if not isinstance(text, str) or not text.strip():
+        raise RuntimeError("LLM returned empty or invalid response")
+
+    return text.strip()
+

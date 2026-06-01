@@ -61,6 +61,10 @@ class SegmentArtifactRefs:
         Сохранённая ссылка на ClauseTree этого сегмента.
     segment_chunks_ref:
         Сохранённая ссылка на snapshot чанков этого сегмента.
+    legal_units_ref:
+        Сохранённая ссылка на legal units snapshot (Phase 12 / Этап 5).
+    legal_units_enrichment_ref:
+        Сохранённая ссылка на LLM enrichment sidecar (Phase 12).
 
     Заметки
     -------
@@ -71,6 +75,8 @@ class SegmentArtifactRefs:
     segment_id: str
     segment_clause_tree_ref: str | None = None
     segment_chunks_ref: str | None = None
+    legal_units_ref: str | None = None
+    legal_units_enrichment_ref: str | None = None
 
     def __post_init__(self) -> None:
         if not self.segment_id:
@@ -86,14 +92,28 @@ class SegmentArtifactRefs:
         """True, если у сегмента есть ссылка на snapshot чанков."""
         return bool(self.segment_chunks_ref)
 
+    @property
+    def has_legal_units(self) -> bool:
+        """True, если у сегмента есть ссылка на legal units snapshot."""
+        return bool(self.legal_units_ref)
+
+    @property
+    def has_enrichment(self) -> bool:
+        """True, если у сегмента есть ссылка на enrichment sidecar."""
+        return bool(self.legal_units_enrichment_ref)
+
     def to_dict(self) -> dict[str, Any]:
         """Сериализует ссылки в детерминированный JSON‑совместимый dict."""
         return {
             "segment_id": self.segment_id,
             "segment_clause_tree_ref": self.segment_clause_tree_ref,
             "segment_chunks_ref": self.segment_chunks_ref,
+            "legal_units_ref": self.legal_units_ref,
+            "legal_units_enrichment_ref": self.legal_units_enrichment_ref,
             "has_tree": self.has_tree,
             "has_chunks": self.has_chunks,
+            "has_legal_units": self.has_legal_units,
+            "has_enrichment": self.has_enrichment,
         }
 
 

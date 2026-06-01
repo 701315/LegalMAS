@@ -62,6 +62,7 @@ from services.structure.legal_unit_builder import LegalUnitBuilder
 from services.structure.legal_unit_models import LegalUnitsSnapshot
 from services.structure.semantic_enrichment import (
     enrich_legal_units,
+    enrich_legal_units_async,
     make_policy_from_settings,
 )
 from services.structure.semantic_enrichment._types import LegalUnitsEnrichmentResult
@@ -636,7 +637,7 @@ class SegmentChunkBuilderV2:
         segment_snapshots: list[SegmentChunkSnapshotV2] = []
 
         for segment in sorted(segments, key=lambda s: int(s.segment_order)):
-            snapshot = self._build_single_segment_snapshot(
+            snapshot = await self._build_single_segment_snapshot(
                 document_id=doc.id,
                 document_version_id=version.id,
                 segment=segment,
@@ -782,7 +783,7 @@ class SegmentChunkBuilderV2:
 
         return file_manifest, segment_snapshots
 
-    def _build_single_segment_snapshot(
+    async def _build_single_segment_snapshot(
         self,
         *,
         document_id: uuid.UUID,
@@ -1178,7 +1179,7 @@ class SegmentChunkBuilderV2:
         if legal_units_snapshot is not None and _app_settings.SEMANTIC_ENRICHMENT_ENABLED:
             try:
                 enrichment_policy = make_policy_from_settings()
-                legal_units_enrichment_result = enrich_legal_units(
+                legal_units_enrichment_result = await enrich_legal_units_async(
                     legal_units_snapshot,
                     policy=enrichment_policy,
                     collector=collector,

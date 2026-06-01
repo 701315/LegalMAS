@@ -1,3 +1,5 @@
+# src/mas_queue/__init__.py
+
 """
 Queue infrastructure: Celery app, base task, DLQ, helpers.
 """

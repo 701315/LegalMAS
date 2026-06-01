@@ -45,8 +45,12 @@ def test_segment_artifact_refs_to_dict_is_deterministic() -> None:
         "segment_id": "seg-1",
         "segment_clause_tree_ref": "s3://bucket/segment_1.json",
         "segment_chunks_ref": "s3://bucket/chunks_1.json",
+        "legal_units_ref": None,
+        "legal_units_enrichment_ref": None,
         "has_tree": True,
         "has_chunks": True,
+        "has_legal_units": False,
+        "has_enrichment": False,
     }
 
 
@@ -227,8 +231,12 @@ def test_canonical_artifact_refs_to_dict_contains_expected_shape() -> None:
                 "segment_id": "seg-1",
                 "segment_clause_tree_ref": "s3://bucket/segment_1.json",
                 "segment_chunks_ref": "s3://bucket/chunks_1.json",
+                "legal_units_ref": None,
+                "legal_units_enrichment_ref": None,
                 "has_tree": True,
                 "has_chunks": True,
+                "has_legal_units": False,
+                "has_enrichment": False,
             }
         ],
         "structure_ready": True,

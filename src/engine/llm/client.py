@@ -17,6 +17,8 @@ import json
 import os
 import re
 import time
+import asyncio
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -81,6 +83,8 @@ class LLMClient:
         self.timeout = settings.LLM_TIMEOUT_SECONDS
         self._llama_model: Any = None
         self._llama_grammar_cache: dict[str, Any] = {}
+        self._llamacpp_semaphore: asyncio.Semaphore | None = None
+
 
     # - 0 означает «ровно один вызов без ретраев»;
     # - 2 означает «до трёх вызовов: первая попытка + 2 повтора».
@@ -380,6 +384,396 @@ class LLMClient:
             "error_type": last_error_type or "transient_error",
             "error_message": last_error_message,
         }
+
+
+    # =========================================================================
+    # Phase 14.1: Async API
+    # Добавлено рядом со sync API. Sync методы сохранены без изменений.
+    # llamacpp: не блокирует event loop через run_in_executor + Semaphore(1).
+    # ollama/openai: реальный async I/O через httpx.AsyncClient.
+    # =========================================================================
+
+    def _get_llamacpp_semaphore(self) -> asyncio.Semaphore:
+        """
+        Semaphore(1) для сериализации вызовов llamacpp.
+
+        llamacpp (_llama_model) не является thread-safe для
+        параллельных инференсов. Semaphore(1) гарантирует что в любой
+        момент времени через run_in_executor выполняется не более
+        одного вызова модели.
+
+        Создаётся лениво при первом async вызове — не в __init__,
+        потому что event loop может ещё не существовать в момент
+        создания LLMClient singleton.
+        """
+        if self._llamacpp_semaphore is None:
+            self._llamacpp_semaphore = asyncio.Semaphore(1)
+        return self._llamacpp_semaphore
+
+    async def _call_openai_async(
+        self,
+        prompt: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> LLMResponse:
+        """
+        Async OpenAI call через httpx.AsyncClient.
+
+        Идентична sync _call_openai() по логике,
+        но не блокирует event loop во время сетевого I/O.
+        """
+        url = f"{settings.LLM_OPENAI_BASE_URL}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {settings.LLM_OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        body = {
+            "model": settings.LLM_OPENAI_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(url, json=body, headers=headers)
+
+        if response.status_code == 401:
+            raise PermanentError("OpenAI invalid API key")
+        if response.status_code == 429:
+            raise TransientError("OpenAI rate limit exceeded")
+        if response.status_code >= 500:
+            raise TransientError(f"OpenAI server error: {response.status_code}")
+        if response.status_code != 200:
+            raise PermanentError(
+                f"OpenAI error {response.status_code}: {response.text[:200]}"
+            )
+
+        data = response.json()
+        text = data["choices"][0]["message"]["content"]
+        tokens_used = data.get("usage", {}).get("total_tokens", 0)
+
+        result = LLMResponse(
+            text=text,
+            provider="openai",
+            model=settings.LLM_OPENAI_MODEL,
+            tokens_used=tokens_used,
+            raw_response=data,
+        )
+        return _parse_llm_response(result)
+
+    async def _call_ollama_async(
+        self,
+        prompt: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> LLMResponse:
+        """
+        Async Ollama call через httpx.AsyncClient.
+
+        Идентична sync _call_ollama() по логике,
+        но не блокирует event loop во время сетевого I/O.
+        """
+        url = f"{settings.LLM_OLLAMA_BASE_URL}/api/generate"
+        body = {
+            "model": settings.LLM_OLLAMA_MODEL,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens,
+            },
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(url, json=body)
+
+        if response.status_code == 404:
+            raise PermanentError(
+                f"Ollama model not found: {settings.LLM_OLLAMA_MODEL}. "
+                f"Run `ollama pull {settings.LLM_OLLAMA_MODEL}`."
+            )
+        if response.status_code != 200:
+            raise TransientError(
+                f"Ollama error {response.status_code}: {response.text[:200]}"
+            )
+
+        data = response.json()
+        text = data.get("response", "")
+
+        result = LLMResponse(
+            text=text,
+            provider="ollama",
+            model=settings.LLM_OLLAMA_MODEL,
+            raw_response=data,
+        )
+        return _parse_llm_response(result)
+
+    async def _call_llamacpp_async(
+        self,
+        prompt: str,
+        temperature: float,
+        max_tokens: int,
+        grammar_path: str | None = None,
+    ) -> LLMResponse:
+        """
+        Async llamacpp через run_in_executor + Semaphore(1).
+
+        Не блокирует event loop — CPU-bound инференс выполняется
+        в thread pool executor, освобождая loop для других coroutines.
+
+        Semaphore(1) гарантирует что параллельные async вызовы
+        сериализуются: _llama_model не thread-safe, одновременный
+        доступ из нескольких потоков приводит к race condition.
+
+        Практический эффект при llamacpp + CPU:
+        - Event loop свободен во время инференса (2-10s).
+        - Параллелизм между units НЕ достигается (semaphore сериализует).
+        - Выигрыш: другие async операции (I/O, DB) не ждут LLM.
+        """
+        sem = self._get_llamacpp_semaphore()
+        loop = asyncio.get_running_loop()
+
+        async with sem:
+            result = await loop.run_in_executor(
+                None,  # default ThreadPoolExecutor
+                lambda: self._call_llamacpp(
+                    prompt=prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    grammar_path=grammar_path,
+                ),
+            )
+        return result
+
+    async def call_async(
+        self,
+        prompt: str,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        grammar_path: str | None = None,
+    ) -> LLMResponse | None:
+        """
+        Async версия call().
+
+        Provider routing:
+        - llamacpp → _call_llamacpp_async() (run_in_executor + Semaphore)
+        - ollama   → _call_ollama_async()   (httpx.AsyncClient)
+        - openai   → _call_openai_async()   (httpx.AsyncClient)
+
+        Raises:
+            LLMContextLimitError: prompt превышает контекстное окно.
+            TransientError: таймаут / сетевая ошибка.
+            PermanentError: постоянные ошибки.
+        """
+        if self.provider == "none" or not self.is_available():
+            return None
+
+        temp = temperature if temperature is not None else settings.LLM_TEMPERATURE
+        requested_tokens = (
+            max_tokens if max_tokens is not None else settings.LLM_MAX_TOKENS
+        )
+
+        try:
+            tokens, budget_info = self._compute_token_budget(
+                prompt=prompt,
+                requested_max_tokens=int(requested_tokens),
+            )
+        except LLMContextLimitError:
+            logger.warning(
+                "LLM async call aborted: context limit exceeded",
+                provider=self.provider,
+                requested_max_tokens=int(requested_tokens),
+            )
+            raise
+        except PermanentError:
+            raise
+
+        logger.info(
+            "LLM async call",
+            provider=self.provider,
+            temperature=temp,
+            max_tokens=tokens,
+            prompt_preview=prompt[:200],
+            grammar_enabled=bool(grammar_path),
+            prompt_tokens=budget_info.get("prompt_tokens"),
+            effective_max_tokens=budget_info.get("effective_max_tokens"),
+        )
+
+        start_time = time.time()
+        error_type_for_metrics: str | None = None
+        result: LLMResponse | None = None
+
+        try:
+            if self.provider == "openai":
+                result = await self._call_openai_async(prompt, temp, tokens)
+            elif self.provider == "ollama":
+                result = await self._call_ollama_async(prompt, temp, tokens)
+            elif self.provider == "llamacpp":
+                result = await self._call_llamacpp_async(
+                    prompt, temp, tokens, grammar_path=grammar_path
+                )
+            else:
+                logger.warning(
+                    "Unknown LLM provider (async)", provider=self.provider
+                )
+                error_type_for_metrics = "unknown_provider"
+                result = None
+        except httpx.TimeoutException:
+            logger.warning("LLM async call timed out", provider=self.provider)
+            error_type_for_metrics = "timeout"
+            raise TransientError(f"LLM timeout ({self.provider})")
+        except httpx.ConnectError:
+            logger.warning(
+                "LLM async connection failed", provider=self.provider
+            )
+            error_type_for_metrics = "connect_error"
+            raise TransientError(f"LLM connection failed ({self.provider})")
+        except TransientError:
+            error_type_for_metrics = "transient_error"
+            raise
+        except PermanentError:
+            error_type_for_metrics = "permanent_error"
+            raise
+        except Exception as e:
+            logger.error(
+                "LLM async call failed", provider=self.provider, error=str(e)
+            )
+            error_type_for_metrics = "unexpected_error"
+            result = None
+        finally:
+            duration = time.time() - start_time
+            try:
+                METRICS.llm_request_duration_seconds.labels(
+                    provider=self.provider
+                ).observe(duration)
+                METRICS.llm_requests_total.labels(
+                    provider=self.provider,
+                    error_type=error_type_for_metrics or "none",
+                ).inc()
+                if isinstance(result, LLMResponse):
+                    METRICS.llm_tokens_total.labels(
+                        provider=self.provider,
+                    ).inc(result.tokens_used)
+            except Exception:
+                logger.exception(
+                    "LLMClient: failed to update LLM metrics (async)"
+                )
+
+        return result
+
+    async def call_with_retries_async(
+        self,
+        prompt: str,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        grammar_path: str | None = None,
+        max_retries: int | None = None,
+    ) -> tuple[LLMResponse | None, dict]:
+        """
+        Async версия call_with_retries().
+
+        Та же retry логика (context_limit → no retry, transient → retry,
+        permanent → no retry), но через await call_async().
+
+        Возвращает (response_or_none, error_details_dict).
+        error_details содержит: llm_attempts, error_type, error_message.
+        """
+        attempts = 0
+        last_error_type: str | None = None
+        last_error_message: str | None = None
+
+        retries = (
+            max_retries
+            if max_retries is not None
+            else getattr(settings, "LLM_MAX_RETRIES", 2)
+        )
+
+        while True:
+            try:
+                attempts += 1
+                response = await self.call_async(
+                    prompt=prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    grammar_path=grammar_path,
+                )
+
+                if response is None:
+                    return None, {
+                        "llm_attempts": attempts,
+                        "error_type": "unavailable",
+                        "error_message": "LLM provider is not available",
+                    }
+
+                return response, {
+                    "llm_attempts": attempts,
+                    "error_type": None,
+                    "error_message": None,
+                }
+
+            except LLMContextLimitError as e:
+                logger.warning(
+                    "LLMClient async context limit exceeded, no retries",
+                    provider=self.provider,
+                    attempt=attempts,
+                    error=str(e),
+                )
+                return None, {
+                    "llm_attempts": attempts,
+                    "error_type": "context_limit",
+                    "error_message": str(e),
+                }
+
+            except TransientError as e:
+                last_error_type = "transient_error"
+                last_error_message = str(e)
+                logger.warning(
+                    "LLMClient async transient error, will retry if attempts left",
+                    provider=self.provider,
+                    attempt=attempts,
+                    max_retries=retries,
+                    error=str(e),
+                )
+                if attempts > retries:
+                    break
+                continue
+
+            except PermanentError as e:
+                last_error_type = "permanent_error"
+                last_error_message = str(e)
+                logger.warning(
+                    "LLMClient async permanent error, no retries",
+                    provider=self.provider,
+                    attempt=attempts,
+                    error=str(e),
+                )
+                return None, {
+                    "llm_attempts": attempts,
+                    "error_type": last_error_type,
+                    "error_message": last_error_message,
+                }
+
+            except Exception as e:
+                last_error_type = "unexpected_error"
+                last_error_message = str(e)
+                logger.error(
+                    "LLMClient async unexpected exception",
+                    provider=self.provider,
+                    attempt=attempts,
+                    error=str(e),
+                )
+                return None, {
+                    "llm_attempts": attempts,
+                    "error_type": last_error_type,
+                    "error_message": last_error_message,
+                }
+
+        return None, {
+            "llm_attempts": attempts,
+            "error_type": last_error_type or "transient_error",
+            "error_message": last_error_message,
+        }
+
 
     # --- OpenAI-compatible provider ---
 

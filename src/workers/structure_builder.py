@@ -344,6 +344,7 @@ async def _build_structure_async(
     segments_count: int | None = None
     clause_tree = None
     segment_rows_to_create: list[dict[str, Any]] = []
+    old_segment_tree_refs: list[str] = []
 
     try:
         if store_file_graph:
@@ -501,12 +502,27 @@ async def _build_structure_async(
         )
 
     if store_file_graph:
+        # ── Phase 14.4: snapshot old segment refs for post-commit cleanup ────
+        try:
+            existing_segments = await seg_repo.list_by_version(v_id)
+            for old_seg in existing_segments:
+                old_ref = getattr(old_seg, "segment_clause_tree_ref", None)
+                if old_ref:
+                    old_segment_tree_refs.append(old_ref)
+        except Exception as _snap_exc:
+            logger.debug(
+                "Structure builder: failed to snapshot old segment refs (non-critical)",
+                document_id=str(doc.id),
+                error=str(_snap_exc),
+            )
+
         try:
             await seg_repo.replace_segments(
                 document_version_id=v_id,
                 items=segment_rows_to_create,
             )
         except Exception as e:
+
             logger.exception(
                 "Failed to replace document segments for structure result",
                 document_id=str(doc.id),
@@ -604,6 +620,66 @@ async def _build_structure_async(
                 stage_execution_id=stage_execution_id,
                 error=str(e),
             )
+
+    # ── Phase 14.4: post-commit cleanup stale segment tree artifacts ─────────
+    # Удаляем только те refs, которые больше не в текущем committed state.
+    # Best-effort: ошибка cleanup НЕ ломает pipeline.
+    current_tree_refs: set[str] = set()
+    if clause_tree_ref:
+        current_tree_refs.add(clause_tree_ref)
+    for row in segment_rows_to_create:
+        ref = row.get("segment_clause_tree_ref")
+        if ref:
+            current_tree_refs.add(ref)
+
+    stale_refs = [r for r in old_segment_tree_refs if r not in current_tree_refs]
+    if stale_refs:
+        try:
+            cleanup_result = store.delete_many_best_effort(stale_refs)
+            logger.info(
+                "Structure builder: post-commit cleanup stale segment trees",
+                document_id=str(doc.id),
+                stale_count=len(stale_refs),
+                deleted=cleanup_result.get("deleted", 0),
+                failed=cleanup_result.get("failed", 0),
+            )
+        except Exception as _cleanup_exc:
+            logger.warning(
+                "Structure builder: post-commit cleanup failed (non-critical)",
+                document_id=str(doc.id),
+                error=str(_cleanup_exc),
+            )
+
+    # ── Phase 14.4: write artifact manifest best-effort ──────────────────────
+    try:
+        from storage._artifact_manifest import write_artifact_manifest_best_effort
+
+        manifest_segment_refs: list[dict[str, Any]] = []
+        for row in segment_rows_to_create:
+            manifest_segment_refs.append({
+                "segment_id": row.get("segment_id", ""),
+                "segment_clause_tree_ref": row.get("segment_clause_tree_ref"),
+                "segment_chunks_ref": row.get("segment_chunks_ref"),
+            })
+
+        write_artifact_manifest_best_effort(
+            store=store,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=str(doc.id),
+            document_version_id=str(v_id),
+            clause_tree_ref=clause_tree_ref,
+            file_graph_ref=file_graph_ref,
+            chunks_manifest_v2_ref=None,
+            segment_refs=manifest_segment_refs,
+            stage="structure",
+        )
+    except Exception as _manifest_exc:
+        logger.warning(
+            "Structure builder: failed to write artifact manifest (non-critical)",
+            document_id=str(doc.id),
+            error=str(_manifest_exc),
+        )
 
     duration = round(time.time() - start, 2)
 
