@@ -33,6 +33,7 @@ from services.telemetry._events import (
     EnrichmentCompletedEvent,
     QualityEvaluatedEvent,
     StructureBuiltEvent,
+    CrossSegmentCoherenceEvent,
 )
 
 logger = get_logger(__name__)
@@ -117,6 +118,7 @@ class TelemetryCollector:
         quality_events = self.events_by_type(QualityEvaluatedEvent)
         chunking_events = self.events_by_type(ChunkingCompletedEvent)
         enrichment_events = self.events_by_type(EnrichmentCompletedEvent)
+        coherence_events = self.events_by_type(CrossSegmentCoherenceEvent)
 
         # Structure aggregates
         total_nodes = sum(
@@ -173,6 +175,21 @@ class TelemetryCollector:
             getattr(e, "llm_unavailable", False)
             for e in enrichment_events
         )
+        # Coherence aggregates
+        coherence_links_found = sum(
+            getattr(e, "links_found", 0) for e in coherence_events
+        )
+        coherence_avg_confidence = _safe_avg(
+            [getattr(e, "avg_link_confidence", 0.0) for e in coherence_events]
+        )
+        coherence_resolver_error = next(
+            (
+                getattr(e, "resolver_error", None)
+                for e in coherence_events
+                if getattr(e, "resolver_error", None)
+            ),
+            None,
+        )
 
         return DocumentProcessedEvent(
             document_id=self.document_id,
@@ -194,6 +211,9 @@ class TelemetryCollector:
             enrichment_failed_count=enrichment_failed,
             enrichment_skipped_count=enrichment_skipped,
             enrichment_llm_unavailable=llm_unavailable,
+            coherence_links_found=coherence_links_found,
+            coherence_avg_confidence=coherence_avg_confidence,
+            coherence_resolver_error=coherence_resolver_error,
             retrieval_safe_chunks=retrieval_safe_chunks,
             overall_retrieval_safe=overall_retrieval_safe,
             recommended_action=recommended_action,

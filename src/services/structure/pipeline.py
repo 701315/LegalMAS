@@ -36,6 +36,11 @@ from services.structure.chunk_planner import plan_chunking
 
 # добавить import в начало файла
 from services.structure.coherence import CrossSegmentCoherenceResolver
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from services.telemetry._collector import TelemetryCollector
+
 
 _COHERENCE_RESOLVER = CrossSegmentCoherenceResolver()
 
@@ -63,6 +68,7 @@ def build_file_structure(
     elements: list[dict] | None,
     *,
     document_version_id: str | None = None,
+    collector: TelemetryCollector | None = None,
 ) -> FileStructureResult:
     if not document_id:
         logger.warning("STRUCTURE build_file_structure: empty document_id")
@@ -89,6 +95,7 @@ def build_file_structure(
             segment_order=seg.segment_order,
             scope_name=seg.scope_name,
             is_primary_segment=True,
+            collector=collector,
         )
 
         file_graph = build_file_graph(
@@ -130,6 +137,7 @@ def build_file_structure(
             segment_order=seg.segment_order,
             scope_name=seg.scope_name,
             is_primary_segment=seg.is_primary,
+            collector=collector,
         )
 
         segment_trees.append(tree)
@@ -137,7 +145,11 @@ def build_file_structure(
 
     # Phase 13.7: cross-segment coherence pass (failure-isolated)
     coherence_result = (
-        _COHERENCE_RESOLVER.resolve(segment_trees)
+        _COHERENCE_RESOLVER.resolve(
+            segment_trees,
+            collector=collector,
+            document_id=document_id,
+        )
         if len(segment_trees) > 1
         else None
     )
@@ -167,6 +179,7 @@ def build_file_structure_with_analysis(
     quality_thresholds: QualityThresholds | None = None,
     sliding_window: int = 5,
     crossref_neighborhood: int = 2,
+    collector: TelemetryCollector | None = None,
 ) -> FileStructureAnalysisResult:
     """
     Phase 1-9: elements → structure → cohesion → quality evaluation.
@@ -187,6 +200,7 @@ def build_file_structure_with_analysis(
         document_id=document_id,
         elements=elements,
         document_version_id=document_version_id,
+        collector=collector,
     )
 
     return analyze_file_structure(
@@ -194,6 +208,7 @@ def build_file_structure_with_analysis(
         thresholds=quality_thresholds,
         sliding_window=sliding_window,
         crossref_neighborhood=crossref_neighborhood,
+        collector=collector,
     )
 
 
@@ -203,12 +218,14 @@ def build_file_structure_with_chunk_plan(
     *,
     document_version_id: str | None = None,
     quality_thresholds: QualityThresholds | None = None,
+    collector: TelemetryCollector | None = None,
 ):
     analysis = build_file_structure_with_analysis(
         document_id=document_id,
         elements=elements,
         document_version_id=document_version_id,
         quality_thresholds=quality_thresholds,
+        collector=collector,
     )
     plan = plan_chunking(analysis)
     return analysis, plan

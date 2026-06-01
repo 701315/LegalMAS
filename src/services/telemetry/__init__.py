@@ -28,6 +28,7 @@ from services.telemetry._events import (
     EnrichmentCompletedEvent,
     QualityEvaluatedEvent,
     StructureBuiltEvent,
+    CrossSegmentCoherenceEvent,
 )
 
 __all__ = [
@@ -47,5 +48,6 @@ __all__ = [
     "DriftSeverity",
     "DriftThresholds",
     "make_drift_thresholds_from_settings",
+    "CrossSegmentCoherenceEvent",
 ]
 

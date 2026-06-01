@@ -17,6 +17,11 @@ from services.structure.coherence._types import (
     CrossSegmentCoherenceResult,
 )
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from services.telemetry._collector import TelemetryCollector
+
 logger = get_logger(__name__)
 
 # Дефолтные ограничения окна — настраиваются через параметры resolve()
@@ -96,6 +101,8 @@ class CrossSegmentCoherenceResolver:
         *,
         max_page_distance: int = _DEFAULT_MAX_PAGE_DISTANCE,
         max_level_delta: int = _DEFAULT_MAX_LEVEL_DELTA,
+        collector: TelemetryCollector | None = None,
+        document_id: str = "",
     ) -> CrossSegmentCoherenceResult:
         """
         Основной entry point. Никогда не бросает — failure-isolated.
@@ -136,6 +143,9 @@ class CrossSegmentCoherenceResolver:
                     "links_found": result.links_found,
                 },
             )
+
+        # Emit telemetry (Phase 13.7)
+        self._emit_telemetry(result, collector=collector, document_id=document_id)
 
         return result
 
@@ -191,3 +201,39 @@ class CrossSegmentCoherenceResolver:
 
         return links
     
+    @staticmethod
+    def _emit_telemetry(
+        result: CrossSegmentCoherenceResult,
+        *,
+        collector: TelemetryCollector | None,
+        document_id: str,
+    ) -> None:
+        """Emit CrossSegmentCoherenceEvent. Failure-isolated."""
+        if collector is None:
+            return
+        try:
+            from services.telemetry._events import CrossSegmentCoherenceEvent
+
+            confidences = [link.confidence for link in result.links]
+            avg_conf = (
+                round(sum(confidences) / len(confidences), 4)
+                if confidences else 0.0
+            )
+            max_conf = max(confidences) if confidences else 0.0
+
+            collector.emit(CrossSegmentCoherenceEvent(
+                document_id=document_id,
+                segments_analyzed=result.segments_analyzed,
+                links_found=result.links_found,
+                avg_link_confidence=avg_conf,
+                max_link_confidence=max_conf,
+                resolver_error=result.resolver_error,
+            ))
+        except Exception as exc:
+            logger.warning(
+                "STRUCTURE cross_segment_coherence_telemetry_emit_failed",
+                extra={"error": str(exc)},
+            )
+
+
+            

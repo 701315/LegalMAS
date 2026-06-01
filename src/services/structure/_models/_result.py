@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from ._graph import FileGraph
 from ._normalization import _norm_str
 from ._tree import ClauseTree
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from services.structure.coherence._types import CrossSegmentCoherenceResult
 
@@ -103,3 +103,20 @@ class FileStructureResult:
             (tree for tree in self.segment_trees if tree.segment_id == normalized_segment_id),
             None,
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize FileStructureResult to dict."""
+        result: dict[str, Any] = {
+            "primary_segment_id": self.primary_segment_id,
+            "segment_count": self.segment_count,
+            "primary_tree": self.primary_tree.to_dict(),
+            "segment_trees": [tree.to_dict() for tree in self.segment_trees],
+            "file_graph": self.file_graph.to_dict(),
+        }
+        if self.coherence_result is not None:
+            result["coherence_result"] = self.coherence_result.to_dict()
+        else:
+            result["coherence_result"] = None
+        return result
+
+

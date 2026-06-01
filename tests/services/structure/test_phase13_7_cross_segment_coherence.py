@@ -1,3 +1,5 @@
+# tests/services/structure/test_phase13_7_cross_segment_coherence.py
+
 """
 tests/services/structure/test_phase13_7_cross_segment_coherence.py
 
@@ -8,8 +10,11 @@ Phase 13.7 — Cross-Segment Coherence Resolver tests.
 - _get_orphan_roots
 - _compute_confidence
 - CrossSegmentCoherenceResolver.resolve() — основные сценарии
+- CrossSegmentCoherenceResolver.resolve(collector=...) — telemetry emit
 - CrossSegmentCoherenceResult.to_dict()
 - CoherenceLink.to_dict()
+- CrossSegmentCoherenceEvent — структура и сериализация
+- FileStructureResult.to_dict() — сериализация включая coherence_result
 """
 
 from __future__ import annotations
@@ -344,7 +349,6 @@ def test_page_distance_too_large_skipped(resolver):
     """page_distance=15 при max_page_distance=5 → нет link."""
     last_node = _node(scope="main_contract", raw_uid="1", level=1, start_page=1, end_page=5)
     tree1 = _make_tree(segment_id="seg-1", root=[last_node], segment_page_range=(1, 5))
-    # segment_page_range=(20, 30) → page_distance = |20 - 5| = 15 > 5
     orphan = _orphan_node(scope="appendix_a", raw_uid="A.1", level=2, start_page=20, end_page=20)
     tree2 = _make_tree(segment_id="seg-2", root=[orphan], segment_page_range=(20, 30))
     assert resolver.resolve([tree1, tree2], max_page_distance=5).links_found == 0
@@ -464,5 +468,269 @@ def test_coherence_result_to_dict_with_links():
     assert d["links_found"] == 1
     assert len(d["links"]) == 1
     assert d["links"][0]["source_segment_id"] == "seg-1"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NEW: Phase 13.7 completion — Telemetry emit
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class _FakeCollector:
+    """Минимальный fake TelemetryCollector для тестов emit."""
+
+    def __init__(self) -> None:
+        self.emitted: list = []
+
+    def emit(self, event) -> None:
+        self.emitted.append(event)
+
+
+def test_resolver_emits_coherence_event_when_collector_given(resolver):
+    """Resolve с collector → emit CrossSegmentCoherenceEvent."""
+    from services.telemetry._events import CrossSegmentCoherenceEvent
+
+    last_node = _node(scope="main_contract", raw_uid="3", level=1, start_page=4, end_page=5)
+    tree1 = _make_tree(
+        segment_id="seg-1", segment_order=0,
+        root=[last_node],
+        segment_page_range=(1, 5),
+    )
+    orphan = _orphan_node(scope="appendix_a", raw_uid="3.1", level=2, start_page=6, end_page=7)
+    tree2 = _make_tree(
+        segment_id="seg-2", segment_order=1,
+        root=[orphan],
+        segment_page_range=(6, 10),
+    )
+
+    collector = _FakeCollector()
+    result = resolver.resolve(
+        [tree1, tree2],
+        collector=collector,
+        document_id="doc-42",
+    )
+
+    assert result.links_found == 1
+    assert len(collector.emitted) == 1
+
+    event = collector.emitted[0]
+    assert isinstance(event, CrossSegmentCoherenceEvent)
+    assert event.event_type == "cross_segment_coherence"
+    assert event.document_id == "doc-42"
+    assert event.segments_analyzed == 2
+    assert event.links_found == 1
+    assert event.avg_link_confidence > 0.0
+    assert event.max_link_confidence > 0.0
+    assert event.resolver_error is None
+
+
+def test_resolver_no_emit_without_collector(resolver):
+    """Resolve без collector → никакого emit, нет ошибок."""
+    last_node = _node(scope="main_contract", raw_uid="3", level=1, start_page=4, end_page=5)
+    tree1 = _make_tree(
+        segment_id="seg-1", segment_order=0,
+        root=[last_node],
+        segment_page_range=(1, 5),
+    )
+    orphan = _orphan_node(scope="appendix_a", raw_uid="3.1", level=2, start_page=6, end_page=7)
+    tree2 = _make_tree(
+        segment_id="seg-2", segment_order=1,
+        root=[orphan],
+        segment_page_range=(6, 10),
+    )
+
+    # Не передаём collector — не должно быть никаких ошибок
+    result = resolver.resolve([tree1, tree2])
+    assert result.links_found == 1
+
+
+def test_resolver_emits_zero_links_event_when_no_orphans(resolver):
+    """Нет orphan roots → emit event с links_found=0."""
+    from services.telemetry._events import CrossSegmentCoherenceEvent
+
+    tree1 = _make_tree(
+        segment_id="seg-1", segment_order=0,
+        root=[_node(scope="main_contract", raw_uid="1", start_page=1, end_page=5)],
+        segment_page_range=(1, 5),
+    )
+    tree2 = _make_tree(
+        segment_id="seg-2", segment_order=1,
+        root=[_node(scope="appendix_a", raw_uid="A.1", start_page=6, end_page=10)],
+        segment_page_range=(6, 10),
+    )
+
+    collector = _FakeCollector()
+    result = resolver.resolve(
+        [tree1, tree2],
+        collector=collector,
+        document_id="doc-43",
+    )
+
+    assert result.links_found == 0
+    assert len(collector.emitted) == 1
+
+    event = collector.emitted[0]
+    assert isinstance(event, CrossSegmentCoherenceEvent)
+    assert event.links_found == 0
+    assert event.avg_link_confidence == 0.0
+    assert event.max_link_confidence == 0.0
+
+
+def test_resolver_emits_single_segment_skips_coherence_but_no_emit(resolver):
+    """Один сегмент → resolve() возвращает пустой result, emit не происходит.
+
+    Обоснование: emit делается внутри resolve() только если список
+    segment_trees >= 2. При одном сегменте resolver возвращает ранний return.
+    """
+    from services.telemetry._events import CrossSegmentCoherenceEvent
+
+    tree = _make_tree(
+        segment_id="seg-1",
+        root=[_node(scope="main_contract", raw_uid="1")],
+    )
+    collector = _FakeCollector()
+    result = resolver.resolve([tree], collector=collector, document_id="doc-44")
+
+    assert result.links_found == 0
+    # Один сегмент → coherence pass не запускается → emit не происходит
+    assert len(collector.emitted) == 0
+
+
+def test_resolver_telemetry_emit_failure_isolated(resolver, monkeypatch):
+    """Ошибка в emit не ломает основной resolve()."""
+    from services.telemetry._events import CrossSegmentCoherenceEvent
+
+    class _BrokenCollector:
+        def emit(self, event) -> None:
+            raise RuntimeError("collector broken")
+
+    last_node = _node(scope="main_contract", raw_uid="3", level=1, start_page=4, end_page=5)
+    tree1 = _make_tree(
+        segment_id="seg-1", segment_order=0,
+        root=[last_node],
+        segment_page_range=(1, 5),
+    )
+    orphan = _orphan_node(scope="appendix_a", raw_uid="3.1", level=2, start_page=6, end_page=7)
+    tree2 = _make_tree(
+        segment_id="seg-2", segment_order=1,
+        root=[orphan],
+        segment_page_range=(6, 10),
+    )
+
+    collector = _BrokenCollector()
+    # Не должно бросать исключение
+    result = resolver.resolve(
+        [tree1, tree2],
+        collector=collector,
+        document_id="doc-45",
+    )
+    assert result.links_found == 1
+
+
+def test_resolver_emits_confidence_metrics_correctly(resolver):
+    """avg/max confidence вычислены корректно при наличии links."""
+    from services.telemetry._events import CrossSegmentCoherenceEvent
+
+    # level_delta=1, page_distance=0 → confidence=1.0
+    last_node = _node(scope="main_contract", raw_uid="1", level=1, start_page=1, end_page=5)
+    tree1 = _make_tree(
+        segment_id="seg-1", segment_order=0,
+        root=[last_node],
+        segment_page_range=(1, 5),
+    )
+    # next_start_page = 6, prev_end_page = 5 → page_distance = |6-5| = 1
+    # level_delta = 2-1 = 1
+    # confidence = 1.0 - 0.05*1 = 0.95
+    orphan = _orphan_node(scope="appendix_a", raw_uid="1.1", level=2, start_page=6, end_page=6)
+    tree2 = _make_tree(
+        segment_id="seg-2", segment_order=1,
+        root=[orphan],
+        segment_page_range=(6, 10),
+    )
+
+    collector = _FakeCollector()
+    resolver.resolve(
+        [tree1, tree2],
+        collector=collector,
+        document_id="doc-46",
+    )
+
+    assert len(collector.emitted) == 1
+    event = collector.emitted[0]
+    assert isinstance(event, CrossSegmentCoherenceEvent)
+    assert event.links_found == 1
+    assert event.avg_link_confidence == event.max_link_confidence
+    assert 0.8 <= event.avg_link_confidence <= 1.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NEW: CrossSegmentCoherenceEvent — структура и сериализация
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_coherence_event_defaults():
+    """CrossSegmentCoherenceEvent имеет корректные дефолты."""
+    from services.telemetry._events import CrossSegmentCoherenceEvent
+
+    event = CrossSegmentCoherenceEvent()
+    assert event.event_type == "cross_segment_coherence"
+    assert event.document_id == ""
+    assert event.segments_analyzed == 0
+    assert event.links_found == 0
+    assert event.avg_link_confidence == 0.0
+    assert event.max_link_confidence == 0.0
+    assert event.resolver_error is None
+
+
+def test_coherence_event_to_dict():
+    """CrossSegmentCoherenceEvent.to_dict() содержит все поля."""
+    from services.telemetry._events import CrossSegmentCoherenceEvent
+
+    event = CrossSegmentCoherenceEvent(
+        document_id="doc-1",
+        segments_analyzed=3,
+        links_found=2,
+        avg_link_confidence=0.875,
+        max_link_confidence=1.0,
+        resolver_error=None,
+    )
+    d = event.to_dict()
+    assert d["event_type"] == "cross_segment_coherence"
+    assert d["document_id"] == "doc-1"
+    assert d["segments_analyzed"] == 3
+    assert d["links_found"] == 2
+    assert d["avg_link_confidence"] == pytest.approx(0.875, abs=0.001)
+    assert d["max_link_confidence"] == 1.0
+    assert d["resolver_error"] is None
+
+
+def test_coherence_event_to_dict_with_error():
+    """CrossSegmentCoherenceEvent.to_dict() включает resolver_error."""
+    from services.telemetry._events import CrossSegmentCoherenceEvent
+
+    event = CrossSegmentCoherenceEvent(
+        document_id="doc-1",
+        segments_analyzed=2,
+        links_found=0,
+        resolver_error="something went wrong",
+    )
+    d = event.to_dict()
+    assert d["resolver_error"] == "something went wrong"
+    assert d["links_found"] == 0
+
+
+def test_coherence_event_is_frozen():
+    """CrossSegmentCoherenceEvent — immutable (frozen dataclass)."""
+    from services.telemetry._events import CrossSegmentCoherenceEvent
+
+    event = CrossSegmentCoherenceEvent(document_id="doc-1", links_found=2)
+    with pytest.raises((AttributeError, TypeError)):
+        event.links_found = 99  # type: ignore[misc]
+
+
+def test_coherence_event_exported_from_telemetry_package():
+    """CrossSegmentCoherenceEvent доступен из public API services.telemetry."""
+    from services.telemetry import CrossSegmentCoherenceEvent
+    assert CrossSegmentCoherenceEvent is not None
+    assert CrossSegmentCoherenceEvent().event_type == "cross_segment_coherence"
 
     

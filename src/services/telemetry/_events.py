@@ -133,6 +133,38 @@ class QualityEvaluatedEvent(BaseTelemetryEvent):
 
 
 # ---------------------------------------------------------------------------
+# Cross-segment coherence events (Phase 13.7)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class CrossSegmentCoherenceEvent(BaseTelemetryEvent):
+    """
+    Событие: Phase 13.7 cross-segment coherence pass завершён.
+
+    Document-level event (не per-segment).
+    """
+
+    event_type: str = "cross_segment_coherence"
+
+    segments_analyzed: int = 0
+    links_found: int = 0
+    avg_link_confidence: float = 0.0
+    max_link_confidence: float = 0.0
+    resolver_error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        base = super().to_dict()
+        base.update({
+            "segments_analyzed": self.segments_analyzed,
+            "links_found": self.links_found,
+            "avg_link_confidence": round(self.avg_link_confidence, 4),
+            "max_link_confidence": round(self.max_link_confidence, 4),
+            "resolver_error": self.resolver_error,
+        })
+        return base
+
+
+# ---------------------------------------------------------------------------
 # Chunking events (Phase 10-11)
 # ---------------------------------------------------------------------------
 
@@ -241,6 +273,11 @@ class DocumentProcessedEvent(BaseTelemetryEvent):
     retrieval_safe_chunks: int = 0
     overall_retrieval_safe: bool = False
     recommended_action: str = "unknown"
+    
+    # Cross-segment coherence (Phase 13.7)
+    coherence_links_found: int = 0
+    coherence_avg_confidence: float = 0.0
+    coherence_resolver_error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         base = super().to_dict()
@@ -261,6 +298,9 @@ class DocumentProcessedEvent(BaseTelemetryEvent):
             "retrieval_safe_chunks": self.retrieval_safe_chunks,
             "overall_retrieval_safe": self.overall_retrieval_safe,
             "recommended_action": self.recommended_action,
+            "coherence_links_found": self.coherence_links_found,
+            "coherence_avg_confidence": round(self.coherence_avg_confidence, 4),
+            "coherence_resolver_error": self.coherence_resolver_error,
         })
         return base
 
