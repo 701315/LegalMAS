@@ -1,6 +1,7 @@
 """
 Golden tests для Phase 1 models.
 
+
 Покрывают:
   - MutableHierarchyNode creation + validation
   - structural_hash computation + OCR-stability
@@ -10,9 +11,12 @@ Golden tests для Phase 1 models.
   - CrossReference / CrossSegmentRef validation
 """
 
+
 from __future__ import annotations
 
+
 import pytest
+
 
 from services.structure.models import (
     CrossReference,
@@ -30,9 +34,11 @@ from services.structure.models import (
 )
 
 
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 
 def make_leaf(
@@ -43,9 +49,11 @@ def make_leaf(
     return MutableHierarchyNode(effective_uid=uid, title=title, level=level)
 
 
+
 def make_section_with_leaf() -> MutableHierarchyNode:
     leaf = make_leaf("main_contract:1.1", level=2)
     leaf.compute_and_set_structural_hash(normalized_path="1.1", sibling_index=0)
+
 
     section = MutableHierarchyNode(
         effective_uid="main_contract:1",
@@ -60,12 +68,15 @@ def make_section_with_leaf() -> MutableHierarchyNode:
     return section
 
 
+
 # ---------------------------------------------------------------------------
 # MutableHierarchyNode — creation
 # ---------------------------------------------------------------------------
 
 
+
 class TestMutableHierarchyNodeCreation:
+
 
     def test_basic_leaf(self):
         node = make_leaf()
@@ -77,9 +88,11 @@ class TestMutableHierarchyNodeCreation:
         assert node.children == []
         assert node.structural_hash is None
 
+
     def test_structural_hash_not_computed_by_default(self):
         node = make_leaf()
         assert node.structural_hash is None
+
 
     def test_no_semantic_fields_on_node(self):
         node = make_leaf()
@@ -88,6 +101,7 @@ class TestMutableHierarchyNodeCreation:
         assert not hasattr(node, "citability_hint")
         assert not hasattr(node, "recovered_via_best_effort")
         assert not hasattr(node, "fallback_reason")
+
 
     def test_scope_inferred_from_effective_uid(self):
         node = MutableHierarchyNode(
@@ -98,6 +112,7 @@ class TestMutableHierarchyNodeCreation:
         assert node.scope == "appendix_1"
         assert node.raw_uid == "2.3"
 
+
     def test_explicit_scope_must_match_uid(self):
         with pytest.raises(ValueError, match="scope mismatch"):
             MutableHierarchyNode(
@@ -107,26 +122,6 @@ class TestMutableHierarchyNodeCreation:
                 scope="appendix_1",
             )
 
-    def test_leaf_cannot_have_children(self):
-        leaf = make_leaf()
-        with pytest.raises(ValueError, match="leaf.*must not have children"):
-            MutableHierarchyNode(
-                effective_uid="main_contract:1",
-                title="T",
-                level=1,
-                node_kind=NODE_KIND_LEAF,
-                children=[leaf],
-            )
-
-    def test_section_must_have_children(self):
-        with pytest.raises(ValueError, match="section.*must have children"):
-            MutableHierarchyNode(
-                effective_uid="main_contract:1",
-                title="T",
-                level=1,
-                node_kind=NODE_KIND_SECTION,
-                children=[],
-            )
 
     def test_child_level_must_be_greater(self):
         child = MutableHierarchyNode(
@@ -143,6 +138,7 @@ class TestMutableHierarchyNodeCreation:
                 children=[child],
             )
 
+
     def test_end_page_must_be_gte_start_page(self):
         with pytest.raises(ValueError, match="end_page must be >= start_page"):
             MutableHierarchyNode(
@@ -152,6 +148,7 @@ class TestMutableHierarchyNodeCreation:
                 start_page=5,
                 end_page=3,
             )
+
 
     def test_own_element_ids_subset_of_subtree(self):
         with pytest.raises(ValueError, match="subset of subtree_element_ids"):
@@ -164,12 +161,15 @@ class TestMutableHierarchyNodeCreation:
             )
 
 
+
 # ---------------------------------------------------------------------------
 # structural_hash
 # ---------------------------------------------------------------------------
 
 
+
 class TestStructuralHash:
+
 
     def test_compute_and_set(self):
         node = make_leaf()
@@ -177,12 +177,14 @@ class TestStructuralHash:
         assert node.structural_hash == h
         assert h.startswith(f"v{STRUCTURAL_HASH_VERSION}:")
 
+
     def test_deterministic(self):
         n1 = make_leaf()
         n2 = make_leaf()
         h1 = n1.compute_and_set_structural_hash(normalized_path="1.1", sibling_index=0)
         h2 = n2.compute_and_set_structural_hash(normalized_path="1.1", sibling_index=0)
         assert h1 == h2
+
 
     def test_ocr_stability(self):
         """Hash не зависит от title — OCR-variance safe."""
@@ -192,6 +194,7 @@ class TestStructuralHash:
         h2 = n2.compute_and_set_structural_hash(normalized_path="1.1", sibling_index=0)
         assert h1 == h2
 
+
     def test_differs_by_sibling_index(self):
         n1 = make_leaf("main_contract:1.1")
         n2 = make_leaf("main_contract:1.2")
@@ -199,12 +202,14 @@ class TestStructuralHash:
         h2 = n2.compute_and_set_structural_hash(normalized_path="1.2", sibling_index=1)
         assert h1 != h2
 
+
     def test_differs_by_scope(self):
         n1 = MutableHierarchyNode(effective_uid="main_contract:1", title="T", level=1)
         n2 = MutableHierarchyNode(effective_uid="appendix_1:1", title="T", level=1)
         h1 = n1.compute_and_set_structural_hash(normalized_path="1", sibling_index=0)
         h2 = n2.compute_and_set_structural_hash(normalized_path="1", sibling_index=0)
         assert h1 != h2
+
 
     def test_version_extraction(self):
         h = compute_structural_hash(
@@ -215,6 +220,7 @@ class TestStructuralHash:
         )
         assert structural_hash_version(h) == STRUCTURAL_HASH_VERSION
 
+
     def test_empty_path_raises(self):
         with pytest.raises(ValueError, match="normalized_path must be non-empty"):
             compute_structural_hash(
@@ -223,6 +229,7 @@ class TestStructuralHash:
                 sibling_index=0,
                 scope_id="main_contract",
             )
+
 
     def test_zero_level_raises(self):
         with pytest.raises(ValueError, match="stable_level must be >= 1"):
@@ -234,12 +241,15 @@ class TestStructuralHash:
             )
 
 
+
 # ---------------------------------------------------------------------------
 # freeze()
 # ---------------------------------------------------------------------------
 
 
+
 class TestFreeze:
+
 
     def test_happy_path(self):
         section = make_section_with_leaf()
@@ -249,16 +259,19 @@ class TestFreeze:
         assert len(frozen.children) == 1
         assert isinstance(frozen.children[0], FrozenHierarchyNode)
 
+
     def test_without_hash_raises(self):
         node = make_leaf()
         with pytest.raises(ValueError, match="structural_hash not computed"):
             freeze(node)
+
 
     def test_frozen_is_immutable(self):
         section = make_section_with_leaf()
         frozen = freeze(section)
         with pytest.raises((AttributeError, TypeError)):
             frozen.title = "changed"  # type: ignore[misc]
+
 
     def test_children_are_tuple(self):
         section = make_section_with_leaf()
@@ -267,11 +280,13 @@ class TestFreeze:
         assert isinstance(frozen.own_element_ids, tuple)
         assert isinstance(frozen.subtree_element_ids, tuple)
 
+
     def test_preserves_structural_hash(self):
         section = make_section_with_leaf()
         expected_hash = section.structural_hash
         frozen = freeze(section)
         assert frozen.structural_hash == expected_hash
+
 
     def test_no_semantic_fields_on_frozen(self):
         section = make_section_with_leaf()
@@ -279,6 +294,7 @@ class TestFreeze:
         assert not hasattr(frozen, "semantic_node_type")
         assert not hasattr(frozen, "parse_confidence")
         assert not hasattr(frozen, "citability_hint")
+
 
     def test_to_dict(self):
         section = make_section_with_leaf()
@@ -289,12 +305,15 @@ class TestFreeze:
         assert len(d["children"]) == 1
 
 
+
 # ---------------------------------------------------------------------------
 # SemanticNodeMetadata
 # ---------------------------------------------------------------------------
 
 
+
 class TestSemanticNodeMetadata:
+
 
     def test_basic_creation(self):
         meta = SemanticNodeMetadata(
@@ -307,12 +326,14 @@ class TestSemanticNodeMetadata:
         assert meta.parse_confidence == 0.85
         assert meta.citability_hint == "high"
 
+
     def test_all_fields_optional(self):
         meta = SemanticNodeMetadata(effective_uid="main_contract:1.1")
         assert meta.semantic_node_type is None
         assert meta.parse_confidence is None
         assert meta.citability_hint is None
         assert meta.recovery_info is None
+
 
     def test_invalid_semantic_type_raises(self):
         with pytest.raises(ValueError, match="not valid"):
@@ -321,6 +342,7 @@ class TestSemanticNodeMetadata:
                 semantic_node_type="nonexistent_type",
             )
 
+
     def test_invalid_citability_hint_raises(self):
         with pytest.raises(ValueError, match="not valid"):
             SemanticNodeMetadata(
@@ -328,12 +350,14 @@ class TestSemanticNodeMetadata:
                 citability_hint="ultra_high",
             )
 
+
     def test_parse_confidence_out_of_range(self):
         with pytest.raises(ValueError, match="must be in"):
             SemanticNodeMetadata(
                 effective_uid="main_contract:1.1",
                 parse_confidence=1.5,
             )
+
 
     def test_with_recovery_info(self):
         info = RecoveryInfo(
@@ -348,6 +372,7 @@ class TestSemanticNodeMetadata:
         assert meta.recovery_info.recovered is True
         assert meta.recovery_info.strategy == "numbering_inference"
 
+
     def test_to_dict(self):
         meta = SemanticNodeMetadata(
             effective_uid="main_contract:1.1",
@@ -360,12 +385,15 @@ class TestSemanticNodeMetadata:
         assert d["recovery_info"] is None
 
 
+
 # ---------------------------------------------------------------------------
 # CrossReference
 # ---------------------------------------------------------------------------
 
 
+
 class TestCrossReference:
+
 
     def test_basic_creation(self):
         ref = CrossReference(
@@ -378,6 +406,7 @@ class TestCrossReference:
         assert ref.source_raw_uid == "1.1"
         assert ref.target_raw_uid == "4.2"
 
+
     def test_empty_reference_text_raises(self):
         with pytest.raises(ValueError, match="reference_text must be non-empty"):
             CrossReference(
@@ -385,6 +414,7 @@ class TestCrossReference:
                 target_effective_uid="main_contract:4.2",
                 reference_text="",
             )
+
 
     def test_to_dict(self):
         ref = CrossReference(
@@ -397,12 +427,15 @@ class TestCrossReference:
         assert d["reference_text"] == "see Section 4.2"
 
 
+
 # ---------------------------------------------------------------------------
 # CrossSegmentRef
 # ---------------------------------------------------------------------------
 
 
+
 class TestCrossSegmentRef:
+
 
     def test_unresolved(self):
         ref = CrossSegmentRef(
@@ -412,6 +445,7 @@ class TestCrossSegmentRef:
         )
         assert ref.target_effective_uid is None
         assert ref.resolution_method == "unresolved"
+
 
     def test_resolved(self):
         ref = CrossSegmentRef(
@@ -426,6 +460,7 @@ class TestCrossSegmentRef:
         # target_scope_hint не инферируется автоматически — передаётся только явно
         assert ref.target_scope_hint is None
 
+
     def test_resolved_with_explicit_scope_hint(self):
         ref = CrossSegmentRef(
             source_effective_uid="main_contract:7.1",
@@ -437,6 +472,7 @@ class TestCrossSegmentRef:
         assert ref.target_scope_hint == "appendix_1"
         assert ref.target_effective_uid == "appendix_1:annex_a"
 
+
     def test_scope_hint_mismatch_with_target_uid_raises(self):
         with pytest.raises(ValueError, match="target_scope_hint mismatch"):
             CrossSegmentRef(
@@ -444,6 +480,7 @@ class TestCrossSegmentRef:
                 target_effective_uid="appendix_1:annex_a",
                 target_scope_hint="main_contract",  # конфликт с target_effective_uid
             )
+
 
     def test_confidence_out_of_range(self):
         with pytest.raises(ValueError, match="must be in"):

@@ -885,9 +885,6 @@ def build_cross_reference_graph_with_audit(
                     source_effective_uid,
                     target_effective_uid,
                     reference_text,
-                    stable_el_id,
-                    stub.match_start,
-                    stub.match_end,
                 )
                 if key in seen_refs:
                     counters.duplicate_reference_count += 1

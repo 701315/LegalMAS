@@ -14,7 +14,9 @@ from dataclasses import dataclass
 from ._graph import FileGraph
 from ._normalization import _norm_str
 from ._tree import ClauseTree
-
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from services.structure.coherence._types import CrossSegmentCoherenceResult
 
 @dataclass
 class FileStructureResult:
@@ -31,6 +33,7 @@ class FileStructureResult:
     primary_tree: ClauseTree
     segment_trees: list[ClauseTree]
     file_graph: FileGraph
+    coherence_result: "CrossSegmentCoherenceResult | None" = None  # Phase 13.7
 
     def __post_init__(self) -> None:
         if not isinstance(self.primary_tree, ClauseTree):

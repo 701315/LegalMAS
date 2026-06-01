@@ -45,12 +45,12 @@ from core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# ─── OCR availability ──────────────────────────────────────────────────────────
+# ─── OCR availability (Phase 13.3 — via adapter layer) ───────────────────────
+# Прямой импорт pytesseract убран. OCR доступность определяется через
+# OCR adapter registry. Backward-compatible: is_ocr_available() сохранена.
 OCR_AVAILABLE = False
 try:
     import pytesseract
-    from pdf2image import convert_from_bytes
-
     pytesseract.get_tesseract_version()
     OCR_AVAILABLE = True
 except Exception:
@@ -118,7 +118,20 @@ def make_element_id(document_id: str, page_num: int, element_index: int) -> str:
 
 
 def is_ocr_available() -> bool:
-    return OCR_AVAILABLE and settings.EXTRACTION_OCR_ENABLED
+    """
+    Проверить доступность OCR.
+
+    Phase 13.3: делегирует в OCR adapter registry.
+    Backward-compatible: поведение не изменилось для вызывающего кода.
+    """
+    if not settings.EXTRACTION_OCR_ENABLED:
+        return False
+    try:
+        from services.ocr._registry import is_ocr_provider_available
+        return is_ocr_provider_available()
+    except Exception:
+        # Fallback на прямую проверку если registry недоступен
+        return OCR_AVAILABLE and settings.EXTRACTION_OCR_ENABLED
 
 
 def _is_debug_enabled_for_doc(document_id: str) -> bool:
@@ -578,115 +591,46 @@ def _extract_ocr_page(
     debug_this_doc: bool = False,
 ) -> tuple:
     """
-    Extract text from a scanned page via Tesseract.
-    Returns (list[Element], avg_confidence).
+    Extract text from a scanned page via OCR adapter.
+
+    Phase 13.3: делегирует в OCR adapter выбранный через registry.
+    Backward-compatible: возвращает (list[Element], avg_confidence).
     """
-    elements = []
-    confidences = []
-
     try:
-        images = convert_from_bytes(
-            pdf_bytes,
-            dpi=settings.EXTRACTION_OCR_DPI,
-            first_page=page_num,
-            last_page=page_num,
-        )
-        if not images:
-            if debug_this_doc:
-                logger.warning(
-                    "OCR: no images produced for page",
-                    document_id=document_id,
-                    page=page_num,
-                    dpi=settings.EXTRACTION_OCR_DPI,
-                )
-            return elements, 0.0
+        from services.ocr._registry import get_ocr_adapter
+        from core.config import settings as _settings
 
-        image = images[0]
-        ocr_data = pytesseract.image_to_data(
-            image,
+        adapter = get_ocr_adapter()
+        result = adapter.extract_page(
+            pdf_bytes=pdf_bytes,
+            page_num=page_num,
+            document_id=document_id,
+            start_index=start_index,
+            dpi=_settings.EXTRACTION_OCR_DPI,
             lang="rus+eng",
-            output_type=pytesseract.Output.DICT,
+            debug=debug_this_doc,
         )
 
-        if debug_this_doc:
-            total_ocr_items = len(ocr_data.get("text", []))
-            non_empty_ocr_words = sum(1 for t in (ocr_data.get("text", []) or []) if str(t).strip())
-            logger.debug(
-                "OCR: image_to_data snapshot",
+        # Логируем ошибки adapter если есть (non-fatal)
+        for err in result.errors:
+            logger.warning(
+                "OCR adapter error",
                 document_id=document_id,
                 page=page_num,
-                dpi=settings.EXTRACTION_OCR_DPI,
-                total_items=total_ocr_items,
-                non_empty_words=non_empty_ocr_words,
+                provider=result.provider,
+                error=err,
             )
 
-        current_line_words = []
-        current_line_num = -1
-        current_block_num = -1
-
-        for idx in range(len(ocr_data["text"])):
-            word_text = ocr_data["text"][idx].strip()
-            word_conf = int(ocr_data["conf"][idx])
-            block_num = ocr_data["block_num"][idx]
-            line_num = ocr_data["line_num"][idx]
-
-            if not word_text or word_conf < 0:
-                continue
-
-            if line_num != current_line_num or block_num != current_block_num:
-                if current_line_words:
-                    elem, conf = _build_ocr_element(
-                        current_line_words,
-                        document_id,
-                        page_num,
-                        start_index + len(elements),
-                    )
-                    if elem:
-                        elements.append(elem)
-                        confidences.append(conf)
-                current_line_words = []
-                current_line_num = line_num
-                current_block_num = block_num
-
-            current_line_words.append(
-                {
-                    "text": word_text,
-                    "conf": word_conf,
-                    "left": ocr_data["left"][idx],
-                    "top": ocr_data["top"][idx],
-                    "width": ocr_data["width"][idx],
-                    "height": ocr_data["height"][idx],
-                }
-            )
-
-        if current_line_words:
-            elem, conf = _build_ocr_element(
-                current_line_words,
-                document_id,
-                page_num,
-                start_index + len(elements),
-            )
-            if elem:
-                elements.append(elem)
-                confidences.append(conf)
+        return result.to_tuple()
 
     except Exception as e:
-        logger.warning("OCR extraction failed for page", page=page_num, error=str(e))
-
-    avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
-
-    if debug_this_doc:
-        logger.debug(
-            "OCR: page elements built",
-            document_id=document_id,
+        logger.warning(
+            "OCR extraction failed for page",
             page=page_num,
-            elements_count=len(elements),
-            avg_conf=round(avg_conf, 4),
-            first_element_preview=_safe_preview(elements[0].text, 200) if elements else "",
-            last_element_preview=_safe_preview(elements[-1].text, 200) if elements else "",
+            document_id=document_id,
+            error=str(e),
         )
-
-    return elements, avg_conf
+        return [], 0.0
 
 
 def _build_ocr_element(words: list, document_id: str, page_num: int, element_index: int) -> tuple:

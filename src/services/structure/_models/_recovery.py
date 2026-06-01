@@ -148,6 +148,15 @@ DEFAULT_CANDIDATE_WINDOW = CandidateWindow(
     compatible_token_types=None,
 )
 
+# Окно для embedding recovery (Phase 13.4)
+# Идентично DEFAULT_CANDIDATE_WINDOW — конфигурируется через settings.
+EMBEDDING_CANDIDATE_WINDOW = CandidateWindow(
+    max_page_distance=3,
+    max_level_delta=2,
+    compatible_token_types=None,
+)
+
+
 
 @dataclass(slots=True)
 class RecoveryCandidate:

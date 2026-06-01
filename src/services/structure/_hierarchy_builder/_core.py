@@ -1060,6 +1060,36 @@ def build_clause_hierarchy(
         mutable_root_nodes=mutable_root_nodes,
     )
 
+    # ── Phase 13.4: Embedding Recovery pass ──────────────────────────────────
+    # Выполняется ПОСЛЕ FSM (все scopes обработаны), ДО range assignment.
+    # Ищет семантически близкий parent для best_effort_root orphan nodes.
+    # Failure-isolated: любая ошибка → оставляем FSM-решение, pipeline не падает.
+    _embedding_recovery_result = None
+    try:
+        from ._embedding_recovery import EmbeddingRecoveryEngine
+        _emb_engine = EmbeddingRecoveryEngine()
+        _embedding_recovery_result = _emb_engine.recover(
+            mutable_nodes,
+            document_id=doc_id,
+        )
+        if _embedding_recovery_result.recovered_count > 0:
+            _emb_recovered_uids: set[str] = {
+                d.orphan_uid
+                for d in _embedding_recovery_result.decisions
+                if d.recovered
+            }
+            mutable_root_nodes = [
+                n for n in mutable_root_nodes
+                if str(n.effective_uid or "") not in _emb_recovered_uids
+            ]
+    except Exception:
+        logger.exception(
+            "STRUCTURE embedding_recovery_pass_failed",
+            extra={"document_id": doc_id},
+        )
+    # ── End Phase 13.4 ───────────────────────────────────────────────────────
+
+
     root_numeric_chain_len = _longest_consecutive_chain(root_numeric_values)
 
     _assign_own_ranges_and_elements(
@@ -1107,18 +1137,20 @@ def build_clause_hierarchy(
         recovery_reason=recovery_reason,
     )
 
+    _emb_recovered_count = (
+        _embedding_recovery_result.recovered_count
+        if _embedding_recovery_result is not None else 0
+    )
+    _postbuild_recovered = pre_recovery_root_nodes_count if postbuild_recovery_applied else 0
+    _total_recovered = _postbuild_recovered + _emb_recovered_count
+    _orphans_detected = pre_recovery_root_nodes_count if recovery_mode != "none" else 0
     recovery_audit = RecoveryAudit(
-        orphans_detected=pre_recovery_root_nodes_count if recovery_mode != "none" else 0,
-        orphans_recovered=pre_recovery_root_nodes_count if postbuild_recovery_applied else 0,
-        orphans_unresolved=(
-            pre_recovery_root_nodes_count
-            if recovery_mode != "none" and not postbuild_recovery_applied
-            else 0
-        ),
+        orphans_detected=_orphans_detected,
+        orphans_recovered=min(_total_recovered, _orphans_detected),
+        orphans_unresolved=max(0, _orphans_detected - _total_recovered),
         fallback_triggered=recovery_mode == "technical_fallback_only",
         fallback_mode=recovery_mode if recovery_mode != "none" else None,
     )
-
 
     populate_subtree_element_ids(mutable_root_nodes, document_id=doc_id)
     _assign_structural_hashes(mutable_root_nodes)

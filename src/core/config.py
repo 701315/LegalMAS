@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     EXTRACTION_OCR_DPI: int = 300
     EXTRACTION_MAX_PAGES: int = 500
     EXTRACTION_OCR_ENABLED: bool = True
+    EXTRACTION_OCR_PROVIDER: str = "tesseract"
+    # Поддерживаемые значения: "tesseract", "paddle"
+    # paddle — stub, требует реализации PaddleOCRAdapter
     EXTRACTION_HARD_TIMEOUT_SECONDS: int = 300
     EXTRACTION_DEBUG_LOG: bool = False
     EXTRACTION_DEBUG_DOC_ID: str | None = None
@@ -296,6 +299,12 @@ class Settings(BaseSettings):
     SEMANTIC_ENRICHMENT_ALLOW_ADD_TOPICS: bool = True
     SEMANTIC_ENRICHMENT_MAX_TOPICS_FROM_LLM: int = 8
     SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS: int = 40
+
+    # --- Embedding Recovery (Phase 13.4) ---
+    RECOVERY_EMBEDDING_ENABLED: bool = True
+    RECOVERY_EMBEDDING_SIMILARITY_THRESHOLD: float = 0.72
+    RECOVERY_EMBEDDING_MAX_PAGE_DISTANCE: int = 3
+    RECOVERY_EMBEDDING_MAX_LEVEL_DELTA: int = 2
 
 
     # --- Drift Detection (Phase 13.2) ---

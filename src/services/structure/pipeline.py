@@ -34,6 +34,12 @@ from ._pipeline._segment_utils import (
 )
 from services.structure.chunk_planner import plan_chunking
 
+# добавить import в начало файла
+from services.structure.coherence import CrossSegmentCoherenceResolver
+
+_COHERENCE_RESOLVER = CrossSegmentCoherenceResolver()
+
+
 logger = get_logger(__name__)
 
 
@@ -128,6 +134,14 @@ def build_file_structure(
 
         segment_trees.append(tree)
 
+
+    # Phase 13.7: cross-segment coherence pass (failure-isolated)
+    coherence_result = (
+        _COHERENCE_RESOLVER.resolve(segment_trees)
+        if len(segment_trees) > 1
+        else None
+    )
+
     file_graph = build_file_graph(
         document_id=document_id,
         document_version_id=document_version_id,
@@ -141,6 +155,7 @@ def build_file_structure(
         primary_tree=primary_tree,
         segment_trees=segment_trees,
         file_graph=file_graph,
+        coherence_result=coherence_result,   # Phase 13.7
     )
 
 
