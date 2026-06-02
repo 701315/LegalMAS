@@ -27,7 +27,10 @@ from ._scope_logic import (
     _build_scope_boundaries,
     _group_headings_by_scope,
 )
-from ._traversal import populate_subtree_element_ids
+from ._traversal import (
+    populate_subtree_element_ids,
+    propagate_subtree_page_ranges,
+)
 from ._types import HeadingCandidate
 from ._utils import (
     _heading_effective_uid,
@@ -1153,6 +1156,7 @@ def build_clause_hierarchy(
     )
 
     populate_subtree_element_ids(mutable_root_nodes, document_id=doc_id)
+    propagate_subtree_page_ranges(mutable_root_nodes, document_id=doc_id)
     _assign_structural_hashes(mutable_root_nodes)
 
     frozen_root_nodes = [freeze(node) for node in mutable_root_nodes]
@@ -1171,7 +1175,6 @@ def build_clause_hierarchy(
     structure_degraded_after_recovery = bool(
         machine_structure_degraded and not postbuild_recovery_applied
     )
-    structure_degraded = structure_degraded_after_recovery
 
     backbone_stats = RootBackboneStats(
         appendix_heading_count=appendix_heading_count,

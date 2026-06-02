@@ -189,6 +189,97 @@ def _filter_technical_fallback_tree(
     return filtered_tree, removed_nodes_count
 
 
+# МЕСТО: добавить после функции _filter_technical_fallback_tree()
+# (перед _build_segment_planning_payload)
+
+def _is_tree_technical_fallback_only(clause_tree: dict[str, Any]) -> bool:
+    """
+    Определить что всё дерево состоит исключительно из technical fallback nodes.
+
+    Используется для P3b Honest Degraded Contract: когда chunk_plan absent
+    и дерево полностью деградировано, chunks должны быть маркированы как
+    technical_fragment, а не clause.
+
+    Три независимых сигнала — достаточно любого одного:
+
+    1. structure_diagnostics.technical_fallback_only == True
+       Явный флаг из _degraded_fallback.py.
+
+    2. structure_diagnostics.technical_fallback_contract.fallback_nodes_are_semantic == False
+       Explicit contract из _degraded_fallback.py.
+
+    3. Все non-empty root nodes идентифицированы как technical fallback
+       по _is_technical_fallback_node().
+
+    Universal: не зависит от языка, типа документа или контента.
+    Работает для любого юридического документа.
+    """
+    if not isinstance(clause_tree, dict):
+        return False
+
+    diagnostics = clause_tree.get("structure_diagnostics") or {}
+    if not isinstance(diagnostics, dict):
+        diagnostics = {}
+
+    # Сигнал 1: явный флаг из degraded_fallback
+    if diagnostics.get("technical_fallback_only") is True:
+        return True
+
+    # Сигнал 2: explicit contract
+    contract = diagnostics.get("technical_fallback_contract") or {}
+    if (
+        isinstance(contract, dict)
+        and contract.get("fallback_nodes_are_semantic") is False
+    ):
+        return True
+
+    # Сигнал 3: все root nodes — technical fallback
+    root = clause_tree.get("root") or []
+    if not isinstance(root, list) or not root:
+        return False
+
+    valid_root_nodes = [n for n in root if isinstance(n, dict)]
+    if valid_root_nodes and all(
+        _is_technical_fallback_node(n) for n in valid_root_nodes
+    ):
+        return True
+
+    return False
+
+
+def _remark_as_technical_fragments(
+    chunks: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    Перемаркировать chunks из technical fallback дерева.
+
+    Изменяет только semantic kind markers в metadata:
+    - chunk_kind: "clause" → "technical_fragment"
+    - retrieval_safe: False  (downstream не использует для risk analysis)
+    - is_technical_fallback: True  (явный флаг для фильтрации)
+    - chunking_mode: "technical_fallback"  (traceability)
+
+    Сохраняет без изменений: text, id, segment metadata,
+    page info, element_ids, position_ratio.
+    Все навигационные данные остаются — только semantic kind меняется.
+
+    Universal: не зависит от языка/типа документа.
+    """
+    out: list[dict[str, Any]] = []
+    for chunk in chunks:
+        if not isinstance(chunk, dict):
+            continue
+        meta = dict(chunk.get("metadata") or {})
+        meta["chunk_kind"] = "technical_fragment"
+        meta["retrieval_safe"] = False
+        meta["is_technical_fallback"] = True
+        meta["chunking_mode"] = "technical_fallback"
+        remarked = dict(chunk)
+        remarked["metadata"] = meta
+        out.append(remarked)
+    return out
+
+
 def _build_segment_planning_payload(
     *,
     segment_plan: Any | None,
@@ -954,6 +1045,39 @@ class SegmentChunkBuilderV2:
             total_pages=total_pages,
         )
         clause_chunks = add_summary(clause_chunks)
+
+        # ПЕРЕД блоком:
+        #   if (segment_plan is not None and not segment_plan.allow_section_chunks):
+
+        # ── P3b: Honest Degraded Contract ────────────────────────────────────────────
+        # Когда chunk_plan absent (plan не был передан из structure stage):
+        # gate'ы drop_technical_fallback_nodes не срабатывают, потому что
+        # segment_plan is None. Если при этом дерево полностью деградировано
+        # (technical_fallback_only), clause_chunks несут chunk_kind="clause" — ложь.
+        #
+        # Исправление: форсировать chunk_kind="technical_fragment" + отключить
+        # subclause splitting (нарезка технических фрагментов бессмысленна).
+        #
+        # Когда chunk_plan present: gate drop_technical_fallback_nodes уже удалил
+        # fallback nodes ДО build_leaf_chunks(). Этот guard — defense-in-depth
+        # только для plan-absent case.
+        _tree_is_technical_fallback_only = _is_tree_technical_fallback_only(clause_tree)
+
+        if chunk_plan is None and _tree_is_technical_fallback_only:
+            clause_chunks = _remark_as_technical_fragments(clause_chunks)
+            subclause_chunks = []
+            logger.info(
+                "SegmentChunkBuilderV2: technical_fallback_only tree without "
+                "chunk plan — chunks remarked as technical_fragment, "
+                "subclause splitting disabled",
+                extra={
+                    "document_id": str(document_id),
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment.segment_id,
+                    "remarked_chunks_count": len(clause_chunks),
+                },
+            )
+
 
         if (
             segment_plan is not None

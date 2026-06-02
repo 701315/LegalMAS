@@ -152,6 +152,7 @@ class DocumentVersionRepository:
             chunks_manifest_v2_ref=chunks_manifest_v2_ref,
         )
 
+    # В сигнатуре — добавить после chunks_manifest_v2_ref:
     async def update_refs(
         self,
         version_id: uuid.UUID,
@@ -168,6 +169,7 @@ class DocumentVersionRepository:
         file_graph_ref: str | None = None,
         segments_count: int | None = None,
         chunks_manifest_v2_ref: str | None = None,
+        chunk_plan_ref: str | None = None,          # ← NEW
     ) -> DocumentVersion | None:
         """
         Update artifact references and processing metadata on a document version.
@@ -236,6 +238,11 @@ class DocumentVersionRepository:
 
         if chunks_manifest_v2_ref is not None:
             values["chunks_manifest_v2_ref"] = chunks_manifest_v2_ref
+
+        # В теле — добавить в блок if chunk_plan_ref is not None:
+        # (после chunks_manifest_v2_ref блока)
+        if chunk_plan_ref is not None:
+            values["chunk_plan_ref"] = chunk_plan_ref
 
         if not values:
             return await self.get_by_id(version_id)

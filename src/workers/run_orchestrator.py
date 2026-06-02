@@ -157,6 +157,18 @@ CONVERTIBLE_TO_PDF: set[str] = {
 
 ORCHESTRATION_STRATEGY_V2_ONLY = "V2_ONLY"
 
+_ZERO_UUID = uuid.UUID(int=0)
+
+
+def _is_non_zero_uuid_str(value: str | None) -> bool:
+    """True только для валидной строковой UUID-формы и не zero UUID."""
+    if not value:
+        return False
+    try:
+        return uuid.UUID(value) != _ZERO_UUID
+    except (ValueError, TypeError, AttributeError):
+        return False
+
 
 # ─── TaskPlan ─────────────────────────────────────────────────────────────────
 
@@ -328,13 +340,14 @@ async def _resolve_tenant_id(
     3) deal_id как surrogate — допустимо только в dev/single-tenant окружении,
        когда deals.tenant_id = NULL или нулевой UUID.
     """
-    if tenant_id:
-        return tenant_id
+    if _is_non_zero_uuid_str(tenant_id):
+        return str(uuid.UUID(tenant_id))
 
     deal_repo = DealRepository(db)
     deal_obj = await deal_repo.get_by_id(deal_uuid)
-    if deal_obj is not None and deal_obj.tenant_id:
-        resolved = str(deal_obj.tenant_id)
+    deal_tenant_id = getattr(deal_obj, "tenant_id", None) if deal_obj is not None else None
+    if deal_tenant_id and deal_tenant_id != _ZERO_UUID:
+        resolved = str(deal_tenant_id)
         logger.info(
             "tenant_id resolved from deal",
             extra={"deal_id": str(deal_uuid), "tenant_id": resolved},
@@ -344,7 +357,11 @@ async def _resolve_tenant_id(
     surrogate = str(deal_uuid)
     logger.warning(
         "tenant_id not resolvable, using deal_id as surrogate tenant",
-        extra={"deal_id": surrogate},
+        extra={
+            "deal_id": surrogate,
+            "payload_tenant_id": tenant_id,
+            "deal_tenant_id": str(deal_tenant_id) if deal_tenant_id else None,
+        },
     )
     return surrogate
 

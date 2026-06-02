@@ -61,4 +61,81 @@ def populate_subtree_element_ids(
             node.diagnostics["document_id"] = document_id
 
 
-            
+def propagate_subtree_page_ranges(
+    root_nodes: list[MutableHierarchyNode],
+    *,
+    document_id: str,
+) -> None:
+    """
+    Нормализовать page ranges mutable hierarchy nodes так, чтобы каждый parent
+    покрывал диапазоны всех своих детей (bottom-up propagation).
+
+    Почему это нужно:
+    - own range узла задаётся по собственному heading/body span;
+    - дети могут располагаться на страницах вне own range родителя;
+    - freeze() валидирует инвариант: child range ⊆ parent range;
+    - перед freeze() parent range должен быть расширен до subtree bounds.
+
+    Свойства:
+    - deterministic;
+    - universal;
+    - idempotent;
+    - не меняет topology дерева, только диапазоны страниц.
+    """
+
+    def _is_valid_page(value: object) -> bool:
+        return isinstance(value, int) and value > 0
+
+    def _visit(node: MutableHierarchyNode) -> tuple[int | None, int | None]:
+        child_ranges: list[tuple[int | None, int | None]] = [
+            _visit(child) for child in node.children
+        ]
+
+        starts: list[int] = []
+        ends: list[int] = []
+
+        if _is_valid_page(node.start_page):
+            starts.append(node.start_page)
+        if _is_valid_page(node.end_page):
+            ends.append(node.end_page)
+
+        for child_start, child_end in child_ranges:
+            if _is_valid_page(child_start):
+                starts.append(child_start)  # type: ignore[arg-type]
+            if _is_valid_page(child_end):
+                ends.append(child_end)  # type: ignore[arg-type]
+
+        if not starts or not ends:
+            return (
+                node.start_page if _is_valid_page(node.start_page) else None,
+                node.end_page if _is_valid_page(node.end_page) else None,
+            )
+
+        old_start = node.start_page
+        old_end = node.end_page
+
+        new_start = min(starts)
+        new_end = max(ends)
+
+        node.start_page = new_start
+        node.end_page = new_end
+
+        if (old_start, old_end) != (new_start, new_end):
+            diagnostics = dict(node.diagnostics or {})
+            diagnostics["range_expanded_to_cover_children"] = True
+            diagnostics["range_before_expand"] = {
+                "start_page": old_start,
+                "end_page": old_end,
+            }
+            diagnostics["range_after_expand"] = {
+                "start_page": new_start,
+                "end_page": new_end,
+            }
+            node.diagnostics = diagnostics
+
+        return new_start, new_end
+
+    for root in root_nodes:
+        _visit(root)
+        
+                    

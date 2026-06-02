@@ -1,0 +1,52 @@
+{
+  "schema_version": "1",
+  "policy_version": "phase12_v1",
+  "prompt_version": "phase12_semantic_enrichment_v3_ru",
+  "document_id": "f19d64dc-c066-499a-a1f3-00b13503259c",
+  "document_version_id": "f2b153a7-b472-4ec8-a9aa-87763e84b903",
+  "segment": {
+    "segment_id": "a70a5208-cfdf-56d3-b76e-8b859f1a0bcb",
+    "segment_type": "appendix",
+    "segment_order": 4,
+    "is_primary_segment": false
+  },
+  "llm": {
+    "provider": "local",
+    "model": "qwen2.5-3b-instruct-q4_k_m"
+  },
+  "stats": {
+    "total_units": 1,
+    "status_counts": {
+      "skipped": 1
+    },
+    "build_warnings": []
+  },
+  "enrichments": [
+    {
+      "unit_id": "appendix_3:1",
+      "status": "skipped",
+      "base": {
+        "unit_type": "unknown",
+        "clause_function": "unknown",
+        "topic_tags": [
+          "appendix_reference",
+          "vat"
+        ]
+      },
+      "effective": {
+        "unit_type": "unknown",
+        "clause_function": "unknown",
+        "topic_tags": [
+          "appendix_reference",
+          "vat"
+        ]
+      },
+      "applied_fields": [],
+      "llm_proposal": null,
+      "decision_reason": "technical_fallback",
+      "diagnostics": {
+        "policy_version": "phase12_v1"
+      }
+    }
+  ]
+}

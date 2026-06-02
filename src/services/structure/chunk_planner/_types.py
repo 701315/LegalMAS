@@ -13,7 +13,8 @@ Phase 10 — Chunk Planner: data contracts.
 - Phase 10 НЕ собирает чанки — она планирует как их собирать;
 - Phase 10 читает FileStructureAnalysisResult (Phase 9 output);
 - plan является входом для chunk assembly layer (engine/content);
-- все типы сериализуемы через to_dict() для audit/telemetry.
+- все типы сериализуемы через to_dict() / десериализуемы через from_dict()
+  для хранения в MinIO и загрузки в chunk_builder.
 
 Зависимости:
 - RecommendedChunkingMode из Phase 9 (_models/_analysis.py)
@@ -36,9 +37,6 @@ class ChunkingTokenParams:
     """
     Параметры размера чанков для chunk assembly layer.
 
-    Эти значения соответствуют доменному принципу:
-    "один пункт = один chunk".
-
     target_tokens:
         Целевой размер clause chunk в токенах.
         Пункт меньше этого значения → один chunk, не режем.
@@ -50,9 +48,6 @@ class ChunkingTokenParams:
     overlap_ratio:
         Доля overlap при сплите длинных пунктов.
         Увеличивается в HYBRID для стабильности анализа рисков.
-
-    Defaults соответствуют текущему production поведению
-    (target=300, max=800, overlap=0.15).
     """
 
     target_tokens: int = 300
@@ -83,26 +78,35 @@ class ChunkingTokenParams:
             "overlap_ratio": self.overlap_ratio,
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ChunkingTokenParams":
+        """
+        Десериализовать из dict.
+
+        Tolerant: использует production defaults для отсутствующих полей.
+        Используется при загрузке chunk_plan.json из MinIO в chunk_builder.
+        """
+        return cls(
+            target_tokens=int(data.get("target_tokens", 300)),
+            max_tokens=int(data.get("max_tokens", 800)),
+            overlap_ratio=float(data.get("overlap_ratio", 0.15)),
+        )
+
 
 # ─── Default Token Params Per Mode ───────────────────────────────────────────
 
-# Mode A: структура надёжна, используем production defaults.
 TOKENS_MODE_A = ChunkingTokenParams(
     target_tokens=300,
     max_tokens=800,
     overlap_ratio=0.15,
 )
 
-# Mode B: структура частично повреждена, чуть консервативнее.
-# Overlap увеличен для снижения риска потери контекста при анализе рисков.
 TOKENS_MODE_B = ChunkingTokenParams(
     target_tokens=300,
     max_tokens=700,
     overlap_ratio=0.20,
 )
 
-# Mode C: layout fallback, splitting не используется как primary mechanism.
-# Параметры минимальные, т.к. clause-based chunking ненадёжен.
 TOKENS_MODE_C = ChunkingTokenParams(
     target_tokens=300,
     max_tokens=800,
@@ -117,44 +121,15 @@ class ChunkingModeDecision:
     """
     Решение Phase 10 о режиме chunking для файла/сегмента.
 
-    mode:
-        Выбранный режим из RecommendedChunkingMode.
-        Приоритет 1: берём из StructureQualityReport.recommended_chunking_mode.
-        Приоритет 2: fallback по метрикам если report недоступен.
-
-    retrieval_safe:
-        True → chunks пригодны для risk analysis.
-        False → chunks могут содержать structural noise.
-
-    reason:
-        Human-readable объяснение почему выбран этот mode.
-        Используется для audit и telemetry.
-
-    token_params:
-        Рекомендованные параметры размера чанков для assembly layer.
-
-    allow_section_chunks:
-        True → assembly layer может строить section-level chunks.
-        False → только clause-level (leaf node) chunks.
-        Выключается в HYBRID и LAYOUT_FALLBACK.
-
-    allow_subclause_splitting:
-        True → длинные пункты разбиваются через split_text_to_sized_chunks.
-        False → каждый пункт = ровно один chunk, без сплита.
-
-    drop_technical_fallback_nodes:
-        True → technical fallback nodes НЕ попадают в risk analysis chunks.
-        False → все nodes используются.
-        Включается в HYBRID и LAYOUT_FALLBACK.
-
-    prefer_layout_fallback:
-        True → assembly layer должен использовать layout-based chunking.
-        False → используем clause-based chunking.
-        True только в LAYOUT_FALLBACK mode.
-
-    warnings:
-        Tuple строк с объяснениями решений.
-        Используется для audit trail.
+    mode:              Выбранный режим из RecommendedChunkingMode.
+    retrieval_safe:    True → chunks пригодны для risk analysis.
+    reason:            Human-readable объяснение выбора режима.
+    token_params:      Рекомендованные параметры размера чанков.
+    allow_section_chunks:       True → можно строить section-level chunks.
+    allow_subclause_splitting:  True → длинные пункты разбиваются.
+    drop_technical_fallback_nodes: True → fallback nodes исключаются.
+    prefer_layout_fallback:     True → использовать layout-based chunking.
+    warnings:          Tuple строк для audit trail.
     """
 
     mode: RecommendedChunkingMode
@@ -201,6 +176,31 @@ class ChunkingModeDecision:
             "warnings": list(self.warnings),
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ChunkingModeDecision":
+        """
+        Десериализовать из dict.
+
+        Strict для обязательных полей (mode, flags) —
+        ошибка при отсутствии означает повреждённый артефакт.
+        Tolerant для reason и warnings.
+        """
+        return cls(
+            mode=RecommendedChunkingMode(data["mode"]),
+            retrieval_safe=bool(data["retrieval_safe"]),
+            reason=str(data.get("reason", "")),
+            token_params=ChunkingTokenParams.from_dict(
+                data.get("token_params") or {}
+            ),
+            allow_section_chunks=bool(data["allow_section_chunks"]),
+            allow_subclause_splitting=bool(data["allow_subclause_splitting"]),
+            drop_technical_fallback_nodes=bool(
+                data["drop_technical_fallback_nodes"]
+            ),
+            prefer_layout_fallback=bool(data["prefer_layout_fallback"]),
+            warnings=tuple(data.get("warnings") or []),
+        )
+
 
 # ─── SegmentChunkPlan ─────────────────────────────────────────────────────────
 
@@ -209,39 +209,16 @@ class SegmentChunkPlan:
     """
     Plan chunking для одного логического сегмента документа.
 
-    segment_id:
-        ID сегмента из ClauseTree.segment_id.
-
-    segment_type:
-        Тип сегмента (contract / appendix / amendment / ...).
-        Используется для аудита.
-
-    mode:
-        Mode для этого конкретного сегмента.
-        Может отличаться от file-level mode если сегмент
-        имеет индивидуально плохую структуру.
-
-    token_params:
-        Параметры размера чанков для этого сегмента.
-
-    allow_section_chunks:
-        Разрешены ли section chunks для этого сегмента.
-
-    allow_subclause_splitting:
-        Разрешён ли сплит длинных пунктов для этого сегмента.
-
-    drop_technical_fallback_nodes:
-        Нужно ли исключить technical fallback nodes из risk analysis
-        для этого сегмента.
-
-    retrieval_safe:
-        True → chunks этого сегмента пригодны для risk analysis.
-
-    fallback_fragment_ratio:
-        Сохраняем из Phase 9 для downstream audit.
-
-    warnings:
-        Специфичные предупреждения для этого сегмента.
+    segment_id:                  ID сегмента из ClauseTree.
+    segment_type:                Тип сегмента (contract/appendix/...).
+    mode:                        Mode для этого сегмента.
+    token_params:                Параметры размера чанков.
+    allow_section_chunks:        Разрешены ли section chunks.
+    allow_subclause_splitting:   Разрешён ли сплит длинных пунктов.
+    drop_technical_fallback_nodes: Исключить ли fallback nodes.
+    retrieval_safe:              Пригодны ли chunks для risk analysis.
+    fallback_fragment_ratio:     Доля fallback nodes из Phase 9.
+    warnings:                    Предупреждения для этого сегмента.
     """
 
     segment_id: str | None
@@ -268,12 +245,10 @@ class SegmentChunkPlan:
 
     @property
     def is_full_fallback(self) -> bool:
-        """True если сегмент практически полностью состоит из fallback nodes."""
         return self.fallback_fragment_ratio >= 0.90
 
     @property
     def has_significant_fallback(self) -> bool:
-        """True если сегмент имеет значительную долю fallback nodes."""
         return self.fallback_fragment_ratio >= 0.50
 
     def to_dict(self) -> dict[str, Any]:
@@ -292,6 +267,33 @@ class SegmentChunkPlan:
             "warnings": list(self.warnings),
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "SegmentChunkPlan":
+        """
+        Десериализовать из dict.
+
+        Примечание: is_full_fallback и has_significant_fallback —
+        computed properties, не читаются из dict (вычисляются автоматически).
+        """
+        return cls(
+            segment_id=data.get("segment_id"),
+            segment_type=str(data.get("segment_type", "unknown")),
+            mode=RecommendedChunkingMode(data["mode"]),
+            token_params=ChunkingTokenParams.from_dict(
+                data.get("token_params") or {}
+            ),
+            allow_section_chunks=bool(data["allow_section_chunks"]),
+            allow_subclause_splitting=bool(data["allow_subclause_splitting"]),
+            drop_technical_fallback_nodes=bool(
+                data["drop_technical_fallback_nodes"]
+            ),
+            retrieval_safe=bool(data["retrieval_safe"]),
+            fallback_fragment_ratio=float(
+                data.get("fallback_fragment_ratio", 0.0)
+            ),
+            warnings=tuple(data.get("warnings") or []),
+        )
+
 
 # ─── FileChunkPlan ────────────────────────────────────────────────────────────
 
@@ -300,24 +302,16 @@ class FileChunkPlan:
     """
     Главный output Phase 10 — план chunking для всего файла.
 
-    document_id:
-        ID документа из FileStructureResult.
+    document_id:      ID документа из FileStructureResult.
+    mode_decision:    File-level chunking decision.
+    segment_plans:    Per-segment plans. Tuple сохраняет порядок.
+    schema_version:   Версия контракта для audit и совместимости.
 
-    mode_decision:
-        File-level chunking decision.
-        Используется как default для сегментов без индивидуального plan.
-
-    segment_plans:
-        Per-segment plans. Tuple сохраняет порядок сегментов.
-
-    schema_version:
-        Версия контракта. Для audit и совместимости.
-
-    Relationship с assembly layer:
-        - FileChunkPlan передаётся в chunk assembly (engine/content)
-        - assembly читает mode_decision и segment_plans
-        - assembly НЕ меняет chunk IDs (они deterministic из effective_uid)
-        - assembly использует token_params из SegmentChunkPlan
+    Lifecycle:
+    - Создаётся plan_chunking(analysis) в structure_builder.
+    - Сохраняется как chunk_plan.json в MinIO.
+    - Загружается chunk_builder через FileChunkPlan.from_dict().
+    - Передаётся в SegmentChunkBuilderV2.build_for_version().
     """
 
     document_id: str
@@ -333,17 +327,12 @@ class FileChunkPlan:
 
     @property
     def overall_retrieval_safe(self) -> bool:
-        """
-        True если ВСЕ сегменты retrieval-safe.
-        Консервативная политика — совпадает с Phase 9.
-        """
         if not self.segment_plans:
             return self.mode_decision.retrieval_safe
         return all(p.retrieval_safe for p in self.segment_plans)
 
     @property
     def any_layout_fallback(self) -> bool:
-        """True если хотя бы один сегмент требует layout fallback."""
         return any(
             p.mode == RecommendedChunkingMode.LAYOUT_FALLBACK
             for p in self.segment_plans
@@ -351,7 +340,6 @@ class FileChunkPlan:
 
     @property
     def all_segments_full_fallback(self) -> bool:
-        """True если все сегменты являются полными technical fallback."""
         if not self.segment_plans:
             return False
         return all(p.is_full_fallback for p in self.segment_plans)
@@ -359,7 +347,6 @@ class FileChunkPlan:
     def plan_for_segment(
         self, segment_id: str | None
     ) -> SegmentChunkPlan | None:
-        """Найти plan для конкретного сегмента по ID."""
         for plan in self.segment_plans:
             if plan.segment_id == segment_id:
                 return plan
@@ -377,6 +364,31 @@ class FileChunkPlan:
             "segment_plans": [p.to_dict() for p in self.segment_plans],
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "FileChunkPlan":
+        """
+        Десериализовать FileChunkPlan из dict.
+
+        Используется chunk_builder для загрузки плана из MinIO.
+        Strict для обязательных полей, tolerant для schema_version.
+
+        Raises
+        ------
+        KeyError
+            Если отсутствует обязательное поле (document_id, mode_decision).
+        ValueError
+            Если значение поля невалидно (неизвестный mode enum).
+        """
+        return cls(
+            document_id=str(data["document_id"]),
+            mode_decision=ChunkingModeDecision.from_dict(data["mode_decision"]),
+            segment_plans=tuple(
+                SegmentChunkPlan.from_dict(sp)
+                for sp in (data.get("segment_plans") or [])
+            ),
+            schema_version=str(data.get("schema_version", "1.0")),
+        )
+
 
 # ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -389,6 +401,5 @@ __all__ = [
     "TOKENS_MODE_B",
     "TOKENS_MODE_C",
 ]
-
 
 

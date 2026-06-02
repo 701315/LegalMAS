@@ -45,6 +45,7 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from storage.artifact_store import ArtifactPath, ArtifactStore
+from workers._tenant_resolver import resolve_artifact_tenant_id
 
 logger = get_logger(__name__)
 
@@ -77,11 +78,17 @@ def convert_to_pdf(
 
     async def _wrapper() -> dict:
         async with db_uow() as uow:
+            resolved_tenant_id = await resolve_artifact_tenant_id(
+                session=uow.session,
+                deal_id=deal_id,
+                document_id=document_id,
+                payload_tenant_id=tenant_id,
+            )
             return await convert_to_pdf_async(
                 document_id=document_id,
                 document_version_id=document_version_id,
                 deal_id=deal_id,
-                tenant_id=tenant_id,
+                tenant_id=resolved_tenant_id,
                 db=uow.session,
                 run_id=run_id,
             )
@@ -114,6 +121,8 @@ def convert_to_pdf(
         run_async(
             _mark_convert_failed_wrapper(
                 document_id=document_id,
+                deal_id=deal_id,
+                payload_tenant_id=tenant_id,
                 message=str(e),
                 run_id=run_id,
             )
@@ -132,14 +141,14 @@ def convert_to_pdf(
             document_id=document_id,
             document_version_id=document_version_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=result.get("tenant_id", tenant_id),
             run_id=run_id,
             converted_pdf_ref=result.get("pdf_ref"),
         )
         retrigger_run_pipeline(
             run_id=run_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=result.get("tenant_id", tenant_id),
         )
 
     return result
@@ -319,6 +328,7 @@ async def convert_to_pdf_async(
         "document_id": document_id,
         "document_version_id": document_version_id,
         "pdf_ref": pdf_ref,
+        "tenant_id": tenant_id,
         "committed": True,
     }
 
@@ -419,13 +429,22 @@ async def _convert_office_bytes_to_pdf_bytes(
 
 async def _mark_convert_failed_wrapper(
     document_id: str,
+    deal_id: str,
+    payload_tenant_id: str,
     message: str,
     run_id: str | None,
 ) -> None:
     async with db_uow() as uow:
+        resolved_tenant_id = await resolve_artifact_tenant_id(
+            session=uow.session,
+            deal_id=deal_id,
+            document_id=document_id,
+            payload_tenant_id=payload_tenant_id,
+        )
         await _mark_convert_failed(
             uow,
             document_uuid=uuid.UUID(document_id),
+            tenant_id=resolved_tenant_id,
             message=message,
             run_id=uuid.UUID(run_id) if run_id else None,
         )
@@ -435,6 +454,7 @@ async def _mark_convert_failed(
     uow: UnitOfWork,
     document_uuid: uuid.UUID,
     *,
+    tenant_id: str,
     message: str,
     run_id: uuid.UUID | None,
 ) -> None:
@@ -457,7 +477,7 @@ async def _mark_convert_failed(
     audit_repo = AuditRepository(uow.session)
     try:
         await audit_repo.log(
-            tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+            tenant_id=uuid.UUID(tenant_id),
             deal_id=document.deal_id,
             action="CONVERSION_FAILED",
             actor="system",

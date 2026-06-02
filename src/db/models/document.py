@@ -388,6 +388,20 @@ class DocumentVersion(Base):
         ),
     )
 
+    chunk_plan_ref: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment=(
+            "S3 URI to chunk_plan.json — Phase 10 Chunk Planner output.\n"
+            "\n"
+            "Вычисляется в structure_builder после Phase 9 quality analysis.\n"
+            "Читается chunk_builder для quality-aware chunking.\n"
+            "NULL означает что Phase 10 не выполнялся (legacy mode или ошибка\n"
+            "planning) — chunk_builder использует дефолтные параметры."
+        ),
+    )
+
+
     segments_count: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,

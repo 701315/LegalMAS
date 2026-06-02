@@ -1,0 +1,50 @@
+{
+  "schema_version": "1",
+  "policy_version": "phase12_v1",
+  "prompt_version": "phase12_semantic_enrichment_v3_ru",
+  "document_id": "f19d64dc-c066-499a-a1f3-00b13503259c",
+  "document_version_id": "f2b153a7-b472-4ec8-a9aa-87763e84b903",
+  "segment": {
+    "segment_id": "c8c4f292-141a-5a5e-92b0-7387c78d3785",
+    "segment_type": "contract",
+    "segment_order": 0,
+    "is_primary_segment": true
+  },
+  "llm": {
+    "provider": "local",
+    "model": "qwen2.5-3b-instruct-q4_k_m"
+  },
+  "stats": {
+    "total_units": 1,
+    "status_counts": {
+      "skipped": 1
+    },
+    "build_warnings": []
+  },
+  "enrichments": [
+    {
+      "unit_id": "main_contract:1",
+      "status": "skipped",
+      "base": {
+        "unit_type": "unknown",
+        "clause_function": "unknown",
+        "topic_tags": [
+          "definitions"
+        ]
+      },
+      "effective": {
+        "unit_type": "unknown",
+        "clause_function": "unknown",
+        "topic_tags": [
+          "definitions"
+        ]
+      },
+      "applied_fields": [],
+      "llm_proposal": null,
+      "decision_reason": "technical_fallback",
+      "diagnostics": {
+        "policy_version": "phase12_v1"
+      }
+    }
+  ]
+}

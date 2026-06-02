@@ -32,6 +32,10 @@ from typing import Any
 
 from core.config import settings
 from core.logging import get_logger
+from services.structure._segmenter.toc_suppression import (
+    BoundarySuppressionContext,
+    build_boundary_suppression_context,
+)
 from services.structure.heading_patterns import normalize_spaces
 from services.structure.heading_scoring import CandidateStatus, score_heading_candidate
 from services.structure.models import (
@@ -61,51 +65,124 @@ _MAX_HEADER_LINES_TO_CHECK = 5
 _DEFAULT_SEGMENT_CONFIDENCE_THRESHOLD = 0.70
 _WEAK_BOUNDARY_THRESHOLD = 0.45
 
-_NUMBER_MARKER_RE = r"(?:№|n|no\.?)\s*"
+_NUMBER_MARKER_RE = r"(?:№|no\.?|n)\s*"
 _CYRILLIC_WORD_RE = r"[\u0401\u0451\u0410-\u044f]+"
 
+# ── Shared sub-patterns ──────────────────────────────────────────────────────
+
+# Generic id chars for broad document identifiers in some families.
+_SEGMENT_ID_CHARS = r"[A-Za-zА-ЯЁа-яё0-9.\-]+"
+
+# Narrow appendix/amendment document ids:
+#   1
+#   1.2
+#   A
+#   IV
+_APPENDIX_DOC_ID_RE = r"(?:\d+(?:\.\d+)*|[A-Za-zА-ЯЁа-яё]|[IVXLCM]{1,12})"
+
+# Russian OCR-tolerant keyword for:
+#   приложение / приложения / приложений
+# with tolerance for Cyrillic/Latin e in both vowel positions:
+#   приложeние / приложениe / приложeниe
+_RU_APPENDIX_KEYWORD_RE = r"прилож[еe]ни(?:[еe]|я|й)"
+
+# English appendix-family markers.
+_EN_APPENDIX_KEYWORD_RE = (
+    r"(?:appendix|appendices|schedule|exhibit|annex|annexure|attachment)"
+)
+
+# Optional trailing title:
+#   "Appendix 1: Definitions"
+#   "Appendix 1 - Definitions"
+#   "Appendix 1 Definitions"
+#   "Приложение 1 Спецификация"
+_TRAILING_TITLE_RE = r"(?:\s*[:\-–—]\s*.+|\s+[A-Za-zА-ЯЁа-яёЁё].*)?"
+
+# ── Purity validation constants ──────────────────────────────────────────────
+_PURITY_RESCAN_MAX_PASSES = 3
+
+# ── Appendix-family regex ─────────────────────────────────────────────────────
+# Supports:
+# - optional number marker
+# - no-space variants: Appendix1, AppendixNo.1, Приложение№1, Приложение1
+# - inline title with or without separator
 _APPENDIX_RE = re.compile(
     rf"""
     ^
     (?:
-        appendix|schedule|exhibit|annex
-    )
-    (?:\s+(?:no\.?\s*)?[\w.-]+)?
-    (?:\s*[:\-–—]\s*.*)?
-    $
+        {_EN_APPENDIX_KEYWORD_RE}
+        (?:
+            \s*
+            (?:no\.?\s*)?
+            \s*
+            {_APPENDIX_DOC_ID_RE}
+        )?
+        {_TRAILING_TITLE_RE}
     |
-    ^
-    приложение
-    (?:\s+{_NUMBER_MARKER_RE})?
-    \s*[\w\dа-яёa-z.-]+
-    (?:\s*[:\-–—]\s*.*)?
+        disclosure\s+schedule
+        (?:
+            \s*
+            (?:no\.?\s*)?
+            \s*
+            {_APPENDIX_DOC_ID_RE}
+        )?
+        {_TRAILING_TITLE_RE}
+    |
+        {_RU_APPENDIX_KEYWORD_RE}
+        \s*
+        (?:{_NUMBER_MARKER_RE})?
+        \s*
+        {_APPENDIX_DOC_ID_RE}
+        {_TRAILING_TITLE_RE}
+    |
+        {_RU_APPENDIX_KEYWORD_RE}
+        \s*$
+    )
     $
     """,
     re.IGNORECASE | re.VERBOSE,
 )
 
+# ── Amendment-family regex ────────────────────────────────────────────────────
+# Includes addendum (semantically closer to amendment than to appendix).
 _AMENDMENT_RE = re.compile(
     rf"""
     ^
     (?:
-        addendum\s+\w+|
-        amendment\s+(?:no\.?\s*)?\w+|
-        supplemental\ agreement|
-        дополнительное\s+соглашение(?:\s+{_NUMBER_MARKER_RE})?\s*[\w\dа-яёa-z-]*
+        (?:addendum|amendment)
+        \s*
+        (?:(?:no\.?\s*)?{_SEGMENT_ID_CHARS})?
+        {_TRAILING_TITLE_RE}
+    |
+        supplemental\s+agreement
+        {_TRAILING_TITLE_RE}
+    |
+        дополнительно[еe]\s+соглашени[еe]
+        \s*
+        (?:{_NUMBER_MARKER_RE})?
+        \s*
+        (?:{_SEGMENT_ID_CHARS})?
+        {_TRAILING_TITLE_RE}
+    |
+        дополн[еe]ни[еe]
+        \s*
+        (?:{_NUMBER_MARKER_RE})?
+        \s*
+        (?:{_SEGMENT_ID_CHARS})?
+        {_TRAILING_TITLE_RE}
     )
-    [:.]?
     $
     """,
     re.IGNORECASE | re.VERBOSE,
 )
 
 _ACT_RE = re.compile(
-    r"^(?:передаточный\s+акт|акт\s+(?:приема|приёма|сдачи|выполненных\s+работ|оказанных\s+услуг)|acceptance act|delivery act)(?:\s*[:\-–—]\s*.*)?$",
+    r"^(?:передаточный\s+акт|акт\s+(?:приема|приёма|сдачи|выполненных\s+работ|оказанных\s+услуг)|acceptance\s+act|delivery\s+act)(?:\s*[:\-–—]\s*.*)?$",
     re.IGNORECASE,
 )
 
 _INVOICE_RE = re.compile(
-    r"^(?:(?:счет|счёт)\s*(?:на\s+оплату)?|invoice\b)(?:\s*[:\-–—]\s*.*)?$",
+    r"^(?:(?:сч[еёe]т|сч[еёe]т)\s*(?:на\s+оплату)?|invoice\b)(?:\s*[:\-–—]\s*.*)?$",
     re.IGNORECASE,
 )
 
@@ -129,13 +206,16 @@ _REQUISITES_LINE_RE = re.compile(
 _APPENDIX_NUMBER_RE = re.compile(
     rf"""
     (?:
-        appendix|schedule|exhibit|annex|приложение
+        appendix|appendices|schedule|exhibit|annex|annexure|attachment
+        |disclosure\s+schedule
+        |{_RU_APPENDIX_KEYWORD_RE}
     )
     \s*
     (?:
         {_NUMBER_MARKER_RE}
     )?
-    (?P<num>[\w\dа-яёa-z.-]+)
+    \s*
+    (?P<num>{_APPENDIX_DOC_ID_RE})
     """,
     re.IGNORECASE | re.VERBOSE,
 )
@@ -212,7 +292,25 @@ def _segment_elements_impl(
         return [_make_single_segment(document_id=document_id, elements=[])]
 
     artifacts = _detect_repeated_page_artifacts(clean_elements)
-    candidates = _collect_boundary_candidates(clean_elements, artifacts=artifacts)
+    suppression_context = build_boundary_suppression_context(
+        clean_elements,
+        is_appendix_entry=_looks_like_appendix_boundary_marker,
+    )
+
+    if suppression_context.suppressed_appendix_pages:
+        logger.info(
+            "STRUCTURE segmenter_boundary_suppression_context",
+            extra={
+                "document_id": document_id,
+                **suppression_context.to_dict(),
+            },
+        )
+
+    candidates = _collect_boundary_candidates(
+        clean_elements,
+        artifacts=artifacts,
+        suppression_context=suppression_context,
+    )
     validated_candidates = _validate_boundary_candidates(clean_elements, candidates)
 
     threshold = float(
@@ -224,6 +322,15 @@ def _segment_elements_impl(
     )
 
     accepted_candidates = [c for c in validated_candidates if c.confidence_score >= threshold]
+
+    if accepted_candidates:
+        accepted_candidates = _recover_segment_purity_candidates(
+            document_id=document_id,
+            elements=clean_elements,
+            accepted_candidates=accepted_candidates,
+            threshold=threshold,
+            suppression_context=suppression_context,
+        )
 
     if not accepted_candidates:
         single = _make_single_segment(document_id=document_id, elements=clean_elements)
@@ -304,6 +411,36 @@ def _segment_elements_impl(
     return segments
 
 
+def _should_preserve_first_repeated_boundary_occurrence(
+    elements: list[dict[str, Any]],
+    index: int,
+) -> bool:
+    """
+    Repeated top-of-page text is often a running header.
+    But the first occurrence may be the real start of a logical segment.
+
+    Preserve the earliest repeated occurrence if it looks like a genuine
+    segment boundary marker in a boundary position.
+    """
+    if index < 0 or index >= len(elements):
+        return False
+
+    element = elements[index]
+    raw_text = element.get("text", "")
+    text = normalize_spaces(str(raw_text or ""))
+    if not text:
+        return False
+
+    if not _match_boundary_marker(text):
+        return False
+
+    if _looks_like_non_boundary_block(text):
+        return False
+
+    return _is_boundary_position(elements, index, text)
+
+
+
 def _detect_repeated_page_artifacts(
     elements: list[dict[str, Any]],
 ) -> set[int]:
@@ -332,8 +469,20 @@ def _detect_repeated_page_artifacts(
             signature_hits[text].append(idx)
 
     for _, idx_list in signature_hits.items():
-        if len(idx_list) >= _MIN_PAGES_FOR_ARTIFACT:
-            repeated_indices.update(idx_list)
+        if len(idx_list) < _MIN_PAGES_FOR_ARTIFACT:
+            continue
+
+        ordered = sorted(idx_list)
+        preserve_idx: int | None = None
+
+        first_idx = ordered[0]
+        if _should_preserve_first_repeated_boundary_occurrence(elements, first_idx):
+            preserve_idx = first_idx
+
+        for idx in ordered:
+            if preserve_idx is not None and idx == preserve_idx:
+                continue
+            repeated_indices.add(idx)
 
     return repeated_indices
 
@@ -341,6 +490,7 @@ def _detect_repeated_page_artifacts(
 def _collect_boundary_candidates(
     elements: list[dict[str, Any]],
     artifacts: set[int] | None = None,
+    suppression_context: BoundarySuppressionContext | None = None,
 ) -> list[_BoundaryCandidate]:
     artifacts = artifacts or set()
     candidates: list[_BoundaryCandidate] = []
@@ -370,6 +520,14 @@ def _collect_boundary_candidates(
 
         page = _safe_page(element)
         page_offset = _page_offset(elements, idx)
+        seg_type = _infer_segment_type_from_text(text)
+
+        if (
+            suppression_context is not None
+            and seg_type == SEGMENT_TYPE_APPENDIX
+            and suppression_context.suppresses_appendix_page(page)
+        ):
+            continue
 
         if not _is_boundary_position(elements, idx, text):
             continue
@@ -377,7 +535,6 @@ def _collect_boundary_candidates(
         signals: list[_BoundarySignal] = []
         reasons: list[str] = []
 
-        seg_type = _infer_segment_type_from_text(text)
         title = _infer_segment_title(text)
 
         signals.append(
@@ -514,6 +671,64 @@ def _collect_boundary_candidates(
 
     return candidates
 
+def _is_strong_boundary_candidate(candidate: _BoundaryCandidate) -> bool:
+    """
+    Strong top-level boundary candidate suitable for preserving even
+    when adjacent to another strong boundary.
+    """
+    if candidate.segment_type == SEGMENT_TYPE_UNKNOWN:
+        return False
+    if candidate.confidence_score < _DEFAULT_SEGMENT_CONFIDENCE_THRESHOLD:
+        return False
+    if "boundary_keyword" not in candidate.reasons:
+        return False
+    if len((candidate.text or "").split()) > 20:
+        return False
+    return True
+
+
+def _should_keep_adjacent_distinct_boundaries(
+    left: _BoundaryCandidate,
+    right: _BoundaryCandidate,
+) -> bool:
+    """
+    Keep both nearby boundaries if they are strong and clearly refer
+    to different logical documents.
+
+    Universal use case:
+    - multiple appendices/exhibits/annexes on the same page;
+    - short schedules listed consecutively;
+    - short amendment pack components.
+    """
+    distance = right.element_index - left.element_index
+    if distance < 2:
+        return False
+
+    if not (_is_strong_boundary_candidate(left) and _is_strong_boundary_candidate(right)):
+        return False
+
+    left_title_norm = _normalize_boundary_text(left.title or left.text)
+    right_title_norm = _normalize_boundary_text(right.title or right.text)
+    if not left_title_norm or not right_title_norm:
+        return False
+    if left_title_norm == right_title_norm:
+        return False
+
+    if (
+        left.segment_type == SEGMENT_TYPE_APPENDIX
+        and right.segment_type == SEGMENT_TYPE_APPENDIX
+    ):
+        left_num = _normalize_boundary_text(_extract_appendix_number(left.title or left.text))
+        right_num = _normalize_boundary_text(_extract_appendix_number(right.title or right.text))
+        if left_num and right_num and left_num != right_num:
+            return True
+        return False
+
+    if left.segment_type != right.segment_type:
+        return True
+
+    return True
+
 
 def _validate_boundary_candidates(
     elements: list[dict[str, Any]],
@@ -537,6 +752,10 @@ def _validate_boundary_candidates(
         if validated:
             prev = validated[-1]
             if candidate.element_index - prev.element_index < _MIN_ELEMENTS_BETWEEN_BOUNDARIES:
+                if _should_keep_adjacent_distinct_boundaries(prev, candidate):
+                    validated.append(candidate)
+                    continue
+
                 winner = _pick_stronger_boundary(prev, candidate)
                 validated[-1] = winner
                 continue
@@ -773,6 +992,18 @@ def _infer_segment_type_from_text(text: str) -> str:
     return SEGMENT_TYPE_UNKNOWN
 
 
+def _looks_like_appendix_boundary_marker(text: str) -> bool:
+    """
+    Shared appendix-entry predicate for suppression context.
+
+    Reuses the same appendix-family grammar as the actual segment boundary
+    detector to avoid divergence between "what we suppress" and
+    "what we would otherwise accept as appendix boundary".
+    """
+    return _infer_segment_type_from_text(text) == SEGMENT_TYPE_APPENDIX
+
+
+
 def _infer_segment_title(text: str) -> str | None:
     title = normalize_spaces(text)
     return title or None
@@ -863,6 +1094,9 @@ def _is_non_boundary_element_type(element: dict[str, Any]) -> bool:
         "signature_block",
         "requisites_block",
         "toc_content",
+        "toc_header",
+        "toc_line",
+        "possible_toc",
         "page_artifact",
         "table_content",
         "unknown_layout",
@@ -1135,6 +1369,231 @@ def _confidence_label(score: float) -> str:
     if score >= 0.60:
         return SEGMENT_CONFIDENCE_MEDIUM
     return SEGMENT_CONFIDENCE_LOW
+
+
+# ── Segment purity validation (defense-in-depth) ─────────────────────────────
+
+
+def _normalize_boundary_text(value: str | None) -> str:
+    """Normalize text for boundary comparison: lowercase + collapse whitespace."""
+    return normalize_spaces(str(value or "")).strip().lower()
+
+
+def _is_distinct_internal_boundary_candidate(
+    *,
+    segment: SegmentDocument,
+    candidate: _BoundaryCandidate,
+    threshold: float,
+) -> bool:
+    """
+    Check that an internal boundary candidate represents a genuinely NEW
+    logical document, not a repetition of the current segment's own header.
+
+    Universal guard against:
+    - running headers that repeat the appendix title on every page;
+    - first-element re-match of the segment's own boundary heading.
+
+    Returns True only if candidate is strong enough AND distinct enough.
+    """
+    if candidate.confidence_score < threshold:
+        return False
+
+    if candidate.segment_type == SEGMENT_TYPE_UNKNOWN:
+        return False
+
+    # Guard: candidate must not be a repetition of current segment title.
+    candidate_title_norm = _normalize_boundary_text(candidate.title or candidate.text)
+    current_title_norm = _normalize_boundary_text(segment.segment_title)
+
+    if (
+        candidate_title_norm
+        and current_title_norm
+        and candidate_title_norm == current_title_norm
+    ):
+        return False
+
+    # Guard: same appendix number → likely running header, not new segment.
+    if (
+        segment.segment_type == SEGMENT_TYPE_APPENDIX
+        and candidate.segment_type == SEGMENT_TYPE_APPENDIX
+    ):
+        current_num = _normalize_boundary_text(
+            _extract_appendix_number(segment.segment_title or "")
+        )
+        candidate_num = _normalize_boundary_text(
+            _extract_appendix_number(candidate.title or candidate.text)
+        )
+        if current_num and candidate_num and current_num == candidate_num:
+            return False
+
+    # Guard: candidate too close to segment start (first 2 elements).
+    # This avoids re-splitting on the segment's own boundary heading
+    # if it appears in first elements of the slice.
+    relative_offset = candidate.element_index - segment.element_start
+    if relative_offset < _MIN_ELEMENTS_BETWEEN_BOUNDARIES:
+        return False
+
+    return True
+
+
+def _merge_boundary_candidates(
+    *,
+    elements: list[dict[str, Any]],
+    candidates: list[_BoundaryCandidate],
+    threshold: float,
+) -> list[_BoundaryCandidate]:
+    """
+    Merge and revalidate boundary candidates globally.
+
+    Uses the same validator as primary path to maintain consistent
+    proximity rules and conflict resolution.
+    """
+    if not candidates:
+        return []
+
+    by_index: dict[int, _BoundaryCandidate] = {}
+    for candidate in sorted(
+        candidates,
+        key=lambda c: (c.element_index, -c.confidence_score),
+    ):
+        existing = by_index.get(candidate.element_index)
+        if existing is None:
+            by_index[candidate.element_index] = candidate
+        else:
+            by_index[candidate.element_index] = _pick_stronger_boundary(
+                existing, candidate
+            )
+
+    merged = _validate_boundary_candidates(elements, list(by_index.values()))
+    return [c for c in merged if c.confidence_score >= threshold]
+
+
+def _recover_segment_purity_candidates(
+    *,
+    document_id: str,
+    elements: list[dict[str, Any]],
+    accepted_candidates: list[_BoundaryCandidate],
+    threshold: float,
+    suppression_context: BoundarySuppressionContext | None = None,
+) -> list[_BoundaryCandidate]:
+    """
+    Defense-in-depth post-segmentation purity pass.
+
+    After primary segmentation, re-scan each provisional segment for
+    strong boundary markers that were missed in the first pass.
+
+    Universal guard for multi-document files: contract + appendices,
+    agreement + schedules, SPA + exhibits, amendment packs.
+
+    Safety mechanisms:
+    - max _PURITY_RESCAN_MAX_PASSES iterations;
+    - only accepts candidates that are distinct from current segment;
+    - reuses same validation/proximity rules as primary pass;
+    - converges when no new boundaries are found.
+    """
+    if not accepted_candidates:
+        return accepted_candidates
+
+    current_candidates = sorted(
+        accepted_candidates,
+        key=lambda c: (c.element_index, c.page),
+    )
+
+    for pass_num in range(_PURITY_RESCAN_MAX_PASSES):
+        provisional_segments = _build_segments_from_candidates(
+            document_id=document_id,
+            elements=elements,
+            candidates=current_candidates,
+        )
+        if not provisional_segments:
+            return current_candidates
+
+        existing_indices = {c.element_index for c in current_candidates}
+        recovered_candidates: list[_BoundaryCandidate] = []
+
+        for segment in provisional_segments:
+            seg_start = segment.element_start
+            seg_end = segment.element_end
+            segment_slice = elements[seg_start:seg_end]
+
+            # Skip tiny segments — nothing to split.
+            if len(segment_slice) <= _MIN_ELEMENTS_BETWEEN_BOUNDARIES:
+                continue
+
+            local_artifacts = _detect_repeated_page_artifacts(segment_slice)
+            local_candidates = _collect_boundary_candidates(
+                segment_slice,
+                artifacts=local_artifacts,
+                suppression_context=suppression_context,
+            )
+            validated_local = _validate_boundary_candidates(
+                segment_slice, local_candidates
+            )
+
+            for local_candidate in validated_local:
+                global_index = seg_start + local_candidate.element_index
+                if global_index in existing_indices:
+                    continue
+
+                global_candidate = _BoundaryCandidate(
+                    element_index=global_index,
+                    page=local_candidate.page,
+                    text=local_candidate.text,
+                    segment_type=local_candidate.segment_type,
+                    title=local_candidate.title,
+                    confidence_score=local_candidate.confidence_score,
+                    confidence_label=local_candidate.confidence_label,
+                    signals=local_candidate.signals + (
+                        _BoundarySignal(
+                            name="segment_purity_recovery",
+                            weight=0.0,
+                            details={
+                                "pass": pass_num + 1,
+                                "provisional_segment_order": segment.segment_order,
+                                "provisional_segment_type": segment.segment_type,
+                            },
+                        ),
+                    ),
+                    reasons=local_candidate.reasons + ("segment_purity_recovery",),
+                    is_mid_page=local_candidate.is_mid_page,
+                )
+
+                if not _is_distinct_internal_boundary_candidate(
+                    segment=segment,
+                    candidate=global_candidate,
+                    threshold=threshold,
+                ):
+                    continue
+
+                recovered_candidates.append(global_candidate)
+
+        if not recovered_candidates:
+            return current_candidates
+
+        merged_candidates = _merge_boundary_candidates(
+            elements=elements,
+            candidates=current_candidates + recovered_candidates,
+            threshold=threshold,
+        )
+
+        merged_indices = {c.element_index for c in merged_candidates}
+        if merged_indices == existing_indices:
+            return current_candidates
+
+        logger.info(
+            "STRUCTURE segmenter_segment_purity_recovery_applied",
+            extra={
+                "document_id": document_id,
+                "pass": pass_num + 1,
+                "recovered_boundaries_count": len(merged_indices - existing_indices),
+                "total_boundaries_count": len(merged_candidates),
+            },
+        )
+
+        current_candidates = merged_candidates
+
+    return current_candidates
+
 
 
 def _generate_scope_name(

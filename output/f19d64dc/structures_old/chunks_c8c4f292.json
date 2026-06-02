@@ -1,0 +1,208 @@
+{
+  "schema_version": 2,
+  "scope": "segment",
+  "document_id": "f19d64dc-c066-499a-a1f3-00b13503259c",
+  "document_version_id": "f2b153a7-b472-4ec8-a9aa-87763e84b903",
+  "segment": {
+    "segment_id": "c8c4f292-141a-5a5e-92b0-7387c78d3785",
+    "segment_type": "contract",
+    "segment_title": "ДОГОВОР КУПЛИ-ПРОДАЖИ ИМУЩЕСТВА",
+    "segment_order": 0,
+    "is_primary_segment": true,
+    "page_start": 1,
+    "page_end": 2
+  },
+  "built_at": "2026-06-02T04:32:50.850292+00:00",
+  "source": {
+    "layout_ref": "tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/layouts/f19d64dc-c066-499a-a1f3-00b13503259c/primary_sanitized.json",
+    "file_graph_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/file_graph.json",
+    "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_c8c4f292.json"
+  },
+  "params": {
+    "target_tokens": 300,
+    "max_tokens": 800,
+    "overlap_ratio": 0.15
+  },
+  "degraded": false,
+  "degradation_reason": null,
+  "coverage": {
+    "total_leaf_nodes": 1,
+    "leaf_nodes_without_chunks": 0,
+    "leaf_nodes_without_element_ids": 0,
+    "leaf_nodes_empty_after_filtering": 0,
+    "chunking_incomplete": false,
+    "heading_only_leaf_nodes": 0,
+    "best_effort_leaf_nodes": 0
+  },
+  "chunks": {
+    "section": [],
+    "clause": [
+      {
+        "id": "f19d64dc-c066-499a-a1f3-00b13503259c:clause:main_contract:1",
+        "text": "от 15 Декабря 2014\n\nМежду\n\nИ",
+        "metadata": {
+          "doc_id": "f19d64dc-c066-499a-a1f3-00b13503259c",
+          "chunk_kind": "clause",
+          "effective_uid": "main_contract:1",
+          "raw_uid": "1",
+          "scope": "main_contract",
+          "node_kind": "leaf",
+          "title": "[TECHNICAL FALLBACK] Fragment 1",
+          "level": 1,
+          "path_titles": [
+            "[TECHNICAL FALLBACK] Fragment 1"
+          ],
+          "section_title": "[TECHNICAL FALLBACK] Fragment 1",
+          "start_page": 1,
+          "end_page": 2,
+          "element_ids": [
+            "e18417e8229",
+            "e00fdbb6622",
+            "ee4be426ae3",
+            "e798882c60d",
+            "e2bfa236aa4",
+            "e88fbf78dfd",
+            "e41b63f96e6",
+            "e7603d5eef3",
+            "edf88df8d30",
+            "e854a538b04",
+            "edca433ea3e",
+            "e6fa65dbb27",
+            "e20f364ea08",
+            "e73f56c1d14",
+            "e8dac581e66",
+            "e45b2b169a3",
+            "ecc9ae35c51",
+            "e6fa88452d4",
+            "eb01c3c1298",
+            "e09414a123a",
+            "ebf13e03436",
+            "e52216ab2eb",
+            "e1b3b94c052"
+          ],
+          "semantic_node_type": null,
+          "parse_confidence": null,
+          "citability_hint": "high",
+          "recovered_via_best_effort": false,
+          "fallback_reason": null,
+          "is_heading_only_leaf": false,
+          "is_structural_fallback": false,
+          "range_end_reason": "segment_end",
+          "position_ratio": 0.1,
+          "token_count": 22,
+          "segment_id": "c8c4f292-141a-5a5e-92b0-7387c78d3785",
+          "segment_type": "contract",
+          "segment_title": "ДОГОВОР КУПЛИ-ПРОДАЖИ ИМУЩЕСТВА",
+          "segment_order": 0,
+          "is_primary_segment": true,
+          "segment_page_start": 1,
+          "segment_page_end": 2,
+          "layout_ref": "tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/layouts/f19d64dc-c066-499a-a1f3-00b13503259c/primary_sanitized.json",
+          "file_graph_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/file_graph.json",
+          "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_c8c4f292.json",
+          "position_ratio_within_file": 0.1,
+          "position_ratio_within_segment": 0.75,
+          "total_pages": 15,
+          "summary": "[TECHNICAL FALLBACK] Fragment 1: от 15 Декабря 2014\n\nМежду\n\nИ"
+        }
+      }
+    ],
+    "subclause": [
+      {
+        "id": "f19d64dc-c066-499a-a1f3-00b13503259c:subclause:main_contract:1:0",
+        "text": "от 15 Декабря 2014\n\nМежду\n\nИ",
+        "metadata": {
+          "doc_id": "f19d64dc-c066-499a-a1f3-00b13503259c",
+          "chunk_kind": "subclause",
+          "node_kind": "leaf",
+          "effective_uid": "main_contract:1",
+          "raw_uid": "1",
+          "scope": "main_contract",
+          "title": "[TECHNICAL FALLBACK] Fragment 1",
+          "level": 1,
+          "path_titles": [
+            "[TECHNICAL FALLBACK] Fragment 1"
+          ],
+          "start_page": 1,
+          "end_page": 2,
+          "element_ids": [
+            "e18417e8229",
+            "e00fdbb6622",
+            "ee4be426ae3",
+            "e798882c60d",
+            "e2bfa236aa4",
+            "e88fbf78dfd",
+            "e41b63f96e6",
+            "e7603d5eef3",
+            "edf88df8d30",
+            "e854a538b04",
+            "edca433ea3e",
+            "e6fa65dbb27",
+            "e20f364ea08",
+            "e73f56c1d14",
+            "e8dac581e66",
+            "e45b2b169a3",
+            "ecc9ae35c51",
+            "e6fa88452d4",
+            "eb01c3c1298",
+            "e09414a123a",
+            "ebf13e03436",
+            "e52216ab2eb",
+            "e1b3b94c052"
+          ],
+          "token_count": 22,
+          "position_ratio": 0.1,
+          "subchunk_index": 0,
+          "subchunk_count": 1,
+          "section_title": "[TECHNICAL FALLBACK] Fragment 1",
+          "range_end_reason": "segment_end",
+          "semantic_node_type": null,
+          "parse_confidence": null,
+          "citability_hint": "high",
+          "recovered_via_best_effort": false,
+          "fallback_reason": null,
+          "is_heading_only_leaf": false,
+          "is_structural_fallback": false,
+          "segment_id": "c8c4f292-141a-5a5e-92b0-7387c78d3785",
+          "segment_type": "contract",
+          "segment_title": "ДОГОВОР КУПЛИ-ПРОДАЖИ ИМУЩЕСТВА",
+          "segment_order": 0,
+          "is_primary_segment": true,
+          "segment_page_start": 1,
+          "segment_page_end": 2,
+          "layout_ref": "tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/layouts/f19d64dc-c066-499a-a1f3-00b13503259c/primary_sanitized.json",
+          "file_graph_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/file_graph.json",
+          "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_c8c4f292.json",
+          "position_ratio_within_file": 0.1,
+          "position_ratio_within_segment": 0.75,
+          "total_pages": 15,
+          "summary": "[TECHNICAL FALLBACK] Fragment 1: от 15 Декабря 2014\n\nМежду\n\nИ"
+        }
+      }
+    ]
+  },
+  "planning": {
+    "applied": false,
+    "mode": null,
+    "retrieval_safe": null,
+    "allow_section_chunks": null,
+    "allow_subclause_splitting": null,
+    "drop_technical_fallback_nodes": null,
+    "prefer_layout_fallback": null,
+    "filtered_technical_fallback_nodes": 0,
+    "token_params": {
+      "target_tokens": 300,
+      "max_tokens": 800,
+      "overlap_ratio": 0.15
+    },
+    "warnings": []
+  },
+  "semantic_enrichment": {
+    "applied": true,
+    "status_counts": {
+      "skipped": 1
+    },
+    "policy_version": "phase12_v1",
+    "llm_model": "qwen2.5-3b-instruct-q4_k_m"
+  }
+}

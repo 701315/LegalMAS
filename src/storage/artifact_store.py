@@ -130,6 +130,30 @@ class ArtifactPath:
             f"{document_id}/segment_{short_id}.json"
         )
 
+
+    @staticmethod
+    def chunk_plan(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Путь к Phase 10 chunk plan артефакту (chunk_plan.json).
+
+        Для непрофессионального программиста:
+        - Этот файл содержит решение Phase 10 Chunk Planner о том,
+        как именно нарезать каждый сегмент документа на чанки.
+        - Вычисляется в structure_builder сразу после построения структуры.
+        - Читается chunk_builder перед построением чанков.
+        - Если файл отсутствует — chunk_builder использует дефолтные параметры.
+
+        Хранится рядом с file_graph.json в том же каталоге structures/.
+
+        Пример пути:
+        tenants/abc/deals/xyz/structures/{document_id}/chunk_plan.json
+        """
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/structures/"
+            f"{document_id}/chunk_plan.json"
+        )
+
+
     @staticmethod
     def chunks(tenant_id: str, deal_id: str, document_id: str) -> str:
         """
@@ -643,3 +667,5 @@ class ArtifactStore:
         filename = build_export_filename(run_id, suffix, ext=ext)
         path = ArtifactPath.export(tenant_id, deal_id, run_id, filename)
         return self.put_file(path, data, content_type=content_type)
+
+

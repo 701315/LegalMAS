@@ -53,6 +53,7 @@ from services.pii_encryption import PIIEncryptionError, get_pii_encryptor
 from services.pii_tokenizer import PIIPolicy, PIITokenizer
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from storage.artifact_store import ArtifactPath, ArtifactStore
+from workers._tenant_resolver import resolve_artifact_tenant_id
 
 logger = get_logger(__name__)
 
@@ -70,12 +71,14 @@ class PIISanitizer:
         self,
         uow: UnitOfWork,
         artifact_store,  # ArtifactStore
+        artifact_tenant_id: str,
         detector=None,
         tokenizer=None,
         encryptor=None,
     ):
         self.uow = uow
         self.store = artifact_store
+        self.artifact_tenant_id = artifact_tenant_id
 
         # Репозитории поверх сессии из UoW
         self.doc_repo = DocumentRepository(uow.session)
@@ -143,13 +146,15 @@ class PIISanitizer:
             # - layout_primary_sanitized_ref является единственным downstream
             #   sanitized layout;
             # - legacy sanitized layout paths больше не используются.
+
+
             layout_sanitized = {**layout_raw, "elements": sanitized_elements}
-            sanitized_path = self._build_sanitized_path(doc)
+            sanitized_path = self._build_sanitized_path(doc, self.artifact_tenant_id)
             # ArtifactStore.put_json — синхронный метод, НЕ используем await
             self.store.put_json(sanitized_path, layout_sanitized)
 
             # 8. Зашифровать и сохранить pii_mapping
-            mapping_path = self._build_mapping_path(doc)
+            mapping_path = self._build_mapping_path(doc, self.artifact_tenant_id)
             encrypted = self.encryptor.encrypt_mapping(global_mapping)
             # ArtifactStore.put_file — синхронный метод, НЕ используем await
             self.store.put_file(mapping_path, encrypted)
@@ -192,6 +197,7 @@ class PIISanitizer:
                 "entities_detected": stats["detected"],
                 "entities_tokenized": stats["tokenized"],
                 "entities_preserved": stats["preserved"],
+                "tenant_id": self.artifact_tenant_id,
                 "skipped": False,
                 "committed": True,
             }
@@ -297,20 +303,12 @@ class PIISanitizer:
 
         return sanitized_elements, global_mapping, stats
 
-    def _build_sanitized_path(self, doc) -> str:
+    def _build_sanitized_path(self, doc, tenant_id: str) -> str:
         """
         Построить путь для sanitized‑layout в MinIO через ArtifactPath.
 
-
-        В новой архитектуре это будет одноязычный layout_primary_sanitized.
+        В новой архитектуре это одноязычный layout_primary_sanitized.
         """
-        # tenant_id берём из связанной сделки, как единственный источник истины
-        if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
-            tenant_id = str(doc.deal.tenant_id)
-        else:
-            # fallback для dev-режима, если связь не подгружена
-            tenant_id = str(doc.deal_id)
-
         deal_id = str(doc.deal_id)
         return ArtifactPath.layout_primary_sanitized(
             tenant_id=tenant_id,
@@ -318,13 +316,8 @@ class PIISanitizer:
             document_id=str(doc.id),
         )
 
-    def _build_mapping_path(self, doc) -> str:
+    def _build_mapping_path(self, doc, tenant_id: str) -> str:
         """Построить путь для PII‑mapping в MinIO через ArtifactPath."""
-        if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
-            tenant_id = str(doc.deal.tenant_id)
-        else:
-            tenant_id = str(doc.deal_id)
-
         deal_id = str(doc.deal_id)
         return ArtifactPath.pii_mapping(
             tenant_id=tenant_id,
@@ -340,14 +333,8 @@ class PIISanitizer:
         stats: dict,
     ) -> None:
         """Записать audit‑лог по результатам санитизации."""
-        if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
-            tenant_id: uuid.UUID = doc.deal.tenant_id
-        else:
-            # fallback: используем deal_id как tenant_id (dev‑режим)
-            tenant_id = doc.deal_id
-
         await self.audit_repo.log(
-            tenant_id=tenant_id,
+            tenant_id=uuid.UUID(self.artifact_tenant_id),
             deal_id=doc.deal_id,
             action="SANITIZE",
             actor="system:pii_sanitizer",
@@ -386,7 +373,6 @@ def sanitize_document(
     """
     Синхронная Celery‑таска санитизации документа.
 
-
     Внутри:
       - открывает основной UnitOfWork (uow_main) через db_uow();
       - запускает асинхронную санитизацию через PIISanitizer.sanitize;
@@ -397,11 +383,23 @@ def sanitize_document(
     """
     version_uuid = uuid.UUID(document_version_id)
     exec_uuid = uuid.UUID(stage_execution_id) if stage_execution_id else None
+    document_id = kwargs.get("document_id")
 
     async def _run() -> dict:
         async with db_uow() as uow_main:
+            resolved_tenant_id = await resolve_artifact_tenant_id(
+                session=uow_main.session,
+                deal_id=deal_id,
+                document_id=document_id,
+                payload_tenant_id=tenant_id,
+            )
+
             store = ArtifactStore(settings)
-            sanitizer = PIISanitizer(uow=uow_main, artifact_store=store)
+            sanitizer = PIISanitizer(
+                uow=uow_main,
+                artifact_store=store,
+                artifact_tenant_id=resolved_tenant_id,
+            )
             dse_repo = DocumentStageExecutionRepository(uow_main.session)
 
             if exec_uuid:
@@ -417,6 +415,12 @@ def sanitize_document(
 
             except PermanentError as e:
                 async with db_uow() as uow_err:
+                    failed_tenant_id = await resolve_artifact_tenant_id(
+                        session=uow_err.session,
+                        deal_id=deal_id,
+                        document_id=document_id,
+                        payload_tenant_id=resolved_tenant_id,
+                    )
                     dse_err = DocumentStageExecutionRepository(uow_err.session)
                     if exec_uuid:
                         await dse_err.mark_failed(
@@ -430,14 +434,18 @@ def sanitize_document(
                                 "timestamp": datetime.now(UTC).isoformat(),
                             },
                         )
-                    await _mark_failed(uow_err, version_id=version_uuid, message=str(e))
-                # ← один UoW на оба обновления — атомарно
+                    await _mark_failed(
+                        uow_err,
+                        version_id=version_uuid,
+                        tenant_id=failed_tenant_id,
+                        message=str(e),
+                    )
 
                 logger.error(
                     "Permanent error during PII sanitization",
                     document_version_id=document_version_id,
                     deal_id=deal_id,
-                    tenant_id=tenant_id,
+                    tenant_id=resolved_tenant_id,
                     run_id=run_id,
                     error=str(e),
                 )
@@ -448,11 +456,17 @@ def sanitize_document(
                     "Quarantine error during PII sanitization",
                     document_version_id=document_version_id,
                     deal_id=deal_id,
-                    tenant_id=tenant_id,
+                    tenant_id=resolved_tenant_id,
                     run_id=run_id,
                     error=str(e),
                 )
                 async with db_uow() as uow_err:
+                    failed_tenant_id = await resolve_artifact_tenant_id(
+                        session=uow_err.session,
+                        deal_id=deal_id,
+                        document_id=document_id,
+                        payload_tenant_id=resolved_tenant_id,
+                    )
                     dse_err = DocumentStageExecutionRepository(uow_err.session)
                     if exec_uuid:
                         await dse_err.mark_failed(
@@ -466,7 +480,12 @@ def sanitize_document(
                                 "timestamp": datetime.now(UTC).isoformat(),
                             },
                         )
-                    await _mark_quarantine(uow_err, version_id=version_uuid, error=e)
+                    await _mark_quarantine(
+                        uow_err,
+                        version_id=version_uuid,
+                        tenant_id=failed_tenant_id,
+                        error=e,
+                    )
                 return {"status": DocumentStatus.QUARANTINE.value, "error": str(e)}
 
     # Переход в async‑мир через общий мост run_async
@@ -478,13 +497,13 @@ def sanitize_document(
             "PII sanitization finished, retriggering run pipeline",
             document_version_id=document_version_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=result.get("tenant_id", tenant_id),
             run_id=run_id,
         )
         retrigger_run_pipeline(
             run_id=run_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=result.get("tenant_id", tenant_id),
         )
 
     return result
@@ -494,6 +513,7 @@ async def _mark_failed(
     uow: UnitOfWork,
     version_id: uuid.UUID,
     *,
+    tenant_id: str,
     message: str,
 ) -> None:
     """
@@ -522,7 +542,7 @@ async def _mark_failed(
 
     try:
         await audit_repo.log(
-            tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+            tenant_id=uuid.UUID(tenant_id),
             deal_id=document.deal_id,
             action="PII_SANITIZE_FAILED",
             actor="system",
@@ -546,6 +566,7 @@ async def _mark_quarantine(
     uow: UnitOfWork,
     version_id: uuid.UUID,
     *,
+    tenant_id: str,
     error: QuarantineError,
 ) -> None:
     """
@@ -575,7 +596,7 @@ async def _mark_quarantine(
 
     try:
         await audit_repo.log(
-            tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+            tenant_id=uuid.UUID(tenant_id),
             deal_id=document.deal_id,
             action="PII_SANITIZE_QUARANTINED",
             actor="system",
@@ -593,3 +614,5 @@ async def _mark_quarantine(
             "PII sanitizer: failed to write audit log for PII_SANITIZE_QUARANTINED",
             document_id=str(version.document_id),
         )
+
+        

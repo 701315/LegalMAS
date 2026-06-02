@@ -37,6 +37,7 @@ def write_artifact_manifest_best_effort(
     document_version_id: str,
     clause_tree_ref: str | None = None,
     file_graph_ref: str | None = None,
+    chunk_plan_ref: str | None = None,
     chunks_manifest_v2_ref: str | None = None,
     segment_refs: list[dict[str, Any]] | None = None,
     stage: str = "unknown",
@@ -44,6 +45,13 @@ def write_artifact_manifest_best_effort(
 ) -> str | None:
     """
     Best-effort запись artifact_manifest.json в MinIO.
+
+    Parameters
+    ----------
+    chunk_plan_ref:
+        S3 URI к chunk_plan.json (Phase 10 output).
+        Записывается structure stage, читается chunk stage.
+        None если planning не выполнялся.
 
     Returns
     -------
@@ -61,6 +69,7 @@ def write_artifact_manifest_best_effort(
         "document_version_id": document_version_id,
         "clause_tree_ref": clause_tree_ref,
         "file_graph_ref": file_graph_ref,
+        "chunk_plan_ref": chunk_plan_ref,
         "chunks_manifest_v2_ref": chunks_manifest_v2_ref,
         "segments": segment_refs or [],
         "last_updated_by_stage": stage,
@@ -88,3 +97,4 @@ def write_artifact_manifest_best_effort(
         )
         return None
     
+

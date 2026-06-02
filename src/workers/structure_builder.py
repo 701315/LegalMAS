@@ -1,10 +1,7 @@
 # src/workers/structure_builder.py
 
-# src/workers/structure_builder.py
-
 """
 Structure Builder Worker.
-
 
 Назначение:
 - Считать санитизированный одноязычный макет документа из хранилища.
@@ -13,10 +10,8 @@ Structure Builder Worker.
 - Обновить статус документа: SANITIZED -> STRUCTURED.
 - Запуск последующих задач пайплайна выполняется централизованным оркестратором.
 
-
 Позиция в пайплайне:
 - import -> convert -> build_primary_language_source -> extract -> pii -> structure -> ...
-
 
 Контракт стадии:
 - Основной source of truth для structure — только layout_primary_sanitized_ref.
@@ -25,13 +20,11 @@ Structure Builder Worker.
 - В нормальном боевом режиме fallback выключен.
 - retrigger downstream допустим только после подтверждённого commit результатов structure.
 
-
 Архитектурный паттерн:
 - Внешняя Celery-задача синхронная (def).
 - Асинхронная бизнес-логика живёт в _build_structure_async().
 - Один sync -> async переход через run_async().
 - Ошибки уровня контракта стадии переводятся в FAILED через отдельный UoW.
-
 
 После введения document_stage_executions:
 - Входной параметр stage_execution_id сообщает, какая execution-запись в БД
@@ -69,6 +62,8 @@ from mas_queue.celery_app import celery_app
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from services.structure.builder import StructureBuilder
 from storage.artifact_store import ArtifactPath, ArtifactStore
+from workers._tenant_resolver import resolve_artifact_tenant_id
+from services.structure.pipeline import build_file_structure_with_chunk_plan
 
 logger = get_logger(__name__)
 
@@ -87,13 +82,11 @@ def build_structure(
     """
     Sync Celery entrypoint.
 
-
     Поведение:
     - выполняет только стадию structure;
     - при PermanentError переводит документ в FAILED;
     - при TransientError отдаёт управление retry-механизму;
     - при успехе будит оркестратор только после commit.
-
 
     Дополнительно:
     - если передан stage_execution_id, то воркер обновляет запись
@@ -103,16 +96,24 @@ def build_structure(
     run_id = kwargs.get("run_id")
     deal_id = kwargs.get("deal_id")
     tenant_id = kwargs.get("tenant_id")
+    document_id = kwargs.get("document_id")
     stage_execution_id = kwargs.get("stage_execution_id")
 
     async def _wrapper() -> dict[str, Any]:
         try:
             async with db_uow() as uow:
+                resolved_tenant_id = await resolve_artifact_tenant_id(
+                    session=uow.session,
+                    deal_id=deal_id,
+                    document_id=document_id,
+                    payload_tenant_id=tenant_id,
+                )
                 return await _build_structure_async(
                     document_version_id=document_version_id,
                     extra_args=kwargs,
                     uow=uow,
                     stage_execution_id=stage_execution_id,
+                    artifact_tenant_id=resolved_tenant_id,
                 )
 
         except TransientError as e:
@@ -139,9 +140,16 @@ def build_structure(
                 error=str(e),
             )
             async with db_uow() as uow_status:
+                failed_tenant_id = await resolve_artifact_tenant_id(
+                    session=uow_status.session,
+                    deal_id=deal_id,
+                    document_id=document_id,
+                    payload_tenant_id=tenant_id,
+                )
                 await _mark_failed(
                     uow=uow_status,
                     document_version_id=document_version_id,
+                    tenant_id=failed_tenant_id,
                     message=str(e),
                     stage_execution_id=stage_execution_id,
                     reason_code=reason_code,
@@ -160,7 +168,7 @@ def build_structure(
             "Structure building committed, retriggering run pipeline",
             document_version_id=document_version_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=result.get("tenant_id", tenant_id),
             run_id=run_id,
             clause_tree_ref=result.get("clause_tree_ref"),
             file_graph_ref=result.get("file_graph_ref"),
@@ -168,7 +176,7 @@ def build_structure(
         retrigger_run_pipeline(
             run_id=run_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=result.get("tenant_id", tenant_id),
         )
 
     return result
@@ -180,6 +188,7 @@ async def _build_structure_async(
     extra_args: dict[str, Any],
     uow: UnitOfWork,
     stage_execution_id: str | None,
+    artifact_tenant_id: str,
 ) -> dict[str, Any]:
     """
     Асинхронное ядро стадии structure.
@@ -300,6 +309,8 @@ async def _build_structure_async(
             },
         )
 
+    chunk_plan_ref: str | None = None
+
     try:
         raw_layout = store.get_json(layout_ref)
     except Exception as e:
@@ -331,11 +342,7 @@ async def _build_structure_async(
             },
         )
 
-    if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
-        tenant_id = str(doc.deal.tenant_id)
-    else:
-        tenant_id = str(doc.deal_id)
-
+    tenant_id = artifact_tenant_id
     deal_id = str(doc.deal_id)
 
     builder = StructureBuilder()
@@ -348,13 +355,47 @@ async def _build_structure_async(
 
     try:
         if store_file_graph:
-            file_result = builder.build_file_structure(
+            file_analysis, file_chunk_plan = build_file_structure_with_chunk_plan(
                 document_id=str(doc.id),
                 elements=elements,
                 document_version_id=str(v_id),
             )
-
+            file_result = file_analysis.file_structure
             clause_tree = file_result.primary_tree
+
+            # ── Phase 10: сохранить chunk plan артефакт ───────────────────────────
+            # Best-effort: ошибка сохранения plan НЕ прерывает pipeline.
+            # chunk_builder при отсутствии chunk_plan_ref использует defaults.
+            try:
+                chunk_plan_path = ArtifactPath.chunk_plan(
+                    tenant_id=tenant_id,
+                    deal_id=deal_id,
+                    document_id=str(doc.id),
+                )
+                chunk_plan_ref = store.put_json(
+                    chunk_plan_path,
+                    file_chunk_plan.to_dict(),
+                )
+                logger.info(
+                    "Structure builder: chunk plan saved",
+                    document_id=str(doc.id),
+                    document_version_id=str(v_id),
+                    chunk_plan_ref=chunk_plan_ref,
+                    chunk_plan_mode=file_chunk_plan.mode_decision.mode.value,
+                    overall_retrieval_safe=file_chunk_plan.overall_retrieval_safe,
+                    segment_count=len(file_chunk_plan.segment_plans),
+                    any_layout_fallback=file_chunk_plan.any_layout_fallback,
+                    all_segments_full_fallback=file_chunk_plan.all_segments_full_fallback,
+                )
+            except Exception as _plan_exc:
+                logger.warning(
+                    "Structure builder: failed to save chunk plan, "
+                    "chunk stage will use default chunking params",
+                    document_id=str(doc.id),
+                    document_version_id=str(v_id),
+                    error=str(_plan_exc),
+                )
+                chunk_plan_ref = None
 
             file_graph_path = ArtifactPath.file_graph(
                 tenant_id=tenant_id,
@@ -460,7 +501,7 @@ async def _build_structure_async(
 
     except Exception as e:
         logger.exception(
-            "Failed to build clause tree",
+            "Failed to build structure artifacts",
             document_id=str(doc.id),
             document_version_id=str(v_id),
             layout_ref=layout_ref,
@@ -468,7 +509,7 @@ async def _build_structure_async(
             store_file_graph=store_file_graph,
         )
         raise PermanentError(
-            f"Failed to build clause tree: {e}",
+            f"Failed to build structure artifacts: {e}",
             details={
                 "stage": "structure",
                 "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
@@ -544,6 +585,7 @@ async def _build_structure_async(
         clause_tree_ref=clause_tree_ref,
         file_graph_ref=file_graph_ref,
         segments_count=segments_count,
+        chunk_plan_ref=chunk_plan_ref,
     )
     if not updated_version:
         raise PermanentError(
@@ -589,6 +631,15 @@ async def _build_structure_async(
 
     if file_graph_ref and refreshed_file_graph_ref != file_graph_ref:
         raise TransientError(f"file_graph_ref mismatch after flush for version {v_id}")
+
+    refreshed_chunk_plan_ref = getattr(refreshed_version, "chunk_plan_ref", None)
+    if chunk_plan_ref and not refreshed_chunk_plan_ref:
+        logger.warning(
+            "Structure builder: chunk_plan_ref not visible after flush "
+            "(non-critical, chunk stage will use default params)",
+            document_id=str(doc.id),
+            document_version_id=str(v_id),
+        )
 
     if store_file_graph:
         persisted_segments = await seg_repo.list_by_version(v_id)
@@ -670,6 +721,7 @@ async def _build_structure_async(
             document_version_id=str(v_id),
             clause_tree_ref=clause_tree_ref,
             file_graph_ref=file_graph_ref,
+            chunk_plan_ref=chunk_plan_ref,
             chunks_manifest_v2_ref=None,
             segment_refs=manifest_segment_refs,
             stage="structure",
@@ -696,6 +748,7 @@ async def _build_structure_async(
                 "stage_execution_id": stage_execution_id,
                 "clause_tree_ref": clause_tree_ref,
                 "file_graph_ref": file_graph_ref,
+                "chunk_plan_ref": chunk_plan_ref,
                 "segments_count": segments_count,
                 "materialized_segments": len(segment_rows_to_create) if store_file_graph else 0,
                 "layout_source": layout_source,
@@ -719,6 +772,7 @@ async def _build_structure_async(
         document_version_id=str(v_id),
         clause_tree_ref=clause_tree_ref,
         file_graph_ref=file_graph_ref,
+        chunk_plan_ref=chunk_plan_ref,
         segments_count=segments_count,
         materialized_segments=len(segment_rows_to_create) if store_file_graph else 0,
         layout_source=layout_source,
@@ -735,6 +789,7 @@ async def _build_structure_async(
         "document_version_id": str(v_id),
         "clause_tree_ref": clause_tree_ref,
         "file_graph_ref": file_graph_ref,
+        "chunk_plan_ref": chunk_plan_ref,
         "segments_count": segments_count,
         "materialized_segments": len(segment_rows_to_create) if store_file_graph else 0,
         "layout_ref": layout_ref,
@@ -742,6 +797,7 @@ async def _build_structure_async(
         "confidence": getattr(clause_tree, "structure_confidence", None),
         "is_degraded": getattr(clause_tree, "degraded", None),
         "duration_seconds": duration,
+        "tenant_id": tenant_id,
         "committed": True,
     }
 
@@ -750,6 +806,7 @@ async def _mark_failed(
     uow: UnitOfWork,
     document_version_id: str,
     *,
+    tenant_id: str,
     message: str,
     stage_execution_id: str | None,
     reason_code: str,
@@ -757,7 +814,6 @@ async def _mark_failed(
     """
     Best-effort перевод документа в FAILED,
     если стадия structure завершилась постоянной ошибкой.
-
 
     Дополнительно:
     - если есть stage_execution_id, помечаем execution как FAILED
@@ -790,7 +846,7 @@ async def _mark_failed(
         document = await doc_repo.get_by_id(version.document_id)
         if document:
             await audit_repo.log(
-                tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+                tenant_id=uuid.UUID(tenant_id),
                 deal_id=document.deal_id,
                 action="STRUCTURE_FAILED",
                 actor="system",
@@ -832,3 +888,5 @@ async def _mark_failed(
                 stage_execution_id=stage_execution_id,
                 error=str(e),
             )
+
+

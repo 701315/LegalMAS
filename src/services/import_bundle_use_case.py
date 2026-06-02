@@ -61,7 +61,7 @@ import zipfile
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from services._tenant_resolver import resolve_artifact_tenant_id
 from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import IdempotencyConflictError, PermanentError
@@ -359,6 +359,12 @@ async def _async_import(
         tenant_id=tenant_uuid,
     )
 
+    artifact_tenant_id = await resolve_artifact_tenant_id(
+        session=db,
+        deal_id=deal_uuid,
+        payload_tenant_id=tenant_id,
+    )
+
     bundle = await bundle_repo.create(
         deal_id=deal_uuid,
         source_type="zip" if len(file_list) > 1 else "local",
@@ -401,7 +407,7 @@ async def _async_import(
             try:
                 with open(filepath, "rb") as f:
                     file_bytes = f.read()
-                artifact_path = ArtifactPath.original(tenant_id, deal_id, str(q_doc.id))
+                artifact_path = ArtifactPath.original(artifact_tenant_id, deal_id, str(q_doc.id))
                 store.put_file(
                     artifact_path + (validation.original_extension or ".bin"),
                     file_bytes,
@@ -498,7 +504,7 @@ async def _async_import(
 
         ext = source_ext or ".pdf"
 
-        artifact_path = ArtifactPath.original(tenant_id, deal_id, str(doc.id))
+        artifact_path = ArtifactPath.original(artifact_tenant_id, deal_id, str(doc.id))
         original_ref = store.put_file(
             artifact_path + ext,
             file_bytes,
@@ -632,7 +638,7 @@ async def _async_import(
             task_name="workers.start_language_discovery",
             payload={
                 "deal_id": deal_id,
-                "tenant_id": tenant_id,
+                "tenant_id": artifact_tenant_id,
                 "document_ids": imported_ids,
             },
             aggregate_type="deal",
@@ -654,7 +660,7 @@ async def _async_import(
             "Language discovery outbox event recorded",
             extra={
                 "deal_id": deal_id,
-                "tenant_id": tenant_id,
+                "tenant_id": artifact_tenant_id,
                 "bundle_id": str(bundle.id),
                 "document_ids": imported_ids,
             },

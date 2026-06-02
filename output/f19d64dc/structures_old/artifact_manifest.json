@@ -1,0 +1,51 @@
+{
+  "document_id": "f19d64dc-c066-499a-a1f3-00b13503259c",
+  "document_version_id": "f2b153a7-b472-4ec8-a9aa-87763e84b903",
+  "clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/clause_tree.json",
+  "file_graph_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/file_graph.json",
+  "chunks_manifest_v2_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/chunks_manifest_v2.json",
+  "segments": [
+    {
+      "segment_id": "c8c4f292-141a-5a5e-92b0-7387c78d3785",
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_c8c4f292.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/chunks_c8c4f292.json",
+      "legal_units_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/legal_units_c8c4f292.json",
+      "legal_units_enrichment_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/legal_units_enrichment_c8c4f292.json"
+    },
+    {
+      "segment_id": "f4636e69-39ab-533c-8ba8-3cfff5230253",
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_f4636e69.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/chunks_f4636e69.json",
+      "legal_units_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/legal_units_f4636e69.json",
+      "legal_units_enrichment_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/legal_units_enrichment_f4636e69.json"
+    },
+    {
+      "segment_id": "14832555-c05f-50dc-bb7c-559f28e5dbd9",
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_14832555.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/chunks_14832555.json",
+      "legal_units_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/legal_units_14832555.json",
+      "legal_units_enrichment_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/legal_units_enrichment_14832555.json"
+    },
+    {
+      "segment_id": "399c1bd0-0c48-558c-8886-f444dc767f52",
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_399c1bd0.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/chunks_399c1bd0.json",
+      "legal_units_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/legal_units_399c1bd0.json",
+      "legal_units_enrichment_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/legal_units_enrichment_399c1bd0.json"
+    },
+    {
+      "segment_id": "a70a5208-cfdf-56d3-b76e-8b859f1a0bcb",
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_a70a5208.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/chunks_a70a5208.json",
+      "legal_units_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/legal_units_a70a5208.json",
+      "legal_units_enrichment_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/legal_units_enrichment_a70a5208.json"
+    }
+  ],
+  "last_updated_by_stage": "chunking",
+  "last_updated_at": 1780374771.0140605,
+  "extra": {
+    "chunk_count_total": 25,
+    "legal_units_saved_count": 5,
+    "enrichment_saved_count": 5
+  }
+}

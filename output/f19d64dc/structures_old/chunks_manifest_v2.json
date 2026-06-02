@@ -1,0 +1,196 @@
+{
+  "schema_version": 2,
+  "scope": "file",
+  "document_id": "f19d64dc-c066-499a-a1f3-00b13503259c",
+  "document_version_id": "f2b153a7-b472-4ec8-a9aa-87763e84b903",
+  "built_at": "2026-06-02T04:32:50.993581+00:00",
+  "source": {
+    "layout_ref": "tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/layouts/f19d64dc-c066-499a-a1f3-00b13503259c/primary_sanitized.json",
+    "file_graph_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/file_graph.json"
+  },
+  "primary_segment_id": "c8c4f292-141a-5a5e-92b0-7387c78d3785",
+  "degraded": false,
+  "degradation_reason": null,
+  "planning": {
+    "applied": false,
+    "mode": null,
+    "retrieval_safe": null,
+    "allow_section_chunks": null,
+    "allow_subclause_splitting": null,
+    "drop_technical_fallback_nodes": null,
+    "prefer_layout_fallback": null,
+    "warnings": [],
+    "segment_modes": {
+      "c8c4f292-141a-5a5e-92b0-7387c78d3785": null,
+      "f4636e69-39ab-533c-8ba8-3cfff5230253": null,
+      "14832555-c05f-50dc-bb7c-559f28e5dbd9": null,
+      "399c1bd0-0c48-558c-8886-f444dc767f52": null,
+      "a70a5208-cfdf-56d3-b76e-8b859f1a0bcb": null
+    }
+  },
+  "segments": [
+    {
+      "segment_id": "c8c4f292-141a-5a5e-92b0-7387c78d3785",
+      "segment_type": "contract",
+      "segment_title": "ДОГОВОР КУПЛИ-ПРОДАЖИ ИМУЩЕСТВА",
+      "segment_order": 0,
+      "is_primary": true,
+      "page_start": 1,
+      "page_end": 2,
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_c8c4f292.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/chunks_c8c4f292.json",
+      "section_count": 0,
+      "clause_count": 1,
+      "subclause_count": 1,
+      "planning": {
+        "applied": false,
+        "mode": null,
+        "retrieval_safe": null,
+        "allow_section_chunks": null,
+        "allow_subclause_splitting": null,
+        "drop_technical_fallback_nodes": null,
+        "prefer_layout_fallback": null,
+        "filtered_technical_fallback_nodes": 0,
+        "token_params": {
+          "target_tokens": 300,
+          "max_tokens": 800,
+          "overlap_ratio": 0.15
+        },
+        "warnings": []
+      }
+    },
+    {
+      "segment_id": "f4636e69-39ab-533c-8ba8-3cfff5230253",
+      "segment_type": "appendix",
+      "segment_title": "Приложение № 1: Форма Акта",
+      "segment_order": 1,
+      "is_primary": false,
+      "page_start": 2,
+      "page_end": 8,
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_f4636e69.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/chunks_f4636e69.json",
+      "section_count": 0,
+      "clause_count": 4,
+      "subclause_count": 11,
+      "planning": {
+        "applied": false,
+        "mode": null,
+        "retrieval_safe": null,
+        "allow_section_chunks": null,
+        "allow_subclause_splitting": null,
+        "drop_technical_fallback_nodes": null,
+        "prefer_layout_fallback": null,
+        "filtered_technical_fallback_nodes": 0,
+        "token_params": {
+          "target_tokens": 300,
+          "max_tokens": 800,
+          "overlap_ratio": 0.15
+        },
+        "warnings": []
+      }
+    },
+    {
+      "segment_id": "14832555-c05f-50dc-bb7c-559f28e5dbd9",
+      "segment_type": "appendix",
+      "segment_title": "ПРИЛОЖЕНИЕ № 1",
+      "segment_order": 2,
+      "is_primary": false,
+      "page_start": 8,
+      "page_end": 11,
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_14832555.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/chunks_14832555.json",
+      "section_count": 0,
+      "clause_count": 1,
+      "subclause_count": 3,
+      "planning": {
+        "applied": false,
+        "mode": null,
+        "retrieval_safe": null,
+        "allow_section_chunks": null,
+        "allow_subclause_splitting": null,
+        "drop_technical_fallback_nodes": null,
+        "prefer_layout_fallback": null,
+        "filtered_technical_fallback_nodes": 0,
+        "token_params": {
+          "target_tokens": 300,
+          "max_tokens": 800,
+          "overlap_ratio": 0.15
+        },
+        "warnings": []
+      }
+    },
+    {
+      "segment_id": "399c1bd0-0c48-558c-8886-f444dc767f52",
+      "segment_type": "appendix",
+      "segment_title": "ПРИЛОЖЕНИЕ № 2",
+      "segment_order": 3,
+      "is_primary": false,
+      "page_start": 11,
+      "page_end": 13,
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_399c1bd0.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/chunks_399c1bd0.json",
+      "section_count": 0,
+      "clause_count": 1,
+      "subclause_count": 1,
+      "planning": {
+        "applied": false,
+        "mode": null,
+        "retrieval_safe": null,
+        "allow_section_chunks": null,
+        "allow_subclause_splitting": null,
+        "drop_technical_fallback_nodes": null,
+        "prefer_layout_fallback": null,
+        "filtered_technical_fallback_nodes": 0,
+        "token_params": {
+          "target_tokens": 300,
+          "max_tokens": 800,
+          "overlap_ratio": 0.15
+        },
+        "warnings": []
+      }
+    },
+    {
+      "segment_id": "a70a5208-cfdf-56d3-b76e-8b859f1a0bcb",
+      "segment_type": "appendix",
+      "segment_title": "ПРИЛОЖЕНИЕ № 3",
+      "segment_order": 4,
+      "is_primary": false,
+      "page_start": 13,
+      "page_end": 15,
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_a70a5208.json",
+      "segment_chunks_ref": "s3://mas-artifacts/tenants/00000000-0000-0000-0000-000000000000/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/chunks_a70a5208.json",
+      "section_count": 0,
+      "clause_count": 1,
+      "subclause_count": 1,
+      "planning": {
+        "applied": false,
+        "mode": null,
+        "retrieval_safe": null,
+        "allow_section_chunks": null,
+        "allow_subclause_splitting": null,
+        "drop_technical_fallback_nodes": null,
+        "prefer_layout_fallback": null,
+        "filtered_technical_fallback_nodes": 0,
+        "token_params": {
+          "target_tokens": 300,
+          "max_tokens": 800,
+          "overlap_ratio": 0.15
+        },
+        "warnings": []
+      }
+    }
+  ],
+  "totals": {
+    "segment_count": 5,
+    "section_count": 0,
+    "clause_count": 8,
+    "subclause_count": 17,
+    "total_leaf_nodes": 8,
+    "leaf_nodes_without_chunks": 0,
+    "leaf_nodes_without_element_ids": 0,
+    "leaf_nodes_empty_after_filtering": 0,
+    "chunking_incomplete": false,
+    "heading_only_leaf_nodes": 0,
+    "best_effort_leaf_nodes": 0
+  }
+}

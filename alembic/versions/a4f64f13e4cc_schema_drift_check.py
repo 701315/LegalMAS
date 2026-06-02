@@ -94,8 +94,6 @@ def upgrade() -> None:
                existing_type=sa.VARCHAR(length=20),
                comment='Роль в проекте: admin/editor/viewer',
                existing_nullable=False)
-    op.drop_constraint('uq_deal_members_deal_login', 'deal_members', type_='unique')
-    op.create_unique_constraint(None, 'deal_members', ['login'])
     op.alter_column('deals', 'primary_language',
                existing_type=sa.VARCHAR(length=10),
                comment="Primary language of the deal, e.g. 'RU' or 'EN'",
@@ -570,17 +568,13 @@ def downgrade() -> None:
                comment=None,
                existing_comment="Primary language of the deal, e.g. 'RU' or 'EN'",
                existing_nullable=True)
-    op.drop_constraint(None, 'deal_members', type_='unique')
-    op.create_unique_constraint('uq_deal_members_deal_login', 'deal_members', ['deal_id', 'login'])
     op.alter_column('deal_members', 'role',
                existing_type=sa.VARCHAR(length=20),
-               comment=None,
-               existing_comment='Роль в проекте: admin/editor/viewer',
+               comment='Role in deal: admin | editor | viewer',
                existing_nullable=False)
     op.alter_column('deal_members', 'login',
                existing_type=sa.VARCHAR(length=100),
-               comment=None,
-               existing_comment='Уникальный login для dev/pseudo-users',
+               comment='Login пользователя; уникальность обеспечивается в пределах сделки constraint на (deal_id, login)',
                existing_nullable=False)
     op.alter_column('deal_members', 'user_id',
                existing_type=sa.VARCHAR(length=100),

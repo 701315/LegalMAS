@@ -41,7 +41,7 @@ from dataclasses import dataclass
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from services._tenant_resolver import resolve_artifact_tenant_id
 from core.config import settings
 from core.exceptions import PermanentError, TransientError
 from db.repositories.document_version_repo import DocumentVersionRepository
@@ -247,6 +247,13 @@ async def convert_document_for_language_discovery(
     original_ref = getattr(version, "original_ref", None)
     converted_pdf_ref = getattr(version, "converted_pdf_ref", None)
 
+    resolved_tenant_id = await resolve_artifact_tenant_id(
+        session=db,
+        deal_id=deal_id,
+        document_id=document_id,
+        payload_tenant_id=tenant_id,
+    )
+
     if origin_filetype not in OFFICE_FILETYPES:
         raise PermanentError(
             "language_discovery_conversion: unsupported origin_filetype for pre-run conversion "
@@ -258,7 +265,7 @@ async def convert_document_for_language_discovery(
             document_id=document_id,
             document_version_id=document_version_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=resolved_tenant_id,
             pdf_ref=converted_pdf_ref,
             origin_filetype=origin_filetype,
             committed=True,
@@ -292,7 +299,7 @@ async def convert_document_for_language_discovery(
         filename=filename,
     )
 
-    pdf_path = ArtifactPath.converted_pdf(tenant_id, deal_id, document_id)
+    pdf_path = ArtifactPath.converted_pdf(resolved_tenant_id, deal_id, document_id)
     pdf_ref = store.put_file(
         pdf_path,
         pdf_bytes,
@@ -338,8 +345,10 @@ async def convert_document_for_language_discovery(
         document_id=document_id,
         document_version_id=document_version_id,
         deal_id=deal_id,
-        tenant_id=tenant_id,
+        tenant_id=resolved_tenant_id,
         pdf_ref=pdf_ref,
         origin_filetype=origin_filetype,
         committed=True,
     )
+
+    

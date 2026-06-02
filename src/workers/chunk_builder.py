@@ -77,6 +77,9 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from storage.artifact_store import ArtifactPath, ArtifactStore
+from services.structure.chunk_planner import FileChunkPlan
+
+from workers._tenant_resolver import resolve_artifact_tenant_id
 
 logger = get_logger(__name__)
 
@@ -112,11 +115,17 @@ def build_chunks(
     async def _wrapper() -> dict[str, Any]:
         try:
             async with db_uow() as uow:
+                resolved_tenant_id = await resolve_artifact_tenant_id(
+                    session=uow.session,
+                    deal_id=deal_id,
+                    document_id=document_id,
+                    payload_tenant_id=tenant_id,
+                )
                 return await _build_chunks_v2_async(
                     document_version_id=document_version_id,
                     document_id=document_id,
                     deal_id=deal_id,
-                    tenant_id=tenant_id,
+                    tenant_id=resolved_tenant_id,
                     run_id=run_id,
                     uow=uow,
                     stage_execution_id=stage_execution_id,
@@ -153,10 +162,16 @@ def build_chunks(
             )
 
             async with db_uow() as uow_status:
+                failed_tenant_id = await resolve_artifact_tenant_id(
+                    session=uow_status.session,
+                    deal_id=deal_id,
+                    document_id=document_id,
+                    payload_tenant_id=tenant_id,
+                )
                 await _mark_quarantined(
                     uow=uow_status,
                     document_uuid=uuid.UUID(document_id),
-                    tenant_uuid=uuid.UUID(tenant_id),
+                    tenant_uuid=uuid.UUID(failed_tenant_id),
                     deal_uuid=uuid.UUID(deal_id),
                     message=str(e),
                     reason=quarantine_reason,
@@ -194,10 +209,16 @@ def build_chunks(
             )
 
             async with db_uow() as uow_status:
+                failed_tenant_id = await resolve_artifact_tenant_id(
+                    session=uow_status.session,
+                    deal_id=deal_id,
+                    document_id=document_id,
+                    payload_tenant_id=tenant_id,
+                )
                 await _mark_failed(
                     uow=uow_status,
                     document_uuid=uuid.UUID(document_id),
-                    tenant_uuid=uuid.UUID(tenant_id),
+                    tenant_uuid=uuid.UUID(failed_tenant_id),
                     deal_uuid=uuid.UUID(deal_id),
                     message=str(e),
                     run_id=uuid.UUID(run_id) if run_id else None,
@@ -223,18 +244,17 @@ def build_chunks(
             document_id=document_id,
             document_version_id=document_version_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=result.get("tenant_id", tenant_id),
             run_id=run_id,
             chunks_manifest_v2_ref=result.get("chunks_manifest_v2_ref"),
             segments_count=result.get("segments_count"),
             chunk_count_total=result.get("chunk_count_total"),
-            # Этап 5: логируем наличие legal units
             legal_units_count=result.get("legal_units_count", 0),
         )
         retrigger_run_pipeline(
             run_id=run_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=result.get("tenant_id", tenant_id),
         )
 
     return result
@@ -309,6 +329,51 @@ async def _build_chunks_v2_async(
             },
         )
 
+    # ── P3a: загрузить Phase 10 chunk plan ───────────────────────────────────────
+    # Plan вычислен structure_builder и сохранён как chunk_plan.json.
+    # Если plan недоступен — используем defaults (graceful degradation).
+    # Это гарантирует backward compatibility с документами без plan
+    # (старые runs, ошибка planning, legacy mode).
+    chunk_plan: FileChunkPlan | None = None
+    _chunk_plan_ref = getattr(version, "chunk_plan_ref", None)
+
+    if _chunk_plan_ref:
+        try:
+            _plan_data = store.get_json(_chunk_plan_ref)
+            if not isinstance(_plan_data, dict):
+                raise TypeError(
+                    f"chunk_plan artifact is not a dict: {type(_plan_data).__name__}"
+                )
+            chunk_plan = FileChunkPlan.from_dict(_plan_data)
+            logger.info(
+                "Chunk builder: chunk plan loaded",
+                document_id=document_id,
+                document_version_id=document_version_id,
+                chunk_plan_ref=_chunk_plan_ref,
+                chunk_plan_mode=chunk_plan.mode_decision.mode.value,
+                overall_retrieval_safe=chunk_plan.overall_retrieval_safe,
+                segment_count=len(chunk_plan.segment_plans),
+                any_layout_fallback=chunk_plan.any_layout_fallback,
+                all_segments_full_fallback=chunk_plan.all_segments_full_fallback,
+            )
+        except Exception as _plan_exc:
+            logger.warning(
+                "Chunk builder: failed to load chunk plan, "
+                "proceeding with default chunking params",
+                document_id=document_id,
+                document_version_id=document_version_id,
+                chunk_plan_ref=_chunk_plan_ref,
+                error=str(_plan_exc),
+            )
+            chunk_plan = None
+    else:
+        logger.info(
+            "Chunk builder: no chunk_plan_ref on version, "
+            "using default chunking params",
+            document_id=document_id,
+            document_version_id=document_version_id,
+        )
+
     doc = await doc_repo.get_by_id(d_id)
     if not doc:
         raise PermanentError(
@@ -340,6 +405,7 @@ async def _build_chunks_v2_async(
             target_tokens=300,
             max_tokens=800,
             overlap_ratio=0.15,
+            chunk_plan=chunk_plan,                  # ← P3a
             collector=telemetry_collector,
         )
     except PermanentError:
@@ -850,6 +916,7 @@ async def _build_chunks_v2_async(
             document_version_id=str(v_id),
             clause_tree_ref=getattr(version, "clause_tree_ref", None),
             file_graph_ref=getattr(version, "file_graph_ref", None),
+            chunk_plan_ref=getattr(version, "chunk_plan_ref", None),
             chunks_manifest_v2_ref=chunks_manifest_v2_ref,
             segment_refs=manifest_segment_refs,
             stage="chunking",
@@ -1017,6 +1084,7 @@ async def _build_chunks_v2_async(
         "segments_count": len(segment_snapshots),
         "chunk_count_total": chunk_count_total,
         "duration_seconds": duration,
+        "tenant_id": tenant_id,
         "committed": True,
         "legal_units_refs": legal_units_refs,
         "legal_units_count": len(legal_units_refs),

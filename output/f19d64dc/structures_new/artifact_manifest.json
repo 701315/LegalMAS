@@ -1,0 +1,36 @@
+{
+  "document_id": "f19d64dc-c066-499a-a1f3-00b13503259c",
+  "document_version_id": "f2b153a7-b472-4ec8-a9aa-87763e84b903",
+  "clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/clause_tree.json",
+  "file_graph_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/file_graph.json",
+  "chunks_manifest_v2_ref": null,
+  "segments": [
+    {
+      "segment_id": "c8c4f292-141a-5a5e-92b0-7387c78d3785",
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_c8c4f292.json",
+      "segment_chunks_ref": null
+    },
+    {
+      "segment_id": "f4636e69-39ab-533c-8ba8-3cfff5230253",
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_f4636e69.json",
+      "segment_chunks_ref": null
+    },
+    {
+      "segment_id": "14832555-c05f-50dc-bb7c-559f28e5dbd9",
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_14832555.json",
+      "segment_chunks_ref": null
+    },
+    {
+      "segment_id": "399c1bd0-0c48-558c-8886-f444dc767f52",
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_399c1bd0.json",
+      "segment_chunks_ref": null
+    },
+    {
+      "segment_id": "a70a5208-cfdf-56d3-b76e-8b859f1a0bcb",
+      "segment_clause_tree_ref": "s3://mas-artifacts/tenants/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/deals/a381d585-9ab0-44b6-b1c7-a3762ec2a0bf/structures/f19d64dc-c066-499a-a1f3-00b13503259c/segment_a70a5208.json",
+      "segment_chunks_ref": null
+    }
+  ],
+  "last_updated_by_stage": "structure",
+  "last_updated_at": 1780374770.7265413
+}

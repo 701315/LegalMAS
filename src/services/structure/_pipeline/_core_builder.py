@@ -44,6 +44,7 @@ from services.structure.models import (
 from services.structure.toc_analysis import analyze_toc_with_guard
 
 from ._degraded_fallback import degraded_tree
+from ._record_heading_recovery import attempt_record_heading_recovery
 from ._element_validation import validate_element_contract
 from ._quality_metrics import (
     QUALITY_GATE_BLOCK_AND_FALLBACK,
@@ -813,8 +814,12 @@ def _embed_quality_gate_diagnostics(
     return diagnostics
 
 
-def _build_early_fallback_quality_diagnostics(reason: str) -> dict[str, Any]:
-    return {
+def _build_early_fallback_quality_diagnostics(
+    reason: str,
+    *,
+    record_heading_recovery: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    diagnostics = {
         "quality_gates": {
             "headings_pre_count": 0,
             "early_fallback_reason": reason,
@@ -824,6 +829,64 @@ def _build_early_fallback_quality_diagnostics(reason: str) -> dict[str, Any]:
             "final_mode": "technical_fallback",
         }
     }
+    if record_heading_recovery is not None:
+        diagnostics["record_heading_recovery"] = record_heading_recovery
+    return diagnostics
+
+
+
+def _build_initial_headings_with_record_recovery(
+    *,
+    document_id: str,
+    elements: list[dict[str, Any]],
+) -> tuple[list[Any], list[dict[str, Any]], dict[str, Any]]:
+    """
+    Run initial heading detection with deterministic numbered-record recovery.
+
+    Flow:
+    1. try ordinary heading detection;
+    2. if zero headings -> attempt numbered-record recovery;
+    3. rerun heading detection on recovered elements;
+    4. return headings + effective elements + recovery diagnostics.
+    """
+    headings_pre = build_heading_candidates(
+        elements,
+        document_id=document_id,
+        toc_match_index=None,
+    )
+    if headings_pre:
+        return headings_pre, elements, {
+            "attempted": False,
+            "applied": False,
+            "mode": "numbered_record",
+            "reason": "not_needed_headings_found_in_primary_pass",
+            "headings_pre_count_before_recovery": len(headings_pre),
+            "headings_pre_count_after_recovery": len(headings_pre),
+        }
+
+    recovery_result = attempt_record_heading_recovery(
+        document_id=document_id,
+        elements=elements,
+    )
+    recovery_diag = dict(recovery_result.diagnostics or {})
+    recovery_diag["headings_pre_count_before_recovery"] = 0
+
+    if not recovery_result.applied:
+        recovery_diag["headings_pre_count_after_recovery"] = 0
+        return [], elements, recovery_diag
+
+    recovered_headings = build_heading_candidates(
+        recovery_result.elements,
+        document_id=document_id,
+        toc_match_index=None,
+    )
+    recovery_diag["headings_pre_count_after_recovery"] = len(recovered_headings)
+
+    if recovered_headings:
+        return recovered_headings, recovery_result.elements, recovery_diag
+
+    recovery_diag["reason"] = "recovery_applied_but_no_headings_detected_after_rerun"
+    return [], elements, recovery_diag
 
 
 def _emit_structure_built_telemetry(
@@ -948,19 +1011,23 @@ def build_single_segment_tree(
         )
 
     t_h1 = time.perf_counter()
-    headings_pre = build_heading_candidates(
-        elements,
-        document_id=document_id,
-        toc_match_index=None,
+    headings_pre, effective_elements, record_heading_recovery_diag = (
+        _build_initial_headings_with_record_recovery(
+            document_id=document_id,
+            elements=elements,
+        )
     )
     log_timing(f"{log_prefix} headings_pass_1", t_h1)
 
     if not headings_pre:
         return degraded_tree(
             document_id=document_id,
-            elements=elements,
+            elements=effective_elements,
             structure_confidence=STRUCTURE_CONFIDENCE_LOW,
-            diagnostics=_build_early_fallback_quality_diagnostics("no_headings_in_pass_1"),
+            diagnostics=_build_early_fallback_quality_diagnostics(
+                "no_headings_in_pass_1",
+                record_heading_recovery=record_heading_recovery_diag,
+            ),
             scope_name=normalized_scope_name,
             segment_id=segment_id,
             segment_type=segment_type,
@@ -970,10 +1037,14 @@ def build_single_segment_tree(
             is_primary_segment=is_primary_segment,
         )
 
-    analysis = analyze_toc_with_guard(elements, headings_pre, document_id=document_id)
+    analysis = analyze_toc_with_guard(
+        effective_elements,
+        headings_pre,
+        document_id=document_id,
+    )
 
     annotated_elements, body_recovered_count, guard_fp_count = annotate_elements_with_guard(
-        elements,
+        effective_elements,
         analysis.guard,
     )
 
@@ -1057,7 +1128,10 @@ def build_single_segment_tree(
     heading_summary = summarize_headings(headings)
     crossref_stats = _read_crossref_stats(cross_reference_graph)
 
-    diagnostics: dict[str, Any] = {}
+    diagnostics: dict[str, Any] = {
+        "record_heading_recovery": record_heading_recovery_diag,
+    }
+
     diagnostics = embed_toc_diagnostics(diagnostics, toc_diag_obj)
     diagnostics = embed_parse_quality_diagnostics(diagnostics, parse_quality_obj)
 

@@ -49,6 +49,7 @@ from services.pdf_extractor import (
 )
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from storage.artifact_store import ArtifactPath, ArtifactStore
+from workers._tenant_resolver import resolve_artifact_tenant_id
 
 logger = get_logger(__name__)
 
@@ -71,19 +72,26 @@ def extract_document(
     """
     Celery-обёртка вокруг асинхронной функции извлечения.
 
-
     Здесь только управление транзакцией и обработка ошибок.
     Вся бизнес-логика лежит в _extract_document_async.
     """
 
     async def _wrapper() -> dict:
+        resolved_tenant_id = tenant_id
+
         async with db_uow() as uow:
             try:
+                resolved_tenant_id = await resolve_artifact_tenant_id(
+                    session=uow.session,
+                    deal_id=deal_id,
+                    document_id=document_id,
+                    payload_tenant_id=tenant_id,
+                )
                 return await _extract_document_async(
                     document_version_id=document_version_id,
                     document_id=document_id,
                     deal_id=deal_id,
-                    tenant_id=tenant_id,
+                    tenant_id=resolved_tenant_id,
                     db=uow.session,
                     run_id=run_id,
                 )
@@ -94,7 +102,7 @@ def extract_document(
                     document_id=document_id,
                     version_id=document_version_id,
                     deal_id=deal_id,
-                    tenant_id=tenant_id,
+                    tenant_id=resolved_tenant_id,
                     run_id=run_id,
                     error=str(e),
                 )
@@ -106,14 +114,21 @@ def extract_document(
                     document_id=document_id,
                     version_id=document_version_id,
                     deal_id=deal_id,
-                    tenant_id=tenant_id,
+                    tenant_id=resolved_tenant_id,
                     run_id=run_id,
                     error=str(e),
                 )
                 async with db_uow() as uow_status:
+                    failed_tenant_id = await resolve_artifact_tenant_id(
+                        session=uow_status.session,
+                        deal_id=deal_id,
+                        document_id=document_id,
+                        payload_tenant_id=resolved_tenant_id,
+                    )
                     await _mark_failed(
                         uow_status,
                         document_uuid=uuid.UUID(document_id),
+                        tenant_id=failed_tenant_id,
                         message=str(e),
                         run_id=uuid.UUID(run_id) if run_id else None,
                         error=e,
@@ -131,14 +146,21 @@ def extract_document(
                     document_id=document_id,
                     version_id=document_version_id,
                     deal_id=deal_id,
-                    tenant_id=tenant_id,
+                    tenant_id=resolved_tenant_id,
                     run_id=run_id,
                     error=str(e),
                 )
                 async with db_uow() as uow_status:
+                    failed_tenant_id = await resolve_artifact_tenant_id(
+                        session=uow_status.session,
+                        deal_id=deal_id,
+                        document_id=document_id,
+                        payload_tenant_id=resolved_tenant_id,
+                    )
                     await _mark_quarantine(
                         uow_status,
                         document_uuid=uuid.UUID(document_id),
+                        tenant_id=failed_tenant_id,
                         error=e,
                         run_id=uuid.UUID(run_id) if run_id else None,
                     )
@@ -157,7 +179,7 @@ def extract_document(
             document_id=document_id,
             document_version_id=document_version_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=result.get("tenant_id", tenant_id),
             run_id=run_id,
             layout_primary_ref=result.get("layout_primary_ref"),
             raw_ref=result.get("raw_ref"),
@@ -165,7 +187,7 @@ def extract_document(
         retrigger_run_pipeline(
             run_id=run_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=result.get("tenant_id", tenant_id),
         )
 
     return result
@@ -513,6 +535,7 @@ async def _extract_document_async(
         "duration_seconds": round(duration, 2),
         "raw_ref": raw_ref,
         "layout_primary_ref": primary_ref,
+        "tenant_id": tenant_id,
         "committed": True,
     }
 
@@ -634,6 +657,7 @@ async def _mark_failed(
     uow: UnitOfWork,
     document_uuid: uuid.UUID,
     *,
+    tenant_id: str,
     message: str,
     run_id: uuid.UUID | None,
     error: PermanentError | None = None,
@@ -656,7 +680,7 @@ async def _mark_failed(
     audit_repo = AuditRepository(uow.session)
     try:
         await audit_repo.log(
-            tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+            tenant_id=uuid.UUID(tenant_id),
             deal_id=document.deal_id,
             action="EXTRACTION_FAILED",
             actor="system",
@@ -681,6 +705,7 @@ async def _mark_quarantine(
     uow: UnitOfWork,
     document_uuid: uuid.UUID,
     *,
+    tenant_id: str,
     error: QuarantineError,
     run_id: uuid.UUID | None,
 ) -> None:
@@ -703,7 +728,7 @@ async def _mark_quarantine(
     audit_repo = AuditRepository(uow.session)
     try:
         await audit_repo.log(
-            tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+            tenant_id=uuid.UUID(tenant_id),
             deal_id=document.deal_id,
             action="EXTRACTION_QUARANTINED",
             actor="system",

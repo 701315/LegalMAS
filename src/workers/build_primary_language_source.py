@@ -69,6 +69,7 @@ from services.document_language_pipeline import (
 from services.primary_pdf_builder import build_pdf_from_layout
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from storage.artifact_store import ArtifactPath, ArtifactStore
+from workers._tenant_resolver import resolve_artifact_tenant_id
 
 logger = get_logger(__name__)
 
@@ -105,11 +106,17 @@ def build_primary_language_source(
 
     async def _wrapper() -> dict:
         async with db_uow() as uow:
+            resolved_tenant_id = await resolve_artifact_tenant_id(
+                session=uow.session,
+                deal_id=deal_id,
+                document_id=document_id,
+                payload_tenant_id=tenant_id,
+            )
             return await _build_primary_language_source_async(
                 document_version_id=document_version_id,
                 document_id=document_id,
                 deal_id=deal_id,
-                tenant_id=tenant_id,
+                tenant_id=resolved_tenant_id,
                 db=uow.session,
                 run_id=run_id,
                 target_language=target_language,
@@ -183,9 +190,8 @@ def build_primary_language_source(
         retrigger_run_pipeline(
             run_id=run_id,
             deal_id=deal_id,
-            tenant_id=tenant_id,
+            tenant_id=result.get("tenant_id", tenant_id),
         )
-        return result
 
     # Ветка 3: функция завершилась без retrigger.
     # Это не ошибка, но важно видеть такое поведение в логах.
