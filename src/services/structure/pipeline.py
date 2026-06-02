@@ -14,7 +14,12 @@ API:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from core.logging import get_logger
+from services.structure.chunk_planner import plan_chunking
+from services.structure.coherence import CrossSegmentCoherenceResolver
+from services.structure.element_classifier import classify_elements
 from services.structure.file_graph_builder import build_file_graph
 from services.structure.models import FileStructureResult
 from services.structure._models._analysis import (
@@ -32,11 +37,6 @@ from ._pipeline._segment_utils import (
     make_single_segment_list,
     segment_document,
 )
-from services.structure.chunk_planner import plan_chunking
-
-# добавить import в начало файла
-from services.structure.coherence import CrossSegmentCoherenceResolver
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from services.telemetry._collector import TelemetryCollector
@@ -44,8 +44,41 @@ if TYPE_CHECKING:
 
 _COHERENCE_RESOLVER = CrossSegmentCoherenceResolver()
 
-
 logger = get_logger(__name__)
+
+
+def _classify_elements_safe(
+    document_id: str,
+    elements: list[dict],
+) -> list[dict]:
+    """
+    Failure-isolated wrapper around element classification.
+
+    Classifier must run BEFORE segmentation and structure building because:
+    - segmenter uses element_type in boundary heuristics;
+    - TOC suppression reads classified TOC/body/artifact labels;
+    - heading builder allows/rejects candidates based on element_type.
+
+    If classification fails for any reason, pipeline falls back to the cleaned
+    elements list without crashing.
+    """
+    if not elements:
+        return elements
+
+    try:
+        return classify_elements(
+            elements,
+            document_id=document_id,
+        )
+    except Exception:
+        logger.exception(
+            "STRUCTURE classify_elements_failed_falling_back_to_clean_elements",
+            extra={
+                "document_id": document_id,
+                "elements_count": len(elements),
+            },
+        )
+        return elements
 
 
 def build_structure(
@@ -111,7 +144,11 @@ def build_file_structure(
             file_graph=file_graph,
         )
 
-    classified = clean
+    # A1: classification MUST happen before segment_document() and before
+    # heading / hierarchy building. Otherwise segmenter and structure path
+    # operate on under-classified elements.
+    classified = _classify_elements_safe(document_id, clean)
+
     segments = segment_document(
         document_id=document_id,
         document_version_id=document_version_id,
@@ -142,8 +179,6 @@ def build_file_structure(
 
         segment_trees.append(tree)
 
-
-    # Phase 13.7: cross-segment coherence pass (failure-isolated)
     coherence_result = (
         _COHERENCE_RESOLVER.resolve(
             segment_trees,
@@ -167,7 +202,7 @@ def build_file_structure(
         primary_tree=primary_tree,
         segment_trees=segment_trees,
         file_graph=file_graph,
-        coherence_result=coherence_result,   # Phase 13.7
+        coherence_result=coherence_result,
     )
 
 
@@ -229,3 +264,5 @@ def build_file_structure_with_chunk_plan(
     )
     plan = plan_chunking(analysis)
     return analysis, plan
+
+

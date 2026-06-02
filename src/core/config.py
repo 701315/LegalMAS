@@ -290,7 +290,7 @@ class Settings(BaseSettings):
     STRUCTURE_LLM_SHADOW_MODE: bool = False
 
     # --- Semantic Enrichment (Phase 12) ---
-    SEMANTIC_ENRICHMENT_ENABLED: bool = False   # сейчас отключен для тестов, обязательно потом вернуть обратно на True.
+    SEMANTIC_ENRICHMENT_ENABLED: bool = True   # чтобы отключить для тестов надо сменить на False.
     SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL: float = 0.72
     SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_TOPICS: float = 0.72
     SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_OVERRIDE: float = 0.92

@@ -33,6 +33,9 @@ def _candidate_priority_tuple(candidate: ScoredHeadingCandidate) -> tuple:
     )
     score = _safe_float(candidate.score)
 
+    bilingual_role = normalize_spaces(str(meta.get("bilingual_pair_role") or "")).lower()
+    bilingual_priority = {"primary": 2, "translation": 0}.get(bilingual_role, 1)
+
     el_type = normalize_spaces(str(meta.get("element_type") or "")).lower()
     non_list_bonus = 1 if el_type != "list_item" else 0
 
@@ -43,6 +46,7 @@ def _candidate_priority_tuple(candidate: ScoredHeadingCandidate) -> tuple:
     return (
         status_weight,
         toc_priority,
+        bilingual_priority,
         score,
         non_list_bonus,
         _uid_depth(raw_uid),
@@ -75,18 +79,28 @@ def _select_best_candidates_by_uid(
         else:
             loser = cand
 
+        loser_meta = loser.metadata or {}
+        bilingual_role = normalize_spaces(str(loser_meta.get("bilingual_pair_role") or "")).lower()
+        duplicate_reason = (
+            "duplicate_uid_bilingual_translation"
+            if bilingual_role == "translation"
+            else "duplicate_uid"
+        )
+
         logger.debug(
             "STRUCTURE heading_candidate_duplicate_uid_skipped",
             extra={
                 "document_id": document_id,
                 "scope": scope,
                 "raw_uid": raw_uid,
-                "effective_uid": str((loser.metadata or {}).get("effective_uid") or ""),
+                "effective_uid": str(loser_meta.get("effective_uid") or ""),
                 "page": loser.page,
                 "elem_i": loser.elem_i,
                 "decision": str(loser.decision).lower(),
                 "reason": _normalize_reject_reason(loser.reason),
-                "duplicate_reason": "duplicate_uid",
+                "duplicate_reason": duplicate_reason,
+                "bilingual_pair_role": bilingual_role or None,
+                "heading_translation_of": loser_meta.get("heading_translation_of"),
             },
         )
     return list(best_by_key.values())

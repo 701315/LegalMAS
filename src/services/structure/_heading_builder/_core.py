@@ -8,7 +8,7 @@ import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Any
-
+from ._bilingual import annotate_bilingual_heading_pairs
 from core.config import settings
 from core.logging import get_logger
 from services.structure.heading_llm_refiner import (
@@ -891,6 +891,14 @@ def collect_scored_heading_candidates(
 
         if decision not in {"accepted", "ambiguous"}:
             reject_stats[reason] += 1
+
+    try:
+        scored_candidates = annotate_bilingual_heading_pairs(scored_candidates)
+    except Exception:
+        logger.exception(
+            "STRUCTURE bilingual_heading_pair_annotation_failed",
+            extra={"document_id": document_id},
+        )
 
     return _select_best_candidates_by_uid(scored_candidates, document_id)
 
