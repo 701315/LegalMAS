@@ -58,6 +58,21 @@ class ArtifactPath:
         """
         return f"tenants/{tenant_id}/deals/{deal_id}/originals/{document_id}_primary.pdf"
 
+
+    @staticmethod
+    def primary_source_language_metadata(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Sidecar metadata для primary_source PDF.
+
+        Содержит language_pipeline и language_filter metadata, созданные на
+        стадии build_primary_language_source. Нужен для восстановления этих
+        полей после границы PDF → extract, где layout строится заново из PDF.
+        """
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/originals/"
+            f"{document_id}_primary_language_metadata.json"
+        )
+
     @staticmethod
     def layout_raw(tenant_id: str, deal_id: str, document_id: str) -> str:
         return f"tenants/{tenant_id}/deals/{deal_id}/layouts/{document_id}/raw.json"

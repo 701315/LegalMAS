@@ -42,7 +42,9 @@ Build Primary Language Source Worker.
 """
 
 import uuid
+from copy import deepcopy
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,6 +74,113 @@ from storage.artifact_store import ArtifactPath, ArtifactStore
 from workers._tenant_resolver import resolve_artifact_tenant_id
 
 logger = get_logger(__name__)
+
+
+_PRIMARY_LANGUAGE_METADATA_KEYS: tuple[str, ...] = (
+    "language_pipeline",
+    "language_filter",
+)
+_PRIMARY_LANGUAGE_METADATA_SIDECAR_CONTRACT_VERSION = 1
+
+
+def _build_primary_language_metadata_sidecar(
+    primary_layout: dict[str, Any],
+) -> dict[str, Any] | None:
+    """
+    Extract a minimal, stable sidecar payload from primary layout metadata.
+
+    Contract:
+    - persists only language-related metadata required after PDF → extract;
+    - does not dump the entire layout metadata blob;
+    - returns None when layout has no usable language metadata.
+    """
+    metadata = primary_layout.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+
+    payload: dict[str, Any] = {
+        "contract_version": _PRIMARY_LANGUAGE_METADATA_SIDECAR_CONTRACT_VERSION,
+    }
+    has_language_metadata = False
+
+    for key in _PRIMARY_LANGUAGE_METADATA_KEYS:
+        value = metadata.get(key)
+        if isinstance(value, dict):
+            payload[key] = deepcopy(value)
+            has_language_metadata = True
+
+    if not has_language_metadata:
+        return None
+
+    return payload
+
+
+def _store_primary_language_metadata_sidecar_safe(
+    *,
+    store: ArtifactStore,
+    tenant_id: str,
+    deal_id: str,
+    document_id: str,
+    primary_layout: dict[str, Any],
+    log_extra_base: dict[str, Any],
+) -> str | None:
+    """
+    Store language metadata sidecar next to primary_source PDF.
+
+    Failure-isolated by design:
+    - sidecar improves observability/traceability;
+    - failure to store it must not break primary source build.
+    """
+    payload = _build_primary_language_metadata_sidecar(primary_layout)
+    if payload is None:
+        logger.debug(
+            "Primary source build: no language metadata available for sidecar",
+            extra={
+                **log_extra_base,
+                "document_id": document_id,
+            },
+        )
+        return None
+
+    sidecar_path = ArtifactPath.primary_source_language_metadata(
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        document_id=document_id,
+    )
+
+    try:
+        sidecar_ref = store.put_json(sidecar_path, payload)
+    except Exception as exc:
+        logger.warning(
+            "Primary source build: failed to store language metadata sidecar, continuing",
+            extra={
+                **log_extra_base,
+                "document_id": document_id,
+                "sidecar_path": sidecar_path,
+                "error": str(exc),
+            },
+        )
+        return None
+
+    logger.info(
+        "Primary source build: language metadata sidecar stored",
+        extra={
+            **log_extra_base,
+            "document_id": document_id,
+            "sidecar_path": sidecar_path,
+            "sidecar_ref": sidecar_ref,
+            "metadata_keys": sorted(
+                key for key in payload.keys() if key != "contract_version"
+            ),
+        },
+    )
+    return sidecar_ref
+
+
+
+
+
+
 
 
 @celery_app.task(
@@ -211,6 +320,95 @@ def build_primary_language_source(
     )
 
     return result
+
+
+def _normalize_layout_text(value: Any) -> str:
+    """
+    Stable text normalization for layout comparison.
+
+    We intentionally compare only materially relevant content:
+    - page
+    - element type
+    - normalized text
+
+    Metadata-only differences must NOT trigger PDF rebuild.
+    """
+    return " ".join(str(value or "").split()).strip()
+
+
+def _layout_elements_signature(layout: dict[str, Any] | None) -> tuple[tuple[Any, ...], ...]:
+    """
+    Build a deterministic signature of layout elements for source-selection logic.
+
+    We do not compare full metadata or bbox byte-to-byte because:
+    - build_primary_language_layout may only enrich metadata;
+    - metadata-only change should not force primary PDF rebuild;
+    - for downstream extract input, page/type/text are the core material signal.
+    """
+    elements = list((layout or {}).get("elements") or [])
+    signature: list[tuple[Any, ...]] = []
+
+    for idx, element in enumerate(elements):
+        raw_page = element.get("page")
+        try:
+            page = int(raw_page) if raw_page is not None else 0
+        except Exception:
+            page = 0
+
+        signature.append(
+            (
+                idx,
+                page,
+                str(element.get("type") or "").strip().lower(),
+                _normalize_layout_text(element.get("text")),
+            )
+        )
+
+    return tuple(signature)
+
+
+def _primary_layout_materially_differs(
+    raw_layout: dict[str, Any] | None,
+    primary_layout: dict[str, Any] | None,
+) -> bool:
+    """
+    Return True if primary_layout differs from raw_layout in a way that
+    should affect downstream extract/structure results.
+
+    Material differences:
+    - filtered-out elements
+    - changed element order
+    - changed page/type/text content
+
+    Non-material differences:
+    - metadata-only changes
+    """
+    raw_sig = _layout_elements_signature(raw_layout)
+    primary_sig = _layout_elements_signature(primary_layout)
+    return raw_sig != primary_sig
+
+
+def _determine_primary_source_build_mode(
+    *,
+    decision: Any,
+    raw_layout: dict[str, Any],
+    primary_layout: dict[str, Any],
+) -> str:
+    """
+    Decide how primary_source_ref should be built.
+
+    Returns:
+    - "single_language_pdf"          → globally bilingual doc, rebuild from filtered layout
+    - "monolingual_filtered_pdf"     → not globally bilingual, but filtered layout materially changed
+    - "monolingual_reuse"            → not globally bilingual, no material layout change detected
+    """
+    if bool(getattr(decision, "is_bilingual", False)):
+        return "single_language_pdf"
+
+    if _primary_layout_materially_differs(raw_layout, primary_layout):
+        return "monolingual_filtered_pdf"
+
+    return "monolingual_reuse"
 
 
 async def _build_primary_language_source_async(
@@ -524,6 +722,12 @@ async def _build_primary_language_source_async(
     decision = primary_layout_result.decision
     target_language = decision.target_language
 
+    primary_source_build_mode = _determine_primary_source_build_mode(
+        decision=decision,
+        raw_layout=quick_layout,
+        primary_layout=primary_layout,
+    )
+
     # ── 7. Карантин: целевой язык отсутствует или слишком мал по доле ────────
 
     if primary_layout_result.should_quarantine:
@@ -615,19 +819,29 @@ async def _build_primary_language_source_async(
             "language_filter_degraded": language_filter_meta.get("degraded"),
             "language_filter_degraded_reason": language_filter_meta.get("degraded_reason"),
             "element_retention_ratio": language_filter_meta.get("element_retention_ratio"),
+            "primary_source_build_mode": primary_source_build_mode,
         },
     )
 
-    # ── 8. Монолингвальный документ: переиспользуем исходный PDF ─────────────
-
-    if not decision.is_bilingual:
+    # ── 8. Fast-path reuse only when primary layout did not materially change ──
+    #
+    # Earlier we reused original PDF for every non-bilingual document.
+    # That was too aggressive: simple language filter may still remove
+    # local bilingual residue even if global second-language ratio is small.
+    #
+    # New contract:
+    # - monolingual_reuse          → raw layout and primary layout are materially same
+    # - monolingual_filtered_pdf   → primary layout changed, rebuild PDF from it
+    # - single_language_pdf        → globally bilingual, rebuild as before
+    if primary_source_build_mode == "monolingual_reuse":
         logger.info(
-            "Primary source build: monolingual document, "
+            "Primary source build: monolingual document without material layout changes, "
             "reusing original PDF as primary_source_ref",
             extra={
                 **log_extra_base,
                 "target_language": target_language,
                 "detected_languages": decision.detected_languages,
+                "primary_source_build_mode": primary_source_build_mode,
             },
         )
 
@@ -652,6 +866,15 @@ async def _build_primary_language_source_async(
                 },
             )
             raise PermanentError(f"Failed to store primary source PDF: {e}")
+
+        _store_primary_language_metadata_sidecar_safe(
+            store=store,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=document_id,
+            primary_layout=primary_layout,
+            log_extra_base=log_extra_base,
+        )
 
         updated_version = await ver_repo.update_refs(
             version_id=version_uuid,
@@ -706,7 +929,7 @@ async def _build_primary_language_source_async(
                     "document_id": document_id,
                     "document_version_id": document_version_id,
                     "run_id": run_id,
-                    "mode": "monolingual_reuse",
+                    "mode": primary_source_build_mode,
                     "target_language": target_language,
                     "detected_languages": decision.detected_languages,
                     "primary_source_ref": primary_source_ref,
@@ -733,10 +956,27 @@ async def _build_primary_language_source_async(
             "target_language": target_language,
             "detected_languages": decision.detected_languages,
             "requires_user_selection": False,
+            "mode": primary_source_build_mode,
             "committed": True,
         }
 
-    # ── 9. Билингвальный документ: строим одноязычный PDF ────────────────────
+    # ── 9. Build primary PDF from filtered layout ────────────────────────────
+    #
+    # This path is used for:
+    # - globally bilingual documents ("single_language_pdf")
+    # - non-bilingual documents where simple filter materially changed layout
+    #   ("monolingual_filtered_pdf")
+
+    logger.info(
+        "Primary source build: rebuilding primary PDF from filtered layout",
+        extra={
+            **log_extra_base,
+            "target_language": target_language,
+            "detected_languages": decision.detected_languages,
+            "is_bilingual": decision.is_bilingual,
+            "primary_source_build_mode": primary_source_build_mode,
+        },
+    )
 
     try:
         primary_pdf_bytes = build_pdf_from_layout(primary_layout)
@@ -781,6 +1021,7 @@ async def _build_primary_language_source_async(
                 "primary_source_ref": primary_source_ref,
                 "size": len(primary_pdf_bytes),
                 "target_language": target_language,
+                "primary_source_build_mode": primary_source_build_mode,
             },
         )
     except Exception as e:
@@ -793,6 +1034,15 @@ async def _build_primary_language_source_async(
             },
         )
         raise PermanentError(f"Failed to store primary source PDF: {e}")
+
+    _store_primary_language_metadata_sidecar_safe(
+        store=store,
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        document_id=document_id,
+        primary_layout=primary_layout,
+        log_extra_base=log_extra_base,
+    )
 
     # ── 11. Обновляем DocumentVersion.primary_source_ref ─────────────────────
 
@@ -857,7 +1107,7 @@ async def _build_primary_language_source_async(
                 "document_id": document_id,
                 "document_version_id": document_version_id,
                 "run_id": run_id,
-                "mode": "single_language_pdf",
+                "mode": primary_source_build_mode,
                 "target_language": target_language,
                 "detected_languages": primary_layout_result.decision.detected_languages,
                 "primary_source_ref": primary_source_ref,
@@ -881,8 +1131,9 @@ async def _build_primary_language_source_async(
         "source_ref": source_ref,
         "primary_source_ref": primary_source_ref,
         "target_language": target_language,
-        "detected_languages": primary_layout_result.decision.detected_languages,
+        "detected_languages": decision.detected_languages,
         "requires_user_selection": False,
+        "mode": primary_source_build_mode,
         "committed": True,
     }
 
@@ -903,3 +1154,7 @@ def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
 def _utcnow_iso() -> str:
     """Текущее время UTC в ISO 8601 для audit/error_details."""
     return datetime.now(tz=UTC).isoformat()
+
+
+
+

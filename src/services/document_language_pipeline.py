@@ -295,13 +295,23 @@ async def build_primary_language_layout(
             should_quarantine=True,
         )
 
-    # ── ВЕТВЬ 2: МОНОЛИНГВАЛЬНЫЙ ───────────────────────────────────────────
-    # Документ содержит только целевой язык — фильтрация не нужна.
-    # Применение фильтра уничтожило бы реквизиты, email и прочие
-    # строки с латиницей в русском документе.
+    # ── ВЕТВЬ 2: НЕ ГЛОБАЛЬНО-БИЛИНГВАЛЬНЫЙ ДОКУМЕНТ ───────────────────────
+    # Раньше здесь фильтрация полностью скипалась, чтобы не потерять
+    # реквизиты / email / structured data. Но текущий simple filter уже
+    # умеет сохранять structured data и короткие neutral blocks.
+    #
+    # Поэтому даже для документов, не признанных bilingual по глобальному
+    # ratio, применяем мягкий simple filter:
+    # - сохраняем target-language content;
+    # - сохраняем structured data;
+    # - срезаем bilingual residue в headings / short mixed blocks.
+    #
+    # Если такой simple filter неожиданно вернул пустой layout, не
+    # карантиним документ — это слишком агрессивно для non-bilingual branch.
+    # Вместо этого делаем контролируемый fallback на исходный layout.
     if not decision.is_bilingual:
         logger.info(
-            "Primary layout: monolingual document, language filter skipped",
+            "Primary layout: non-bilingual document, applying simple language filter",
             deal_id=str(deal_id),
             tenant_id=tenant_id,
             document_id=document_id,
@@ -309,8 +319,45 @@ async def build_primary_language_layout(
             detected_languages=decision.detected_languages,
             target_language_ratio=round(decision.target_language_ratio, 3),
         )
+
+        filter_context = {
+            "deal_id": str(deal_id),
+            "tenant_id": tenant_id,
+            "document_id": document_id,
+            "is_bilingual": False,
+        }
+
+        primary_layout = filter_layout_to_language(
+            layout,
+            target_language,
+            context=filter_context,
+        )
+
+        if not (primary_layout.get("elements") or []):
+            logger.warning(
+                "Primary layout is empty after simple filter for non-bilingual document, "
+                "falling back to raw layout",
+                deal_id=str(deal_id),
+                tenant_id=tenant_id,
+                document_id=document_id,
+                target_language=target_language,
+                detected_languages=decision.detected_languages,
+            )
+
+            primary_layout = _build_raw_layout_filter_fallback(
+                layout=layout,
+                decision=decision,
+                degraded_reason="empty_layout_after_simple_filter_fallback_to_raw_layout",
+            )
+            return PrimaryLanguageLayoutResult(
+                decision=decision,
+                primary_layout=primary_layout,
+                raw_layout=layout,
+                should_quarantine=False,
+            )
+
         primary_layout = _attach_language_metadata(
-            layout=layout,
+            layout=primary_layout,
             decision=decision,
             fallback_used=False,
         )
@@ -471,6 +518,46 @@ def _classify_language_route(
         return "quarantine", "target_language_negligible"
 
     return "proceed", None
+
+
+def _build_raw_layout_filter_fallback(
+    *,
+    layout: dict[str, Any],
+    decision: DocumentLanguageDecision,
+    degraded_reason: str,
+) -> dict[str, Any]:
+    """
+    Построить безопасный fallback на исходный layout после неудачной
+    non-bilingual filtering attempt.
+
+    Используется только в ветке not decision.is_bilingual:
+    - не хотим карантинить документ из-за empty simple-filter;
+    - не хотим silently потерять факт деградации;
+    - сохраняем raw layout, но явно маркируем fallback и degraded_reason.
+    """
+    result = _attach_language_metadata(
+        layout=layout,
+        decision=decision,
+        fallback_used=True,
+    )
+
+    metadata = dict(result.get("metadata") or {})
+    language_filter = dict(metadata.get("language_filter") or {})
+
+    language_filter["degraded"] = True
+    previous_reason = language_filter.get("degraded_reason")
+    if previous_reason:
+        if degraded_reason not in str(previous_reason):
+            language_filter["degraded_reason"] = f"{previous_reason};{degraded_reason}"
+    else:
+        language_filter["degraded_reason"] = degraded_reason
+
+    language_filter.setdefault("structural_filter_used", False)
+    language_filter.setdefault("bilingual_mode", False)
+
+    metadata["language_filter"] = language_filter
+    result["metadata"] = metadata
+    return result
 
 
 def _attach_language_metadata(

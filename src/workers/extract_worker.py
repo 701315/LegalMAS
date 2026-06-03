@@ -15,7 +15,8 @@ Extract Worker — извлечение текста и таблиц из PDF, �
 - Читает PDF из MinIO строго по ссылке primary_source_ref из DocumentVersion.
 - Определяет стратегию извлечения (native text / OCR / гибрид).
 - Строит структуру text_layout_raw (элементы и таблицы) и сохраняет её в MinIO.
-- layout_primary сейчас совпадает с text_layout_raw (языковая нормализация выполняется до extract).
+- layout_primary строится из text_layout_raw и при наличии sidecar
+  восстанавливает language metadata, потерянную на границе PDF → extract.
 - При низком качестве извлечения или ошибках отправляет документ в карантин.
 - При успехе обновляет статус документа до EXTRACTED; запуск PII‑санитизации делает оркестратор.
 """
@@ -25,7 +26,8 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
-
+from copy import deepcopy
+from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
@@ -52,6 +54,113 @@ from storage.artifact_store import ArtifactPath, ArtifactStore
 from workers._tenant_resolver import resolve_artifact_tenant_id
 
 logger = get_logger(__name__)
+
+
+_PRIMARY_LANGUAGE_METADATA_KEYS: tuple[str, ...] = (
+    "language_pipeline",
+    "language_filter",
+)
+
+
+def _load_primary_language_metadata_sidecar_safe(
+    *,
+    store: ArtifactStore,
+    tenant_id: str,
+    deal_id: str,
+    document_id: str,
+    document_version_id: str,
+) -> dict[str, Any] | None:
+    """
+    Load language metadata sidecar written by build_primary_language_source.
+
+    Failure-isolated by design:
+    - missing sidecar must not break extract;
+    - malformed sidecar must not break extract.
+    """
+    sidecar_path = ArtifactPath.primary_source_language_metadata(
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        document_id=document_id,
+    )
+
+    try:
+        payload = store.get_json(sidecar_path)
+    except Exception as exc:
+        logger.warning(
+            "Extract: primary language metadata sidecar unavailable, continuing without it",
+            document_id=document_id,
+            version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            sidecar_path=sidecar_path,
+            error=str(exc),
+        )
+        return None
+
+    if not isinstance(payload, dict):
+        logger.warning(
+            "Extract: primary language metadata sidecar has invalid format, continuing without it",
+            document_id=document_id,
+            version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            sidecar_path=sidecar_path,
+            payload_type=type(payload).__name__,
+        )
+        return None
+
+    language_metadata: dict[str, Any] = {}
+    for key in _PRIMARY_LANGUAGE_METADATA_KEYS:
+        value = payload.get(key)
+        if isinstance(value, dict):
+            language_metadata[key] = deepcopy(value)
+
+    if not language_metadata:
+        logger.warning(
+            "Extract: primary language metadata sidecar contains no supported keys, continuing without it",
+            document_id=document_id,
+            version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            sidecar_path=sidecar_path,
+        )
+        return None
+
+    logger.info(
+        "Extract: primary language metadata sidecar loaded",
+        document_id=document_id,
+        version_id=document_version_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        sidecar_path=sidecar_path,
+        metadata_keys=sorted(language_metadata.keys()),
+    )
+    return language_metadata
+
+
+def _attach_primary_language_metadata(
+    *,
+    layout: dict[str, Any],
+    language_metadata: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """
+    Build layout_primary from extracted raw layout and optional language metadata.
+
+    Important contract:
+    - never mutates the original raw layout object;
+    - preserves existing metadata keys;
+    - overlays only supported language metadata keys.
+    """
+    layout_primary = deepcopy(layout)
+
+    if not language_metadata:
+        return layout_primary
+
+    existing_metadata = layout_primary.get("metadata")
+    merged_metadata = dict(existing_metadata) if isinstance(existing_metadata, dict) else {}
+    merged_metadata.update(language_metadata)
+    layout_primary["metadata"] = merged_metadata
+    return layout_primary
 
 
 @celery_app.task(
@@ -348,7 +457,18 @@ async def _extract_document_async(
         document_version_id=document_version_id,
     )
 
-    layout_primary = text_layout_raw
+    language_metadata = _load_primary_language_metadata_sidecar_safe(
+        store=store,
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        document_id=document_id,
+        document_version_id=document_version_id,
+    )
+
+    layout_primary = _attach_primary_language_metadata(
+        layout=text_layout_raw,
+        language_metadata=language_metadata,
+    )
 
     # 5. Сохранение артефактов в storage
     raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
