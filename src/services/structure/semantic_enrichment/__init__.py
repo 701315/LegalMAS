@@ -57,6 +57,7 @@ from services.structure.semantic_enrichment._policy import (
     apply_enrichment_policy,
     build_failed_enrichment,
     build_skipped_enrichment,
+    explain_unit_enrichment_eligibility,
     is_unit_eligible_for_enrichment,
     make_policy_from_settings,
 )
@@ -95,6 +96,7 @@ __all__ = [
     "build_failed_enrichment",
     "build_skipped_enrichment",
     "build_semantic_enrichment_prompt",
+    "explain_unit_enrichment_eligibility",
     "is_unit_eligible_for_enrichment",
     "make_policy_from_settings",
     # LLM client — sync

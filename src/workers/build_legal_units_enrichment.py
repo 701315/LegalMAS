@@ -43,7 +43,12 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
-from core.constants import DocumentStatus, SemanticEnrichmentStageOutcome
+from core.constants import (
+    DocumentStatus,
+    DocumentStageExecutionStatus,
+    RunStatus,
+    SemanticEnrichmentStageOutcome,
+)
 from core.exceptions import PermanentError
 
 from core.logging import get_logger
@@ -52,7 +57,9 @@ from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
+from db.repositories.run_repo import RunRepository
 from db.uow import db_uow
+
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
@@ -148,6 +155,58 @@ def build_legal_units_enrichment(
     return result
 
 
+def _build_stale_replay_result(
+    *,
+    document_id: str,
+    document_version_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None,
+    reason: str,
+    retrigger_orchestrator: bool,
+) -> dict[str, Any]:
+    """
+    Стандартизованный результат stale replay short-circuit.
+
+    Параметры:
+    - reason: машинный код причины skip (для логирования и диагностики).
+    - retrigger_orchestrator: True если sync wrapper должен разбудить orchestrator.
+      Используется как значение поля "committed" в результате, чтобы
+      build_legal_units_enrichment() автоматически вызвал retrigger_run_pipeline().
+
+    Для непрофессионального программиста:
+    Если задача оказалась "устаревшей" (enrichment уже был выполнен ранее),
+    мы не делаем тяжёлую LLM-работу повторно.
+    Но если pipeline ещё не завершился — разбудим оркестратор,
+    чтобы он проверил, что делать дальше.
+    """
+    return {
+        "document_id": document_id,
+        "document_version_id": document_version_id,
+        "deal_id": deal_id,
+        "tenant_id": tenant_id,
+        "terminal_outcome": SemanticEnrichmentStageOutcome.SKIPPED.value,
+        "stale_replay": True,
+        "stale_replay_reason": reason,
+        # committed=True сигнализирует sync wrapper-у вызвать retrigger_run_pipeline().
+        # Для terminal run это False — orchestrator будить не нужно.
+        "committed": retrigger_orchestrator,
+        "segments_total": 0,
+        "segments_with_legal_units_ref": 0,
+        "segments_enriched": 0,
+        "segments_timed_out": 0,
+        "segments_failed": 0,
+        "segments_skipped_budget": 0,
+        "budget_exhausted": False,
+        "stage_execution_result_details": {
+            "terminal_outcome": SemanticEnrichmentStageOutcome.SKIPPED.value,
+            "stale_replay": True,
+            "stale_replay_reason": reason,
+        },
+    }
+
+
+
 async def _build_legal_units_enrichment_async(
     document_version_id: str,
     document_id: str,
@@ -188,18 +247,115 @@ async def _build_legal_units_enrichment_async(
     version_uuid = uuid.UUID(document_version_id)
     doc_uuid = uuid.UUID(document_id)
 
-    # ── Пометить execution как STARTED ───────────────────────────────────────
-    # Best-effort: ошибка не должна прерывать стадию обогащения.
-    # MASBaseTask.before_start() также вызывает mark_started через отдельный UoW,
-    # поэтому здесь — второй шанс в рамках бизнес-сессии.
+    # ── Stale replay guard ────────────────────────────────────────────────────
+    #
+    # Проблема:
+    # При падении worker-а с SIGSEGV или kill задача может остаться
+    # не-ACK-нутой в Redis (acks_late=True). После рестарта брокер
+    # редоставит её, даже если enrichment уже был успешно выполнен.
+    #
+    # Решение:
+    # Проверяем состояние run / stage_execution / document ДО начала тяжёлой
+    # LLM-работы. Если видим признаки stale replay — short-circuit без ошибки.
+    #
+    # Почему не просто return None:
+    # - sync wrapper build_legal_units_enrichment() смотрит на result["committed"]
+    #   чтобы решить, нужен ли retrigger_run_pipeline();
+    # - для stale replay мы хотим: тяжёлую работу пропустить, но orchestrator
+    #   разбудить если run ещё не завершён (recovery mechanism).
+
+    _stale_run_terminal_statuses = frozenset({
+        RunStatus.COMPLETED.value,
+        RunStatus.COMPLETED_WITH_ERRORS.value,
+        RunStatus.FAILED.value,
+    })
+    _stale_execution_terminal_statuses = frozenset({
+        DocumentStageExecutionStatus.SUCCEEDED.value,
+        DocumentStageExecutionStatus.FAILED.value,
+        DocumentStageExecutionStatus.CANCELLED.value,
+    })
+    _stale_document_downstream_statuses = frozenset({
+        DocumentStatus.ENRICHED.value,
+        DocumentStatus.ANALYZING.value,
+        DocumentStatus.COMPLETED.value,
+    })
+
+    # Загружаем stage_execution для guard-а (если есть).
+    current_execution = None
     if stage_execution_id:
         try:
-            await dse_repo.mark_started(uuid.UUID(stage_execution_id))
+            current_execution = await dse_repo.get_by_id(uuid.UUID(stage_execution_id))
         except Exception as exc:
             logger.warning(
-                "Semantic enrichment stage: failed to mark execution STARTED",
+                "Semantic enrichment stage: failed to load stage_execution for stale check",
                 extra={**log_base, "error": str(exc)},
             )
+
+    # Загружаем run для guard-а (если есть run_id).
+    current_run = None
+    if run_id:
+        try:
+            run_repo = RunRepository(db)
+            current_run = await run_repo.get_by_id(uuid.UUID(run_id))
+        except Exception as exc:
+            logger.warning(
+                "Semantic enrichment stage: failed to load run for stale check",
+                extra={**log_base, "error": str(exc)},
+            )
+
+    # Guard 1: run уже terminal.
+    # Если run уже завершён, нет смысла ни делать enrichment, ни будить orchestrator.
+    if current_run is not None and current_run.status in _stale_run_terminal_statuses:
+        logger.warning(
+            "Semantic enrichment stage: stale replay detected — run already terminal, skipping",
+            extra={
+                **log_base,
+                "run_status": current_run.status,
+                "stage_execution_id": stage_execution_id,
+                "retrigger_orchestrator": False,
+            },
+        )
+        return _build_stale_replay_result(
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            reason="stale_replay_run_terminal",
+            retrigger_orchestrator=False,
+        )
+
+    # Guard 2: stage_execution уже terminal.
+    if current_execution is not None and current_execution.status in _stale_execution_terminal_statuses:
+        run_not_terminal = (
+            current_run is None
+            or current_run.status not in _stale_run_terminal_statuses
+        )
+        # Для уже успешно выполненного execution — retrigger orchestrator как recovery,
+        # если run ещё не завершён. Для failed/cancelled — не prodвигаем pipeline.
+        should_retrigger = (
+            current_execution.status == DocumentStageExecutionStatus.SUCCEEDED.value
+            and run_not_terminal
+        )
+        logger.warning(
+            "Semantic enrichment stage: stale replay detected — stage execution already terminal, skipping",
+            extra={
+                **log_base,
+                "execution_status": current_execution.status,
+                "run_status": current_run.status if current_run else None,
+                "stage_execution_id": stage_execution_id,
+                "retrigger_orchestrator": should_retrigger,
+            },
+        )
+        return _build_stale_replay_result(
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            reason=f"stale_replay_execution_{current_execution.status}",
+            retrigger_orchestrator=should_retrigger,
+        )
 
     # ── Загрузить документ / версию / сегменты ────────────────────────────────
     version = await ver_repo.get_by_id(version_uuid)
@@ -214,7 +370,57 @@ async def _build_legal_units_enrichment_async(
             f"Document {document_id} not found for enrichment stage"
         )
 
+    # Guard 3: документ уже downstream от enrichment.
+    # Это дополнительная защита: даже если stage_execution не найден (например,
+    # был удалён или не создавался), document status говорит нам правду.
+    if document.status in _stale_document_downstream_statuses:
+        run_not_terminal = (
+            current_run is None
+            or current_run.status not in _stale_run_terminal_statuses
+        )
+        logger.warning(
+            "Semantic enrichment stage: stale replay detected — document already downstream of enrichment, skipping",
+            extra={
+                **log_base,
+                "document_status": document.status,
+                "run_status": current_run.status if current_run else None,
+                "stage_execution_id": stage_execution_id,
+                "retrigger_orchestrator": run_not_terminal,
+            },
+        )
+        return _build_stale_replay_result(
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            reason="stale_replay_document_already_enriched",
+            retrigger_orchestrator=run_not_terminal,
+        )
+
     segments = await seg_repo.list_by_version(version_uuid)
+
+    # ── Пометить execution как STARTED ───────────────────────────────────────
+    # Guarded: не регрессим execution из terminal status назад в STARTED.
+    # MASBaseTask.before_start() тоже вызывает mark_started через отдельный UoW,
+    # поэтому здесь — второй шанс в рамках бизнес-сессии, но только если
+    # execution ещё не завершён.
+    if stage_execution_id and current_execution is not None:
+        if current_execution.status not in _stale_execution_terminal_statuses:
+            try:
+                await dse_repo.mark_started(uuid.UUID(stage_execution_id))
+            except Exception as exc:
+                logger.warning(
+                    "Semantic enrichment stage: failed to mark execution STARTED",
+                    extra={**log_base, "error": str(exc)},
+                )
+    elif stage_execution_id and current_execution is None:
+        # execution не найден в БД — возможно, был создан и уже удалён.
+        # Не падаем, просто пропускаем mark_started.
+        logger.warning(
+            "Semantic enrichment stage: stage_execution not found, skipping mark_started",
+            extra={**log_base, "stage_execution_id": stage_execution_id},
+        )
 
     # ── Ранние терминальные исходы ────────────────────────────────────────────
     if not settings.SEMANTIC_ENRICHMENT_ENABLED:

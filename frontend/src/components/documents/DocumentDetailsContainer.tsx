@@ -100,7 +100,7 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   const canReclassify = canReclassifyDocuments;
 
   // --- Мутации ---
-  const reclassifyMutation = useReclassifyDocument(docId);
+  const reclassifyMutation = useReclassifyDocument(docId, dealId);
   const setReviewedMutation = useSetDocumentReviewed(docId, dealId);
 
   // --- Базовая view-model ---

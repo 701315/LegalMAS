@@ -240,9 +240,26 @@ def is_unit_eligible_for_enrichment(
             unit.unit_type is not None
             and unit.unit_type != LegalUnitType.UNKNOWN
         )
+
+        # Пробуем вывести clause_function из type если она неизвестна.
+        # Это deterministic default mapping — без LLM.
+        # Управляется флагом skip_type_known_with_derivable_function.
+        effective_clause_function = unit.clause_function
+        if (
+            type_known
+            and policy.skip_type_known_with_derivable_function
+            and (
+                unit.clause_function is None
+                or unit.clause_function == ClauseFunction.UNKNOWN
+            )
+        ):
+            derived = _default_clause_function_for_type(unit.unit_type)
+            if derived != ClauseFunction.UNKNOWN:
+                effective_clause_function = derived
+
         function_known = (
-            unit.clause_function is not None
-            and unit.clause_function != ClauseFunction.UNKNOWN
+            effective_clause_function is not None
+            and effective_clause_function != ClauseFunction.UNKNOWN
         )
         source_deterministic = _is_deterministic_source(unit)
 
@@ -250,6 +267,56 @@ def is_unit_eligible_for_enrichment(
             return False, "already_classified_by_rules"
 
     return True, None
+
+
+def explain_unit_enrichment_eligibility(
+    unit: LegalUnit,
+    *,
+    policy: SemanticEnrichmentPolicy,
+) -> str:
+    """
+    Объяснить, почему unit eligible или skipped для enrichment.
+
+    Используется только для observability/telemetry:
+    - не влияет на само решение policy;
+    - помогает понять, какие классы unit'ов реально жгут LLM budget.
+
+    Формат:
+    - для skipped unit возвращает "skip:<reason>"
+    - для eligible unit возвращает одну из reason-категорий:
+        * type_unknown
+        * type_known_non_deterministic_source
+        * function_unknown_but_derivable
+        * function_unknown_no_default_mapping
+        * eligible_other
+    """
+    eligible, skip_reason = is_unit_eligible_for_enrichment(unit, policy=policy)
+    if not eligible:
+        return f"skip:{skip_reason or 'unknown'}"
+
+    type_known = (
+        unit.unit_type is not None
+        and unit.unit_type != LegalUnitType.UNKNOWN
+    )
+    function_known = (
+        unit.clause_function is not None
+        and unit.clause_function != ClauseFunction.UNKNOWN
+    )
+    source_deterministic = _is_deterministic_source(unit)
+
+    if not type_known:
+        return "type_unknown"
+
+    if type_known and not source_deterministic:
+        return "type_known_non_deterministic_source"
+
+    if type_known and not function_known:
+        derived = _default_clause_function_for_type(unit.unit_type)
+        if derived != ClauseFunction.UNKNOWN:
+            return "function_unknown_but_derivable"
+        return "function_unknown_no_default_mapping"
+
+    return "eligible_other"
 
 
 def build_skipped_enrichment(
@@ -546,6 +613,9 @@ def make_policy_from_settings() -> SemanticEnrichmentPolicy:
             ),
             skip_already_classified_units=bool(
                 getattr(settings, "SEMANTIC_ENRICHMENT_SKIP_ALREADY_CLASSIFIED", True)
+            ),
+            skip_type_known_with_derivable_function=bool(
+                getattr(settings, "SEMANTIC_ENRICHMENT_SKIP_TYPE_KNOWN_DERIVABLE_FUNCTION", True)
             ),
         )
     except Exception:

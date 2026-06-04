@@ -417,12 +417,25 @@ const ProjectTimelineCard: React.FC<{
   );
 };
 
+function isTerminalRunStatus(status: RunStatus | null | undefined): boolean {
+  return (
+    status === "completed" ||
+    status === "completed_with_errors" ||
+    status === "failed"
+  );
+}
+
+
 const RunProgressCard: React.FC<{
   currentRunId?: string | null;
 }> = ({ currentRunId }) => {
   const runId = currentRunId ?? null;
   const { data: run, isLoading } = useRun(runId, false);
-  const { lastEvent } = useSSEProgress(runId, { enabled: !!runId });
+
+  // SSE нужен только пока run не terminal.
+  // Если run уже completed/completed_with_errors/failed, подписка не нужна.
+  const sseEnabled = !!runId && !isTerminalRunStatus(run?.status);
+  const { lastEvent } = useSSEProgress(runId, { enabled: sseEnabled });
 
   if (!runId) {
     return (

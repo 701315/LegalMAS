@@ -56,6 +56,7 @@ from services.structure.semantic_enrichment._policy import (
     apply_enrichment_policy,
     build_failed_enrichment,
     build_skipped_enrichment,
+    explain_unit_enrichment_eligibility,
     is_unit_eligible_for_enrichment,
 )
 from services.structure.semantic_enrichment._prompting import (
@@ -866,13 +867,27 @@ async def enrich_legal_units_async(
 
         return result
 
-    # Pre-count eligible units for observability (E1)
+    # Pre-count eligible/skipped units for observability.
+    #
+    # Важно:
+    # - skip_reason_counts показывает, почему unit НЕ попал в LLM;
+    # - eligible_reason_counts показывает, почему unit ВСЁ ЖЕ попал в LLM.
+    #
+    # Это нужно не для бизнес-логики, а для следующего шага оптимизации:
+    # понять, какие именно классы unit'ов сжигают LLM budget.
     eligible_count = 0
     skip_reason_counts: dict[str, int] = {}
+    eligible_reason_counts: dict[str, int] = {}
+
     for _u in units:
         _eligible, _reason = is_unit_eligible_for_enrichment(_u, policy=policy)
+        _eligibility_reason = explain_unit_enrichment_eligibility(_u, policy=policy)
+
         if _eligible:
             eligible_count += 1
+            eligible_reason_counts[_eligibility_reason] = (
+                eligible_reason_counts.get(_eligibility_reason, 0) + 1
+            )
         elif _reason:
             skip_reason_counts[_reason] = skip_reason_counts.get(_reason, 0) + 1
 
@@ -892,6 +907,7 @@ async def enrich_legal_units_async(
             "eligible_units": eligible_count,
             "skipped_units_pre_llm": len(units) - eligible_count,
             "skip_reason_counts": skip_reason_counts,
+            "eligible_reason_counts": eligible_reason_counts,
             "policy_version": policy.policy_version,
             "llm_provider": llm_provider,
             "llm_model": llm_model,
