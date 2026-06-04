@@ -177,6 +177,9 @@ def extract_document(
     deal_id: str,
     tenant_id: str,
     run_id: str | None = None,
+    stage_execution_id: str | None = None,      # ← добавить
+    orchestration_strategy: str | None = None,  # ← добавить
+    **kwargs: Any,                               # ← добавить
 ) -> dict:
     """
     Celery-обёртка вокруг асинхронной функции извлечения.

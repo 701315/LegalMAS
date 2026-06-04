@@ -1,6 +1,6 @@
 .PHONY: \
 	up down restart logs test lint format migrate seed clean \
-	worker worker-dev worker-system worker-heavy beat dev-help \
+	worker worker-dev worker-system worker-heavy worker-heavy-enrichment worker-heavy-checks beat dev-help \
 	test-pii test-pii-unit test-pii-integration pii-keygen pii-smoke
 
 
@@ -100,12 +100,33 @@ worker-system:
 		--queues=system \
 		--pool=solo
 
-# Отдельный worker для heavy_llm очереди
-worker-heavy:
+# Отдельный worker для semantic enrichment heavy LLM задач.
+# Используем --pool=solo, чтобы убрать fork/native-runtime interaction
+# для embedded local llama runtime (устраняет класс SIGSEGV при prefork).
+worker-heavy-enrichment:
 	$(PYTHONPATH_ENV) celery -A $(CELERY_APP) worker \
 		--loglevel=info \
-		--queues=heavy_llm \
-		--pool=solo
+		--queues=heavy_llm_enrichment \
+		--pool=solo \
+		--concurrency=1
+
+# Отдельный worker для single-check heavy LLM задач.
+# Тот же принцип: solo вместо prefork для стабильности native runtime.
+worker-heavy-checks:
+	$(PYTHONPATH_ENV) celery -A $(CELERY_APP) worker \
+		--loglevel=info \
+		--queues=heavy_llm_checks \
+		--pool=solo \
+		--concurrency=1
+
+# Удобная подсказка: исторически в dev-help фигурировал worker-heavy,
+# теперь есть два отдельных target'а.
+worker-heavy:
+	@echo ""
+	@echo "Heavy workers разделены на два target'а:"
+	@echo "  make worker-heavy-enrichment   — semantic enrichment LLM задачи"
+	@echo "  make worker-heavy-checks       — single-check LLM задачи"
+	@echo ""
 
 # Celery Beat:
 # нужен, чтобы периодически запускать workers.outbox_dispatcher
@@ -122,8 +143,9 @@ dev-help:
 	@echo "  3) make worker-system"
 	@echo "  4) make beat"
 	@echo ""
-	@echo "Если используете heavy LLM checks, дополнительно:"
-	@echo "  5) make worker-heavy"
+	@echo "Если используете heavy LLM задачи, дополнительно запустите:"
+	@echo "  5) make worker-heavy-enrichment"
+	@echo "  6) make worker-heavy-checks"
 	@echo ""
 
 
@@ -192,6 +214,5 @@ result = t.tokenize(text, entities, policy, context_window=text[:100]); \
 print('Sanitized:', result.sanitized_text); \
 print('Mapping:', result.mapping); \
 print('Stats:', result.entities_tokenized, result.entities_role_mapped)"
-
 
 

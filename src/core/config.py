@@ -300,6 +300,23 @@ class Settings(BaseSettings):
     SEMANTIC_ENRICHMENT_MAX_TOPICS_FROM_LLM: int = 8
     SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS: int = 40
 
+    # --- Semantic Enrichment Runtime Budget ---
+    # Per-segment hard timeout. If enriching one segment's legal units
+    # exceeds this, the segment is skipped and pipeline continues.
+    SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS: int = 900
+
+    # Total wall-clock budget for enriching all segments of a document.
+    # 0 = derive adaptively from worker soft limit minus cleanup margin.
+    SEMANTIC_ENRICHMENT_DOCUMENT_BUDGET_SECONDS: int = 3600
+
+    # Time reserved for post-enrichment commit / audit / retrigger.
+    # Not given to LLM enrichment.
+    SEMANTIC_ENRICHMENT_CLEANUP_MARGIN_SECONDS: int = 120
+
+    # --- Dedicated Semantic Enrichment Worker Limits ---
+    SEMANTIC_ENRICHMENT_WORKER_SOFT_TIME_LIMIT_SECONDS: int = 4200
+    SEMANTIC_ENRICHMENT_WORKER_TIME_LIMIT_SECONDS: int = 4320
+
     # --- Semantic Enrichment Cache (Phase 14.3.A) ---
     # Exact-match cache для raw LLM responses.
     # Scope безопасности: document_version-scoped (в key строится выше по стеку).
@@ -447,6 +464,45 @@ class Settings(BaseSettings):
                     self.LLM_LOCAL_N_CTX,
                 )
                 self.LLM_CONTEXT_LIMIT = self.LLM_LOCAL_N_CTX
+        return self
+
+
+    @model_validator(mode="after")
+    def _validate_semantic_enrichment_limits(self) -> "Settings":
+        """
+        Validate semantic enrichment runtime configuration at startup.
+
+        Invariants enforced:
+        - worker hard limit > worker soft limit (gap for cleanup)
+        - cleanup margin < worker soft limit
+        - if document budget is explicit, it must be < worker soft limit
+        - segment timeout must be positive
+        """
+        soft = self.SEMANTIC_ENRICHMENT_WORKER_SOFT_TIME_LIMIT_SECONDS
+        hard = self.SEMANTIC_ENRICHMENT_WORKER_TIME_LIMIT_SECONDS
+        margin = self.SEMANTIC_ENRICHMENT_CLEANUP_MARGIN_SECONDS
+        doc_budget = self.SEMANTIC_ENRICHMENT_DOCUMENT_BUDGET_SECONDS
+        seg_timeout = self.SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS
+
+        if hard <= soft:
+            raise ValueError(
+                f"SEMANTIC_ENRICHMENT_WORKER_TIME_LIMIT_SECONDS ({hard}) "
+                f"must be greater than SEMANTIC_ENRICHMENT_WORKER_SOFT_TIME_LIMIT_SECONDS ({soft})"
+            )
+        if margin >= soft:
+            raise ValueError(
+                f"SEMANTIC_ENRICHMENT_CLEANUP_MARGIN_SECONDS ({margin}) "
+                f"must be less than SEMANTIC_ENRICHMENT_WORKER_SOFT_TIME_LIMIT_SECONDS ({soft})"
+            )
+        if doc_budget > 0 and doc_budget >= soft:
+            raise ValueError(
+                f"SEMANTIC_ENRICHMENT_DOCUMENT_BUDGET_SECONDS ({doc_budget}) "
+                f"must be less than SEMANTIC_ENRICHMENT_WORKER_SOFT_TIME_LIMIT_SECONDS ({soft})"
+            )
+        if seg_timeout <= 0:
+            raise ValueError(
+                f"SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS ({seg_timeout}) must be positive"
+            )
         return self
 
 

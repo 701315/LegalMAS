@@ -167,18 +167,25 @@ class DocumentStageExecutionRepository:
     async def mark_succeeded(
         self,
         execution_id: uuid.UUID,
+        result_details: dict | None = None,
     ) -> DocumentStageExecution | None:
         """
-        Mark execution as SUCCEEDED when stage fully completed
-        and all postconditions passed.
+        Mark execution as SUCCEEDED when stage fully completed.
+
+        result_details: optional structured success metadata,
+        e.g. semantic enrichment terminal outcome and counters.
         """
+        values: dict[str, object] = {
+            "status": DocumentStageExecutionStatus.SUCCEEDED.value,
+            "finished_at": datetime.now(UTC),
+        }
+        if result_details is not None:
+            values["result_details"] = result_details
+
         stmt = (
             update(DocumentStageExecution)
             .where(DocumentStageExecution.id == execution_id)
-            .values(
-                status=DocumentStageExecutionStatus.SUCCEEDED.value,
-                finished_at=datetime.now(UTC),
-            )
+            .values(**values)
             .returning(DocumentStageExecution)
         )
         result = await self.session.execute(stmt)

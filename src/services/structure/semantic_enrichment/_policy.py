@@ -180,6 +180,31 @@ def _base_enrichment(
     )
 
 
+# ---------------------------------------------------------------------------
+# Deterministic source detection for already-classified skip
+# ---------------------------------------------------------------------------
+
+_DETERMINISTIC_SOURCES = frozenset({
+    "title_pattern",
+    "keyword_match",
+    "rule_based",
+    "default_mapping",
+})
+
+
+def _is_deterministic_source(unit: LegalUnit) -> bool:
+    """
+    Check if unit_type was assigned by a deterministic (non-LLM) classifier.
+
+    Looks at unit.diagnostics["unit_type_source"].
+    If the source is in the known deterministic set, returns True.
+    If diagnostics are missing or source is unknown/LLM-based, returns False.
+    """
+    diagnostics = getattr(unit, "diagnostics", None) or {}
+    source = diagnostics.get("unit_type_source", "")
+    return source in _DETERMINISTIC_SOURCES
+
+
 def is_unit_eligible_for_enrichment(
     unit: LegalUnit,
     *,
@@ -191,7 +216,8 @@ def is_unit_eligible_for_enrichment(
     Quality-first, но безопасно:
     - technical fallback исключаем;
     - heading-only исключаем;
-    - пустой/слишком короткий текст исключаем.
+    - пустой/слишком короткий текст исключаем;
+    - already fully classified by deterministic rules исключаем.
     """
     if not unit.unit_id:
         return False, "missing_unit_id"
@@ -205,6 +231,23 @@ def is_unit_eligible_for_enrichment(
     text = _get_unit_text(unit)
     if len(text) < policy.min_text_chars:
         return False, "text_too_short"
+
+    # E1: Skip units already fully classified by deterministic rules.
+    # If both unit_type and clause_function are known from rule-based sources,
+    # LLM enrichment adds no value — skip to save LLM budget.
+    if policy.skip_already_classified_units:
+        type_known = (
+            unit.unit_type is not None
+            and unit.unit_type != LegalUnitType.UNKNOWN
+        )
+        function_known = (
+            unit.clause_function is not None
+            and unit.clause_function != ClauseFunction.UNKNOWN
+        )
+        source_deterministic = _is_deterministic_source(unit)
+
+        if type_known and function_known and source_deterministic:
+            return False, "already_classified_by_rules"
 
     return True, None
 
@@ -500,6 +543,9 @@ def make_policy_from_settings() -> SemanticEnrichmentPolicy:
             ),
             min_text_chars=int(
                 getattr(settings, "SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS", 40)
+            ),
+            skip_already_classified_units=bool(
+                getattr(settings, "SEMANTIC_ENRICHMENT_SKIP_ALREADY_CLASSIFIED", True)
             ),
         )
     except Exception:

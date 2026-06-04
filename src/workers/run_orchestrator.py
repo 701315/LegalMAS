@@ -253,16 +253,42 @@ async def _can_start_checks_for_run(
       и после savepoint rollback path в create_planned_or_none_on_conflict.
 
     Логика:
-    - для single-document документов: условий дополнительных нет;
-    - для multi-document документов: хотя бы один документ run'a с сегментами
-      ещё не имеет завершённой segment-level классификации — checks не запускаем.
+    - participating documents должны дойти до terminal-ready статуса:
+      ENRICHED или COMPLETED;
+    - для multi-document документов дополнительно требуется завершённая
+      segment-level классификация.
+    - FAILED / QUARANTINE / LANGUAGE_SELECTION_REQUIRED не блокируют checks.
     """
+    ready_statuses = {
+        DocumentStatus.ENRICHED.value,
+        DocumentStatus.COMPLETED.value,
+    }
+
+    non_participating_statuses = {
+        DocumentStatus.FAILED.value,
+        DocumentStatus.QUARANTINE.value,
+        DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
+    }
+
     for doc_snap in doc_snaps:
+        if doc_snap.status in non_participating_statuses:
+            continue
+
+        if doc_snap.status not in ready_statuses:
+            logger.info(
+                "Run checks postponed: document has not completed enrichment stage",
+                extra={
+                    "run_id": run_snap.run_id_str,
+                    "document_id": doc_snap.document_id_str,
+                    "document_status": doc_snap.status,
+                },
+            )
+            return False
+
         version = await ver_repo.get_latest(doc_snap.document_id)
         if version is None:
             continue
 
-        # Снимаем snapshot сразу — дальше segment-запросы через await
         snap = snapshot_version(version)
 
         if _is_multi_document_snapshot(snap):
@@ -298,6 +324,9 @@ def start_run_pipeline(
     deal_id: str | None = None,
     tenant_id: str | None = None,
     force_reclassify: bool = False,
+    stage_execution_id: str | None = None,      # ← добавить
+    orchestration_strategy: str | None = None,  # ← добавить
+    **kwargs: Any,                               # ← добавить
 ) -> dict:
     """
     Sync Celery entrypoint для оркестрации Run.
@@ -854,6 +883,8 @@ def _target_status_for_stage(stage: str) -> str:
         return DocumentStatus.CHUNKED.value
     if stage in {"classify_document", "classify_document_segments"}:
         return DocumentStatus.CLASSIFIED.value
+    if stage == "build_legal_units_enrichment":
+        return DocumentStatus.ENRICHED.value
     return stage
 
 
@@ -1273,14 +1304,26 @@ async def _build_document_task_plan(
                 )
 
         logger.info(
-            "Document already classified, reusing classification for this run",
+            "CLASSIFIED document ready for semantic enrichment formal stage",
             extra={
                 "document_id": doc_id_str,
-                "run_id": run_id,
+                "document_version_id": snap.version_id_str,
                 "segments_count": snap.segments_count,
+                "run_id": run_id,
             },
         )
-        return None
+        return TaskPlan(
+            task_name="workers.build_legal_units_enrichment",
+            stage="build_legal_units_enrichment",
+            reason="classification_path_complete",
+            kwargs={
+                "document_version_id": snap.version_id_str,
+                "document_id": doc_id_str,
+                "deal_id": deal_id_str,
+                "tenant_id": tenant_id_str,
+                "run_id": run_id,
+            },
+        )
 
     # ── COMPLETED ─────────────────────────────────────────────────────────────
 

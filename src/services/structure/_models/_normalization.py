@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from typing import Any
 
 from ._constants import (
@@ -47,6 +49,67 @@ def _norm_scope(value: Any) -> str:
     return scope or DEFAULT_SCOPE
 
 
+_SCOPE_SEPARATORS_RE = re.compile(r"_+")
+
+
+def _scope_char_to_ascii(ch: str) -> str:
+    """
+    Преобразовать один символ scope_name в ASCII-safe representation.
+
+    Правила:
+    - ASCII [a-z0-9] -> как есть, lowercased;
+    - '_' -> '_';
+    - символы с ASCII decomposition (например é) -> decomposed ASCII;
+    - Unicode spaces / separators / punctuation -> '_';
+    - прочие non-ASCII символы -> codepoint token вида _u043c_.
+
+    Примеры:
+    - 'м' -> '_u043c_'
+    - '附' -> '_u9644_'
+    """
+    low = ch.lower()
+
+    if ("a" <= low <= "z") or ("0" <= low <= "9"):
+        return low
+
+    if low == "_":
+        return "_"
+
+    decomposed = unicodedata.normalize("NFKD", low)
+    ascii_piece = decomposed.encode("ascii", "ignore").decode("ascii").lower()
+    ascii_piece = re.sub(r"[^a-z0-9]+", "_", ascii_piece).strip("_")
+    if ascii_piece:
+        return ascii_piece
+
+    category = unicodedata.category(low)
+    if low.isspace() or category.startswith(("P", "Z")):
+        return "_"
+
+    return f"_u{ord(low):04x}_"
+
+
+def _normalize_scope_name_ascii(value: Any) -> str:
+    """
+    Нормализовать произвольное scope_name в ASCII snake_case.
+
+    Инварианты результата:
+    - только [a-z0-9_];
+    - без повторяющихся '_';
+    - non-empty;
+    - детерминированный для любых Unicode-входов.
+
+    Примеры:
+    - 'main_contract' -> 'main_contract'
+    - 'appendix_м' -> 'appendix_u043c'
+    - 'schedule_附录' -> 'schedule_u9644_u5f55'
+    """
+    raw = _norm_scope(value)
+    normalized = "".join(_scope_char_to_ascii(ch) for ch in raw)
+    normalized = re.sub(r"[^a-z0-9_]+", "_", normalized)
+    normalized = _SCOPE_SEPARATORS_RE.sub("_", normalized).strip("_")
+    return normalized or DEFAULT_SCOPE
+
+
 def _normalize_structure_confidence(value: Any) -> str:
     confidence = _norm_str(value).upper() or STRUCTURE_CONFIDENCE_MEDIUM
     if confidence not in VALID_STRUCTURE_CONFIDENCE:
@@ -78,7 +141,10 @@ def _normalize_segment_type(value: Any) -> str:
 
 
 def _validate_scope_name(scope_name: str) -> str:
-    normalized = _norm_scope(scope_name)
+    """
+    Привести scope_name к ASCII-safe snake_case и провалидировать результат.
+    """
+    normalized = _normalize_scope_name_ascii(scope_name)
     if not SCOPE_NAME_RE.fullmatch(normalized):
         raise ValueError(
             f"Invalid scope_name={normalized!r}. "

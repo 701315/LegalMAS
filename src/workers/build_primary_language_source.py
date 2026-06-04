@@ -176,13 +176,6 @@ def _store_primary_language_metadata_sidecar_safe(
     )
     return sidecar_ref
 
-
-
-
-
-
-
-
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
@@ -198,6 +191,9 @@ def build_primary_language_source(
     tenant_id: str,
     run_id: str | None = None,
     target_language: str | None = None,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict:
     """
     Sync Celery entrypoint.

@@ -60,11 +60,6 @@ from services.structure._models._analysis import RecommendedChunkingMode
 from services.structure.chunk_planner import FileChunkPlan
 from services.structure.legal_unit_builder import LegalUnitBuilder
 from services.structure.legal_unit_models import LegalUnitsSnapshot
-from services.structure.semantic_enrichment import (
-    enrich_legal_units,
-    enrich_legal_units_async,
-    make_policy_from_settings,
-)
 from services.structure.semantic_enrichment._types import LegalUnitsEnrichmentResult
 from storage.artifact_store import ArtifactStore
 from engine.content.layout_fallback_chunker import build_layout_fallback_chunks
@@ -1299,38 +1294,12 @@ class SegmentChunkBuilderV2:
                 },
             )
 
-        # Phase 12: semantic enrichment поверх legal units (опционально)
-        if legal_units_snapshot is not None and _app_settings.SEMANTIC_ENRICHMENT_ENABLED:
-            try:
-                enrichment_policy = make_policy_from_settings()
-                legal_units_enrichment_result = await enrich_legal_units_async(
-                    legal_units_snapshot,
-                    policy=enrichment_policy,
-                    collector=collector,
-                )
-                logger.info(
-                    "SegmentChunkBuilderV2: semantic enrichment complete",
-                    extra={
-                        "document_id": str(document_id),
-                        "document_version_id": str(document_version_id),
-                        "segment_id": segment.segment_id,
-                        "status_counts": (
-                            legal_units_enrichment_result.status_counts
-                        ),
-                        "llm_model": legal_units_enrichment_result.llm_model,
-                    },
-                )
-            except Exception as enrich_exc:
-                logger.warning(
-                    "SegmentChunkBuilderV2: semantic enrichment failed, "
-                    "continuing without enrichment",
-                    extra={
-                        "document_id": str(document_id),
-                        "document_version_id": str(document_version_id),
-                        "segment_id": segment.segment_id,
-                        "error": str(enrich_exc),
-                    },
-                )
+        # Phase 12: semantic enrichment is now a dedicated formal pipeline stage.
+        # SegmentChunkBuilderV2 no longer performs inline enrichment.
+        # The sidecar is built by workers.build_legal_units_enrichment
+        # after classification is complete, as a separate orchestrated stage.
+        legal_units_enrichment_result: LegalUnitsEnrichmentResult | None = None
+        
 
         return SegmentChunkSnapshotV2(
             document_id=document_id,

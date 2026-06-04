@@ -1,0 +1,642 @@
+# src/workers/build_legal_units_enrichment.py
+
+"""
+Воркер семантического обогащения правовых единиц.
+
+Формальная стадия пайплайна: семантическое обогащение базового набора legal units.
+
+Позиция в пайплайне:
+    build_chunks → classify_document → [classify_document_segments]
+    → build_legal_units_enrichment  ← этот воркер
+    → run_deal_checks / YAML-анализ рисков
+
+Контракт:
+- Читает legal_units_v1.json (базовый набор) для каждого сегмента из MinIO.
+- Обогащает правовые единицы каждого подходящего сегмента через LLM.
+- Записывает sidecar-файл legal_units_enrichment_v1.json для каждого сегмента.
+- Обновляет segment_meta["legal_units_enrichment_ref"].
+- Всегда завершается DocumentStatus.ENRICHED вне зависимости от результата LLM.
+- Терминальные исходы:
+    completed   — все кандидат-сегменты успешно обогащены
+    degraded    — частичный успех (часть обогащена, часть провалилась/таймаут)
+    skipped     — нет кандидатов или функция отключена
+    timed_out   — бюджет документа исчерпан, ни один сегмент не обогащён
+    unavailable — LLM недоступен в момент старта стадии
+- После терминального исхода: перезапускает run_orchestrator для оценки gate проверок.
+
+Изоляция отказов:
+- Таймаут сегмента → warning + continue (не блокирует остальные сегменты)
+- Исчерпание бюджета документа → остановка обогащения, переход к commit
+- LLM недоступен → немедленный терминальный исход UNAVAILABLE
+- Некорректный payload legal_units → warning + пропуск сегмента
+- Ошибка commit → PermanentError (будет retry)
+
+Очередь: heavy_llm
+"""
+
+from __future__ import annotations
+
+import asyncio
+import time
+import uuid
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from engine.llm.client import LLMClient
+from core.config import settings
+from core.constants import DocumentStatus, SemanticEnrichmentStageOutcome
+from core.exceptions import PermanentError, TransientError
+from core.logging import get_logger
+from db.repositories import AuditRepository
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_segment_repo import DocumentSegmentRepository
+from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.uow import db_uow
+from mas_queue.async_helpers import run_async
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from services.run_orchestrator_trigger import retrigger_run_pipeline
+from services.structure.legal_unit_models import LegalUnitsSnapshot
+from services.structure.semantic_enrichment import (
+    enrich_legal_units_async,
+    is_semantic_enrichment_llm_available,
+    make_policy_from_settings,
+)
+from services.structure.semantic_enrichment._budget import (
+    build_document_enrichment_deadline,
+    is_enrichment_budget_exhausted,
+    resolve_segment_enrichment_timeout,
+)
+from storage.artifact_store import ArtifactPath, ArtifactStore
+from workers._tenant_resolver import resolve_artifact_tenant_id
+
+logger = get_logger(__name__)
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.build_legal_units_enrichment",
+    track_job=False,
+    queue="heavy_llm_enrichment",
+)
+def build_legal_units_enrichment(
+    self,
+    document_version_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None = None,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,  # ← добавить
+    **kwargs: Any,                               # ← добавить
+) -> dict[str, Any]:
+    """
+    Синхронная точка входа Celery для формальной стадии семантического обогащения.
+
+    Всегда завершается DocumentStatus.ENRICHED после достижения терминального
+    исхода (completed / degraded / skipped / timed_out / unavailable).
+    После завершения перезапускает run_orchestrator, чтобы gate проверок
+    мог оценить готовность документа.
+    """
+    _ = self
+
+    async def _wrapper() -> dict[str, Any]:
+        async with db_uow() as uow:
+            resolved_tenant_id = await resolve_artifact_tenant_id(
+                session=uow.session,
+                deal_id=deal_id,
+                document_id=document_id,
+                payload_tenant_id=tenant_id,
+            )
+            return await _build_legal_units_enrichment_async(
+                document_version_id=document_version_id,
+                document_id=document_id,
+                deal_id=deal_id,
+                tenant_id=resolved_tenant_id,
+                db=uow.session,
+                run_id=run_id,
+                stage_execution_id=stage_execution_id,
+            )
+
+    try:
+        result = run_async(_wrapper())
+    except PermanentError:
+        raise
+    except TransientError:
+        raise
+    finally:
+        LLMClient().reset_local_runtime_state_best_effort()
+
+    if run_id and result.get("committed"):
+        retrigger_run_pipeline(
+            run_id=run_id,
+            deal_id=deal_id,
+            tenant_id=result.get("tenant_id", tenant_id),
+        )
+
+    return result
+
+
+async def _build_legal_units_enrichment_async(
+    document_version_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    db: AsyncSession,
+    run_id: str | None = None,
+    stage_execution_id: str | None = None,
+) -> dict[str, Any]:
+    """
+    Асинхронное ядро стадии семантического обогащения.
+
+    Оркестрирует LLM-обогащение с ограничениями по времени:
+    - таймаут на сегмент
+    - бюджет на весь документ
+    - graceful degradation при отказах и таймаутах
+    - всегда завершается статусом документа ENRICHED
+    """
+    started_monotonic = time.monotonic()
+
+    log_base = {
+        "document_id": document_id,
+        "document_version_id": document_version_id,
+        "deal_id": deal_id,
+        "tenant_id": tenant_id,
+        "run_id": run_id,
+    }
+
+    logger.info("Semantic enrichment stage: starting", extra=log_base)
+
+    store = ArtifactStore(settings)
+    ver_repo = DocumentVersionRepository(db)
+    doc_repo = DocumentRepository(db)
+    seg_repo = DocumentSegmentRepository(db)
+    dse_repo = DocumentStageExecutionRepository(db)
+    audit_repo = AuditRepository(db)
+
+    version_uuid = uuid.UUID(document_version_id)
+    doc_uuid = uuid.UUID(document_id)
+
+    # ── Пометить execution как STARTED ───────────────────────────────────────
+    # Best-effort: ошибка не должна прерывать стадию обогащения.
+    # MASBaseTask.before_start() также вызывает mark_started через отдельный UoW,
+    # поэтому здесь — второй шанс в рамках бизнес-сессии.
+    if stage_execution_id:
+        try:
+            await dse_repo.mark_started(uuid.UUID(stage_execution_id))
+        except Exception as exc:
+            logger.warning(
+                "Semantic enrichment stage: failed to mark execution STARTED",
+                extra={**log_base, "error": str(exc)},
+            )
+
+    # ── Загрузить документ / версию / сегменты ────────────────────────────────
+    version = await ver_repo.get_by_id(version_uuid)
+    if version is None:
+        raise PermanentError(
+            f"DocumentVersion {document_version_id} not found for enrichment stage"
+        )
+
+    document = await doc_repo.get_by_id(doc_uuid)
+    if document is None:
+        raise PermanentError(
+            f"Document {document_id} not found for enrichment stage"
+        )
+
+    segments = await seg_repo.list_by_version(version_uuid)
+
+    # ── Ранние терминальные исходы ────────────────────────────────────────────
+    if not settings.SEMANTIC_ENRICHMENT_ENABLED:
+        logger.info(
+            "Semantic enrichment stage: feature disabled, terminal outcome=skipped",
+            extra=log_base,
+        )
+        return await _finalize_enrichment_stage(
+            db=db,
+            doc_repo=doc_repo,
+            dse_repo=dse_repo,
+            audit_repo=audit_repo,
+            doc_uuid=doc_uuid,
+            stage_execution_id=stage_execution_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            outcome=SemanticEnrichmentStageOutcome.SKIPPED,
+            segments_total=len(segments),
+            segments_with_legal_units_ref=0,
+            segments_enriched=0,
+            segments_timed_out=0,
+            segments_failed=0,
+            segments_skipped_budget=0,
+            budget_exhausted=False,
+            log_base=log_base,
+        )
+
+    llm_available = is_semantic_enrichment_llm_available()
+    if not llm_available:
+        logger.warning(
+            "Semantic enrichment stage: LLM unavailable, terminal outcome=unavailable",
+            extra=log_base,
+        )
+        return await _finalize_enrichment_stage(
+            db=db,
+            doc_repo=doc_repo,
+            dse_repo=dse_repo,
+            audit_repo=audit_repo,
+            doc_uuid=doc_uuid,
+            stage_execution_id=stage_execution_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            outcome=SemanticEnrichmentStageOutcome.UNAVAILABLE,
+            segments_total=len(segments),
+            segments_with_legal_units_ref=0,
+            segments_enriched=0,
+            segments_timed_out=0,
+            segments_failed=0,
+            segments_skipped_budget=0,
+            budget_exhausted=False,
+            log_base=log_base,
+        )
+
+    # ── Вычислить дедлайн документа ───────────────────────────────────────────
+    document_deadline = build_document_enrichment_deadline(
+        started_monotonic=started_monotonic,
+        settings=settings,
+    )
+
+    # ── Упорядочить сегменты: сначала primary, затем по segment_order ─────────
+    ordered_segments = _ordered_segments_for_enrichment(segments)
+
+    enrichment_policy = make_policy_from_settings()
+
+    # ── Счётчики по сегментам ─────────────────────────────────────────────────
+    segments_with_legal_units_ref = 0
+    segments_enriched = 0
+    segments_timed_out = 0
+    segments_failed = 0
+    segments_skipped_budget = 0
+    budget_exhausted = False
+
+    # ── Обход сегментов ───────────────────────────────────────────────────────
+    for seg in ordered_segments:
+        legal_units_ref = _extract_legal_units_ref(seg.segment_meta)
+
+        if not legal_units_ref:
+            logger.debug(
+                "Semantic enrichment stage: segment has no legal_units_ref, skipping",
+                extra={
+                    **log_base,
+                    "segment_id": seg.segment_id,
+                },
+            )
+            continue
+
+        segments_with_legal_units_ref += 1
+
+        # Проверить бюджет документа перед обработкой сегмента
+        if is_enrichment_budget_exhausted(deadline_monotonic=document_deadline):
+            budget_exhausted = True
+            segments_skipped_budget += 1
+            logger.info(
+                "Semantic enrichment stage: document budget exhausted, skipping segment",
+                extra={
+                    **log_base,
+                    "segment_id": seg.segment_id,
+                    "segments_remaining_skipped": (
+                        segments_with_legal_units_ref
+                        - segments_enriched
+                        - segments_failed
+                        - segments_timed_out
+                        - segments_skipped_budget
+                    ),
+                },
+            )
+            continue
+
+        # Загрузить базовый набор legal units
+        try:
+            baseline_payload = store.get_json(legal_units_ref)
+            legal_units_snapshot = LegalUnitsSnapshot.from_dict(baseline_payload)
+        except Exception as load_exc:
+            logger.warning(
+                "Semantic enrichment stage: failed to load baseline legal units, skipping segment",
+                extra={
+                    **log_base,
+                    "segment_id": seg.segment_id,
+                    "legal_units_ref": legal_units_ref,
+                    "error": str(load_exc),
+                },
+            )
+            segments_failed += 1
+            continue
+
+        if not legal_units_snapshot.units:
+            logger.debug(
+                "Semantic enrichment stage: segment has zero legal units, skipping",
+                extra={**log_base, "segment_id": seg.segment_id},
+            )
+            continue
+
+        # Вычислить таймаут сегмента (может быть обрезан до остатка бюджета)
+        seg_timeout = resolve_segment_enrichment_timeout(
+            deadline_monotonic=document_deadline,
+            settings=settings,
+        )
+
+        if seg_timeout <= 0:
+            budget_exhausted = True
+            segments_skipped_budget += 1
+            continue
+
+        # Запустить обогащение с ограничением по времени
+        try:
+            enrichment_result = await asyncio.wait_for(
+                enrich_legal_units_async(
+                    legal_units_snapshot,
+                    policy=enrichment_policy,
+                    collector=None,
+                ),
+                timeout=seg_timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Semantic enrichment stage: segment enrichment timed out",
+                extra={
+                    **log_base,
+                    "segment_id": seg.segment_id,
+                    "timeout_seconds": seg_timeout,
+                },
+            )
+            segments_timed_out += 1
+            continue
+        except Exception as enrich_exc:
+            logger.warning(
+                "Semantic enrichment stage: segment enrichment failed",
+                extra={
+                    **log_base,
+                    "segment_id": seg.segment_id,
+                    "error": str(enrich_exc),
+                },
+            )
+            segments_failed += 1
+            continue
+
+        # Сохранить sidecar и обновить segment_meta
+        try:
+            sidecar_path = ArtifactPath.legal_units_enrichment_v1(
+                tenant_id=tenant_id,
+                deal_id=deal_id,
+                document_id=document_id,
+                segment_id=seg.segment_id,
+            )
+            sidecar_ref = store.put_json(sidecar_path, enrichment_result.to_dict())
+
+            # Обновить segment_meta ссылкой на новый sidecar
+            existing_meta = dict(seg.segment_meta or {})
+            existing_meta["legal_units_enrichment_ref"] = sidecar_ref
+            seg.segment_meta = existing_meta
+
+            segments_enriched += 1
+
+            logger.info(
+                "Semantic enrichment stage: segment enriched",
+                extra={
+                    **log_base,
+                    "segment_id": seg.segment_id,
+                    "sidecar_ref": sidecar_ref,
+                    "status_counts": enrichment_result.status_counts,
+                },
+            )
+        except Exception as store_exc:
+            logger.warning(
+                "Semantic enrichment stage: failed to store enrichment sidecar",
+                extra={
+                    **log_base,
+                    "segment_id": seg.segment_id,
+                    "error": str(store_exc),
+                },
+            )
+            segments_failed += 1
+
+    # ── Определить терминальный исход ─────────────────────────────────────────
+    outcome = _derive_terminal_outcome(
+        segments_with_legal_units_ref=segments_with_legal_units_ref,
+        segments_enriched=segments_enriched,
+        segments_timed_out=segments_timed_out,
+        segments_failed=segments_failed,
+        segments_skipped_budget=segments_skipped_budget,
+    )
+
+    return await _finalize_enrichment_stage(
+        db=db,
+        doc_repo=doc_repo,
+        dse_repo=dse_repo,
+        audit_repo=audit_repo,
+        doc_uuid=doc_uuid,
+        stage_execution_id=stage_execution_id,
+        tenant_id=tenant_id,
+        run_id=run_id,
+        outcome=outcome,
+        segments_total=len(segments),
+        segments_with_legal_units_ref=segments_with_legal_units_ref,
+        segments_enriched=segments_enriched,
+        segments_timed_out=segments_timed_out,
+        segments_failed=segments_failed,
+        segments_skipped_budget=segments_skipped_budget,
+        budget_exhausted=budget_exhausted,
+        log_base=log_base,
+    )
+
+
+async def _finalize_enrichment_stage(
+    *,
+    db: AsyncSession,
+    doc_repo: DocumentRepository,
+    dse_repo: DocumentStageExecutionRepository,
+    audit_repo: AuditRepository,
+    doc_uuid: uuid.UUID,
+    stage_execution_id: str | None,
+    tenant_id: str,
+    run_id: str | None,
+    outcome: SemanticEnrichmentStageOutcome,
+    segments_total: int,
+    segments_with_legal_units_ref: int,
+    segments_enriched: int,
+    segments_timed_out: int,
+    segments_failed: int,
+    segments_skipped_budget: int,
+    budget_exhausted: bool,
+    log_base: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Завершить стадию семантического обогащения:
+    - установить Document.status = ENRICHED
+    - пометить stage execution как SUCCEEDED с result_details (best-effort)
+    - flush + commit
+    - записать audit log (best-effort, после commit в той же сессии)
+
+    Порядок commit:
+    - mark_succeeded() вызывается до commit, чтобы попасть в ту же транзакцию,
+      что и обновление статуса ENRICHED.
+    - audit log записывается после commit как best-effort; UoW context manager
+      выполняет второй commit при выходе, который фиксирует запись.
+    - MASBaseTask.on_success() тоже вызывает mark_succeeded через отдельный UoW
+      после возврата из этой функции, но guard идемпотентности в
+      _async_mark_execution_succeeded() пропустит его, если execution уже terminal.
+    """
+    result_details: dict[str, Any] = {
+        "terminal_outcome": outcome.value,
+        "segments_total": segments_total,
+        "segments_with_legal_units_ref": segments_with_legal_units_ref,
+        "segments_enriched": segments_enriched,
+        "segments_timed_out": segments_timed_out,
+        "segments_failed": segments_failed,
+        "segments_skipped_budget": segments_skipped_budget,
+        "budget_exhausted": budget_exhausted,
+        "document_budget_seconds": settings.SEMANTIC_ENRICHMENT_DOCUMENT_BUDGET_SECONDS,
+        "segment_timeout_seconds": settings.SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS,
+    }
+
+    logger.info(
+        "Semantic enrichment stage: terminal outcome reached",
+        extra={
+            **log_base,
+            **result_details,
+        },
+    )
+
+    # ── Установить Document.status = ENRICHED ─────────────────────────────────
+    updated_doc = await doc_repo.update_status(
+        doc_uuid,
+        DocumentStatus.ENRICHED.value,
+        processing_error_details=None,
+    )
+    if not updated_doc:
+        raise PermanentError(
+            f"Document {doc_uuid} not found during ENRICHED status update"
+        )
+
+    # ── Пометить execution как SUCCEEDED (войдёт в тот же commit) ────────────
+    # Best-effort: ошибка не должна прерывать стадию — документ уже ENRICHED.
+    if stage_execution_id:
+        try:
+            await dse_repo.mark_succeeded(
+                uuid.UUID(stage_execution_id),
+                result_details=result_details,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Semantic enrichment stage: failed to mark execution SUCCEEDED",
+                extra={**log_base, "error": str(exc)},
+            )
+
+    # ── Commit: статус ENRICHED + execution SUCCEEDED ─────────────────────────
+    await db.flush()
+    await db.commit()
+
+    # ── Audit log (best-effort, после commit) ─────────────────────────────────
+    try:
+        await audit_repo.log(
+            tenant_id=uuid.UUID(tenant_id),
+            deal_id=uuid.UUID(log_base["deal_id"]),
+            action="LEGAL_UNITS_ENRICHMENT_COMPLETED",
+            actor="system",
+            actor_role="worker",
+            details={
+                **result_details,
+                "document_id": log_base["document_id"],
+                "document_version_id": log_base["document_version_id"],
+                "run_id": run_id,
+            },
+        )
+    except Exception as audit_exc:
+        logger.warning(
+            "Semantic enrichment stage: failed to write audit log",
+            extra={**log_base, "error": str(audit_exc)},
+        )
+
+    return {
+        "document_id": log_base["document_id"],
+        "document_version_id": log_base["document_version_id"],
+        "deal_id": log_base["deal_id"],
+        "tenant_id": tenant_id,
+        "terminal_outcome": outcome.value,
+        "segments_total": segments_total,
+        "segments_with_legal_units_ref": segments_with_legal_units_ref,
+        "segments_enriched": segments_enriched,
+        "segments_timed_out": segments_timed_out,
+        "segments_failed": segments_failed,
+        "segments_skipped_budget": segments_skipped_budget,
+        "budget_exhausted": budget_exhausted,
+        "committed": True,
+        # Подхватывается MASBaseTask.on_success() → mark_succeeded с result_details,
+        # если worker-level mark_succeeded выше был пропущен или завершился с ошибкой.
+        "stage_execution_result_details": result_details,
+    }
+
+
+# ── Приватные helpers ─────────────────────────────────────────────────────────
+
+
+def _ordered_segments_for_enrichment(segments: list[Any]) -> list[Any]:
+    """
+    Упорядочить сегменты для обогащения: сначала primary, затем по segment_order.
+    """
+    def _sort_key(seg: Any) -> tuple[int, int]:
+        is_primary = 0 if bool(getattr(seg, "is_primary", False)) else 1
+        order = int(getattr(seg, "segment_order", 0) or 0)
+        return (is_primary, order)
+
+    return sorted(segments, key=_sort_key)
+
+
+def _extract_legal_units_ref(segment_meta: Any) -> str | None:
+    """
+    Безопасно извлечь legal_units_ref из segment_meta.
+
+    Возвращает непустую строку или None.
+    """
+    if not isinstance(segment_meta, dict):
+        return None
+    ref = segment_meta.get("legal_units_ref")
+    if not ref or not isinstance(ref, str):
+        return None
+    return ref
+
+
+def _derive_terminal_outcome(
+    *,
+    segments_with_legal_units_ref: int,
+    segments_enriched: int,
+    segments_timed_out: int,
+    segments_failed: int,
+    segments_skipped_budget: int,
+) -> SemanticEnrichmentStageOutcome:
+    """
+    Определить терминальный исход по счётчикам обработки сегментов.
+
+    Правила (в порядке приоритета):
+    - нет кандидатов вообще                              → SKIPPED
+    - часть обогащена, часть нет                         → DEGRADED
+    - все обогащены                                      → COMPLETED
+    - ничего не обогащено, причина — таймаут/бюджет      → TIMED_OUT
+    - ничего не обогащено, только hard failures           → DEGRADED
+    """
+    if segments_with_legal_units_ref == 0:
+        return SemanticEnrichmentStageOutcome.SKIPPED
+
+    total_not_enriched = segments_timed_out + segments_failed + segments_skipped_budget
+
+    if segments_enriched == 0:
+        # Ничего не успело — различаем таймаут-причину и failure-причину
+        if segments_timed_out > 0 or segments_skipped_budget > 0:
+            return SemanticEnrichmentStageOutcome.TIMED_OUT
+        return SemanticEnrichmentStageOutcome.DEGRADED
+
+    if total_not_enriched == 0:
+        return SemanticEnrichmentStageOutcome.COMPLETED
+
+    return SemanticEnrichmentStageOutcome.DEGRADED
+
+

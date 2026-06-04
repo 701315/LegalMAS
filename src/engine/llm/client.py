@@ -18,6 +18,7 @@ import os
 import re
 import time
 import asyncio
+import gc
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -93,6 +94,66 @@ class LLMClient:
     def is_available(self) -> bool:
         """Check if any LLM provider is configured."""
         return self.provider in ("openai", "ollama", "llamacpp")
+
+
+    def reset_local_runtime_state(self) -> None:
+        """
+        Сбросить process-local runtime state для llama-cpp.
+
+        Зачем это нужно:
+        - native llama runtime живёт внутри процесса и может переиспользоваться
+          между heavy задачами;
+        - при long-lived worker process это повышает риск нестабильности и SIGSEGV,
+          особенно на grammar-constrained decode path;
+        - метод делает best-effort выгрузку локального состояния модели между задачами.
+
+        Что сбрасывается:
+        - self._llama_model
+        - self._llama_grammar_cache
+
+        Для non-llamacpp provider метод ничего не делает.
+        """
+        if self.provider != "llamacpp":
+            return
+
+        old_model = self._llama_model
+        old_grammar_cache_size = len(self._llama_grammar_cache)
+
+        self._llama_model = None
+        self._llama_grammar_cache.clear()
+
+        if old_model is not None:
+            close_fn = getattr(old_model, "close", None)
+            if callable(close_fn):
+                close_fn()
+
+        # Явно удаляем локальную ссылку и просим GC пройтись по объектам.
+        del old_model
+        gc.collect()
+
+        logger.info(
+            "LLMClient local runtime state reset",
+            provider=self.provider,
+            pid=os.getpid(),
+            cleared_grammar_cache_entries=old_grammar_cache_size,
+        )
+
+    def reset_local_runtime_state_best_effort(self) -> None:
+        """
+        Best-effort обёртка над reset_local_runtime_state().
+
+        Никогда не бросает исключение наружу — cleanup не должен ломать
+        основную задачу worker-а.
+        """
+        try:
+            self.reset_local_runtime_state()
+        except Exception as exc:
+            logger.warning(
+                "LLMClient failed to reset local runtime state",
+                provider=self.provider,
+                pid=os.getpid(),
+                error=str(exc),
+            )
 
     def _compute_token_budget(
         self,

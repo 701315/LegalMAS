@@ -77,8 +77,10 @@ logger = get_logger(__name__)
 def build_structure(
     self,
     document_version_id: str,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
     **kwargs: Any,
-) -> dict[str, Any]:
+) -> dict:
     """
     Sync Celery entrypoint.
 
@@ -97,7 +99,6 @@ def build_structure(
     deal_id = kwargs.get("deal_id")
     tenant_id = kwargs.get("tenant_id")
     document_id = kwargs.get("document_id")
-    stage_execution_id = kwargs.get("stage_execution_id")
 
     async def _wrapper() -> dict[str, Any]:
         try:

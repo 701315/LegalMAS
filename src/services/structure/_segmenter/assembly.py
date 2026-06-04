@@ -47,6 +47,7 @@ from .patterns import (
 )
 from .element_utils import is_heading_candidate_element
 from .types import BoundaryCandidate
+from services.structure._models._normalization import _normalize_scope_name_ascii
 
 
 def build_segments_from_candidates(
@@ -142,15 +143,14 @@ def attach_scope_names(segments: list[SegmentDocument]) -> None:
         seg_type = seg.segment_type or SEGMENT_TYPE_UNKNOWN
 
         if seg_type == SEGMENT_TYPE_CONTRACT and seg.segment_order == 0:
-            seg.scope_name = "main_contract"
+            seg.scope_name = _normalize_scope_name_ascii("main_contract")
             continue
 
         type_counters[seg_type] += 1
 
         appendix_number = extract_appendix_number(seg.segment_title or "")
         if seg_type == SEGMENT_TYPE_APPENDIX and appendix_number:
-            normalized_num = re.sub(r"[^a-zA-Z0-9а-яА-ЯёЁ]+", "_", appendix_number).strip("_")
-            seg.scope_name = f"appendix_{normalized_num.lower()}"
+            seg.scope_name = _normalize_scope_name_ascii(f"appendix_{appendix_number}")
             continue
 
         seg.scope_name = _generate_scope_name(
@@ -210,7 +210,7 @@ def make_single_segment(
         confidence=SEGMENT_CONFIDENCE_HIGH,
         is_primary=True,
     )
-    segment.scope_name = "main_contract"
+    segment.scope_name = _normalize_scope_name_ascii("main_contract")
     segment.segmentation_confidence_score = 1.0
     segment.segmentation_reasons = ["single_segment_mode"]
     return segment
@@ -281,7 +281,7 @@ def _generate_scope_name(
     segment_type: str,
     index_within_type: int,
 ) -> str:
-    """Генерирует scope_name вида ``{type}_{index}``."""
+    """Генерирует ASCII-safe scope_name вида ``{type}_{index}``."""
     segment_type = (segment_type or SEGMENT_TYPE_UNKNOWN).strip().lower()
 
     allowed = {
@@ -297,5 +297,5 @@ def _generate_scope_name(
         segment_type = SEGMENT_TYPE_UNKNOWN
 
     segment_type = re.sub(r"[^a-z0-9_]+", "_", segment_type).strip("_") or "unknown"
-    return f"{segment_type}_{index_within_type}"
+    return _normalize_scope_name_ascii(f"{segment_type}_{index_within_type}")
 

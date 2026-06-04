@@ -1,7 +1,5 @@
 # src/workers/segment_classifier.py
 
-# src/workers/segment_classifier.py
-
 """
 Segment Classifier Worker — segment-level классификация логических документов.
 
@@ -29,6 +27,16 @@ Segment Classifier Worker — segment-level классификация логи�
 - Вся работа с БД идёт через db_uow().
 - HybridClassifier используется тот же, что и для document-level,
   но вызывается через отдельный метод classify_segment(...).
+- После полной успешной segment-level классификации retrigger-им
+  run_orchestrator, чтобы он запланировал следующую formal stage
+  (build_legal_units_enrichment).
+
+Orchestration contract:
+- Retrigger делается ТОЛЬКО если classified_segments == total_segments.
+- Partial result / no-segments / errors не retrigger-им orchestrator,
+  чтобы не создать бесконечный orchestration loop.
+- По образцу classifier.py: retrigger — best-effort, ошибка retrigger
+  не ломает результат классификации.
 
 Audit trail:
 - На успешном завершении пишет SEGMENT_CLASSIFICATION_COMPLETED.
@@ -59,8 +67,12 @@ from engine.content.document_content_service import (
 )
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
-from mas_queue.celery_app import celery_app
+from mas_queue.celery_app import (
+    QUEUE_HEAVY_LLM_ENRICHMENT,
+    celery_app,
+)
 from ops.metrics import get_metrics
+from services.run_orchestrator_trigger import retrigger_run_pipeline
 
 logger = get_logger(__name__)
 
@@ -209,22 +221,117 @@ def _extract_decided_by(details: dict[str, Any] | None) -> str | None:
     return None
 
 
+def _should_retrigger(result: dict) -> bool:
+    """
+    Predicate: стоит ли retrigger-ить orchestrator после segment classification.
+
+    Правила:
+    - status должен быть "completed" (не "skipped", не "failed");
+    - должен быть хотя бы один сегмент;
+    - classified_segments должно совпадать с total_segments.
+
+    Почему нужна проверка classified == total:
+    - Если часть сегментов не была классифицирована (partial result),
+      orchestrator при повторном пробуждении снова увидит
+      "not all segments classified" и поставит classify_document_segments
+      ещё раз → бесконечный loop.
+    - Retrigger только на полностью завершённой классификации.
+
+    Почему не retrigger-им "skipped" / "no_segments":
+    - Если сегментов нет, orchestrator сам примет решение на следующем
+      плановом вызове или при другом событии.
+    """
+    status = str(result.get("status") or "")
+    total_segments = int(result.get("total_segments") or 0)
+    classified_segments = int(result.get("classified_segments") or 0)
+
+    return (
+        status == "completed"
+        and total_segments > 0
+        and classified_segments == total_segments
+    )
+
+
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
     name="workers.classify_document_segments",
-    queue="default",
+    queue=QUEUE_HEAVY_LLM_ENRICHMENT,
 )
 def classify_document_segments(self, document_id: str, **kwargs) -> dict:
     """
     Sync Celery entry point для segment-level классификации.
+
+    После полной успешной segment-level классификации retrigger-им
+    run_orchestrator, чтобы он запланировал следующую formal stage
+    (build_legal_units_enrichment).
+
+    Orchestration contract:
+    - Retrigger только если classified_segments == total_segments.
+    - Partial / no-segments не retrigger-им, чтобы избежать loop.
+    - Retrigger best-effort: ошибка не ломает результат классификации.
     """
     _ = self
 
     async def _wrapper() -> dict:
         return await _classify_document_segments_async(document_id, kwargs)
 
-    return run_async(_wrapper())
+    result = run_async(_wrapper())
+
+    run_id = kwargs.get("run_id")
+    deal_id = kwargs.get("deal_id")
+    tenant_id = kwargs.get("tenant_id")
+
+    total_segments = int(result.get("total_segments") or 0)
+    classified_segments = int(result.get("classified_segments") or 0)
+    skipped_count = int(result.get("skipped_count") or 0)
+    status = str(result.get("status") or "")
+
+    if run_id and _should_retrigger(result):
+        logger.info(
+            "Segment classification fully completed, retriggering run pipeline",
+            extra={
+                "document_id": document_id,
+                "run_id": run_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+                "total_segments": total_segments,
+                "classified_segments": classified_segments,
+                "skipped_count": skipped_count,
+            },
+        )
+        try:
+            retrigger_run_pipeline(
+                run_id=run_id,
+                deal_id=deal_id,
+                tenant_id=tenant_id,
+            )
+        except Exception:
+            # Best-effort: ошибка retrigger не должна ломать результат классификации.
+            logger.warning(
+                "Segment classifier: failed to retrigger run_orchestrator (non-fatal)",
+                extra={
+                    "document_id": document_id,
+                    "run_id": run_id,
+                },
+            )
+    elif run_id and status == "completed":
+        # completed, но не все сегменты классифицированы — не retrigger-им.
+        logger.warning(
+            "Segment classification completed partially; "
+            "orchestrator not retriggered to avoid rescheduling loop",
+            extra={
+                "document_id": document_id,
+                "run_id": run_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+                "total_segments": total_segments,
+                "classified_segments": classified_segments,
+                "skipped_count": skipped_count,
+            },
+        )
+
+    return result
 
 
 async def _classify_document_segments_async(
@@ -233,6 +340,18 @@ async def _classify_document_segments_async(
 ) -> dict:
     """
     Асинхронное ядро segment-level классификации по всем сегментам документа.
+
+    Возвращает dict с полями:
+    - status: "completed" | "skipped" | "failed"
+    - total_segments: int
+    - classified_segments: int
+    - skipped_count: int
+    - processed_segments: list
+    - skipped_segments: list
+    - duration_ms: int
+
+    Не делает retrigger — это ответственность sync entrypoint
+    classify_document_segments().
     """
     _ = extra_args
     start_time = time.time()
@@ -266,7 +385,9 @@ async def _classify_document_segments_async(
             document_version_id = str(version.id)
             deal_id = str(doc.deal_id) if getattr(doc, "deal_id", None) else None
             tenant_id = (
-                str(getattr(doc, "tenant_id", None)) if getattr(doc, "tenant_id", None) else None
+                str(getattr(doc, "tenant_id", None))
+                if getattr(doc, "tenant_id", None)
+                else None
             )
 
             segments = await seg_repo.list_by_version(version.id)
@@ -313,7 +434,8 @@ async def _classify_document_segments_async(
                         )
                     except Exception:
                         logger.warning(
-                            "Segment classifier: failed to write audit log for skipped no-segments result",
+                            "Segment classifier: failed to write audit log "
+                            "for skipped no-segments result",
                             document_id=document_id,
                             document_version_id=document_version_id,
                         )
@@ -367,7 +489,9 @@ async def _classify_document_segments_async(
                         final_confidence=result.get("final_confidence"),
                         decided_by=_seg_decided_by,
                         levels_tried=result.get("levels_tried", []),
-                        requires_manual_review=_seg_details.get("requires_manual_review", False),
+                        requires_manual_review=_seg_details.get(
+                            "requires_manual_review", False
+                        ),
                     )
 
                     details = _safe_json_dict(result.get("details"))
@@ -417,7 +541,8 @@ async def _classify_document_segments_async(
                         ).inc()
                     except Exception:
                         logger.exception(
-                            "classify_document_segments: failed to update classification metrics"
+                            "classify_document_segments: "
+                            "failed to update classification metrics"
                         )
 
                 except Exception as e:
@@ -474,7 +599,8 @@ async def _classify_document_segments_async(
                     )
                 except Exception:
                     logger.warning(
-                        "Segment classifier: failed to write audit log for SEGMENT_CLASSIFICATION_COMPLETED",
+                        "Segment classifier: failed to write audit log "
+                        "for SEGMENT_CLASSIFICATION_COMPLETED",
                         document_id=document_id,
                         document_version_id=document_version_id,
                     )
@@ -510,7 +636,8 @@ async def _classify_document_segments_async(
                     )
             except Exception:
                 logger.warning(
-                    "Segment classifier: failed to write audit log for SEGMENT_CLASSIFICATION_FAILED",
+                    "Segment classifier: failed to write audit log "
+                    "for SEGMENT_CLASSIFICATION_FAILED",
                     document_id=document_id,
                     document_version_id=document_version_id,
                 )
@@ -551,3 +678,6 @@ async def _get_segment_text(
         "DocumentContentService.get_segment_text(...) is not implemented yet. "
         "Add segment-aware text extraction before enabling segment worker."
     )
+
+
+    

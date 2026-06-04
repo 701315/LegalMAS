@@ -180,6 +180,9 @@ def prepare_document_for_language_discovery(
     document_version_id: str,
     deal_id: str,
     tenant_id: str,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     _ = self
 

@@ -61,6 +61,7 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from ops.metrics import get_metrics
 from services.export.core import export_core
+from typing import Any
 
 logger = get_logger(__name__)
 
@@ -83,6 +84,9 @@ def export_results(
     run_id: str,
     deal_id: str,
     tenant_id: str,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict:
     logger.info(
         "Export results task received",
@@ -233,7 +237,13 @@ def _pick_file_ref(export_type: str, refs: dict | None) -> str | None:
     track_job=False,
     queue="default",
 )
-def export_by_id(self, export_id: str) -> dict:
+def export_by_id(
+    self,
+    export_id: str,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
+) -> dict:
     """
     Синхронная Celery-таска UI-инициированного экспорта.
 

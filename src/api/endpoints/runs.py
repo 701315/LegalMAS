@@ -868,17 +868,28 @@ async def get_deal_run_summary(
     """
     Краткое резюме последнего Run по сделке.
 
-    Здесь уже используется фильтрация по user_id в репозитории,
-    так что доступ ограничен участниками проекта.
+    Источник истины:
+    - Deal.last_run_id указывает на последний запущенный run для сделки.
+    - Доступ проверяется через require_project_role, а не через repo-level user_id.
+
+    Это endpoint для status/progress блока фронта.
     """
     deal_repo = DealRepository(db)
-    deal = await deal_repo.get_by_id(deal_id, user_id=user.id)
+    deal = await deal_repo.get_by_id(deal_id)
 
     if not deal or not deal.last_run_id:
         raise HTTPException(status_code=404, detail="Run not found for this deal")
 
+    # Проверяем, что пользователь — участник проекта.
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal.id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
     run_repo = RunRepository(db)
-    run = await run_repo.get_by_id(deal.last_run_id, user_id=user.id)
+    run = await run_repo.get_by_id(deal.last_run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found for this deal")
 

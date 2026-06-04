@@ -76,6 +76,7 @@ class SemanticEnrichmentPolicy:
     # eligibility
     skip_technical_fallback_units: bool = True
     skip_heading_only_units: bool = True
+    skip_already_classified_units: bool = True
     min_text_chars: int = 40
 
     # thresholds

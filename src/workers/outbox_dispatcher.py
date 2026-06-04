@@ -37,6 +37,9 @@ def outbox_dispatcher(
     self,
     batch_size: int = 100,
     requeue_stuck: bool = True,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     _ = self
 

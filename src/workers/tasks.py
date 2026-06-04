@@ -35,6 +35,7 @@ from workers.check_runner_worker import (  # noqa: F401
     run_deal_checks,
     run_single_check,
 )
+from workers.build_legal_units_enrichment import build_legal_units_enrichment  # noqa: F401
 from workers.chunk_builder import build_chunks  # noqa: F401
 from workers.classifier import classify_document  # noqa: F401
 from workers.convert_document_for_language_discovery import (
@@ -66,3 +67,4 @@ from workers.relations_worker import build_relations  # noqa: F401
 from workers.run_orchestrator import start_run_pipeline  # noqa: F401
 from workers.segment_classifier import classify_document_segments  # noqa: F401
 from workers.structure_builder import build_structure  # noqa: F401
+

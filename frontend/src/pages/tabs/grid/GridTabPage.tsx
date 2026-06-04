@@ -7,10 +7,15 @@
 // - unified DocumentViewerModal for evidence navigation
 // - review filters, export, selection state
 // - bulk QC actions for selected review findings
+//
+// Архитектурный принцип:
+// - dd-matrix — PRIMARY data source для вкладки Grid;
+// - useRun(...) — OPTIONAL metadata enrichment, не блокирует рендер;
+// - Grid рендерится как только готов dd-matrix, независимо от run metadata.
 // =============================================================
 
 import React from "react";
-import { ChevronRight, Download, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ChevronRight, Download, SlidersHorizontal } from "lucide-react";
 
 import { useDealReviewDdMatrix } from "../../../api/dealReview";
 import { useRun } from "../../../api/runs";
@@ -45,6 +50,10 @@ import {
   getSelectedReviewFindings,
 } from "./reviewGrid.qc";
 
+// -------------------------------------------------------------
+// Local types
+// -------------------------------------------------------------
+
 type LayoutElementApi = {
   element_id: string;
   page: number;
@@ -55,6 +64,11 @@ type StatusStateCardProps = {
   title: string;
   description?: string;
   tone?: "default" | "error";
+};
+
+type RunMetaWarningProps = {
+  /** Показывать ли предупреждение — если false, ничего не рендерим. */
+  visible: boolean;
 };
 
 type ModeToggleProps = {
@@ -91,6 +105,10 @@ type FetchJsonOptions = {
   init?: RequestInit;
 };
 
+// -------------------------------------------------------------
+// Pure helpers
+// -------------------------------------------------------------
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -109,7 +127,6 @@ function isLayoutElementApi(value: unknown): value is LayoutElementApi {
   if (!isRecord(value)) {
     return false;
   }
-
   return (
     typeof value.element_id === "string" &&
     typeof value.page === "number" &&
@@ -121,7 +138,6 @@ function parseLayoutElements(payload: unknown): LayoutElement[] | undefined {
   if (!isRecord(payload) || !Array.isArray(payload.elements)) {
     return undefined;
   }
-
   return payload.elements
     .filter(isLayoutElementApi)
     .map((element) => ({
@@ -135,7 +151,6 @@ function parseSizedChunks(payload: unknown): SizedChunkMeta[] | undefined {
   if (!isRecord(payload) || !Array.isArray(payload.chunks)) {
     return undefined;
   }
-
   return payload.chunks
     .filter(isRecord)
     .map((chunk) => ({
@@ -154,7 +169,6 @@ function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
     return error.message;
   }
-
   try {
     return JSON.stringify(error);
   } catch {
@@ -168,16 +182,13 @@ async function fetchTextOrThrow({
   init,
 }: FetchTextOptions): Promise<string> {
   const response = await fetch(url, init);
-
   if (!response.ok) {
     throw new Error(errorMessage);
   }
-
   const text = await response.text();
   if (!text) {
     throw new Error(errorMessage);
   }
-
   return text;
 }
 
@@ -186,14 +197,22 @@ async function fetchJsonIfOk({
   init,
 }: FetchJsonOptions): Promise<unknown | undefined> {
   const response = await fetch(url, init);
-
   if (!response.ok) {
     return undefined;
   }
-
   return response.json();
 }
 
+// -------------------------------------------------------------
+// Sub-components
+// -------------------------------------------------------------
+
+/**
+ * Полноэкранная карточка состояния — используется для fatal loading/error
+ * состояний, когда рендер основного контента невозможен.
+ *
+ * НЕ используется для деградации вторичных данных (run metadata).
+ */
 const StatusStateCard: React.FC<StatusStateCardProps> = ({
   title,
   description,
@@ -239,6 +258,31 @@ const StatusStateCard: React.FC<StatusStateCardProps> = ({
         </div>
       </div>
     </section>
+  );
+};
+
+/**
+ * Нефатальный inline-баннер деградации run metadata.
+ *
+ * Показывается когда useRun() завершился ошибкой, но dd-matrix успешно
+ * загружен. Grid при этом полностью функционален — деградирует только
+ * вспомогательная run metadata (checks_mode и т.п.).
+ *
+ * Архитектурный инвариант: этот компонент никогда не блокирует рендер Grid.
+ */
+const RunMetaWarning: React.FC<RunMetaWarningProps> = ({ visible }) => {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <span>
+        Не удалось загрузить метаданные запуска анализа. DD Matrix показана без
+        части run-level метаданных (режим проверок и т.п.).
+      </span>
+    </div>
   );
 };
 
@@ -323,8 +367,10 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({
   );
 };
 
-// Inline-выезжающая панель экспорта.
-// Семантически — disclosure region, не overlay: не использует position/z-index.
+/**
+ * Inline-выезжающая панель экспорта.
+ * Семантически — disclosure region, не overlay: не использует position/z-index.
+ */
 const ExportPanel: React.FC<ExportPanelProps> = ({
   open,
   findings,
@@ -368,6 +414,10 @@ const ExportPanel: React.FC<ExportPanelProps> = ({
   );
 };
 
+// -------------------------------------------------------------
+// Main component
+// -------------------------------------------------------------
+
 const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [reviewFilterState, setReviewFilterState] =
     React.useState<ReviewFilterState>(DEFAULT_REVIEW_FILTER_STATE);
@@ -382,17 +432,31 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [isViewerLoading, setIsViewerLoading] = React.useState(false);
   const [viewerError, setViewerError] = React.useState<string | null>(null);
 
+  // ------------------------------------------------------------------
+  // PRIMARY data source: dd-matrix.
+  // Этот запрос является обязательным для рендера Grid.
+  // Пока он loading — показываем loader.
+  // Если он завершился ошибкой — показываем fatal error.
+  // ------------------------------------------------------------------
   const {
     data: ddMatrix,
     isLoading: isReviewLoading,
     error: reviewError,
   } = useDealReviewDdMatrix(dealId, runId);
 
+  // ------------------------------------------------------------------
+  // SECONDARY / optional: run metadata.
+  // Используется только для вспомогательных данных (checks_mode).
+  // НЕ блокирует рендер Grid — деградирует gracefully через RunMetaWarning.
+  // ------------------------------------------------------------------
   const {
     data: run,
-    isLoading: isRunLoading,
     error: runError,
   } = useRun(runId, false);
+
+  // ------------------------------------------------------------------
+  // Derived data
+  // ------------------------------------------------------------------
 
   const reviewDerived = React.useMemo(
     () => selectReviewGridData(ddMatrix ?? null),
@@ -420,14 +484,12 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   );
 
   const selectedReviewFindings = React.useMemo(
-    () =>
-      getSelectedReviewFindings(reviewDerived.findings, reviewSelection),
+    () => getSelectedReviewFindings(reviewDerived.findings, reviewSelection),
     [reviewDerived.findings, reviewSelection],
   );
 
   const reviewQcCapability = React.useMemo(
-    () =>
-      getReviewQcCapability(reviewSelection, selectedReviewFindings, runId),
+    () => getReviewQcCapability(reviewSelection, selectedReviewFindings, runId),
     [reviewSelection, selectedReviewFindings, runId],
   );
 
@@ -436,6 +498,8 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     [reviewQcCapability],
   );
 
+  // run может быть undefined если useRun ещё не завершился или завершился ошибкой.
+  // humanChecksMode должен безопасно принимать undefined.
   const checksModeLabel = humanChecksMode(run?.checks_mode);
 
   const reviewFiltersButtonLabel =
@@ -447,6 +511,10 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     !reviewFilterState.criticalOnly
       ? "Фильтры"
       : "Фильтры применены";
+
+  // ------------------------------------------------------------------
+  // Handlers
+  // ------------------------------------------------------------------
 
   const handleResetReviewFilters = React.useCallback(() => {
     setReviewFilterState(DEFAULT_REVIEW_FILTER_STATE);
@@ -477,7 +545,11 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       setViewerError(null);
       setIsViewerLoading(true);
 
-      const requestInit: RequestInit = { credentials: "include" };
+      const apiKey = localStorage.getItem("mas_dd_api_key");
+      const requestInit: RequestInit = {
+        credentials: "include",
+        headers: apiKey ? { "X-API-Key": apiKey } : {},
+      };
 
       const pdfUrl = await fetchTextOrThrow({
         url: `/api/v1/documents/${loc.documentId}/converted-pdf-url`,
@@ -511,24 +583,19 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     }
   }, []);
 
+  // ------------------------------------------------------------------
+  // Fatal early returns — только для PRIMARY data source (dd-matrix)
+  // и для отсутствия runId.
+  //
+  // useRun errors здесь НЕ являются fatal — они деградируют через
+  // RunMetaWarning ниже.
+  // ------------------------------------------------------------------
+
   if (!runId) {
     return (
       <StatusStateCard
         title="DD Grid станет доступен после запуска анализа"
         description="Нет выбранного запуска анализа. Сначала запустите анализ на вкладке «Обзор»."
-      />
-    );
-  }
-
-  if (isRunLoading) {
-    return <StatusStateCard title="Загружаем информацию о запуске анализа…" />;
-  }
-
-  if (runError) {
-    return (
-      <StatusStateCard
-        title="Не удалось загрузить информацию о запуске анализа."
-        tone="error"
       />
     );
   }
@@ -546,6 +613,10 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     );
   }
 
+  // ------------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------------
+
   const matrixSectionTitle =
     gridMode === "matrix" ? "Review DD Matrix" : "Review findings list";
 
@@ -556,6 +627,13 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   return (
     <div className="flex min-h-full flex-col gap-6">
+      {/*
+        Нефатальный баннер деградации run metadata.
+        Показывается только если useRun завершился ошибкой,
+        но при этом dd-matrix уже загружен и Grid функционален.
+      */}
+      <RunMetaWarning visible={Boolean(runError)} />
+
       <PageSection
         title="DD Grid"
         subtitle="Матрица документов и проверок с фильтрацией, экспортом и навигацией по evidence."
@@ -574,6 +652,10 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
             tone="critical"
           />
           <StatCard label="Unclear" value={reviewSummary.unclearCount} />
+          {/*
+            checksModeLabel: если run metadata не загрузилась — показываем "—".
+            StatCard сам обрабатывает null/undefined через fallback-значение.
+          */}
           <StatCard label="Режим проверок" value={checksModeLabel ?? "—"} />
         </div>
       </PageSection>

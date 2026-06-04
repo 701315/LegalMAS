@@ -23,7 +23,8 @@ default        — основной пайплайн и лёгкая оркес�
                  x-max-priority=5.
 system         — инфраструктурные и служебные задачи
                  (outbox relay / maintenance / reconcile). x-max-priority=3.
-heavy_llm      — LLM-тяжёлые атомарные задачи (run_single_check).
+heavy_llm_enrichment — LLM-тяжёлые задачи семантического обогащения.
+heavy_llm_checks     — LLM-тяжёлые atomic check-задачи (run_single_check).
                  Без приоритетов, отдельные soft/hard time limits.
 low_priority   — фоновые задачи (export, relations). x-max-priority=1.
 
@@ -42,7 +43,8 @@ visibility_timeout               — должен быть существенн�
 Важно:
 - SoftTimeLimitExceeded должен перехватываться в задачах/базовом таске,
   иначе задача может остаться в RUNNING без корректного статуса в БД.
-- Для heavy_llm рекомендуется отдельный Celery worker-процесс.
+- Для heavy_llm_enrichment и heavy_llm_checks рекомендуются отдельные
+  Celery worker-процессы.
 - Для Redis visibility_timeout Celery рекомендует задавать это значение
   согласованно в broker_transport_options, result_backend_transport_options
   и visibility_timeout.
@@ -113,7 +115,8 @@ _result_backend = _make_result_backend(settings.REDIS_URL)
 QUEUE_HIGH_PRIORITY = "high_priority"
 QUEUE_DEFAULT = "default"
 QUEUE_SYSTEM = "system"
-QUEUE_HEAVY_LLM = "heavy_llm"
+QUEUE_HEAVY_LLM_ENRICHMENT = "heavy_llm_enrichment"
+QUEUE_HEAVY_LLM_CHECKS = "heavy_llm_checks"
 QUEUE_LOW_PRIORITY = "low_priority"
 
 
@@ -123,12 +126,16 @@ QUEUE_LOW_PRIORITY = "low_priority"
 
 # Глобальные лимиты — для большинства задач пайплайна.
 GLOBAL_TASK_SOFT_TIME_LIMIT_SEC = 1200
-GLOBAL_TASK_TIME_LIMIT_SEC = 1200
+GLOBAL_TASK_TIME_LIMIT_SEC = 1260
 
 # Heavy LLM — атомарная single-check задача.
 RUN_SINGLE_CHECK_SOFT_TIME_LIMIT_SEC = 2700
 RUN_SINGLE_CHECK_TIME_LIMIT_SEC = 3600
-
+# Heavy LLM — segment-level classification (LLM на каждый сегмент документа).
+# Задача долгая на CPU-only: один L4 LLM вызов ≈ несколько минут,
+# документ может содержать много сегментов.
+CLASSIFY_DOCUMENT_SEGMENTS_SOFT_TIME_LIMIT_SEC = 3600
+CLASSIFY_DOCUMENT_SEGMENTS_TIME_LIMIT_SEC = 3900
 # visibility_timeout должен быть больше максимального hard limit с запасом.
 BROKER_VISIBILITY_TIMEOUT_SEC = 7200
 
@@ -181,6 +188,7 @@ celery_app.conf.update(
         "workers.segment_classifier",
         "workers.structure_builder",
         "workers.debug_dlq_task",
+        "workers.build_legal_units_enrichment",
     ],
     # --- Сериализация ---
     task_serializer="json",
@@ -240,9 +248,14 @@ celery_app.conf.update(
             queue_arguments={"x-max-priority": 1},
         ),
         Queue(
-            QUEUE_HEAVY_LLM,
-            Exchange(QUEUE_HEAVY_LLM),
-            routing_key=QUEUE_HEAVY_LLM,
+            QUEUE_HEAVY_LLM_ENRICHMENT,
+            Exchange(QUEUE_HEAVY_LLM_ENRICHMENT),
+            routing_key=QUEUE_HEAVY_LLM_ENRICHMENT,
+        ),
+        Queue(
+            QUEUE_HEAVY_LLM_CHECKS,
+            Exchange(QUEUE_HEAVY_LLM_CHECKS),
+            routing_key=QUEUE_HEAVY_LLM_CHECKS,
         ),
     ),
     # --- Очередь по умолчанию ---
@@ -280,12 +293,20 @@ celery_app.conf.update(
             "routing_key": QUEUE_DEFAULT,
         },
         "workers.run_single_check": {
-            "queue": QUEUE_HEAVY_LLM,
-            "routing_key": QUEUE_HEAVY_LLM,
+            "queue": QUEUE_HEAVY_LLM_CHECKS,
+            "routing_key": QUEUE_HEAVY_LLM_CHECKS,
         },
         "workers.finalize_run_if_ready": {
             "queue": QUEUE_DEFAULT,
             "routing_key": QUEUE_DEFAULT,
+        },
+        "workers.build_legal_units_enrichment": {
+            "queue": QUEUE_HEAVY_LLM_ENRICHMENT,
+            "routing_key": QUEUE_HEAVY_LLM_ENRICHMENT,
+        },
+        "workers.classify_document_segments": {
+            "queue": QUEUE_HEAVY_LLM_ENRICHMENT,
+            "routing_key": QUEUE_HEAVY_LLM_ENRICHMENT,
         },
     },
     # --- Периодические задачи Celery Beat ---
@@ -314,6 +335,14 @@ celery_app.conf.update(
         "workers.run_single_check": {
             "soft_time_limit": RUN_SINGLE_CHECK_SOFT_TIME_LIMIT_SEC,
             "time_limit": RUN_SINGLE_CHECK_TIME_LIMIT_SEC,
+        },
+        "workers.build_legal_units_enrichment": {
+            "soft_time_limit": settings.SEMANTIC_ENRICHMENT_WORKER_SOFT_TIME_LIMIT_SECONDS,
+            "time_limit": settings.SEMANTIC_ENRICHMENT_WORKER_TIME_LIMIT_SECONDS,
+        },
+        "workers.classify_document_segments": {
+            "soft_time_limit": CLASSIFY_DOCUMENT_SEGMENTS_SOFT_TIME_LIMIT_SEC,
+            "time_limit": CLASSIFY_DOCUMENT_SEGMENTS_TIME_LIMIT_SEC,
         },
     },
 )

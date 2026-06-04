@@ -256,6 +256,9 @@ def start_language_discovery(
     deal_id: str,
     tenant_id: str,
     document_ids: list[str] | None = None,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """
     Sync Celery entrypoint для запуска pre-run language discovery по сделке.

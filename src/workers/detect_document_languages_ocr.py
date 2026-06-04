@@ -125,6 +125,9 @@ def detect_document_languages_ocr(
     document_version_id: str,
     deal_id: str,
     tenant_id: str,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """
     Sync Celery entrypoint для OCR language detection одного документа.

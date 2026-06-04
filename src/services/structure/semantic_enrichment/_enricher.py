@@ -97,24 +97,56 @@ def _get_neighbor(
     return None
 
 
+def _model_label_from_runtime_path(model_path: str | None) -> str | None:
+    """
+    Построить компактный label модели из runtime path.
+
+    Возвращает basename пути и корректно работает как с Unix-style,
+    так и с Windows-style путями.
+    """
+    raw = str(model_path or "").strip()
+    if not raw:
+        return None
+
+    normalized = raw.replace("\\", "/").rstrip("/").strip()
+    if not normalized:
+        return None
+
+    basename = normalized.rsplit("/", 1)[-1].strip()
+    return basename or None
+
+
 def _resolve_llm_info() -> tuple[str | None, str | None]:
     """
-    Достаёт provider и model из settings для записи в sidecar.
+    Достаёт фактический provider и model для записи в sidecar metadata.
 
-    Важно:
-    Этот helper сохраняет legacy contract sidecar metadata.
-    Для cache fingerprint ниже используется отдельный helper,
-    который читает общий semantic enrichment provider path.
+    Источник истины:
+    semantic enrichment использует общий LLM runtime path, а не legacy
+    STRUCTURE_LLM_* настройки.
+
+    Возвращаемое значение:
+    - provider:
+        llamacpp | ollama | openai | None
+    - model:
+        - llamacpp: basename из LLM_LOCAL_MODEL_PATH
+        - ollama:   LLM_OLLAMA_MODEL
+        - openai:   LLM_OPENAI_MODEL
     """
     try:
         from core.config import settings
 
-        provider = (
-            str(getattr(settings, "STRUCTURE_LLM_PROVIDER", "") or "").strip() or None
-        )
-        model = (
-            str(getattr(settings, "STRUCTURE_LLM_MODEL", "") or "").strip() or None
-        )
+        provider = str(getattr(settings, "LLM_PROVIDER", "") or "").strip() or None
+        model: str | None = None
+
+        if provider == "llamacpp":
+            model = _model_label_from_runtime_path(
+                getattr(settings, "LLM_LOCAL_MODEL_PATH", None)
+            )
+        elif provider == "ollama":
+            model = str(getattr(settings, "LLM_OLLAMA_MODEL", "") or "").strip() or None
+        elif provider == "openai":
+            model = str(getattr(settings, "LLM_OPENAI_MODEL", "") or "").strip() or None
+
         return provider, model
     except Exception:
         return None, None
@@ -155,6 +187,62 @@ def _is_semantic_enrichment_cache_enabled() -> bool:
         return bool(getattr(settings, "SEMANTIC_ENRICHMENT_CACHE_ENABLED", False))
     except Exception:
         return False
+
+
+def _provider_requires_serial_execution(provider: str | None) -> bool:
+    """
+    True, если провайдер использует embedded in-process native runtime
+    и поэтому должен выполняться строго последовательно внутри одного
+    worker process.
+
+    Важно:
+    - llamacpp в текущей архитектуре живёт внутри процесса воркера;
+    - concurrent access к нему уже приводил к timeout/SIGSEGV;
+    - ollama/openai не считаются embedded in-process runtime.
+    """
+    return provider == "llamacpp"
+
+
+def _coerce_positive_int(value: object, default: int) -> int:
+    """Безопасно привести значение к int >= 1."""
+    try:
+        normalized = int(value)
+        return normalized if normalized >= 1 else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _resolve_semantic_enrichment_max_inflight_llm_calls(
+    provider: str | None,
+    *,
+    configured_value: object | None = None,
+) -> int:
+    """
+    Определить максимально допустимое число in-flight LLM calls
+    внутри одного enrichment task.
+
+    Правила:
+    - для embedded local provider (llamacpp) всегда 1;
+    - для остальных провайдеров используется runtime setting
+      SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS;
+    - invalid/non-positive config -> fallback default.
+    """
+    if _provider_requires_serial_execution(provider):
+        return 1
+
+    if configured_value is None:
+        try:
+            from core.config import settings
+
+            configured_value = getattr(
+                settings,
+                "SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS",
+                4,
+            )
+        except Exception:
+            configured_value = 4
+
+    return _coerce_positive_int(configured_value, default=4)
 
 
 def _build_semantic_enrichment_cache_key(
@@ -778,15 +866,37 @@ async def enrich_legal_units_async(
 
         return result
 
+    # Pre-count eligible units for observability (E1)
+    eligible_count = 0
+    skip_reason_counts: dict[str, int] = {}
+    for _u in units:
+        _eligible, _reason = is_unit_eligible_for_enrichment(_u, policy=policy)
+        if _eligible:
+            eligible_count += 1
+        elif _reason:
+            skip_reason_counts[_reason] = skip_reason_counts.get(_reason, 0) + 1
+
+    max_inflight_llm_calls = _resolve_semantic_enrichment_max_inflight_llm_calls(
+        llm_provider
+    )
+    llm_execution_mode = (
+        "sequential" if max_inflight_llm_calls == 1 else "bounded_parallel"
+    )
+
     logger.info(
         "STRUCTURE semantic_enrichment_start (async)",
         extra={
             "document_id": snapshot.document_id,
             "segment_id": snapshot.segment_id,
             "total_units": len(units),
+            "eligible_units": eligible_count,
+            "skipped_units_pre_llm": len(units) - eligible_count,
+            "skip_reason_counts": skip_reason_counts,
             "policy_version": policy.policy_version,
             "llm_provider": llm_provider,
             "llm_model": llm_model,
+            "llm_execution_mode": llm_execution_mode,
+            "max_inflight_llm_calls": max_inflight_llm_calls,
             "cache_enabled": _is_semantic_enrichment_cache_enabled(),
         },
     )
@@ -822,9 +932,23 @@ async def enrich_legal_units_async(
                 reason=f"unexpected_error: {exc}",
             )
 
-    tasks = [_process_unit(i, unit) for i, unit in enumerate(units)]
-    enrichments: list[LegalUnitEnrichment] = list(await asyncio.gather(*tasks))
-    result.enrichments.extend(enrichments)
+    if max_inflight_llm_calls == 1:
+        # Embedded local native runtime path (llamacpp):
+        # do not allow concurrent in-process LLM access.
+        for i, unit in enumerate(units):
+            enrichment = await _process_unit(i, unit)
+            result.enrichments.append(enrichment)
+    else:
+        # Non-embedded providers may safely use bounded parallelism.
+        semaphore = asyncio.Semaphore(max_inflight_llm_calls)
+
+        async def _process_unit_bounded(index: int, unit: LegalUnit) -> LegalUnitEnrichment:
+            async with semaphore:
+                return await _process_unit(index, unit)
+
+        tasks = [_process_unit_bounded(i, unit) for i, unit in enumerate(units)]
+        enrichments: list[LegalUnitEnrichment] = list(await asyncio.gather(*tasks))
+        result.enrichments.extend(enrichments)
 
     logger.info(
         "STRUCTURE semantic_enrichment_complete (async)",

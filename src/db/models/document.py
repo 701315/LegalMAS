@@ -57,6 +57,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
+    DateTime,
     Float,
     ForeignKey,
     Index,
@@ -633,6 +634,15 @@ class DocumentSegment(Base):
         ),
     )
 
+    segment_confidence_zone: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        comment=(
+            "Зона уверенности segment-level классификации: "
+            "high | medium | low | unknown."
+        ),
+    )
+
     segment_applicable_triggers: Mapped[list[str] | None] = mapped_column(
         PG_ARRAY(String(100)),
         nullable=True,
@@ -783,12 +793,25 @@ class DocumentStageExecution(Base):
         ),
     )
 
+    result_details: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Structured terminal result metadata for successfully completed stages. "
+            "Used for semantic enrichment stage outcomes: "
+            "{terminal_outcome, segments_enriched, segments_timed_out, "
+            "segments_failed, segments_skipped_budget, budget_exhausted, ...}"
+        ),
+    )
+
     started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
         nullable=True,
         comment="Timestamp when worker actually started execution",
     )
 
     finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
         nullable=True,
         comment="Timestamp when execution finished (success/fail/cancel)",
     )

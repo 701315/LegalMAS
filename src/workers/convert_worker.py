@@ -33,6 +33,7 @@ import uuid
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any
 
 from core.config import settings
 from core.constants import DocumentStatus
@@ -64,6 +65,9 @@ def convert_to_pdf(
     deal_id: str,
     tenant_id: str,
     run_id: str | None = None,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict:
     """
     Sync Celery entrypoint.

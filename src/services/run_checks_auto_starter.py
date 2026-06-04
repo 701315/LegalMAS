@@ -5,7 +5,7 @@ Run Checks Auto-Starter Service.
 
 Назначение:
 - Автоматически запускать воркер run_deal_checks, когда все нужные документы
-  для Run дошли до классификации (CLASSIFIED или COMPLETED).
+  для Run дошли до классификации (ENRICHED или COMPLETED).
 
 Как это работает:
 - Сервис вызывается:
@@ -16,7 +16,7 @@ Run Checks Auto-Starter Service.
   2) Для этого Run ещё нет Job с task_type="run_deal_checks"
      (по факту — нет успешной вставки в jobs при уникальном (run_id, task_type)).
   3) Все «участвующие» документы сделки для этого Run уже в статусах
-     CLASSIFIED или COMPLETED.
+     ENRICHED или COMPLETED.
 - Если все условия выполняются, ставится один Celery-заказ workers.run_deal_checks.
 
 Важно:
@@ -130,7 +130,7 @@ async def maybe_start_run_checks(
         return
 
     ready_statuses = {
-        DocumentStatus.CLASSIFIED.value,
+        DocumentStatus.ENRICHED.value,
         DocumentStatus.COMPLETED.value,
     }
 

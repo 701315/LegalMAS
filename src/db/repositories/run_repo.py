@@ -3,7 +3,9 @@
 """
 Репозитории для работы с запуском анализа (Run) и единичными задачами (Job).
 
+
 Зачем нужен этот код:
+
 
 - RunRepository:
   - создаёт новый запуск анализа сделки (Run);
@@ -11,28 +13,36 @@
   - обновляет статус Run и связанные с ним поля (счётчики, error_details, timestamps);
   - считает статистику классификации по результатам Run.
 
+
 - JobRepository:
   - создаёт записи о фоновых задачах (Job) внутри Run;
   - обновляет статус задач (queued, running, completed, failed, dlq) с таймстемпами.
 
+
 Как это влияет на работу системы и UX юриста:
+
 
 - Run — это «один запуск анализа» по сделке. По нему фронт показывает:
   - статус запуска;
   - прогресс по checks (total_checks / completed_checks);
   - агрегированную ошибку уровня Run.
 
+
 - Job — это отдельная задача внутри Run.
   Эти записи полезны для операционной поддержки и диагностики.
 """
 
+
 import uuid
 from datetime import UTC, datetime
+
 
 from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 from core.constants import RunStatus
+
 
 from ..models.document import Document
 from ..models.result import CheckResult
@@ -40,9 +50,11 @@ from ..models.run import Job, Run
 from .result_repo import ResultRepository
 
 
+
 class RunRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
 
     async def create(
         self,
@@ -59,9 +71,11 @@ class RunRepository:
         """
         Создать новый запуск анализа (Run) для сделки.
 
+
         Для юриста это означает:
         - «я запустил новый анализ по сделке»;
         - в дальнейшем именно по этому Run будут считаться прогресс и статусы.
+
 
         Важно:
         - pipeline_strategy описывает, как запуск использует существующие артефакты;
@@ -84,50 +98,43 @@ class RunRepository:
         await self.session.flush()
         return run
 
+
     async def get_by_id(self, run_id: uuid.UUID) -> Run | None:
         """Вернуть Run по ID (или None, если не найден)."""
         result = await self.session.execute(select(Run).where(Run.id == run_id))
         return result.scalar_one_or_none()
 
+
     async def get(self, run_id: uuid.UUID) -> Run | None:
         """
         Удобный псевдоним для get_by_id.
+
 
         Нужен, чтобы код, который ожидает метод .get(...),
         мог работать с RunRepository без лишних изменений.
         """
         return await self.get_by_id(run_id)
 
+
     async def update_status(self, run_id: uuid.UUID, status: str, **kwargs) -> Run | None:
         """
         Обновить статус Run и дополнительные поля.
+
 
         Основная идея:
         - это единая точка смены статуса Run;
         - здесь же аккуратно заполняются started_at / completed_at,
           если вызывающий их не передал явно.
         """
-
-        def _to_naive_utc(dt: datetime | None) -> datetime | None:
-            """
-            Привести datetime к naive UTC (без tzinfo), чтобы хранение в БД
-            было единообразным.
-            """
-            if dt is None:
-                return None
-            if dt.tzinfo is None:
-                return dt
-            return dt.astimezone(UTC).replace(tzinfo=None)
-
         values: dict = {"status": status}
 
         if "started_at" in kwargs and kwargs["started_at"] is not None:
-            values["started_at"] = _to_naive_utc(kwargs["started_at"])
+            values["started_at"] = kwargs["started_at"]
         if "completed_at" in kwargs and kwargs["completed_at"] is not None:
-            values["completed_at"] = _to_naive_utc(kwargs["completed_at"])
+            values["completed_at"] = kwargs["completed_at"]
 
         if status == RunStatus.RUNNING.value and "started_at" not in values:
-            values["started_at"] = datetime.now(UTC).replace(tzinfo=None)
+            values["started_at"] = datetime.now(UTC)
 
         if (
             status
@@ -138,7 +145,7 @@ class RunRepository:
             )
             and "completed_at" not in values
         ):
-            values["completed_at"] = datetime.now(UTC).replace(tzinfo=None)
+            values["completed_at"] = datetime.now(UTC)
 
         for k, v in kwargs.items():
             if k in ("started_at", "completed_at"):
@@ -151,6 +158,7 @@ class RunRepository:
         if run:
             await self.session.flush()
         return run
+
 
     async def increment_completed_checks(self, run_id: uuid.UUID) -> int:
         """
@@ -167,6 +175,7 @@ class RunRepository:
         await self.session.flush()
         return new_count
 
+
     async def get_counts(self, run_id: uuid.UUID) -> tuple[int, int]:
         """
         Вернуть (total_checks, completed_checks) для Run.
@@ -181,6 +190,7 @@ class RunRepository:
         completed = row[1] or 0
         return total, completed
 
+
     async def get_document_ids_for_run(self, run_id: uuid.UUID) -> list[uuid.UUID]:
         """
         Вернуть уникальные document_id, для которых есть CheckResult с данным run_id.
@@ -188,6 +198,7 @@ class RunRepository:
         subq = select(CheckResult.document_id).where(CheckResult.run_id == run_id).distinct()
         result = await self.session.execute(subq)
         return [row[0] for row in result.all()]
+
 
     async def get_latest_for_deal(self, deal_id: uuid.UUID) -> Run | None:
         """
@@ -197,6 +208,7 @@ class RunRepository:
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
+
     async def get_by_deal(self, deal_id: uuid.UUID) -> list[Run]:
         """
         Вернуть все Run'ы для сделки, новые сначала.
@@ -204,6 +216,7 @@ class RunRepository:
         stmt = select(Run).where(Run.deal_id == deal_id).order_by(desc(Run.created_at))
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
 
     async def get_classification_stats_for_run(self, run_id: uuid.UUID) -> dict:
         """
@@ -216,6 +229,7 @@ class RunRepository:
             .subquery()
         )
 
+
         stmt = select(
             Document.classification_level,
             Document.classification_confidence,
@@ -223,6 +237,7 @@ class RunRepository:
         ).where(Document.id.in_(select(subq)))
         result = await self.session.execute(stmt)
         rows = result.all()
+
 
         stats = {
             "total_documents": len(rows),
@@ -235,6 +250,7 @@ class RunRepository:
             "unknown_doc_type_count": 0,
         }
 
+
         level_map = {
             "L0": "l0_no_match",
             "L1": "l1_filename",
@@ -244,18 +260,22 @@ class RunRepository:
             "LMANUAL": "l4_llm",
         }
 
+
         for level, confidence, doc_type in rows:
             raw_level = level or "L0"
             level_norm = raw_level.replace("_", "").upper()
             key = level_map.get(level_norm, "l0_no_match")
             stats[key] += 1
 
+
             if confidence and 0 < confidence < 0.6:
                 stats["low_confidence_count"] += 1
             if not doc_type or doc_type in ("Generic", "Unknown"):
                 stats["unknown_doc_type_count"] += 1
 
+
         return stats
+
 
     async def try_start_run(self, run_id: uuid.UUID) -> bool:
         """
@@ -266,7 +286,7 @@ class RunRepository:
             .where(Run.id == run_id, Run.status == RunStatus.PENDING.value)
             .values(
                 status=RunStatus.RUNNING.value,
-                started_at=datetime.now(UTC).replace(tzinfo=None),
+                started_at=datetime.now(UTC),
             )
             .returning(Run.id)
         )
@@ -278,10 +298,12 @@ class RunRepository:
         await self.session.flush()
         return True
 
+
     async def finalize_run_if_finished(self, run_id: uuid.UUID) -> Run | None:
         """
         Синхронизировать прогресс Run по CheckResult и, если все checks завершены,
         перевести Run в финальный статус.
+
 
         Инварианты:
         - source of truth для ожидаемого объёма checks — Run.total_checks,
@@ -293,23 +315,28 @@ class RunRepository:
         if run is None:
             return None
 
+
         result_repo = ResultRepository(self.session)
+
 
         planned_total_checks = int(getattr(run, "total_checks", 0) or 0)
         materialized_checks = await result_repo.count_distinct_checks_for_run(run_id)
         completed_checks = await result_repo.count_finished_checks_for_run(run_id)
         has_failed_checks = await result_repo.has_failed_or_timed_out_checks(run_id)
 
+
         values: dict = {
             "completed_checks": completed_checks,
             "has_errors": has_failed_checks,
         }
+
 
         # total_checks уже определён scheduler'ом как execution plan.
         # Перетираем его только если в Run он ещё не был выставлен.
         if planned_total_checks <= 0 and materialized_checks > 0:
             planned_total_checks = materialized_checks
             values["total_checks"] = planned_total_checks
+
 
         if run.status in (
             RunStatus.COMPLETED.value,
@@ -325,6 +352,7 @@ class RunRepository:
                 return await self.update_status(run_id, run.status, **stale_updates)
             return run
 
+
         # zero-check run — валидный terminal scenario
         if planned_total_checks <= 0:
             final_status = (
@@ -339,6 +367,7 @@ class RunRepository:
                 **values,
             )
 
+
         # checks есть, но ещё не все в terminal execution_status
         if completed_checks < planned_total_checks:
             values["total_checks"] = planned_total_checks
@@ -348,11 +377,13 @@ class RunRepository:
                 **values,
             )
 
+
         final_status = (
             RunStatus.COMPLETED_WITH_ERRORS.value
             if has_failed_checks
             else RunStatus.COMPLETED.value
         )
+
 
         values["total_checks"] = planned_total_checks
         return await self.update_status(
@@ -360,6 +391,7 @@ class RunRepository:
             final_status,
             **values,
         )
+
 
     async def mark_run_failed(
         self,
@@ -376,9 +408,11 @@ class RunRepository:
         payload.setdefault("level", "run")
         payload.setdefault("status", "failed")
 
+
         current = await self.get_by_id(run_id)
         if current is None:
             return None
+
 
         return await self.update_status(
             run_id,
@@ -390,9 +424,11 @@ class RunRepository:
         )
 
 
+
 class JobRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
 
     async def create(
         self,
@@ -412,6 +448,7 @@ class JobRepository:
         await self.session.flush()
         return job
 
+
     async def update_status(self, job_id: uuid.UUID, status: str, **kwargs) -> Job | None:
         """
         Обновить статус Job.
@@ -421,6 +458,7 @@ class JobRepository:
             values["started_at"] = datetime.now(UTC)
         if status in ("completed", "failed", "dlq") and "finished_at" not in kwargs:
             values["finished_at"] = datetime.now(UTC)
+
 
         stmt = update(Job).where(Job.id == job_id).values(**values).returning(Job)
         result = await self.session.execute(stmt)

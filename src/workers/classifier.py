@@ -54,7 +54,7 @@ from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from ops.metrics import get_metrics
-from services.run_checks_auto_starter import maybe_start_run_checks
+from services.run_orchestrator_trigger import retrigger_run_pipeline
 
 logger = get_logger(__name__)
 
@@ -164,12 +164,43 @@ def classify_document(self, document_id: str, **kwargs: Any) -> dict[str, Any]:
     Паттерн:
     - Celery вызывает синхронную функцию.
     - Внутри один раз передаём управление в async‑мир через run_async.
+    - После успешного commit retrigger-им run_orchestrator, чтобы он
+      запланировал следующую formal stage.
     """
 
     async def _wrapper() -> dict[str, Any]:
         return await _classify_document_async(self, document_id, kwargs)
 
-    return run_async(_wrapper())
+    result = run_async(_wrapper())
+
+    run_id = kwargs.get("run_id")
+    deal_id = kwargs.get("deal_id")
+    tenant_id = kwargs.get("tenant_id")
+
+    if run_id and result.get("committed") is True:
+        logger.info(
+            "Classification committed, retriggering run pipeline",
+            document_id=document_id,
+            run_id=run_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            status=result.get("status"),
+            doctype=result.get("doctype"),
+        )
+        try:
+            retrigger_run_pipeline(
+                run_id=run_id,
+                deal_id=deal_id,
+                tenant_id=tenant_id,
+            )
+        except Exception:
+            logger.warning(
+                "Classifier: failed to retrigger run_orchestrator (non-fatal)",
+                document_id=document_id,
+                run_id=run_id,
+            )
+
+    return result
 
 
 async def _classify_document_async(
@@ -315,12 +346,6 @@ async def _classify_document_async(
             if not updated_doc:
                 raise PermanentError(
                     f"Document {document_id} not found during CLASSIFIED status update"
-                )
-
-            if run_uuid is not None:
-                await maybe_start_run_checks(
-                    db=uow.session,
-                    run_id=run_uuid,
                 )
 
             try:

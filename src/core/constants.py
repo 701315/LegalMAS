@@ -26,6 +26,25 @@ class DocumentStatus(str, Enum):
     DUPLICATE = "duplicate"
     DELETED = "deleted"  # excluded from active work, retained for audit/history
     FAILED = "failed"
+    ENRICHED = "enriched"
+
+
+class SemanticEnrichmentStageOutcome(str, Enum):
+    """
+    Terminal outcome of the semantic enrichment formal pipeline stage.
+
+    Semantics:
+    - COMPLETED   — all candidate segments enriched successfully
+    - DEGRADED    — partial success: some enriched, some failed/timed_out
+    - SKIPPED     — no candidate segments or feature disabled
+    - TIMED_OUT   — document budget exhausted before any enrichment succeeded
+    - UNAVAILABLE — LLM not available at stage start
+    """
+    COMPLETED = "completed"
+    DEGRADED = "degraded"
+    SKIPPED = "skipped"
+    TIMED_OUT = "timed_out"
+    UNAVAILABLE = "unavailable"
 
 
 class Severity(str, Enum):

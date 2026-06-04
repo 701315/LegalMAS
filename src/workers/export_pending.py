@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from typing import Any
 
 from core.logging import get_logger
 from db.repositories import AuditRepository
@@ -155,7 +156,13 @@ async def _export_process_pending_async(tenant_id: str) -> bool:
     track_job=False,
     queue="default",
 )
-def export_process_pending(self, tenant_id: str = "default") -> bool:
+def export_process_pending(
+    self,
+    tenant_id: str = "default",
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
+) -> bool:
     """
     Синхронная Celery‑таска обработки одной "ожидающей" задачи экспорта.
 

@@ -58,6 +58,8 @@ from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from ops.metrics import get_metrics
+from typing import Any
+
 
 logger = get_logger(__name__)
 
@@ -79,6 +81,9 @@ def run_deal_checks(
     run_id: str,
     deal_id: str,
     tenant_id: str | None = None,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict:
     """
     Celery-task scheduler уровня Run:
@@ -223,7 +228,7 @@ def run_deal_checks(
                             "checks_mode": run_snap.checks_mode,
                             "force": False,
                         },
-                        queue="heavy_llm",
+                        queue="heavy_llm_checks",
                     )
                     scheduled += 1
 
@@ -346,6 +351,7 @@ def run_deal_checks(
     bind=True,
     name="workers.run_single_check",
     track_job=False,
+    queue="heavy_llm_checks",
 )
 def run_single_check(
     self,
@@ -357,6 +363,9 @@ def run_single_check(
     playbook_version_id: str | None = None,
     checks_mode: str | None = None,
     force: bool = False,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict:
     """
     Выполнить одну проверку (check_id) для одного документа в рамках Run.
@@ -658,7 +667,10 @@ def run_single_check(
                         },
                     )
 
-    return run_async(_run())
+    try:
+        return run_async(_run())
+    finally:
+        _shared_llm_client.reset_local_runtime_state_best_effort()
 
 
 # ─── finalize_run_if_ready ────────────────────────────────────────────────────
@@ -674,6 +686,9 @@ def run_single_check(
 def finalize_run_if_ready(
     self,
     run_id: str,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict:
     """
     Проверить, завершены ли все checks по Run, и при готовности финализировать Run.

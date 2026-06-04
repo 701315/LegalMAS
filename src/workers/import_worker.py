@@ -56,6 +56,9 @@ def import_bundle(
     source_path: str,
     idempotency_key: str | None = None,
     run_id: str | None = None,
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """
     Синхронная точка входа Celery-таски импорта.
