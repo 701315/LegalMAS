@@ -85,6 +85,10 @@ class LLMClient:
         self._llama_model: Any = None
         self._llama_grammar_cache: dict[str, Any] = {}
         self._llamacpp_semaphore: asyncio.Semaphore | None = None
+        # Futures активных llamacpp-вызовов, запущенных через run_in_executor.
+        # Нужны для безопасного reset: нельзя закрывать native runtime,
+        # пока хотя бы один inference ещё физически выполняется.
+        self._llamacpp_inflight_futures: set[Any] = set()
 
 
     # - 0 означает «ровно один вызов без ретраев»;
@@ -100,12 +104,11 @@ class LLMClient:
         """
         Сбросить process-local runtime state для llama-cpp.
 
-        Зачем это нужно:
-        - native llama runtime живёт внутри процесса и может переиспользоваться
-          между heavy задачами;
-        - при long-lived worker process это повышает риск нестабильности и SIGSEGV,
-          особенно на grammar-constrained decode path;
-        - метод делает best-effort выгрузку локального состояния модели между задачами.
+        Важно:
+        - reset безопасен только если в процессе нет активных in-flight
+          llamacpp-вызовов, запущенных через run_in_executor;
+        - если такой вызов ещё работает, закрывать native runtime нельзя:
+          это может привести к SIGSEGV.
 
         Что сбрасывается:
         - self._llama_model
@@ -114,6 +117,16 @@ class LLMClient:
         Для non-llamacpp provider метод ничего не делает.
         """
         if self.provider != "llamacpp":
+            return
+
+        active_inflight_calls = self._count_active_llamacpp_futures()
+        if active_inflight_calls > 0:
+            logger.warning(
+                "LLMClient local runtime reset skipped: active llamacpp calls still in flight",
+                provider=self.provider,
+                pid=os.getpid(),
+                active_inflight_calls=active_inflight_calls,
+            )
             return
 
         old_model = self._llama_model
@@ -127,7 +140,6 @@ class LLMClient:
             if callable(close_fn):
                 close_fn()
 
-        # Явно удаляем локальную ссылку и просим GC пройтись по объектам.
         del old_model
         gc.collect()
 
@@ -471,6 +483,32 @@ class LLMClient:
             self._llamacpp_semaphore = asyncio.Semaphore(1)
         return self._llamacpp_semaphore
 
+
+    def _register_llamacpp_inflight_future(self, future: Any) -> None:
+        """
+        Зарегистрировать in-flight future llamacpp-вызова.
+
+        Future удаляется из реестра автоматически после завершения.
+        """
+        self._llamacpp_inflight_futures.add(future)
+
+        def _cleanup(done_future: Any) -> None:
+            self._llamacpp_inflight_futures.discard(done_future)
+
+        future.add_done_callback(_cleanup)
+
+    def _count_active_llamacpp_futures(self) -> int:
+        """
+        Посчитать реально активные llamacpp futures.
+
+        done()-futures не считаются активными.
+        """
+        return sum(
+            1 for future in self._llamacpp_inflight_futures
+            if not future.done()
+        )
+    
+
     async def _call_openai_async(
         self,
         prompt: str,
@@ -579,24 +617,19 @@ class LLMClient:
         """
         Async llamacpp через run_in_executor + Semaphore(1).
 
-        Не блокирует event loop — CPU-bound инференс выполняется
-        в thread pool executor, освобождая loop для других coroutines.
-
-        Semaphore(1) гарантирует что параллельные async вызовы
-        сериализуются: _llama_model не thread-safe, одновременный
-        доступ из нескольких потоков приводит к race condition.
-
-        Практический эффект при llamacpp + CPU:
-        - Event loop свободен во время инференса (2-10s).
-        - Параллелизм между units НЕ достигается (semaphore сериализует).
-        - Выигрыш: другие async операции (I/O, DB) не ждут LLM.
+        Важная деталь:
+        - native llamacpp-вызов нельзя безопасно "оборвать" через asyncio cancel;
+        - поэтому при отмене outer coroutine мы не отпускаем semaphore сразу,
+          а дожидаемся завершения in-flight executor future;
+        - это предотвращает гонку, когда runtime закрывают или переиспользуют,
+          пока native inference ещё физически работает в thread pool.
         """
         sem = self._get_llamacpp_semaphore()
         loop = asyncio.get_running_loop()
 
         async with sem:
-            result = await loop.run_in_executor(
-                None,  # default ThreadPoolExecutor
+            future = loop.run_in_executor(
+                None,
                 lambda: self._call_llamacpp(
                     prompt=prompt,
                     temperature=temperature,
@@ -604,7 +637,28 @@ class LLMClient:
                     grammar_path=grammar_path,
                 ),
             )
-        return result
+            self._register_llamacpp_inflight_future(future)
+
+            try:
+                return await asyncio.shield(future)
+            except asyncio.CancelledError:
+                logger.warning(
+                    "LLM llamacpp async call cancelled; waiting for in-flight native inference to finish",
+                    provider=self.provider,
+                    pid=os.getpid(),
+                )
+                try:
+                    # Дожидаемся фактического завершения native inference,
+                    # чтобы не освободить semaphore и не допустить unsafe reset.
+                    await asyncio.shield(future)
+                except Exception as exec_exc:
+                    logger.warning(
+                        "LLM llamacpp in-flight call finished with exception during cancellation drain",
+                        provider=self.provider,
+                        pid=os.getpid(),
+                        error=str(exec_exc),
+                    )
+                raise
 
     async def call_async(
         self,

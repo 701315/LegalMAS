@@ -42,10 +42,10 @@ import uuid
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from engine.llm.client import LLMClient
 from core.config import settings
 from core.constants import DocumentStatus, SemanticEnrichmentStageOutcome
-from core.exceptions import PermanentError, TransientError
+from core.exceptions import PermanentError
+
 from core.logging import get_logger
 from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
@@ -120,14 +120,23 @@ def build_legal_units_enrichment(
                 stage_execution_id=stage_execution_id,
             )
 
-    try:
-        result = run_async(_wrapper())
-    except PermanentError:
-        raise
-    except TransientError:
-        raise
-    finally:
-        LLMClient().reset_local_runtime_state_best_effort()
+    # ВАЖНО:
+    # Не делаем per-task reset_local_runtime_state() для embedded llamacpp
+    # в enrichment worker.
+    #
+    # Причина:
+    # - segment enrichment оборачивается в asyncio.wait_for(...);
+    # - async llamacpp внутри LLMClient работает через run_in_executor(...);
+    # - timeout/cancellation outer coroutine не гарантирует немедленную
+    #   остановку native inference в executor thread;
+    # - aggressive reset/close() сразу после timeout может закрыть runtime,
+    #   пока native inference ещё физически завершается → SIGSEGV.
+    #
+    # Безопасный cleanup теперь обеспечивается:
+    # - cancellation-safe async path внутри LLMClient;
+    # - guard-ом в reset_local_runtime_state(), который пропускает reset,
+    #   если есть active in-flight llamacpp calls.
+    result = run_async(_wrapper())
 
     if run_id and result.get("committed"):
         retrigger_run_pipeline(

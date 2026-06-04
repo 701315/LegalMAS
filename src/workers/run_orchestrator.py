@@ -74,7 +74,7 @@ Execution model:
 Run lifecycle semantics:
 - При первом входе Run переводится из PENDING в RUNNING.
 - Повторный вход для RUNNING допустим и используется как штатный re-entry механизм.
-- Для terminal statuses (COMPLETED / FAILED / CANCELLED) orchestration не выполняется.
+- Для terminal statuses ((COMPLETED / COMPLETED_WITH_ERRORS / FAILED) orchestration не выполняется.
 - После прохода orchestrator может запускать maybe_start_run_checks(),
   но только если выполнен пред-гейт готовности, включая segment-level readiness
   для multi-document кейсов.
@@ -529,8 +529,8 @@ async def _start_run_pipeline_async(
 
     elif current_status in {
         RunStatus.COMPLETED.value,
+        RunStatus.COMPLETED_WITH_ERRORS.value,
         RunStatus.FAILED.value,
-        RunStatus.CANCELLED.value,
     }:
         logger.info(
             "Run already in terminal status, skipping orchestration",
