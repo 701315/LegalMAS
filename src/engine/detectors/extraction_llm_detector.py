@@ -300,6 +300,7 @@ class ExtractionLLMDetector:
             temperature=0.0,
             max_tokens=None,
             grammar_path=grammar_path,
+            response_format="json_object",  # P8.5: Ollama JSON mode
         )
         if response is None:
             logger.warning(

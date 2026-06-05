@@ -119,6 +119,21 @@ worker-heavy-checks:
 		--pool=solo \
 		--concurrency=1
 
+
+# Проверить доступность Ollama и список загруженных моделей
+ollama-check:
+	@curl -sf http://localhost:11434/api/tags | python3 -m json.tool 2>/dev/null \
+		|| echo "Ollama is not running. Start it with: ollama serve"
+
+# Прогреть модель (первый вызов загружает GGUF в память Ollama)
+ollama-warm:
+	@echo "Warming up Ollama model..."
+	@curl -sf http://localhost:11434/api/generate \
+		-d '{"model":"qwen25-legal","prompt":"test","stream":false,"options":{"num_predict":1}}' \
+		> /dev/null 2>&1 \
+		&& echo "Model is warm and ready." \
+		|| echo "Failed. Is Ollama running and model created?"
+
 # Удобная подсказка: исторически в dev-help фигурировал worker-heavy,
 # теперь есть два отдельных target'а.
 worker-heavy:
@@ -137,15 +152,22 @@ beat:
 # Подсказка для локальной разработки
 dev-help:
 	@echo ""
-	@echo "Для полного локального pipeline обычно нужны 4 отдельных процесса:"
+	@echo "Для полного локального pipeline (Ollama sidecar mode):"
+	@echo "  0) ollama serve              — запустить Ollama (отдельный терминал)"
+	@echo "  0a) make ollama-warm         — прогреть модель (первый раз)"
 	@echo "  1) make up"
 	@echo "  2) make worker"
 	@echo "  3) make worker-system"
 	@echo "  4) make beat"
-	@echo ""
-	@echo "Если используете heavy LLM задачи, дополнительно запустите:"
 	@echo "  5) make worker-heavy-enrichment"
 	@echo "  6) make worker-heavy-checks"
+	@echo ""
+	@echo "Первоначальная настройка Ollama (один раз на машине):"
+	@echo "  curl -fsSL https://ollama.com/install.sh | sh"
+	@echo "  ollama create qwen25-legal -f /tmp/Qwen25LegalModelfile"
+	@echo "  make ollama-check"
+	@echo ""
+	@echo "Rollback к llamacpp: установить LLM_PROVIDER=llamacpp в .env"
 	@echo ""
 
 

@@ -148,6 +148,7 @@ class L4LLMClassifier:
             prompt=prompt,
             temperature=0.0,
             max_tokens=settings.LLM_MAX_TOKENS,
+            response_format="json_object",  # P8.5: Ollama JSON mode
         )
         return response, errordetails
 

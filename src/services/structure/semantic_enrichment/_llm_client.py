@@ -78,6 +78,7 @@ def call_semantic_enrichment_llm(
         temperature=0.0,
         max_tokens=_MAX_ENRICHMENT_TOKENS,
         max_retries=max_retries,
+        response_format="json_object",  # P8.5: Ollama JSON mode
     )
 
     if response is None:
@@ -134,6 +135,7 @@ async def call_semantic_enrichment_llm_async(
         temperature=0.0,
         max_tokens=_MAX_ENRICHMENT_TOKENS,
         max_retries=max_retries,
+        response_format="json_object",  # P8.5: Ollama JSON mode
     )
 
     if response is None:

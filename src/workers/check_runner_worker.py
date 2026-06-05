@@ -667,10 +667,7 @@ def run_single_check(
                         },
                     )
 
-    try:
-        return run_async(_run())
-    finally:
-        _shared_llm_client.reset_local_runtime_state_best_effort()
+    return run_async(_run())
 
 
 # ─── finalize_run_if_ready ────────────────────────────────────────────────────

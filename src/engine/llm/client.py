@@ -33,6 +33,35 @@ from ops.metrics import METRICS
 
 logger = get_logger(__name__)
 
+# P8.5: Valid values for response_format parameter
+_VALID_RESPONSE_FORMATS: frozenset[str | None] = frozenset({None, "json_object"})
+
+
+def _resolve_structured_output_strategy(
+    provider: str,
+    response_format: "str | None",
+    grammar_path: "str | None",
+) -> str:
+    """
+    Determine the actual structured output strategy for logging/diagnostics.
+
+    Returns a human-readable strategy name:
+    - "none"             — no structured output requested
+    - "ollama_json_mode" — Ollama format: json
+    - "llamacpp_gbnf"    — llama.cpp with GBNF grammar file
+    - "prompt_only"      — JSON requested but provider has no native support
+    """
+    if response_format != "json_object" and not grammar_path:
+        return "none"
+    if provider == "ollama" and response_format == "json_object":
+        return "ollama_json_mode"
+    if provider == "llamacpp" and grammar_path:
+        return "llamacpp_gbnf"
+    if response_format == "json_object":
+        return "prompt_only"
+    return "none"
+
+
 
 class LLMContextLimitError(PermanentError):
     """
@@ -221,6 +250,7 @@ class LLMClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
         grammar_path: str | None = None,
+        response_format: str | None = None,  # P8.5
     ) -> LLMResponse | None:
         """
         Call the configured LLM provider.
@@ -239,6 +269,13 @@ class LLMClient:
             TransientError: таймаут / сетевая ошибка — можно повторить.
             PermanentError: прочие постоянные ошибки — retry бессмысленен.
         """
+        # P8.5: validate response_format
+        if response_format not in _VALID_RESPONSE_FORMATS:
+            raise PermanentError(
+                f"Invalid response_format={response_format!r}. "
+                f"Valid values: {set(_VALID_RESPONSE_FORMATS)}"
+            )
+
         if self.provider == "none" or not self.is_available():
             return None
 
@@ -274,7 +311,7 @@ class LLMClient:
             temperature=temp,
             max_tokens=tokens,
             prompt_preview=prompt[:200],
-            grammar_enabled=bool(grammar_path),
+            grammar_requested=bool(grammar_path),
             prompt_tokens=budget_info.get("prompt_tokens"),
             reserved_output_tokens=budget_info.get("reserved_output_tokens"),
             effective_max_tokens=budget_info.get("effective_max_tokens"),
@@ -289,7 +326,10 @@ class LLMClient:
             if self.provider == "openai":
                 result = self._call_openai(prompt, temp, tokens)
             elif self.provider == "ollama":
-                result = self._call_ollama(prompt, temp, tokens)
+                result = self._call_ollama(
+                    prompt, temp, tokens,
+                    response_format=response_format,  # P8.5
+                )
             elif self.provider == "llamacpp":
                 result = self._call_llamacpp(prompt, temp, tokens, grammar_path=grammar_path)
             else:
@@ -340,6 +380,7 @@ class LLMClient:
         max_tokens: int | None = None,
         grammar_path: str | None = None,
         max_retries: int | None = None,
+        response_format: str | None = None,  # P8.5
     ) -> tuple[LLMResponse | None, dict]:
         """
         Вызов LLM с повторами при временных ошибках.
@@ -376,6 +417,7 @@ class LLMClient:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     grammar_path=grammar_path,
+                    response_format=response_format,  # P8.5
                 )
 
                 if response is None:
@@ -565,15 +607,19 @@ class LLMClient:
         prompt: str,
         temperature: float,
         max_tokens: int,
+        response_format: str | None = None,  # P8.5
     ) -> LLMResponse:
         """
         Async Ollama call через httpx.AsyncClient.
 
         Идентична sync _call_ollama() по логике,
         но не блокирует event loop во время сетевого I/O.
+
+        P8.5: when response_format="json_object", adds "format": "json"
+        to the request body, forcing Ollama to return valid JSON.
         """
         url = f"{settings.LLM_OLLAMA_BASE_URL}/api/generate"
-        body = {
+        body: dict = {
             "model": settings.LLM_OLLAMA_MODEL,
             "prompt": prompt,
             "stream": False,
@@ -582,6 +628,10 @@ class LLMClient:
                 "num_predict": max_tokens,
             },
         }
+
+        # P8.5: Ollama JSON mode
+        if response_format == "json_object":
+            body["format"] = "json"
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(url, json=body)
@@ -666,6 +716,7 @@ class LLMClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
         grammar_path: str | None = None,
+        response_format: str | None = None,  # P8.5
     ) -> LLMResponse | None:
         """
         Async версия call().
@@ -680,6 +731,13 @@ class LLMClient:
             TransientError: таймаут / сетевая ошибка.
             PermanentError: постоянные ошибки.
         """
+        # P8.5: validate response_format
+        if response_format not in _VALID_RESPONSE_FORMATS:
+            raise PermanentError(
+                f"Invalid response_format={response_format!r}. "
+                f"Valid values: {set(_VALID_RESPONSE_FORMATS)}"
+            )
+
         if self.provider == "none" or not self.is_available():
             return None
 
@@ -703,13 +761,20 @@ class LLMClient:
         except PermanentError:
             raise
 
+        # P8.5: resolve structured output strategy for logging
+        so_strategy = _resolve_structured_output_strategy(
+            self.provider, response_format, grammar_path,
+        )
+
         logger.info(
             "LLM async call",
             provider=self.provider,
             temperature=temp,
             max_tokens=tokens,
             prompt_preview=prompt[:200],
-            grammar_enabled=bool(grammar_path),
+            grammar_requested=bool(grammar_path),
+            response_format_requested=response_format,
+            structured_output_strategy=so_strategy,
             prompt_tokens=budget_info.get("prompt_tokens"),
             effective_max_tokens=budget_info.get("effective_max_tokens"),
         )
@@ -722,7 +787,10 @@ class LLMClient:
             if self.provider == "openai":
                 result = await self._call_openai_async(prompt, temp, tokens)
             elif self.provider == "ollama":
-                result = await self._call_ollama_async(prompt, temp, tokens)
+                result = await self._call_ollama_async(
+                    prompt, temp, tokens,
+                    response_format=response_format,  # P8.5
+                )
             elif self.provider == "llamacpp":
                 result = await self._call_llamacpp_async(
                     prompt, temp, tokens, grammar_path=grammar_path
@@ -783,6 +851,7 @@ class LLMClient:
         max_tokens: int | None = None,
         grammar_path: str | None = None,
         max_retries: int | None = None,
+        response_format: str | None = None,  # P8.5
     ) -> tuple[LLMResponse | None, dict]:
         """
         Async версия call_with_retries().
@@ -811,6 +880,7 @@ class LLMClient:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     grammar_path=grammar_path,
+                    response_format=response_format,  # P8.5
                 )
 
                 if response is None:
@@ -943,10 +1013,17 @@ class LLMClient:
         prompt: str,
         temperature: float,
         max_tokens: int,
+        response_format: str | None = None,  # P8.5
     ) -> LLMResponse:
-        """Call Ollama local API."""
+        """
+        Call Ollama local API.
+
+        P8.5: when response_format="json_object", adds "format": "json"
+        to the request body, forcing Ollama to return valid JSON.
+        This is the practical equivalent of json_any_object.gbnf for llamacpp.
+        """
         url = f"{settings.LLM_OLLAMA_BASE_URL}/api/generate"
-        body = {
+        body: dict = {
             "model": settings.LLM_OLLAMA_MODEL,
             "prompt": prompt,
             "stream": False,
@@ -955,6 +1032,10 @@ class LLMClient:
                 "num_predict": max_tokens,
             },
         }
+
+        # P8.5: Ollama JSON mode
+        if response_format == "json_object":
+            body["format"] = "json"
 
         with httpx.Client(timeout=self.timeout) as client:
             response = client.post(url, json=body)
