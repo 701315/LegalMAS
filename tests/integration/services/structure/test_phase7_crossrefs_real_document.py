@@ -88,12 +88,12 @@ def test_phase7_spa_real_document_fixture_sanity(
     assert len(spa_leaf_uids) >= 6
 
     expected_leafs = {
-        "maincontract1",
-        "maincontract2",
-        "maincontract3",
-        "maincontract4",
-        "maincontract5",
-        "maincontract6",
+        "main_contract:1",
+        "main_contract:2",
+        "main_contract:3",
+        "main_contract:4",
+        "main_contract:5",
+        "main_contract:6",
     }
     assert expected_leafs.issubset(set(spa_leaf_uids))
 

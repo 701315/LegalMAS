@@ -125,8 +125,8 @@ class TestStructureBuilderSavesChunkPlan:
 
     def test_chunk_plan_ref_written_to_artifact_path(self) -> None:
         """
-        ArtifactPath.chunk_plan() должен строить path
-        в structures/ рядом с file_graph.json.
+        ArtifactPath.chunk_plan() должен строить version-scoped path
+        в structures/{document_id}/versions/{document_version_id}/ рядом с file_graph.json.
         """
         from storage.artifact_store import ArtifactPath
 
@@ -134,19 +134,26 @@ class TestStructureBuilderSavesChunkPlan:
             tenant_id="tenant-111",
             deal_id="deal-222",
             document_id="doc-333",
+            document_version_id="ver-444",
         )
 
         assert "tenant-111" in path
         assert "deal-222" in path
         assert "doc-333" in path
+        assert "ver-444" in path
         assert "chunk_plan.json" in path
         assert "structures" in path
-        # Проверяем что это тот же каталог что file_graph.json
+        assert "/versions/ver-444/" in path
+
+        # Проверяем что это тот же version-scoped каталог что file_graph.json
         file_graph_path = ArtifactPath.file_graph(
             tenant_id="tenant-111",
             deal_id="deal-222",
             document_id="doc-333",
+            document_version_id="ver-444",
         )
+
+        assert file_graph_path.endswith("/file_graph.json")
         assert path.rsplit("/", 1)[0] == file_graph_path.rsplit("/", 1)[0]
 
     def test_chunk_plan_roundtrip_through_json(self) -> None:

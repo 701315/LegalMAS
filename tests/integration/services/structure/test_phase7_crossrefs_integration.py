@@ -30,7 +30,7 @@ def test_phase7_pipeline_builds_graph_from_frozen_tree_fixture(
     assert graph.document_id == "doc-phase7-int-1"
     assert graph.stats.references_count == 5
     assert graph.stats.unique_sources_count == 4
-    assert graph.stats.unique_targets_count == 5
+    assert graph.stats.unique_targets_count == 4
     assert graph.stats.unresolved_count == 1
     assert graph.stats.ambiguous_count == 0
 

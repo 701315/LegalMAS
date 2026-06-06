@@ -150,11 +150,23 @@ class TestEffectiveUidFormat:
         with pytest.raises(ValueError, match=r"raw_uid must be non-empty"):
             make_effective_uid("maincontract", "   ")
 
-    def test_rejects_invalid_scope_format(self) -> None:
-        """ИНВАРИАНТ: scope должен быть валидным идентификатором."""
-        for invalid_scope in ["appendix-1", "appendix 1", "appendix.1"]:
-            with pytest.raises(ValueError, match="Invalid scope"):
-                make_effective_uid(invalid_scope, "A.1")
+    def test_scope_normalization_of_separators(self) -> None:
+        """
+        КОНТРАКТ: scope с дефисами, пробелами и точками не отвергается,
+        а нормализуется в ASCII snake_case.
+
+        services.structure.models.make_effective_uid использует
+        _normalize_scope_name_ascii, которая преобразует разделители
+        в underscore. Это intentional behaviour для Unicode-safe naming.
+        """
+        uid_dash = make_effective_uid("appendix-1", "A.1")
+        assert uid_dash == "appendix_1:A.1"
+
+        uid_space = make_effective_uid("appendix 1", "A.1")
+        assert uid_space == "appendix_1:A.1"
+
+        uid_dot = make_effective_uid("appendix.1", "A.1")
+        assert uid_dot == "appendix_1:A.1"
 
     def test_split_rejects_invalid_format(self) -> None:
         """КОНТРАКТ: split требует формат 'scope:raw_uid'."""

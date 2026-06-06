@@ -10,6 +10,21 @@ V2_ONLY contract:
    - every segment has segment_chunks_ref
 3) no legacy snapshot path
 4) no fallback through DocumentContentService
+
+Два режима:
+
+canonical:
+    Полный stage artifact (section + clause + subclause).
+    Для pipeline audit — позволяет увидеть результат этапа CHUNKS
+    как он материализован в artifact store.
+
+friendly:
+    Retrieval-visible corpus.
+    Ровно те чанки (subclause + section), которые используются в
+    retrieval/checks при анализе рисков.
+    Строится через DocumentContentService.get_retrieval_chunks_for_checks()
+    — тот же path, что у CheckRunner.
+    Это default-режим для пользователя.
 """
 
 from __future__ import annotations
@@ -35,6 +50,7 @@ from core.logging import get_logger
 from db.models.document import DocumentSegment
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
+from engine.content.document_content_service import DocumentContentService
 from services.pipeline_view.representation import with_representation
 from storage.artifact_store import ArtifactStore
 
@@ -44,19 +60,49 @@ logger = get_logger(__name__)
 
 _CHUNKS_REPR_KWARGS = dict(
     stage_code=PipelineStageCode.CHUNKS,
-    friendly_supported=False,
+    friendly_supported=True,
     canonical_description=(
-        "Показывается результат этапа CHUNKS: материализованные чанки документа."
+        "Canonical CHUNKS artifact: полный набор materialized чанков "
+        "всех уровней (section, clause, subclause) из stage snapshot. "
+        "Это результат этапа CHUNKS как части pipeline — "
+        "он может не совпадать с retrieval-visible corpus."
     ),
     friendly_description=(
-        "Показывается тот же набор чанков в режиме удобного просмотра. "
-        "Отдельное friendly-представление для CHUNKS пока не реализовано."
+        "RAG-visible corpus: именно те чанки (subclause + section), "
+        "на основе которых система анализирует риски документа. "
+        "Тот же corpus, что использует CheckRunner при проверках."
     ),
+)
+
+# ── Описания стадии по режиму ───────────────────────────────────────
+
+_STAGE_DESCRIPTION_FRIENDLY = (
+    "RAG-visible corpus: чанки, на основе которых система "
+    "анализирует риски и принимает решения. "
+    "Именно это видит retrieval при проверках документа."
+)
+
+_STAGE_DESCRIPTION_CANONICAL = (
+    "Canonical CHUNKS artifact: полный набор materialized чанков "
+    "всех уровней (section, clause, subclause). "
+    "Это pipeline artifact — для аудита этапа CHUNKS."
 )
 
 
 class ChunksStageBuilder:
-    """Строит стадию CHUNKS для pipeline view в режиме V2_ONLY."""
+    """
+    Строит стадию CHUNKS для pipeline view в режиме V2_ONLY.
+
+    canonical:
+        Загружает все уровни (section + clause + subclause) из
+        ChunkCorpusReaderV2. Для pipeline audit.
+
+    friendly:
+        Загружает retrieval-visible corpus через
+        DocumentContentService.get_retrieval_chunks_for_checks().
+        Тот же path, что у CheckRunner.
+        Default для пользователя.
+    """
 
     def __init__(self, session: AsyncSession, store: ArtifactStore):
         self._session = session
@@ -68,7 +114,7 @@ class ChunksStageBuilder:
         doc,
         version,
         base_meta: StageMetaDTO,
-        view_mode: StageViewMode = StageViewMode.canonical,
+        view_mode: StageViewMode = StageViewMode.friendly,
     ) -> PipelineStageViewDTO:
         """Основной метод построения стадии CHUNKS."""
 
@@ -87,7 +133,8 @@ class ChunksStageBuilder:
                     code=PipelineStageCode.CHUNKS,
                     title="CHUNKS: materialized chunks",
                     description=(
-                        "V2 manifest чанков ещё не записан. " "Стадия CHUNKS пока не готова."
+                        "V2 manifest чанков ещё не записан. "
+                        "Стадия CHUNKS пока не готова."
                     ),
                     available=False,
                     kind=PipelineStageKind.chunks,
@@ -163,8 +210,8 @@ class ChunksStageBuilder:
                     code=PipelineStageCode.CHUNKS,
                     title="CHUNKS: materialized chunks",
                     description=(
-                        "V2 manifest найден, но materialized segments отсутствуют. "
-                        "Стадия CHUNKS пока не готова."
+                        "V2 manifest найден, но materialized segments "
+                        "отсутствуют. Стадия CHUNKS пока не готова."
                     ),
                     available=False,
                     kind=PipelineStageKind.chunks,
@@ -222,69 +269,25 @@ class ChunksStageBuilder:
                 **_CHUNKS_REPR_KWARGS,
             )
 
-        reader_v2 = ChunkCorpusReaderV2(
-            session=self._session,
-            artifact_store=self._store,
+        # ── Загрузка chunks по режиму ───────────────────────────────
+        raw_chunks_v2 = await self._load_chunks_for_mode(
+            doc=doc,
+            view_mode=view_mode,
         )
 
-        try:
-            raw_chunks_v2 = await reader_v2.load(doc_id=doc.id, levels=["clause"])
-        except PermanentError:
-            logger.warning(
-                "PIPELINE_VIEW CHUNKS missing: manifest declared but payload not found",
-                extra={
-                    "doc_id": str(doc.id),
-                    "version_id": str(version.id),
-                    "manifest_ref": manifest_ref,
-                    "view_mode": view_mode.value,
-                },
-            )
+        if raw_chunks_v2 is None:
+            # PermanentError при canonical-mode (artifact missing in storage)
             return with_representation(
                 PipelineStageViewDTO(
                     code=PipelineStageCode.CHUNKS,
                     title="CHUNKS: materialized chunks",
                     description=(
-                        "V2 manifest чанков указан, но соответствующий артефакт "
-                        "отсутствует в сторедже."
+                        "V2 manifest чанков указан, но соответствующий "
+                        "артефакт отсутствует в сторедже."
                     ),
                     available=False,
                     kind=PipelineStageKind.chunks,
                     status=PipelineStageStatus.missing,
-                    artifact_ref=manifest_ref,
-                    meta=StageMetaDTO(
-                        page_count=base_meta.page_count,
-                        element_count=base_meta.element_count,
-                        chunk_count=0,
-                        section_count=base_meta.section_count,
-                        source_file_name=base_meta.source_file_name,
-                        mime_type=base_meta.mime_type,
-                    ),
-                    preview=None,
-                ),
-                view_mode=view_mode,
-                **_CHUNKS_REPR_KWARGS,
-            )
-        except TransientError:
-            logger.warning(
-                "PIPELINE_VIEW CHUNKS pending: storage temporarily unavailable",
-                extra={
-                    "doc_id": str(doc.id),
-                    "version_id": str(version.id),
-                    "manifest_ref": manifest_ref,
-                    "view_mode": view_mode.value,
-                },
-            )
-            return with_representation(
-                PipelineStageViewDTO(
-                    code=PipelineStageCode.CHUNKS,
-                    title="CHUNKS: materialized chunks",
-                    description=(
-                        "V2 manifest чанков временно недоступен. "
-                        "Попробуйте обновить представление позже."
-                    ),
-                    available=False,
-                    kind=PipelineStageKind.chunks,
-                    status=PipelineStageStatus.pending,
                     artifact_ref=manifest_ref,
                     meta=StageMetaDTO(
                         page_count=base_meta.page_count,
@@ -317,8 +320,8 @@ class ChunksStageBuilder:
                     code=PipelineStageCode.CHUNKS,
                     title="CHUNKS: materialized chunks",
                     description=(
-                        "V2 manifest чанков существует, но materialized chunk corpus "
-                        "пуст или не может быть восстановлен."
+                        "V2 manifest чанков существует, но materialized "
+                        "chunk corpus пуст или не может быть восстановлен."
                     ),
                     available=False,
                     kind=PipelineStageKind.chunks,
@@ -383,7 +386,9 @@ class ChunksStageBuilder:
                 **_CHUNKS_REPR_KWARGS,
             )
 
-        reconstructed_text = "\n\n".join(ch.text for ch in chunk_previews if ch.text.strip())
+        reconstructed_text = "\n\n".join(
+            ch.text for ch in chunk_previews if ch.text.strip()
+        )
 
         preview = ChunksPreviewDTO(
             type="chunks",
@@ -400,6 +405,12 @@ class ChunksStageBuilder:
             section_count=base_meta.section_count,
             source_file_name=base_meta.source_file_name,
             mime_type=base_meta.mime_type,
+        )
+
+        stage_description = (
+            _STAGE_DESCRIPTION_FRIENDLY
+            if view_mode == StageViewMode.friendly
+            else _STAGE_DESCRIPTION_CANONICAL
         )
 
         logger.info(
@@ -419,10 +430,7 @@ class ChunksStageBuilder:
         stage = PipelineStageViewDTO(
             code=PipelineStageCode.CHUNKS,
             title="CHUNKS: materialized chunks",
-            description=(
-                "Материализованный segment-aware corpus чанков документа "
-                "для retrieval, checks и viewer."
-            ),
+            description=stage_description,
             available=True,
             kind=PipelineStageKind.chunks,
             status=PipelineStageStatus.ready,
@@ -433,7 +441,115 @@ class ChunksStageBuilder:
 
         return with_representation(stage, view_mode=view_mode, **_CHUNKS_REPR_KWARGS)
 
-    # ── V2 ──────────────────────────────────────────────────────────
+    # ── Загрузка по режиму ──────────────────────────────────────────
+
+    async def _load_chunks_for_mode(
+        self,
+        doc,
+        view_mode: StageViewMode,
+    ) -> list[dict[str, Any]] | None:
+        """
+        Загрузить chunks в зависимости от режима.
+
+        friendly:
+            DocumentContentService.get_retrieval_chunks_for_checks()
+            Тот же path, что у CheckRunner.
+            levels = ["subclause", "section"] (default retrieval levels).
+
+        canonical:
+            ChunkCorpusReaderV2.load() с levels=["section", "clause", "subclause"].
+            Полный stage artifact.
+
+        Возвращает:
+            list[dict] — нормально загруженные чанки
+            []         — corpus пуст (valid, но нечего показывать)
+            None       — PermanentError (artifact missing in storage)
+        """
+        if view_mode == StageViewMode.friendly:
+            return await self._load_retrieval_chunks(doc)
+        else:
+            return await self._load_canonical_chunks(doc)
+
+    async def _load_retrieval_chunks(
+        self,
+        doc,
+    ) -> list[dict[str, Any]]:
+        """
+        Загрузить retrieval-visible corpus через DocumentContentService.
+
+        Это ровно тот corpus, который используется CheckRunner при анализе рисков.
+        levels = ["subclause", "section"] — default retrieval levels.
+        filter_unsafe_chunks=False — показываем всё, включая unsafe chunks,
+        чтобы пользователь видел полную картину (unsafe будет помечен флагом).
+        """
+        content_svc = DocumentContentService(
+            session=self._session,
+            artifact_store=self._store,
+        )
+
+        try:
+            chunks = await content_svc.get_retrieval_chunks_for_checks(
+                doc_id=doc.id,
+                # default: ["subclause", "section"] — retrieval truth
+                filter_unsafe_chunks=False,
+            )
+        except Exception as e:
+            logger.warning(
+                "PIPELINE_VIEW CHUNKS friendly: get_retrieval_chunks_for_checks failed",
+                extra={
+                    "doc_id": str(doc.id),
+                    "error": str(e),
+                },
+            )
+            return []
+
+        return chunks or []
+
+    async def _load_canonical_chunks(
+        self,
+        doc,
+    ) -> list[dict[str, Any]] | None:
+        """
+        Загрузить полный canonical corpus через ChunkCorpusReaderV2.
+
+        Все три уровня: section + clause + subclause.
+        Возвращает None при PermanentError (artifact missing).
+        """
+        reader_v2 = ChunkCorpusReaderV2(
+            session=self._session,
+            artifact_store=self._store,
+        )
+
+        try:
+            chunks = await reader_v2.load(
+                doc_id=doc.id,
+                levels=["section", "clause", "subclause"],
+            )
+        except PermanentError:
+            logger.warning(
+                "PIPELINE_VIEW CHUNKS canonical missing: artifact not found in storage",
+                extra={"doc_id": str(doc.id)},
+            )
+            return None
+        except TransientError:
+            logger.warning(
+                "PIPELINE_VIEW CHUNKS canonical pending: storage temporarily unavailable",
+                extra={"doc_id": str(doc.id)},
+            )
+            return []
+        except Exception as e:
+            logger.warning(
+                "PIPELINE_VIEW CHUNKS canonical: unexpected error loading chunks",
+                extra={
+                    "doc_id": str(doc.id),
+                    "error": str(e),
+                },
+            )
+            return []
+
+        return chunks or []
+
+    # ── V2 chunk preview builder ────────────────────────────────────
 
     def _build_v2_chunks(
         self,
@@ -442,7 +558,14 @@ class ChunksStageBuilder:
         raw_chunks_v2: list[dict[str, Any]],
         segments: list[DocumentSegment],
     ) -> tuple[list[ChunkPreviewDTO], list[ChunksSegmentPreviewDTO]]:
-        """Группирует v2 чанки по сегментам."""
+        """
+        Группирует v2 чанки по сегментам и строит ChunkPreviewDTO.
+
+        Ключевое изменение vs. старой версии:
+        - chunk_kind, effective_uid, retrieval_safe берутся из metadata
+          и пробрасываются в ChunkPreviewDTO.
+        - Больше не теряем тип чанка на этом слое.
+        """
         chunks_by_segment_id: dict[str, list[dict[str, Any]]] = {}
         for raw_idx, ch in enumerate(raw_chunks_v2):
             meta = ch.get("metadata") or {}
@@ -490,21 +613,50 @@ class ChunksStageBuilder:
                     continue
 
                 meta = ch.get("metadata") or {}
-                clause_uid = ch.get("clause_uid") or meta.get("clause_uid") or ""
-                page_from = meta.get("page_from") or meta.get("start_page")
-                page_to = meta.get("page_to") or meta.get("end_page")
+
+                # ── Page range ──────────────────────────────────────
+                # Retrieval chunks используют start_page/end_page.
+                # Canonical snapshot chunks используют page_from/page_to.
+                # Поддерживаем оба варианта.
+                page_from = (
+                    meta.get("page_from")
+                    or meta.get("start_page")
+                )
+                page_to = (
+                    meta.get("page_to")
+                    or meta.get("end_page")
+                )
+
+                # ── Clause UID ──────────────────────────────────────
+                clause_uid = (
+                    ch.get("clause_uid")
+                    or meta.get("clause_uid")
+                    or ""
+                )
+
+                # ── Chunk identity ──────────────────────────────────
+                chunk_kind = meta.get("chunk_kind")
+                effective_uid = meta.get("effective_uid")
+                retrieval_safe = meta.get("retrieval_safe")
+
                 chunk_id = ch.get("id")
                 raw_idx = ch.get("_pipeline_index")
                 index = (
-                    int(raw_idx) if isinstance(raw_idx, int) else len(flat_chunks) + len(seg_chunks)
+                    int(raw_idx)
+                    if isinstance(raw_idx, int)
+                    else len(flat_chunks) + len(seg_chunks)
                 )
 
                 seg_chunks.append(
                     ChunkPreviewDTO(
                         index=index,
                         clause_uid=str(clause_uid) if clause_uid else "",
-                        page_from=page_from if isinstance(page_from, int) else None,
-                        page_to=page_to if isinstance(page_to, int) else None,
+                        page_from=(
+                            page_from if isinstance(page_from, int) else None
+                        ),
+                        page_to=(
+                            page_to if isinstance(page_to, int) else None
+                        ),
                         text=text[:4000],
                         segment_id=pipeline_segment.segment_id,
                         segment_type=pipeline_segment.segment_type,
@@ -512,6 +664,18 @@ class ChunksStageBuilder:
                         segment_order=pipeline_segment.segment_order,
                         is_primary_segment=pipeline_segment.is_primary,
                         chunk_id=str(chunk_id) if chunk_id else None,
+                        # ── NEW: honest chunk identity ──────────────
+                        chunk_kind=(
+                            str(chunk_kind) if chunk_kind else None
+                        ),
+                        effective_uid=(
+                            str(effective_uid) if effective_uid else None
+                        ),
+                        retrieval_safe=(
+                            bool(retrieval_safe)
+                            if retrieval_safe is not None
+                            else None
+                        ),
                     )
                 )
 
@@ -526,7 +690,9 @@ class ChunksStageBuilder:
                 )
                 continue
 
-            reconstructed = "\n\n".join(ch.text for ch in seg_chunks if ch.text.strip())
+            reconstructed = "\n\n".join(
+                ch.text for ch in seg_chunks if ch.text.strip()
+            )
             segments_preview.append(
                 ChunksSegmentPreviewDTO(
                     segment=pipeline_segment,
@@ -538,3 +704,6 @@ class ChunksStageBuilder:
             flat_chunks.extend(seg_chunks)
 
         return flat_chunks, segments_preview
+
+
+        

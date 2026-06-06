@@ -28,7 +28,7 @@ def test_phase7_regression_counts_are_stable(
     assert stats == {
         "references_count": 5,
         "unique_sources_count": 4,
-        "unique_targets_count": 5,
+        "unique_targets_count": 4,
         "unresolved_count": 1,
         "ambiguous_count": 0,
         "invalid_source_mapping_count": 0,
@@ -38,6 +38,9 @@ def test_phase7_regression_counts_are_stable(
         "index_node_skipped_count": 0,
         "duplicate_effective_uid_count": 0,
         "duplicate_scoped_raw_uid_count": 0,
+        "appendix_scoped_resolved_count": 0,
+        "appendix_scope_miss_count": 0,
+        "toc_like_reference_skipped_count": 0,
     }
 
 

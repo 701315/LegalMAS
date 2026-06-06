@@ -3,6 +3,7 @@
 // Типы для document pipeline view.
 // =============================================================
 
+
 import type { JsonValue } from "./common";
 import type { DocumentStatus } from "./documents";
 
@@ -27,37 +28,20 @@ export interface StageMetaDTO {
   section_count?: number | null;
   source_file_name?: string | null;
   mime_type?: string | null;
-
-  // Для STRUCTURE friendly-view backend может явно показывать,
-  // было ли выполнено обогащение текста из CHUNKS.
   text_enriched?: boolean | null;
 }
 
 export interface StageProvenanceDTO {
-  // Основной источник правды для текущего представления.
   primary_source_stage?: PipelineStageCode | null;
-
-  // Дополнительные стадии, использованные для derived/friendly view.
   derived_from_stages: PipelineStageCode[];
-
-  // Короткая подпись для UI.
   preview_source_label?: string | null;
 }
 
 export interface StageRepresentationDTO {
-  // Технический режим, в котором backend собрал текущую стадию.
   view_mode: StageViewMode;
-
-  // Удобный флаг для UI, чтобы не вычислять вручную.
   is_canonical: boolean;
-
-  // Короткая подпись режима.
   label: string;
-
-  // Человеко-понятное описание текущего представления.
   description?: string | null;
-
-  // Информация о происхождении данных в этом представлении.
   provenance: StageProvenanceDTO;
 }
 
@@ -99,13 +83,6 @@ export interface ChunkRefDTO {
   chunk_id?: string | null;
 }
 
-/**
- * Привязка секции STRUCTURE к исходному текстовому слою документа.
- * Используется для source-pane справа:
- * - какие чанки соответствуют секции;
- * - по каким страницам искать;
- * - какую цитату можно подсветить.
- */
 export type SectionSourceMatchStrategy =
   | "chunk_refs"
   | "text_quote"
@@ -115,47 +92,28 @@ export interface SectionSourceMappingDTO {
   source_stage: PipelineStageCode;
   page_from?: number | null;
   page_to?: number | null;
-
-  // legacy
   chunk_indices: number[];
-
-  // v2 canonical
   chunk_refs: ChunkRefDTO[];
   segment_id?: string | null;
-
   match_text?: string | null;
   match_strategy: SectionSourceMatchStrategy;
 }
 
 export interface StructureSectionPreviewDTO {
   id: string;
-
-  // Доменный идентификатор клаузы.
-  // Нужен для связи structure -> chunks -> checks.
   clause_uid?: string | null;
-
   title: string;
   level: number;
   page_from?: number | null;
   page_to?: number | null;
-
-  // v2 segment provenance
   segment_id?: string | null;
   segment_type?: string | null;
   segment_title?: string | null;
   segment_order?: number | null;
   is_primary_segment?: boolean | null;
-
-  // Канонический текст секции из STRUCTURE / clause tree.
   structure_text?: string | null;
-
-  // Обогащённый текст секции.
   enriched_text?: string | null;
-
-  // UI-совместимое поле для показа текста секции.
   text_preview?: string | null;
-
-  // Связь секции с исходным текстовым слоем.
   source_mapping?: SectionSourceMappingDTO | null;
 }
 
@@ -167,15 +125,14 @@ export interface StructureSegmentPreviewDTO {
 
 export interface StructurePreviewDTO {
   type: "structure";
-
-  // legacy flattened view
   sections: StructureSectionPreviewDTO[];
-
-  // v2 canonical view
   segments: StructureSegmentPreviewDTO[];
-
   raw_json?: JsonValue | null;
 }
+
+/* ============================================================
+ * CHUNKS
+ * ============================================================ */
 
 export interface ChunkPreviewDTO {
   index: number;
@@ -193,6 +150,26 @@ export interface ChunkPreviewDTO {
 
   // optional stable ids/provenance
   chunk_id?: string | null;
+
+  // ── честная идентичность чанка ──────────────────────────────
+  //
+  // chunk_kind: реальный уровень чанка из backend truth.
+  //   "section"   — крупный раздел документа
+  //   "clause"    — пункт / статья
+  //   "subclause" — подпункт (это то, что реально видит RAG)
+  //   Если null — старый artifact без этого поля.
+  chunk_kind?: "section" | "clause" | "subclause" | string | null;
+
+  // effective_uid: canonical identity чанка в retrieval pipeline.
+  //   Именно этот uid используется в retrieval/checks при анализе рисков.
+  //   clause_uid может быть display/raw uid и не совпадать с effective_uid.
+  effective_uid?: string | null;
+
+  // retrieval_safe: флаг доступности в retrieval pipeline.
+  //   true  — чанк активно используется в RAG/checks
+  //   false — чанк существует в artifact, но отфильтрован (unsafe)
+  //   null  — информация недоступна
+  retrieval_safe?: boolean | null;
 }
 
 export interface ChunksSegmentPreviewDTO {
@@ -204,13 +181,8 @@ export interface ChunksSegmentPreviewDTO {
 
 export interface ChunksPreviewDTO {
   type: "chunks";
-
-  // legacy flattened view
   chunks: ChunkPreviewDTO[];
-
-  // v2 canonical view
   segments: ChunksSegmentPreviewDTO[];
-
   reconstructed_text?: string | null;
   raw_json?: JsonValue | null;
 }
@@ -232,9 +204,6 @@ export interface PipelineStageViewDTO {
   artifact_ref?: string | null;
   meta?: StageMetaDTO | null;
   preview?: PipelineStagePreview;
-
-  // Новое поле backend: объясняет,
-  // в каком режиме показана стадия и откуда взялись данные.
   representation: StageRepresentationDTO;
 }
 
@@ -242,11 +211,7 @@ export interface DocumentPipelineViewResponseDTO {
   document_id: string;
   document_version_id?: string | null;
   document_status: DocumentStatus | string;
-
-  // Общий режим, в котором backend собрал весь ответ.
   view_mode: StageViewMode;
-
   stages: PipelineStageViewDTO[];
 }
-
 

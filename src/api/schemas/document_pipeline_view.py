@@ -335,6 +335,23 @@ class ChunkPreviewDTO(BaseModel):
     # optional stable ids/provenance
     chunk_id: str | None = None
 
+    # ── честная идентичность чанка ────────────────────────────────────
+    # Реальный уровень чанка из backend truth.
+    # "section" | "clause" | "subclause" | None (если неизвестен)
+    # Не вычисляется на фронте — проставляется backend'ом из metadata.
+    chunk_kind: str | None = None
+
+    # Canonical identity чанка в retrieval pipeline.
+    # Это resolved uid — именно он используется в retrieval/checks.
+    # clause_uid может быть raw/display uid и не совпадать с effective_uid.
+    effective_uid: str | None = None
+
+    # Флаг retrieval safety.
+    # True  = чанк активно используется в retrieval/checks.
+    # False = чанк существует в artifact, но отфильтрован (unsafe).
+    # None  = информация недоступна (старый artifact или не enriched).
+    retrieval_safe: bool | None = None
+
 
 class ChunksSegmentPreviewDTO(BaseModel):
     segment: PipelineSegmentDTO

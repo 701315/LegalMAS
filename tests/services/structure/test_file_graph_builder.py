@@ -174,12 +174,16 @@ def test_file_confidence_primary_failed() -> None:
     """Если primary tree FAILED, file-level confidence тоже FAILED."""
     tree1 = _make_empty_tree("seg_1", confidence=STRUCTURE_CONFIDENCE_FAILED, degraded=True)
 
-    file_conf = _derive_file_confidence(trees=[tree1], primary_segment_id="seg_1")
+    file_conf = _derive_file_confidence(
+        trees=[tree1],
+        primary_segment_id="seg_1",
+        validation_has_errors=False,
+    )
     assert file_conf == STRUCTURE_CONFIDENCE_FAILED
 
 
 def test_file_confidence_primary_high_secondary_failed() -> None:
-    """Если primary HIGH, но secondary FAILED — file-level остаётся HIGH."""
+    """Если primary HIGH, но secondary FAILED — file-level confidence понижается до LOW."""
     tree1 = _make_tree_with_node(
         "seg_1",
         "maincontract:1",
@@ -189,8 +193,12 @@ def test_file_confidence_primary_high_secondary_failed() -> None:
     )
     tree2 = _make_empty_tree("seg_2", confidence=STRUCTURE_CONFIDENCE_FAILED, degraded=True)
 
-    file_conf = _derive_file_confidence(trees=[tree1, tree2], primary_segment_id="seg_1")
-    assert file_conf == STRUCTURE_CONFIDENCE_HIGH
+    file_conf = _derive_file_confidence(
+        trees=[tree1, tree2],
+        primary_segment_id="seg_1",
+        validation_has_errors=False,
+    )
+    assert file_conf == STRUCTURE_CONFIDENCE_LOW
 
 
 # ── Тесты _sync_primary_flags ─────────────────────────────────────────────────

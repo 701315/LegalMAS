@@ -646,6 +646,8 @@ class TestBuildSingleSegmentSnapshot:
         chunk_plan: FileChunkPlan | None = None,
         segment_id: str = SEG_ID,
     ) -> SegmentChunkSnapshotV2:
+        import asyncio
+
         if tree_nodes is None:
             tree_nodes = [
                 _make_normal_node(effective_uid="main:1", raw_uid="1", title="Clause 1"),
@@ -662,20 +664,28 @@ class TestBuildSingleSegmentSnapshot:
         builder = SegmentChunkBuilderV2(store=store)
         segment = _make_segment(segment_id=segment_id)
 
-        return builder._build_single_segment_snapshot(
-            document_id=DOC_ID,
-            document_version_id=VERSION_ID,
-            segment=segment,
-            layout=layout,
-            layout_meta=layout.get("metadata") or {},
-            layout_ref="layout-ref",
-            file_graph_ref="graph-ref",
-            params={"target_tokens": 300, "max_tokens": 800, "overlap_ratio": 0.15},
-            target_tokens=300,
-            max_tokens=800,
-            overlap_ratio=0.15,
-            total_pages=3,
-            chunk_plan=chunk_plan,
+        return asyncio.run(
+            builder._build_single_segment_snapshot(
+                document_id=DOC_ID,
+                document_version_id=VERSION_ID,
+                segment=segment,
+                layout=layout,
+                layout_meta=layout.get("metadata") or {},
+                layout_ref="layout-ref",
+                file_graph_ref="graph-ref",
+                file_graph_segment={
+                    "segment_id": str(segment.segment_id),
+                    "segment_type": str(segment.segment_type),
+                    "segment_order": int(segment.segment_order),
+                    "is_primary": bool(segment.is_primary),
+                },
+                params={"target_tokens": 300, "max_tokens": 800, "overlap_ratio": 0.15},
+                target_tokens=300,
+                max_tokens=800,
+                overlap_ratio=0.15,
+                total_pages=3,
+                chunk_plan=chunk_plan,
+            )
         )
 
     # ── Backward compatibility ────────────────────────────────────────────

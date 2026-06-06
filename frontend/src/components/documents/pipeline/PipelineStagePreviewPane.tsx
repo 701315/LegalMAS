@@ -25,10 +25,34 @@ interface Props {
   onClose: () => void;
 }
 
-const FRIENDLY_SUPPORTED_KINDS: PipelineStageKind[] = ["structure"];
+// ── Какие kinds поддерживают friendly-режим ─────────────────────────
+//
+// structure — friendly = enriched text из CHUNKS
+// chunks    — friendly = RAG-visible corpus (retrieval truth)
+const FRIENDLY_SUPPORTED_KINDS: PipelineStageKind[] = ["structure", "chunks"];
+
+// ── Какие kinds открываются в friendly по умолчанию ─────────────────
+//
+// CHUNKS: продуктовая логика — показать пользователю базу RAG-анализа.
+// По умолчанию friendly, потому что это retrieval truth.
+// STRUCTURE: по умолчанию canonical (clause tree).
+const FRIENDLY_DEFAULT_KINDS: PipelineStageKind[] = ["chunks"];
 
 function supportsFriendlyMode(stage: PipelineStageViewDTO): boolean {
   return FRIENDLY_SUPPORTED_KINDS.includes(stage.kind);
+}
+
+function getDefaultViewMode(stage: PipelineStageViewDTO): StageViewMode {
+  // Если backend уже явно прислал view_mode — уважаем его.
+  const backendMode = stage.representation?.view_mode;
+  if (backendMode === "friendly" || backendMode === "canonical") {
+    return backendMode;
+  }
+  // Иначе — по продуктовой логике.
+  if (FRIENDLY_DEFAULT_KINDS.includes(stage.kind)) {
+    return "friendly";
+  }
+  return "canonical";
 }
 
 function getErrorMessage(err: unknown): string {
@@ -45,6 +69,34 @@ function getErrorMessage(err: unknown): string {
   }
 
   return "Не удалось переключить режим отображения стадии";
+}
+
+// ── Подписи кнопки toggle для разных kinds ──────────────────────────
+
+function getToggleLabels(kind: PipelineStageKind): {
+  toFriendly: string;
+  toCanonical: string;
+  toFriendlyTitle: string;
+  toCanonicalTitle: string;
+} {
+  if (kind === "chunks") {
+    return {
+      toFriendly: "RAG basis",
+      toCanonical: "Stage artifact",
+      toFriendlyTitle:
+        "Показать retrieval-visible corpus — то, на чём основан анализ рисков",
+      toCanonicalTitle:
+        "Показать полный canonical artifact этапа CHUNKS (все уровни)",
+    };
+  }
+
+  // Default (structure и другие)
+  return {
+    toFriendly: "Friendly формат",
+    toCanonical: "Canonical формат",
+    toFriendlyTitle: "Показать более удобный для чтения вид",
+    toCanonicalTitle: "Вернуться к каноническому результату этапа",
+  };
 }
 
 export const PipelineStagePreviewPane: React.FC<Props> = ({
@@ -69,7 +121,8 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
     setCurrentStage(stage ?? null);
     setCurrentStages(stages);
     setError(null);
-    setViewMode(stage?.representation?.view_mode ?? "canonical");
+    // Используем smart default вместо hardcoded "canonical"
+    setViewMode(stage ? getDefaultViewMode(stage) : "canonical");
   }, [stage, stages]);
 
   React.useEffect(() => {
@@ -94,6 +147,8 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
 
   const canToggleFriendly =
     supportsFriendlyMode(resolvedStage) && resolvedStage.status === "ready";
+
+  const toggleLabels = getToggleLabels(resolvedStage.kind);
 
   async function handleToggleViewMode() {
     if (!documentId || !canToggleFriendly || loading) return;
@@ -207,8 +262,8 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
               disabled={loading}
               title={
                 viewMode === "canonical"
-                  ? "Показать более удобный для чтения вид"
-                  : "Вернуться к каноническому результату этапа"
+                  ? toggleLabels.toFriendlyTitle
+                  : toggleLabels.toCanonicalTitle
               }
               className="gap-1.5"
             >
@@ -220,12 +275,12 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
               ) : viewMode === "canonical" ? (
                 <>
                   <Sparkles size={14} />
-                  Friendly формат
+                  {toggleLabels.toFriendly}
                 </>
               ) : (
                 <>
                   <Braces size={14} />
-                  Canonical формат
+                  {toggleLabels.toCanonical}
                 </>
               )}
             </Button>

@@ -458,20 +458,30 @@ class TestSegmentChunkBuilderModeCIntegration:
         store = DummyStore()
         builder = SegmentChunkBuilderV2(store=store)
 
-        snapshot = builder._build_single_segment_snapshot(
-            document_id=DOC_ID,
-            document_version_id=uuid.UUID("00000000-0000-0000-0000-000000000002"),
-            segment=segment,
-            layout=layout,
-            layout_meta=layout.get("metadata") or {},
-            layout_ref="layout-ref",
-            file_graph_ref="graph-ref",
-            params={},
-            target_tokens=300,
-            max_tokens=800,
-            overlap_ratio=0.15,
-            total_pages=5,
-            chunk_plan=plan,
+        import asyncio
+
+        snapshot = asyncio.run(
+            builder._build_single_segment_snapshot(
+                document_id=DOC_ID,
+                document_version_id=uuid.UUID("00000000-0000-0000-0000-000000000002"),
+                segment=segment,
+                layout=layout,
+                layout_meta=layout.get("metadata") or {},
+                layout_ref="layout-ref",
+                file_graph_ref="graph-ref",
+                file_graph_segment={
+                    "segment_id": str(segment.segment_id),
+                    "segment_type": str(segment.segment_type),
+                    "segment_order": int(segment.segment_order),
+                    "is_primary": bool(segment.is_primary),
+                },
+                params={},
+                target_tokens=300,
+                max_tokens=800,
+                overlap_ratio=0.15,
+                total_pages=5,
+                chunk_plan=plan,
+            )
         )
 
         # Проверяем что snapshot построен через layout fallback
