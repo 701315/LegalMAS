@@ -19,6 +19,24 @@ def normalize_clause_chunk_text(
     raw_uid: str | None,
     title: str | None,
 ) -> str:
+    """
+    Нормализовать текст clause chunk.
+
+    Fix 2 (chunk integrity):
+    Удаление первой строки допустимо ТОЛЬКО если она в точности равна:
+      - uid (без дополнительного текста), или
+      - uid + " " + title (без дополнительного текста).
+
+    Примеры:
+      raw_uid="7.3.3", title="Конфиденциальность"
+      first_line="7.3.3 Конфиденциальность"         → удаляем (чистый heading)
+      first_line="7.3.3"                             → удаляем (чистый uid)
+      first_line="7.3.3 Стороны обязуются сохранять" → НЕ удаляем (смысловой текст)
+      first_line="7.3.3 Стороны..."                  → НЕ удаляем
+
+    Ранее использовалось startswith(uid_prefix) — это давало ложные
+    срабатывания для клауз где текст начинается с номера пункта.
+    """
     text = (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
     if not text:
         return ""
@@ -44,20 +62,28 @@ def normalize_clause_chunk_text(
     uid = (raw_uid or "").strip()
     normalized_title = (title or "").strip()
 
-    if uid:
+    if uid and cleaned:
         first_line = cleaned[0]
         first_compact = re.sub(r"\s+", " ", first_line.strip().rstrip("."))
-        uid_prefix = re.sub(r"\s+", " ", uid.strip().rstrip("."))
-        looks_like_uid_heading = first_compact == uid_prefix or first_compact.startswith(uid_prefix)
+        uid_compact = re.sub(r"\s+", " ", uid.strip().rstrip("."))
 
-        if looks_like_uid_heading:
-            if normalized_title:
-                expected_heading = f"{uid} {normalized_title.strip()}"
-                expected_compact = re.sub(r"\s+", " ", expected_heading.strip().rstrip("."))
-                if first_compact == expected_compact or first_compact.startswith(uid_prefix):
-                    cleaned = cleaned[1:]
-            else:
-                cleaned = cleaned[1:]
+        # ── Fix 2: строгое сравнение вместо startswith ────────────────────────
+        # Удаляем первую строку ТОЛЬКО если она в точности совпадает с:
+        #   1) uid (чистый номер пункта без текста), или
+        #   2) uid + " " + title (номер + заголовок без дополнительного текста)
+        #
+        # НЕ удаляем если после uid идёт смысловой текст —
+        # это первое предложение клаузы, а не heading.
+
+        is_pure_uid = (first_compact == uid_compact)
+
+        is_uid_plus_title = False
+        if normalized_title:
+            expected_heading = f"{uid_compact} {re.sub(r'\s+', ' ', normalized_title.strip().rstrip('.'))}"
+            is_uid_plus_title = (first_compact == expected_heading)
+
+        if is_pure_uid or is_uid_plus_title:
+            cleaned = cleaned[1:]
 
     while cleaned and not cleaned[0]:
         cleaned.pop(0)

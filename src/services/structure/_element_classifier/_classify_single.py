@@ -9,7 +9,13 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from services.structure.heading_patterns import parse_raw_heading
+from services.structure.heading_features import (
+    looks_like_numeric_amount_continuation,
+    looks_like_reference_led_clause_continuation,
+)
 
+from services.structure.legal_heading_rules import numeric_uid_depth
 from ._config import TOC_SCORE_STRONG, TOC_SCORE_WEAK
 from ._detectors import (
     _heading_candidate_confidence,
@@ -26,6 +32,7 @@ from ._detectors import (
 from ._page_stats import _relative_page_position
 from ._text_utils import _normalize_text, _safe_int
 from ._toc_context import _TocContext
+
 
 if TYPE_CHECKING:
     pass
@@ -269,6 +276,96 @@ def _classify_single_element(
             reasons=reasons,
             raw_type=raw_type,
         )
+
+    # 6.5 Strong numeric heading override
+    #
+    # Universal rule for legal docs:
+    # if extractor already marked the element as heading
+    # AND parse_raw_heading() extracts a plausible numeric uid of depth >= 2,
+    # this element must stay in heading pipeline and must not be downgraded
+    # to table_content/list_item by downstream weak heuristics.
+    #
+    # This protects clauses like:
+    #   2.1 В соответствии ...
+    #   5.1 В том случае ...
+    #   6.3 В случае нарушения ...
+    #   7.1.1 ...
+    #   7.1.2 ...
+    #   7.3.3 ...
+    parsed_heading = parse_raw_heading(text)
+    parsed_uid = parsed_heading[0] if parsed_heading else None
+    parsed_title = parsed_heading[1] if parsed_heading else ""
+
+    # 6.4 Hard negative demotion for numeric false positives
+    #
+    # Universal production rule:
+    # if a parsed numeric prefix is followed by an amount-like continuation
+    # or by a reference-led sentence continuation, this is body text rather
+    # than a structural heading candidate.
+    #
+    # Important:
+    # - this is NOT document-specific;
+    # - we demote to body_text BEFORE heading override logic fires.
+    if parsed_uid and parsed_title:
+        is_amount_tail = looks_like_numeric_amount_continuation(parsed_title)
+        is_reference_led = looks_like_reference_led_clause_continuation(parsed_title)
+
+        if is_amount_tail or is_reference_led:
+            reason_code = (
+                "numeric_amount_continuation_after_uid"
+                if is_amount_tail
+                else "reference_led_clause_continuation_after_uid"
+            )
+            reason_text = (
+                "Parsed numeric prefix is followed by amount-like continuation"
+                if is_amount_tail
+                else "Parsed numeric prefix is followed by reference-led body continuation"
+            )
+            confidence = 0.86 if raw_type == "heading" else 0.80
+            reasons.append(
+                ClassificationReason(
+                    reason_code,
+                    confidence,
+                    reason_text,
+                )
+            )
+            return ClassificationResult(
+                element_type=ELEMENT_TYPE_BODY_TEXT,
+                confidence=confidence,
+                reasons=reasons,
+                raw_type=raw_type,
+                metadata={
+                    "parsed_uid": parsed_uid,
+                    "demoted_from_numeric_heading": True,
+                    "demotion_reason": reason_code,
+                },
+            )
+
+    if raw_type == "heading" and parsed_uid:
+        uid_depth = numeric_uid_depth(parsed_uid)
+        if (
+            uid_depth >= 2
+            and not looks_like_reference_led_clause_continuation(parsed_title)
+            and not looks_like_numeric_amount_continuation(parsed_title)
+        ):
+            heading_conf = _heading_candidate_confidence(text=text, raw_type=raw_type)
+            reasons.append(
+                ClassificationReason(
+                    "extractor_numeric_heading_override",
+                    max(heading_conf, 0.90),
+                    "Extractor marked element as heading and parser found numeric clause uid",
+                )
+            )
+            return ClassificationResult(
+                element_type=ELEMENT_TYPE_HEADING_CANDIDATE,
+                confidence=round(max(heading_conf, 0.90), 3),
+                reasons=reasons,
+                raw_type=raw_type,
+                metadata={
+                    "parsed_uid": parsed_uid,
+                    "forced_numeric_heading": True,
+                },
+            )
 
     # 7. Table content
     if _looks_like_table_content(text):

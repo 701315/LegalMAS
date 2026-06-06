@@ -354,6 +354,34 @@ async def _build_structure_async(
     segment_rows_to_create: list[dict[str, Any]] = []
     old_segment_tree_refs: list[str] = []
 
+    def _verify_json_artifact_roundtrip(
+        *,
+        ref: str,
+        expected_payload: dict | list,
+        artifact_kind: str,
+        segment_id: str | None = None,
+    ) -> None:
+        """
+        Проверить, что только что записанный JSON-артефакт немедленно читается
+        обратно в том же виде.
+
+        Это защищает от silent stale-artifact / wrong-ref / unexpected overwrite
+        ситуаций и делает persisted state проверяемым.
+        """
+        try:
+            actual_payload = store.get_json(ref)
+        except Exception as e:
+            raise TransientError(
+                f"{artifact_kind} artifact is not readable immediately after write: "
+                f"ref={ref}, segment_id={segment_id or '<none>'}, error={e}"
+            )
+
+        if actual_payload != expected_payload:
+            raise TransientError(
+                f"{artifact_kind} artifact roundtrip mismatch after write: "
+                f"ref={ref}, segment_id={segment_id or '<none>'}"
+            )
+
     try:
         if store_file_graph:
             file_analysis, file_chunk_plan = build_file_structure_with_chunk_plan(
@@ -372,10 +400,17 @@ async def _build_structure_async(
                     tenant_id=tenant_id,
                     deal_id=deal_id,
                     document_id=str(doc.id),
+                    document_version_id=str(v_id),
                 )
+                chunk_plan_payload = file_chunk_plan.to_dict()
                 chunk_plan_ref = store.put_json(
                     chunk_plan_path,
-                    file_chunk_plan.to_dict(),
+                    chunk_plan_payload,
+                )
+                _verify_json_artifact_roundtrip(
+                    ref=chunk_plan_ref,
+                    expected_payload=chunk_plan_payload,
+                    artifact_kind="chunk_plan",
                 )
                 logger.info(
                     "Structure builder: chunk plan saved",
@@ -402,10 +437,17 @@ async def _build_structure_async(
                 tenant_id=tenant_id,
                 deal_id=deal_id,
                 document_id=str(doc.id),
+                document_version_id=str(v_id),
             )
+            file_graph_payload = file_result.file_graph.to_dict()
             file_graph_ref = store.put_json(
                 file_graph_path,
-                file_result.file_graph.to_dict(),
+                file_graph_payload,
+            )
+            _verify_json_artifact_roundtrip(
+                ref=file_graph_ref,
+                expected_payload=file_graph_payload,
+                artifact_kind="file_graph",
             )
 
             graph_segments = getattr(file_result.file_graph, "segments", []) or []
@@ -443,11 +485,19 @@ async def _build_structure_async(
                         tenant_id=tenant_id,
                         deal_id=deal_id,
                         document_id=str(doc.id),
+                        document_version_id=str(v_id),
                         segment_id=seg_id,
                     )
+                    segment_tree_payload = clause_tree_obj.to_dict()
                     segment_tree_ref = store.put_json(
                         segment_tree_path,
-                        clause_tree_obj.to_dict(),
+                        segment_tree_payload,
+                    )
+                    _verify_json_artifact_roundtrip(
+                        ref=segment_tree_ref,
+                        expected_payload=segment_tree_payload,
+                        artifact_kind="segment_clause_tree",
+                        segment_id=seg_id,
                     )
                     segment_tree_ref_by_id[seg_id] = segment_tree_ref
 
@@ -500,6 +550,8 @@ async def _build_structure_async(
                 elements=elements,
             )
 
+    except TransientError:
+        raise
     except Exception as e:
         logger.exception(
             "Failed to build structure artifacts",
@@ -522,10 +574,19 @@ async def _build_structure_async(
         tenant_id=tenant_id,
         deal_id=deal_id,
         document_id=str(doc.id),
+        document_version_id=str(v_id),
     )
 
     try:
-        clause_tree_ref = store.put_json(clause_tree_path, clause_tree.to_dict())
+        clause_tree_payload = clause_tree.to_dict()
+        clause_tree_ref = store.put_json(clause_tree_path, clause_tree_payload)
+        _verify_json_artifact_roundtrip(
+            ref=clause_tree_ref,
+            expected_payload=clause_tree_payload,
+            artifact_kind="clause_tree",
+        )
+    except TransientError:
+        raise
     except Exception as e:
         logger.exception(
             "Failed to store clause tree",
@@ -659,6 +720,39 @@ async def _build_structure_async(
                 f"for version {v_id}: primary_count={persisted_primary_count}"
             )
 
+        expected_segment_ids = {
+            str(row["segment_id"])
+            for row in segment_rows_to_create
+        }
+        actual_segment_ids = {
+            str(seg.segment_id)
+            for seg in persisted_segments
+        }
+        if actual_segment_ids != expected_segment_ids:
+            raise TransientError(
+                "document_segments segment_id set mismatch after flush "
+                f"for version {v_id}: expected={sorted(expected_segment_ids)}, "
+                f"actual={sorted(actual_segment_ids)}"
+            )
+
+        expected_tree_refs_by_segment_id = {
+            str(row["segment_id"]): row.get("segment_clause_tree_ref")
+            for row in segment_rows_to_create
+        }
+        actual_tree_refs_by_segment_id = {
+            str(seg.segment_id): getattr(seg, "segment_clause_tree_ref", None)
+            for seg in persisted_segments
+        }
+
+        for seg_id, expected_ref in expected_tree_refs_by_segment_id.items():
+            actual_ref = actual_tree_refs_by_segment_id.get(seg_id)
+            if actual_ref != expected_ref:
+                raise TransientError(
+                    "segment_clause_tree_ref mismatch after flush "
+                    f"for version {v_id}, segment_id={seg_id}: "
+                    f"expected={expected_ref}, actual={actual_ref}"
+                )
+
     await uow.session.commit()
 
     # 2. На успешном пути помечаем execution как SUCCEEDED (если он есть).
@@ -685,13 +779,24 @@ async def _build_structure_async(
             current_tree_refs.add(ref)
 
     stale_refs = [r for r in old_segment_tree_refs if r not in current_tree_refs]
-    if stale_refs:
+
+    versioned_stale_refs = [r for r in stale_refs if "/versions/" in str(r)]
+    legacy_stale_refs = [r for r in stale_refs if "/versions/" not in str(r)]
+
+    if legacy_stale_refs:
+        logger.info(
+            "Structure builder: skipping cleanup for legacy non-versioned segment tree refs",
+            document_id=str(doc.id),
+            stale_count=len(legacy_stale_refs),
+        )
+
+    if versioned_stale_refs:
         try:
-            cleanup_result = store.delete_many_best_effort(stale_refs)
+            cleanup_result = store.delete_many_best_effort(versioned_stale_refs)
             logger.info(
-                "Structure builder: post-commit cleanup stale segment trees",
+                "Structure builder: post-commit cleanup stale versioned segment trees",
                 document_id=str(doc.id),
-                stale_count=len(stale_refs),
+                stale_count=len(versioned_stale_refs),
                 deleted=cleanup_result.get("deleted", 0),
                 failed=cleanup_result.get("failed", 0),
             )

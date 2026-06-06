@@ -25,11 +25,14 @@ from services.structure.heading_features import (
     looks_like_body_sentence_title,
     looks_like_definition_term_title,
     looks_like_lowercase_continuation,
+    looks_like_numeric_amount_continuation,
+    looks_like_reference_led_clause_continuation,
     looks_like_substantive_clause_line,
     looks_like_toc_line,
     roman_uid_is_plausible,
     starts_with_quoted_term,
     uid_is_plausible,
+
 )
 from services.structure.heading_patterns import _normalize_title, normalize_spaces
 from services.structure.legal_heading_rules import (
@@ -430,8 +433,64 @@ def score_heading_candidate(
             },
         )
 
+    numeric_amount_continuation = bool(
+        is_num and looks_like_numeric_amount_continuation(t)
+    )
+    reference_led_clause_continuation = bool(
+        is_num and lvl >= 2 and looks_like_reference_led_clause_continuation(t)
+    )
+
+    if numeric_amount_continuation:
+        return HeadingScoreResult(
+            CandidateStatus.REJECTED,
+            0.05,
+            "numeric_amount_continuation_title",
+            accept_reasons.copy(),
+            ["numeric_amount_continuation_title"],
+            t_bonus,
+            t_type,
+            semantic_element_type=cls_sem or None,
+            continuity_bonus=cont_bonus,
+            legal_negative_signals=legal_neg + ["numeric_amount_continuation"],
+            structural_evidence={
+                "uid_kind": uid_kind,
+                "uid_level": lvl,
+                "strong_toc_confirmation": strong_toc_confirmation,
+                "structural_confirmation": structural_confirmation,
+                "strong_structural_confirmation": strong_structural_confirmation,
+            },
+        )
+
+    if reference_led_clause_continuation and not strong_toc_confirmation:
+        return HeadingScoreResult(
+            CandidateStatus.REJECTED,
+            0.08,
+            "reference_led_clause_continuation",
+            accept_reasons.copy(),
+            ["reference_led_clause_continuation"],
+            t_bonus,
+            t_type,
+            semantic_element_type=cls_sem or None,
+            continuity_bonus=cont_bonus,
+            legal_negative_signals=legal_neg + ["reference_led_clause_continuation"],
+            structural_evidence={
+                "uid_kind": uid_kind,
+                "uid_level": lvl,
+                "strong_toc_confirmation": strong_toc_confirmation,
+                "structural_confirmation": structural_confirmation,
+                "strong_structural_confirmation": strong_structural_confirmation,
+                "uid_continuity": u_cont,
+            },
+        )
+
     if starts_with_quoted_term(t) or looks_like_definition_term_title(t):
-        if is_num and lvl >= 2 and structural_confirmation:
+        if (
+            is_num
+            and lvl >= 2
+            and structural_confirmation
+            and not reference_led_clause_continuation
+            and not numeric_amount_continuation
+        ):
             sc = _guarded_numeric_recovery_score(
                 base=0.55,
                 t_bonus=t_bonus,
@@ -496,9 +555,41 @@ def score_heading_candidate(
         )
 
     if _looks_too_long_for_heading(t, level=lvl) or looks_like_substantive_clause_line(t):
-        if is_num and lvl >= 2 and structural_confirmation:
+        # Patch 3 (final):
+        # Для legal docs clause-like substantive sentence после numeric uid
+        # НЕ должен автоматически жёстко reject'иться.
+        #
+        # Ключевой practical case:
+        #   2.1 В соответствии с Договором...
+        #   6.3 В случае нарушения...
+        # где:
+        #   - extractor raw_type = heading
+        #   - classifier element_type = heading_candidate
+        #   - classifier semantic_element_type = subsection_heading
+        # но structural_confirmation ещё не успевает сработать.
+        #
+        # Поэтому разрешаем recovery не только через structural_confirmation,
+        # но и через сильный classifier/extractor consensus.
+
+        classifier_says_nested_heading = (
+            str(element_type or "").strip().lower() == "heading_candidate"
+            and str(cls_sem or "").strip().lower() == "subsection_heading"
+        )
+
+        recoverable_legal_clause = (
+            is_num
+            and lvl >= 2
+            and not reference_led_clause_continuation
+            and not numeric_amount_continuation
+            and (
+                structural_confirmation
+                or classifier_says_nested_heading
+            )
+        )
+
+        if recoverable_legal_clause:
             sc = _guarded_numeric_recovery_score(
-                base=0.58,
+                base=0.60,
                 t_bonus=t_bonus,
                 cont_bonus=cont_bonus,
                 is_rec_toc=is_rec_toc,
@@ -506,11 +597,25 @@ def score_heading_candidate(
                 u_cont=u_cont,
                 strong_structural_confirmation=strong_structural_confirmation,
             )
-            status = CandidateStatus.ACCEPTED if strong_structural_confirmation and sc >= 0.69 else CandidateStatus.AMBIGUOUS
+
+            # Дополнительный буст, если classifier уже уверен что это nested heading.
+            if classifier_says_nested_heading:
+                sc = _clamp_score(sc + 0.08)
+
+            status = (
+                CandidateStatus.ACCEPTED
+                if sc >= 0.70 and (strong_structural_confirmation or classifier_says_nested_heading)
+                else CandidateStatus.AMBIGUOUS
+            )
+
             return HeadingScoreResult(
                 status,
                 sc,
-                "substantive_clause_like_title_recovered" if status == CandidateStatus.ACCEPTED else "substantive_clause_like_title",
+                (
+                    "substantive_clause_like_title_recovered"
+                    if status == CandidateStatus.ACCEPTED
+                    else "substantive_clause_like_title"
+                ),
                 accept_reasons + t_reasons,
                 ["substantive_clause_like_title"],
                 min(t_bonus, 0.05),
@@ -523,9 +628,11 @@ def score_heading_candidate(
                     "strong_toc_confirmation": strong_toc_confirmation,
                     "structural_confirmation": structural_confirmation,
                     "strong_structural_confirmation": strong_structural_confirmation,
+                    "classifier_says_nested_heading": classifier_says_nested_heading,
                     "uid_continuity": u_cont,
                 },
             )
+
         return HeadingScoreResult(
             CandidateStatus.REJECTED,
             0.12,
@@ -541,12 +648,19 @@ def score_heading_candidate(
                 "uid_kind": uid_kind,
                 "structural_confirmation": structural_confirmation,
                 "strong_structural_confirmation": strong_structural_confirmation,
+                "classifier_says_nested_heading": classifier_says_nested_heading,
                 "uid_continuity": u_cont,
             },
         )
 
     if looks_like_body_sentence_title(u, t):
-        if is_num and lvl >= 2 and structural_confirmation:
+        if (
+            is_num
+            and lvl >= 2
+            and structural_confirmation
+            and not reference_led_clause_continuation
+            and not numeric_amount_continuation
+        ):
             sc = _guarded_numeric_recovery_score(
                 base=0.57,
                 t_bonus=t_bonus,

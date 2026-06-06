@@ -88,6 +88,101 @@ _DEFINITION_TERM_START = re.compile(
 
 _LOWERCASE_CONTINUATION_START = re.compile(r"^\s*[a-zа-яё]")
 
+
+# ── Cross-reference / body continuation detection ────────────────────────────
+
+_REFERENCE_LED_OPENING = re.compile(
+    r"""
+    ^\s*
+    (?:
+        (?:
+            настоящ(?:его|ему|им|ем)
+            \s+
+        )?
+        (?:
+            договора|договору|договором|договоре|
+            соглашения|соглашению|соглашением|соглашении|
+            контракта|контракту|контрактом|контракте|
+            пункта|пункту|пунктом|пункте|
+            раздела|разделу|разделом|разделе|
+            статьи|статье|статьей|
+            приложения|приложению|приложением|приложении
+        )
+        |
+        agreement|contract|clause|section|article|paragraph|
+        annex|appendix|schedule|exhibit|attachment
+    )
+    \b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_REFERENCE_LED_SENTENCE_START = re.compile(
+    r"""
+    ^\s*
+    (?:
+        будет|будут|быть|
+        является|являются|
+        осуществляется|осуществляются|
+        применяется|применяются|
+        открыт(?:а|о|ы)?|
+        shall|is|are|be|will|may|must
+    )
+    \b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# ── Numeric amount continuation detection ────────────────────────────────────
+
+_GROUPED_AMOUNT_START = re.compile(
+    r"""
+    ^\s*
+    (?:
+        0+(?:\s+0{3})+
+        |
+        \d{1,3}(?:\s+\d{3})+(?:[.,]\d{1,2})?
+        |
+        \d+[.,]\d{2}\b
+    )
+    """,
+    re.VERBOSE,
+)
+
+_TEXTUAL_AMOUNT_PAREN = re.compile(
+    r"""
+    ^\s*
+    (?:
+        0+(?:\s+0{3})+
+        |
+        \d{1,3}(?:\s+\d{3})+(?:[.,]\d{1,2})?
+    )
+    \s*
+    \(
+        [A-Za-zА-Яа-яЁё\s\-]{3,120}
+    \)
+    """,
+    re.VERBOSE,
+)
+
+_AMOUNT_LEXEME = re.compile(
+    r"""
+    (?:
+        \b(?:руб(?:\.|лей|ля|ль)?|rur|rub|usd|eur)\b
+        |
+        \b(?:евро|доллар(?:ов|а)?|коп(?:\.|еек|ейки)?)\b
+        |
+        \b(?:тыс\.?|тысяч(?:а|и)?|млн\.?|миллион(?:ов|а)?|млрд\.?|миллиард(?:ов|а)?)\b
+        |
+        \b(?:процент(?:ов|а)?)\b
+        |
+        %
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
 _SUBSTANTIVE_CLAUSE_VERBS = re.compile(
     r"""
     \b(
@@ -258,6 +353,94 @@ def looks_like_lowercase_continuation(title: str) -> bool:
     return True
 
 
+def looks_like_reference_led_clause_continuation(title: str) -> bool:
+    """
+    Строка начинается как legal cross-reference continuation, а не как heading.
+
+    Универсальный класс случаев:
+    - "Договора будет открыт ..."
+    - "настоящего Договора осуществляется ..."
+    - "agreement shall ..."
+    - "contract is ..."
+
+    Требует:
+    - reference-led opening (document/structure term),
+    - плюс body/sentence continuation.
+
+    Не document-specific: ловит класс ошибок, а не конкретный документ.
+    """
+    t = normalize_spaces(title)
+    if not t:
+        return False
+
+    if len(t.split()) < 3:
+        return False
+
+    if starts_with_quoted_term(t) or looks_like_definition_term_title(t):
+        return False
+
+    m = _REFERENCE_LED_OPENING.search(t)
+    if not m:
+        return False
+
+    tail = normalize_spaces(t[m.end():])
+    if not tail:
+        return False
+
+    if _REFERENCE_LED_SENTENCE_START.search(tail):
+        return True
+
+    if _BODYISH_START.search(tail) and len(t.split()) >= 6:
+        return True
+
+    if _SUBSTANTIVE_CLAUSE_VERBS.search(t) and len(t.split()) >= 4:
+        return True
+
+    if _SUBSTANTIVE_CLAUSE_CONNECTORS.search(t) and len(t.split()) >= 6:
+        return True
+
+    if len(t.split()) >= 8 and ("," in t or _SENTENCE_END.search(t)):
+        return True
+
+    return False
+
+
+def looks_like_numeric_amount_continuation(title: str) -> bool:
+    """
+    После uid идёт не heading title, а хвост суммы / amount formatting.
+
+    Универсальный класс случаев:
+    - "000 000 рублей ..."
+    - "000 000 (пятьдесят миллионов) ..."
+    - "1 250 000,00 USD"
+
+    Не document-specific: ловит класс amount-tail false positives.
+    """
+    t = normalize_spaces(title)
+    if not t:
+        return False
+
+    if not _GROUPED_AMOUNT_START.search(t):
+        return False
+
+    head = t[:140]
+
+    if _TEXTUAL_AMOUNT_PAREN.search(head):
+        return True
+
+    if _AMOUNT_LEXEME.search(head):
+        return True
+
+    if re.match(r"^\s*0+(?:\s+0{3})+\b", head):
+        return True
+
+    if not has_letters(head) and len(head.split()) <= 6:
+        return True
+
+    return False
+
+
+
 def is_bad_heading_title(title: str) -> bool:
     """
     Явно плохой заголовок.
@@ -280,6 +463,9 @@ def is_bad_heading_title(title: str) -> bool:
 
     words = t.split()
     if len(words) > _MAX_HEADING_WORDS:
+        return True
+
+    if looks_like_numeric_amount_continuation(t):
         return True
 
     if not has_letters(t):

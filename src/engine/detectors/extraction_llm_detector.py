@@ -146,6 +146,11 @@ from typing import Any
 
 from core.config import settings
 from core.logging import get_logger
+from engine.extraction_normalization import (
+    is_null_like_value,
+    normalize_scalar_null_like_value,
+    normalize_to_allowed_values,
+)
 
 from ..llm.client import LLMClient, _extract_json
 from ..playbook.models import (
@@ -295,10 +300,16 @@ class ExtractionLLMDetector:
         prompt = self._build_prompt(check, extraction_cfg, text)
         grammar_path = getattr(settings, "LLM_EXTRACTION_JSON_GRAMMAR_PATH", None)
 
+        extraction_max_tokens = getattr(extraction_cfg, "llm_max_tokens", None)
+        if extraction_max_tokens is None:
+            extraction_max_tokens = int(
+                getattr(settings, "LLM_EXTRACTION_MAX_TOKENS", 512)
+            )
+
         response, error_details = self.client.call_with_retries(
             prompt=prompt,
             temperature=0.0,
-            max_tokens=None,
+            max_tokens=extraction_max_tokens,
             grammar_path=grammar_path,
             response_format="json_object",  # P8.5: Ollama JSON mode
         )
@@ -643,7 +654,19 @@ class ExtractionLLMDetector:
                     cfg.allowed_values,
                 )
                 if value_allowed is None:
-                    # Не смогли привести к allowed_values — выбрасываем
+                    # null-like value без not_found в allowed_values —
+                    # это не schema violation, а отсутствие значения.
+                    if is_null_like_value(value_cast):
+                        logger.debug(
+                            "ExtractionLLMDetector: null-like value normalized to empty",
+                            extra={
+                                "field_name": cfg.name,
+                                "value": str(value_cast),
+                                "allowed_values": [str(v) for v in cfg.allowed_values],
+                            },
+                        )
+                        continue
+
                     logger.warning(
                         "ExtractionLLMDetector: value not in allowed_values, discarding",
                         extra={
@@ -689,28 +712,12 @@ class ExtractionLLMDetector:
         """
         Привести value к одному из allowed_values.
 
-        Логика:
-        - если значение уже ровно равно одному из allowed_values (строго) — оставляем;
-        - если отличается только регистром/пробелами — маппим к каноническому значению;
-        - иначе возвращаем None (значение считается невалидным).
+        Поведение:
+        - null-like -> 'not_found', если он разрешён, иначе None;
+        - case-insensitive exact match -> канонический вариант из YAML;
+        - иначе None.
         """
-        if value is None:
-            return None
-
-        allowed_strs = [str(v) for v in allowed_values]
-        value_str = str(value)
-
-        # Точное совпадение
-        if value_str in allowed_strs:
-            return value_str
-
-        # Сравнение с нормализацией регистра/пробелов
-        value_norm = value_str.strip().lower()
-        allowed_norm_map = {str(v).strip().lower(): str(v) for v in allowed_values}
-        if value_norm in allowed_norm_map:
-            return allowed_norm_map[value_norm]
-
-        return None
+        return normalize_to_allowed_values(value, allowed_values)
 
     def _cast_to_type(
         self,
@@ -724,11 +731,11 @@ class ExtractionLLMDetector:
         - BOOLEAN: нормализация да/нет/true/false/1/0, иначе исходная строка.
         - STRING: str(value) или None, если value пустое/null-подобное.
         """
+        value = normalize_scalar_null_like_value(value)
         if value is None:
             return None
 
         if cfg.type == ExtractionFieldType.NUMBER:
-            # Сначала строковая нормализация, как в ExtractionExecutor._cast_value
             s = str(value).replace(" ", "").replace(",", ".")
             try:
                 num = float(s)
@@ -746,6 +753,6 @@ class ExtractionLLMDetector:
                 return False
             return str(value)
 
-        # STRING / default
         s = str(value)
         return s if s.strip() else None
+    

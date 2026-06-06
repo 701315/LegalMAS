@@ -7,7 +7,11 @@
 from __future__ import annotations
 
 from typing import Any
-
+from services.structure.heading_features import (
+    looks_like_numeric_amount_continuation,
+    looks_like_reference_led_clause_continuation,
+)
+from services.structure.heading_patterns import parse_raw_heading
 from services.structure.models import MutableHierarchyNode
 
 from ._types import HeadingCandidate, OwnRangeComputation
@@ -18,6 +22,114 @@ from ._utils import (
     _normalize_uid,
     level_from_uid,
 )
+
+
+_HEADINGISH_ELEMENT_TYPES = {
+    "heading_candidate",
+    "section_heading",
+    "subsection_heading",
+    "appendix_heading",
+}
+
+
+def _is_headingish_layout_element(element: dict[str, Any]) -> bool:
+    """Элемент layout выглядит как heading по raw_type или element_type."""
+    raw_type = str(element.get("type") or "").strip().lower()
+    element_type = str(element.get("element_type") or "").strip().lower()
+    if raw_type == "heading":
+        return True
+    return element_type in _HEADINGISH_ELEMENT_TYPES
+
+
+def _element_scope_local(element: dict[str, Any]) -> str:
+    """Извлечь scope из элемента без внешних зависимостей."""
+    scope = element.get("scope")
+    if scope is None:
+        scope = (element.get("metadata") or {}).get("scope")
+    return str(scope or "").strip()
+
+
+def _find_soft_next_root_heading_from_layout(
+    *,
+    raw_uid: str,
+    heading_elem_i: int,
+    scope: str,
+    elements: list[dict[str, Any]],
+    scope_boundaries: dict[str, tuple[int, int]],
+) -> int | None:
+    """
+    Soft closure fallback для root sections.
+
+    Используется только если среди accepted headings не найден
+    следующий same-or-higher-level heading. Сканирует raw layout
+    внутри того же scope и ищет следующий plausibly-valid root
+    numeric heading по layout-сигналам.
+
+    Не page-cap hack — deterministic safety net против случая,
+    когда scoring пропустил несколько intermediate root sections,
+    а section range без ограничения поглощает весь хвост документа.
+
+    Применяется только для root numeric sections (level == 1).
+    Не ищет вложенные headings — только следующий root.
+    """
+    normalized_uid = _normalize_uid(raw_uid)
+    if not normalized_uid.isdigit():
+        return None
+
+    try:
+        current_root_num = int(normalized_uid)
+    except Exception:
+        return None
+
+    scope_end = len(elements)
+    scope_boundary = scope_boundaries.get(scope)
+    if scope_boundary is not None:
+        scope_end = min(scope_end, int(scope_boundary[1]))
+
+    for j in range(max(heading_elem_i + 1, 0), scope_end):
+        element = elements[j]
+
+        el_scope = _element_scope_local(element)
+        if el_scope and el_scope != scope:
+            continue
+
+        if not _is_headingish_layout_element(element):
+            continue
+
+        text = str(element.get("text") or "").strip()
+        if not text:
+            continue
+
+        parsed = parse_raw_heading(text)
+        if not parsed:
+            continue
+
+        candidate_uid, candidate_title = parsed
+        candidate_uid = _normalize_uid(candidate_uid)
+
+        if not _is_strict_numeric_uid(candidate_uid):
+            continue
+
+        if level_from_uid(candidate_uid) != 1:
+            continue
+
+        try:
+            candidate_root_num = int(candidate_uid)
+        except Exception:
+            continue
+
+        if candidate_root_num <= current_root_num:
+            continue
+
+        if looks_like_numeric_amount_continuation(candidate_title):
+            continue
+
+        if looks_like_reference_led_clause_continuation(candidate_title):
+            continue
+
+        return j
+
+    return None
 
 
 def _collect_own_text(
@@ -102,6 +214,17 @@ def _compute_own_range(
     )
     if next_same_or_higher is not None and next_same_or_higher > heading_elem_i:
         candidates.append((next_same_or_higher, "next_same_or_higher"))
+
+    if node.level == 1 and _normalize_uid(raw_uid).isdigit():
+        soft_next_root = _find_soft_next_root_heading_from_layout(
+            raw_uid=raw_uid,
+            heading_elem_i=heading_elem_i,
+            scope=scope,
+            elements=elements,
+            scope_boundaries=scope_boundaries,
+        )
+        if soft_next_root is not None and soft_next_root > heading_elem_i:
+            candidates.append((soft_next_root, "soft_next_root_from_layout"))
 
     scope_boundary = scope_boundaries.get(scope)
     if scope_boundary is not None and scope_boundary[1] > heading_elem_i:

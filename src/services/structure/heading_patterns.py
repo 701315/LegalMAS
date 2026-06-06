@@ -160,8 +160,26 @@ _SIMPLE_BAD = re.compile(r"^(\d+)\s+\S")
 
 # Внутренние list-маркеры в title
 _INNER_LIST_MARKER = re.compile(
-    r"^(?:[\u2022\u2023\u25E6\u2043\u2219\uf0b7•\-–—]|\d+|[A-Za-zА-Яа-яЁё])[\.\)]?\s+(.+)$",
-    re.IGNORECASE,
+    r"""
+    ^
+    (?:
+        # bullet-like markers
+        [\u2022\u2023\u25E6\u2043\u2219\uf0b7•\-–—]\s+
+        |
+        # numeric inner markers:
+        #   "1 В течение ..." / "1) В течение ..." / "1. В течение ..."
+        \d+[\.\)]?\s+
+        |
+        # alpha inner markers only with explicit punctuation:
+        #   "a) ..." / "а) ..." / "A. ..."
+        # IMPORTANT:
+        #   bare single-letter words like "В течение ..." MUST NOT match.
+        [A-Za-zА-Яа-яЁё][\.\)]\s+
+    )
+    (?P<body>.+)
+    $
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 
 
@@ -193,14 +211,35 @@ _TRAILING_PUNCT_NOISE = re.compile(r"[\s,;:\-–—]+$")
 _TITLE_START_OK = re.compile(r'^[A-Za-zА-Яа-яЁё«"\(\[]')
 _TITLE_HAS_MEANING = re.compile(r"[A-Za-zА-Яа-яЁё]")
 
+def _collapse_numeric_dot_spacing(text: str) -> str:
+    """
+    Схлопывает OCR-пробелы внутри numeric uid:
+
+    Примеры:
+    - "7. 1. 2" -> "7.1.2"
+    - "2. 1" -> "2.1"
+    - "10 . 7" -> "10.7"
+
+    Делается только для dot-separated numeric sequences.
+    """
+    t = text or ""
+    prev = None
+    while prev != t:
+        prev = t
+        t = re.sub(r"(?<=\d)\s*\.\s*(?=\d)", ".", t)
+    return t
 
 def normalize_spaces(text: str) -> str:
     """
     Привести пробелы к аккуратному виду:
     - убрать пробелы в начале/конце;
-    - заменить несколько пробелов одним.
+    - заменить несколько пробелов одним;
+    - схлопнуть OCR-spaces внутри numeric uid ("7. 1. 2" -> "7.1.2").
     """
-    return re.sub(r"\s+", " ", (text or "").strip())
+    t = (text or "").strip()
+    t = _collapse_numeric_dot_spacing(t)
+    t = re.sub(r"\s+", " ", t)
+    return t.strip()
 
 
 def _has_letters(text: str) -> bool:

@@ -16,7 +16,13 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from services.structure.heading_patterns import normalize_spaces
+from services.structure.heading_features import (
+    looks_like_body_sentence_title,
+    looks_like_numeric_amount_continuation,
+    looks_like_reference_led_clause_continuation,
+    looks_like_substantive_clause_line,
+)
+from services.structure.heading_patterns import normalize_spaces, parse_raw_heading
 from services.structure.heading_scoring import CandidateStatus, score_heading_candidate
 from services.structure.models import SEGMENT_TYPE_APPENDIX
 
@@ -140,6 +146,23 @@ def looks_like_mid_paragraph_reference(
     text = candidate_text.lower()
 
     if len(text.split()) > 24:
+        return True
+
+    parsed = parse_raw_heading(candidate_text)
+    parsed_uid = parsed[0] if parsed else None
+    parsed_title = parsed[1] if parsed else candidate_text
+    bodyish_text = normalize_spaces(parsed_title or candidate_text)
+
+    if looks_like_numeric_amount_continuation(bodyish_text):
+        return True
+
+    if looks_like_reference_led_clause_continuation(bodyish_text):
+        return True
+
+    if parsed_uid and looks_like_body_sentence_title(parsed_uid, bodyish_text):
+        return True
+
+    if looks_like_substantive_clause_line(bodyish_text) and page_offset(elements, idx) > 0:
         return True
 
     prev_text = ""

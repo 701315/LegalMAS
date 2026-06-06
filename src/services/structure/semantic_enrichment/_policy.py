@@ -222,10 +222,12 @@ def is_unit_eligible_for_enrichment(
     if not unit.unit_id:
         return False, "missing_unit_id"
 
-    if policy.skip_technical_fallback_units and unit.is_technical_fallback:
+    unit_is_technical_fallback = bool(getattr(unit, "is_technical_fallback", False))
+    if policy.skip_technical_fallback_units and unit_is_technical_fallback:
         return False, "technical_fallback"
 
-    if policy.skip_heading_only_units and unit.is_heading_only:
+    unit_is_heading_only = bool(getattr(unit, "is_heading_only", False))
+    if policy.skip_heading_only_units and unit_is_heading_only:
         return False, "heading_only"
 
     text = _get_unit_text(unit)

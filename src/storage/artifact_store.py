@@ -88,84 +88,66 @@ class ArtifactPath:
         return f"tenants/{tenant_id}/deals/{deal_id}/layouts/{document_id}/sanitized.json"
 
     @staticmethod
-    def clause_tree(tenant_id: str, deal_id: str, document_id: str) -> str:
-        return f"tenants/{tenant_id}/deals/{deal_id}/structures/{document_id}/clause_tree.json"
+    def clause_tree(
+        tenant_id: str,
+        deal_id: str,
+        document_id: str,
+        document_version_id: str,
+    ) -> str:
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/structures/"
+            f"{document_id}/versions/{document_version_id}/clause_tree.json"
+        )
 
     @staticmethod
-    def file_graph(tenant_id: str, deal_id: str, document_id: str) -> str:
+    def file_graph(
+        tenant_id: str,
+        deal_id: str,
+        document_id: str,
+        document_version_id: str,
+    ) -> str:
         """
-        Путь к файловому графу (FileGraph) — метаданные всех логических
-        сегментов внутри одного физического файла и связи между ними.
+        Путь к файловому графу (FileGraph) для КОНКРЕТНОЙ версии документа.
 
-        Для непрофессионального программиста:
-        Когда один PDF содержит несколько документов (договор + приложения),
-        file_graph.json описывает их список: какой тип, какие страницы,
-        какой segment_id у каждого. CHUNKS читают этот файл чтобы понять,
-        какие segment_clause_tree_*.json нужно загрузить.
-
-        Лежит рядом с clause_tree.json в том же каталоге structures/.
-
-        Пример пути:
-        tenants/abc/deals/xyz/structures/{document_id}/file_graph.json
+        Version-scoped path делает persisted structure artifacts immutable
+        snapshot-ами DocumentVersion.
         """
-        return f"tenants/{tenant_id}/deals/{deal_id}/structures/{document_id}/file_graph.json"
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/structures/"
+            f"{document_id}/versions/{document_version_id}/file_graph.json"
+        )
 
     @staticmethod
     def segment_clause_tree(
         tenant_id: str,
         deal_id: str,
         document_id: str,
+        document_version_id: str,
         segment_id: str,
     ) -> str:
         """
-        Путь к дереву одного логического сегмента (один из нескольких документов
-        в файле).
-
-        Для непрофессионального программиста:
-        Если файл содержит договор + приложение + акт — для каждого из них
-        строится отдельное ClauseTree и сохраняется по отдельному пути.
-        Имя файла содержит segment_id (первые 8 символов UUID) — это делает
-        имя коротким, но всё ещё уникальным внутри одного document_id.
-
-        clause_tree.json (legacy) — всегда указывает на primary-сегмент,
-        чтобы старый код (CHUNKS v1, API) продолжал работать без изменений.
-
-        Пример пути (segment_id = "550e8400-e29b-41d4-a716-446655440000"):
-        tenants/abc/deals/xyz/structures/{document_id}/segment_550e8400.json
-
-        Аргументы:
-        - tenant_id:   ID тенанта
-        - deal_id:     ID сделки
-        - document_id: ID физического файла
-        - segment_id:  полный UUID сегмента (make_segment_id из models.py)
+        Путь к ClauseTree одного логического сегмента для КОНКРЕТНОЙ версии документа.
         """
         short_id = segment_id[:8]
         return (
             f"tenants/{tenant_id}/deals/{deal_id}/structures/"
-            f"{document_id}/segment_{short_id}.json"
+            f"{document_id}/versions/{document_version_id}/segment_{short_id}.json"
         )
 
 
     @staticmethod
-    def chunk_plan(tenant_id: str, deal_id: str, document_id: str) -> str:
+    def chunk_plan(
+        tenant_id: str,
+        deal_id: str,
+        document_id: str,
+        document_version_id: str,
+    ) -> str:
         """
-        Путь к Phase 10 chunk plan артефакту (chunk_plan.json).
-
-        Для непрофессионального программиста:
-        - Этот файл содержит решение Phase 10 Chunk Planner о том,
-        как именно нарезать каждый сегмент документа на чанки.
-        - Вычисляется в structure_builder сразу после построения структуры.
-        - Читается chunk_builder перед построением чанков.
-        - Если файл отсутствует — chunk_builder использует дефолтные параметры.
-
-        Хранится рядом с file_graph.json в том же каталоге structures/.
-
-        Пример пути:
-        tenants/abc/deals/xyz/structures/{document_id}/chunk_plan.json
+        Путь к chunk_plan артефакту для КОНКРЕТНОЙ версии документа.
         """
         return (
             f"tenants/{tenant_id}/deals/{deal_id}/structures/"
-            f"{document_id}/chunk_plan.json"
+            f"{document_id}/versions/{document_version_id}/chunk_plan.json"
         )
 
 

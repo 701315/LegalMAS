@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "DEBUG"
     LOG_FORMAT: str = "console"
     LLM_EXTRACTION_JSON_GRAMMAR_PATH: str | None = None
+
+    # Default max_tokens for extraction LLM calls.
+    # Может быть переопределён per-check через ExtractionConfig.llm_max_tokens.
+    LLM_EXTRACTION_MAX_TOKENS: int = 512
+
     LOG_FILE_DIR: str | None = None
 
     # --- Classification explainability / observability ---
@@ -304,6 +309,8 @@ class Settings(BaseSettings):
     # Per-segment hard timeout. If enriching one segment's legal units
     # exceeds this, the segment is skipped and pipeline continues.
     SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS: int = 900
+    
+    SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS: int = 4
 
     # Total wall-clock budget for enriching all segments of a document.
     # 0 = derive adaptively from worker soft limit minus cleanup margin.

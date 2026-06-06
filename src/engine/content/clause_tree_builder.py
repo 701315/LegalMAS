@@ -395,6 +395,16 @@ class ClauseTreeBuilder:
         """
         Рекурсивно обходит дерево и строит leaf-чанки.
 
+        Fix 3 (chunk integrity):
+        - heading elements leaf node теперь включаются в full_text,
+          а не пропускаются. Это исправляет потерю коротких клауз вида
+          "7.1.2 Арбитражный суд Санкт-Петербурга...", текст которых
+          закодирован в heading element.
+        - is_single_heading_only остаётся как диагностический флаг,
+          но больше не является причиной пропуска chunk.
+        - Chunk пропускается только если full_text пустой после сборки
+          ВСЕХ элементов (включая heading).
+
         Возвращает кортеж из 6 счётчиков:
         (
             leaf_seen_inc,
@@ -426,6 +436,7 @@ class ClauseTreeBuilder:
         children = node.get("children") or []
 
         if not children:
+            # ── Это leaf node ─────────────────────────────────────────────────
             leaf_seen_inc += 1
 
             effective_uid, raw_uid, scope = cls._node_chunk_identity(node)
@@ -464,6 +475,9 @@ class ClauseTreeBuilder:
 
             element_ids = own_element_ids
 
+            # ── Fix 3: диагностика heading-only, но НЕ пропуск ───────────────
+            # Определяем is_single_heading_only для диагностического флага.
+            # Но текст heading теперь включается в full_text (см. ниже).
             is_single_heading_only = False
             if len(element_ids) == 1:
                 el0 = element_index.get(element_ids[0])
@@ -495,6 +509,19 @@ class ClauseTreeBuilder:
 
                 if el_type == "heading":
                     heading_elements += 1
+                    # ── Fix 3: включаем heading text в full_text ──────────────
+                    # Раньше здесь был: continue
+                    # Теперь: heading text участвует в сборке текста клаузы.
+                    # Это исправляет потерю клауз вида:
+                    #   element_0: heading "7.1.2 Арбитражный суд..."
+                    #   → раньше пропускался, chunk не создавался или был пустым
+                    #   → теперь текст heading включается в full_text
+                    if not text:
+                        last_page = page if isinstance(page, int) else last_page
+                        continue
+                    if last_page is not None and page is not None and page != last_page:
+                        texts.append("")
+                    texts.append(text)
                     last_page = page if isinstance(page, int) else last_page
                     continue
 
@@ -525,11 +552,15 @@ class ClauseTreeBuilder:
                     },
                 )
 
-            if not full_text and is_single_heading_only:
+            # ── Fix 3: is_single_heading_only теперь только диагностика ──────
+            # Chunk пропускается ТОЛЬКО если full_text пустой после сборки
+            # ВСЕХ элементов включая heading. Это единственный критерий пропуска.
+            if is_single_heading_only and full_text:
+                # heading text был включён — отмечаем для диагностики,
+                # но chunk строим нормально
                 heading_only_inc += 1
-                effective_citability = citability_hint or "low"
                 logger.info(
-                    "ClauseTreeBuilder: heading_only_leaf_skipped",
+                    "ClauseTreeBuilder: heading_only_leaf_included",
                     extra={
                         "document_id": str(doc_id),
                         "effective_uid": effective_uid,
@@ -537,19 +568,9 @@ class ClauseTreeBuilder:
                         "scope": scope,
                         "title": node_title,
                         "level": node.get("level"),
-                        "citability_hint": effective_citability,
-                        "recovered_via_best_effort": is_best_effort,
-                        "reason": "single_heading_element_no_body_text",
+                        "full_text_preview": full_text[:200],
+                        "reason": "heading_text_included_in_full_text",
                     },
-                )
-                empty_after_filtering_inc += 1
-                return (
-                    leaf_seen_inc,
-                    no_element_ids_inc,
-                    empty_after_filtering_inc,
-                    heading_only_inc,
-                    best_effort_inc,
-                    missing_uid_inc,
                 )
 
             if not full_text:
@@ -565,6 +586,7 @@ class ClauseTreeBuilder:
                         "element_ids_count": len(element_ids),
                         "missing_elements": missing_elements,
                         "heading_elements": heading_elements,
+                        "is_single_heading_only": is_single_heading_only,
                     },
                 )
                 empty_after_filtering_inc += 1
@@ -625,7 +647,7 @@ class ClauseTreeBuilder:
                 "citability_hint": effective_citability,
                 "recovered_via_best_effort": is_best_effort,
                 "fallback_reason": etap4["fallback_reason"],
-                "is_heading_only_leaf": False,
+                "is_heading_only_leaf": is_single_heading_only,
                 "is_structural_fallback": is_best_effort,
             }
 
@@ -664,6 +686,7 @@ class ClauseTreeBuilder:
                         "end_page": end_page,
                         "citability_hint": effective_citability,
                         "recovered_via_best_effort": is_best_effort,
+                        "is_heading_only_leaf": is_single_heading_only,
                     },
                 )
 
@@ -676,6 +699,7 @@ class ClauseTreeBuilder:
                 missing_uid_inc,
             )
 
+        # ── Не leaf: рекурсивно обходим children ─────────────────────────────
         for child in children:
             if not isinstance(child, dict):
                 logger.warning(

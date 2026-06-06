@@ -363,6 +363,12 @@ class ExtractionConfig(BaseModel):
     # NEW: кастомный inline-промпт для LLM-извлечения.
     # Если задан — ExtractionLLMDetector использует его вместо файлового шаблона.
     llm_prompt_extraction: str | None = None
+    
+    # Per-check override для max_tokens в extraction LLM call.
+    # Если задан — ExtractionLLMDetector использует его вместо
+    # глобального extraction default.
+    llm_max_tokens: int | None = None
+
 
     @field_validator("fields")
     @classmethod

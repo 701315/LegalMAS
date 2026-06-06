@@ -16,7 +16,11 @@ from typing import Any
 
 from core.config import settings
 from core.logging import get_logger
-
+from engine.extraction_normalization import (
+    is_null_like_value,
+    normalize_scalar_null_like_value,
+    normalize_to_allowed_values,
+)
 from ..detectors.extraction_llm_detector import ExtractionLLMDetector
 from ..llm.client import LLMClient
 from ..playbook.models import (
@@ -32,38 +36,11 @@ LLM_DEFAULT_CONFIDENCE: float = settings.LLM_DEFAULT_CONFIDENCE
 _EXTRACTION_RULES_REGEX_CONFIDENCE: float = 0.8
 _EXTRACTION_RULES_KEYWORD_CONFIDENCE: float = 0.5
 
-# Набор "мусорных" значений которые LLM возвращает когда не нашёл ответ.
-# Все значения в нижнем регистре — сравниваем через .lower().strip()
-_NULL_VALUES = frozenset(
-    {
-        "null",
-        "none",
-        # "not_found" специально НЕ считаем пустым значением:
-        # это полезный бизнес-ответ "не найдено", а не мусорный ответ LLM.
-        "n/a",
-        "na",
-        "не найдено",
-        "отсутствует",
-        "нет данных",
-        "",
-        "unknown",
-        "неизвестно",
-        "-",
-        "—",
-    }
-)
-
-
 def _is_null_value(raw: Any) -> bool:
     """
-    Проверяет, является ли значение "пустым" ответом LLM или rules.
-
-    Возвращает True если значение нужно отбросить (не добавлять в structured).
-    Возвращает False если значение реальное и его нужно сохранить.
+    Backward-compatible wrapper over shared extraction normalization helper.
     """
-    if raw is None:
-        return True
-    return str(raw).strip().lower() in _NULL_VALUES
+    return is_null_like_value(raw)
 
 
 class ExtractionExecutor:
@@ -155,15 +132,19 @@ class ExtractionExecutor:
 
                     value_raw = llm_payload.get("value")
 
-                    # Фильтруем "мусорные" значения сразу после получения от LLM.
+                    # Null-like значения не выбрасываем сразу:
+                    # если allowed_values содержит 'not_found', превращаем в него.
                     if _is_null_value(value_raw):
-                        logger.debug(
-                            "LLM returned null-like value for field, skipping",
-                            field_name=name,
-                            value_raw=str(value_raw),
-                            check_id=check.id,
-                        )
-                        continue
+                        normalized_null = self._validate_allowed_values(field_cfg, None)
+                        if normalized_null is None:
+                            logger.debug(
+                                "LLM returned null-like value for field, skipping",
+                                field_name=name,
+                                value_raw=str(value_raw),
+                                check_id=check.id,
+                            )
+                            continue
+                        value_raw = normalized_null
 
                     conf_raw = llm_payload.get("confidence", LLM_DEFAULT_CONFIDENCE)
                     try:
@@ -477,7 +458,7 @@ class ExtractionExecutor:
 
         return None
 
-    def _cast_value(self, field_cfg: ExtractionFieldConfig, raw_value: str) -> Any:
+    def _cast_value(self, field_cfg: ExtractionFieldConfig, raw_value: Any) -> Any:
         """
         Привести найденное значение к типу из ExtractionFieldConfig.
 
@@ -486,10 +467,14 @@ class ExtractionExecutor:
           - BOOLEAN: по простым паттернам ("yes/no", "да/нет", "true/false").
           - STRING: как есть.
         """
+        raw_value = normalize_scalar_null_like_value(raw_value)
+        if raw_value is None:
+            return None
+
         field_type = field_cfg.type
 
         if field_type == ExtractionFieldType.NUMBER:
-            cleaned = raw_value.replace(" ", "").replace(",", ".")
+            cleaned = str(raw_value).replace(" ", "").replace(",", ".")
             try:
                 num = float(cleaned)
                 if num.is_integer():
@@ -499,7 +484,7 @@ class ExtractionExecutor:
                 return raw_value
 
         if field_type == ExtractionFieldType.BOOLEAN:
-            v = raw_value.strip().lower()
+            v = str(raw_value).strip().lower()
             true_vals = {"yes", "true", "1", "да", "верно"}
             false_vals = {"no", "false", "0", "нет", "неверно"}
             if v in true_vals:
@@ -508,7 +493,6 @@ class ExtractionExecutor:
                 return False
             return raw_value
 
-        # По умолчанию STRING
         return raw_value
 
     def _validate_allowed_values(
@@ -519,22 +503,22 @@ class ExtractionExecutor:
         """
         Проверить значение против allowed_values из конфига поля.
 
-        Если allowed_values не задан — пропускаем любое значение.
-        Если задан — сравниваем case-insensitive для строк.
-
-        Возвращает:
-        - канонический вариант из allowed_values (оригинальный регистр из YAML),
-            если значение прошло проверку.
-        - None, если значение НЕ входит в список — логируем warning.
+        Поведение:
+        - если allowed_values не задан — возвращаем value как есть;
+        - null-like -> 'not_found', если он разрешён, иначе None;
+        - case-insensitive exact match -> канонический вариант из YAML;
+        - иначе None c warning.
         """
         allowed: list[Any] = getattr(field_cfg, "allowed_values", None) or []
         if not allowed:
-            return value  # ограничений нет — пропускаем
+            return value
 
-        value_str = str(value).strip().lower()
-        for candidate in allowed:
-            if str(candidate).strip().lower() == value_str:
-                return candidate  # возвращаем канонический вариант из YAML
+        normalized = normalize_to_allowed_values(value, allowed)
+        if normalized is not None:
+            return normalized
+
+        if is_null_like_value(value):
+            return None
 
         logger.warning(
             "ExtractionExecutor: value not in allowed_values — discarding",
@@ -544,3 +528,5 @@ class ExtractionExecutor:
             check_id=getattr(field_cfg, "check_id", getattr(field_cfg, "check_id", "unknown")),
         )
         return None
+    
+    

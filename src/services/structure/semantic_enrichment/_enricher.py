@@ -224,26 +224,20 @@ def _resolve_semantic_enrichment_max_inflight_llm_calls(
 
     Правила:
     - для embedded local provider (llamacpp) всегда 1;
-    - для остальных провайдеров используется runtime setting
-      SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS;
-    - invalid/non-positive config -> fallback default.
+    - для остальных провайдеров берётся
+      settings.SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS;
+    - invalid/non-positive config -> fallback to 1
+      (самый безопасный последовательный режим).
     """
     if _provider_requires_serial_execution(provider):
         return 1
 
     if configured_value is None:
-        try:
-            from core.config import settings
+        from core.config import settings
 
-            configured_value = getattr(
-                settings,
-                "SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS",
-                4,
-            )
-        except Exception:
-            configured_value = 4
+        configured_value = settings.SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS
 
-    return _coerce_positive_int(configured_value, default=4)
+    return _coerce_positive_int(configured_value, default=1)
 
 
 def _build_semantic_enrichment_cache_key(

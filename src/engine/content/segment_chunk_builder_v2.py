@@ -695,6 +695,86 @@ class SegmentChunkBuilderV2:
             },
         )
 
+
+        file_graph = self.store.get_json(file_graph_ref)
+        if not isinstance(file_graph, dict):
+            raise PermanentError(
+                f"FileGraph artifact {file_graph_ref} is invalid for version "
+                f"{document_version_id}: expected dict"
+            )
+
+        file_graph_document_id = str(file_graph.get("document_id") or "")
+        if file_graph_document_id != str(doc.id):
+            raise PermanentError(
+                f"FileGraph document_id mismatch for version {document_version_id}: "
+                f"expected={str(doc.id)!r}, actual={file_graph_document_id!r}"
+            )
+
+        file_graph_document_version_id = str(file_graph.get("document_version_id") or "")
+        if file_graph_document_version_id and file_graph_document_version_id != str(version.id):
+            raise PermanentError(
+                f"FileGraph document_version_id mismatch for version {document_version_id}: "
+                f"expected={str(version.id)!r}, actual={file_graph_document_version_id!r}"
+            )
+
+        file_graph_segments = file_graph.get("segments") or []
+        if not isinstance(file_graph_segments, list):
+            raise PermanentError(
+                f"FileGraph artifact {file_graph_ref} has invalid segments: expected list"
+            )
+
+        file_graph_segments_by_id: dict[str, dict[str, Any]] = {}
+        for index, item in enumerate(file_graph_segments):
+            if not isinstance(item, dict):
+                raise PermanentError(
+                    f"FileGraph artifact {file_graph_ref} has invalid segment at index {index}: "
+                    f"expected dict"
+                )
+
+            seg_id = str(item.get("segment_id") or "")
+            if not seg_id:
+                raise PermanentError(
+                    f"FileGraph artifact {file_graph_ref} has empty segment_id at index {index}"
+                )
+
+            if seg_id in file_graph_segments_by_id:
+                raise PermanentError(
+                    f"FileGraph artifact {file_graph_ref} contains duplicate segment_id {seg_id!r}"
+                )
+
+            file_graph_segments_by_id[seg_id] = item
+
+        db_segment_ids = {str(s.segment_id) for s in segments}
+        file_graph_segment_ids = set(file_graph_segments_by_id.keys())
+
+        if file_graph_segment_ids != db_segment_ids:
+            raise PermanentError(
+                f"FileGraph/DocumentSegment mismatch for version {document_version_id}: "
+                f"file_graph_segment_ids={sorted(file_graph_segment_ids)}, "
+                f"db_segment_ids={sorted(db_segment_ids)}"
+            )
+
+        file_graph_primary_segment_id = str(file_graph.get("primary_segment_id") or "")
+        db_primary_segment_id = str(primary_segments[0].segment_id)
+
+        if file_graph_primary_segment_id and file_graph_primary_segment_id != db_primary_segment_id:
+            raise PermanentError(
+                f"FileGraph primary_segment_id mismatch for version {document_version_id}: "
+                f"expected={db_primary_segment_id!r}, actual={file_graph_primary_segment_id!r}"
+            )
+
+        logger.info(
+            "SegmentChunkBuilderV2: file_graph validated",
+            extra={
+                "document_id": str(doc.id),
+                "document_version_id": str(version.id),
+                "file_graph_ref": file_graph_ref,
+                "segments_count": len(file_graph_segment_ids),
+                "primary_segment_id": db_primary_segment_id,
+            },
+        )
+
+
         layout = self.store.get_json(layout_ref)
         if not isinstance(layout, dict):
             raise PermanentError(
@@ -723,6 +803,13 @@ class SegmentChunkBuilderV2:
         segment_snapshots: list[SegmentChunkSnapshotV2] = []
 
         for segment in sorted(segments, key=lambda s: int(s.segment_order)):
+            graph_segment = file_graph_segments_by_id.get(str(segment.segment_id))
+            if graph_segment is None:
+                raise PermanentError(
+                    f"Segment {segment.segment_id} is missing in validated FileGraph "
+                    f"for version {document_version_id}"
+                )
+
             snapshot = await self._build_single_segment_snapshot(
                 document_id=doc.id,
                 document_version_id=version.id,
@@ -731,6 +818,7 @@ class SegmentChunkBuilderV2:
                 layout_meta=layout_meta if isinstance(layout_meta, dict) else {},
                 layout_ref=layout_ref,
                 file_graph_ref=file_graph_ref,
+                file_graph_segment=graph_segment,
                 params=params,
                 target_tokens=target_tokens,
                 max_tokens=max_tokens,
@@ -879,6 +967,7 @@ class SegmentChunkBuilderV2:
         layout_meta: dict[str, Any],
         layout_ref: str,
         file_graph_ref: str,
+        file_graph_segment: dict[str, Any],
         params: dict[str, Any],
         target_tokens: int,
         max_tokens: int,
@@ -917,6 +1006,80 @@ class SegmentChunkBuilderV2:
         if not isinstance(clause_root, list):
             raise PermanentError(
                 f"Segment clause tree {segment_clause_tree_ref} has invalid root: expected list"
+            )
+
+        clause_tree_document_id = str(clause_tree.get("document_id") or "")
+        if clause_tree_document_id != str(document_id):
+            raise PermanentError(
+                f"Segment clause tree {segment_clause_tree_ref} document_id mismatch: "
+                f"expected={str(document_id)!r}, actual={clause_tree_document_id!r}"
+            )
+
+        clause_tree_segment_id = str(clause_tree.get("segment_id") or "")
+        if clause_tree_segment_id and clause_tree_segment_id != str(segment.segment_id):
+            raise PermanentError(
+                f"Segment clause tree {segment_clause_tree_ref} segment_id mismatch: "
+                f"expected={str(segment.segment_id)!r}, actual={clause_tree_segment_id!r}"
+            )
+
+        clause_tree_segment_type = str(clause_tree.get("segment_type") or "")
+        if clause_tree_segment_type and clause_tree_segment_type != str(segment.segment_type or ""):
+            raise PermanentError(
+                f"Segment clause tree {segment_clause_tree_ref} segment_type mismatch: "
+                f"expected={str(segment.segment_type or '')!r}, actual={clause_tree_segment_type!r}"
+            )
+
+        clause_tree_segment_order = clause_tree.get("segment_order")
+        if clause_tree_segment_order is not None and int(clause_tree_segment_order) != int(segment.segment_order):
+            raise PermanentError(
+                f"Segment clause tree {segment_clause_tree_ref} segment_order mismatch: "
+                f"expected={int(segment.segment_order)}, actual={int(clause_tree_segment_order)}"
+            )
+
+        clause_tree_is_primary = clause_tree.get("is_primary_segment")
+        if clause_tree_is_primary is not None and bool(clause_tree_is_primary) != bool(segment.is_primary):
+            raise PermanentError(
+                f"Segment clause tree {segment_clause_tree_ref} is_primary mismatch: "
+                f"expected={bool(segment.is_primary)}, actual={bool(clause_tree_is_primary)}"
+            )
+
+        if not isinstance(file_graph_segment, dict):
+            raise PermanentError(
+                f"Invalid file_graph_segment for segment {segment.segment_id}: expected dict"
+            )
+
+        graph_segment_id = str(file_graph_segment.get("segment_id") or "")
+        if graph_segment_id != str(segment.segment_id):
+            raise PermanentError(
+                f"FileGraph segment_id mismatch for segment {segment.segment_id}: "
+                f"file_graph={graph_segment_id!r}"
+            )
+
+        graph_segment_type = str(file_graph_segment.get("segment_type") or "")
+        if graph_segment_type and graph_segment_type != str(segment.segment_type or ""):
+            raise PermanentError(
+                f"FileGraph segment_type mismatch for segment {segment.segment_id}: "
+                f"db={str(segment.segment_type or '')!r}, file_graph={graph_segment_type!r}"
+            )
+
+        graph_segment_order = file_graph_segment.get("segment_order")
+        if (
+            graph_segment_order is not None
+            and int(graph_segment_order) != int(segment.segment_order)
+        ):
+            raise PermanentError(
+                f"FileGraph segment_order mismatch for segment {segment.segment_id}: "
+                f"db={int(segment.segment_order)}, file_graph={int(graph_segment_order)}"
+            )
+
+        graph_segment_is_primary = file_graph_segment.get("is_primary")
+        if (
+            graph_segment_is_primary is not None
+            and bool(graph_segment_is_primary) != bool(segment.is_primary)
+        ):
+            raise PermanentError(
+                f"FileGraph is_primary mismatch for segment {segment.segment_id}: "
+                f"db={bool(segment.is_primary)}, file_graph={bool(graph_segment_is_primary)}"
             )
 
         segment_plan = (

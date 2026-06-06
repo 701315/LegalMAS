@@ -231,13 +231,20 @@ def aggregate_results(
 
         if structured_data and settings.EXPORT_STRUCTURED_DATA_ENABLED:
             for field_name, field_value in structured_data.items():
-                if not field_value or str(field_value) in ("not_found", "None", ""):
+                # Нормализуем значение поля перед попаданием в StructuredValueRow.
+                # structured_data может хранить:
+                #   - scalar value
+                #   - dict {"value": ..., "confidence": ..., ...}
+                if isinstance(field_value, dict) and "value" in field_value:
+                    raw_display_value = field_value.get("value")
+                else:
+                    raw_display_value = field_value
+
+                # Пустые / служебные значения не тащим в extracted values.
+                if raw_display_value is None or str(raw_display_value) in ("not_found", "None", ""):
                     continue
 
-                if isinstance(field_value, dict) and "value" in field_value:
-                    display_value = str(field_value["value"])
-                else:
-                    display_value = str(field_value)
+                display_value = str(raw_display_value)
 
                 structured_value_rows.append(
                     StructuredValueRow(

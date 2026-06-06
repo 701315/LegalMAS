@@ -425,6 +425,8 @@ class DocTypeCheckLoader:
             mode=mode,
             fields=fields,
             store_payload=extraction_cfg.get("store_payload", True),
+            llm_prompt_extraction=extraction_cfg.get("llm_prompt_extraction"),
+            llm_max_tokens=extraction_cfg.get("llm_max_tokens"),
         )
 
     def _parse_conditional(self, triggers_cfg: dict | None) -> ConditionalConfig | None:
