@@ -7,8 +7,9 @@ Retrieval models: универсальное представление чанк
 
 - В системе много мест, где мы работаем с кусочками текста ("чанками"):
   * clause-чанки (целые пункты договора),
-  * subclause / sized-чанки (более мелкие части длинных пунктов),
-  * section-чанки (крупные разделы, собранные из нескольких пунктов).
+  * subclause / sized-чанки (legacy более мелкие части длинных пунктов),
+  * section-чанки (крупные разделы, собранные из нескольких пунктов),
+  * legal_unit-чанки (exact legal units — новый retrieval truth после P8.8d).
 
 - Раньше каждый такой чанк был просто словарём формата:
     {"id": "...", "text": "...", "metadata": {...}}
@@ -19,9 +20,14 @@ Retrieval models: универсальное представление чанк
   * что в нём за текст и сколько он весит в токенах,
   * краткое summary и дополнительные метаданные.
 
-- Важно: dict-формат {"id","text","metadata"} теперь станет только
-  "проводным" форматом (для API, старых мест в коде), а вся внутренняя
-  логика будет работать с RetrievalChunk.
+- Важно: dict-формат {"id","text","metadata"} теперь остаётся только
+  "проводным" форматом (для API и совместимости), а вся внутренняя
+  логика должна ориентироваться на RetrievalChunk.
+
+P8.8d — Retrieval Truth Migration:
+- Retrieval truth переключён с blind sized split (`subclause`)
+  на exact legal units (`legal_unit`).
+- Поэтому `legal_unit` теперь является полноправным kind retrieval corpus.
 """
 
 from __future__ import annotations
@@ -31,10 +37,11 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 # Тип уровня чанка:
-# - "section"   — крупный раздел (несколько пунктов),
-# - "clause"    — исходная листовая клауза из clause tree,
-# - "subclause" — под-чанк внутри длинной клаузы (sized-chunk).
-ChunkKind = Literal["section", "clause", "subclause"]
+# - "section"    — крупный раздел (несколько пунктов),
+# - "clause"     — исходная листовая клауза из clause tree,
+# - "subclause"  — legacy под-чанк внутри длинной клаузы (sized-chunk),
+# - "legal_unit" — exact retrieval unit, построенный из legal unit substrate.
+ChunkKind = Literal["section", "clause", "subclause", "legal_unit"]
 
 
 class RetrievalChunk(BaseModel):
@@ -45,9 +52,10 @@ class RetrievalChunk(BaseModel):
 
     - Каждый такой объект — это "кусок договора", с которым работает система.
     - kind показывает тип:
-        * "section"   — крупный раздел,
-        * "clause"    — пункт/подпункт,
-        * "subclause" — маленький фрагмент внутри пункта.
+        * "section"    — крупный раздел,
+        * "clause"     — пункт/подпункт,
+        * "subclause"  — legacy маленький фрагмент внутри пункта,
+        * "legal_unit" — exact legal unit, новый retrieval-visible слой.
     - Паспорт хранит положение чанка в документе и служебную информацию.
     """
 
@@ -57,13 +65,15 @@ class RetrievalChunk(BaseModel):
     # ID документа, к которому относится чанк
     doc_id: str
 
-    # Тип чанка: section / clause / subclause
+    # Тип чанка: section / clause / subclause / legal_unit
     kind: ChunkKind
 
-    # UID клаузы из clause tree (например "1", "1.2.3", "II", "A")
+    # Canonical identity чанка/узла.
+    # Исторически поле называется clause_uid, но после Sprint 3 и P8.8d
+    # сюда кладётся effective_uid / unit_id retrieval entity.
     clause_uid: str | None = None
 
-    # Уровень в иерархии clause tree (1 — верхний)
+    # Уровень в иерархии clause tree / legal unit tree (если применимо)
     level: int | None = None
 
     # Полный текст чанка
@@ -91,18 +101,19 @@ class RetrievalChunk(BaseModel):
 
     def to_legacy_dict(self) -> dict[str, Any]:
         """
-        Сериализация в "старый" формат чанка для обратной совместимости.
+        Сериализация в "старый" формат чанка для совместимого wire-contract.
 
         До введения этой модели по коду ходили словари вида:
             { "id": "...", "text": "...", "metadata": {...} }
 
-        Чтобы не переписывать весь код сразу, мы будем:
+        Чтобы не переписывать весь код сразу, мы можем:
         - внутри пользоваться RetrievalChunk,
         - в старые места отдавать результат to_legacy_dict().
 
         Для непрофессионального программиста:
         - metadata здесь — это "паспорт" чанка (id документа, страницы,
-          пункты, заголовки), который дальше используют поиск, проверки и UI.
+          identity, заголовки и дополнительные retrieval-поля), который
+          дальше используют поиск, проверки и UI.
         """
         metadata: dict[str, Any] = {
             "doc_id": self.doc_id,
@@ -128,3 +139,6 @@ class RetrievalChunk(BaseModel):
             "text": self.text,
             "metadata": metadata,
         }
+    
+
+    

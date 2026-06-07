@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import re
 from typing import Any
-
+from services.structure.legal_unit_extractor import LegalUnitExtractor
 from core.logging import get_logger
 from services.structure.legal_unit_models import (
     CitabilityMetrics,
@@ -47,6 +47,7 @@ from services.structure.legal_unit_models import (
     LegalUnitsSnapshot,
     LegalUnitType,
 )
+from engine.content.clause_tree_builder import ClauseTreeBuilder
 
 logger = get_logger(__name__)
 
@@ -657,6 +658,7 @@ class LegalUnitBuilder:
         is_primary_segment: bool,
         document_id: str,
         document_version_id: str,
+        element_index: dict[str, dict[str, Any]] | None = None,
     ) -> LegalUnitsSnapshot:
         snapshot = LegalUnitsSnapshot(
             document_id=str(document_id),
@@ -709,6 +711,35 @@ class LegalUnitBuilder:
                 units=units,
                 warnings=snapshot.build_warnings,
                 document_id=document_id,
+                element_index=element_index,
+                parent_unit_id=None,
+                ancestor_titles=[],
+                ancestor_path_ids=[],
+            )
+
+        # P8.8d: post-pass — восстановить parent/children linkage и path_ids.
+        # _collect_units задаёт parent_unit_id и path_ids для каждого unit,
+        # а здесь мы достраиваем children_unit_ids у родителей.
+        unit_by_id = {u.unit_id: u for u in units if u.unit_id}
+
+        for unit in units:
+            if unit.parent_unit_id and unit.parent_unit_id in unit_by_id:
+                parent = unit_by_id[unit.parent_unit_id]
+                if unit.unit_id not in parent.children_unit_ids:
+                    parent.children_unit_ids.append(unit.unit_id)
+
+
+        # ── vNext: optional extraction of exact sub-units ────────────────
+        # НЕ ломает старый pipeline:
+        # - если element_index не передан → работаем как раньше
+        # - если extractor не нашёл children → parent остаётся как есть
+        if element_index is not None:
+            units = self._extract_definition_sub_units(
+                units=units,
+                element_index=element_index,
+                warnings=snapshot.build_warnings,
+                document_id=document_id,
+                segment_id=segment_id,
             )
 
         snapshot.units = units
@@ -773,6 +804,143 @@ class LegalUnitBuilder:
 
         return snapshot
 
+
+    def _extract_definition_sub_units(
+        self,
+        *,
+        units: list[LegalUnit],
+        element_index: dict[str, dict[str, Any]],
+        warnings: list[str],
+        document_id: str,
+        segment_id: str,
+    ) -> list[LegalUnit]:
+        """
+        Optional second pass:
+        materialize definition_item children inside parent DEFINITION units.
+
+        Политика:
+        - parent остаётся в snapshot как structural context unit;
+        - children добавляются сразу после parent;
+        - parent demote:
+            * unit_class = "section"
+            * unit_type = STRUCTURAL_ANCHOR
+            * clause_function = UNKNOWN
+            * citability = low
+            * own_text / exact_text / retrieval_text = None
+        - children получают high citability и exact_text.
+
+        ВАЖНО:
+        - этот pass безопасен и не меняет поведение если children не найдены.
+        - currently applied only to parent units с unit_type == DEFINITION.
+        """
+        if not units:
+            return units
+
+        extractor = LegalUnitExtractor()
+        existing_unit_ids = {u.unit_id for u in units if u.unit_id}
+
+        result_units: list[LegalUnit] = []
+
+        extracted_parents = 0
+        extracted_children_total = 0
+
+        for unit in units:
+            result_units.append(unit)
+
+            if unit.unit_type != LegalUnitType.DEFINITION:
+                continue
+            if unit.is_technical_fallback:
+                continue
+            if unit.children_unit_ids:
+                continue
+            if not unit.own_element_ids:
+                continue
+
+            try:
+                children = extractor.extract_definition_sub_units(
+                    parent_unit=unit,
+                    element_index=element_index,
+                    existing_unit_ids=existing_unit_ids,
+                )
+            except Exception as exc:
+                warnings.append(
+                    f"definition_sub_unit_extraction_failed:{unit.unit_id}:{exc}"
+                )
+                logger.warning(
+                    "LegalUnitBuilder: definition sub-unit extraction failed",
+                    extra={
+                        "document_id": document_id,
+                        "segment_id": segment_id,
+                        "parent_unit_id": unit.unit_id,
+                        "error": str(exc),
+                    },
+                )
+                continue
+
+            if not children:
+                continue
+
+            # Parent demotion (context-only / structural anchor)
+            unit.children_unit_ids = [child.unit_id for child in children]
+            unit.unit_class = "section"
+            unit.unit_type = LegalUnitType.STRUCTURAL_ANCHOR
+            unit.clause_function = ClauseFunction.UNKNOWN
+            unit.own_text = None
+            unit.exact_text = None
+            unit.retrieval_text = None
+            unit.context_prefix = None
+            unit.context_strategy = None
+            unit.heading_text = unit.heading_text or unit.title
+
+            # Parent остаётся в snapshot, но не должен конкурировать с children
+            unit.citability.citability_score = 0.1
+            unit.citability.citability_band = "low"
+            unit.citability.has_own_text = False
+            unit.citability.is_heading_only = True
+
+            unit.diagnostics["sub_units_materialized"] = len(children)
+            unit.diagnostics["sub_units_materialized_kind"] = "definition_item"
+
+            for child in children:
+                # children пока без cross_refs/topic_tags;
+                # TopicTagger и CrossRefResolver пойдут ниже на весь snapshot.
+                child.cross_refs = _extract_cross_refs(
+                    child.unit_id,
+                    child.own_text or child.exact_text,
+                )
+                result_units.append(child)
+                existing_unit_ids.add(child.unit_id)
+
+            extracted_parents += 1
+            extracted_children_total += len(children)
+
+            logger.info(
+                "LegalUnitBuilder: definition children materialized",
+                extra={
+                    "document_id": document_id,
+                    "segment_id": segment_id,
+                    "parent_unit_id": unit.unit_id,
+                    "children_count": len(children),
+                },
+            )
+
+        if extracted_children_total:
+            warnings.append(
+                f"definition_sub_units_materialized={extracted_children_total}"
+            )
+
+        logger.info(
+            "LegalUnitBuilder: definition sub-unit extraction pass complete",
+            extra={
+                "document_id": document_id,
+                "segment_id": segment_id,
+                "extracted_parents": extracted_parents,
+                "extracted_children_total": extracted_children_total,
+            },
+        )
+
+        return result_units
+
     def _collect_units(
         self,
         *,
@@ -782,6 +950,10 @@ class LegalUnitBuilder:
         units: list[LegalUnit],
         warnings: list[str],
         document_id: str,
+        element_index: dict[str, dict[str, Any]] | None = None,
+        parent_unit_id: str | None = None,
+        ancestor_titles: list[str] | None = None,
+        ancestor_path_ids: list[str] | None = None,
     ) -> None:
         effective_uid = str(node.get("effective_uid") or "").strip()
         raw_uid = str(node.get("raw_uid") or "").strip()
@@ -800,6 +972,8 @@ class LegalUnitBuilder:
         recovered = bool(node.get("recovered_via_best_effort", False))
         fallback_reason = node.get("fallback_reason") or None
         diagnostics = dict(node.get("diagnostics") or {})
+        current_ancestor_titles: list[str] = list(ancestor_titles or [])
+        current_path_ids: list[str] = list(ancestor_path_ids or [])
 
         if not effective_uid:
             warnings.append(f"node missing effective_uid: raw_uid={raw_uid!r}")
@@ -821,6 +995,10 @@ class LegalUnitBuilder:
                         units=units,
                         warnings=warnings,
                         document_id=document_id,
+                        element_index=element_index,
+                        parent_unit_id=parent_unit_id,
+                        ancestor_titles=current_ancestor_titles,
+                        ancestor_path_ids=current_path_ids,
                     )
             return
 
@@ -839,6 +1017,33 @@ class LegalUnitBuilder:
             is_technical_fallback=is_technical_fallback,
             is_heading_only=is_heading_only,
         )
+
+        # P8.8d: deterministic exact text projection from own_element_ids.
+        exact_text: str | None = None
+        if element_index is not None and own_element_ids:
+            materialized = ClauseTreeBuilder.materialize_text_from_element_ids(
+                element_ids=own_element_ids,
+                element_index=element_index,
+            )
+            if materialized:
+                exact_text = materialized
+
+        # Заголовки предков = только upward context, без body текста.
+        parent_titles = list(current_ancestor_titles)
+        context_prefix: str | None = None
+        if parent_titles:
+            context_prefix = "\n".join(t for t in parent_titles if t).strip() or None
+
+        retrieval_text: str | None = None
+        if exact_text:
+            if context_prefix:
+                retrieval_text = f"{context_prefix}\n\n{exact_text}"
+            else:
+                retrieval_text = exact_text
+
+        heading_text = semantic_title or title or None
+        source_element_ids = list(own_element_ids)
+        path_ids = current_path_ids + ([effective_uid] if effective_uid else [])
 
         if is_technical_fallback:
             unit_type = LegalUnitType.UNKNOWN
@@ -897,6 +1102,18 @@ class LegalUnitBuilder:
             content_mode=content_mode,
             recovered_via_best_effort=recovered,
             fallback_reason=fallback_reason,
+
+            # ── P8.8d: exact retrieval substrate ──────────────────────────
+            exact_text=exact_text,
+            retrieval_text=retrieval_text,
+            context_prefix=context_prefix,
+            context_strategy="ancestor_heading_prefix" if context_prefix else None,
+            parent_unit_id=parent_unit_id,
+            children_unit_ids=[],
+            path_ids=path_ids,
+            source_element_ids=source_element_ids,
+            heading_text=heading_text,
+
             diagnostics={
                 "unit_type_source": (
                     "technical_fallback"
@@ -910,6 +1127,9 @@ class LegalUnitBuilder:
                 "raw_title": title,
                 "semantic_title_sanitized": semantic_title != title,
                 "user_facing_semantic": not is_technical_fallback,
+                "has_exact_text": exact_text is not None,
+                "has_retrieval_text": retrieval_text is not None,
+                "has_context_prefix": context_prefix is not None,
             },
         )
 
@@ -932,8 +1152,18 @@ class LegalUnitBuilder:
                 "content_mode": content_mode,
                 "recovered": recovered,
                 "is_technical_fallback": is_technical_fallback,
+                "parent_unit_id": parent_unit_id,
+                "path_depth": len(path_ids),
+                "has_exact_text": exact_text is not None,
+                "has_retrieval_text": retrieval_text is not None,
             },
         )
+
+        next_ancestor_titles = list(current_ancestor_titles)
+        if heading_text:
+            next_ancestor_titles.append(heading_text)
+
+        next_path_ids = path_ids
 
         for child in node.get("children") or []:
             if isinstance(child, dict):
@@ -944,6 +1174,10 @@ class LegalUnitBuilder:
                     units=units,
                     warnings=warnings,
                     document_id=document_id,
+                    element_index=element_index,
+                    parent_unit_id=effective_uid,
+                    ancestor_titles=next_ancestor_titles,
+                    ancestor_path_ids=next_path_ids,
                 )
 
 

@@ -1,5 +1,44 @@
 # src/engine/content/chunk_snapshot_reader.py
 
+"""
+Chunk snapshot reader v2: чтение materialized chunk corpus из segment snapshot'ов.
+
+Простыми словами для непрофессионального программиста:
+
+- CHUNKS v2 хранит corpus не одним большим файлом, а в двух слоях:
+  1) file manifest — список сегментов документа и ссылок на их snapshot'ы;
+  2) segment snapshot — реальные чанки конкретного логического сегмента.
+
+- Этот модуль:
+  - находит нужную версию документа;
+  - читает file manifest из object storage;
+  - находит segment_chunks_ref для каждого сегмента;
+  - читает segment snapshot'ы;
+  - возвращает плоский список чанков в wire-формате:
+      {"id": ..., "text": ..., "metadata": {...}}
+
+Архитектурно важно:
+- Это transport / storage reader, а НЕ retrieval-policy слой.
+- Reader не решает, какие уровни "правильные" для checks;
+  он просто читает те уровни, которые запросил caller и которые
+  materialized в snapshot["chunks"].
+- Поэтому reader одинаково поддерживает:
+    * section
+    * clause
+    * subclause
+    * legal_unit
+  и любые будущие уровни, если они записаны в CHUNKS v2 snapshot.
+
+P8.8d — Retrieval Truth Migration:
+- После migration retrieval truth переключён на legal_unit-based corpus.
+- Но это решение принимается НЕ здесь, а выше:
+    * в DocumentContentService,
+    * в check planning / retrieval orchestration.
+- Сам reader остаётся универсальным и metadata-transparent:
+  он не фильтрует и не переписывает semantic/legal-unit поля,
+  а только безопасно доставляет их из storage в runtime.
+"""
+
 from __future__ import annotations
 
 import uuid
@@ -54,10 +93,13 @@ class ChunkCorpusReaderV2:
       ]
 
     Важно:
-    - Все новые поля metadata (citability_hint, semantic_node_type,
-      recovered_via_best_effort и т.д. из Этапов 4-5) проходят через reader
-      без изменений — reader не фильтрует metadata.
-    - Для чтения конкретной версии используй version_id параметр в load() и load_segment().
+    - Reader не привязан жёстко только к section/clause/subclause:
+      он читает любые уровни, которые materialized в snapshot["chunks"].
+      После P8.8d это включает также новый retrieval level `legal_unit`.
+    - Все новые поля metadata проходят через reader без изменений —
+      reader не фильтрует metadata.
+    - Для чтения конкретной версии используй version_id параметр в
+      load() и load_segment().
     """
 
     def __init__(
@@ -81,7 +123,8 @@ class ChunkCorpusReaderV2:
         Загрузить все чанки для документа в формате v2.
 
         doc_id     — идентификатор документа.
-        levels     — какие уровни чанков нужны (section / clause / subclause).
+        levels     — какие уровни чанков нужны
+                     (например section / clause / subclause / legal_unit).
         version_id — если задан, читаем конкретную версию;
                      если None — читаем последнюю (latest).
 
@@ -90,7 +133,7 @@ class ChunkCorpusReaderV2:
         - Если нужна конкретная версия (например для аудита) — передаём version_id.
 
         Пример:
-        - levels = ["clause", "subclause"]
+        - levels = ["legal_unit", "section"]
         """
         level_set = self._normalize_levels(levels)
         if not level_set:
@@ -232,6 +275,7 @@ class ChunkCorpusReaderV2:
         - doc_id:      UUID документа
         - segment_id:  ID логического сегмента (строка)
         - levels:      нужные уровни чанков
+                       (например legal_unit / section / clause / subclause)
         - version_id:  если задан — читаем конкретную версию;
                        если None — читаем последнюю.
 
@@ -388,12 +432,13 @@ class ChunkCorpusReaderV2:
         - doc_id, version_id — только для логов.
         - segment_id — идентификатор сегмента (строка).
         - segment_chunks_ref — путь к JSON с чанками сегмента в MinIO.
-        - level_set — множество нужных уровней (section / clause / subclause).
+        - level_set — множество нужных уровней
+          (например section / clause / subclause / legal_unit).
 
         Важно:
         - Все поля metadata из chunk snapshot передаются downstream без изменений.
-        - Это включает новые поля Этапов 4-5: citability_hint, semantic_node_type,
-          recovered_via_best_effort, fallback_reason, is_structural_fallback и т.д.
+        - Это включает semantic/citability поля, legal-unit поля и другие
+          retrieval-specific metadata.
         - Reader только добавляет segment_id и chunk_kind если их нет в metadata.
         """
         context = {
@@ -465,6 +510,7 @@ class ChunkCorpusReaderV2:
         for lvl, items in chunks_by_level.items():
             if not isinstance(lvl, str):
                 continue
+
             # Пропускаем уровни, которые не запрашивались.
             lvl_normalized = lvl.strip().lower()
             if lvl_normalized not in level_set:
@@ -487,7 +533,7 @@ class ChunkCorpusReaderV2:
 
                 # Обогащаем metadata только если поля отсутствуют.
                 # НЕ перезаписываем существующие поля — они могут содержать
-                # данные записанные при chunking (citability_hint и т.д.).
+                # данные, записанные при chunking.
                 if "segment_id" not in metadata:
                     metadata["segment_id"] = segment_id
                 if "chunk_kind" not in metadata:
@@ -508,5 +554,12 @@ class ChunkCorpusReaderV2:
         """
         Нормализовать список уровней: привести к нижнему регистру,
         убрать пробелы, отфильтровать пустые строки.
+
+        Важно:
+        - Reader не навязывает whitelist уровней.
+        - Если уровень materialized в snapshot["chunks"], reader сможет
+          его прочитать.
         """
         return {lvl.strip().lower() for lvl in levels if isinstance(lvl, str) and lvl.strip()}
+    
+    

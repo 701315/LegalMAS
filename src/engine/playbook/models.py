@@ -40,8 +40,9 @@ core.playbooks.compiler.GlobalCheckConfig и используется в UI (DD 
 
 Изменения (retrieval levels/required_kind):
 - RetrievalConfig: добавлены поля levels и required_kind.
-  levels задаёт, какие уровни чанков использовать (section/clause/subclause).
-  required_kind задаёт минимальный "тип" чанка для evidence (например, subclause).
+  levels задаёт, какие уровни чанков использовать для retrieval.
+  После P8.8d primary retrieval substrate = legal_unit + section.
+  required_kind задаёт предпочитаемый "тип" чанка для evidence.
 """
 
 import re
@@ -183,12 +184,13 @@ class RetrievalConfig(BaseModel):
       поверх базового скоринга BM25+dense.
     - filters: будущие фильтры по metadata (page, section_title, clause_uid и т.п.).
     - levels: какие уровни чанков использовать:
-        ["subclause", "section"] по умолчанию.
-      Например, для узких чеков можно задать ["subclause"],
-      для общих — ["section", "clause"].
-    - required_kind: минимальный "тип" чанка для evidence.
-      Например, "subclause" — значит, мы предпочитаем брать доказательство
-      из под‑клаузы, даже если section тоже матчится.
+        ["legal_unit", "section"] по умолчанию.
+      После P8.8d primary retrieval substrate = legal_unit (exact legal units).
+      Legacy значение "subclause" автоматически алиасится в "legal_unit"
+      в ChunksPreparer._resolve_levels().
+    - required_kind: предпочитаемый "тип" чанка для evidence.
+      Например, "legal_unit" — значит, мы предпочитаем брать доказательство
+      из exact legal unit, даже если section тоже матчится.
     """
 
     context_k: int = 5
@@ -197,15 +199,15 @@ class RetrievalConfig(BaseModel):
     rerank: bool = True
     filters: dict[str, Any] = Field(default_factory=dict)
 
-    # Новое поле: уровни чанков, которые участвуют в retrieval.
-    # Возможные значения: "section", "clause", "subclause".
-    # По умолчанию: subclause + section, как сейчас в коде.
-    levels: list[str] = Field(default_factory=lambda: ["subclause", "section"])
+    # Уровни чанков, которые участвуют в retrieval.
+    # После P8.8d: primary retrieval substrate = legal_unit + section.
+    # Legacy "subclause" автоматически алиасится в "legal_unit".
+    levels: list[str] = Field(default_factory=lambda: ["legal_unit", "section"])
 
-    # Новое поле: "предпочитаемый" тип чанка для evidence.
+    # Предпочитаемый тип чанка для evidence.
     # Например:
-    #   required_kind = "subclause"
-    # означает, что при выборе лучших чанков мы сначала смотрим на subclause,
+    #   required_kind = "legal_unit"
+    # означает, что при выборе лучших чанков мы сначала смотрим на legal_unit,
     # и только если их нет — используем другие уровни.
     required_kind: str | None = None
 

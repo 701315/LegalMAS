@@ -394,11 +394,13 @@ class CheckExecutor:
                 cid = str(rc.element_id or "")
                 meta = id_to_meta.get(cid) or {}
                 text = (id_to_text.get(cid) or "").lower()
-                kind = str(meta.get("kind") or "").lower()
+                kind = str(meta.get("chunk_kind") or meta.get("kind") or "").lower()
 
-                # Небольшой bonus/penalty за тип фрагмента
+                # Небольшой bonus/penalty за тип фрагмента.
+                # P8.8d: legal_unit — новый primary retrieval substrate,
+                # получает тот же бонус, что раньше subclause.
                 kind_bonus = 0.0
-                if kind == "subclause":
+                if kind in ("legal_unit", "subclause"):
                     kind_bonus = 0.05
                 elif kind == "section":
                     kind_bonus = -0.02

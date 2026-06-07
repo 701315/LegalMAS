@@ -391,8 +391,12 @@ def looks_like_definition_item(text: str) -> bool:
     - Goods: ...
     - 1.1 "Seller" means ...
 
-    Функция специально более строгая, чем общий heading parser:
-    она ищет именно юридическую формулу определения.
+    ВАЖНО:
+    - explicit definition formula должна иметь приоритет над мягкими
+      negative rules вроде requisites/signature keyword hits;
+    - это предотвращает false negatives для строк вида
+      "1.3 Банк означает ...", где слово "Банк" встречается как term,
+      а не как банковский реквизит.
     """
     t = _normalized_text(text)
     if not t:
@@ -405,14 +409,12 @@ def looks_like_definition_item(text: str) -> bool:
     if len(body) > 350:
         return False
 
-    # Appendix / signature / requisites / TOC lines не считаем определением
+    # ── Hard negatives: structural noise / non-definition blocks ───────────
+    # Эти negative rules оставляем ранними, потому что appendix/toc lines
+    # не должны выигрывать у definition heuristics.
     if looks_like_appendix_heading(body):
         return False
     if looks_like_appendices_block_heading(body):
-        return False
-    if looks_like_signature_heading(body):
-        return False
-    if looks_like_requisites_heading(body):
         return False
     if looks_like_toc_line(body):
         return False
@@ -421,24 +423,30 @@ def looks_like_definition_item(text: str) -> bool:
     if len(words) < 2:
         return False
 
-    # Самый сильный сигнал: явный definition lead
+    # ── Strong positive definition signals ────────────────────────────────
+    # Если строка явно выглядит как формула определения, это должно
+    # побеждать мягкие requisites/signature negatives.
     if _DEFINITION_LEAD_RE.search(body):
         return True
 
-    # Частый legal-шаблон: "Term": ...
     if _DEFINITION_COLON_RE.search(body):
         return True
 
-    # quoted term + definition verb дальше по строке
     if _QUOTED_TERM_START_RE.search(body) and _DEFINITION_VERB_RE.search(body):
         return True
 
-    # строка начинается с TitleCase-термина и дальше идёт means/означает
     first_chunk = body[:120]
     if _DEFINITION_VERB_RE.search(first_chunk):
         lead = body.split(maxsplit=1)[0]
         if lead and lead[0].isupper():
             return True
+
+    # ── Soft negatives: requisites / signature-like patterns ───────────────
+    # Применяем их ТОЛЬКО если явной definition formula не нашли.
+    if looks_like_signature_heading(body):
+        return False
+    if looks_like_requisites_heading(body):
+        return False
 
     return False
 

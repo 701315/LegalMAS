@@ -28,7 +28,7 @@ type RenderSegment =
   | { type: "plain"; key: string; text: string }
   | { type: "highlight"; key: string; text: string; chunk: ChunkPreviewDTO };
 
-type LayerKind = "section" | "clause" | "subclause";
+type LayerKind = "section" | "clause" | "subclause" | "legal_unit";
 
 interface DisplayItem {
   chunk: ChunkPreviewDTO;
@@ -82,7 +82,12 @@ function getChunkUid(chunk: ChunkPreviewDTO): string {
 
 function getLayerKind(chunk: ChunkPreviewDTO): LayerKind | null {
   const kind = (chunk.chunk_kind || "").trim().toLowerCase();
-  if (kind === "section" || kind === "clause" || kind === "subclause") {
+  if (
+    kind === "section" ||
+    kind === "clause" ||
+    kind === "subclause" ||
+    kind === "legal_unit"
+  ) {
     return kind;
   }
   return null;
@@ -108,11 +113,14 @@ function sortByIndex(a: ChunkPreviewDTO, b: ChunkPreviewDTO): number {
   return a.index - b.index;
 }
 
-function buildLayerBuckets(chunks: ChunkPreviewDTO[]): Record<LayerKind, ChunkPreviewDTO[]> {
+function buildLayerBuckets(
+  chunks: ChunkPreviewDTO[],
+): Record<LayerKind, ChunkPreviewDTO[]> {
   const buckets: Record<LayerKind, ChunkPreviewDTO[]> = {
     section: [],
     clause: [],
     subclause: [],
+    legal_unit: [],
   };
 
   for (const chunk of chunks) {
@@ -124,6 +132,7 @@ function buildLayerBuckets(chunks: ChunkPreviewDTO[]): Record<LayerKind, ChunkPr
   buckets.section.sort(sortByIndex);
   buckets.clause.sort(sortByIndex);
   buckets.subclause.sort(sortByIndex);
+  buckets.legal_unit.sort(sortByIndex);
 
   return buckets;
 }
@@ -203,20 +212,26 @@ function buildHighlightedSnapshot(
   };
 }
 
+/* ----------------------------------------------------------------
+ * Label helpers
+ * ---------------------------------------------------------------- */
+
 function getCanonicalLayerTitle(layer: LayerKind): string {
+  if (layer === "legal_unit") return "Legal unit";
   if (layer === "clause") return "Clause";
   if (layer === "subclause") return "Subclause";
   return "Section";
 }
 
 function getCanonicalLayerTabTitle(layer: LayerKind): string {
+  if (layer === "legal_unit") return "Legal unit layer";
   if (layer === "clause") return "Clause layer";
   if (layer === "subclause") return "Subclause layer";
   return "Section layer";
 }
 
 function getFriendlyLayerTitle(layer: LayerKind): string {
-  if (layer === "subclause") return "Evidence";
+  if (layer === "legal_unit" || layer === "subclause") return "Evidence";
   if (layer === "section") return "Context";
   return "Clause";
 }
@@ -239,7 +254,9 @@ function getSecondaryItemLine(
   const parts: string[] = [];
   const uid = getChunkUid(chunk);
 
-  parts.push(isCanonical ? item.layer : getFriendlyLayerTitle(item.layer).toLowerCase());
+  parts.push(
+    isCanonical ? item.layer : getFriendlyLayerTitle(item.layer).toLowerCase(),
+  );
 
   if (uid) parts.push(`uid: ${uid}`);
 
@@ -408,7 +425,7 @@ function getListPanelMeta(isCanonical: boolean): {
     return {
       title: "Canonical CHUNKS layers",
       description:
-        "Показываются три разных слоя materialized chunks. Нумерация локальная внутри выбранного слоя, а не общая по документу.",
+        "Показываются все слои materialized chunks. Нумерация локальная внутри выбранного слоя, а не общая по документу.",
     };
   }
 
@@ -447,7 +464,7 @@ function LayerTabs({
   onChange: (next: LayerKind) => void;
   counts: Record<LayerKind, number>;
 }) {
-  const layers: LayerKind[] = ["clause", "subclause", "section"];
+  const layers: LayerKind[] = ["legal_unit", "clause", "subclause", "section"];
 
   return (
     <div className="mb-3 flex flex-wrap gap-2">
@@ -571,6 +588,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
   const canonicalCounts = useMemo(
     () => ({
+      legal_unit: layerBuckets.legal_unit.length,
       clause: layerBuckets.clause.length,
       subclause: layerBuckets.subclause.length,
       section: layerBuckets.section.length,
@@ -579,13 +597,14 @@ export const ChunksStageViewer: React.FC<Props> = ({
   );
 
   const canonicalDefaultLayer: LayerKind = useMemo(() => {
+    if (layerBuckets.legal_unit.length) return "legal_unit";
     if (layerBuckets.clause.length) return "clause";
     if (layerBuckets.subclause.length) return "subclause";
     return "section";
   }, [layerBuckets]);
 
   const [activeCanonicalLayer, setActiveCanonicalLayer] =
-    useState<LayerKind>("clause");
+    useState<LayerKind>("legal_unit");
 
   useEffect(() => {
     if (!isCanonical) return;
@@ -601,6 +620,9 @@ export const ChunksStageViewer: React.FC<Props> = ({
         ? activeCanonicalLayer
         : canonicalDefaultLayer;
     }
+
+    // Friendly mode: primary evidence = legal_unit
+    if (layerBuckets.legal_unit.length > 0) return "legal_unit";
     if (layerBuckets.subclause.length > 0) return "subclause";
     return "section";
   }, [
@@ -688,7 +710,9 @@ export const ChunksStageViewer: React.FC<Props> = ({
     () =>
       effectiveSelectedIndex == null
         ? undefined
-        : displayedItems.find((item) => item.chunk.index === effectiveSelectedIndex),
+        : displayedItems.find(
+            (item) => item.chunk.index === effectiveSelectedIndex,
+          ),
     [displayedItems, effectiveSelectedIndex],
   );
 
@@ -833,7 +857,10 @@ export const ChunksStageViewer: React.FC<Props> = ({
                               ? "bg-[var(--color-warning)]/20 ring-1 ring-[var(--color-warning)] text-[var(--text-primary)]"
                               : "bg-[var(--color-warning-highlight)] hover:bg-[var(--color-warning-highlight)]/80",
                           )}
-                          title={getChunkUid(segment.chunk) || `chunk ${segment.chunk.index}`}
+                          title={
+                            getChunkUid(segment.chunk) ||
+                            `chunk ${segment.chunk.index}`
+                          }
                         >
                           {segment.text || " "}
                         </button>
@@ -859,12 +886,20 @@ export const ChunksStageViewer: React.FC<Props> = ({
     );
   }
 
+  /* ================================================================
+   * Normal mode
+   * ================================================================ */
+
   const listMeta = getListPanelMeta(isCanonical);
   const detailMeta = getDetailPanelMeta(isCanonical);
 
+  /** Evidence count: prefer legal_unit, fallback subclause */
+  const evidenceCount =
+    layerBuckets.legal_unit.length || layerBuckets.subclause.length;
+
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-3">
-      {/* Левая панель */}
+      {/* ──────────────────── Левая панель ──────────────────── */}
       <InfoPanel title={listMeta.title} description={listMeta.description}>
         <div className="flex h-full min-h-0 flex-col">
           <div className="mb-3 space-y-2">
@@ -880,17 +915,13 @@ export const ChunksStageViewer: React.FC<Props> = ({
                   <span className="font-medium text-[var(--text-secondary)]">
                     нумерация локальная внутри выбранного слоя
                   </span>
-                  . Например, Clause 1/81 — это первый clause-layer chunk, а не
-                  “общий чанк #1 документа”. Технический index хранится в
-                  JSON/debug.
+                  . Технический index хранится в JSON/debug.
                 </SmallNote>
               </>
             ) : (
               <>
                 <div className="flex flex-wrap gap-2">
-                  <Pill tone="accent">
-                    evidence: {layerBuckets.subclause.length}
-                  </Pill>
+                  <Pill tone="accent">evidence: {evidenceCount}</Pill>
                   <Pill>context: {layerBuckets.section.length}</Pill>
                 </div>
                 <SmallNote>
@@ -909,7 +940,8 @@ export const ChunksStageViewer: React.FC<Props> = ({
             {displayedItems.length > 0 ? (
               <div className="divide-y divide-[var(--border-subtle)]">
                 {displayedItems.map((item) => {
-                  const isSelected = item.chunk.index === effectiveSelectedIndex;
+                  const isSelected =
+                    item.chunk.index === effectiveSelectedIndex;
                   const uid = getChunkUid(item.chunk);
 
                   return (
@@ -925,17 +957,24 @@ export const ChunksStageViewer: React.FC<Props> = ({
                       type="button"
                       onClick={() => setSelectedIndex(item.chunk.index)}
                       className={cn(
-                        "w-full px-3 py-2.5 text-left transition-colors",
+                        "w-full px-3 py-2.5 text-left transition-all",
                         isSelected
-                          ? "bg-[var(--color-primary-highlight)]"
-                          : "bg-[var(--bg-card)] hover:bg-[var(--bg-subtle)]",
+                          ? "border-l-[3px] border-l-[var(--color-primary)] bg-[var(--color-primary-highlight)]"
+                          : "border-l-[3px] border-l-transparent bg-[var(--bg-card)] hover:bg-[var(--bg-subtle)]",
                       )}
                       aria-pressed={isSelected}
                       title={uid || `chunk ${item.chunk.index}`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-[var(--text-primary)]">
+                          <div
+                            className={cn(
+                              "text-sm font-semibold",
+                              isSelected
+                                ? "text-[var(--color-primary)]"
+                                : "text-[var(--text-primary)]",
+                            )}
+                          >
                             {getPrimaryItemTitle(item, isCanonical)}
                           </div>
                           <div className="mt-0.5 text-xs text-[var(--text-muted)]">
@@ -944,7 +983,14 @@ export const ChunksStageViewer: React.FC<Props> = ({
                         </div>
 
                         {uid ? (
-                          <div className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-1 text-[10px] leading-none text-[var(--text-muted)]">
+                          <div
+                            className={cn(
+                              "shrink-0 rounded-full border px-2 py-1 text-[10px] leading-none",
+                              isSelected
+                                ? "border-[color:color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[var(--color-primary-highlight)] text-[var(--color-primary)]"
+                                : "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
+                            )}
+                          >
                             {uid}
                           </div>
                         ) : null}
@@ -962,7 +1008,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
         </div>
       </InfoPanel>
 
-      {/* Средняя панель */}
+      {/* ──────────────────── Средняя панель ──────────────────── */}
       <InfoPanel title={detailMeta.title} description={detailMeta.description}>
         <div className="flex h-full min-h-0 flex-col">
           <div className="min-h-0 flex-1 overflow-auto">
@@ -977,9 +1023,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
                   </p>
 
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <Pill tone="accent">
-                      layer: {selectedItem.layer}
-                    </Pill>
+                    <Pill tone="accent">layer: {selectedItem.layer}</Pill>
 
                     {getChunkUid(selectedChunk) && (
                       <Pill>uid: {getChunkUid(selectedChunk)}</Pill>
@@ -1000,9 +1044,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
                       chars: {normalizeChunkText(selectedChunk.text).length}
                     </Pill>
 
-                    <Pill>
-                      tech index: {selectedChunk.index}
-                    </Pill>
+                    <Pill>tech index: {selectedChunk.index}</Pill>
 
                     {selectedChunk.retrieval_safe === true && (
                       <Pill tone="accent">✓ retrieval-safe</Pill>
@@ -1031,9 +1073,9 @@ export const ChunksStageViewer: React.FC<Props> = ({
                           <span className="font-medium">
                             Leaf-node clause chunk:
                           </span>{" "}
-                          этот clause layer chunk соответствует leaf-узлу
-                          clause tree. Внутренние нумерованные подпункты могут не
-                          быть отдельными clause-узлами.
+                          этот clause layer chunk соответствует leaf-узлу clause
+                          tree. Внутренние нумерованные подпункты могут не быть
+                          отдельными clause-узлами.
                         </SmallNote>
                       )}
 
@@ -1124,7 +1166,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
         </div>
       </InfoPanel>
 
-      {/* Правая панель */}
+      {/* ──────────────────── Правая панель ──────────────────── */}
       <InfoPanel
         title={jsonMode === "chunk" ? "JSON chunk'а" : "JSON snapshot"}
         description={
@@ -1193,3 +1235,4 @@ export const ChunksStageViewer: React.FC<Props> = ({
 };
 
 export default ChunksStageViewer;
+

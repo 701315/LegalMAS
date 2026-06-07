@@ -34,7 +34,7 @@ SegmentChunkBuilderV2 — построение чанков по логичес�
 from __future__ import annotations
 
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -68,6 +68,10 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from services.telemetry._collector import TelemetryCollector
+
+from services.structure.legal_unit_retrieval import (
+    build_retrieval_units_from_legal_units,
+)
 
 logger = get_logger(__name__)
 
@@ -376,6 +380,18 @@ class SegmentChunkSnapshotV2:
     - Мы дополнительно сохраняем coverage‑метрики по leaf-узлам.
     - Это нужно, чтобы downstream видел не только "сколько чанков получилось",
       но и "сколько leaf-узлов потерялось по дороге".
+
+    P8.8d — Retrieval Truth Migration:
+    - Помимо legacy retrieval substrate (`subclause`) snapshot теперь может
+      содержать новый retrieval level `legal_unit`.
+    - `legal_unit` строится из exact legal units и является новым source of truth
+      для retrieval/checks.
+    - В отличие от blind sized split:
+        * границы совпадают с legal units,
+        * definitions materialized как отдельные retrieval items,
+        * context добавляется через parent-prefix, а не через sibling spill.
+    - `subclause` пока ещё материализуется как технический артефакт CHUNKS,
+      но больше не считается retrieval truth после hard switch.
     """
 
     document_id: uuid.UUID
@@ -394,6 +410,13 @@ class SegmentChunkSnapshotV2:
     section_chunks: list[dict[str, Any]]
     clause_chunks: list[dict[str, Any]]
     subclause_chunks: list[dict[str, Any]]
+
+    # P8.8d:
+    # Новый retrieval-visible слой поверх exact legal units.
+    # Каждый item уже приведён к canonical chunk dict contract:
+    # {"id": ..., "text": ..., "metadata": {...}}
+    legal_unit_chunks: list[dict[str, Any]] = field(default_factory=list)
+
     degraded: bool = False
     degradation_reason: str | None = None
 
@@ -415,17 +438,26 @@ class SegmentChunkSnapshotV2:
     # None если legal unit builder был отключён или упал с ошибкой.
     # Это НЕ ломает основной chunk pipeline — всегда опциональный.
     legal_units_snapshot: LegalUnitsSnapshot | None = None
+
     # ── Phase 12: semantic enrichment sidecar (опциональный) ─────────────────
     # None если LLM недоступна, не сконфигурирована или упала с ошибкой.
     # Это НЕ ломает основной chunk pipeline — всегда опциональный.
     # Сохраняется worker-ом в MinIO как legal_units_enrichment_v1.json.
     # Ссылка пишется в DocumentSegment.segment_meta["legal_units_enrichment_ref"].
     legal_units_enrichment_result: LegalUnitsEnrichmentResult | None = None
+
     # ── Phase 10: planning metadata ─────────────────────────────────────────
     planning: dict[str, Any] | None = None
 
-
     def to_dict(self) -> dict[str, Any]:
+        """
+        Сериализовать segment snapshot в storage contract CHUNKS v2.
+
+        P8.8d:
+        - В payload `chunks` теперь добавляется новый level `legal_unit`.
+        - Reader V2 читает levels по ключам из `chunks`, поэтому новый уровень
+          становится доступен retrieval/runtime без отдельного reader-specific кода.
+        """
         return {
             "schema_version": 2,
             "scope": "segment",
@@ -463,6 +495,7 @@ class SegmentChunkSnapshotV2:
                 "section": self.section_chunks,
                 "clause": self.clause_chunks,
                 "subclause": self.subclause_chunks,
+                "legal_unit": self.legal_unit_chunks,
             },
             "planning": (
                 dict(self.planning)
@@ -486,6 +519,10 @@ class SegmentChunkSnapshotV2:
 class FileChunkManifestSegmentV2:
     """
     Один элемент file-level manifest: описание сегмента и его чанков.
+
+    P8.8d:
+    - Добавлен `legal_unit_count`, чтобы manifest отражал новый retrieval corpus
+      поверх exact legal units.
     """
 
     segment_id: str
@@ -500,6 +537,7 @@ class FileChunkManifestSegmentV2:
     section_count: int
     clause_count: int
     subclause_count: int
+    legal_unit_count: int = 0
     planning: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -520,6 +558,11 @@ class FileChunkManifestV2:
       * где лежат чанки каждого сегмента,
       * сколько там чанков,
       * и есть ли проблемы покрытия чанкинга.
+
+    P8.8d:
+    - Манифест теперь считает также `legal_unit_count`.
+    - Это позволяет наблюдать migration retrieval corpus от blind sized split
+      к exact legal units на уровне telemetry/debug/audit.
     """
 
     document_id: uuid.UUID
@@ -537,6 +580,7 @@ class FileChunkManifestV2:
     leaf_nodes_without_element_ids: int | None = None
     leaf_nodes_empty_after_filtering: int | None = None
     chunking_incomplete: bool = False
+
     # ── Этап 4: агрегированные счётчики по всем сегментам ────────────────────
     heading_only_leaf_nodes: int = 0
     best_effort_leaf_nodes: int = 0
@@ -567,6 +611,7 @@ class FileChunkManifestV2:
                 "section_count": sum(s.section_count for s in self.segments),
                 "clause_count": sum(s.clause_count for s in self.segments),
                 "subclause_count": sum(s.subclause_count for s in self.segments),
+                "legal_unit_count": sum(s.legal_unit_count for s in self.segments),
                 "total_leaf_nodes": self.total_leaf_nodes,
                 "leaf_nodes_without_chunks": self.leaf_nodes_without_chunks,
                 "leaf_nodes_without_element_ids": self.leaf_nodes_without_element_ids,
@@ -577,7 +622,6 @@ class FileChunkManifestV2:
                 "best_effort_leaf_nodes": self.best_effort_leaf_nodes,
             },
         }
-
 
 class SegmentChunkBuilderV2:
     """
@@ -855,6 +899,7 @@ class SegmentChunkBuilderV2:
                     section_count=len(snap.section_chunks),
                     clause_count=len(snap.clause_chunks),
                     subclause_count=len(snap.subclause_chunks),
+                    legal_unit_count=len(snap.legal_unit_chunks),
                     planning=snap.planning,
                 )
             )
@@ -952,6 +997,7 @@ class SegmentChunkBuilderV2:
                     if isinstance(file_manifest.planning, dict)
                     else False
                 ),
+                "total_legal_unit_count": sum(len(s.legal_unit_chunks) for s in segment_snapshots),
             },
         )
 
@@ -1407,22 +1453,14 @@ class SegmentChunkBuilderV2:
             },
         )
 
-        logger.info(
-            "SegmentChunkBuilderV2: single segment snapshot built",
-            extra={
-                "document_id": str(document_id),
-                "document_version_id": str(document_version_id),
-                "segment_id": segment.segment_id,
-                "section_count": len(section_chunks),
-                "clause_count": len(clause_chunks),
-                "subclause_count": len(subclause_chunks),
-                "chunking_incomplete": chunking_incomplete,
-            },
-        )
+        # ── vNext: reusable layout element index for legal unit extraction ──
+        element_index = ClauseTreeBuilder.build_element_index(layout)
+
 
         # ── Этап 5 + Phase 12: legal units + semantic enrichment ─────────────
         legal_units_snapshot: LegalUnitsSnapshot | None = None
         legal_units_enrichment_result: LegalUnitsEnrichmentResult | None = None
+        legal_unit_chunks: list[dict[str, Any]] = []
 
         try:
             lu_builder = LegalUnitBuilder()
@@ -1434,6 +1472,7 @@ class SegmentChunkBuilderV2:
                 is_primary_segment=bool(segment.is_primary),
                 document_id=str(document_id),
                 document_version_id=str(document_version_id),
+                element_index=element_index,
             )
             logger.info(
                 "SegmentChunkBuilderV2: legal units snapshot built",
@@ -1445,7 +1484,23 @@ class SegmentChunkBuilderV2:
                     "units_with_known_type": legal_units_snapshot.units_with_known_type,
                 },
             )
+
+            legal_unit_chunks = build_retrieval_units_from_legal_units(
+                snapshot=legal_units_snapshot,
+                doc_id=document_id,
+            )
+            logger.info(
+                "SegmentChunkBuilderV2: legal_unit retrieval chunks built",
+                extra={
+                    "document_id": str(document_id),
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment.segment_id,
+                    "legal_unit_chunk_count": len(legal_unit_chunks),
+                },
+            )
+
         except Exception as lu_exc:
+            legal_unit_chunks = []
             logger.warning(
                 "SegmentChunkBuilderV2: legal unit builder failed, "
                 "continuing without legal units",
@@ -1463,6 +1518,19 @@ class SegmentChunkBuilderV2:
         # after classification is complete, as a separate orchestrated stage.
         legal_units_enrichment_result: LegalUnitsEnrichmentResult | None = None
         
+        logger.info(
+            "SegmentChunkBuilderV2: single segment snapshot built",
+            extra={
+                "document_id": str(document_id),
+                "document_version_id": str(document_version_id),
+                "segment_id": segment.segment_id,
+                "section_count": len(section_chunks),
+                "clause_count": len(clause_chunks),
+                "subclause_count": len(subclause_chunks),
+                "legal_unit_count": len(legal_unit_chunks),
+                "chunking_incomplete": chunking_incomplete,
+            },
+        )
 
         return SegmentChunkSnapshotV2(
             document_id=document_id,
@@ -1481,6 +1549,7 @@ class SegmentChunkBuilderV2:
             section_chunks=section_chunks,
             clause_chunks=clause_chunks,
             subclause_chunks=subclause_chunks,
+            legal_unit_chunks=legal_unit_chunks,
             degraded=(chunking_incomplete or prefer_layout_fallback),
             degradation_reason=degradation_reason,
             total_leaf_nodes=total_leaf_nodes,
@@ -1590,6 +1659,7 @@ class SegmentChunkBuilderV2:
             section_chunks=[],
             clause_chunks=layout_chunks,
             subclause_chunks=[],
+            legal_unit_chunks=[],
             degraded=True,
             degradation_reason=degradation_reason,
             total_leaf_nodes=None,

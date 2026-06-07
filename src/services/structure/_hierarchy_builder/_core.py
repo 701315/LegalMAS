@@ -567,6 +567,52 @@ def _walk_mutable(node: MutableHierarchyNode) -> Generator[MutableHierarchyNode,
         yield from _walk_mutable(child)
 
 
+def _log_sibling_own_element_overlaps(
+    *,
+    root_nodes: list[MutableHierarchyNode],
+    document_id: str,
+) -> None:
+    """
+    Diagnostic guard:
+    log overlapping own_element_ids between sibling nodes.
+
+    Не меняет дерево, не валидирует жёстко, только логирует.
+    Нужен для раннего обнаружения regressions в range ownership.
+    """
+
+    def _visit(parent: MutableHierarchyNode) -> None:
+        children = list(parent.children or [])
+        if len(children) >= 2:
+            for i in range(len(children) - 1):
+                left = children[i]
+                right = children[i + 1]
+
+                left_ids = set(left.own_element_ids or [])
+                right_ids = set(right.own_element_ids or [])
+                overlap = sorted(left_ids & right_ids)
+
+                if overlap:
+                    logger.warning(
+                        "STRUCTURE sibling_own_element_overlap_detected",
+                        extra={
+                            "document_id": document_id,
+                            "parent_uid": parent.effective_uid,
+                            "left_uid": left.effective_uid,
+                            "right_uid": right.effective_uid,
+                            "overlap_count": len(overlap),
+                            "sample_overlap_ids": overlap[:10],
+                            "left_own_count": len(left_ids),
+                            "right_own_count": len(right_ids),
+                        },
+                    )
+
+        for child in children:
+            _visit(child)
+
+    for root in root_nodes:
+        _visit(root)
+
+
 def _collect_all_mutable_nodes(root_nodes: list[MutableHierarchyNode]) -> list[MutableHierarchyNode]:
     out: list[MutableHierarchyNode] = []
     seen: set[str] = set()
@@ -1063,10 +1109,6 @@ def build_clause_hierarchy(
         mutable_root_nodes=mutable_root_nodes,
     )
 
-    # ── Phase 13.4: Embedding Recovery pass ──────────────────────────────────
-    # Выполняется ПОСЛЕ FSM (все scopes обработаны), ДО range assignment.
-    # Ищет семантически близкий parent для best_effort_root orphan nodes.
-    # Failure-isolated: любая ошибка → оставляем FSM-решение, pipeline не падает.
     _embedding_recovery_result = None
     try:
         from ._embedding_recovery import EmbeddingRecoveryEngine
@@ -1090,8 +1132,6 @@ def build_clause_hierarchy(
             "STRUCTURE embedding_recovery_pass_failed",
             extra={"document_id": doc_id},
         )
-    # ── End Phase 13.4 ───────────────────────────────────────────────────────
-
 
     root_numeric_chain_len = _longest_consecutive_chain(root_numeric_values)
 
@@ -1107,6 +1147,20 @@ def build_clause_hierarchy(
         scope_boundaries=scope_boundaries,
         counters=counters,
     )
+
+    _log_sibling_own_element_overlaps(
+        root_nodes=mutable_root_nodes,
+        document_id=doc_id,
+    )
+
+    if counters.element_ownership_conflicts > 0:
+        logger.warning(
+            "STRUCTURE element_ownership_conflicts_detected",
+            extra={
+                "document_id": doc_id,
+                "element_ownership_conflicts": counters.element_ownership_conflicts,
+            },
+        )
 
     summaries = [machine.build_summary() for machine in machines.values()]
     fsm_summary = _aggregate_fsm_summaries(summaries)
@@ -1214,8 +1268,6 @@ def build_clause_hierarchy(
         extra=hierarchy_diagnostics,
     )
 
-    # Resolution audit: resolution выполняется inline как часть post-build recovery.
-    # Отдельной resolution-стадии пока нет — фиксируем факт через ResolutionAudit.
     resolution_audit = HierarchyResolutionAudit(
         resolution_applied=postbuild_recovery_applied,
         strategy="inline_recovery" if postbuild_recovery_applied else "none",
@@ -1229,7 +1281,6 @@ def build_clause_hierarchy(
         ),
     )
 
-    # Degradation info: структурированное описание вместо bare bool.
     residual: list[str] = []
     if fsm_summary is not None:
         if int(getattr(fsm_summary, "deferred_unresolved", 0) or 0) > 0:

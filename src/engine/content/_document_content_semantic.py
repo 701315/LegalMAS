@@ -378,6 +378,17 @@ def restore_legal_units(
                 semantic_node_type=raw.get("semantic_node_type") or None,
                 recovered_via_best_effort=bool(raw.get("recovered_via_best_effort", False)),
                 fallback_reason=raw.get("fallback_reason") or None,
+                
+                unit_class=str(raw.get("unit_class") or "generic_block"),
+                exact_text=raw.get("exact_text") or None,
+                retrieval_text=raw.get("retrieval_text") or None,
+                context_prefix=raw.get("context_prefix") or None,
+                context_strategy=raw.get("context_strategy") or None,
+                parent_unit_id=raw.get("parent_unit_id"),
+                children_unit_ids=list(raw.get("children_unit_ids") or []),
+                path_ids=list(raw.get("path_ids") or []),
+                source_element_ids=list(raw.get("source_element_ids") or []),
+                heading_text=raw.get("heading_text") or None,
             )
             legal_units.append(unit)
 

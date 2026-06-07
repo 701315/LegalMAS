@@ -11,8 +11,7 @@ Sprint 3 integration tests: DocumentContentService canonical contract.
 from __future__ import annotations
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
-
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 import pytest
 
 from engine.content.document_content_service import DocumentContentService
@@ -409,7 +408,7 @@ class TestGetRetrievalChunksForChecksV2Path:
         self,
         mock_session: MagicMock,
     ) -> None:
-        """Если chunks_manifest_v2_ref есть, читаем snapshot через ChunkCorpusReaderV2."""
+        """Если manifest присутствует, retrieval path читает V2 snapshot по legal_unit level."""
         service = DocumentContentService(session=mock_session)
 
         async def get_latest(doc_id: uuid.UUID) -> MagicMock:
@@ -417,23 +416,38 @@ class TestGetRetrievalChunksForChecksV2Path:
 
         service.versions.get_latest = get_latest
 
-        with patch(
-            "engine.content.document_content_service.ChunkCorpusReaderV2"
-        ) as MockReader:
-            mock_reader_instance = _make_reader_mock([_SUBCLAUSE_CHUNK])
-            MockReader.return_value = mock_reader_instance
+        doc_id = uuid.uuid4()
 
-            doc_id = uuid.uuid4()
+        legal_unit_snapshot_chunk = {
+            "id": "legal_unit_1",
+            "text": "2.1 Test legal unit text",
+            "metadata": {
+                "chunk_kind": "legal_unit",
+                "effective_uid": "main_contract:2.1",
+                "raw_uid": "2.1",
+                "scope": "main_contract",
+            },
+        }
+
+        mock_reader_instance = Mock()
+        mock_reader_instance.load = AsyncMock(return_value=[legal_unit_snapshot_chunk])
+
+        with patch(
+            "engine.content.document_content_service.ChunkCorpusReaderV2",
+            return_value=mock_reader_instance,
+        ):
             chunks = await service.get_retrieval_chunks_for_checks(
-                doc_id, levels=["subclause"]
+                doc_id=doc_id,
+                levels=["legal_unit"],
             )
 
         assert len(chunks) == 1
-        assert chunks[0]["id"] == "subclause_1"
-        assert chunks[0]["metadata"]["chunk_kind"] == "subclause"
+        assert chunks[0]["id"] == "legal_unit_1"
+        assert chunks[0]["metadata"]["chunk_kind"] == "legal_unit"
 
         mock_reader_instance.load.assert_called_once_with(
-            doc_id=doc_id, levels=["subclause"]
+            doc_id=doc_id,
+            levels=["legal_unit"],
         )
 
     async def test_returns_empty_when_snapshot_is_empty(

@@ -14,17 +14,23 @@ V2_ONLY contract:
 Два режима:
 
 canonical:
-    Полный stage artifact (section + clause + subclause).
+    Полный stage artifact (section + clause + subclause + legal_unit).
     Для pipeline audit — позволяет увидеть результат этапа CHUNKS
     как он материализован в artifact store.
 
 friendly:
     Retrieval-visible corpus.
-    Ровно те чанки (subclause + section), которые используются в
+    Ровно те чанки (legal_unit + section), которые используются в
     retrieval/checks при анализе рисков.
     Строится через DocumentContentService.get_retrieval_chunks_for_checks()
     — тот же path, что у CheckRunner.
     Это default-режим для пользователя.
+
+P8.8d:
+- Retrieval truth переключён с blind sized split (`subclause`)
+  на exact legal units (`legal_unit`).
+- Friendly mode теперь должен показывать новый retrieval corpus,
+  а canonical mode — весь materialized artifact, включая legal_unit layer.
 """
 
 from __future__ import annotations
@@ -63,12 +69,11 @@ _CHUNKS_REPR_KWARGS = dict(
     friendly_supported=True,
     canonical_description=(
         "Canonical CHUNKS artifact: полный набор materialized чанков "
-        "всех уровней (section, clause, subclause) из stage snapshot. "
-        "Это результат этапа CHUNKS как части pipeline — "
-        "он может не совпадать с retrieval-visible corpus."
+        "всех уровней (section, clause, subclause, legal_unit) из stage snapshot. "
+        "Это результат этапа CHUNKS как части pipeline."
     ),
     friendly_description=(
-        "RAG-visible corpus: именно те чанки (subclause + section), "
+        "RAG-visible corpus: именно те чанки (legal_unit + section), "
         "на основе которых система анализирует риски документа. "
         "Тот же corpus, что использует CheckRunner при проверках."
     ),
@@ -79,12 +84,13 @@ _CHUNKS_REPR_KWARGS = dict(
 _STAGE_DESCRIPTION_FRIENDLY = (
     "RAG-visible corpus: чанки, на основе которых система "
     "анализирует риски и принимает решения. "
+    "После retrieval migration это legal_unit + section corpus. "
     "Именно это видит retrieval при проверках документа."
 )
 
 _STAGE_DESCRIPTION_CANONICAL = (
     "Canonical CHUNKS artifact: полный набор materialized чанков "
-    "всех уровней (section, clause, subclause). "
+    "всех уровней (section, clause, subclause, legal_unit). "
     "Это pipeline artifact — для аудита этапа CHUNKS."
 )
 
@@ -454,10 +460,10 @@ class ChunksStageBuilder:
         friendly:
             DocumentContentService.get_retrieval_chunks_for_checks()
             Тот же path, что у CheckRunner.
-            levels = ["subclause", "section"] (default retrieval levels).
+            После P8.8d default retrieval levels = ["legal_unit", "section"].
 
         canonical:
-            ChunkCorpusReaderV2.load() с levels=["section", "clause", "subclause"].
+            ChunkCorpusReaderV2.load() с levels=["section", "clause", "subclause", "legal_unit"].
             Полный stage artifact.
 
         Возвращает:
@@ -478,7 +484,7 @@ class ChunksStageBuilder:
         Загрузить retrieval-visible corpus через DocumentContentService.
 
         Это ровно тот corpus, который используется CheckRunner при анализе рисков.
-        levels = ["subclause", "section"] — default retrieval levels.
+        После P8.8d retrieval truth = ["legal_unit", "section"].
         filter_unsafe_chunks=False — показываем всё, включая unsafe chunks,
         чтобы пользователь видел полную картину (unsafe будет помечен флагом).
         """
@@ -490,7 +496,7 @@ class ChunksStageBuilder:
         try:
             chunks = await content_svc.get_retrieval_chunks_for_checks(
                 doc_id=doc.id,
-                # default: ["subclause", "section"] — retrieval truth
+                # default: ["legal_unit", "section"] — retrieval truth (P8.8d)
                 filter_unsafe_chunks=False,
             )
         except Exception as e:
@@ -512,7 +518,12 @@ class ChunksStageBuilder:
         """
         Загрузить полный canonical corpus через ChunkCorpusReaderV2.
 
-        Все три уровня: section + clause + subclause.
+        Все materialized уровни:
+        - section
+        - clause
+        - subclause
+        - legal_unit
+
         Возвращает None при PermanentError (artifact missing).
         """
         reader_v2 = ChunkCorpusReaderV2(
@@ -523,7 +534,7 @@ class ChunksStageBuilder:
         try:
             chunks = await reader_v2.load(
                 doc_id=doc.id,
-                levels=["section", "clause", "subclause"],
+                levels=["section", "clause", "subclause", "legal_unit"],
             )
         except PermanentError:
             logger.warning(
@@ -631,6 +642,8 @@ class ChunksStageBuilder:
                 clause_uid = (
                     ch.get("clause_uid")
                     or meta.get("clause_uid")
+                    or meta.get("effective_uid")
+                    or meta.get("raw_uid")
                     or ""
                 )
 

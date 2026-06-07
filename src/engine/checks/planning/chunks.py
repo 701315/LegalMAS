@@ -2,6 +2,15 @@
 
 """
 Подготовка safe_chunks для проверок: загрузка, скоупинг, санитизация.
+
+P8.8d:
+- Retrieval truth переключён на legal_unit-based corpus.
+- Основной retrieval набор для checks:
+    * legal_unit — exact legal units,
+    * section    — крупный контекстный слой.
+- Legacy level `subclause` больше не считается retrieval truth.
+  Если старый retrieval-config всё ещё просит `subclause`,
+  он автоматически нормализуется в `legal_unit`.
 """
 
 from __future__ import annotations
@@ -59,11 +68,12 @@ class ChunksPreparer:
         - Celery-task run_single_check(...)
         """
         content_service = DocumentContentService(session=session)
-        levels_for_doc = self._resolve_levels(checks, default=["subclause", "section"])
+        levels_for_doc = self._resolve_levels(checks, default=["legal_unit", "section"])
 
-        # Запрашиваем готовые чанки из V2-snapshot'ов.
-        # get_retrieval_chunks_for_checks принимает только doc_id и levels.
-        # Нарезка чанков произошла один раз на этапе CHUNKING — здесь мы только ЧИТАЕМ.
+        # Запрашиваем retrieval-visible corpus из V2 snapshot'ов.
+        # После P8.8d retrieval truth = legal_unit + section.
+        # Нарезка / materialization произошла один раз на этапе CHUNKING —
+        # здесь мы только ЧИТАЕМ готовый corpus.
         chunks = await content_service.get_retrieval_chunks_for_checks(
             doc_id=doc.id,
             levels=levels_for_doc,
@@ -134,7 +144,7 @@ class ChunksPreparer:
             )
             return []
 
-        levels_for_segment = self._resolve_levels(checks, default=["subclause", "clause"])
+        levels_for_segment = self._resolve_levels(checks, default=["legal_unit", "section"])
 
         # Загружаем чанки только этого сегмента через ChunkCorpusReaderV2.
         # Он сам находит последнюю версию документа и читает нужный snapshot из MinIO.
@@ -195,25 +205,37 @@ class ChunksPreparer:
         Определить нужные уровни чанков из retrieval-конфигов checks.
 
         Для непрофессионального программиста:
-        - Каждый check в YAML может указать нужные уровни: section / clause / subclause.
-        - Собираем объединение всех уровней по всем checks в наборе.
+        - Каждый check в YAML может указать нужные уровни chunk corpus.
+        - После P8.8d основной retrieval substrate = legal_unit.
+        - Legacy значение `subclause` автоматически алиасится в `legal_unit`.
         - Если ни один check не указал уровни — используем default.
-        - Порядок preferred_order важен: сначала самые мелкие (subclause),
-          потом крупнее (clause, section) — LLM получает наиболее точный контекст.
+        - Порядок preferred_order важен: сначала точный retrieval слой
+          (legal_unit), затем более крупный контекст (section), затем
+          canonical fallback layers если они явно запрошены.
         """
+        alias_map = {
+            "subclause": "legal_unit",
+        }
+
         all_levels: set[str] = set()
+
         for chk in checks:
             retr_cfg = getattr(chk, "retrieval", None)
             if retr_cfg and getattr(retr_cfg, "levels", None):
                 try:
-                    all_levels.update(str(lvl).lower() for lvl in retr_cfg.levels)
+                    for lvl in retr_cfg.levels:
+                        normalized = str(lvl).strip().lower()
+                        if not normalized:
+                            continue
+                        normalized = alias_map.get(normalized, normalized)
+                        all_levels.add(normalized)
                 except Exception:
                     pass
 
         if not all_levels:
             return default
 
-        preferred_order = ["subclause", "clause", "section"]
+        preferred_order = ["legal_unit", "section", "clause", "subclause"]
         return [lvl for lvl in preferred_order if lvl in all_levels] or list(all_levels)
 
     @staticmethod

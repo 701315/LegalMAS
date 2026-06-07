@@ -1,31 +1,37 @@
 # src/engine/content/document_content_service.py
 
 """
-DocumentContentService v3: фасад над чанками и (legacy) clause tree + layout.
+DocumentContentService v3: фасад над chunk corpus, legal units и legacy layout helpers.
 
 - Для retrieval/checks читаем готовые snapshot'ы чанков (CHUNKS v2).
+- После P8.8d retrieval truth переключён на exact legal units:
+  primary retrieval corpus = legal_unit + section.
 - Clause tree + layout используем только как legacy-путь / для вспомогательных задач
-  (header/snippet, on-the-fly materialization для старых документов).
+  (header/snippet, on-the-fly materialization для старых вспомогательных функций).
 
 Простыми словами:
 
-- В MinIO есть два типа артефактов:
+- В MinIO есть несколько связанных артефактов:
   1) layout (text layout) — список маленьких текстовых кусочков (elements);
-  2) clause tree — структура документа (пункты, подпункты, их иерархия).
+  2) clause tree — структура документа (пункты, подпункты, их иерархия);
+  3) chunks v2 snapshot — materialized chunk corpus по сегментам;
+  4) legal_units snapshot — exact semantic/legal units по сегментам.
 
 - Этот сервис:
   - читает clause tree и layout по ссылкам из последней DocumentVersion;
   - читает CHUNKS v2 snapshot'ы через ChunkCorpusReaderV2;
+  - читает legal units через segment_meta["legal_units_ref"];
   - использует чистые helper'ы:
       * ClauseTreeBuilder — только для legacy header/snippet path;
-      * chunking.* — summary и sized split;
+      * chunking.* — summary и legacy sized split;
       * chunk_ids.* — canonical chunk id generation;
   - отдаёт:
-    * canonical clause chunks,
-    * canonical subclause chunks,
-    * hierarchical section/clause/subclause view,
-    * RetrievalChunk adapters,
-    * header + snippet для классификаторов.
+      * canonical clause chunks,
+      * canonical legacy subclause chunks,
+      * hierarchical chunk view,
+      * retrieval corpus для checks,
+      * header + snippet для классификаторов,
+      * legal units и evidence bundles.
 
 Canonical contract (Sprint 3):
 - canonical identity чанка / узла = effective_uid;
@@ -35,11 +41,13 @@ Canonical contract (Sprint 3):
 - retrieval adapters кладут effective_uid в legacy поле RetrievalChunk.clause_uid,
   чтобы downstream не терял canonical identity.
 
-Этап 6 — semantic layer:
-- get_legal_units() читает legal_units_v1.json из segment_meta["legal_units_ref"];
-- get_evidence_bundle() строит EvidenceBundle по RetrievalProfile;
-- оба метода опциональны: если артефакты отсутствуют, возвращают пустые результаты;
-- существующий chunk контракт не ломается.
+P8.8d — Retrieval Truth Migration:
+- retrieval truth больше не основан на blind sized split (`subclause`);
+- основной retrieval substrate = `legal_unit` chunks, построенные из exact legal units;
+- context должен приходить через parent-prefix / retrieval_text, а не через
+  sibling spill;
+- `subclause` остаётся как технический / canonical artifact CHUNKS stage,
+  но больше не считается retrieval truth.
 """
 
 from __future__ import annotations
@@ -684,7 +692,7 @@ class DocumentContentService:
         overlap_ratio: float = 0.15,
     ) -> list[dict[str, Any]]:
         """
-        Построить canonical subclause chunks из canonical clause chunks.
+        Построить canonical legacy subclause chunks из canonical clause chunks.
 
         ВАЖНО:
         - На выходе всегда chunk_kind="subclause".
@@ -693,6 +701,12 @@ class DocumentContentService:
         - Base clause chunk без effective_uid считается broken и пропускается.
         - Реальная логика split/metadata/fallback живёт в
           chunk_canonicalization.build_sized_chunks_from_leaf().
+
+        P8.8d:
+        - Этот метод больше НЕ является retrieval truth.
+        - Retrieval/checks теперь должны использовать legal_unit-based corpus
+          через get_retrieval_chunks_for_checks().
+        - Метод остаётся как canonical / diagnostic helper для CHUNKS artifact.
         """
         base_chunks = await self.get_chunks(doc_id)
 
@@ -727,20 +741,26 @@ class DocumentContentService:
         Вернуть многоуровневые чанки по документу.
 
         ВАЖНО:
-        - Источник section/clause/subclause: CHUNKS v2 snapshot.
+        - Источник section/clause/subclause/legal_unit: CHUNKS v2 snapshot.
         - Если clause snapshot отсутствует, clause можно взять из get_chunks().
         - Если subclause snapshot отсутствует, subclause можно достроить из clause
           через get_sized_chunks().
         - Broken snapshot chunks без effective_uid пропускаются.
+
+        P8.8d:
+        - Новый retrieval-visible уровень `legal_unit` входит в hierarchical view.
+        - `subclause` остаётся как canonical legacy level, но не считается
+          retrieval truth.
         """
         snapshot_chunks = await self._load_chunks_from_snapshot(
             doc_id,
-            ["section", "clause", "subclause"],
+            ["section", "clause", "subclause", "legal_unit"],
         )
 
         section_chunks: list[dict[str, Any]] = []
         clause_chunks: list[dict[str, Any]] = []
         subclause_chunks: list[dict[str, Any]] = []
+        legal_unit_chunks: list[dict[str, Any]] = []
 
         for ch in snapshot_chunks:
             text = (ch.get("text") or "").strip()
@@ -784,6 +804,9 @@ class DocumentContentService:
             elif kind == "subclause":
                 normalized_meta["chunk_kind"] = "subclause"
                 subclause_chunks.append(normalized)
+            elif kind == "legal_unit":
+                normalized_meta["chunk_kind"] = "legal_unit"
+                legal_unit_chunks.append(normalized)
 
         if not clause_chunks:
             clause_chunks = await self.get_chunks(doc_id)
@@ -800,6 +823,7 @@ class DocumentContentService:
             "section": section_chunks,
             "clause": clause_chunks,
             "subclause": subclause_chunks,
+            "legal_unit": legal_unit_chunks,
         }
 
     async def get_retrieval_chunks_for_checks(
@@ -810,23 +834,44 @@ class DocumentContentService:
         filter_unsafe_chunks: bool = False,
     ) -> list[dict[str, Any]]:
         """
-        Удобный фасад для CheckRunner: вернуть плоский список чанков для checks.
+        Удобный фасад для CheckRunner: вернуть плоский retrieval corpus для checks.
 
         По умолчанию:
-        - subclause: нормализованные под-чанки,
-        - section: крупные разделы.
+        - legal_unit: exact legal units (primary retrieval truth),
+        - section: крупные разделы для контекста.
 
         ВАЖНО:
         - В V2_ONLY режиме читаем чанки только из CHUNKS v2 snapshot'ов.
         - Если snapshot отсутствует или повреждён, возвращаем пустой список.
         - On-the-fly legacy fallback через clause tree/layout не используется.
         - Broken chunks без effective_uid фильтруются.
+
+        P8.8d:
+        - Retrieval truth переключён на legal_unit substrate.
+        - `subclause` больше не является retrieval truth.
+        - Для удобства migration retrieval-конфигов legacy level `subclause`
+          автоматически нормализуется в `legal_unit`.
         """
         if levels is None:
-            levels = ["subclause", "section"]
+            levels = ["legal_unit", "section"]
 
-        levels = [lvl.strip().lower() for lvl in levels if isinstance(lvl, str) and lvl.strip()]
-        levels = list(dict.fromkeys(levels))
+        normalized_levels: list[str] = []
+        for lvl in levels:
+            if not isinstance(lvl, str):
+                continue
+            normalized = lvl.strip().lower()
+            if not normalized:
+                continue
+
+            # P8.8d:
+            # Retrieval configs, которые ещё просят legacy "subclause",
+            # после migration должны попадать на новый substrate.
+            if normalized == "subclause":
+                normalized = "legal_unit"
+
+            normalized_levels.append(normalized)
+
+        levels = list(dict.fromkeys(normalized_levels))
 
         if not levels:
             return []
@@ -843,8 +888,7 @@ class DocumentContentService:
         if not manifest_ref:
             logger.warning(
                 "get_retrieval_chunks_for_checks: chunks_manifest_v2_ref is not set. "
-                "Document was processed by legacy pipeline or chunking stage not completed. "
-                "Check will run on empty corpus.",
+                "Document has no CHUNKS v2 corpus. Check will run on empty corpus.",
                 extra={
                     "doc_id": str(doc_id),
                     "version_id": str(version.id),

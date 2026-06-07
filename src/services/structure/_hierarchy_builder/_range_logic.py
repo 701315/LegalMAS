@@ -153,15 +153,66 @@ def _find_next_same_or_higher_level_elem_i(
     node_level: int,
     scope: str,
     headings: list[HeadingCandidate],
-    key_to_heading_index: dict[tuple[str, str], int],
+    key_to_heading_index: dict[tuple[str, str], int] | None = None,
+    heading_elem_i: int | None = None,
 ) -> int | None:
-    """Поиск следующего заголовка такого же или более высокого уровня в том же scope."""
-    key = (scope, raw_uid)
-    idx = key_to_heading_index.get(key)
-    if idx is None:
+    """
+    Поиск следующего заголовка такого же или более высокого уровня в том же scope.
+
+    ВАЖНО:
+    - headings здесь уже scope-local список (headings_by_scope[scope]).
+    - key_to_heading_index исторически строился по глобальному списку headings.
+      Использовать его как local index нельзя: это приводит к пропуску ближайших
+      sibling headings и огромным overlapping own ranges.
+    - Поэтому primary path здесь — найти local index внутри ПЕРЕДАННОГО списка
+      по anchor position (heading_elem_i) и raw_uid.
+    - key_to_heading_index остаётся только как guarded legacy fallback.
+    """
+    normalized_uid = _normalize_uid(raw_uid)
+
+    local_idx: int | None = None
+
+    # ── Primary path: exact local match by source anchor elem_i ────────────
+    if heading_elem_i is not None:
+        for i, heading in enumerate(headings):
+            if _heading_scope(heading) != scope:
+                continue
+
+            h_uid = _normalize_uid(_heading_raw_uid(heading))
+            if h_uid != normalized_uid:
+                continue
+
+            try:
+                h_elem_i = int(heading.elem_i)
+            except Exception:
+                continue
+
+            if h_elem_i == int(heading_elem_i):
+                local_idx = i
+                break
+
+    # ── Secondary path: fallback by raw_uid inside local scope list ────────
+    if local_idx is None:
+        for i, heading in enumerate(headings):
+            if _heading_scope(heading) != scope:
+                continue
+            h_uid = _normalize_uid(_heading_raw_uid(heading))
+            if h_uid == normalized_uid:
+                local_idx = i
+                break
+
+    # ── Legacy fallback: guarded use of old index only if it is local-valid ─
+    # Не preferred path. Используется только если local search не сработал.
+    if local_idx is None and key_to_heading_index is not None:
+        key = (scope, raw_uid)
+        legacy_idx = key_to_heading_index.get(key)
+        if isinstance(legacy_idx, int) and 0 <= legacy_idx < len(headings):
+            local_idx = legacy_idx
+
+    if local_idx is None:
         return None
 
-    for heading in headings[idx + 1 :]:
+    for heading in headings[local_idx + 1 :]:
         if _heading_scope(heading) != scope:
             continue
         h_uid = _heading_raw_uid(heading)
@@ -187,7 +238,28 @@ def _compute_own_range(
 ) -> OwnRangeComputation:
     """Вычисление диапазона [start, end)."""
     key = (scope, raw_uid)
-    heading_elem_i = key_to_elem_i.get(key, -1)
+
+    # ── Prefer exact source anchor from node diagnostics ────────────────────
+    # Это более надёжно чем key_to_elem_i, потому что key_to_elem_i
+    # исторически строился по first occurrence ключа (scope, raw_uid),
+    # а в документе могут существовать дубли того же raw_uid в других
+    # представлениях/кандидатах. source_elem_i пришёл из реального heading node.
+    heading_elem_i = -1
+
+    diagnostics = getattr(node, "diagnostics", None) or {}
+    source_elem_i = diagnostics.get("source_elem_i")
+
+    if isinstance(source_elem_i, int):
+        heading_elem_i = source_elem_i
+    else:
+        try:
+            if source_elem_i is not None:
+                heading_elem_i = int(source_elem_i)
+        except Exception:
+            heading_elem_i = -1
+
+    if heading_elem_i < 0:
+        heading_elem_i = key_to_elem_i.get(key, -1)
 
     if heading_elem_i < 0:
         return OwnRangeComputation(heading_elem_i, len(elements), "unbounded_error")
@@ -211,6 +283,7 @@ def _compute_own_range(
         scope=scope,
         headings=headings,
         key_to_heading_index=key_to_heading_index,
+        heading_elem_i=heading_elem_i,
     )
     if next_same_or_higher is not None and next_same_or_higher > heading_elem_i:
         candidates.append((next_same_or_higher, "next_same_or_higher"))

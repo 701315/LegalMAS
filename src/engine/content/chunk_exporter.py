@@ -5,11 +5,19 @@
 
 ВАЖНО:
 - chunk-view.md должен отражать ИМЕННО те чанки, которые реально видит retrieval,
-  а не on-the-fly re-split поверх clause chunks.
+  а не legacy re-split поверх clause chunks.
 - Поэтому источник истины здесь:
     DocumentContentService.get_retrieval_chunks_for_checks()
 - Это устраняет рассинхрон:
     chunk-view != retrieval truth
+
+P8.8d:
+- Retrieval truth переключён на legal_unit-based corpus.
+- Friendly/export view теперь должен показывать:
+    * legal_unit — exact retrieval units,
+    * section    — крупный контекстный слой.
+- Метод export_sized_chunks_markdown сохраняет историческое имя,
+  но больше не экспортирует blind sized split как retrieval truth.
 """
 
 from __future__ import annotations
@@ -48,17 +56,16 @@ class ChunkExportService:
         Собрать retrieval-visible chunks документа в один Markdown-файл и сохранить в MinIO.
 
         ВАЖНО:
-        - Раньше здесь использовался get_sized_chunks(), который повторно строил
-          subclause chunks on-the-fly из clause chunks.
-        - Это приводило к рассинхрону:
-            chunk-view.md != реальные retrieval chunks
+        - Исторически метод назывался export_sized_chunks_markdown, потому что
+          retrieval раньше был основан на subclause / sized chunks.
+        - После P8.8d retrieval truth переключён на legal_unit substrate.
         - Теперь chunk-view строится напрямую из того же входа,
           который использует CheckRunner / retrieval runtime.
 
         Для непрофессионального пользователя:
         - для каждого чанка добавляем «шапку»:
           * индекс,
-          * тип чанка (section/subclause/...),
+          * тип чанка (legal_unit/section/...),
           * effective_uid / clause_uid,
           * размер,
           * диапазон страниц,
@@ -75,7 +82,7 @@ class ChunkExportService:
         # Явно задаём retrieval levels, чтобы chunk-view был retrieval truth.
         chunks = await content.get_retrieval_chunks_for_checks(
             doc_id=doc_id,
-            levels=["subclause", "section"],
+            levels=["legal_unit", "section"],
             filter_unsafe_chunks=False,
         )
 

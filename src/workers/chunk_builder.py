@@ -502,8 +502,14 @@ async def _build_chunks_v2_async(
         section_chunks = snapshot_chunks.get("section", []) or []
         clause_chunks = snapshot_chunks.get("clause", []) or []
         subclause_chunks = snapshot_chunks.get("subclause", []) or []
+        legal_unit_chunks = snapshot_chunks.get("legal_unit", []) or []
 
-        snapshot_chunk_count = len(section_chunks) + len(clause_chunks) + len(subclause_chunks)
+        snapshot_chunk_count = (
+            len(section_chunks)
+            + len(clause_chunks)
+            + len(subclause_chunks)
+            + len(legal_unit_chunks)
+        )
 
         # ── Phase 13.1: emit ChunkingCompletedEvent per segment ──────────────
         try:

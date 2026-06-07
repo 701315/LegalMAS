@@ -459,6 +459,28 @@ class LegalUnit:
     # ── Diagnostics ───────────────────────────────────────────────────────────
     diagnostics: dict[str, Any] = field(default_factory=dict)
 
+    # ── vNext: exact/retrieval extension (backward-compatible) ─────────────
+    # Структурный класс unit. Это не semantic type, а structural/materialization role.
+    # Пока строка, а не Enum — чтобы минимизировать blast radius.
+    unit_class: str = "generic_block"
+
+    # Exact vs retrieval text layers.
+    # Пока optional: baseline legal units могут их не иметь.
+    exact_text: str | None = None
+    retrieval_text: str | None = None
+    context_prefix: str | None = None
+    context_strategy: str | None = None
+
+    # Явные graph relations внутри legal-unit layer.
+    parent_unit_id: str | None = None
+    children_unit_ids: list[str] = field(default_factory=list)
+    path_ids: list[str] = field(default_factory=list)
+
+    # Source linkage for future exact-unit extraction / citation.
+    source_element_ids: list[str] = field(default_factory=list)
+    heading_text: str | None = None
+
+
     @property
     def is_heading_only(self) -> bool:
         return bool(self.citability.is_heading_only)
@@ -496,10 +518,24 @@ class LegalUnit:
             "content_mode": self.content_mode,
             "recovered_via_best_effort": self.recovered_via_best_effort,
             "fallback_reason": self.fallback_reason,
+
+            # ── vNext extension ────────────────────────────────────────────
+            "unit_class": self.unit_class,
+            "exact_text": self.exact_text,
+            "retrieval_text": self.retrieval_text,
+            "context_prefix": self.context_prefix,
+            "context_strategy": self.context_strategy,
+            "parent_unit_id": self.parent_unit_id,
+            "children_unit_ids": list(self.children_unit_ids),
+            "path_ids": list(self.path_ids),
+            "source_element_ids": list(self.source_element_ids),
+            "heading_text": self.heading_text,
+
             "diagnostics": dict(self.diagnostics),
             "is_heading_only": self.is_heading_only,
             "is_technical_fallback": self.is_technical_fallback,
             "is_user_facing_semantic": self.is_user_facing_semantic,
+
         }
 
 
@@ -582,6 +618,17 @@ class LegalUnit:
             recovered_via_best_effort=bool(raw.get("recovered_via_best_effort", False)),
             fallback_reason=raw.get("fallback_reason"),
             diagnostics=dict(raw.get("diagnostics") or {}),
+            
+            unit_class=str(raw.get("unit_class") or "generic_block"),
+            exact_text=raw.get("exact_text") or None,
+            retrieval_text=raw.get("retrieval_text") or None,
+            context_prefix=raw.get("context_prefix") or None,
+            context_strategy=raw.get("context_strategy") or None,
+            parent_unit_id=raw.get("parent_unit_id"),
+            children_unit_ids=list(raw.get("children_unit_ids") or []),
+            path_ids=list(raw.get("path_ids") or []),
+            source_element_ids=list(raw.get("source_element_ids") or []),
+            heading_text=raw.get("heading_text") or None,            
         )
 
 

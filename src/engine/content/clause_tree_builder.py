@@ -190,12 +190,24 @@ class ClauseTreeBuilder:
     def build_element_index(layout: dict[str, Any]) -> dict[str, dict[str, Any]]:
         """
         Построить индекс element_id -> элемент layout'а.
+
+        P8.8d:
+        - Каждому элементу добавляется служебное поле `_seq` —
+          его порядковый номер в исходном layout.
+        - Это нужно для deterministic text reconstruction:
+          когда downstream materialize'ит exact_text по element_ids,
+          он должен сортировать элементы в порядке документа, а не полагаться
+          на возможный случайный порядок element_ids в node metadata.
+
+        Важно:
+        - Мы создаём shallow copy каждого элемента и не мутируем исходный layout.
+        - Все исходные поля элемента сохраняются как есть.
         """
         elements = layout.get("elements") or []
         index: dict[str, dict[str, Any]] = {}
 
         missing_id_count = 0
-        for el in elements:
+        for seq, el in enumerate(elements):
             el_id = el.get("element_id")
             if el_id:
                 if el_id in index:
@@ -207,7 +219,9 @@ class ClauseTreeBuilder:
                             "new_type": (el.get("type") or "").strip().lower(),
                         },
                     )
-                index[el_id] = el
+                el_copy = dict(el)
+                el_copy["_seq"] = seq
+                index[el_id] = el_copy
             else:
                 missing_id_count += 1
 
@@ -229,6 +243,71 @@ class ClauseTreeBuilder:
             )
 
         return index
+
+
+    @staticmethod
+    def materialize_text_from_element_ids(
+        element_ids: list[str],
+        element_index: dict[str, dict[str, Any]],
+    ) -> str:
+        """
+        Собрать deterministic text из набора element ids.
+
+        Универсальный helper для exact text reconstruction:
+        - LegalUnitBuilder.exact_text
+        - LegalUnitExtractor / future semantic builders
+        - любые deterministic text projections поверх layout
+
+        Поведение:
+        - берём только те элементы, которые реально существуют в element_index;
+        - сортируем их по `_seq` (порядок в исходном layout);
+        - включаем heading/text/listitem элементы одинаково —
+          если у элемента есть непустой text, он участвует в результате;
+        - сохраняем page break как пустую строку между блоками с разных страниц;
+        - пустые тексты пропускаем.
+
+        Важно:
+        - Это НЕ retrieval heuristic и НЕ numbering-based trimming.
+        - Это чистая deterministic materialization по exact source elements.
+        """
+        if not element_ids or not element_index:
+            return ""
+
+        resolved: list[dict[str, Any]] = []
+
+        for el_id in element_ids:
+            el = element_index.get(str(el_id))
+            if el is not None:
+                resolved.append(el)
+
+        if not resolved:
+            return ""
+
+        # Сортировка по layout order; fallback=0 для backward compatibility
+        # если element_index был построен старым кодом без `_seq`.
+        resolved.sort(key=lambda el: int(el.get("_seq", 0)))
+
+        texts: list[str] = []
+        last_page: int | None = None
+
+        for el in resolved:
+            raw_text = el.get("text") or ""
+            text = raw_text.strip()
+            page = el.get("page")
+
+            if not text:
+                if isinstance(page, int):
+                    last_page = page
+                continue
+
+            if last_page is not None and isinstance(page, int) and page != last_page:
+                texts.append("")
+
+            texts.append(text)
+            last_page = page if isinstance(page, int) else last_page
+
+        return "\n\n".join(texts).strip()
+
 
     # ------------------------------------------------------------------
     # Leaf-чанки

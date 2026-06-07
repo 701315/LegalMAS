@@ -298,9 +298,13 @@ class RetrievalEngine:
         for idx, ch in enumerate(self.chunks):
             meta = ch.get("metadata", {}) or {}
 
-            # 0) Лёгкий bias по типу чанка (kind)
-            kind = str(meta.get("kind") or "").lower()
-            if kind == "subclause":
+            # 0) Лёгкий bias по типу чанка (kind / chunk_kind).
+            #
+            # P8.8d: legal_unit — новый primary retrieval substrate,
+            # получает тот же бонус, что раньше subclause.
+            # chunk_kind используется в snapshot chunks, kind — в legacy path.
+            kind = str(meta.get("chunk_kind") or meta.get("kind") or "").lower()
+            if kind in ("legal_unit", "subclause"):
                 scores[idx] += kind_bonus_subclause
             elif kind == "section":
                 scores[idx] -= kind_penalty_section
