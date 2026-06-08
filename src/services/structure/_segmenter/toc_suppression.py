@@ -1,15 +1,19 @@
 # src/services/structure/_segmenter/toc_suppression.py
 
 """
-Deterministic TOC / appendix-catalog boundary suppression for segmenter.
+Deterministic TOC / catalog boundary suppression for segmenter.
 
 This module computes page-level suppression context that prevents false
-appendix-family boundaries from being created inside:
+boundary-family markers from being created inside:
 - table-of-contents pages;
-- appendix catalog / appendices list pages.
+- appendix catalog / appendices list pages;
+- amendment catalog / amendments list pages.
 
 The logic is intentionally deterministic and page-local because raw layout
 elements that reach the segmenter are not guaranteed to be pre-classified.
+
+P5: introduced appendix-family suppression on TOC / catalog pages.
+A3: generalized to boundary-family suppression (amendment-family added).
 """
 
 from __future__ import annotations
@@ -28,6 +32,8 @@ from services.structure.heading_patterns import normalize_spaces
 
 logger = get_logger(__name__)
 
+# ── Константы ────────────────────────────────────────────────────────────────
+
 _TOC_LINE_WEAK_THRESHOLD = 0.45
 
 _CLASSIFIED_TOC_TYPES = frozenset(
@@ -38,6 +44,8 @@ _CLASSIFIED_TOC_TYPES = frozenset(
         "toc_content",
     }
 )
+
+# ── Catalog header regexes ────────────────────────────────────────────────────
 
 _APPENDIX_CATALOG_HEADER_RE = re.compile(
     r"""
@@ -70,12 +78,45 @@ _APPENDIX_CATALOG_HEADER_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+_AMENDMENT_CATALOG_HEADER_RE = re.compile(
+    r"""
+    ^
+    (?:
+        (?:
+            amendments
+            |addenda
+            |supplemental\s+agreements
+        )
+        (?:\s*/\s*
+            (?:
+                дополнения
+                |дополнительные\s+соглашения
+            )
+        )?
+      |
+        (?:
+            дополнения
+            |дополнительные\s+соглашения
+        )
+        (?:\s*/\s*
+            (?:
+                amendments
+                |addenda
+                |supplemental\s+agreements
+            )
+        )?
+    )
+    $
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 _TOC_HEADER_FALLBACK_TOKEN_RE = re.compile(
     r"(?:table\s+of\s+contents|contents|содержание|оглавление)",
     re.IGNORECASE,
 )
 
-
+# ── Substantive body markers ──────────────────────────────────────────────────
 
 _SUBSTANTIVE_BODY_MARKERS = (
     " означает ",
@@ -104,21 +145,56 @@ _SUBSTANTIVE_BODY_MARKERS = (
     " настоящий договор",
 )
 
+# ── Dataclass ────────────────────────────────────────────────────────────────
 
 @dataclass(slots=True)
 class BoundarySuppressionContext:
     """
     Page-level suppression context for segment boundary collection.
 
-    The current P5 use case suppresses only appendix-family boundaries on pages
-    confidently identified as TOC-like or appendix-catalog-like.
+    P5 introduced appendix-family suppression on TOC / catalog pages.
+    A3 generalizes this to boundary-family suppression while preserving
+    appendix convenience accessor for backward compatibility.
+
+    Attributes:
+        suppressed_boundary_families_by_page:
+            Canonical mapping page → set of suppressed boundary families.
+            Primary source of truth for suppression decisions.
+        suppressed_appendix_pages:
+            Convenience set of pages where appendix-family is suppressed.
+            Derived from suppressed_boundary_families_by_page.
+            Kept for backward compatibility with existing callers.
+        page_reasons:
+            Diagnostic reasons per suppressed page.
+        page_diagnostics:
+            Raw counters and signals per suppressed page.
     """
 
+    suppressed_boundary_families_by_page: dict[int, frozenset[str]] = field(
+        default_factory=dict
+    )
     suppressed_appendix_pages: frozenset[int] = field(default_factory=frozenset)
     page_reasons: dict[int, tuple[str, ...]] = field(default_factory=dict)
     page_diagnostics: dict[int, dict[str, Any]] = field(default_factory=dict)
 
+    def suppresses_boundary_family(self, page: int, family: str | None) -> bool:
+        """Возвращает True если данная boundary family подавлена на данной странице."""
+        if not family:
+            return False
+        try:
+            page_num = int(page)
+        except Exception:
+            return False
+        return family in self.suppressed_boundary_families_by_page.get(
+            page_num, frozenset()
+        )
+
     def suppresses_appendix_page(self, page: int) -> bool:
+        """Convenience accessor: appendix-family подавлена на данной странице.
+
+        Сохранён для backward compatibility. Новый код должен использовать
+        suppresses_boundary_family(page, BOUNDARY_FAMILY_APPENDIX).
+        """
         try:
             page_num = int(page)
         except Exception:
@@ -128,6 +204,12 @@ class BoundarySuppressionContext:
     def to_dict(self) -> dict[str, Any]:
         return {
             "suppressed_appendix_pages": sorted(self.suppressed_appendix_pages),
+            "suppressed_boundary_families_by_page": {
+                int(page): sorted(families)
+                for page, families in sorted(
+                    self.suppressed_boundary_families_by_page.items()
+                )
+            },
             "page_reasons": {
                 int(page): list(reasons)
                 for page, reasons in sorted(self.page_reasons.items())
@@ -138,6 +220,8 @@ class BoundarySuppressionContext:
             },
         }
 
+
+# ── Внутренние helpers ────────────────────────────────────────────────────────
 
 def _safe_page(element: dict[str, Any]) -> int:
     try:
@@ -154,11 +238,28 @@ def _normalized_text(element: dict[str, Any]) -> str:
     return normalize_spaces(str(element.get("text") or ""))
 
 
-def _looks_like_appendix_catalog_header(text: str) -> bool:
+def _detect_catalog_header_family(text: str) -> str | None:
+    """Определяет семейство каталог-заголовка (ПРИЛОЖЕНИЯ / ДОПОЛНЕНИЯ / etc).
+
+    Возвращает canonical family string или None если текст не является
+    заголовком каталога.
+    """
     normalized = normalize_spaces(text)
     if not normalized:
-        return False
-    return bool(_APPENDIX_CATALOG_HEADER_RE.match(normalized))
+        return None
+
+    if _APPENDIX_CATALOG_HEADER_RE.match(normalized):
+        # Импорт здесь чтобы избежать circular import на уровне модуля.
+        # patterns.py не импортирует toc_suppression.py, поэтому это безопасно.
+        from services.structure._segmenter.patterns import BOUNDARY_FAMILY_APPENDIX
+        return BOUNDARY_FAMILY_APPENDIX
+
+    if _AMENDMENT_CATALOG_HEADER_RE.match(normalized):
+        from services.structure._segmenter.patterns import BOUNDARY_FAMILY_AMENDMENT
+        return BOUNDARY_FAMILY_AMENDMENT
+
+    return None
+
 
 def _looks_like_toc_header(*, text: str, element_type: str) -> bool:
     """
@@ -219,33 +320,33 @@ def _looks_like_substantive_body_line(text: str) -> bool:
     if len(words) >= 8 and normalized.endswith((".", ";", ":")):
         return True
 
-    if ("«" in normalized and "»" in normalized) or ('"' in normalized and len(words) >= 6):
+    if ("«" in normalized and "»" in normalized) or (
+        '"' in normalized and len(words) >= 6
+    ):
         return True
 
     return False
 
 
-def _count_compact_appendix_pairs(
+def _count_compact_catalog_entry_pairs(
     page_texts: list[str],
-    appendix_positions: list[int],
+    entry_positions: list[int],
 ) -> int:
-    """
-    Counts adjacent appendix-entry pairs separated only by empty/short,
-    non-substantive continuation lines.
+    """Считает пары соседних catalog-entries, разделённых только короткими
+    нессодержательными строками.
 
-    This is a robust signal for appendix catalogs:
-    - Appendix 2 ...
-    - Terms and Conditions ...
-    - Appendix 3 ...
-    - Creditor Indebtedness ...
+    Это надёжный сигнал для каталогов:
+    - Приложение 2 ...
+    - Условия аккредитивов ...   ← короткое продолжение названия
+    - Приложение 3 ...
+    - Кредиторская задолженность ...
     """
-
-    if len(appendix_positions) < 2:
+    if len(entry_positions) < 2:
         return 0
 
     compact_pairs = 0
 
-    for left_pos, right_pos in zip(appendix_positions, appendix_positions[1:]):
+    for left_pos, right_pos in zip(entry_positions, entry_positions[1:]):
         between = [
             normalize_spaces(page_texts[pos])
             for pos in range(left_pos + 1, right_pos)
@@ -257,7 +358,8 @@ def _count_compact_appendix_pairs(
             continue
 
         if all(
-            len(text.split()) <= 10 and not _looks_like_substantive_body_line(text)
+            len(text.split()) <= 10
+            and not _looks_like_substantive_body_line(text)
             for text in between
         ):
             compact_pairs += 1
@@ -265,16 +367,26 @@ def _count_compact_appendix_pairs(
     return compact_pairs
 
 
+# ── Публичный API ─────────────────────────────────────────────────────────────
+
 def build_boundary_suppression_context(
     elements: list[dict[str, Any]],
     *,
-    is_appendix_entry: Callable[[str], bool],
+    resolve_boundary_family: Callable[[str], str | None],
 ) -> BoundarySuppressionContext:
-    """
-    Builds deterministic page-level suppression context for segmentation.
+    """Строит детерминированный page-level suppression context для сегментации.
 
-    Suppresses appendix-family boundaries only when page evidence strongly
-    indicates TOC-like or appendix-catalog-like behavior.
+    Подавляет boundary markers конкретного семейства (appendix, amendment)
+    только когда страница уверенно идентифицирована как TOC-подобная
+    или catalog-подобная.
+
+    Args:
+        elements:               список layout-элементов документа.
+        resolve_boundary_family: callback, возвращающий canonical family string
+                                 ("appendix" / "amendment" / None) по тексту элемента.
+                                 Должен переиспользовать ту же grammar, что и основной
+                                 boundary detector, чтобы suppression и detection
+                                 не расходились.
     """
     if not elements:
         return BoundarySuppressionContext()
@@ -283,19 +395,22 @@ def build_boundary_suppression_context(
     for idx, element in enumerate(elements):
         page_to_indexes[_safe_page(element)].append(idx)
 
-    suppressed_pages: set[int] = set()
+    suppressed_boundary_families_by_page: dict[int, frozenset[str]] = {}
+    appendix_suppressed_pages: set[int] = set()
     page_reasons: dict[int, tuple[str, ...]] = {}
     page_diagnostics: dict[int, dict[str, Any]] = {}
 
     for page, indexes in sorted(page_to_indexes.items()):
         page_texts: list[str] = []
-        appendix_positions: list[int] = []
 
         toc_header_count = 0
         toc_line_like_count = 0
-        appendix_catalog_header_count = 0
-        appendix_entry_count = 0
         substantive_body_count = 0
+
+        # Family-aware counters.
+        family_entry_counts: dict[str, int] = defaultdict(int)
+        family_catalog_header_counts: dict[str, int] = defaultdict(int)
+        family_positions: dict[str, list[int]] = defaultdict(list)
 
         for element_index in indexes:
             element = elements[element_index]
@@ -310,117 +425,146 @@ def build_boundary_suppression_context(
             local_pos = len(page_texts)
             page_texts.append(text)
 
-            is_toc_header = _looks_like_toc_header(
-                text=text,
-                element_type=element_type,
-            )
-            is_toc_line_like = _is_toc_line_like(text=text, element_type=element_type)
-            is_appendix_catalog_header = _looks_like_appendix_catalog_header(text)
-            is_appendix_catalog_entry = bool(is_appendix_entry(text))
+            is_toc_hdr = _looks_like_toc_header(text=text, element_type=element_type)
+            is_toc_line = _is_toc_line_like(text=text, element_type=element_type)
+            catalog_header_family = _detect_catalog_header_family(text)
+            boundary_family = resolve_boundary_family(text)
 
-            if is_toc_header:
+            if is_toc_hdr:
                 toc_header_count += 1
-            if is_toc_line_like:
+            if is_toc_line:
                 toc_line_like_count += 1
-            if is_appendix_catalog_header:
-                appendix_catalog_header_count += 1
-            if is_appendix_catalog_entry:
-                appendix_entry_count += 1
-                appendix_positions.append(local_pos)
+            if catalog_header_family:
+                family_catalog_header_counts[catalog_header_family] += 1
+            if boundary_family:
+                family_entry_counts[boundary_family] += 1
+                family_positions[boundary_family].append(local_pos)
 
+            # Substantive body: элемент не является TOC / catalog-маркером
+            # и выглядит как содержательный текст.
             if (
-                not is_toc_header
-                and not is_toc_line_like
-                and not is_appendix_catalog_header
-                and not is_appendix_catalog_entry
+                not is_toc_hdr
+                and not is_toc_line
+                and catalog_header_family is None
+                and boundary_family is None
                 and _looks_like_substantive_body_line(text)
             ):
                 substantive_body_count += 1
 
-        compact_appendix_pairs = _count_compact_appendix_pairs(
-            page_texts=page_texts,
-            appendix_positions=appendix_positions,
+        # ── Per-family suppression decision ──────────────────────────────────
+
+        page_level_reasons: list[str] = []
+        suppressed_families: set[str] = set()
+        family_diagnostics: dict[str, dict[str, Any]] = {}
+
+        families_to_evaluate = sorted(
+            set(family_entry_counts.keys()) | set(family_catalog_header_counts.keys())
         )
 
-        reasons: list[str] = []
-
-        # Strongest deterministic signal:
-        # explicit TOC + explicit appendix catalog header + appendix entries.
-        if (
-            toc_header_count >= 1
-            and appendix_catalog_header_count >= 1
-            and appendix_entry_count >= 1
-        ):
-            reasons.append("toc_header_with_appendix_catalog_block")
-
-        # TOC page with dense TOC lines and multiple appendix entries.
-        if (
-            toc_header_count >= 1
-            and toc_line_like_count >= 3
-            and appendix_entry_count >= 2
-        ):
-            reasons.append("toc_page_with_multiple_appendix_entries")
-
-
-        # TOC-like line cluster + appendix catalog block, even if explicit TOC
-        # header was missed by OCR or upstream heuristics.
-        if (
-            toc_line_like_count >= 2
-            and appendix_catalog_header_count >= 1
-            and appendix_entry_count >= 2
-            and compact_appendix_pairs >= 1
-            and substantive_body_count <= 2
-        ):
-            reasons.append("toc_line_cluster_with_appendix_catalog_entries")
-
-        # Standalone appendix catalog page.
-        if (
-            appendix_catalog_header_count >= 1
-            and appendix_entry_count >= 3
-            and compact_appendix_pairs >= min(2, appendix_entry_count - 1)
-            and substantive_body_count <= 2
-        ):
-            reasons.append("appendix_catalog_header_with_dense_compact_entries")
-
-        # Dense appendix-entry cluster without substantive body text.
-        if (
-            appendix_entry_count >= 5
-            and compact_appendix_pairs >= 3
-            and substantive_body_count <= 1
-            and (
-                toc_header_count >= 1
-                or toc_line_like_count >= 4
-                or appendix_catalog_header_count >= 1
+        for family in families_to_evaluate:
+            entry_count = family_entry_counts.get(family, 0)
+            header_count = family_catalog_header_counts.get(family, 0)
+            compact_pairs = _count_compact_catalog_entry_pairs(
+                page_texts=page_texts,
+                entry_positions=family_positions.get(family, []),
             )
-        ):
-            reasons.append("dense_appendix_entry_cluster_without_body_text")
 
-        diagnostics = {
-            "toc_header_count": toc_header_count,
-            "toc_line_like_count": toc_line_like_count,
-            "appendix_catalog_header_count": appendix_catalog_header_count,
-            "appendix_entry_count": appendix_entry_count,
-            "compact_appendix_pairs": compact_appendix_pairs,
-            "substantive_body_count": substantive_body_count,
-            "page_nonempty_lines": len(page_texts),
-        }
+            family_reasons: list[str] = []
 
-        if reasons:
-            suppressed_pages.add(page)
-            page_reasons[page] = tuple(reasons)
-            page_diagnostics[page] = diagnostics
+            # Сильнейший сигнал: явный TOC + явный catalog header + entries.
+            if toc_header_count >= 1 and header_count >= 1 and entry_count >= 1:
+                family_reasons.append("toc_header_with_catalog_block")
+
+            # TOC страница с плотными TOC-строками и несколькими entries.
+            if (
+                toc_header_count >= 1
+                and toc_line_like_count >= 3
+                and entry_count >= 2
+            ):
+                family_reasons.append("toc_page_with_multiple_catalog_entries")
+
+            # TOC-like кластер + catalog header, даже если TOC header не распознан
+            # (OCR, bilingual).
+            if (
+                toc_line_like_count >= 2
+                and header_count >= 1
+                and entry_count >= 2
+                and compact_pairs >= 1
+                and substantive_body_count <= 2
+            ):
+                family_reasons.append("toc_line_cluster_with_catalog_entries")
+
+            # Standalone catalog page без TOC header.
+            if (
+                header_count >= 1
+                and entry_count >= 3
+                and compact_pairs >= min(2, entry_count - 1)
+                and substantive_body_count <= 2
+            ):
+                family_reasons.append("catalog_header_with_dense_compact_entries")
+
+            # Плотный кластер entries без содержательного текста.
+            if (
+                entry_count >= 5
+                and compact_pairs >= 3
+                and substantive_body_count <= 1
+                and (
+                    toc_header_count >= 1
+                    or toc_line_like_count >= 4
+                    or header_count >= 1
+                )
+            ):
+                family_reasons.append("dense_catalog_entry_cluster_without_body_text")
+
+            family_diagnostics[family] = {
+                "catalog_header_count": header_count,
+                "entry_count": entry_count,
+                "compact_entry_pairs": compact_pairs,
+            }
+
+            if family_reasons:
+                suppressed_families.add(family)
+                page_level_reasons.extend(
+                    f"{family}:{reason}" for reason in family_reasons
+                )
+
+        # ── Commit suppression for this page ─────────────────────────────────
+
+        if suppressed_families:
+            suppressed_boundary_families_by_page[page] = frozenset(
+                sorted(suppressed_families)
+            )
+            page_reasons[page] = tuple(page_level_reasons)
+            page_diagnostics[page] = {
+                "toc_header_count": toc_header_count,
+                "toc_line_like_count": toc_line_like_count,
+                "substantive_body_count": substantive_body_count,
+                "page_nonempty_lines": len(page_texts),
+                "suppressed_families": sorted(suppressed_families),
+                "families": family_diagnostics,
+            }
+
+            # Convenience set для backward compatibility.
+            from services.structure._segmenter.patterns import BOUNDARY_FAMILY_APPENDIX
+            if BOUNDARY_FAMILY_APPENDIX in suppressed_families:
+                appendix_suppressed_pages.add(page)
 
             logger.debug(
-                "STRUCTURE segmenter_toc_appendix_suppression_page_detected",
+                "STRUCTURE segmenter_toc_catalog_suppression_page_detected",
                 extra={
                     "page": page,
-                    "reasons": list(reasons),
-                    **diagnostics,
+                    "suppressed_families": sorted(suppressed_families),
+                    "reasons": list(page_level_reasons),
+                    "toc_header_count": toc_header_count,
+                    "toc_line_like_count": toc_line_like_count,
+                    "substantive_body_count": substantive_body_count,
+                    "page_nonempty_lines": len(page_texts),
                 },
             )
 
     return BoundarySuppressionContext(
-        suppressed_appendix_pages=frozenset(sorted(suppressed_pages)),
+        suppressed_boundary_families_by_page=suppressed_boundary_families_by_page,
+        suppressed_appendix_pages=frozenset(sorted(appendix_suppressed_pages)),
         page_reasons=page_reasons,
         page_diagnostics=page_diagnostics,
     )

@@ -7,7 +7,7 @@
 - сканирует элементы на предмет boundary markers;
 - начисляет сигналы уверенности;
 - валидирует кандидатов по proximity / conflict / mid-paragraph rules;
-- поддерживает suppression context от P5 (TOC / appendix catalog pages).
+- поддерживает suppression context от P5/A3 (TOC / catalog pages, все boundary families).
 """
 
 from __future__ import annotations
@@ -47,6 +47,7 @@ from .heuristics import (
 from .patterns import (
     HORIZONTAL_RULE_RE,
     extract_appendix_number,
+    infer_boundary_family_from_text,
     infer_segment_title,
     infer_segment_type_from_text,
     match_boundary_marker,
@@ -65,7 +66,8 @@ def collect_boundary_candidates(
     Параметры:
         elements:             список layout-элементов документа.
         artifacts:            индексы running-header элементов для исключения.
-        suppression_context:  P5 suppression (TOC / catalog page detection).
+        suppression_context:  P5/A3 suppression (TOC / catalog page detection,
+                              все boundary families).
     """
     artifacts = artifacts or set()
     candidates: list[BoundaryCandidate] = []
@@ -95,12 +97,12 @@ def collect_boundary_candidates(
 
         page = safe_page(element)
         seg_type = infer_segment_type_from_text(text)
+        boundary_family = infer_boundary_family_from_text(text)
 
-        # P5: подавление appendix-boundaries на TOC / catalog pages.
+        # P5/A3: подавление boundary-family markers на TOC / catalog pages.
         if (
             suppression_context is not None
-            and seg_type == SEGMENT_TYPE_APPENDIX
-            and suppression_context.suppresses_appendix_page(page)
+            and suppression_context.suppresses_boundary_family(page, boundary_family)
         ):
             continue
 
@@ -269,7 +271,9 @@ def _should_keep_adjacent_distinct_boundaries(
     if distance < 2:
         return False
 
-    if not (_is_strong_boundary_candidate(left) and _is_strong_boundary_candidate(right)):
+    if not (
+        _is_strong_boundary_candidate(left) and _is_strong_boundary_candidate(right)
+    ):
         return False
 
     left_title_norm = normalize_boundary_text(left.title or left.text)
@@ -283,8 +287,12 @@ def _should_keep_adjacent_distinct_boundaries(
         left.segment_type == SEGMENT_TYPE_APPENDIX
         and right.segment_type == SEGMENT_TYPE_APPENDIX
     ):
-        left_num = normalize_boundary_text(extract_appendix_number(left.title or left.text))
-        right_num = normalize_boundary_text(extract_appendix_number(right.title or right.text))
+        left_num = normalize_boundary_text(
+            extract_appendix_number(left.title or left.text)
+        )
+        right_num = normalize_boundary_text(
+            extract_appendix_number(right.title or right.text)
+        )
         if left_num and right_num and left_num != right_num:
             return True
         return False
@@ -319,9 +327,15 @@ def pick_stronger_boundary(
     if left_has_reset and not right_has_reset:
         return left
 
-    if left.segment_type == SEGMENT_TYPE_UNKNOWN and right.segment_type != SEGMENT_TYPE_UNKNOWN:
+    if (
+        left.segment_type == SEGMENT_TYPE_UNKNOWN
+        and right.segment_type != SEGMENT_TYPE_UNKNOWN
+    ):
         return right
-    if right.segment_type == SEGMENT_TYPE_UNKNOWN and left.segment_type != SEGMENT_TYPE_UNKNOWN:
+    if (
+        right.segment_type == SEGMENT_TYPE_UNKNOWN
+        and left.segment_type != SEGMENT_TYPE_UNKNOWN
+    ):
         return left
 
     return left
@@ -337,7 +351,9 @@ def validate_boundary_candidates(
 
     validated: list[BoundaryCandidate] = []
 
-    for candidate in sorted(candidates, key=lambda c: (c.element_index, -c.confidence_score)):
+    for candidate in sorted(
+        candidates, key=lambda c: (c.element_index, -c.confidence_score)
+    ):
         if candidate.element_index <= 0:
             continue
 
@@ -354,7 +370,10 @@ def validate_boundary_candidates(
 
         if validated:
             prev = validated[-1]
-            if candidate.element_index - prev.element_index < MIN_ELEMENTS_BETWEEN_BOUNDARIES:
+            if (
+                candidate.element_index - prev.element_index
+                < MIN_ELEMENTS_BETWEEN_BOUNDARIES
+            ):
                 if _should_keep_adjacent_distinct_boundaries(prev, candidate):
                     validated.append(candidate)
                     continue
@@ -366,4 +385,5 @@ def validate_boundary_candidates(
         validated.append(candidate)
 
     return validated
+
 

@@ -17,7 +17,7 @@
 - candidates      — сбор и валидация boundary-кандидатов
 - assembly        — сборка сегментов, scope, metadata propagation
 - purity          — post-segmentation purity recovery (P1)
-- toc_suppression — подавление ложных appendix-границ на TOC / catalog pages (P5)
+- toc_suppression — подавление ложных boundary-family границ на TOC / catalog pages (P5/A3)
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ from ._segmenter.config import (
     DEFAULT_SEGMENT_CONFIDENCE_THRESHOLD,
     MAX_REASONABLE_SEGMENTS,
 )
-from ._segmenter.patterns import extract_appendix_number
+from ._segmenter.patterns import extract_appendix_number, infer_boundary_family_from_text
 from ._segmenter.purity import recover_segment_purity_candidates
 from ._segmenter.toc_suppression import build_boundary_suppression_context
 
@@ -55,15 +55,15 @@ logger = get_logger(__name__)
 _extract_appendix_number = extract_appendix_number
 
 
-def _is_appendix_entry_for_suppression(text: str) -> bool:
+def _resolve_boundary_family_for_suppression(text: str) -> str | None:
     """Callback для ``build_boundary_suppression_context``.
 
-    Переиспользует appendix-grammar из ``patterns``, чтобы
-    suppression и основной detection не расходились.
-    """
-    from ._segmenter.patterns import looks_like_appendix_boundary_marker
+    Переиспользует canonical boundary-family grammar из ``patterns``,
+    чтобы suppression и основной detection не расходились.
 
-    return looks_like_appendix_boundary_marker(text)
+    Возвращает canonical family string ("appendix" / "amendment") или None.
+    """
+    return infer_boundary_family_from_text(text)
 
 
 # ── Публичный API ────────────────────────────────────────────────────────────
@@ -114,13 +114,13 @@ def _segment_elements_impl(
     # 1. Артефакты повторяющихся заголовков.
     artifacts = detect_repeated_page_artifacts(clean_elements)
 
-    # 2. P5: TOC / appendix-catalog suppression context.
+    # 2. P5/A3: TOC / catalog boundary-family suppression context.
     suppression_context = build_boundary_suppression_context(
         clean_elements,
-        is_appendix_entry=_is_appendix_entry_for_suppression,
+        resolve_boundary_family=_resolve_boundary_family_for_suppression,
     )
 
-    if suppression_context.suppressed_appendix_pages:
+    if suppression_context.suppressed_boundary_families_by_page:
         logger.info(
             "STRUCTURE segmenter_boundary_suppression_context",
             extra={
@@ -148,7 +148,9 @@ def _segment_elements_impl(
         )
     )
 
-    accepted_candidates = [c for c in validated_candidates if c.confidence_score >= threshold]
+    accepted_candidates = [
+        c for c in validated_candidates if c.confidence_score >= threshold
+    ]
 
     # 6. P1: purity recovery.
     if accepted_candidates:
@@ -241,4 +243,5 @@ def _segment_elements_impl(
     )
 
     return segments
+
 

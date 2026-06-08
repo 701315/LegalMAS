@@ -161,15 +161,38 @@ APPENDIX_NUMBER_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+BOUNDARY_FAMILY_APPENDIX = "appendix"
+BOUNDARY_FAMILY_AMENDMENT = "amendment"
+
+
+def infer_boundary_family_from_text(text: str) -> str | None:
+    """Возвращает canonical boundary family для suppression / detection.
+
+    Важно:
+    - schedule / exhibit / annex / attachment / disclosure schedule
+      остаются appendix-family;
+    - amendment / addendum / supplemental agreement остаются amendment-family.
+    """
+    normalized = normalize_spaces(text)
+    if not normalized:
+        return None
+
+    if APPENDIX_RE.match(normalized):
+        return BOUNDARY_FAMILY_APPENDIX
+
+    if AMENDMENT_RE.match(normalized):
+        return BOUNDARY_FAMILY_AMENDMENT
+
+    return None
+
 
 # ── Pattern helpers ──────────────────────────────────────────────────────────
-
 def match_boundary_marker(text: str) -> str | None:
     """Возвращает тип маркера границы или None."""
-    if APPENDIX_RE.match(text):
-        return "appendix"
-    if AMENDMENT_RE.match(text):
-        return "amendment"
+    family = infer_boundary_family_from_text(text)
+    if family is not None:
+        return family
+
     if ACT_RE.match(text):
         return "act"
     if INVOICE_RE.match(text):
@@ -181,10 +204,12 @@ def match_boundary_marker(text: str) -> str | None:
 
 def infer_segment_type_from_text(text: str) -> str:
     """Определяет тип сегмента по тексту маркера."""
-    if APPENDIX_RE.match(text):
+    family = infer_boundary_family_from_text(text)
+    if family == BOUNDARY_FAMILY_APPENDIX:
         return SEGMENT_TYPE_APPENDIX
-    if AMENDMENT_RE.match(text):
+    if family == BOUNDARY_FAMILY_AMENDMENT:
         return SEGMENT_TYPE_AMENDMENT
+
     if ACT_RE.match(text):
         return SEGMENT_TYPE_ACT
     if INVOICE_RE.match(text):
@@ -216,10 +241,6 @@ def extract_appendix_number(text: str) -> str | None:
 
 
 def looks_like_appendix_boundary_marker(text: str) -> bool:
-    """Предикат для suppression layer: текст похож на appendix boundary.
-
-    Переиспользует ту же appendix-grammar, что и основной boundary detector,
-    чтобы избежать расхождений между «что подавляем» и «что принимаем».
-    """
-    return infer_segment_type_from_text(text) == SEGMENT_TYPE_APPENDIX
+    """Предикат для suppression layer: текст похож на appendix-family boundary."""
+    return infer_boundary_family_from_text(text) == BOUNDARY_FAMILY_APPENDIX
 
