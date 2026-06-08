@@ -240,6 +240,13 @@ function getPrimaryItemTitle(
   item: DisplayItem,
   isCanonical: boolean,
 ): string {
+  const backendTitle =
+    typeof item.chunk.display_title === "string"
+      ? item.chunk.display_title.trim()
+      : "";
+
+  if (backendTitle) return backendTitle;
+
   if (isCanonical) {
     return `${getCanonicalLayerTitle(item.layer)} ${item.position}/${item.total}`;
   }
@@ -250,6 +257,13 @@ function getSecondaryItemLine(
   item: DisplayItem,
   isCanonical: boolean,
 ): string {
+  const backendSubtitle =
+    typeof item.chunk.display_subtitle === "string"
+      ? item.chunk.display_subtitle.trim()
+      : "";
+
+  if (backendSubtitle) return backendSubtitle;
+
   const chunk = item.chunk;
   const parts: string[] = [];
   const uid = getChunkUid(chunk);
@@ -362,7 +376,7 @@ const InfoPanel: React.FC<{
   <section className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]">
     <div className="flex h-full min-h-0 flex-col px-3 pt-3">
       <PanelHeader title={title} description={description} />
-      <div className="min-h-0 flex-1 overflow-hidden pb-3">{children}</div>
+      <div className="min-h-0 flex-1 overflow-auto pb-3">{children}</div>
     </div>
   </section>
 );
@@ -507,6 +521,16 @@ function ContextSectionCard({
   const uid = getChunkUid(chunk);
   const text = normalizeChunkText(chunk.text);
 
+  const title =
+    typeof chunk.display_title === "string" && chunk.display_title.trim()
+      ? chunk.display_title.trim()
+      : uid || "section";
+
+  const subtitle =
+    typeof chunk.display_subtitle === "string" && chunk.display_subtitle.trim()
+      ? chunk.display_subtitle.trim()
+      : `section · стр. ${pageLabel(chunk)}`;
+
   return (
     <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
       <div className="flex items-start justify-between gap-3">
@@ -515,10 +539,10 @@ function ContextSectionCard({
             Связанный context section
           </p>
           <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
-            {uid || "section"}
+            {title}
           </p>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-            section · стр. {pageLabel(chunk)}
+            {subtitle}
           </p>
         </div>
 
@@ -898,7 +922,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
     layerBuckets.legal_unit.length || layerBuckets.subclause.length;
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-3">
+    <div className="grid h-full min-h-0 auto-rows-fr grid-cols-1 gap-4 overflow-hidden xl:grid-cols-3 xl:grid-rows-1">
       {/* ──────────────────── Левая панель ──────────────────── */}
       <InfoPanel title={listMeta.title} description={listMeta.description}>
         <div className="flex h-full min-h-0 flex-col">
@@ -957,24 +981,17 @@ export const ChunksStageViewer: React.FC<Props> = ({
                       type="button"
                       onClick={() => setSelectedIndex(item.chunk.index)}
                       className={cn(
-                        "w-full px-3 py-2.5 text-left transition-all",
+                        "w-full px-3 py-2.5 text-left transition-colors",
                         isSelected
-                          ? "border-l-[3px] border-l-[var(--color-primary)] bg-[var(--color-primary-highlight)]"
-                          : "border-l-[3px] border-l-transparent bg-[var(--bg-card)] hover:bg-[var(--bg-subtle)]",
+                          ? "bg-[var(--bg-elevated-soft)] shadow-[inset_3px_0_0_var(--accent-primary)]"
+                          : "bg-[var(--bg-card)] hover:bg-[var(--bg-elevated-soft)]",
                       )}
                       aria-pressed={isSelected}
                       title={uid || `chunk ${item.chunk.index}`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div
-                            className={cn(
-                              "text-sm font-semibold",
-                              isSelected
-                                ? "text-[var(--color-primary)]"
-                                : "text-[var(--text-primary)]",
-                            )}
-                          >
+                          <div className="text-sm font-semibold text-[var(--text-primary)]">
                             {getPrimaryItemTitle(item, isCanonical)}
                           </div>
                           <div className="mt-0.5 text-xs text-[var(--text-muted)]">
@@ -983,14 +1000,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
                         </div>
 
                         {uid ? (
-                          <div
-                            className={cn(
-                              "shrink-0 rounded-full border px-2 py-1 text-[10px] leading-none",
-                              isSelected
-                                ? "border-[color:color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[var(--color-primary-highlight)] text-[var(--color-primary)]"
-                                : "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
-                            )}
-                          >
+                          <div className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-[10px] leading-none text-[var(--text-muted)]">
                             {uid}
                           </div>
                         ) : null}
@@ -1024,7 +1034,15 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Pill tone="accent">layer: {selectedItem.layer}</Pill>
-
+                    {selectedChunk.role && (
+                      <Pill
+                        tone={
+                          selectedChunk.role === "evidence" ? "accent" : "neutral"
+                        }
+                      >
+                        role: {selectedChunk.role}
+                      </Pill>
+                    )}
                     {getChunkUid(selectedChunk) && (
                       <Pill>uid: {getChunkUid(selectedChunk)}</Pill>
                     )}

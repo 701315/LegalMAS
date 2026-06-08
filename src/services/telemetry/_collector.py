@@ -29,11 +29,11 @@ from core.logging import get_logger
 from services.telemetry._events import (
     BaseTelemetryEvent,
     ChunkingCompletedEvent,
+    CrossSegmentCoherenceEvent,
     DocumentProcessedEvent,
     EnrichmentCompletedEvent,
     QualityEvaluatedEvent,
     StructureBuiltEvent,
-    CrossSegmentCoherenceEvent,
 )
 
 logger = get_logger(__name__)
@@ -120,7 +120,7 @@ class TelemetryCollector:
         enrichment_events = self.events_by_type(EnrichmentCompletedEvent)
         coherence_events = self.events_by_type(CrossSegmentCoherenceEvent)
 
-        # Structure aggregates
+        # ── Structure aggregates ──────────────────────────────────────────
         total_nodes = sum(
             getattr(e, "total_nodes", 0) for e in structure_events
         )
@@ -139,13 +139,14 @@ class TelemetryCollector:
              for e in structure_events]
         )
 
-        # Quality aggregates
-        avg_safety = _safe_avg(
+        # ── Phase 9 quality aggregates (legacy / pre-chunk heuristic) ─────
+        # Используется как fallback когда chunk corpus ещё не построен.
+        quality_avg_safety = _safe_avg(
             [getattr(e, "retrieval_safety_score", 0.0)
              for e in quality_events]
         )
 
-        # Chunking aggregates
+        # ── Chunking aggregates: canonical retrieval truth (P8.8d) ────────
         total_chunks = sum(
             getattr(e, "total_chunks", 0) for e in chunking_events
         )
@@ -153,12 +154,28 @@ class TelemetryCollector:
             getattr(e, "retrieval_safe_chunks", 0)
             for e in chunking_events
         )
+        legal_unit_chunks = sum(
+            getattr(e, "legal_unit_chunks", 0) for e in chunking_events
+        )
         overall_retrieval_safe = (
             retrieval_safe_chunks == total_chunks and total_chunks > 0
         )
         recommended_action = _best_recommended_action(chunking_events)
 
-        # Enrichment aggregates
+        # Если chunk corpus построен — retrieval_safe ratio по нему и есть истина.
+        # Иначе — fallback на Phase 9 quality score.
+        chunk_corpus_safety = (
+            round(retrieval_safe_chunks / total_chunks, 4)
+            if total_chunks > 0 else 0.0
+        )
+        avg_safety = (
+            chunk_corpus_safety
+            if total_chunks > 0
+            else quality_avg_safety
+        )
+
+        # ── Enrichment aggregates ─────────────────────────────────────────
+        # total_units — это enrichment units (Phase 12), не retrieval units.
         total_units = sum(
             getattr(e, "total_units", 0) for e in enrichment_events
         )
@@ -175,7 +192,8 @@ class TelemetryCollector:
             getattr(e, "llm_unavailable", False)
             for e in enrichment_events
         )
-        # Coherence aggregates
+
+        # ── Coherence aggregates ──────────────────────────────────────────
         coherence_links_found = sum(
             getattr(e, "links_found", 0) for e in coherence_events
         )
@@ -198,10 +216,12 @@ class TelemetryCollector:
                 len(structure_events),
                 len(quality_events),
                 len(chunking_events),
+                len(enrichment_events),
             ),
             total_nodes=total_nodes,
             total_chunks=total_chunks,
             total_units=total_units,
+            legal_unit_chunks=legal_unit_chunks,
             avg_orphan_ratio=avg_orphan_ratio,
             avg_grammar_violation_ratio=avg_grammar_ratio,
             avg_retrieval_safety_score=avg_safety,

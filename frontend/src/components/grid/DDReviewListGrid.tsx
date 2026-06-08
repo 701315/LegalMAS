@@ -5,13 +5,10 @@
 // Presents normalized review matrix data as a one-row-per-finding list.
 // Reuses the same details drawer and viewer navigation model as DDMatrixGrid.
 //
-// Production notes:
-// - findings-only list by default (pass results hidden at mapper level)
-// - stable row IDs for AG Grid getRowId
-// - legacy AG Grid theme mode to stay compatible with CSS theme imports
-// - object-valued review cells are rendered through explicit getters/formatters
-// - AG Grid v32+ selection API via rowSelection / selectionColumnDef
-// - selected drawer state is updated only when details payload really changed
+// Layout contract (P8.8d):
+// - domLayout="normal" — AG Grid scroll внутри viewport.
+// - header таблицы sticky наверху viewport.
+// - контейнер получает h-full от родителя.
 // =============================================================
 
 import React, {
@@ -135,49 +132,30 @@ function areDetailsCellsEquivalent(
   const leftFlagKeys = Object.keys(leftFlags).sort();
   const rightFlagKeys = Object.keys(rightFlags).sort();
 
-  if (!areStringArraysEqual(leftFlagKeys, rightFlagKeys)) {
+  if (!areStringArraysEqual(leftFlagKeys, rightFlagKeys)) return false;
+  if (!leftFlagKeys.every((key) => Boolean(leftFlags[key]) === Boolean(rightFlags[key])))
     return false;
-  }
-
-  if (
-    !leftFlagKeys.every(
-      (key) => Boolean(leftFlags[key]) === Boolean(rightFlags[key]),
-    )
-  ) {
-    return false;
-  }
 
   const leftFields = left.extractedFields ?? [];
   const rightFields = right.extractedFields ?? [];
-
-  if (leftFields.length !== rightFields.length) {
-    return false;
-  }
+  if (leftFields.length !== rightFields.length) return false;
 
   for (let index = 0; index < leftFields.length; index += 1) {
     const lf = leftFields[index];
     const rf = rightFields[index];
 
     if (
-      normalizeComparable(lf.fieldName) !==
-        normalizeComparable(rf.fieldName) ||
-      normalizeComparable(lf.fieldValue) !==
-        normalizeComparable(rf.fieldValue) ||
-      normalizeComparable(lf.fieldFormat) !==
-        normalizeComparable(rf.fieldFormat) ||
-      normalizeComparable(lf.fieldSource) !==
-        normalizeComparable(rf.fieldSource) ||
+      normalizeComparable(lf.fieldName) !== normalizeComparable(rf.fieldName) ||
+      normalizeComparable(lf.fieldValue) !== normalizeComparable(rf.fieldValue) ||
+      normalizeComparable(lf.fieldFormat) !== normalizeComparable(rf.fieldFormat) ||
+      normalizeComparable(lf.fieldSource) !== normalizeComparable(rf.fieldSource) ||
       normalizeComparable(lf.page) !== normalizeComparable(rf.page) ||
-      normalizeComparable(lf.clauseUid) !==
-        normalizeComparable(rf.clauseUid) ||
-      normalizeComparable(lf.segmentId) !==
-        normalizeComparable(rf.segmentId) ||
+      normalizeComparable(lf.clauseUid) !== normalizeComparable(rf.clauseUid) ||
+      normalizeComparable(lf.segmentId) !== normalizeComparable(rf.segmentId) ||
       normalizeComparable(lf.chunkId) !== normalizeComparable(rf.chunkId) ||
-      normalizeComparable(lf.chunkIndex) !==
-        normalizeComparable(rf.chunkIndex)
-    ) {
+      normalizeComparable(lf.chunkIndex) !== normalizeComparable(rf.chunkIndex)
+    )
       return false;
-    }
   }
 
   return (
@@ -185,39 +163,28 @@ function areDetailsCellsEquivalent(
     normalizeComparable(left.severity) === normalizeComparable(right.severity) &&
     normalizeComparable(left.snippet) === normalizeComparable(right.snippet) &&
     normalizeComparable(left.page) === normalizeComparable(right.page) &&
-    normalizeComparable(left.clauseUid) ===
-      normalizeComparable(right.clauseUid) &&
-    normalizeComparable(left.confidence) ===
-      normalizeComparable(right.confidence) &&
-    normalizeComparable(left.qcStatus) ===
-      normalizeComparable(right.qcStatus) &&
+    normalizeComparable(left.clauseUid) === normalizeComparable(right.clauseUid) &&
+    normalizeComparable(left.confidence) === normalizeComparable(right.confidence) &&
+    normalizeComparable(left.qcStatus) === normalizeComparable(right.qcStatus) &&
     normalizeComparable(left.conditionalTriggered) ===
       normalizeComparable(right.conditionalTriggered) &&
-    normalizeComparable(left.triggerName) ===
-      normalizeComparable(right.triggerName) &&
+    normalizeComparable(left.triggerName) === normalizeComparable(right.triggerName) &&
     normalizeComparable(left.origin) === normalizeComparable(right.origin) &&
-    normalizeComparable(left.createdAt) ===
-      normalizeComparable(right.createdAt) &&
-    normalizeComparable(left.qcComment) ===
-      normalizeComparable(right.qcComment) &&
+    normalizeComparable(left.createdAt) === normalizeComparable(right.createdAt) &&
+    normalizeComparable(left.qcComment) === normalizeComparable(right.qcComment) &&
     normalizeComparable(left.docType) === normalizeComparable(right.docType) &&
     normalizeComparable(left.docClassificationLevel) ===
       normalizeComparable(right.docClassificationLevel) &&
     normalizeComparable(left.docClassificationConfidence) ===
       normalizeComparable(right.docClassificationConfidence) &&
-    normalizeComparable(left.segmentId) ===
-      normalizeComparable(right.segmentId) &&
-    normalizeComparable(left.segmentTitle) ===
-      normalizeComparable(right.segmentTitle) &&
-    normalizeComparable(left.segmentType) ===
-      normalizeComparable(right.segmentType) &&
-    normalizeComparable(left.segmentOrder) ===
-      normalizeComparable(right.segmentOrder) &&
+    normalizeComparable(left.segmentId) === normalizeComparable(right.segmentId) &&
+    normalizeComparable(left.segmentTitle) === normalizeComparable(right.segmentTitle) &&
+    normalizeComparable(left.segmentType) === normalizeComparable(right.segmentType) &&
+    normalizeComparable(left.segmentOrder) === normalizeComparable(right.segmentOrder) &&
     normalizeComparable(left.isPrimarySegment) ===
       normalizeComparable(right.isPrimarySegment) &&
     normalizeComparable(left.chunkId) === normalizeComparable(right.chunkId) &&
-    normalizeComparable(left.chunkIndex) ===
-      normalizeComparable(right.chunkIndex)
+    normalizeComparable(left.chunkIndex) === normalizeComparable(right.chunkIndex)
   );
 }
 
@@ -265,18 +232,13 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
 
   useEffect(() => {
     const sc = selectedCellRef.current;
-
-    if (!sc.open || !sc.documentId || !sc.checkId) {
-      return;
-    }
+    if (!sc.open || !sc.documentId || !sc.checkId) return;
 
     const currentListRow = rowData.find(
       (row) =>
         row.documentId === sc.documentId && row.checkId === sc.checkId,
     );
-    if (!currentListRow) {
-      return;
-    }
+    if (!currentListRow) return;
 
     const freshDetailsCell = mapReviewCellToDetailsCell(
       currentListRow.sourceRow,
@@ -292,11 +254,9 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
       ) {
         return prev;
       }
-
       if (areDetailsCellsEquivalent(prev.cell, freshDetailsCell)) {
         return prev;
       }
-
       return { ...prev, cell: freshDetailsCell };
     });
   }, [rowData]);
@@ -350,7 +310,6 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
 
     const ro = new ResizeObserver(() => update());
     ro.observe(node);
-
     const raf = requestAnimationFrame(update);
 
     return () => {
@@ -409,21 +368,14 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         cellRenderer: (params: ICellRendererParams<FindingListRow>) => {
           const row = params.data;
           if (!row) {
-            return (
-              <span className="text-[11px] text-[var(--text-faint)]">—</span>
-            );
+            return <span className="text-[11px] text-[var(--text-faint)]">—</span>;
           }
-
           const documentLabel = row.documentName || "[no name]";
-
           if (!onOpenDocument) {
             return (
-              <span className="text-xs text-[var(--text-secondary)]">
-                {documentLabel}
-              </span>
+              <span className="text-xs text-[var(--text-secondary)]">{documentLabel}</span>
             );
           }
-
           return (
             <button
               type="button"
@@ -454,21 +406,16 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         cellDataType: false,
         valueGetter: (params: ValueGetterParams<FindingListRow>) =>
           params.data?.cell ?? null,
-        valueFormatter: (
-          params: ValueFormatterParams<FindingListRow>,
-        ): string => formatRiskCellValue(params.value),
+        valueFormatter: (params: ValueFormatterParams<FindingListRow>): string =>
+          formatRiskCellValue(params.value),
         tooltipValueGetter: (params) => buildCellTooltip(params.data?.cell),
         cellRenderer: (params: ICellRendererParams<FindingListRow>) => {
           const row = params.data;
           if (!row) {
-            return (
-              <span className="text-[11px] text-[var(--text-faint)]">—</span>
-            );
+            return <span className="text-[11px] text-[var(--text-faint)]">—</span>;
           }
-
           const severity = getCellSeverity(row.cell);
           const statusText = getCellStatusText(row.cell);
-
           return (
             <button
               type="button"
@@ -500,8 +447,7 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         headerName: "Confidence",
         minWidth: 110,
         valueGetter: (params) => params.data?.cell.confidence ?? null,
-        valueFormatter: (params) =>
-          formatPercent(params.value as number | null),
+        valueFormatter: (params) => formatPercent(params.value as number | null),
       },
       {
         headerName: "Evidence",
@@ -509,8 +455,7 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         flex: 1,
         sortable: false,
         valueGetter: (params) => params.data?.cell.snippet?.trim() ?? "",
-        tooltipValueGetter: (params) =>
-          params.data?.cell.snippet?.trim() ?? "",
+        tooltipValueGetter: (params) => params.data?.cell.snippet?.trim() ?? "",
         cellRenderer: (params: ICellRendererParams<FindingListRow>) => {
           const snippet = params.data?.cell.snippet?.trim();
           return snippet ? (
@@ -558,16 +503,12 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         headerName: "Классификация",
         field: "classificationLevel",
         minWidth: 150,
-        tooltipValueGetter: (params) =>
-          params.data?.classificationLevel ?? "",
+        tooltipValueGetter: (params) => params.data?.classificationLevel ?? "",
         cellRenderer: (params: ICellRendererParams<FindingListRow>) => {
           const row = params.data;
           if (!row?.classificationLevel) {
-            return (
-              <span className="text-[11px] text-[var(--text-faint)]">—</span>
-            );
+            return <span className="text-[11px] text-[var(--text-faint)]">—</span>;
           }
-
           return (
             <ClassificationBadge
               level={row.classificationLevel as ClassificationLevel}
@@ -611,7 +552,6 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
 
   useLayoutEffect(() => {
     if (!gridApi) return;
-
     const id = requestAnimationFrame(() => {
       try {
         gridApi.sizeColumnsToFit();
@@ -619,7 +559,6 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         // noop
       }
     });
-
     return () => cancelAnimationFrame(id);
   }, [gridApi, rootWidth, rowData.length, columnDefs.length]);
 
@@ -635,11 +574,11 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
     <>
       <div
         ref={rootRef}
-        className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm"
+        className="flex h-full min-h-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm"
       >
-        <div className="overflow-x-auto">
+        <div className="min-h-0 flex-1 overflow-hidden">
           <div
-            className="ag-theme-legalmas w-full"
+            className="ag-theme-legalmas h-full w-full"
             style={{
               minHeight: GRID_MIN_HEIGHT_PX,
               minWidth: GRID_MIN_WIDTH_PX,
@@ -657,7 +596,7 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
               onSelectionChanged={handleSelectionChanged}
               onGridReady={handleGridReady}
               getRowId={(params) => params.data.rowId}
-              domLayout="autoHeight"
+              domLayout="normal"
             />
           </div>
         </div>

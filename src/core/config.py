@@ -253,7 +253,9 @@ class Settings(BaseSettings):
     # --- LLM Provider ---
     # ---------------------------------------------------------------------------
 
-    LLM_PROVIDER: str = "llamacpp"
+    # Default LLM provider. Поддерживаемые значения: ollama | openai | llamacpp.
+    # llamacpp — legacy embedded provider, оставлен для backward compatibility.
+    LLM_PROVIDER: str = "ollama"
     LLM_TIMEOUT_SECONDS: int = 3600
     LLM_TEMPERATURE: float = 0.0
     LLM_MAX_TOKENS: int = 256
@@ -265,17 +267,20 @@ class Settings(BaseSettings):
     LLM_OLLAMA_BASE_URL: str = "http://localhost:11434"
     LLM_OLLAMA_MODEL: str = "llama3.1"
 
-    LLM_LOCAL_MODEL_PATH: str = r"C:\LegalMAS\LLMmodel\model.gguf"
+    # Path к gguf файлу — используется ТОЛЬКО когда LLM_PROVIDER=llamacpp.
+    # Пустой default чтобы случайная попытка загрузить gguf при ollama path
+    # давала явную ошибку конфигурации, а не падала по несуществующему пути.
+    LLM_LOCAL_MODEL_PATH: str = ""
 
     # Контекстное окно — источник истины для llamacpp.
     # LLM_CONTEXT_LIMIT синхронизируется с этим значением через @model_validator.
     LLM_LOCAL_N_CTX: int = 8192
     LLM_LOCAL_N_GPU_LAYERS: int = 0
 
-    # Лимит токенов для LLMClient._compute_token_budget().
+    # Default context window для LLMClient._compute_token_budget().
     # Для llamacpp авто-синхронизируется с LLM_LOCAL_N_CTX (см. _sync_llm_context_limit).
-    # Для openai/ollama — задаётся явно или остаётся дефолтом.
-    LLM_CONTEXT_LIMIT: int = 8192
+    # Для ollama path можно поднимать до n_ctx модели (qwen2.5 — до 32768).
+    LLM_CONTEXT_LIMIT: int = 32768
 
     LLM_SAFETY_MARGIN_TOKENS: int = 512
     LLM_MIN_OUTPUT_TOKENS: int = 64
@@ -286,8 +291,15 @@ class Settings(BaseSettings):
 
     # --- Structure LLM Refiner ---
     STRUCTURE_ENABLE_LLM_REFINER: bool = True
-    STRUCTURE_LLM_PROVIDER: str = "llamacpp"
-    STRUCTURE_LLM_MODEL: str = "..."
+
+    # Structure refiner LLM provider. Поддерживаемые значения:
+    # ollama | local | local_endpoint (все три = Ollama-compatible HTTP API).
+    STRUCTURE_LLM_PROVIDER: str = "ollama"
+
+    # Имя модели в Ollama для structure refiner. Должно быть валидным именем
+    # из `ollama list`. Пустой default чтобы заставить explicit configuration.
+    STRUCTURE_LLM_MODEL: str = ""
+    
     STRUCTURE_LLM_TIMEOUT_SECONDS: int = 20
     STRUCTURE_LLM_MAX_AMBIGUOUS_PER_DOC: int = 8
     STRUCTURE_LLM_MIN_CONFIDENCE: float = 0.80

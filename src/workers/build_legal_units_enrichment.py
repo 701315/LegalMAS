@@ -127,22 +127,15 @@ def build_legal_units_enrichment(
                 stage_execution_id=stage_execution_id,
             )
 
-    # ВАЖНО:
-    # Не делаем per-task reset_local_runtime_state() для embedded llamacpp
-    # в enrichment worker.
+    # LLM выполняется через общий LLMClient (multi-provider).
+    # Поддерживаемые провайдеры: ollama (prod) | openai | llamacpp (legacy embedded).
     #
-    # Причина:
-    # - segment enrichment оборачивается в asyncio.wait_for(...);
-    # - async llamacpp внутри LLMClient работает через run_in_executor(...);
-    # - timeout/cancellation outer coroutine не гарантирует немедленную
-    #   остановку native inference в executor thread;
-    # - aggressive reset/close() сразу после timeout может закрыть runtime,
-    #   пока native inference ещё физически завершается → SIGSEGV.
-    #
-    # Безопасный cleanup теперь обеспечивается:
-    # - cancellation-safe async path внутри LLMClient;
-    # - guard-ом в reset_local_runtime_state(), который пропускает reset,
-    #   если есть active in-flight llamacpp calls.
+    # Per-task reset_local_runtime_state() намеренно не вызывается:
+    # - для ollama/openai (HTTP path) это полный no-op — нет shared in-process state;
+    # - для llamacpp (embedded) — aggressive reset во время active inference
+    #   приводил к SIGSEGV; cancellation-safe path внутри LLMClient уже
+    #   обеспечивает корректный cleanup через asyncio.shield + in-flight guard
+    #   в reset_local_runtime_state().
     result = run_async(_wrapper())
 
     if run_id and result.get("committed"):

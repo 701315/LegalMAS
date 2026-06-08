@@ -94,6 +94,110 @@ _STAGE_DESCRIPTION_CANONICAL = (
     "Это pipeline artifact — для аудита этапа CHUNKS."
 )
 
+_CHUNK_KIND_LABELS: dict[str, str] = {
+    "section": "Раздел",
+    "clause": "Пункт",
+    "subclause": "Подпункт",
+    "legal_unit": "Положение",
+}
+
+
+def _normalize_label_value(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _resolve_chunk_role(chunk_kind: str | None) -> str:
+    kind = _normalize_label_value(chunk_kind).lower()
+    return "context" if kind == "section" else "evidence"
+
+
+def _resolve_kind_label(chunk_kind: str | None) -> str:
+    kind = _normalize_label_value(chunk_kind).lower()
+    return _CHUNK_KIND_LABELS.get(kind, "Фрагмент")
+
+
+def _format_pages_label(
+    page_from: int | None,
+    page_to: int | None,
+) -> str:
+    if isinstance(page_from, int) and isinstance(page_to, int):
+        return f"стр. {page_from}" if page_from == page_to else f"стр. {page_from}–{page_to}"
+    if isinstance(page_from, int):
+        return f"стр. {page_from}"
+    if isinstance(page_to, int):
+        return f"стр. {page_to}"
+    return ""
+
+
+def _build_segment_label(
+    *,
+    segment_type: str | None,
+    segment_title: str | None,
+    is_primary_segment: bool | None,
+) -> str:
+    normalized_type = _normalize_label_value(segment_type)
+    normalized_title = _normalize_label_value(segment_title)
+    prefix = "основной сегмент" if bool(is_primary_segment) else "сегмент"
+
+    if normalized_title and normalized_type:
+        return f"{prefix}: {normalized_title} ({normalized_type})"
+    if normalized_title:
+        return f"{prefix}: {normalized_title}"
+    if normalized_type:
+        return f"{prefix}: {normalized_type}"
+    return ""
+
+
+def _build_chunk_display_title(
+    *,
+    chunk_kind: str | None,
+    uid: str | None,
+    segment_title: str | None,
+) -> str:
+    kind_label = _resolve_kind_label(chunk_kind)
+    normalized_uid = _normalize_label_value(uid)
+    normalized_segment_title = _normalize_label_value(segment_title)
+
+    if normalized_uid:
+        return f"{kind_label} {normalized_uid}"
+    if normalized_segment_title:
+        return f"{kind_label}: {normalized_segment_title}"
+    return f"{kind_label} документа"
+
+
+def _build_chunk_display_subtitle(
+    *,
+    role: str,
+    page_from: int | None,
+    page_to: int | None,
+    segment_type: str | None,
+    segment_title: str | None,
+    is_primary_segment: bool | None,
+) -> str:
+    role_label = (
+        "контекстный раздел"
+        if role == "context"
+        else "фрагмент для анализа"
+    )
+
+    parts: list[str] = [role_label]
+
+    pages_label = _format_pages_label(page_from, page_to)
+    if pages_label:
+        parts.append(pages_label)
+
+    segment_label = _build_segment_label(
+        segment_type=segment_type,
+        segment_title=segment_title,
+        is_primary_segment=is_primary_segment,
+    )
+    if segment_label:
+        parts.append(segment_label)
+
+    return " · ".join(parts)
+
 
 class ChunksStageBuilder:
     """
@@ -625,20 +729,22 @@ class ChunksStageBuilder:
 
                 meta = ch.get("metadata") or {}
 
-                # ── Page range ──────────────────────────────────────
-                # Retrieval chunks используют start_page/end_page.
-                # Canonical snapshot chunks используют page_from/page_to.
-                # Поддерживаем оба варианта.
-                page_from = (
+                page_from_raw = (
                     meta.get("page_from")
                     or meta.get("start_page")
                 )
-                page_to = (
+                page_to_raw = (
                     meta.get("page_to")
                     or meta.get("end_page")
                 )
 
-                # ── Clause UID ──────────────────────────────────────
+                page_from = (
+                    page_from_raw if isinstance(page_from_raw, int) else None
+                )
+                page_to = (
+                    page_to_raw if isinstance(page_to_raw, int) else None
+                )
+
                 clause_uid = (
                     ch.get("clause_uid")
                     or meta.get("clause_uid")
@@ -647,9 +753,12 @@ class ChunksStageBuilder:
                     or ""
                 )
 
-                # ── Chunk identity ──────────────────────────────────
-                chunk_kind = meta.get("chunk_kind")
-                effective_uid = meta.get("effective_uid")
+                chunk_kind = _normalize_label_value(
+                    meta.get("chunk_kind")
+                ).lower() or None
+                effective_uid = _normalize_label_value(
+                    meta.get("effective_uid")
+                ) or None
                 retrieval_safe = meta.get("retrieval_safe")
 
                 chunk_id = ch.get("id")
@@ -660,16 +769,31 @@ class ChunksStageBuilder:
                     else len(flat_chunks) + len(seg_chunks)
                 )
 
+                resolved_uid = (
+                    effective_uid
+                    or (_normalize_label_value(clause_uid) or None)
+                )
+                role = _resolve_chunk_role(chunk_kind)
+                display_title = _build_chunk_display_title(
+                    chunk_kind=chunk_kind,
+                    uid=resolved_uid,
+                    segment_title=pipeline_segment.segment_title,
+                )
+                display_subtitle = _build_chunk_display_subtitle(
+                    role=role,
+                    page_from=page_from,
+                    page_to=page_to,
+                    segment_type=pipeline_segment.segment_type,
+                    segment_title=pipeline_segment.segment_title,
+                    is_primary_segment=pipeline_segment.is_primary,
+                )
+
                 seg_chunks.append(
                     ChunkPreviewDTO(
                         index=index,
                         clause_uid=str(clause_uid) if clause_uid else "",
-                        page_from=(
-                            page_from if isinstance(page_from, int) else None
-                        ),
-                        page_to=(
-                            page_to if isinstance(page_to, int) else None
-                        ),
+                        page_from=page_from,
+                        page_to=page_to,
                         text=text[:4000],
                         segment_id=pipeline_segment.segment_id,
                         segment_type=pipeline_segment.segment_type,
@@ -677,18 +801,16 @@ class ChunksStageBuilder:
                         segment_order=pipeline_segment.segment_order,
                         is_primary_segment=pipeline_segment.is_primary,
                         chunk_id=str(chunk_id) if chunk_id else None,
-                        # ── NEW: honest chunk identity ──────────────
-                        chunk_kind=(
-                            str(chunk_kind) if chunk_kind else None
-                        ),
-                        effective_uid=(
-                            str(effective_uid) if effective_uid else None
-                        ),
+                        chunk_kind=chunk_kind,
+                        effective_uid=effective_uid,
                         retrieval_safe=(
                             bool(retrieval_safe)
                             if retrieval_safe is not None
                             else None
                         ),
+                        display_title=display_title,
+                        display_subtitle=display_subtitle,
+                        role=role,
                     )
                 )
 

@@ -77,9 +77,9 @@ export const ReviewRequestsTable: React.FC<Props> = ({
   }, [viewModels, searchText]);
 
   return (
-    <section className="space-y-2">
+    <section className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
       {/* Поиск */}
-      <div className="relative">
+      <div className="relative shrink-0">
         <Search
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
           size={16}
@@ -96,8 +96,9 @@ export const ReviewRequestsTable: React.FC<Props> = ({
       </div>
 
       {/* Таблица */}
-      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]">
-        <table className="w-full table-fixed border-collapse">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]">
+        <div className="min-h-0 flex-1 overflow-auto">
+          <table className="w-full table-fixed border-collapse">
           <thead className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]/60">
             <tr>
               <th
@@ -224,9 +225,10 @@ export const ReviewRequestsTable: React.FC<Props> = ({
             })}
           </tbody>
         </table>
+        </div>
 
         {filtered.length === 0 && (
-          <div className="border-t border-[var(--border-subtle)] px-4 py-10 text-center">
+          <div className="shrink-0 border-t border-[var(--border-subtle)] px-4 py-10 text-center">
             <p className="mb-1 text-sm text-[var(--text-secondary)]">
               Запросы не найдены
             </p>

@@ -71,6 +71,9 @@ from engine.content.segment_chunk_builder_v2 import (
     FileChunkManifestSegmentV2,
     SegmentChunkBuilderV2,
 )
+from services.structure.chunk_planner._retrieval_readiness import (
+    build_retrieval_readiness_report,
+)
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
@@ -471,6 +474,7 @@ async def _build_chunks_v2_async(
     }
 
     chunk_count_total = 0
+    legal_unit_chunk_count_total = 0
     segment_rows_to_replace: list[dict[str, Any]] = []
 
     # ── Этап 5: счётчики для legal units ─────────────────────────────────────
@@ -501,15 +505,24 @@ async def _build_chunks_v2_async(
         snapshot_chunks = snapshot_dict.get("chunks", {}) or {}
         section_chunks = snapshot_chunks.get("section", []) or []
         clause_chunks = snapshot_chunks.get("clause", []) or []
+
         subclause_chunks = snapshot_chunks.get("subclause", []) or []
         legal_unit_chunks = snapshot_chunks.get("legal_unit", []) or []
 
-        snapshot_chunk_count = (
-            len(section_chunks)
-            + len(clause_chunks)
-            + len(subclause_chunks)
-            + len(legal_unit_chunks)
+        legal_unit_chunk_count_total += len(legal_unit_chunks)
+
+        all_segment_chunks: list[dict[str, Any]] = [
+            *section_chunks,
+            *clause_chunks,
+            *subclause_chunks,
+            *legal_unit_chunks,
+        ]
+        retrieval_report = build_retrieval_readiness_report(
+            document_id=str(doc.id),
+            chunks=all_segment_chunks,
         )
+
+        snapshot_chunk_count = retrieval_report.total_chunks
 
         # ── Phase 13.1: emit ChunkingCompletedEvent per segment ──────────────
         try:
@@ -520,10 +533,14 @@ async def _build_chunks_v2_async(
                 section_chunks=len(section_chunks),
                 clause_chunks=len(clause_chunks),
                 subclause_chunks=len(subclause_chunks),
+                legal_unit_chunks=len(legal_unit_chunks),
                 chunking_mode=(
                     (snapshot.planning or {}).get("mode") or "unknown"
                 ),
-                retrieval_recommended_action="proceed",  # уточняется ниже
+                retrieval_safe_chunks=retrieval_report.retrieval_safe_chunks,
+                degraded_chunks=retrieval_report.degraded_chunks,
+                layout_fallback_chunks=retrieval_report.layout_fallback_chunks,
+                retrieval_recommended_action=retrieval_report.recommended_action,
             ))
         except Exception as _tel_exc:
             logger.debug(
@@ -903,7 +920,9 @@ async def _build_chunks_v2_async(
             document_version_id=str(v_id),
             total_segments=doc_summary.total_segments,
             total_chunks=doc_summary.total_chunks,
-            total_units=doc_summary.total_units,
+            legal_unit_chunks=doc_summary.legal_unit_chunks,
+            retrieval_safe_chunks=doc_summary.retrieval_safe_chunks,
+            enrichment_total_units=doc_summary.total_units,
             avg_orphan_ratio=doc_summary.avg_orphan_ratio,
             avg_retrieval_safety_score=doc_summary.avg_retrieval_safety_score,
             enrichment_applied_count=doc_summary.enrichment_applied_count,
@@ -913,6 +932,23 @@ async def _build_chunks_v2_async(
             recommended_action=doc_summary.recommended_action,
             elapsed_ms=doc_summary.elapsed_ms,
         )
+
+        if (
+            doc_summary.total_chunks != chunk_count_total
+            or doc_summary.legal_unit_chunks != legal_unit_chunk_count_total
+            or doc_summary.retrieval_safe_chunks > doc_summary.total_chunks
+        ):
+            logger.warning(
+                "TELEMETRY aggregation_invariant_violation",
+                document_id=str(doc.id),
+                document_version_id=str(v_id),
+                chunk_count_total=chunk_count_total,
+                summary_total_chunks=doc_summary.total_chunks,
+                legal_unit_chunk_count_total=legal_unit_chunk_count_total,
+                summary_legal_unit_chunks=doc_summary.legal_unit_chunks,
+                summary_retrieval_safe_chunks=doc_summary.retrieval_safe_chunks,
+                chunking_events_count=len(segment_snapshots),
+            )
     except Exception as _tel_exc:
         logger.debug(
             "Chunk builder: telemetry summary failed (non-critical)",

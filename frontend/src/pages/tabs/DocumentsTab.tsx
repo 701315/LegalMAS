@@ -537,8 +537,11 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
   const isPipelinePreviewOpen = pipelinePreview !== null;
 
   return (
-    <section className="space-y-4" aria-labelledby="documents-tab-title">
-      <div className="relative flex h-full min-h-0 flex-col text-[var(--text-primary)]">
+    <section
+      className="flex h-full min-h-0 flex-col"
+      aria-labelledby="documents-tab-title"
+    >
+      <div className="relative flex min-h-0 flex-1 flex-col text-[var(--text-primary)]">
         <div
           className={`grid min-h-0 flex-1 gap-4 ${
             isDetailsPanelOpen

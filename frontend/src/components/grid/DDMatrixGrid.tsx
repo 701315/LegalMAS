@@ -3,6 +3,11 @@
 // Review DD Matrix (run-scoped документ × проверка).
 // Pure presentational grid: принимает готовые normalized rows
 // от domain layer, а не строит их сам.
+//
+// Layout contract (P8.8d):
+// - domLayout="normal" — AG Grid scroll внутри viewport.
+// - header таблицы sticky наверху viewport.
+// - контейнер получает h-full от родителя.
 // =============================================================
 
 import React, {
@@ -86,16 +91,6 @@ function getRowCompositionBadgeData(row: ReviewGridRow) {
   });
 }
 
-/**
- * Сериализует ключевые поля cell в string-key для ag-Grid value diff.
- *
- * При наличии только valueGetter (без field) ag-Grid использует возвращаемую
- * строку для сравнения старого и нового значения ячейки. Если строка
- * изменилась — cellRenderer вызывается заново. Это надёжный способ
- * гарантировать перерисовку после QC update / result update.
- *
- * Включаем только поля, реально влияющие на отображение ячейки.
- */
 function buildRiskCellDiffKey(
   cell: MatrixCellDTO | null | undefined,
 ): string | null {
@@ -114,7 +109,6 @@ function areDetailsCellsEquivalent(
 ): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
@@ -135,11 +129,6 @@ export interface DDMatrixGridProps {
     cell: MatrixCellDetailsCell;
   }) => void;
   onSelectionChange?: (rowIds: string[]) => void;
-  /**
-   * Когда родитель меняет это значение, грид сбрасывает selection через
-   * gridApi.deselectAll(). Удобно для очистки чекбоксов после bulk-операций
-   * (например, после bulk QC update).
-   */
   clearSelectionToken?: number;
 }
 
@@ -199,8 +188,6 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
     [rows],
   );
 
-  // Derived: панель открыта только если выбранная строка и колонка
-  // всё ещё присутствуют в текущих данных. Никакого useEffect + setState.
   const isSelectedCellValid =
     selectedCell.open &&
     selectedCell.documentId != null &&
@@ -208,33 +195,14 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
     rows.some((row) => row.documentId === selectedCell.documentId) &&
     columns.some((col) => col.checkId === selectedCell.checkId);
 
-  // ---------------------------------------------------------------------------
-  // Ref-based синхронизация selectedCell для useEffect ниже.
-  //
-  // Проблема: после QC save → invalidateQueries → refetch приходят новые rows,
-  // но selectedCell.cell содержит snapshot момента открытия ячейки. Если drawer
-  // остаётся открытым (пользователь не нажал "Закрыть"), он показывает устаревший
-  // qcStatus из snapshot, а не актуальный из refetch.
-  //
-  // Решение: синхронизировать selectedCell.cell с актуальными rows при каждом
-  // их изменении. Чтобы не добавлять selectedCell в deps effect'а (что вызвало
-  // бы бесконечный цикл setSelectedCell → selectedCell меняется → effect →
-  // setSelectedCell), читаем актуальный selectedCell через ref внутри effect.
-  // ---------------------------------------------------------------------------
   const selectedCellRef = useRef<SelectedCellState>(selectedCell);
   useEffect(() => {
     selectedCellRef.current = selectedCell;
   }, [selectedCell]);
 
-  // Синхронизирует selectedCell.cell с актуальными данными из rows после refetch.
-  // Зависимости [rows, columns] — достаточны: именно они меняются после refetch.
-  // selectedCell намеренно не в deps — читается через ref, чтобы избежать цикла.
   useEffect(() => {
     const sc = selectedCellRef.current;
-
-    if (!sc.open || !sc.documentId || !sc.checkId) {
-      return;
-    }
+    if (!sc.open || !sc.documentId || !sc.checkId) return;
 
     const currentRow = rows.find((row) => row.documentId === sc.documentId);
     if (!currentRow) return;
@@ -259,11 +227,9 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
       ) {
         return prev;
       }
-
       if (areDetailsCellsEquivalent(prev.cell, freshDetailsCell)) {
         return prev;
       }
-
       return { ...prev, cell: freshDetailsCell };
     });
   }, [rows, columns]);
@@ -280,7 +246,6 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
 
     const ro = new ResizeObserver(() => update());
     ro.observe(node);
-
     const raf = requestAnimationFrame(update);
 
     return () => {
@@ -388,10 +353,7 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
               className="text-left text-xs text-[var(--accent-primary)] hover:underline"
               onClick={(e) => {
                 e.stopPropagation();
-                onOpenDocument({
-                  documentId,
-                  documentName,
-                });
+                onOpenDocument({ documentId, documentName });
               }}
             >
               {documentName}
@@ -406,11 +368,8 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
         flex: 1.4,
         cellRenderer: (params: ICellRendererParams<MatrixGridRow>) => {
           const row = params.data;
-
           if (!row) {
-            return (
-              <span className="text-[11px] text-[var(--text-faint)]">—</span>
-            );
+            return <span className="text-[11px] text-[var(--text-faint)]">—</span>;
           }
 
           const title =
@@ -453,13 +412,9 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
         cellRenderer: (params: ICellRendererParams<MatrixGridRow>) => {
           const level = params.data?.classificationLevel;
           const confidence = params.data?.classificationConfidence;
-
           if (!level) {
-            return (
-              <span className="text-[11px] text-[var(--text-faint)]">—</span>
-            );
+            return <span className="text-[11px] text-[var(--text-faint)]">—</span>;
           }
-
           return (
             <ClassificationBadge
               level={level as ClassificationLevel}
@@ -475,20 +430,14 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
         width: 180,
         cellRenderer: (params: ICellRendererParams<MatrixGridRow>) => {
           const row = params.data;
-
           if (!row) {
-            return (
-              <span className="text-[11px] text-[var(--text-faint)]">—</span>
-            );
+            return <span className="text-[11px] text-[var(--text-faint)]">—</span>;
           }
 
           const badges = getRowCompositionBadgeData(row);
-
           if (!badges.showMultiBadge && !badges.showSegmentCount) {
             return (
-              <span className="text-[11px] text-[var(--text-muted)]">
-                single
-              </span>
+              <span className="text-[11px] text-[var(--text-muted)]">single</span>
             );
           }
 
@@ -525,13 +474,6 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
           colId: field,
           headerName: meta.checkName,
           headerTooltip: getHeaderTooltip(meta),
-          // `field` намеренно отсутствует. При одновременном наличии `field`
-          // и `valueGetter` ag-Grid может использовать data[field] (ссылку на объект
-          // MatrixCellDTO) для change detection, игнорируя valueGetter. Поскольку
-          // MatrixCellDTO — объект, ссылка на который может не меняться при
-          // partial update, cellRenderer не вызывался бы повторно после QC save.
-          // Без `field` ag-Grid использует строку из valueGetter как diff-ключ:
-          // если buildRiskCellDiffKey вернул другую строку — ячейка перерисуется.
           minWidth: 220,
           cellDataType: false,
           valueGetter: (params: ValueGetterParams<MatrixGridRow>) => {
@@ -626,7 +568,6 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
 
   useLayoutEffect(() => {
     if (!gridApi) return;
-
     const id = requestAnimationFrame(() => {
       try {
         gridApi.sizeColumnsToFit();
@@ -634,12 +575,9 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
         /* noop */
       }
     });
-
     return () => cancelAnimationFrame(id);
   }, [gridApi, rootWidth, rowData.length, columnDefs.length]);
 
-  // Внешний триггер сброса selection. Skip первого рендера — токен не должен
-  // вызывать deselectAll сам по себе при mount, только при последующих изменениях.
   const lastClearTokenRef = useRef<number | undefined>(clearSelectionToken);
 
   useEffect(() => {
@@ -665,11 +603,11 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
     <>
       <div
         ref={rootRef}
-        className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm"
+        className="flex h-full min-h-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm"
       >
-        <div className="overflow-x-auto">
+        <div className="min-h-0 flex-1 overflow-hidden">
           <div
-            className="ag-theme-legalmas w-full"
+            className="ag-theme-legalmas h-full w-full"
             style={{
               minHeight: MATRIX_MIN_HEIGHT_PX,
               minWidth: 1200,
@@ -686,7 +624,7 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
               onSelectionChanged={handleSelectionChanged}
               onGridReady={handleGridReady}
               getRowId={(params) => params.data.rowId}
-              domLayout="autoHeight"
+              domLayout="normal"
             />
           </div>
         </div>
@@ -721,6 +659,5 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
 };
 
 export default DDMatrixGrid;
-
 
 

@@ -12,6 +12,11 @@
 // - dd-matrix — PRIMARY data source для вкладки Grid;
 // - useRun(...) — OPTIONAL metadata enrichment, не блокирует рендер;
 // - Grid рендерится как только готов dd-matrix, независимо от run metadata.
+//
+// Layout contract (P8.8d):
+// - Верхняя часть (stats, toolbar, filters) — shrink-0, не скроллится.
+// - Нижняя часть (grid) — flex-1, AG Grid скроллится внутри.
+// - Шапка таблицы AG Grid остаётся sticky наверху viewport.
 // =============================================================
 
 import React from "react";
@@ -67,7 +72,6 @@ type StatusStateCardProps = {
 };
 
 type RunMetaWarningProps = {
-  /** Показывать ли предупреждение — если false, ничего не рендерим. */
   visible: boolean;
 };
 
@@ -207,12 +211,6 @@ async function fetchJsonIfOk({
 // Sub-components
 // -------------------------------------------------------------
 
-/**
- * Полноэкранная карточка состояния — используется для fatal loading/error
- * состояний, когда рендер основного контента невозможен.
- *
- * НЕ используется для деградации вторичных данных (run metadata).
- */
 const StatusStateCard: React.FC<StatusStateCardProps> = ({
   title,
   description,
@@ -261,22 +259,13 @@ const StatusStateCard: React.FC<StatusStateCardProps> = ({
   );
 };
 
-/**
- * Нефатальный inline-баннер деградации run metadata.
- *
- * Показывается когда useRun() завершился ошибкой, но dd-matrix успешно
- * загружен. Grid при этом полностью функционален — деградирует только
- * вспомогательная run metadata (checks_mode и т.п.).
- *
- * Архитектурный инвариант: этот компонент никогда не блокирует рендер Grid.
- */
 const RunMetaWarning: React.FC<RunMetaWarningProps> = ({ visible }) => {
   if (!visible) {
     return null;
   }
 
   return (
-    <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+    <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
       <span>
         Не удалось загрузить метаданные запуска анализа. DD Matrix показана без
@@ -367,10 +356,6 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({
   );
 };
 
-/**
- * Inline-выезжающая панель экспорта.
- * Семантически — disclosure region, не overlay: не использует position/z-index.
- */
 const ExportPanel: React.FC<ExportPanelProps> = ({
   open,
   findings,
@@ -432,31 +417,16 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [isViewerLoading, setIsViewerLoading] = React.useState(false);
   const [viewerError, setViewerError] = React.useState<string | null>(null);
 
-  // ------------------------------------------------------------------
-  // PRIMARY data source: dd-matrix.
-  // Этот запрос является обязательным для рендера Grid.
-  // Пока он loading — показываем loader.
-  // Если он завершился ошибкой — показываем fatal error.
-  // ------------------------------------------------------------------
   const {
     data: ddMatrix,
     isLoading: isReviewLoading,
     error: reviewError,
   } = useDealReviewDdMatrix(dealId, runId);
 
-  // ------------------------------------------------------------------
-  // SECONDARY / optional: run metadata.
-  // Используется только для вспомогательных данных (checks_mode).
-  // НЕ блокирует рендер Grid — деградирует gracefully через RunMetaWarning.
-  // ------------------------------------------------------------------
   const {
     data: run,
     error: runError,
   } = useRun(runId, false);
-
-  // ------------------------------------------------------------------
-  // Derived data
-  // ------------------------------------------------------------------
 
   const reviewDerived = React.useMemo(
     () => selectReviewGridData(ddMatrix ?? null),
@@ -498,8 +468,6 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     [reviewQcCapability],
   );
 
-  // run может быть undefined если useRun ещё не завершился или завершился ошибкой.
-  // humanChecksMode должен безопасно принимать undefined.
   const checksModeLabel = humanChecksMode(run?.checks_mode);
 
   const reviewFiltersButtonLabel =
@@ -511,10 +479,6 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     !reviewFilterState.criticalOnly
       ? "Фильтры"
       : "Фильтры применены";
-
-  // ------------------------------------------------------------------
-  // Handlers
-  // ------------------------------------------------------------------
 
   const handleResetReviewFilters = React.useCallback(() => {
     setReviewFilterState(DEFAULT_REVIEW_FILTER_STATE);
@@ -583,14 +547,6 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     }
   }, []);
 
-  // ------------------------------------------------------------------
-  // Fatal early returns — только для PRIMARY data source (dd-matrix)
-  // и для отсутствия runId.
-  //
-  // useRun errors здесь НЕ являются fatal — они деградируют через
-  // RunMetaWarning ниже.
-  // ------------------------------------------------------------------
-
   if (!runId) {
     return (
       <StatusStateCard
@@ -613,10 +569,6 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     );
   }
 
-  // ------------------------------------------------------------------
-  // Render
-  // ------------------------------------------------------------------
-
   const matrixSectionTitle =
     gridMode === "matrix" ? "Review DD Matrix" : "Review findings list";
 
@@ -626,130 +578,129 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       : "Плоский список findings из review matrix с фильтрацией и экспортом.";
 
   return (
-    <div className="flex min-h-full flex-col gap-6">
-      {/*
-        Нефатальный баннер деградации run metadata.
-        Показывается только если useRun завершился ошибкой,
-        но при этом dd-matrix уже загружен и Grid функционален.
-      */}
-      <RunMetaWarning visible={Boolean(runError)} />
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+      {/* ── Верхняя часть: не скроллится ── */}
+      <div className="shrink-0">
+        <RunMetaWarning visible={Boolean(runError)} />
 
-      <PageSection
-        title="DD Grid"
-        subtitle="Матрица документов и проверок с фильтрацией, экспортом и навигацией по evidence."
-      >
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-          <StatCard label="Документы" value={reviewSummary.documentsCount} />
-          <StatCard
-            label="Проверки"
-            value={reviewSummary.checksCount}
-            tone="accent"
-          />
-          <StatCard label="Findings" value={reviewSummary.findingsCount} />
-          <StatCard
-            label="Critical / High"
-            value={`${reviewSummary.criticalCount} / ${reviewSummary.highCount}`}
-            tone="critical"
-          />
-          <StatCard label="Unclear" value={reviewSummary.unclearCount} />
-          {/*
-            checksModeLabel: если run metadata не загрузилась — показываем "—".
-            StatCard сам обрабатывает null/undefined через fallback-значение.
-          */}
-          <StatCard label="Режим проверок" value={checksModeLabel ?? "—"} />
-        </div>
-      </PageSection>
-
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-5">
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold text-[var(--text-primary)]">
-              {matrixSectionTitle}
-            </h2>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              {matrixSectionSubtitle}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={isReviewFiltersPanelOpen ? "outline" : "secondary"}
-              onClick={handleToggleFilters}
-              leftIcon={<SlidersHorizontal className="h-4 w-4" />}
-              aria-expanded={isReviewFiltersPanelOpen}
-              aria-controls="dd-grid-filters-panel"
-              className={
-                isReviewFiltersPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""
-              }
-            >
-              {reviewFiltersButtonLabel}
-            </Button>
-
-            <Button
-              type="button"
-              size="sm"
-              variant={isExportPanelOpen ? "outline" : "secondary"}
-              onClick={handleToggleExportPanel}
-              aria-expanded={isExportPanelOpen}
-              aria-controls="dd-grid-export-panel"
-              leftIcon={<Download className="h-4 w-4" />}
-              rightIcon={
-                <ChevronRight
-                  className={`h-4 w-4 transition-transform duration-200 ${
-                    isExportPanelOpen ? "rotate-90" : "rotate-0"
-                  }`}
-                />
-              }
-              className={isExportPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""}
-            >
-              Экспорт данных
-            </Button>
-
-            <ModeToggle value={gridMode} onChange={setGridMode} />
-          </div>
-        </div>
-
-        <div className="px-6 pt-3">
-          <div id="dd-grid-filters-panel">
-            <FiltersPanel
-              open={isReviewFiltersPanelOpen}
-              gridMode={gridMode}
-              filterState={reviewFilterState}
-              availableDocTypes={reviewDerived.availableDocTypes}
-              availableOrigins={reviewDerived.availableOrigins}
-              onFilterStateChange={setReviewFilterState}
-              onReset={handleResetReviewFilters}
-              onClose={handleCloseFilters}
+        <PageSection
+          title="DD Grid"
+          subtitle="Матрица документов и проверок с фильтрацией, экспортом и навигацией по evidence."
+        >
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+            <StatCard label="Документы" value={reviewSummary.documentsCount} />
+            <StatCard
+              label="Проверки"
+              value={reviewSummary.checksCount}
+              tone="accent"
             />
+            <StatCard label="Findings" value={reviewSummary.findingsCount} />
+            <StatCard
+              label="Critical / High"
+              value={`${reviewSummary.criticalCount} / ${reviewSummary.highCount}`}
+              tone="critical"
+            />
+            <StatCard label="Unclear" value={reviewSummary.unclearCount} />
+            <StatCard label="Режим проверок" value={checksModeLabel ?? "—"} />
+          </div>
+        </PageSection>
+      </div>
+
+      {/* ── Нижняя часть: grid section, flex-1, scroll внутри AG Grid ── */}
+      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+        {/* Toolbar — shrink-0 */}
+        <div className="shrink-0">
+          <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-5">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                {matrixSectionTitle}
+              </h2>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">
+                {matrixSectionSubtitle}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={isReviewFiltersPanelOpen ? "outline" : "secondary"}
+                onClick={handleToggleFilters}
+                leftIcon={<SlidersHorizontal className="h-4 w-4" />}
+                aria-expanded={isReviewFiltersPanelOpen}
+                aria-controls="dd-grid-filters-panel"
+                className={
+                  isReviewFiltersPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""
+                }
+              >
+                {reviewFiltersButtonLabel}
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                variant={isExportPanelOpen ? "outline" : "secondary"}
+                onClick={handleToggleExportPanel}
+                aria-expanded={isExportPanelOpen}
+                aria-controls="dd-grid-export-panel"
+                leftIcon={<Download className="h-4 w-4" />}
+                rightIcon={
+                  <ChevronRight
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      isExportPanelOpen ? "rotate-90" : "rotate-0"
+                    }`}
+                  />
+                }
+                className={isExportPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""}
+              >
+                Экспорт данных
+              </Button>
+
+              <ModeToggle value={gridMode} onChange={setGridMode} />
+            </div>
           </div>
 
-          <ExportPanel
-            open={isExportPanelOpen}
-            findings={filteredReviewFindings}
-            dealName={dealId}
-            runId={runId ?? undefined}
-          />
-
-          {reviewQcCapability.supported && runId ? (
-            <div className="mt-4">
-              <ReviewQcBulkActions
-                selectedRowsCount={reviewQcCapability.selectedRowsCount}
-                selectedFindings={selectedReviewFindings}
-                runId={runId}
+          <div className="px-6 pt-3">
+            <div id="dd-grid-filters-panel">
+              <FiltersPanel
+                open={isReviewFiltersPanelOpen}
+                gridMode={gridMode}
+                filterState={reviewFilterState}
+                availableDocTypes={reviewDerived.availableDocTypes}
+                availableOrigins={reviewDerived.availableOrigins}
+                onFilterStateChange={setReviewFilterState}
+                onReset={handleResetReviewFilters}
+                onClose={handleCloseFilters}
               />
             </div>
-          ) : reviewQcDisabledNote ? (
-            <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-              {reviewQcDisabledNote}
-            </div>
-          ) : null}
 
-          <div className="mt-4 border-t border-[var(--border-subtle)]" />
+            <ExportPanel
+              open={isExportPanelOpen}
+              findings={filteredReviewFindings}
+              dealName={dealId}
+              runId={runId ?? undefined}
+            />
+
+            {reviewQcCapability.supported && runId ? (
+              <div className="mt-4">
+                <ReviewQcBulkActions
+                  selectedRowsCount={reviewQcCapability.selectedRowsCount}
+                  selectedFindings={selectedReviewFindings}
+                  runId={runId}
+                />
+              </div>
+            ) : reviewQcDisabledNote ? (
+              <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+                {reviewQcDisabledNote}
+              </div>
+            ) : null}
+
+            <div className="mt-4 border-t border-[var(--border-subtle)]" />
+          </div>
         </div>
 
-        <div className="px-6 py-5">
+        {/* Grid viewport — flex-1, AG Grid scroll inside */}
+        <div className="min-h-0 flex-1 overflow-hidden px-6 py-5">
           {gridMode === "matrix" ? (
             <DDMatrixGrid
               runId={runId}

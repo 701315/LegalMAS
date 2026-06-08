@@ -9,7 +9,7 @@
 //   после run_progress_final / terminal payload.
 // =============================================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ProgressEvent, RunStatus } from "../types";
 
 interface UseSSEOptions {
@@ -53,11 +53,23 @@ export function useSSEProgress(
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Запоминаем terminal completion между рендерами.
+  // useRef живёт весь lifecycle компонента, в отличие от локальной переменной effect.
+  // Это предотвращает повторный connect после terminal event при ре-рендере компонента.
+  const terminalSeenRef = useRef(false);
+
+  // Сбрасываем флаг при смене runId — новый run, новая подписка.
   useEffect(() => {
-    if (!runId || !enabled) {
-      setLastEvent(null);
-      setIsConnected(false);
-      setError(null);
+    terminalSeenRef.current = false;
+  }, [runId]);
+
+  useEffect(() => {
+    if (!runId || !enabled || terminalSeenRef.current) {
+      if (!runId || terminalSeenRef.current) {
+        setLastEvent(null);
+        setIsConnected(false);
+        setError(null);
+      }
       return;
     }
 
@@ -91,6 +103,7 @@ export function useSSEProgress(
         // не создавал бесконечные повторные GET /events.
         if (isTerminalRunStatus(data.status)) {
           closedByTerminalEvent = true;
+          terminalSeenRef.current = true;
           setIsConnected(false);
           setError(null);
           es.close();
@@ -103,16 +116,20 @@ export function useSSEProgress(
     es.onerror = () => {
       // Если сами закрыли соединение после terminal event,
       // не переводим UI в error-state и не считаем это проблемой.
-      if (closedByTerminalEvent) {
+      if (closedByTerminalEvent || terminalSeenRef.current) {
         setIsConnected(false);
         setError(null);
+        // Принудительно закрываем EventSource, чтобы browser native reconnect
+        // не переоткрывал соединение после штатного завершения.
+        es.close();
         return;
       }
 
       setIsConnected(false);
       setError("SSE подключение временно недоступно");
       // ВАЖНО:
-      // не закрываем es здесь, чтобы не ломать встроенный reconnect EventSource.
+      // не закрываем es здесь при реальной сетевой ошибке,
+      // чтобы не ломать встроенный reconnect EventSource.
     };
 
     return () => {

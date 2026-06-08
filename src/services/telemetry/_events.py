@@ -172,6 +172,16 @@ class CrossSegmentCoherenceEvent(BaseTelemetryEvent):
 class ChunkingCompletedEvent(BaseTelemetryEvent):
     """
     Событие: chunking завершён для сегмента.
+
+    total_chunks:
+        Общее количество retrieval-visible chunks across all levels
+        для данного segment snapshot.
+
+    legal_unit_chunks:
+        Число legal_unit-level retrieval chunks (P8.8d retrieval corpus).
+
+    retrieval_safe_chunks:
+        Число чанков с retrieval_safe=True по chunk metadata.
     """
 
     event_type: str = "chunking_completed"
@@ -180,6 +190,7 @@ class ChunkingCompletedEvent(BaseTelemetryEvent):
     section_chunks: int = 0
     clause_chunks: int = 0
     subclause_chunks: int = 0
+    legal_unit_chunks: int = 0          # P8.8d: новый retrieval уровень
     chunking_mode: str = "unknown"
     retrieval_safe_chunks: int = 0
     degraded_chunks: int = 0
@@ -193,6 +204,7 @@ class ChunkingCompletedEvent(BaseTelemetryEvent):
             "section_chunks": self.section_chunks,
             "clause_chunks": self.clause_chunks,
             "subclause_chunks": self.subclause_chunks,
+            "legal_unit_chunks": self.legal_unit_chunks,
             "chunking_mode": self.chunking_mode,
             "retrieval_safe_chunks": self.retrieval_safe_chunks,
             "degraded_chunks": self.degraded_chunks,
@@ -210,6 +222,11 @@ class ChunkingCompletedEvent(BaseTelemetryEvent):
 class EnrichmentCompletedEvent(BaseTelemetryEvent):
     """
     Событие: Phase 12 semantic enrichment завершён для сегмента.
+
+    total_units:
+        Число LegalUnit-ов, реально поданных на enrichment.
+        Это enrichment-домен, не retrieval-домен.
+        Не является размером retrieval corpus.
     """
 
     event_type: str = "enrichment_completed"
@@ -250,14 +267,20 @@ class EnrichmentCompletedEvent(BaseTelemetryEvent):
 class DocumentProcessedEvent(BaseTelemetryEvent):
     """
     Финальное событие: весь pipeline завершён для документа.
+
+    Семантика counters:
+    - total_chunks: общее число retrieval-visible chunks across all levels.
+    - total_units: enrichment units (Phase 12), не retrieval units.
+    - legal_unit_chunks: число legal_unit-level retrieval chunks (P8.8d).
     """
 
     event_type: str = "document_processed"
 
     total_segments: int = 0
     total_nodes: int = 0
-    total_chunks: int = 0
-    total_units: int = 0
+    total_chunks: int = 0           # Retrieval-visible chunks across all levels.
+    total_units: int = 0            # Enrichment units only (Phase 12), not retrieval corpus size.
+    legal_unit_chunks: int = 0      # Retrieval chunks with kind=legal_unit.
 
     avg_orphan_ratio: float = 0.0
     avg_grammar_violation_ratio: float = 0.0
@@ -273,7 +296,7 @@ class DocumentProcessedEvent(BaseTelemetryEvent):
     retrieval_safe_chunks: int = 0
     overall_retrieval_safe: bool = False
     recommended_action: str = "unknown"
-    
+
     # Cross-segment coherence (Phase 13.7)
     coherence_links_found: int = 0
     coherence_avg_confidence: float = 0.0
@@ -286,6 +309,7 @@ class DocumentProcessedEvent(BaseTelemetryEvent):
             "total_nodes": self.total_nodes,
             "total_chunks": self.total_chunks,
             "total_units": self.total_units,
+            "legal_unit_chunks": self.legal_unit_chunks,
             "avg_orphan_ratio": round(self.avg_orphan_ratio, 4),
             "avg_grammar_violation_ratio": round(self.avg_grammar_violation_ratio, 4),
             "avg_retrieval_safety_score": round(self.avg_retrieval_safety_score, 4),

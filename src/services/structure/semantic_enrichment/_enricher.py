@@ -196,10 +196,13 @@ def _provider_requires_serial_execution(provider: str | None) -> bool:
     и поэтому должен выполняться строго последовательно внутри одного
     worker process.
 
-    Важно:
-    - llamacpp в текущей архитектуре живёт внутри процесса воркера;
-    - concurrent access к нему уже приводил к timeout/SIGSEGV;
-    - ollama/openai не считаются embedded in-process runtime.
+    Текущий prod path = ollama (HTTP) — НЕ embedded, реальный параллелизм
+    разрешён через SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS.
+
+    llamacpp оставлен как legacy embedded provider:
+    - живёт внутри процесса воркера;
+    - concurrent access к нему приводил к SIGSEGV;
+    - поэтому для llamacpp inflight всегда форсируется в 1.
     """
     return provider == "llamacpp"
 
@@ -223,9 +226,11 @@ def _resolve_semantic_enrichment_max_inflight_llm_calls(
     внутри одного enrichment task.
 
     Правила:
-    - для embedded local provider (llamacpp) всегда 1;
-    - для остальных провайдеров берётся
-      settings.SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS;
+    - для embedded local provider (llamacpp) всегда 1 — concurrent access
+      к in-process native runtime небезопасен (SIGSEGV);
+    - для HTTP-провайдеров (ollama, openai) — берётся
+      settings.SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS, разрешая
+      реальный параллелизм запросов;
     - invalid/non-positive config -> fallback to 1
       (самый безопасный последовательный режим).
     """

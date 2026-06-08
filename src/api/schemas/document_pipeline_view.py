@@ -351,7 +351,11 @@ class ChunkPreviewDTO(BaseModel):
     # False = чанк существует в artifact, но отфильтрован (unsafe).
     # None  = информация недоступна (старый artifact или не enriched).
     retrieval_safe: bool | None = None
-
+    
+    # ── backend-driven presentation DTO ───────────────────────────────
+    display_title: str = ""
+    display_subtitle: str = ""
+    role: Literal["evidence", "context"] = "evidence"
 
 class ChunksSegmentPreviewDTO(BaseModel):
     segment: PipelineSegmentDTO

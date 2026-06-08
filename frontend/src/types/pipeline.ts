@@ -170,6 +170,11 @@ export interface ChunkPreviewDTO {
   //   false — чанк существует в artifact, но отфильтрован (unsafe)
   //   null  — информация недоступна
   retrieval_safe?: boolean | null;
+
+  // backend-driven presentation
+  display_title?: string | null;
+  display_subtitle?: string | null;
+  role?: "evidence" | "context" | string | null;
 }
 
 export interface ChunksSegmentPreviewDTO {

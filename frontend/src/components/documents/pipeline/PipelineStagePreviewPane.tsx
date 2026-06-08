@@ -304,7 +304,7 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto bg-[var(--bg-subtle)] p-5">
+      <div className="min-h-0 flex-1 overflow-hidden bg-[var(--bg-subtle)] p-5">
         {renderContent(resolvedStage)}
       </div>
     </section>

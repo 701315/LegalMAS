@@ -400,9 +400,12 @@ export const RequestsTab: React.FC<Props> = ({
   const hasReviewPanel = !!selectedReviewReqKey && !!selectedReviewReq;
 
   return (
-    <section className="space-y-4" aria-labelledby="requests-tab-title">
-      <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-        <div className="px-5">
+    <section
+      className="flex h-full min-h-0 flex-col"
+      aria-labelledby="requests-tab-title"
+    >
+      <header className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+        <div className="flex min-h-0 flex-1 flex-col px-5">
           <div className="border-b border-[var(--border-subtle)] py-4">
             <h2
               id="requests-tab-title"
@@ -480,17 +483,17 @@ export const RequestsTab: React.FC<Props> = ({
             </div>
           )}
 
-          <div className="py-4">
+          <div className="flex min-h-0 flex-1 flex-col py-4">
             {isReviewMode ? (
               <div
                 ref={reviewLayoutRef}
                 className={
                   hasReviewPanel
-                    ? "grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
-                    : "min-w-0"
+                    ? "grid min-h-0 min-w-0 flex-1 items-start gap-4 overflow-hidden lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
+                    : "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
                 }
               >
-                <div className="min-w-0">
+                <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
                   <ReviewRequestsTable
                     requests={reviewRequests ?? []}
                     selectedRequestId={selectedReviewReqKey}
@@ -530,11 +533,11 @@ export const RequestsTab: React.FC<Props> = ({
                 ref={legacyLayoutRef}
                 className={
                   hasLegacyPanel
-                    ? "grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
-                    : "min-w-0"
+                    ? "grid min-h-0 min-w-0 flex-1 items-start gap-4 overflow-hidden lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
+                    : "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
                 }
               >
-                <div className="min-w-0">
+                <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
                   <RequestsTable
                     requests={requests ?? []}
                     selectedRequestId={selectedReq?.id ?? null}

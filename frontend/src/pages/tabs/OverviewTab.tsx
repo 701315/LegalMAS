@@ -431,11 +431,22 @@ const RunProgressCard: React.FC<{
 }> = ({ currentRunId }) => {
   const runId = currentRunId ?? null;
   const { data: run, isLoading } = useRun(runId, false);
+  const qc = useQueryClient();
 
   // SSE нужен только пока run не terminal.
   // Если run уже completed/completed_with_errors/failed, подписка не нужна.
-  const sseEnabled = !!runId && !isTerminalRunStatus(run?.status);
-  const { lastEvent } = useSSEProgress(runId, { enabled: sseEnabled });
+  const { lastEvent } = useSSEProgress(runId, {
+    enabled: !!runId && !isTerminalRunStatus(run?.status),
+  });
+
+  // При получении terminal SSE event — сразу инвалидируем useRun cache,
+  // чтобы sseEnabled правильно переключился в false без race condition.
+  const lastEventStatus = lastEvent?.status;
+  React.useEffect(() => {
+    if (!runId || !isTerminalRunStatus(lastEventStatus as RunStatus)) return;
+    void qc.invalidateQueries({ queryKey: runKeys.detail(runId, false) });
+    void qc.invalidateQueries({ queryKey: runKeys.detail(runId, true) });
+  }, [runId, lastEventStatus, qc]);
 
   if (!runId) {
     return (

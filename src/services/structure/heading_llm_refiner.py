@@ -149,13 +149,28 @@ deterministic_reason: {deterministic_reason!r}
 """.strip()
 
 
+# Поддерживаемые STRUCTURE_LLM_PROVIDER значения.
+# "ollama" — canonical canonical value.
+# "local" / "local_endpoint" — legacy aliases для того же Ollama-compatible
+# HTTP endpoint. Все три обрабатываются одинаково:
+#   POST {LOCAL_LLM_ENDPOINT}/api/generate
+_SUPPORTED_STRUCTURE_LLM_PROVIDERS: frozenset[str] = frozenset({
+    "ollama",
+    "local",
+    "local_endpoint",
+})
+
+
 def _resolve_llm_endpoint_and_model() -> tuple[str | None, str | None]:
     provider = (settings.STRUCTURE_LLM_PROVIDER or "").strip()
 
-    if provider not in ("local", "local_endpoint", "ollama"):
+    if provider not in _SUPPORTED_STRUCTURE_LLM_PROVIDERS:
         logger.warning(
             "STRUCTURE llm_refiner_provider_not_supported",
-            extra={"provider": provider},
+            extra={
+                "provider": provider,
+                "supported": sorted(_SUPPORTED_STRUCTURE_LLM_PROVIDERS),
+            },
         )
         return None, None
 
@@ -176,17 +191,26 @@ def _call_local_llm(prompt: str) -> str:
     """
     Вызов локальной LLM через Ollama-compatible HTTP endpoint.
 
-    Текущая реализация ожидает endpoint вида:
-    POST {LOCAL_LLM_ENDPOINT}/api/generate
+    Поддерживаемые STRUCTURE_LLM_PROVIDER:
+        - "ollama"          (canonical)
+        - "local"           (legacy alias)
+        - "local_endpoint"  (legacy alias)
+
+    Все три значения обрабатываются одинаково: POST на
+    {LOCAL_LLM_ENDPOINT}/api/generate (Ollama-compatible API).
 
     Возвращает строку с JSON-ответом модели.
     """
 
-    provider = (
-        str(getattr(settings, "STRUCTURE_LLM_PROVIDER", "") or "").strip() or "local_endpoint"
-    )
-    if provider != "local_endpoint":
-        raise RuntimeError(f"Unsupported STRUCTURE_LLM_PROVIDER: {provider}")
+    provider = str(
+        getattr(settings, "STRUCTURE_LLM_PROVIDER", "") or ""
+    ).strip()
+
+    if provider not in _SUPPORTED_STRUCTURE_LLM_PROVIDERS:
+        raise RuntimeError(
+            f"Unsupported STRUCTURE_LLM_PROVIDER: {provider!r}. "
+            f"Supported: {sorted(_SUPPORTED_STRUCTURE_LLM_PROVIDERS)}"
+        )
 
     endpoint, model = _resolve_llm_endpoint_and_model()
     if not endpoint or not model:
@@ -197,10 +221,6 @@ def _call_local_llm(prompt: str) -> str:
         or getattr(settings, "LLM_TIMEOUT_SECONDS", 30)
         or 30
     )
-
-    model = str(getattr(settings, "STRUCTURE_LLM_MODEL", "") or "").strip()
-    if not model:
-        raise RuntimeError("STRUCTURE_LLM_MODEL is not configured")
 
     payload = {
         "model": model,

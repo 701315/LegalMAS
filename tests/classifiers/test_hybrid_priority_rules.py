@@ -1,8 +1,19 @@
-import types
+# tests/classifiers/test_hybrid_priority_rules.py
+
+"""
+Тесты для PriorityRulesEvaluator.
+
+После PR4 логика priority rules вынесена из HybridClassifier
+в отдельный класс PriorityRulesEvaluator (_priority_rules.py).
+Тесты проверяют evaluator напрямую — без создания HybridClassifier.
+"""
 
 import pytest
 
-from classifiers.stage8.hybrid_classifier import HybridClassifier
+from classifiers.stage8._priority_rules import PriorityRulesEvaluator
+
+
+# ── Stubs ─────────────────────────────────────────────────────────────────────
 
 
 class DummyBuilder:
@@ -51,34 +62,41 @@ class DummyRegistry:
         return self.mapping.get(type_code)
 
 
+# ── Fixture ───────────────────────────────────────────────────────────────────
+
+
 @pytest.fixture
-def hybrid_stub(monkeypatch):
+def make_evaluator():
     """
-    Создаём минимальный экземпляр HybridClassifier без вызова тяжёлого __init__.
+    Фабрика PriorityRulesEvaluator с заменяемым registry.
     """
-    hybrid = object.__new__(HybridClassifier)
-    hybrid._builder = DummyBuilder()
-    hybrid.metrics = DummyMetrics()
-    hybrid.registry = DummyRegistry({})
-    return hybrid
+    def _make(registry: DummyRegistry | None = None) -> PriorityRulesEvaluator:
+        return PriorityRulesEvaluator(
+            registry=registry or DummyRegistry({}),
+            builder=DummyBuilder(),
+            metrics=DummyMetrics(),
+        )
+    return _make
 
 
-def test_check_priority_rules_uses_type_specific_strong_threshold(monkeypatch, hybrid_stub):
+# ── Tests ─────────────────────────────────────────────────────────────────────
+
+
+def test_strong_l2_wins_with_type_specific_threshold(monkeypatch, make_evaluator):
     """
     Если per-type strong_signal_threshold ниже глобального,
     то L2_STRONG_WINS должен сработать по type-specific threshold.
     """
     monkeypatch.setattr(
-        "classifiers.stage8.hybrid_classifier.settings.CLASSIFICATION_L2_STRONG",
+        "classifiers.stage8._priority_rules.settings.CLASSIFICATION_L2_STRONG",
         0.85,
         raising=False,
     )
 
-    hybrid_stub.registry = DummyRegistry(
-        {
-            "doc_type_a": DummyConfig(strong_signal_threshold=0.70),
-        }
+    registry = DummyRegistry(
+        {"doc_type_a": DummyConfig(strong_signal_threshold=0.70)}
     )
+    evaluator = make_evaluator(registry)
 
     top_l2 = DummyTopL2(
         doctype="doc_type_a",
@@ -94,7 +112,7 @@ def test_check_priority_rules_uses_type_specific_strong_threshold(monkeypatch, h
 
     details = {"levels_tried": ["L1", "L2"]}
 
-    result = hybrid_stub._check_priority_rules(
+    result = evaluator.evaluate(
         doc_id="doc-1",
         top_l1=None,
         top_l2=top_l2,
@@ -111,28 +129,24 @@ def test_check_priority_rules_uses_type_specific_strong_threshold(monkeypatch, h
     assert result["final_confidence"] == pytest.approx(0.74)
     assert result["level"] == "L2"
     assert details["voting"]["strategy"] == "L2_STRONG_WINS"
-    assert details["voting"]["l2_strong_threshold"] == pytest.approx(0.70)
+    assert details["voting"]["extra"]["l2_strong_threshold"] == pytest.approx(0.70)
 
 
-def test_check_priority_rules_falls_back_to_voting_when_type_threshold_not_met(
-    monkeypatch,
-    hybrid_stub,
-):
+def test_strong_l2_falls_back_when_type_threshold_not_met(monkeypatch, make_evaluator):
     """
     Если per-type strong_signal_threshold выше confidence кандидата,
     shortcut L2_STRONG_WINS не должен срабатывать.
     """
     monkeypatch.setattr(
-        "classifiers.stage8.hybrid_classifier.settings.CLASSIFICATION_L2_STRONG",
+        "classifiers.stage8._priority_rules.settings.CLASSIFICATION_L2_STRONG",
         0.85,
         raising=False,
     )
 
-    hybrid_stub.registry = DummyRegistry(
-        {
-            "doc_type_b": DummyConfig(strong_signal_threshold=0.90),
-        }
+    registry = DummyRegistry(
+        {"doc_type_b": DummyConfig(strong_signal_threshold=0.90)}
     )
+    evaluator = make_evaluator(registry)
 
     top_l2 = DummyTopL2(
         doctype="doc_type_b",
@@ -148,7 +162,7 @@ def test_check_priority_rules_falls_back_to_voting_when_type_threshold_not_met(
 
     details = {"levels_tried": ["L1", "L2"]}
 
-    result = hybrid_stub._check_priority_rules(
+    result = evaluator.evaluate(
         doc_id="doc-2",
         top_l1=None,
         top_l2=top_l2,
@@ -162,6 +176,3 @@ def test_check_priority_rules_falls_back_to_voting_when_type_threshold_not_met(
 
     assert result is None
     assert "voting" not in details
-
-
-    

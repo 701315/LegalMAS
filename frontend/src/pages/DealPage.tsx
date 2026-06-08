@@ -423,10 +423,10 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             id={getTabPanelId(activeTab)}
             role="tabpanel"
             aria-labelledby={getTabId(activeTab)}
-            className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6"
+            className="min-h-0 min-w-0 flex-1 overflow-hidden px-4 py-4 md:px-6 md:py-6"
             tabIndex={0}
           >
-            <div className="flex min-h-full flex-col">{renderActiveTabPanel()}</div>
+            <div className="flex h-full min-h-0 flex-col">{renderActiveTabPanel()}</div>
           </section>
         </main>
       </div>
