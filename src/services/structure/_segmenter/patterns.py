@@ -36,8 +36,10 @@ _APPENDIX_DOC_ID_RE = r"(?:\d+(?:\.\d+)*|[A-Za-zА-ЯЁа-яё]|[IVXLCM]{1,12})"
 _NUMBER_MARKER_RE = r"(?:№|no\.?|n)\s*"
 """Маркер номера: №, No., No, n."""
 
-_RU_APPENDIX_KEYWORD_RE = r"прилож[еe]ни(?:[еe]|я|й)"
-"""Русское ключевое слово «приложение» с OCR-толерантностью к e/е."""
+
+# \b гарантирует, что мы матчим только полные слова (Приложение, Приложения),
+# и отсекает словоформы внутри предложений (Приложением, Приложению, Приложениях).
+_RU_APPENDIX_KEYWORD_RE = r"прилож[еe]ни(?:[еe]|я|й)\b"
 
 _EN_APPENDIX_KEYWORD_RE = (
     r"(?:appendix|appendices|schedule|exhibit|annex|annexure|attachment)"

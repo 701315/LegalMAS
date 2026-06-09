@@ -36,9 +36,81 @@ from .element_utils import (
 )
 from .patterns import (
     APPENDIX_RE,
+    BOUNDARY_FAMILY_AMENDMENT,
+    BOUNDARY_FAMILY_APPENDIX,
     REQUISITES_LINE_RE,
     SIGNATURE_LINE_RE,
+    extract_appendix_number,
+    infer_boundary_family_from_text,
     infer_segment_type_from_text,
+)
+
+_BOUNDARY_LISTING_INTRO_VERB_RE = re.compile(
+    r"""
+    (?:
+        явля(?:ет(?:ся)?|ются)
+        |составля(?:ет|ют)
+        |прилага(?:ет(?:ся)?|ются)
+        |forming\s+part
+        |form(?:s)?\s+part
+        |integral\s+part
+        |include(?:s|d)?
+        |consist(?:s)?\s+of
+        |the\s+following
+        |following
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_AMENDMENT_LISTING_ENTRY_RE = re.compile(
+    r"""
+    ^
+    (?:
+        amendment
+        |addendum
+        |supplemental\s+agreement
+        |дополнительн\w+\s+соглашен\w+
+        |дополнен\w+
+    )
+    \s*
+    (?:
+        (?:№|no\.?|n)\s*
+    )?
+    [A-Za-zА-ЯЁа-яё0-9.\-]+
+    (?:
+        \s*[:;\-–—.]\s*.+ 
+      |
+        \s+.+ 
+    )?
+    ;?
+    $
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+_APPENDIX_LISTING_KEYWORD_RE = re.compile(
+    r"""
+    (?:
+        appendix|appendices|schedule|schedules|exhibit|exhibits
+        |annex|annexes|annexure|annexures|attachment|attachments
+        |приложен
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_AMENDMENT_LISTING_KEYWORD_RE = re.compile(
+    r"""
+    (?:
+        amendment|amendments|addendum|addenda
+        |supplemental\s+agreement(?:s)?
+        |дополнительн\w+\s+соглашен\w+
+        |дополнен\w+
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 
 
@@ -72,6 +144,182 @@ def safe_parse_heading(text: str) -> tuple[str, str] | None:
         return letter.group(1), letter.group(2)
 
     return None
+
+
+def _looks_like_boundary_listing_intro(
+    text: str,
+    boundary_family: str | None,
+) -> bool:
+    """Определяет, является ли строка вводной для body-internal списка boundaries.
+
+    Примеры:
+    - Неотъемлемыми приложениями к настоящему Договору являются:
+    - К настоящему Договору прилагаются следующие приложения:
+    - The following appendices form an integral part of this Agreement:
+    - The following amendments form part of this Agreement:
+    """
+    normalized = normalize_spaces(text)
+    if not normalized:
+        return False
+
+    if len(normalized.split()) > 24:
+        return False
+
+    if boundary_family == BOUNDARY_FAMILY_APPENDIX:
+        has_family_keyword = bool(_APPENDIX_LISTING_KEYWORD_RE.search(normalized))
+    elif boundary_family == BOUNDARY_FAMILY_AMENDMENT:
+        has_family_keyword = bool(_AMENDMENT_LISTING_KEYWORD_RE.search(normalized))
+    else:
+        return False
+
+    if not has_family_keyword:
+        return False
+
+    if not _BOUNDARY_LISTING_INTRO_VERB_RE.search(normalized):
+        return False
+
+    if normalized.endswith(":"):
+        return True
+
+    lower = normalized.lower()
+    if "неотъемлем" in lower:
+        return True
+    if "integral part" in lower:
+        return True
+    if "the following" in lower or "following " in lower:
+        return True
+
+    return True
+
+
+def _looks_like_boundary_listing_entry(
+    text: str,
+    boundary_family: str | None,
+) -> bool:
+    """Определяет, похожа ли строка на entry внутри body-internal listing block.
+
+    Важно:
+    - это НЕ глобальный boundary detector;
+    - это локальный helper только для listing-guard;
+    - он намеренно чуть шире strict boundary regex, чтобы распознавать
+      list-entry формы вроде:
+        "Приложение 1. Техническое задание;"
+        "Приложение 5: Распределение Цены ..."
+    """
+    normalized = normalize_spaces(text)
+    if not normalized:
+        return False
+
+    if len(normalized.split()) > 24:
+        return False
+
+    # Если строка уже матчится как canonical boundary-family marker,
+    # этого достаточно.
+    if infer_boundary_family_from_text(normalized) == boundary_family:
+        return True
+
+    if boundary_family == BOUNDARY_FAMILY_APPENDIX:
+        if not _APPENDIX_LISTING_KEYWORD_RE.search(normalized):
+            return False
+        return extract_appendix_number(normalized) is not None
+
+    if boundary_family == BOUNDARY_FAMILY_AMENDMENT:
+        if not _AMENDMENT_LISTING_KEYWORD_RE.search(normalized):
+            return False
+        return bool(_AMENDMENT_LISTING_ENTRY_RE.match(normalized))
+
+    return False
+
+
+
+def detect_body_internal_boundary_listing(
+    elements: list[dict[str, Any]],
+    candidate_index: int,
+    boundary_family: str | None,
+) -> dict[str, Any] | None:
+    """Выявляет body-internal listing block, который НЕ должен создавать segment boundary.
+
+    Universal case:
+    - внутри обычного пункта договора есть вводная строка списка;
+    - рядом идёт несколько appendix/amendment entries подряд;
+    - это перечисление составных документов, а не начало нового сегмента.
+
+    Возвращает diagnostics dict если кандидат находится внутри такого блока,
+    иначе None.
+    """
+    if boundary_family not in {
+        BOUNDARY_FAMILY_APPENDIX,
+        BOUNDARY_FAMILY_AMENDMENT,
+    }:
+        return None
+
+    candidate_text = normalize_spaces(
+        str(elements[candidate_index].get("text", "") or "")
+    )
+    if not candidate_text:
+        return None
+
+    # 1) Ищем ближайшую вводную строку списка перед candidate.
+    previous_nonempty: list[tuple[int, str]] = []
+    for i in range(candidate_index - 1, max(-1, candidate_index - 10), -1):
+        text = normalize_spaces(str(elements[i].get("text", "") or ""))
+        if not text:
+            continue
+        if looks_like_non_boundary_block(text):
+            continue
+        previous_nonempty.append((i, text))
+        if len(previous_nonempty) >= 6:
+            break
+
+    intro_index: int | None = None
+    intro_text: str | None = None
+
+    for i, text in previous_nonempty:
+        if _looks_like_boundary_listing_intro(text, boundary_family):
+            intro_index = i
+            intro_text = text
+            break
+
+    if intro_index is None:
+        return None
+
+    # 2) Проверяем, что рядом с candidate есть плотный cluster same-family entries.
+    candidate_page = safe_page(elements[candidate_index])
+
+    family_entry_indexes: list[int] = []
+    window_left = max(0, candidate_index - 4)
+    window_right = min(len(elements), candidate_index + 5)
+
+    for i in range(window_left, window_right):
+        # Только та же страница что и кандидат.
+        if safe_page(elements[i]) != candidate_page:
+            continue
+
+        text = normalize_spaces(str(elements[i].get("text", "") or ""))
+        if not text:
+            continue
+        if looks_like_non_boundary_block(text):
+            continue
+
+        if _looks_like_boundary_listing_entry(text, boundary_family):
+            family_entry_indexes.append(i)
+
+    if candidate_index not in family_entry_indexes:
+        family_entry_indexes.append(candidate_index)
+        family_entry_indexes = sorted(set(family_entry_indexes))
+
+    # Для list-block нужен не один standalone marker, а кластер entries.
+    if len(family_entry_indexes) < 2:
+        return None
+
+    return {
+        "boundary_family": boundary_family,
+        "intro_index": intro_index,
+        "intro_text": intro_text,
+        "family_entry_count": len(family_entry_indexes),
+        "family_entry_indexes": family_entry_indexes,
+    }
+
 
 
 def is_heading_like(text: str) -> bool:

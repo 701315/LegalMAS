@@ -151,6 +151,97 @@ def test_compute_own_range_prefers_source_elem_i_over_wrong_key_to_elem_i() -> N
     assert result.range_end_reason == "next_same_or_higher"
 
 
+def test_compute_own_range_soft_layout_root_fallback_uses_canonical_reason() -> None:
+    elements = [
+        _make_element(
+            element_id="e0",
+            text="3 GENERAL TERMS",
+            raw_type="heading",
+            page=1,
+        ),
+        _make_element(
+            element_id="e1",
+            text="3.1 Existing child",
+            raw_type="heading",
+            page=1,
+        ),
+        _make_element(
+            element_id="e2",
+            text="3.1 body text",
+            raw_type="text",
+            page=1,
+        ),
+        _make_element(
+            element_id="e3",
+            text="4 PAYMENT TERMS",
+            raw_type="heading",
+            page=2,
+        ),
+        _make_element(
+            element_id="e4",
+            text="4.1 Payment shall be made within 10 days.",
+            raw_type="text",
+            page=2,
+        ),
+    ]
+
+    # Accepted headings intentionally do NOT include the next root section "4".
+    # This forces _compute_own_range() to use the soft layout fallback.
+    headings_local = [
+        _make_heading(
+            elem_i=0,
+            raw_uid="3",
+            effective_uid="main_contract:3",
+            title="3 GENERAL TERMS",
+            page=1,
+        ),
+        _make_heading(
+            elem_i=1,
+            raw_uid="3.1",
+            effective_uid="main_contract:3.1",
+            title="3.1 Existing child",
+            page=1,
+        ),
+    ]
+
+    node = MutableHierarchyNode(
+        effective_uid="main_contract:3",
+        raw_uid="3",
+        scope="main_contract",
+        title="3 GENERAL TERMS",
+        level=1,
+        start_page=1,
+        end_page=2,
+        diagnostics={"source_elem_i": 0},
+    )
+
+    result = _compute_own_range(
+        raw_uid="3",
+        node=node,
+        headings=headings_local,
+        elements=elements,
+        key_to_elem_i={
+            ("main_contract", "3"): 0,
+            ("main_contract", "3.1"): 1,
+        },
+        key_to_heading_index={
+            ("main_contract", "3"): 0,
+            ("main_contract", "3.1"): 1,
+        },
+        scope="main_contract",
+        scope_boundaries={"main_contract": (0, len(elements))},
+    )
+
+    # The next root boundary was found only via soft layout fallback at elem_i=3,
+    # but the published reason must remain canonical.
+    assert result.start_elem_i == 0
+    assert result.end_elem_i == 3
+    assert result.range_end_reason == "next_same_or_higher"
+
+
+
+
+
 def test_assign_own_ranges_produces_disjoint_adjacent_siblings_even_with_wrong_global_idx() -> None:
     elements = [
         _make_element(element_id="e115", text="2.1 First line", raw_type="heading"),

@@ -116,6 +116,35 @@ _TOC_HEADER_FALLBACK_TOKEN_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Строка оглавления / списка, в которой есть текстовая метка и в конце стоит
+# короткий номер страницы. Разрешаем как dotted leaders, так и просто пробел
+# перед номером страницы, чтобы быть устойчивыми к OCR и табличной/TOC-верстке.
+_TERMINAL_PAGE_NUMBER_RE = re.compile(
+    r"""
+    ^
+    (?=.*[A-Za-zА-ЯЁа-яё])      # есть буквенный текст
+    .{6,}?                      # строка не слишком короткая
+    (?:
+        [\.\-_~·•…]{2,}\s*      # dotted / noisy leader
+      |
+        \s+                     # или хотя бы пробельный разделитель
+    )
+    \d{1,4}                     # номер страницы
+    \s*$
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _is_terminal_page_number_line(text: str) -> bool:
+    """Строка похожа на TOC entry по terminal page number в конце."""
+    normalized = normalize_spaces(text)
+    if not normalized:
+        return False
+    return bool(_TERMINAL_PAGE_NUMBER_RE.match(normalized))
+
+
+
 # ── Substantive body markers ──────────────────────────────────────────────────
 
 _SUBSTANTIVE_BODY_MARKERS = (
@@ -405,6 +434,7 @@ def build_boundary_suppression_context(
 
         toc_header_count = 0
         toc_line_like_count = 0
+        terminal_page_number_count = 0
         substantive_body_count = 0
 
         # Family-aware counters.
@@ -427,6 +457,7 @@ def build_boundary_suppression_context(
 
             is_toc_hdr = _looks_like_toc_header(text=text, element_type=element_type)
             is_toc_line = _is_toc_line_like(text=text, element_type=element_type)
+            is_terminal_page_number = _is_terminal_page_number_line(text)
             catalog_header_family = _detect_catalog_header_family(text)
             boundary_family = resolve_boundary_family(text)
 
@@ -434,6 +465,8 @@ def build_boundary_suppression_context(
                 toc_header_count += 1
             if is_toc_line:
                 toc_line_like_count += 1
+            if is_terminal_page_number:
+                terminal_page_number_count += 1
             if catalog_header_family:
                 family_catalog_header_counts[catalog_header_family] += 1
             if boundary_family:
@@ -445,6 +478,7 @@ def build_boundary_suppression_context(
             if (
                 not is_toc_hdr
                 and not is_toc_line
+                and not is_terminal_page_number
                 and catalog_header_family is None
                 and boundary_family is None
                 and _looks_like_substantive_body_line(text)
@@ -483,16 +517,19 @@ def build_boundary_suppression_context(
             ):
                 family_reasons.append("toc_page_with_multiple_catalog_entries")
 
-            # TOC-like кластер + catalog header, даже если TOC header не распознан
-            # (OCR, bilingual).
+            # OCR-resilient TOC fallback:
+            # даже если explicit TOC/catalog header потерян OCR-ом,
+            # страница всё ещё может выглядеть как contents page:
+            # - часть строк распознана как toc_line_like;
+            # - часть строк узнаётся по terminal page number в конце;
+            # - есть appendix/amendment entries;
+            # - substantive body почти отсутствует.
             if (
-                toc_line_like_count >= 2
-                and header_count >= 1
-                and entry_count >= 2
-                and compact_pairs >= 1
-                and substantive_body_count <= 2
+                (toc_line_like_count + terminal_page_number_count) >= 4
+                and entry_count >= 1
+                and substantive_body_count <= 5
             ):
-                family_reasons.append("toc_line_cluster_with_catalog_entries")
+                family_reasons.append("dense_toc_lines_without_explicit_header")
 
             # Standalone catalog page без TOC header.
             if (
@@ -516,6 +553,20 @@ def build_boundary_suppression_context(
             ):
                 family_reasons.append("dense_catalog_entry_cluster_without_body_text")
 
+            # Чистый структурный инвариант (топология списка):
+            # Если на странице есть плотный contiguous cluster из 3+ entries
+            # без substantive body между ними, это физически не может быть серией
+            # самостоятельных документов. Это roster/list, даже если:
+            # - OCR уничтожил заголовок "СОДЕРЖАНИЕ" / "ПРИЛОЖЕНИЯ";
+            # - страница находится в конце документа;
+            # - нет явных TOC-сигналов.
+            if (
+                entry_count >= 3
+                and compact_pairs >= entry_count - 1
+                and substantive_body_count <= 5
+            ):
+                family_reasons.append("contiguous_entry_cluster_violates_document_physics")
+
             family_diagnostics[family] = {
                 "catalog_header_count": header_count,
                 "entry_count": entry_count,
@@ -538,6 +589,7 @@ def build_boundary_suppression_context(
             page_diagnostics[page] = {
                 "toc_header_count": toc_header_count,
                 "toc_line_like_count": toc_line_like_count,
+                "terminal_page_number_count": terminal_page_number_count,
                 "substantive_body_count": substantive_body_count,
                 "page_nonempty_lines": len(page_texts),
                 "suppressed_families": sorted(suppressed_families),
@@ -557,6 +609,7 @@ def build_boundary_suppression_context(
                     "reasons": list(page_level_reasons),
                     "toc_header_count": toc_header_count,
                     "toc_line_like_count": toc_line_like_count,
+                    "terminal_page_number_count": terminal_page_number_count,
                     "substantive_body_count": substantive_body_count,
                     "page_nonempty_lines": len(page_texts),
                 },

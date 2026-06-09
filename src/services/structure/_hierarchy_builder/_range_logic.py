@@ -71,6 +71,12 @@ def _find_soft_next_root_heading_from_layout(
 
     Применяется только для root numeric sections (level == 1).
     Не ищет вложенные headings — только следующий root.
+
+    ВАЖНО:
+    это internal fallback для нахождения границы диапазона.
+    Наружу он НЕ должен публиковать отдельный range_end_reason.
+    По canonical structural contract такой случай нормализуется
+    к "next_same_or_higher".
     """
     normalized_uid = _normalize_uid(raw_uid)
     if not normalized_uid.isdigit():
@@ -297,7 +303,7 @@ def _compute_own_range(
             scope_boundaries=scope_boundaries,
         )
         if soft_next_root is not None and soft_next_root > heading_elem_i:
-            candidates.append((soft_next_root, "soft_next_root_from_layout"))
+            candidates.append((soft_next_root, "next_same_or_higher"))
 
     scope_boundary = scope_boundaries.get(scope)
     if scope_boundary is not None and scope_boundary[1] > heading_elem_i:

@@ -34,6 +34,7 @@ from .element_utils import (
     safe_page,
 )
 from .heuristics import (
+    detect_body_internal_boundary_listing,
     detect_formatting_shift,
     detect_heading_density_shift,
     detect_local_numbering_reset,
@@ -52,8 +53,65 @@ from .patterns import (
     infer_segment_type_from_text,
     match_boundary_marker,
 )
-from .toc_suppression import BoundarySuppressionContext
+from .toc_suppression import (
+    BoundarySuppressionContext,
+    _looks_like_substantive_body_line,
+)
 from .types import BoundaryCandidate, BoundarySignal
+
+
+def _is_part_of_local_swarm(
+    elements: list[dict[str, Any]],
+    candidate_index: int,
+    boundary_family: str,
+) -> bool:
+    """Микро-защита от body-internal listings (Swarm Rule).
+
+    Определяет, что кандидат является частью компактного inline-списка,
+    а не настоящей segment boundary.
+
+    Правила:
+    - ищем только на той же странице, что и кандидат;
+    - считаем только соседей в окне ±4 элемента;
+    - между соседями не должно быть substantive body;
+    - нужно минимум 2 других маркера того же семейства рядом,
+      чтобы считать это стаей (избегаем false positive при 2 реальных
+      appendix на соседних страницах).
+    """
+    candidate_page = safe_page(elements[candidate_index])
+    window_left = max(0, candidate_index - 4)
+    window_right = min(len(elements), candidate_index + 5)
+
+    swarm_count = 0
+    substantive_between = 0
+
+    for i in range(window_left, window_right):
+        if i == candidate_index:
+            continue
+
+        el = elements[i]
+
+        # Только та же страница.
+        if safe_page(el) != candidate_page:
+            continue
+
+        text = normalize_spaces(str(el.get("text", "") or ""))
+        if not text:
+            continue
+        if looks_like_non_boundary_block(text):
+            continue
+
+        if infer_boundary_family_from_text(text) == boundary_family:
+            swarm_count += 1
+        elif is_non_boundary_element_type(el):
+            continue
+        else:
+            if _looks_like_substantive_body_line(text):
+                substantive_between += 1
+
+    # Стая требует минимум 2 других маркера на той же странице
+    # и отсутствия содержательного текста между ними.
+    return swarm_count >= 2 and substantive_between == 0
 
 
 def collect_boundary_candidates(
@@ -99,14 +157,30 @@ def collect_boundary_candidates(
         seg_type = infer_segment_type_from_text(text)
         boundary_family = infer_boundary_family_from_text(text)
 
-        # P5/A3: подавление boundary-family markers на TOC / catalog pages.
+        # P5/A3: подавление boundary-family markers на TOC / catalog pages (Макро-защита).
         if (
             suppression_context is not None
             and suppression_context.suppresses_boundary_family(page, boundary_family)
         ):
             continue
 
+        # НОВОЕ: Микро-защита от списков внутри обычного текста (п. 3.8)
+        if boundary_family and _is_part_of_local_swarm(elements, idx, boundary_family):
+            continue
+
         if not is_boundary_position(elements, idx, text):
+            continue
+
+        # Body-internal listing guard:
+        # appendix/amendment entries inside a local list block
+        # (intro line + multiple same-family entries nearby)
+        # do not start a new logical segment.
+        listing_guard = detect_body_internal_boundary_listing(
+            elements=elements,
+            candidate_index=idx,
+            boundary_family=boundary_family,
+        )
+        if listing_guard is not None:
             continue
 
         signals: list[BoundarySignal] = []

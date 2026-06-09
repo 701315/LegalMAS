@@ -4,6 +4,12 @@
 // Режимы:
 // - audit_log: стандартный журнал действий;
 // - classification_audit: аудит классификации документов проекта.
+//
+// Layout contract:
+// - Верхняя часть вкладки (PageSection header, mode switch, filter bar) — не скроллится.
+// - Таблица журнала аудита получает внутренний scroll viewport.
+// - Шапка таблицы sticky внутри viewport.
+// - Пагинация находится под таблицей и не входит в scroll viewport.
 // =============================================================
 
 import React, { useState } from "react";
@@ -38,60 +44,58 @@ const AuditActionFilterInlinePanel: React.FC<{
   onReset: () => void;
   onClose: () => void;
 }> = ({ selectedAction, onSelect, onReset, onClose }) => (
-  <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-5 py-3">
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
-      <div className="border-b border-[var(--border-subtle)] px-4 py-3">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">
-          Фильтр по действиям
-        </p>
-        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-          Выберите действие, чтобы показать только соответствующие записи журнала
-        </p>
-      </div>
+  <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
+    <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+      <p className="text-sm font-semibold text-[var(--text-primary)]">
+        Фильтр по действиям
+      </p>
+      <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+        Выберите действие, чтобы показать только соответствующие записи журнала
+      </p>
+    </div>
 
-      <div className="px-4 py-4">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={selectedAction === "" ? "outline" : "secondary"}
-            onClick={() => onSelect("")}
-            aria-pressed={selectedAction === ""}
-            className={selectedAction === "" ? FILTER_BUTTON_ACTIVE_CLASS : ""}
-          >
-            Все действия
-          </Button>
-
-          {Object.entries(AUDIT_ACTION_LABEL).map(([key, label]) => {
-            const isSelected = selectedAction === key;
-
-            return (
-              <Button
-                key={key}
-                type="button"
-                size="sm"
-                variant={isSelected ? "outline" : "secondary"}
-                onClick={() => onSelect(key)}
-                aria-pressed={isSelected}
-                className={isSelected ? FILTER_BUTTON_ACTIVE_CLASS : ""}
-              >
-                {label}
-              </Button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
-        <Button size="sm" variant="ghost" onClick={onReset}>
-          Сбросить
+    <div className="px-4 py-4">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={selectedAction === "" ? "outline" : "secondary"}
+          onClick={() => onSelect("")}
+          aria-pressed={selectedAction === ""}
+          className={selectedAction === "" ? FILTER_BUTTON_ACTIVE_CLASS : ""}
+        >
+          Все действия
         </Button>
 
-        <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={onClose}>
-            Закрыть
-          </Button>
-        </div>
+        {Object.entries(AUDIT_ACTION_LABEL).map(([key, label]) => {
+          const isSelected = selectedAction === key;
+
+          return (
+            <Button
+              key={key}
+              type="button"
+              size="sm"
+              variant={isSelected ? "outline" : "secondary"}
+              onClick={() => onSelect(key)}
+              aria-pressed={isSelected}
+              className={isSelected ? FILTER_BUTTON_ACTIVE_CLASS : ""}
+            >
+              {label}
+            </Button>
+          );
+        })}
+      </div>
+    </div>
+
+    <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
+      <Button size="sm" variant="ghost" onClick={onReset}>
+        Сбросить
+      </Button>
+
+      <div className="flex gap-2">
+        <Button size="sm" variant="secondary" onClick={onClose}>
+          Закрыть
+        </Button>
       </div>
     </div>
   </div>
@@ -143,7 +147,7 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full min-h-0 flex-col">
       <PageSection
         title={
           viewMode === "audit_log"
@@ -183,7 +187,9 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
             <Button
               type="button"
               size="sm"
-              variant={viewMode === "classification_audit" ? "outline" : "secondary"}
+              variant={
+                viewMode === "classification_audit" ? "outline" : "secondary"
+              }
               onClick={() => {
                 setViewMode("classification_audit");
                 setIsActionFilterOpen(false);
@@ -198,13 +204,18 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
             </Button>
           </div>
         }
+        className="flex-1 min-h-0"
+        contentClassName="flex min-h-0 flex-1 flex-col"
+        bodyClassName="flex h-full min-h-0 flex-col"
       >
         {viewMode === "classification_audit" ? (
-          <ClassificationAuditView dealId={dealId} />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <ClassificationAuditView dealId={dealId} />
+          </div>
         ) : (
-          <>
+          <div className="flex h-full min-h-0 flex-col">
             {isActionFilterOpen && (
-              <div id="audit-action-filter-panel" className="mb-4">
+              <div id="audit-action-filter-panel" className="mb-4 shrink-0">
                 <AuditActionFilterInlinePanel
                   selectedAction={filterAction}
                   onSelect={(value) => {
@@ -220,9 +231,9 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="flex min-h-0 flex-1 flex-col">
               {isLoading ? (
-                <div className="flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-16">
+                <div className="flex flex-1 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-16">
                   <Loader2
                     className="mr-3 animate-spin text-[var(--accent)]"
                     size={20}
@@ -233,124 +244,140 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                 </div>
               ) : (
                 <>
-                  <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
-                    <table className="w-full table-fixed border-collapse">
-                      <thead className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
-                        <tr>
-                          <th
-                            scope="col"
-                            className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                          >
-                            Время
-                          </th>
-                          <th
-                            scope="col"
-                            className="w-52 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                          >
-                            Действие
-                          </th>
-                          <th
-                            scope="col"
-                            className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                          >
-                            Пользователь
-                          </th>
-                          <th
-                            scope="col"
-                            className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                          >
-                            Роль
-                          </th>
-                          <th
-                            scope="col"
-                            className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                          >
-                            Детали
-                          </th>
-                        </tr>
-                      </thead>
+                  {/* Scroll viewport только для таблицы */}
+                  <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
+                    {items.length > 0 ? (
+                      <div className="h-full overflow-y-auto overflow-x-auto">
+                        <table className="w-full table-fixed border-collapse">
+                          <thead className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
+                            <tr>
+                              <th
+                                scope="col"
+                                className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                              >
+                                Время
+                              </th>
+                              <th
+                                scope="col"
+                                className="w-52 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                              >
+                                Действие
+                              </th>
+                              <th
+                                scope="col"
+                                className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                              >
+                                Пользователь
+                              </th>
+                              <th
+                                scope="col"
+                                className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                              >
+                                Роль
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                              >
+                                Детали
+                              </th>
+                            </tr>
+                          </thead>
 
-                      <tbody>
-                        {items.map((log) => (
-                          <tr
-                            key={log.id}
-                            className={cn(
-                              "border-b border-[var(--border)] transition-colors hover:bg-[var(--bg-elevated-soft)]",
-                              log.action === "RECLASSIFY" &&
-                                ROW_HIGHLIGHT_RECLASSIFY,
-                              log.action === "SET_DEAL_PLAYBOOK" &&
-                                ROW_HIGHLIGHT_PLAYBOOK,
-                            )}
-                          >
-                            <td className="px-3 py-2.5 text-xs text-[var(--text-secondary)]">
-                              {new Date(log.created_at).toLocaleString("ru-RU", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                second: "2-digit",
-                              })}
-                            </td>
-
-                            <td className="px-3 py-2.5">
-                              <div className="min-w-0">
-                                <span
-                                  className="inline-flex max-w-full truncate rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] align-middle"
-                                  title={AUDIT_ACTION_LABEL[log.action] || log.action}
-                                >
-                                  {AUDIT_ACTION_LABEL[log.action] || log.action}
-                                </span>
-                              </div>
-                            </td>
-
-                            <td
-                              className="truncate px-3 py-2.5 text-xs font-medium text-[var(--text-primary)]"
-                              title={log.actor}
-                            >
-                              {log.actor}
-                            </td>
-
-                            <td
-                              className="truncate px-3 py-2.5 text-[11px] text-[var(--text-muted)]"
-                              title={log.actor_role}
-                            >
-                              {log.actor_role}
-                            </td>
-
-                            <td className="max-w-[380px] px-3 py-2.5 text-[11px] text-[var(--text-secondary)]">
-                              <span
-                                className="block truncate"
-                                title={formatDetails(
-                                  log.action,
-                                  log.details as Record<string, unknown> | null,
+                          <tbody>
+                            {items.map((log) => (
+                              <tr
+                                key={log.id}
+                                className={cn(
+                                  "border-b border-[var(--border)] transition-colors hover:bg-[var(--bg-elevated-soft)]",
+                                  log.action === "RECLASSIFY" &&
+                                    ROW_HIGHLIGHT_RECLASSIFY,
+                                  log.action === "SET_DEAL_PLAYBOOK" &&
+                                    ROW_HIGHLIGHT_PLAYBOOK,
                                 )}
                               >
-                                {formatDetails(
-                                  log.action,
-                                  log.details as Record<string, unknown> | null,
-                                )}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                                <td className="px-3 py-2.5 text-xs text-[var(--text-secondary)]">
+                                  {new Date(log.created_at).toLocaleString(
+                                    "ru-RU",
+                                    {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                      second: "2-digit",
+                                    },
+                                  )}
+                                </td>
 
-                    {items.length === 0 && (
-                      <div className="py-10 text-center">
-                        <p className="mb-1 text-sm text-[var(--text-secondary)]">
-                          Записи не найдены
-                        </p>
-                        <p className="text-xs text-[var(--text-muted)]">
-                          Журнал пока пуст или не подходит под текущий фильтр.
-                        </p>
+                                <td className="px-3 py-2.5">
+                                  <div className="min-w-0">
+                                    <span
+                                      className="inline-flex max-w-full truncate rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] align-middle"
+                                      title={
+                                        AUDIT_ACTION_LABEL[log.action] ||
+                                        log.action
+                                      }
+                                    >
+                                      {AUDIT_ACTION_LABEL[log.action] ||
+                                        log.action}
+                                    </span>
+                                  </div>
+                                </td>
+
+                                <td
+                                  className="truncate px-3 py-2.5 text-xs font-medium text-[var(--text-primary)]"
+                                  title={log.actor}
+                                >
+                                  {log.actor}
+                                </td>
+
+                                <td
+                                  className="truncate px-3 py-2.5 text-[11px] text-[var(--text-muted)]"
+                                  title={log.actor_role}
+                                >
+                                  {log.actor_role}
+                                </td>
+
+                                <td className="max-w-[380px] px-3 py-2.5 text-[11px] text-[var(--text-secondary)]">
+                                  <span
+                                    className="block truncate"
+                                    title={formatDetails(
+                                      log.action,
+                                      log.details as
+                                        | Record<string, unknown>
+                                        | null,
+                                    )}
+                                  >
+                                    {formatDetails(
+                                      log.action,
+                                      log.details as
+                                        | Record<string, unknown>
+                                        | null,
+                                    )}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-4 py-10 text-center">
+                        <div>
+                          <p className="mb-1 text-sm text-[var(--text-secondary)]">
+                            Записи не найдены
+                          </p>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            Журнал пока пуст или не подходит под текущий фильтр.
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
 
                   {totalPages > 1 && (
-                    <div className="flex flex-wrap items-center justify-center gap-3">
+                    <div className="mt-4 flex shrink-0 flex-wrap items-center justify-center gap-3">
                       <Button
                         type="button"
                         variant="secondary"
@@ -370,7 +397,9 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                         type="button"
                         variant="secondary"
                         size="sm"
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        onClick={() =>
+                          setPage((p) => Math.min(totalPages, p + 1))
+                        }
                         disabled={page >= totalPages}
                         rightIcon={<ChevronRight size={14} />}
                       >
@@ -381,7 +410,7 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                 </>
               )}
             </div>
-          </>
+          </div>
         )}
       </PageSection>
     </div>
@@ -435,3 +464,5 @@ function formatDetails(
 }
 
 export default AuditTab;
+
+
