@@ -294,18 +294,33 @@ class DocumentSegmentRepository:
         document_version_id: uuid.UUID,
     ) -> int:
         """
-        Сколько релевантных сегментов версии ещё не имеют финального
-        segment-level результата классификации.
+        Сколько релевантных сегментов версии ещё не завершили
+        segment-level классификацию.
 
-        Критерий "классифицирован":
-        - есть либо segment_doc_type, либо segment_classification_level.
+        Источник истины — поле segment_classification_status.
+
+        Terminal statuses (стадия завершена):
+          classified, unknown, skipped
+
+        Non-terminal (стадия ещё не завершена):
+          pending, failed
+
+        Важно: UNKNOWN является terminal-статусом.
+        Сегмент с UNKNOWN был обработан классификатором,
+        просто тип не удалось определить. Это валидный исход,
+        который не должен блокировать дальнейший прогресс pipeline.
         """
+        from core.constants import SEGMENT_CLASSIFICATION_TERMINAL_STATUSES
+
         stmt = (
             select(func.count(DocumentSegment.id))
             .where(DocumentSegment.document_version_id == document_version_id)
             .where(DocumentSegment.segment_id.is_not(None))
-            .where(func.coalesce(DocumentSegment.segment_doc_type, "") == "")
-            .where(func.coalesce(DocumentSegment.segment_classification_level, "") == "")
+            .where(
+                DocumentSegment.segment_classification_status.notin_(
+                    SEGMENT_CLASSIFICATION_TERMINAL_STATUSES
+                )
+            )
         )
         result = await self.session.execute(stmt)
         return int(result.scalar_one() or 0)
@@ -485,6 +500,7 @@ class DocumentSegmentRepository:
         segment_confidence_zone: str | None,
         segment_applicable_triggers: list[str] | None,
         segment_details: dict | None,
+        segment_classification_status: str,
         registry: YAMLRegistry | None = None,
         git_commit: str | None = None,
         semver: str | None = None,
@@ -517,6 +533,7 @@ class DocumentSegmentRepository:
             "segment_applicable_triggers": list(segment_applicable_triggers or []),
             "segment_classification_details": segment_details or {},
             "segment_doc_type_instruction_version_id": instruction_version_id,
+            "segment_classification_status": segment_classification_status,
         }
 
         stmt = (
@@ -539,6 +556,7 @@ class DocumentSegmentRepository:
                     "segment_id": segment_id,
                     "segment_doc_type": segment_doc_type,
                     "segment_level": segment_level,
+                    "segment_classification_status": segment_classification_status,
                     "segment_confidence": float(segment_confidence or 0.0)
                     if segment_confidence is not None
                     else None,

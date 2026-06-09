@@ -252,3 +252,43 @@ class ClassificationLevel(str, Enum):
     L3_SEMANTIC = "L3"  # Embeddings similarity
     L4_LLM = "L4"  # LLM fallback (local GGUF or cloud API)
     HYBRID = "HYBRID"  # Weighted voting across levels
+
+
+class SegmentClassificationStatus(str, Enum):
+    """
+    Pipeline-статус segment-level классификации для одного сегмента.
+
+    Это статус СТАДИИ, а не бизнес-результат.
+    Отвечает на вопрос: "завершена ли классификация этого сегмента?"
+
+    Semantics:
+    - PENDING    — сегмент создан, классификация ещё не запускалась
+    - CLASSIFIED — классификация завершена, тип определён
+    - UNKNOWN    — классификация завершена, тип НЕ определён
+    - SKIPPED    — сегмент пропущен (пустой текст, не подходит)
+    - FAILED     — классификация завершилась ошибкой
+
+    Terminal statuses (стадия считается завершённой):
+      CLASSIFIED, UNKNOWN, SKIPPED
+
+    Non-terminal (стадия НЕ завершена, нужна повторная обработка):
+      PENDING, FAILED
+    """
+
+    PENDING = "pending"
+    CLASSIFIED = "classified"
+    UNKNOWN = "unknown"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
+# Набор terminal-статусов для segment-level классификации.
+# Сегменты в этих статусах считаются обработанными для целей orchestration.
+# FAILED намеренно НЕ входит в этот набор: failed-сегмент блокирует прогресс.
+SEGMENT_CLASSIFICATION_TERMINAL_STATUSES: frozenset[str] = frozenset({
+    SegmentClassificationStatus.CLASSIFIED.value,
+    SegmentClassificationStatus.UNKNOWN.value,
+    SegmentClassificationStatus.SKIPPED.value,
+})
+
+

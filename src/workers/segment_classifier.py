@@ -54,6 +54,8 @@ from typing import Any
 from classifiers.stage8._duplicate_handler import DuplicateHandler
 from classifiers.stage8.hybrid_classifier import HybridClassifier
 from core.exceptions import PermanentError
+from core.constants import SegmentClassificationStatus, SEGMENT_CLASSIFICATION_TERMINAL_STATUSES
+
 from core.logging import get_logger
 from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
@@ -226,29 +228,30 @@ def _should_retrigger(result: dict) -> bool:
     Predicate: стоит ли retrigger-ить orchestrator после segment classification.
 
     Правила:
-    - status должен быть "completed" (не "skipped", не "failed");
+    - status должен быть "completed";
     - должен быть хотя бы один сегмент;
-    - classified_segments должно совпадать с total_segments.
+    - terminal_segments должно совпадать с total_segments
+      (все сегменты в terminal status: classified, unknown, skipped);
+    - failed_segments должно быть равно 0.
 
-    Почему нужна проверка classified == total:
-    - Если часть сегментов не была классифицирована (partial result),
-      orchestrator при повторном пробуждении снова увидит
-      "not all segments classified" и поставит classify_document_segments
-      ещё раз → бесконечный loop.
-    - Retrigger только на полностью завершённой классификации.
-
-    Почему не retrigger-им "skipped" / "no_segments":
-    - Если сегментов нет, orchestrator сам примет решение на следующем
-      плановом вызове или при другом событии.
+    Важно:
+    - UNKNOWN является terminal-статусом: сегмент обработан,
+      тип не определён — это валидный исход, не блокирующий pipeline.
+    - FAILED не является terminal: сегмент упал с ошибкой,
+      retrigger НЕ делаем, чтобы не скрывать проблему.
+    - Старый критерий classified_segments == total_segments был неверным:
+      он не учитывал UNKNOWN и SKIPPED как завершённые состояния.
     """
     status = str(result.get("status") or "")
     total_segments = int(result.get("total_segments") or 0)
-    classified_segments = int(result.get("classified_segments") or 0)
+    terminal_segments = int(result.get("terminal_segments") or 0)
+    failed_segments = int(result.get("failed_segments") or 0)
 
     return (
         status == "completed"
         and total_segments > 0
-        and classified_segments == total_segments
+        and terminal_segments == total_segments
+        and failed_segments == 0
     )
 
 
@@ -283,7 +286,10 @@ def classify_document_segments(self, document_id: str, **kwargs) -> dict:
     tenant_id = kwargs.get("tenant_id")
 
     total_segments = int(result.get("total_segments") or 0)
+    terminal_segments = int(result.get("terminal_segments") or 0)
     classified_segments = int(result.get("classified_segments") or 0)
+    unknown_segments = int(result.get("unknown_segments") or 0)
+    failed_segments = int(result.get("failed_segments") or 0)
     skipped_count = int(result.get("skipped_count") or 0)
     status = str(result.get("status") or "")
 
@@ -296,7 +302,10 @@ def classify_document_segments(self, document_id: str, **kwargs) -> dict:
                 "deal_id": deal_id,
                 "tenant_id": tenant_id,
                 "total_segments": total_segments,
+                "terminal_segments": terminal_segments,
                 "classified_segments": classified_segments,
+                "unknown_segments": unknown_segments,
+                "failed_segments": failed_segments,
                 "skipped_count": skipped_count,
             },
         )
@@ -362,7 +371,11 @@ async def _classify_document_segments_async(
     processed_segments: list[dict[str, Any]] = []
     skipped_segments: list[dict[str, Any]] = []
     total_segments = 0
-    classified_segments = 0
+    classified_segments = 0     # processed by classifier (typed + unknown)
+    typed_segments_count = 0    # final_type определён
+    unknown_segments_count = 0  # final_type не определён (UNKNOWN)
+    failed_segments_count = 0   # упали с исключением
+
     document_version_id: str | None = None
     tenant_id: str | None = None
     deal_id: str | None = None
@@ -470,6 +483,25 @@ async def _classify_document_segments_async(
                             document_version_id=document_version_id,
                             segment_id=segment_id,
                         )
+                        # Явно помечаем как skipped в БД — terminal статус.
+                        try:
+                            await seg_repo.update_classification_for_segment(
+                                document_version_id=version.id,
+                                segment_id=segment_id,
+                                segment_doc_type=None,
+                                segment_confidence=None,
+                                segment_level=None,
+                                segment_confidence_zone=None,
+                                segment_applicable_triggers=[],
+                                segment_details={"skip_reason": "empty_segment_text"},
+                                segment_classification_status=SegmentClassificationStatus.SKIPPED.value,
+                            )
+                        except Exception:
+                            logger.warning(
+                                "Segment classifier: failed to persist skipped status",
+                                document_id=document_id,
+                                segment_id=segment_id,
+                            )
                         continue
 
                     result = await classifier.classify_segment(
@@ -502,12 +534,21 @@ async def _classify_document_segments_async(
                     jurisdiction = result.get("jurisdiction")
                     applicable_triggers = result.get("applicable_triggers", []) or []
 
-                    if final_type is None:
-                        level = None
+                    # ВАЖНО: НЕ обнуляем level при UNKNOWN final_type.
+                    # level — диагностическое поле (на каком уровне принято решение).
+                    # Источником истины о завершённости стадии является
+                    # segment_classification_status, а не level.
 
                     segment_confidence_zone = _normalize_confidence_zone(
                         details.get("confidence_zone")
                     )
+
+                    # Определяем pipeline-статус этого сегмента.
+                    if final_type is not None:
+                        seg_status = SegmentClassificationStatus.CLASSIFIED.value
+                    else:
+                        # final_type = None означает UNKNOWN результат
+                        seg_status = SegmentClassificationStatus.UNKNOWN.value
 
                     await seg_repo.update_classification_for_segment(
                         document_version_id=version.id,
@@ -518,9 +559,15 @@ async def _classify_document_segments_async(
                         segment_confidence_zone=segment_confidence_zone,
                         segment_applicable_triggers=list(applicable_triggers),
                         segment_details=details,
+                        segment_classification_status=seg_status,
                     )
 
                     classified_segments += 1
+                    if seg_status == SegmentClassificationStatus.CLASSIFIED.value:
+                        typed_segments_count += 1
+                    else:
+                        unknown_segments_count += 1
+
                     processed_segments.append(
                         {
                             "segment_id": segment_id,
@@ -531,6 +578,7 @@ async def _classify_document_segments_async(
                             "language": language,
                             "jurisdiction": jurisdiction,
                             "confidence_zone": segment_confidence_zone,
+                            "classification_status": seg_status,
                         }
                     )
 
@@ -553,6 +601,7 @@ async def _classify_document_segments_async(
                         segment_id=segment_id,
                         error=str(e),
                     )
+                    failed_segments_count += 1
                     skipped_segments.append(
                         {
                             "segment_id": segment_id,
@@ -561,17 +610,47 @@ async def _classify_document_segments_async(
                             "error": str(e),
                         }
                     )
+                    # Явно помечаем как failed в БД — non-terminal статус.
+                    # Это заблокирует прогресс pipeline для этого документа.
+                    try:
+                        await seg_repo.update_classification_for_segment(
+                            document_version_id=version.id,
+                            segment_id=segment_id,
+                            segment_doc_type=None,
+                            segment_confidence=None,
+                            segment_level=None,
+                            segment_confidence_zone=None,
+                            segment_applicable_triggers=[],
+                            segment_details={"error": str(e)},
+                            segment_classification_status=SegmentClassificationStatus.FAILED.value,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Segment classifier: failed to persist failed status",
+                            document_id=document_id,
+                            segment_id=segment_id,
+                        )
                     continue
 
             duration_ms = int((time.time() - start_time) * 1000)
+
+            terminal_segments = classified_segments  # typed + unknown
+            # classified_segments считает все обработанные классификатором (typed + unknown)
+            # typed_segments_count — только те, где тип определён
+            # unknown_segments_count — где тип не определён
+            # skipped — пустой текст (terminal)
+            # failed — ошибка (non-terminal)
 
             final_result = {
                 "document_id": document_id,
                 "document_version_id": document_version_id,
                 "status": "completed",
                 "total_segments": total_segments,
-                "classified_segments": classified_segments,
+                "terminal_segments": terminal_segments + len(skipped_segments),
+                "classified_segments": typed_segments_count,
+                "unknown_segments": unknown_segments_count,
                 "skipped_count": len(skipped_segments),
+                "failed_segments": failed_segments_count,
                 "processed_segments": processed_segments,
                 "skipped_segments": skipped_segments,
                 "duration_ms": duration_ms,
@@ -590,8 +669,11 @@ async def _classify_document_segments_async(
                             "document_version_id": document_version_id,
                             "status": "completed",
                             "total_segments": total_segments,
-                            "classified_segments": classified_segments,
+                            "terminal_segments": terminal_segments + len(skipped_segments),
+                            "classified_segments": typed_segments_count,
+                            "unknown_segments": unknown_segments_count,
                             "skipped_count": len(skipped_segments),
+                            "failed_segments": failed_segments_count,
                             "processed_segments": processed_segments,
                             "skipped_segments": skipped_segments,
                             "duration_ms": duration_ms,

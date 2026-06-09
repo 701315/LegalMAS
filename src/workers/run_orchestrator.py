@@ -209,30 +209,45 @@ async def _count_unclassified_segments(
     """
     Считает релевантные сегменты версии, для которых segment-level классификация ещё не завершена.
 
-    Критерий "классифицирован" сознательно мягкий: достаточно наличия segment_doc_type
-    или segment_classification_level. Этого хватает, чтобы checks могли выбрать правильный doc_type.
+    Источник истины — segment_classification_status.
+    Terminal статусы (завершено): classified, unknown, skipped.
+    Non-terminal (не завершено): pending, failed.
+
+    UNKNOWN является terminal: сегмент был обработан классификатором,
+    тип не определён — это валидный исход, не блокирующий pipeline.
     """
     return await seg_repo.count_unclassified_for_version(version_id)
 
 
-async def _are_all_segments_classified(
+async def _is_segment_classification_complete(
     seg_repo: DocumentSegmentRepository,
     snap: VersionSnapshot,
 ) -> bool:
     """
-    Readiness-предикат для segment-level классификации.
+    Readiness-предикат для segment-level classification stage.
 
-    - для single-document всегда False (segment path не нужен);
-    - для multi-document возвращает True только если:
+    Возвращает True если стадия segment classification завершена:
+    - для single-document: всегда True (segment path не нужен).
+    - для multi-document:
       1) есть хотя бы один релевантный сегмент;
-      2) для всех релевантных сегментов заполнен segment-level результат.
+      2) все релевантные сегменты в terminal статусе
+         (classified, unknown, skipped).
+
+    Важно:
+    - UNKNOWN является terminal: сегмент обработан, тип не определён.
+      Это НЕ блокирует прогресс pipeline.
+    - FAILED является non-terminal: ошибка обработки.
+      Stage НЕ считается завершённой пока есть failed сегменты.
+    - Для single-doc возвращаем True, а не False как раньше,
+      потому что для single-doc segment classification не нужна —
+      стадия считается "не применимой" и не должна блокировать pipeline.
     """
     if not _is_multi_document_snapshot(snap):
-        return False
+        return True  # single-doc: segment stage не применима → пропускаем
 
     total = await _count_relevant_segments(seg_repo, snap.version_id)
     if total == 0:
-        return False
+        return True  # нет сегментов → нечего ждать
 
     unclassified = await _count_unclassified_segments(seg_repo, snap.version_id)
     return unclassified == 0
@@ -292,7 +307,7 @@ async def _can_start_checks_for_run(
         snap = snapshot_version(version)
 
         if _is_multi_document_snapshot(snap):
-            all_segments_classified = await _are_all_segments_classified(seg_repo, snap)
+            all_segments_classified = await _is_segment_classification_complete(seg_repo, snap)
             if not all_segments_classified:
                 logger.info(
                     "Run checks postponed: multi-document has unclassified segments",
@@ -1280,10 +1295,10 @@ async def _build_document_task_plan(
             )
 
         if _is_multi_document_snapshot(snap):
-            all_segments_classified = await _are_all_segments_classified(seg_repo, snap)
-            if not all_segments_classified:
+            segment_stage_complete = await _is_segment_classification_complete(seg_repo, snap)
+            if not segment_stage_complete:
                 logger.info(
-                    "CLASSIFIED multi-document requires segment-level classification",
+                    "CLASSIFIED multi-document: segment classification not yet complete",
                     extra={
                         "document_id": doc_id_str,
                         "document_version_id": snap.version_id_str,
@@ -1294,7 +1309,7 @@ async def _build_document_task_plan(
                 return TaskPlan(
                     task_name="workers.classify_document_segments",
                     stage="classify_document_segments",
-                    reason="multi_document_requires_segment_level_classification",
+                    reason="multi_document_segment_classification_incomplete",
                     kwargs={
                         "document_id": doc_id_str,
                         "run_id": run_id,

@@ -312,8 +312,10 @@ async def _classify_document_async(
             else:
                 final_type = None
 
-            if final_type is None:
-                level = None
+            # ВАЖНО: НЕ обнуляем level при UNKNOWN final_type.
+            # level — диагностическое поле (на каком уровне принято решение).
+            # На document-level pipeline не ломается из-за Document.status = CLASSIFIED,
+            # но обнуление level концептуально неверно и убирается для консистентности.
 
             playbook = await playbook_repo.get_for_deal(doc.deal_id)
 

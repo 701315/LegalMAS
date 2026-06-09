@@ -661,6 +661,21 @@ class DocumentSegment(Base):
         ),
     )
 
+    segment_classification_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        server_default="pending",
+        comment=(
+            "Pipeline-статус segment-level классификации: "
+            "pending | classified | unknown | skipped | failed. "
+            "Источник истины для orchestrator: стадия завершена если статус "
+            "в (classified, unknown, skipped). "
+            "НЕ путать с segment_doc_type (бизнес-тип) и "
+            "segment_confidence_zone (диагностика уверенности)."
+        ),
+    )
+
+
     __table_args__ = (
         UniqueConstraint(
             "document_version_id",
