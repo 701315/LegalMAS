@@ -390,5 +390,24 @@ def test_swarm_rule_suppresses_body_internal_listings() -> None:
     assert segments[0].segment_type == "contract"
     assert segments[1].page_start == 2 # Только реальное на стр. 2
 
-    
+def test_real_appendix_page_with_numeric_content_is_not_suppressed_as_broken_toc() -> None:
+    elements = [
+        {"element_id": "e1", "page": 1, "text": "ДОГОВОР КУПЛИ-ПРОДАЖИ ИМУЩЕСТВА"},
+        {"element_id": "e2", "page": 1, "text": "1. ПРЕДМЕТ ДОГОВОРА"},
+        {"element_id": "e3", "page": 2, "text": "ПРИЛОЖЕНИЕ 2"},
+        {"element_id": "e4", "page": 2, "text": "ИМУЩЕСТВО"},
+        {"element_id": "e5", "page": 2, "text": "1. Автоматическая система пожарной сигнализации"},
+        {"element_id": "e6", "page": 2, "text": "Цена: 360 169,49 руб."},
+        {"element_id": "e7", "page": 2, "text": "2. Асфальтированная площадка"},
+        {"element_id": "e8", "page": 2, "text": "Цена: 1 822 457,00 руб."},
+        {"element_id": "e9", "page": 2, "text": "3. Асфальтированная площадка /1"},
+        {"element_id": "e10", "page": 2, "text": "Цена: 281 059,32 руб."},
+    ]
+
+    segments = segment_elements(document_id="doc-real-appendix-numeric-body", elements=elements)
+
+    assert len(segments) == 2
+    assert segments[0].segment_type == "contract"
+    assert segments[1].segment_type == "appendix"
+    assert segments[1].page_start == 2
     

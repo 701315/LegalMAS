@@ -140,3 +140,32 @@ def test_build_file_structure_empty_input_skips_classifier(monkeypatch):
     assert len(result.segment_trees) == 1
 
 
+from services.structure.element_classifier import classify_elements
+from services.structure.segmenter import segment_elements
+
+
+def test_classification_preserves_real_appendix_headings_as_boundaries() -> None:
+    elements = [
+        {"element_id": "e1", "page": 1, "type": "heading", "text": "ДОГОВОР КУПЛИ-ПРОДАЖИ"},
+        {"element_id": "e2", "page": 1, "type": "text", "text": "Основной текст договора."},
+        {"element_id": "e3", "page": 2, "type": "heading", "text": "ПРИЛОЖЕНИЕ 1"},
+        {"element_id": "e4", "page": 2, "type": "heading", "text": "АКТ"},
+        {"element_id": "e5", "page": 2, "type": "text", "text": "Настоящий акт приема-передачи имущества."},
+        {"element_id": "e6", "page": 3, "type": "heading", "text": "ПРИЛОЖЕНИЕ 2"},
+        {"element_id": "e7", "page": 3, "type": "heading", "text": "ИМУЩЕСТВО"},
+        {"element_id": "e8", "page": 3, "type": "text", "text": "1. Автоматическая система пожарной сигнализации"},
+    ]
+
+    classified = classify_elements(elements, document_id="doc-classification-boundary-guard")
+
+    appendix_rows = [el for el in classified if "ПРИЛОЖЕНИЕ" in str(el.get("text", ""))]
+    assert appendix_rows, "Expected appendix heading rows to survive classification"
+    assert all(el.get("element_type") != "page_artifact" for el in appendix_rows)
+
+    segments = segment_elements(
+        document_id="doc-classification-boundary-guard",
+        elements=classified,
+    )
+
+    appendix_segments = [s for s in segments if s.segment_type == "appendix"]
+    assert len(appendix_segments) >= 2

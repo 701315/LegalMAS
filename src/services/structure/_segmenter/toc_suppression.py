@@ -518,16 +518,25 @@ def build_boundary_suppression_context(
                 family_reasons.append("toc_page_with_multiple_catalog_entries")
 
             # OCR-resilient TOC fallback:
-            # даже если explicit TOC/catalog header потерян OCR-ом,
+            # Даже если explicit TOC/catalog header потерян OCR-ом,
             # страница всё ещё может выглядеть как contents page:
             # - часть строк распознана как toc_line_like;
             # - часть строк узнаётся по terminal page number в конце;
             # - есть appendix/amendment entries;
             # - substantive body почти отсутствует.
+            #
+            # Важно: одного appendix entry недостаточно, иначе мы начнём
+            # ложно подавлять реальные appendix pages с табличным/числовым
+            # содержимым. Поэтому без явного header suppress-им только если:
+            # - есть минимум 2 entries, ИЛИ
+            # - toc_line_like_count сам по себе уже очень высокий.
             if (
                 (toc_line_like_count + terminal_page_number_count) >= 4
-                and entry_count >= 1
                 and substantive_body_count <= 5
+                and (
+                    entry_count >= 2
+                    or toc_line_like_count >= 4
+                )
             ):
                 family_reasons.append("dense_toc_lines_without_explicit_header")
 

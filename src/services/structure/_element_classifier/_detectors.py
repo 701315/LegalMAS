@@ -221,6 +221,24 @@ def _looks_like_requisites_block(text: str) -> bool:
     return False
 
 
+def _is_canonical_boundary_marker(text: str) -> bool:
+    """Проверяет, является ли текст canonical boundary marker.
+
+    Это защита от ложной demotion реальных appendix/amendment заголовков
+    в page_artifact только из-за их позиции вверху/внизу страницы.
+    """
+    from services.structure._segmenter.patterns import (
+        APPENDIX_RE,
+        AMENDMENT_RE,
+    )
+
+    normalized = _normalize_for_match(text)
+    if not normalized:
+        return False
+
+    return bool(APPENDIX_RE.match(normalized) or AMENDMENT_RE.match(normalized))
+
+
 def _looks_like_page_artifact(text: str, top_ratio: float, bottom_ratio: float) -> bool:
     """Проверяет, является ли элемент page artifact (номер страницы, колонтитул).
 
@@ -239,6 +257,9 @@ def _looks_like_page_artifact(text: str, top_ratio: float, bottom_ratio: float) 
 
     if len(normalized) <= 25 and (top_ratio <= 0.04 or bottom_ratio <= 0.04):
         if re.search(r"\b(договор|приложение|акт|страница|page)\b", normalized):
+            # Реальный canonical boundary marker не должен демотиться в page_artifact.
+            if _is_canonical_boundary_marker(text):
+                return False
             return True
 
     return False
