@@ -353,6 +353,7 @@ def _page_signals_from_candidates(
     candidates: list[EvidenceHeadingCandidate],
     appendix_markers: list[AppendixMarker],
     crossref_anchors: list[CrossRefAnchor],
+    elements: list[dict[str, Any]] | None = None,
 ) -> list[PageStructureSignals]:
     by_page: dict[int, PageStructureSignals] = {}
 
@@ -385,15 +386,206 @@ def _page_signals_from_candidates(
         page = get_page(anchor.page_number)
         page.crossref_anchor_ids.append(anchor.element_id)
 
+    # Считаем per-page element counts из raw elements если доступны.
+    # Это нужно для корректного вычисления heading density:
+    # density = heading_candidates / total_non_artifact_elements_on_page.
+    _NON_CONTENT_TYPES_FOR_DENSITY = frozenset({
+        "page_artifact",
+        "signature_block",
+        "requisites_block",
+    })
+    page_element_counts: dict[int, int] = {}
+    if elements:
+        for el in elements:
+            try:
+                p = int(el.get("page") or 1)
+            except Exception:
+                p = 1
+            et = str(el.get("element_type") or "").strip().lower()
+            if et not in _NON_CONTENT_TYPES_FOR_DENSITY:
+                page_element_counts[p] = page_element_counts.get(p, 0) + 1
+
     for page in by_page.values():
-        total = max(1, len(page.heading_candidate_ids))
-        page.page_top_heading_density = round(len(page.heading_candidate_ids) / total, 4)
-        page.numbering_density = round(
-            sum(1 for _ in page.heading_candidate_ids) / total,
-            4,
-        )
+        heading_count = len(page.heading_candidate_ids)
+        total_elements = max(1, page_element_counts.get(page.page_number, heading_count))
+        page.page_top_heading_density = round(heading_count / total_elements, 4)
+        page.numbering_density = round(heading_count / total_elements, 4)
 
     return [by_page[p] for p in sorted(by_page)]
+
+
+# ── B2: Heading Density Guard ─────────────────────────────────────────────────
+
+# Порог heading density: если больше половины non-artifact элементов страницы
+# являются heading-кандидатами — страница подозрительно плотная.
+_HEADING_DENSITY_GUARD_THRESHOLD: float = 0.50
+
+# Минимальное количество heading-кандидатов на странице для активации guard.
+# Защита от ложных срабатываний на очень коротких страницах (1-2 элемента).
+_HEADING_DENSITY_GUARD_MIN_CANDIDATES: int = 4
+
+
+def _replace_scored_candidate_status(
+    candidate: "ScoredHeadingCandidate",
+    *,
+    new_status,
+    extra_reason: str,
+):
+    """
+    Safe replacement helper for scored heading candidates.
+
+    Primary path:
+    - if candidate is a dataclass instance, use dataclasses.replace()
+      to preserve immutability semantics of the normal production path.
+
+    Defensive fallback:
+    - if candidate is not a dataclass (e.g. test doubles / mocks),
+      shallow-copy it and update status/reasons.
+    - if copying fails, mutate in-place as last resort.
+
+    This keeps B2 heading-density guard robust without tying it
+    to one concrete container implementation.
+    """
+    import copy
+    import dataclasses
+
+    new_reasons = list(getattr(candidate, "reasons", []) or [])
+    if extra_reason not in new_reasons:
+        new_reasons.append(extra_reason)
+
+    if dataclasses.is_dataclass(candidate) and not isinstance(candidate, type):
+        return dataclasses.replace(
+            candidate,
+            status=new_status,
+            reasons=new_reasons,
+        )
+
+    try:
+        cloned = copy.copy(candidate)
+        setattr(cloned, "status", new_status)
+        setattr(cloned, "reasons", new_reasons)
+        return cloned
+    except Exception:
+        setattr(candidate, "status", new_status)
+        setattr(candidate, "reasons", new_reasons)
+        return candidate
+
+
+def _apply_heading_density_guard(
+    scored: list["ScoredHeadingCandidate"],
+    elements: list[dict[str, Any]],
+) -> list["ScoredHeadingCandidate"]:
+    """
+    B2: Heading Density Guard — post-scoring demotion pass.
+
+    Проблема:
+    TOC / catalog pages, которые не были распознаны как TOC,
+    могут иметь аномально высокую плотность heading-like элементов.
+    Если их не подавить, они превращаются в ложные разделы clause tree.
+
+    Решение:
+    После scoring, для страниц с высокой heading density
+    И без TOC-подтверждения — демотировать ACCEPTED → AMBIGUOUS.
+
+    Важно:
+    - Guard НЕ применяется если страница имеет TOC-entries.
+    - Guard НЕ применяется если density ниже порога.
+    - Guard НЕ применяется если кандидатов < MIN_CANDIDATES.
+    - Guard НЕ удаляет кандидатов — только понижает статус.
+    - Guard deterministic: никакого LLM, никаких внешних зависимостей.
+
+    Args:
+        scored: список ScoredHeadingCandidate после основного scoring pass.
+        elements: raw layout elements для вычисления per-page element counts.
+
+    Returns:
+        Тот же список, возможно с изменёнными статусами.
+    """
+    from services.structure.heading_scoring import CandidateStatus
+
+    if not scored or not elements:
+        return scored
+
+    # ── 1. Считаем per-page element counts ───────────────────────────────────
+    _NON_CONTENT = frozenset({"page_artifact", "signature_block", "requisites_block"})
+    page_total_counts: dict[int, int] = {}
+    for el in elements:
+        try:
+            p = int(el.get("page") or 1)
+        except Exception:
+            p = 1
+        et = str(el.get("element_type") or "").strip().lower()
+        if et not in _NON_CONTENT:
+            page_total_counts[p] = page_total_counts.get(p, 0) + 1
+
+    # ── 2. Считаем per-page heading candidate counts и TOC presence ──────────
+    page_heading_counts: dict[int, int] = {}
+    page_has_toc_entries: dict[int, bool] = {}
+
+    for s in scored:
+        try:
+            p = int(getattr(s, "page", None) or 1)
+        except Exception:
+            p = 1
+        page_heading_counts[p] = page_heading_counts.get(p, 0) + 1
+        if getattr(s, "is_toc_entry", False):
+            page_has_toc_entries[p] = True
+
+    # ── 3. Определяем страницы, требующие demotion ───────────────────────────
+    dense_pages: set[int] = set()
+    for page, heading_count in page_heading_counts.items():
+        if heading_count < _HEADING_DENSITY_GUARD_MIN_CANDIDATES:
+            continue
+        if page_has_toc_entries.get(page, False):
+            # Страница уже помечена как TOC — не трогаем.
+            continue
+        total = max(1, page_total_counts.get(page, heading_count))
+        density = heading_count / total
+        if density > _HEADING_DENSITY_GUARD_THRESHOLD:
+            dense_pages.add(page)
+
+    if not dense_pages:
+        return scored
+
+    logger.info(
+        "STRUCTURE heading_density_guard_activated",
+        extra={
+            "dense_pages": sorted(dense_pages),
+            "total_scored": len(scored),
+        },
+    )
+
+    # ── 4. Demotion pass: ACCEPTED → AMBIGUOUS на плотных страницах ──────────
+    result: list[ScoredHeadingCandidate] = []
+    demoted_count = 0
+
+    for s in scored:
+        try:
+            p = int(getattr(s, "page", None) or 1)
+        except Exception:
+            p = 1
+
+        if p in dense_pages and getattr(s, "status", None) == CandidateStatus.ACCEPTED:
+            s = _replace_scored_candidate_status(
+                s,
+                new_status=CandidateStatus.AMBIGUOUS,
+                extra_reason="heading_density_guard",
+            )
+            demoted_count += 1
+
+        result.append(s)
+
+    if demoted_count:
+        logger.info(
+            "STRUCTURE heading_density_guard_demoted",
+            extra={
+                "demoted_count": demoted_count,
+                "dense_pages": sorted(dense_pages),
+            },
+        )
+
+    return result
+
 
 
 def _global_signals_from_bundle(
@@ -595,6 +787,7 @@ def _build_evidence_bundle_from_scored(
         evidence_candidates,
         appendix_markers,
         crossref_anchors,
+        elements=elements,
     )
 
     toc_detected = any(c.is_toc_entry for c in evidence_candidates)
@@ -673,6 +866,11 @@ def run_phase2(
     if bool(getattr(settings, "STRUCTURE_ENABLE_HEADING_LLM_REFINER", False)) and scored:
         scored = _apply_llm_refiner(scored, elements, document_id)
         llm_applied = True
+
+    # Шаг 2.5: B2 Heading Density Guard
+    # Post-scoring demotion pass: демотирует ACCEPTED → AMBIGUOUS
+    # на страницах с аномально высокой heading density без TOC confirmation.
+    scored = _apply_heading_density_guard(scored, elements)
 
     # Шаг 3: evidence bundle из готовых scored candidates
     evidence_bundle = _build_evidence_bundle_from_scored(scored, elements)
