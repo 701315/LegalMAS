@@ -123,13 +123,55 @@ def _safe_to_dict(value: Any) -> dict[str, Any]:
     return {}
 
 
-def _is_appendix_like_text(value: Any) -> bool:
+def _is_true_appendix_family_text(value: Any) -> bool:
+    """
+    Narrow appendix-family predicate for structural assessment.
+
+    Only true appendix-family:
+    - appendix / appendices
+    - приложение / приложения
+    - annex / annexure
+    - attachment
+
+    Deliberately excludes schedule / exhibit because they are
+    separate catalog families that should NOT inflate appendix-root
+    signals or suppress valid main sections in quality gates.
+
+    For boundary detection and segmentation, the broader
+    APPENDIX_RE / infer_boundary_family_from_text() in patterns.py
+    is the correct predicate (and it correctly groups schedule/exhibit
+    with appendix for boundary purposes).
+    """
     normalized = _safe_str(value).strip().lower()
     if not normalized:
         return False
     return (
         normalized.startswith("appendix")
         or normalized.startswith("приложение")
+        or normalized.startswith("приложени")
+        or normalized.startswith("annex")
+        or normalized.startswith("attachment")
+    )
+
+
+def _is_catalog_family_text(value: Any) -> bool:
+    """
+    Broad catalog-family predicate: any non-main-contract structural scope.
+
+    Includes true appendix family + schedule + exhibit.
+    Use this only when you need to know "is this scope a catalog-like
+    document part" regardless of specific family.
+
+    For structural assessment (root counting, quality gates),
+    prefer _is_true_appendix_family_text() instead.
+    """
+    normalized = _safe_str(value).strip().lower()
+    if not normalized:
+        return False
+    return (
+        normalized.startswith("appendix")
+        or normalized.startswith("приложение")
+        or normalized.startswith("приложени")
         or normalized.startswith("annex")
         or normalized.startswith("schedule")
         or normalized.startswith("exhibit")
@@ -474,20 +516,29 @@ def _count_root_sections(root_nodes: list[Any]) -> int:
     """
     Считает корневые main sections по deterministic numeric raw_uid.
 
+    Excludes only true appendix-family scopes (appendix, annex, attachment).
+    Schedule and exhibit scopes are NOT excluded: a numeric root inside
+    a schedule scope is still a valid main section for quality assessment.
+
     Transitional heuristic до formal scope-aware canonical tree artifact.
     """
     count = 0
     for node in root_nodes:
         raw_uid = _safe_str(getattr(node, "raw_uid", "")).strip()
         scope = _safe_str(getattr(node, "scope", "")).strip()
-        if raw_uid.isdigit() and not _is_appendix_like_text(scope):
+        if raw_uid.isdigit() and not _is_true_appendix_family_text(scope):
             count += 1
     return count
 
 
 def _count_appendix_roots(root_nodes: list[Any]) -> int:
     """
-    Считает appendix-like root nodes.
+    Считает true appendix-family root nodes.
+
+    Only counts nodes whose scope/uid/title starts with true appendix-family
+    keywords (appendix, annex, attachment, приложение).
+    Schedule and exhibit are deliberately excluded to avoid inflating
+    appendix-root signals in quality assessment.
 
     Transitional heuristic:
     приоритетно используем scope, затем effective_uid/title/raw_uid.
@@ -500,10 +551,10 @@ def _count_appendix_roots(root_nodes: list[Any]) -> int:
         raw_uid = _safe_str(getattr(node, "raw_uid", "")).strip()
 
         if (
-            _is_appendix_like_text(scope)
-            or _is_appendix_like_text(effective_uid)
-            or _is_appendix_like_text(title)
-            or _is_appendix_like_text(raw_uid)
+            _is_true_appendix_family_text(scope)
+            or _is_true_appendix_family_text(effective_uid)
+            or _is_true_appendix_family_text(title)
+            or _is_true_appendix_family_text(raw_uid)
         ):
             count += 1
     return count
