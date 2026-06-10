@@ -191,6 +191,20 @@ _DETERMINISTIC_SOURCES = frozenset({
     "default_mapping",
 })
 
+# Типы юнитов, для которых LLM может добавить полезные topic_tags,
+# даже если structural classification уже завершена deterministically.
+# Типы НЕ в этом списке будут skip-нуты даже при пустых topics.
+_TOPIC_COMPLETION_ELIGIBLE_TYPES = frozenset({
+    LegalUnitType.OBLIGATION,
+    LegalUnitType.PAYMENT_TERM,
+    LegalUnitType.CONFIDENTIALITY,
+    LegalUnitType.INDEMNIFICATION,
+    LegalUnitType.TERMINATION_PROVISION,
+    LegalUnitType.LIABILITY_PROVISION,
+    LegalUnitType.NOTICE,
+    LegalUnitType.WARRANTY,
+    LegalUnitType.DISPUTE_RESOLUTION,
+})
 
 def _is_deterministic_source(unit: LegalUnit) -> bool:
     """
@@ -204,6 +218,93 @@ def _is_deterministic_source(unit: LegalUnit) -> bool:
     source = diagnostics.get("unit_type_source", "")
     return source in _DETERMINISTIC_SOURCES
 
+def _is_topic_completion_candidate(
+    unit: LegalUnit,
+    *,
+    policy: "SemanticEnrichmentPolicy",
+) -> bool:
+    """
+    Проверяет, нужна ли topic completion для deterministic unit.
+
+    Topic completion path — это когда:
+    - structural classification уже сделана deterministically;
+    - но topic_tags пустые;
+    - тип юнита входит в allowlist topic-enrichable types;
+    - текст достаточно длинный для meaningful topic inference;
+    - policy разрешает этот path.
+
+    Возвращает True если unit должен пройти enrichment
+    только ради topics, даже если type/function уже известны.
+    """
+    if not policy.allow_topic_completion_for_deterministic_units:
+        return False
+
+    if not _is_deterministic_source(unit):
+        return False
+
+    if unit.unit_type not in _TOPIC_COMPLETION_ELIGIBLE_TYPES:
+        return False
+
+    if unit.topic_tags:
+        # Topics уже есть — completion не нужна.
+        return False
+
+    text = _get_unit_text(unit)
+    if len(text) < policy.min_text_chars_topic_completion:
+        return False
+
+    return True
+
+
+def _is_unit_semantically_complete(
+    unit: LegalUnit,
+    *,
+    policy: "SemanticEnrichmentPolicy",
+) -> bool:
+    """
+    Проверяет, является ли unit семантически достаточным для пропуска enrichment.
+
+    Unit semantically complete если:
+    - structural classification завершена deterministically;
+    - semantic gap отсутствует:
+        * topics уже заполнены;
+        * или тип не является topic-enrichable;
+        * или policy не разрешает topic completion.
+
+    Это основной predicate для нового skip reason
+    'already_semantically_complete'.
+    Заменяет старый грубый 'already_classified_by_rules'.
+    """
+    type_known = (
+        unit.unit_type is not None
+        and unit.unit_type != LegalUnitType.UNKNOWN
+    )
+
+    if not type_known:
+        return False
+
+    if not _is_deterministic_source(unit):
+        return False
+
+    function_known = (
+        unit.clause_function is not None
+        and unit.clause_function != ClauseFunction.UNKNOWN
+    )
+
+    if not function_known:
+        derived = _default_clause_function_for_type(unit.unit_type)
+        function_known = derived != ClauseFunction.UNKNOWN
+
+    if not function_known:
+        return False
+
+    # Structural completeness есть. Проверяем semantic completeness.
+    if _is_topic_completion_candidate(unit, policy=policy):
+        # Есть semantic gap — topics пусты и тип enrichable.
+        # Unit НЕ является semantically complete.
+        return False
+
+    return True
 
 def is_unit_eligible_for_enrichment(
     unit: LegalUnit,
@@ -213,11 +314,29 @@ def is_unit_eligible_for_enrichment(
     """
     Проверяет, стоит ли отправлять LegalUnit в LLM enrichment.
 
-    Quality-first, но безопасно:
-    - technical fallback исключаем;
-    - heading-only исключаем;
-    - пустой/слишком короткий текст исключаем;
-    - already fully classified by deterministic rules исключаем.
+    E1.2 — Tighter eligibility с возвратом semantic value.
+
+    Eligibility logic:
+    1. Жёсткие structural skip:
+       - missing_unit_id, technical_fallback, heading_only, text_too_short.
+
+    2. Type/function unknown → eligible (стандартный случай).
+
+    3. Deterministic structurally complete units (type + function known):
+       - Если topic completion candidate:
+         topics пустые + enrichable type + текст достаточно длинный
+         → eligible (topic completion path).
+       - Если semantically complete:
+         topics уже заполнены или тип не enrichable
+         → skip as 'already_semantically_complete'.
+
+    4. Non-deterministic source → eligible (type может быть переосмыслен LLM).
+
+    Ключевое изменение от старой логики:
+    - Убран грубый 'already_classified_by_rules'.
+    - Введена semantic completeness как настоящий skip criterion.
+    - Deterministic units с known type/function, но пустыми topics
+      теперь могут проходить enrichment для topic completion.
     """
     if not unit.unit_id:
         return False, "missing_unit_id"
@@ -234,39 +353,10 @@ def is_unit_eligible_for_enrichment(
     if len(text) < policy.min_text_chars:
         return False, "text_too_short"
 
-    # E1: Skip units already fully classified by deterministic rules.
-    # If both unit_type and clause_function are known from rule-based sources,
-    # LLM enrichment adds no value — skip to save LLM budget.
-    if policy.skip_already_classified_units:
-        type_known = (
-            unit.unit_type is not None
-            and unit.unit_type != LegalUnitType.UNKNOWN
-        )
-
-        # Пробуем вывести clause_function из type если она неизвестна.
-        # Это deterministic default mapping — без LLM.
-        # Управляется флагом skip_type_known_with_derivable_function.
-        effective_clause_function = unit.clause_function
-        if (
-            type_known
-            and policy.skip_type_known_with_derivable_function
-            and (
-                unit.clause_function is None
-                or unit.clause_function == ClauseFunction.UNKNOWN
-            )
-        ):
-            derived = _default_clause_function_for_type(unit.unit_type)
-            if derived != ClauseFunction.UNKNOWN:
-                effective_clause_function = derived
-
-        function_known = (
-            effective_clause_function is not None
-            and effective_clause_function != ClauseFunction.UNKNOWN
-        )
-        source_deterministic = _is_deterministic_source(unit)
-
-        if type_known and function_known and source_deterministic:
-            return False, "already_classified_by_rules"
+    # E1.2: Semantic completeness check.
+    if policy.skip_semantically_complete_units:
+        if _is_unit_semantically_complete(unit, policy=policy):
+            return False, "already_semantically_complete"
 
     return True, None
 
@@ -317,6 +407,11 @@ def explain_unit_enrichment_eligibility(
         if derived != ClauseFunction.UNKNOWN:
             return "function_unknown_but_derivable"
         return "function_unknown_no_default_mapping"
+
+    # type + function known + deterministic source.
+    # Check if eligible via topic completion path.
+    if _is_topic_completion_candidate(unit, policy=policy):
+        return "topic_completion_needed"
 
     return "eligible_other"
 
@@ -613,11 +708,14 @@ def make_policy_from_settings() -> SemanticEnrichmentPolicy:
             min_text_chars=int(
                 getattr(settings, "SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS", 40)
             ),
-            skip_already_classified_units=bool(
-                getattr(settings, "SEMANTIC_ENRICHMENT_SKIP_ALREADY_CLASSIFIED", True)
+            skip_semantically_complete_units=bool(
+                getattr(settings, "SEMANTIC_ENRICHMENT_SKIP_SEMANTICALLY_COMPLETE", True)
             ),
-            skip_type_known_with_derivable_function=bool(
-                getattr(settings, "SEMANTIC_ENRICHMENT_SKIP_TYPE_KNOWN_DERIVABLE_FUNCTION", True)
+            allow_topic_completion_for_deterministic_units=bool(
+                getattr(settings, "SEMANTIC_ENRICHMENT_ALLOW_TOPIC_COMPLETION", True)
+            ),
+            min_text_chars_topic_completion=int(
+                getattr(settings, "SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS_TOPIC_COMPLETION", 80)
             ),
         )
     except Exception:

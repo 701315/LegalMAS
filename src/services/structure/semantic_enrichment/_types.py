@@ -76,9 +76,10 @@ class SemanticEnrichmentPolicy:
     # eligibility
     skip_technical_fallback_units: bool = True
     skip_heading_only_units: bool = True
-    skip_already_classified_units: bool = True
-    skip_type_known_with_derivable_function: bool = True
+    skip_semantically_complete_units: bool = True
+    allow_topic_completion_for_deterministic_units: bool = True
     min_text_chars: int = 40
+    min_text_chars_topic_completion: int = 80
 
     # thresholds
     min_confidence_fill_missing: float = 0.72
