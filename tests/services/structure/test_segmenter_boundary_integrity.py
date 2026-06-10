@@ -264,6 +264,66 @@ class TestRunningHeaderDeduplication:
         )
 
 
+class TestRunningFooterDeduplication:
+    """Same appendix title repeated as running footer must NOT cause re-split."""
+
+    def test_repeated_appendix_title_footer_not_split(self) -> None:
+        elements = [
+            _el("ДОГОВОР", page=1),
+            _body("Основной текст договора.", page=1),
+            _body("Продолжение основного текста.", page=2),
+
+            # Реальная boundary на page 3.
+            _el("Приложение № 1 Спецификация", page=3),
+            _body("Содержательное тело приложения, страница 1.", page=3),
+            # Повторяющийся footer внизу page 3 — первое вхождение должно быть сохранено.
+            _el("Приложение № 1 Спецификация", page=3),
+
+            _body("Содержательное тело приложения, страница 2.", page=4),
+            # Running footer на page 4 — не должен породить новый split.
+            _el("Приложение № 1 Спецификация", page=4),
+
+            _body("Содержательное тело приложения, страница 3.", page=5),
+            # Running footer на page 5 — не должен породить новый split.
+            _el("Приложение № 1 Спецификация", page=5),
+        ]
+
+        segments = segment_elements("doc-footer-1", elements)
+        appendix_segments = [s for s in segments if s.segment_type == "appendix"]
+
+        # Должен остаться ровно один appendix segment.
+        assert len(appendix_segments) == 1, (
+            f"Running footer caused false splits: {len(appendix_segments)} appendix segments"
+        )
+
+    def test_short_page_top_bottom_overlap_does_not_duplicate_detection(self) -> None:
+        """
+        На короткой странице top и bottom windows пересекаются.
+        Детектор не должен учитывать один и тот же индекс дважды
+        и не должен создавать ложные дополнительные splits.
+        """
+        elements = [
+            _el("ДОГОВОР", page=1),
+            _body("Основной текст договора.", page=1),
+
+            # Реальная boundary.
+            _el("Приложение № 2 Перечень имущества", page=2),
+            _body("Строка 1.", page=2),
+            # Короткая страница: тот же текст внизу.
+            _el("Приложение № 2 Перечень имущества", page=2),
+
+            _body("Строка 2.", page=3),
+            _el("Приложение № 2 Перечень имущества", page=3),
+        ]
+
+        segments = segment_elements("doc-footer-2", elements)
+        appendix_segments = [s for s in segments if s.segment_type == "appendix"]
+
+        assert len(appendix_segments) == 1, (
+            f"Short-page edge overlap caused false splits: {len(appendix_segments)} appendix segments"
+        )
+
+
 # ─── Amendment / Addendum boundary ──────────────────────────────────────────
 
 

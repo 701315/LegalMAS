@@ -54,27 +54,74 @@ def _should_preserve_first_repeated_boundary_occurrence(
     return is_boundary_position(elements, index, text)
 
 
+def _collect_page_edge_indices(
+    page_to_all_indices: dict[int, list[int]],
+) -> dict[int, list[int]]:
+    """
+    Возвращает индексы элементов около верхнего и нижнего края страницы.
+
+    Для каждой страницы берём:
+    - первые MAX_HEADER_LINES_TO_CHECK элементов
+    - последние MAX_HEADER_LINES_TO_CHECK элементов
+
+    Индексы объединяются без дублей и с сохранением исходного порядка.
+    Это позволяет детектировать не только running headers, но и running footers.
+    """
+    page_edge_indices: dict[int, list[int]] = {}
+
+    for page, idx_list in page_to_all_indices.items():
+        if not idx_list:
+            page_edge_indices[page] = []
+            continue
+
+        top = idx_list[:MAX_HEADER_LINES_TO_CHECK]
+        bottom = idx_list[-MAX_HEADER_LINES_TO_CHECK:]
+
+        merged: list[int] = []
+        seen: set[int] = set()
+
+        for idx in top + bottom:
+            if idx in seen:
+                continue
+            seen.add(idx)
+            merged.append(idx)
+
+        page_edge_indices[page] = merged
+
+    return page_edge_indices
+
+
 def detect_repeated_page_artifacts(
     elements: list[dict[str, Any]],
 ) -> set[int]:
-    """Определяет индексы элементов, являющихся running headers / page artifacts.
+    """Определяет индексы элементов, являющихся running headers / footers / page artifacts.
 
     Возвращает множество индексов, которые следует игнорировать при сборе
     boundary candidates.
+
+    Детектор работает по двум источникам:
+    1. Элементы уже классифицированные как ``page_artifact``.
+    2. Повторяющийся текст на page edges:
+       - в верхних строках страницы (running headers)
+       - в нижних строках страницы (running footers)
+
+    Первое вхождение повторяющегося boundary-like текста может быть сохранено,
+    если оно выглядит как настоящий boundary marker в boundary-позиции.
     """
-    page_first_indices: dict[int, list[int]] = defaultdict(list)
+    page_to_all_indices: dict[int, list[int]] = defaultdict(list)
     repeated_indices: set[int] = set()
 
     for idx, el in enumerate(elements):
         page = safe_page(el)
-        if len(page_first_indices[page]) < MAX_HEADER_LINES_TO_CHECK:
-            page_first_indices[page].append(idx)
+        page_to_all_indices[page].append(idx)
 
         if element_type(el) == "page_artifact":
             repeated_indices.add(idx)
 
+    page_edge_indices = _collect_page_edge_indices(page_to_all_indices)
+
     signature_hits: dict[str, list[int]] = defaultdict(list)
-    for _, idx_list in page_first_indices.items():
+    for _, idx_list in page_edge_indices.items():
         for idx in idx_list:
             if idx in repeated_indices:
                 continue
@@ -103,5 +150,6 @@ def detect_repeated_page_artifacts(
             repeated_indices.add(idx)
 
     return repeated_indices
+
 
 
