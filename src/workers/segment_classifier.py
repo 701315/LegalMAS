@@ -20,6 +20,7 @@ Segment Classifier Worker — segment-level классификация логи�
   - segment_confidence_zone
   - segment_applicable_triggers
   - segment_classification_details
+  - segment_classification_status
 
 Архитектура:
 - Внешняя Celery-таска sync (def), как и в других worker'ах.
@@ -32,7 +33,13 @@ Segment Classifier Worker — segment-level классификация логи�
   (build_legal_units_enrichment).
 
 Orchestration contract:
-- Retrigger делается ТОЛЬКО если classified_segments == total_segments.
+- Retrigger делается ТОЛЬКО если:
+  - terminal_segments == total_segments
+  - failed_segments == 0
+- Terminal statuses:
+  - classified
+  - unknown
+  - skipped
 - Partial result / no-segments / errors не retrigger-им orchestrator,
   чтобы не создать бесконечный orchestration loop.
 - По образцу classifier.py: retrigger — best-effort, ошибка retrigger
@@ -54,8 +61,7 @@ from typing import Any
 from classifiers.stage8._duplicate_handler import DuplicateHandler
 from classifiers.stage8.hybrid_classifier import HybridClassifier
 from core.exceptions import PermanentError
-from core.constants import SegmentClassificationStatus, SEGMENT_CLASSIFICATION_TERMINAL_STATUSES
-
+from core.constants import SegmentClassificationStatus
 from core.logging import get_logger
 from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
@@ -270,8 +276,14 @@ def classify_document_segments(self, document_id: str, **kwargs) -> dict:
     (build_legal_units_enrichment).
 
     Orchestration contract:
-    - Retrigger только если classified_segments == total_segments.
-    - Partial / no-segments не retrigger-им, чтобы избежать loop.
+    - Retrigger только если:
+      - terminal_segments == total_segments
+      - failed_segments == 0
+    - Terminal statuses:
+      - classified
+      - unknown
+      - skipped
+    - Partial / no-segments / errors не retrigger-им, чтобы избежать loop.
     - Retrigger best-effort: ошибка не ломает результат классификации.
     """
     _ = self
@@ -325,9 +337,9 @@ def classify_document_segments(self, document_id: str, **kwargs) -> dict:
                 },
             )
     elif run_id and status == "completed":
-        # completed, но не все сегменты классифицированы — не retrigger-им.
+        # completed, но не все сегменты достигли terminal outcome — не retrigger-им.
         logger.warning(
-            "Segment classification completed partially; "
+            "Segment classification not terminal for all segments; "
             "orchestrator not retriggered to avoid rescheduling loop",
             extra={
                 "document_id": document_id,
@@ -335,7 +347,10 @@ def classify_document_segments(self, document_id: str, **kwargs) -> dict:
                 "deal_id": deal_id,
                 "tenant_id": tenant_id,
                 "total_segments": total_segments,
+                "terminal_segments": terminal_segments,
                 "classified_segments": classified_segments,
+                "unknown_segments": unknown_segments,
+                "failed_segments": failed_segments,
                 "skipped_count": skipped_count,
             },
         )
@@ -353,10 +368,14 @@ async def _classify_document_segments_async(
     Возвращает dict с полями:
     - status: "completed" | "skipped" | "failed"
     - total_segments: int
-    - classified_segments: int
+    - terminal_segments: int
+    - classified_segments: int        # только typed
+    - unknown_segments: int
     - skipped_count: int
+    - failed_segments: int
     - processed_segments: list
     - skipped_segments: list
+    - failed_segment_details: list
     - duration_ms: int
 
     Не делает retrigger — это ответственность sync entrypoint
@@ -370,6 +389,7 @@ async def _classify_document_segments_async(
 
     processed_segments: list[dict[str, Any]] = []
     skipped_segments: list[dict[str, Any]] = []
+    failed_segments: list[dict[str, Any]] = []
     total_segments = 0
     classified_segments = 0     # processed by classifier (typed + unknown)
     typed_segments_count = 0    # final_type определён
@@ -419,10 +439,14 @@ async def _classify_document_segments_async(
                     "status": "skipped",
                     "reason": "no_segments",
                     "total_segments": 0,
+                    "terminal_segments": 0,
                     "classified_segments": 0,
+                    "unknown_segments": 0,
                     "skipped_count": 0,
+                    "failed_segments": 0,
                     "processed_segments": [],
                     "skipped_segments": [],
+                    "failed_segment_details": [],
                     "duration_ms": int((time.time() - start_time) * 1000),
                 }
 
@@ -440,8 +464,12 @@ async def _classify_document_segments_async(
                                 "status": "skipped",
                                 "reason": "no_segments",
                                 "total_segments": 0,
+                                "terminal_segments": 0,
                                 "classified_segments": 0,
+                                "unknown_segments": 0,
                                 "skipped_count": 0,
+                                "failed_segments": 0,
+                                "failed_segment_details": [],
                                 "duration_ms": result["duration_ms"],
                             },
                         )
@@ -602,7 +630,7 @@ async def _classify_document_segments_async(
                         error=str(e),
                     )
                     failed_segments_count += 1
-                    skipped_segments.append(
+                    failed_segments.append(
                         {
                             "segment_id": segment_id,
                             "segment_order": getattr(segment, "segment_order", None),
@@ -634,7 +662,7 @@ async def _classify_document_segments_async(
 
             duration_ms = int((time.time() - start_time) * 1000)
 
-            terminal_segments = classified_segments  # typed + unknown
+            terminal_segments = classified_segments + len(skipped_segments)
             # classified_segments считает все обработанные классификатором (typed + unknown)
             # typed_segments_count — только те, где тип определён
             # unknown_segments_count — где тип не определён
@@ -646,13 +674,14 @@ async def _classify_document_segments_async(
                 "document_version_id": document_version_id,
                 "status": "completed",
                 "total_segments": total_segments,
-                "terminal_segments": terminal_segments + len(skipped_segments),
+                "terminal_segments": terminal_segments,
                 "classified_segments": typed_segments_count,
                 "unknown_segments": unknown_segments_count,
                 "skipped_count": len(skipped_segments),
                 "failed_segments": failed_segments_count,
                 "processed_segments": processed_segments,
                 "skipped_segments": skipped_segments,
+                "failed_segment_details": failed_segments,
                 "duration_ms": duration_ms,
             }
 
@@ -669,13 +698,14 @@ async def _classify_document_segments_async(
                             "document_version_id": document_version_id,
                             "status": "completed",
                             "total_segments": total_segments,
-                            "terminal_segments": terminal_segments + len(skipped_segments),
+                            "terminal_segments": terminal_segments,
                             "classified_segments": typed_segments_count,
                             "unknown_segments": unknown_segments_count,
                             "skipped_count": len(skipped_segments),
                             "failed_segments": failed_segments_count,
                             "processed_segments": processed_segments,
                             "skipped_segments": skipped_segments,
+                            "failed_segment_details": failed_segments,
                             "duration_ms": duration_ms,
                         },
                     )
