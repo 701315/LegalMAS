@@ -496,9 +496,21 @@ class DocumentRepository:
             semver=semver,
         )
 
+        # Вычисляем business outcome classification.
+        # Логика намеренно внутри save_classification_result,
+        # а не снаружи — единая точка определения outcome.
+        from core.constants import DocumentClassificationOutcome
+
+        if final_type is not None and str(final_type).strip():
+            _outcome = DocumentClassificationOutcome.TYPED.value
+        else:
+            _outcome = DocumentClassificationOutcome.UNKNOWN.value
+
         document.doc_type = final_type
         document.classification_confidence = final_confidence
         document.classification_level = level
+        document.classification_outcome = _outcome
+
         document.language = language
         document.jurisdiction_guess = jurisdiction
         document.applicable_triggers = applicable_triggers
@@ -516,6 +528,7 @@ class DocumentRepository:
                 "final_type": final_type,
                 "final_confidence": final_confidence,
                 "classification_level": level,
+                "classification_outcome": _outcome,
                 "instruction_version_id": (
                     str(instruction_version_id) if instruction_version_id else None
                 ),
@@ -524,6 +537,33 @@ class DocumentRepository:
         )
 
         return document
+
+    async def set_classification_outcome_failed(
+        self,
+        document_id: uuid.UUID,
+    ) -> None:
+        """
+        Явно ставит classification_outcome = failed.
+
+        Вызывается из classifier worker при PermanentError,
+        ПОСЛЕ set_failed() (который ставит document.status = failed).
+
+        Разделение ответственности:
+        - set_failed()                      → pipeline stage (status)
+        - set_classification_outcome_failed → business outcome (classification_outcome)
+        """
+        from core.constants import DocumentClassificationOutcome
+
+        stmt = (
+            update(Document)
+            .where(Document.id == document_id)
+            .values(classification_outcome=DocumentClassificationOutcome.FAILED.value)
+        )
+        await self.session.execute(stmt)
+
+
+
+
 
     # ── Analytics helpers ─────────────────────────────────────────────────────
 
@@ -645,6 +685,7 @@ class DocumentRepository:
                     "classification_level": None,
                     "classification_details": None,
                     "applicable_triggers": None,
+                    "classification_outcome": "pending",
                 }
             )
 

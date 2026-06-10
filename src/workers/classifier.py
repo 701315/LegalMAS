@@ -367,6 +367,7 @@ async def _classify_document_async(
                         "document_id": str(doc.id),
                         "document_version_id": str(version.id),
                         "doc_type": final_type,
+                        "classification_outcome": "typed" if final_type else "unknown",
                         "classification_confidence": final_conf,
                         "classification_level": level,
                         "classification_requires_review": classification_requires_review,
@@ -399,15 +400,22 @@ async def _classify_document_async(
         return {
             "document_id": document_id,
             "status": DocumentStatus.FAILED.value,
+            "classification_outcome": "failed",
             "error": str(e),
             "committed": False,
         }
 
     duration_ms = int((time.time() - start_time) * 1000)
 
+    # Вычисляем outcome для return value (для логов и мониторинга).
+    # В БД outcome уже записан внутри save_classification_result().
+    _final = classification_result.get("final_type") if classification_result else None
+    _return_outcome = "typed" if (_final and str(_final).strip()) else "unknown"
+
     return {
         "document_id": document_id,
         "status": DocumentStatus.CLASSIFIED.value,
+        "classification_outcome": _return_outcome,
         "doctype": classification_result.get("final_type") if classification_result else None,
         "confidence": classification_result.get("final_confidence")
         if classification_result
@@ -445,6 +453,17 @@ async def _mark_failed(
         run_id=run_id,
     )
 
+    # Явно ставим business outcome = failed.
+    # set_failed() выше ставит pipeline stage (document.status = failed),
+    # а здесь ставим business outcome classification.
+    try:
+        await repo.set_classification_outcome_failed(doc_id)
+    except Exception:
+        logger.warning(
+            "Classifier: failed to persist classification_outcome=failed",
+            document_id=str(doc_id),
+        )
+
     document = await repo.get_by_id(doc_id)
     if not document:
         logger.warning(
@@ -471,6 +490,7 @@ async def _mark_failed(
                 "stage": "classify",
                 "reason": "classification_error",
                 "message": message,
+                "classification_outcome": "failed",
                 "run_id": str(run_id) if run_id else None,
             },
         )

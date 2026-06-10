@@ -13,7 +13,7 @@
   количеству low-confidence документов и документам с неизвестным типом;
 - считает покрытие триггеров (applicable_triggers) по документам;
 - формирует отсортированный список документов с низкой уверенностью
-  и список документов с типом Generic/Unknown/None.
+  и список документов с unknown classification outcome.
 
 Используется эндпоинтом GET /api/v1/runs/{run_id}/classification_report
 в api.endpoints.runs для отдачи отчёта по качеству классификации Run.
@@ -26,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.schemas.runs import ClassificationReportResponse, ClassificationStats
+from core.constants import DocumentClassificationOutcome
 from db.models.document import Document
 from db.repositories.run_repo import RunRepository
 
@@ -113,7 +114,21 @@ class RunAnalyticsService:
                 )
 
             # unknown type
-            if not doc.doc_type or doc.doc_type in ("Generic", "Unknown"):
+            outcome = str(getattr(doc, "classification_outcome", "") or "")
+
+            # Канонический источник истины — classification_outcome.
+            is_unknown = outcome == DocumentClassificationOutcome.UNKNOWN.value
+
+            # Defensive fallback для исторических строк, где UNKNOWN/Generic
+            # могли храниться напрямую в doc_type.
+            if not is_unknown and outcome in (
+                "",
+                DocumentClassificationOutcome.TYPED.value,
+            ):
+                normalized_doc_type = (doc.doc_type or "").strip()
+                is_unknown = normalized_doc_type in {"Generic", "Unknown"}
+
+            if is_unknown:
                 stats.unknown_doc_type_count += 1
                 unknown_type.append(
                     {

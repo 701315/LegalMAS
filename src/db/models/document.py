@@ -64,6 +64,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -225,6 +226,19 @@ class Document(Base):
         ),
     )
 
+    classification_outcome: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        server_default="pending",
+        comment=(
+            "Business outcome of document-level classification: "
+            "pending | typed | unknown | failed. "
+            "НЕ путать с Document.status (pipeline stage). "
+            "Отвечает на вопрос: был ли тип документа определён?"
+        ),
+    )
+
+
     playbook_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("playbook_versions.id", ondelete="SET NULL"),
@@ -247,6 +261,7 @@ class Document(Base):
 
     __table_args__ = (
         Index("idx_documents_deal_status", "deal_id", "status"),
+        Index("idx_documents_classification_outcome", "classification_outcome"),
         Index("idx_documents_deal_sha256", "deal_id", "sha256_file"),
         Index("idx_documents_instruction_version", "doc_type_instruction_version_id"),
         Index("idx_documents_bundle", "bundle_id"),
@@ -455,12 +470,12 @@ class DocumentVersion(Base):
         Index(
             "idx_docver_file_graph_ref",
             "document_id",
-            postgresql_where="file_graph_ref IS NOT NULL",
+            postgresql_where=text("file_graph_ref IS NOT NULL"),
         ),
         Index(
             "idx_docver_chunks_manifest_v2_ref",
             "document_id",
-            postgresql_where="chunks_manifest_v2_ref IS NOT NULL",
+            postgresql_where=text("chunks_manifest_v2_ref IS NOT NULL"),
         ),
     )
 
@@ -692,6 +707,11 @@ class DocumentSegment(Base):
             "document_version_id",
         ),
         Index(
+            "idx_segments_version_classification_status",
+            "document_version_id",
+            "segment_classification_status",
+        ),
+        Index(
             "idx_document_segments_document",
             "document_id",
         ),
@@ -703,7 +723,7 @@ class DocumentSegment(Base):
         Index(
             "idx_document_segments_primary",
             "document_version_id",
-            postgresql_where="is_primary = true",
+            postgresql_where=text("is_primary = true"),
         ),
         Index(
             "idx_document_segments_instruction_version",
@@ -835,4 +855,12 @@ class DocumentStageExecution(Base):
         Index("idx_dse_run_created", "run_id", "created_at"),
         Index("idx_dse_docver_created", "document_version_id", "created_at"),
         Index("idx_dse_doc_stage_status", "document_id", "to_status", "status"),
+        Index(
+            "uq_dse_active_stage_per_version_task",
+            "run_id",
+            "document_version_id",
+            "task_name",
+            unique=True,
+            postgresql_where=text("status IN ('planned', 'dispatched', 'started')"),
+        ),
     )

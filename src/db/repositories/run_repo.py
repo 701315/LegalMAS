@@ -41,8 +41,7 @@ from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-from core.constants import RunStatus
-
+from core.constants import DocumentClassificationOutcome, RunStatus
 
 from ..models.document import Document
 from ..models.result import CheckResult
@@ -234,6 +233,7 @@ class RunRepository:
             Document.classification_level,
             Document.classification_confidence,
             Document.doc_type,
+            Document.classification_outcome,
         ).where(Document.id.in_(select(subq)))
         result = await self.session.execute(stmt)
         rows = result.all()
@@ -261,16 +261,30 @@ class RunRepository:
         }
 
 
-        for level, confidence, doc_type in rows:
+        for level, confidence, doc_type, classification_outcome in rows:
             raw_level = level or "L0"
             level_norm = raw_level.replace("_", "").upper()
             key = level_map.get(level_norm, "l0_no_match")
             stats[key] += 1
 
-
             if confidence and 0 < confidence < 0.6:
                 stats["low_confidence_count"] += 1
-            if not doc_type or doc_type in ("Generic", "Unknown"):
+
+            outcome = str(classification_outcome or "")
+
+            # Канонический источник истины — classification_outcome.
+            is_unknown = outcome == DocumentClassificationOutcome.UNKNOWN.value
+
+            # Defensive fallback для исторических строк, где UNKNOWN/Generic
+            # могли храниться напрямую в doc_type.
+            if not is_unknown and outcome in (
+                "",
+                DocumentClassificationOutcome.TYPED.value,
+            ):
+                normalized_doc_type = (doc_type or "").strip()
+                is_unknown = normalized_doc_type in {"Generic", "Unknown"}
+
+            if is_unknown:
                 stats["unknown_doc_type_count"] += 1
 
 

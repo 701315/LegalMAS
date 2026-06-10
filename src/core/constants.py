@@ -292,3 +292,29 @@ SEGMENT_CLASSIFICATION_TERMINAL_STATUSES: frozenset[str] = frozenset({
 })
 
 
+class DocumentClassificationOutcome(str, Enum):
+    """
+    Business outcome of document-level classification.
+
+    Это НЕ pipeline-stage статус (Document.status).
+    Отвечает на вопрос: "Каков итог classification для этого документа?"
+
+    Semantics:
+    - PENDING  — классификация ещё не выполнялась
+    - TYPED    — тип документа определён (doc_type заполнен)
+    - UNKNOWN  — классификация завершена, тип НЕ определён
+    - FAILED   — классификация завершилась ошибкой
+
+    Важно:
+    - UNKNOWN != PENDING: UNKNOWN означает, что классификатор
+      отработал до конца, но не смог определить тип.
+    - FAILED != UNKNOWN: FAILED означает техническую ошибку,
+      а не бизнес-результат "тип не распознан".
+    """
+
+    PENDING = "pending"
+    TYPED = "typed"
+    UNKNOWN = "unknown"
+    FAILED = "failed"
+
+    
