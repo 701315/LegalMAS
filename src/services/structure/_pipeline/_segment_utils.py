@@ -20,6 +20,7 @@ from services.structure.models import (
 from services.structure.segmenter import segment_elements
 
 from ._element_validation import segment_slice_is_valid
+from ._segment_content_validation import validate_segment_content
 from ._utils import pages_for_elements
 
 logger = get_logger(__name__)
@@ -99,6 +100,30 @@ def segment_document(
         logger.warning(
             "STRUCTURE segmentation_invalid_ranges_fallback_to_single_segment",
             extra={"document_id": document_id},
+        )
+        return make_single_segment_list(
+            document_id=document_id,
+            document_version_id=document_version_id,
+            elements=elements,
+        )
+
+    # B1: Content validation — non-blocking.
+    # Anomalies (empty, short, duplicates, overlaps) are logged as warnings.
+    # Pipeline falls back to single segment only if ALL segments are empty.
+    content_validation = validate_segment_content(
+        valid_segments,
+        elements,
+        document_id=document_id,
+    )
+
+    if not content_validation.all_valid:
+        logger.warning(
+            "STRUCTURE segmentation_all_segments_empty_fallback_to_single_segment",
+            extra={
+                "document_id": document_id,
+                "segments_count": len(valid_segments),
+                **content_validation.to_dict(),
+            },
         )
         return make_single_segment_list(
             document_id=document_id,
