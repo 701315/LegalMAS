@@ -116,6 +116,13 @@ export interface ReviewFinding {
   chunkId?: string | null;
   chunkIndex?: number | null;
 
+  // Canonical display semantics (NEW)
+  displayText?: string | null;
+  reviewStatus?: string | null;
+  reviewMessage?: string | null;
+  needsManualReview?: boolean;
+  uiMode?: string | null;
+
   cell: MatrixCellDTO;
 }
 
@@ -211,6 +218,13 @@ export interface ReviewExportRow {
 
   chunkId?: string | null;
   chunkIndex?: number | null;
+
+  // Canonical display semantics (NEW)
+  displayText?: string | null;
+  reviewStatus?: string | null;
+  reviewMessage?: string | null;
+  needsManualReview?: boolean;
+  uiMode?: string | null;
 }
 
 /**
@@ -224,7 +238,6 @@ export const DEFAULT_REVIEW_FILTER_STATE: ReviewFilterState = {
   selectedDocTypes: [],
   selectedOrigins: [],
 };
-
 
 
 

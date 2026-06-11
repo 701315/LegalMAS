@@ -47,6 +47,13 @@ export interface MatrixCellDetailsCell {
   chunkId?: string | null;
   chunkIndex?: number | null;
 
+  // Canonical display semantics (NEW)
+  displayText?: string | null;
+  reviewStatus?: string | null;
+  reviewMessage?: string | null;
+  needsManualReview?: boolean;
+  uiMode?: string | null;
+
   extractedFields: Array<{
     fieldName: string;
     fieldValue: string;
@@ -184,6 +191,44 @@ function isLowClassificationConfidence(
   confidence: number | null | undefined,
 ): boolean {
   return typeof confidence === "number" && confidence < 0.6;
+}
+
+function getReviewStatusLabel(value: string | null | undefined): string {
+  const normalized = value?.trim();
+  if (!normalized) return "—";
+
+  switch (normalized) {
+    case "needs_review":
+      return "Требует внимания юриста";
+    case "ok":
+      return "Проверка завершена";
+    case "not_applicable":
+      return "Неприменимо";
+    case "unclear":
+      return "Результат не определён";
+    default:
+      return normalized;
+  }
+}
+
+function getUiModeLabel(value: string | null | undefined): string {
+  const normalized = value?.trim();
+  if (!normalized) return "—";
+
+  switch (normalized) {
+    case "clause_presence":
+      return "Наличие оговорки";
+    case "extraction":
+      return "Извлечение значения";
+    case "risk_flag":
+      return "Риск-индикатор";
+    case "comparison":
+      return "Сравнение";
+    case "summary":
+      return "Сводка";
+    default:
+      return normalized;
+  }
 }
 
 function Section({
@@ -336,6 +381,13 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
 
   const confidenceText = getConfidenceText(cell.confidence);
   const humanResultText = getHumanResultText(cell.result, cell.severity);
+
+  // Primary display text: factual backend result или fallback на humanResultText.
+  const displayResultText =
+    cell.displayText?.trim() || humanResultText;
+
+  const reviewStatusLabel = getReviewStatusLabel(cell.reviewStatus);
+  const uiModeLabel = getUiModeLabel(cell.uiMode);
   const segmentHeading = getSegmentHeading(cell);
   const segmentMeta = getSegmentMeta(cell);
   const createdAtText = formatCreatedAt(cell.createdAt);
@@ -430,6 +482,7 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
       }
     >
       <div className="space-y-5">
+        {/* ── QC Review ──────────────────────────────────────────── */}
         <Section
           title="QC Review"
           subtitle="Статус и комментарий юридического review. Изменения применяются после нажатия Save."
@@ -510,6 +563,7 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
           </InfoCard>
         </Section>
 
+        {/* ── Контекст документа ─────────────────────────────────── */}
         <Section
           title="Контекст документа"
           subtitle="Документ, тип и сигналы классификации, которые помогают интерпретировать finding в review workflow."
@@ -562,6 +616,67 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
           </InfoCard>
         </Section>
 
+        {/* ── Результат анализа (NEW) ─────────────────────────────── */}
+        <Section
+          title="Результат анализа"
+          subtitle="Primary factual text, сформированный backend как canonical display_text."
+        >
+          <InfoCard>
+            <div className="space-y-3">
+              <div className="text-sm font-semibold leading-6 text-[var(--text-primary)]">
+                {displayResultText}
+              </div>
+
+              {!cell.displayText ? (
+                <p className="text-xs text-[var(--text-muted)]">
+                  display_text отсутствует — показан fallback по результату
+                  проверки.
+                </p>
+              ) : null}
+
+              <div className="flex flex-wrap gap-2">
+                <MetaPill>{reviewStatusLabel}</MetaPill>
+                {cell.needsManualReview ? (
+                  <MetaPill tone="warning">Требуется ручная проверка</MetaPill>
+                ) : null}
+                {cell.uiMode ? (
+                  <MetaPill>{uiModeLabel}</MetaPill>
+                ) : null}
+              </div>
+            </div>
+          </InfoCard>
+        </Section>
+
+        {/* ── Рекомендация системы (NEW) ──────────────────────────── */}
+        <Section
+          title="Рекомендация системы"
+          subtitle="Workflow/advisory layer: что система рекомендует юристу после анализа."
+        >
+          <InfoCard tone="subtle">
+            <div className="space-y-3">
+              {cell.reviewMessage ? (
+                <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">
+                  {cell.reviewMessage}
+                </p>
+              ) : (
+                <p className="text-xs text-[var(--text-faint)]">
+                  Система не добавила отдельную рекомендацию.
+                </p>
+              )}
+
+              <div className="space-y-2">
+                <InfoRow label="Workflow статус" value={reviewStatusLabel} />
+                <InfoRow
+                  label="Нужна ручная проверка"
+                  value={cell.needsManualReview ? "Да" : "Нет"}
+                />
+                <InfoRow label="UI mode" value={uiModeLabel} />
+              </div>
+            </div>
+          </InfoCard>
+        </Section>
+
+        {/* ── Результат ──────────────────────────────────────────── */}
         <Section
           title="Результат"
           subtitle="Статус проверки, severity, QC и основные сигналы для юридической оценки."
@@ -616,6 +731,7 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
           </InfoCard>
         </Section>
 
+        {/* ── Проверка ───────────────────────────────────────────── */}
         <Section
           title="Проверка"
           subtitle="Контекст конкретной проверки и source metadata для interpretation layer."
@@ -624,6 +740,7 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
             <div className="space-y-2">
               <InfoRow label="Проверка" value={checkName || checkId || "—"} />
               <InfoRow label="Источник" value={cell.origin || "—"} />
+              <InfoRow label="UI mode" value={uiModeLabel} />
               <InfoRow
                 label="Условная логика"
                 value={
@@ -636,6 +753,7 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
           </InfoCard>
         </Section>
 
+        {/* ── Evidence ───────────────────────────────────────────── */}
         <Section
           title="Evidence"
           subtitle="Фрагмент текста и привязка к странице, clause UID и viewer location."
@@ -663,6 +781,7 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
           </InfoCard>
         </Section>
 
+        {/* ── Segment / Chunk ─────────────────────────────────────── */}
         {(cell.segmentId ||
           cell.segmentTitle ||
           cell.segmentType ||
@@ -708,6 +827,7 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
           </Section>
         )}
 
+        {/* ── Извлечённые поля ────────────────────────────────────── */}
         <Section
           title="Извлечённые поля"
           subtitle="Нормализованные значения, извлечённые из evidence, с возможностью перейти к source location."
@@ -779,6 +899,7 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
           </InfoCard>
         </Section>
 
+        {/* ── Качество ───────────────────────────────────────────── */}
         <Section
           title="Качество"
           subtitle="Флаги качества и технические caveats, влияющие на доверие к finding."

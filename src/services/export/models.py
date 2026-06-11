@@ -1,3 +1,5 @@
+# src/services/export/models.py
+
 """
 Модели данных агрегатора и экспортёра LegalMAS.
 
@@ -218,6 +220,29 @@ class ExportRow:
         "DOCUMENT_TYPE"    — чек из YAML-инструкции типа документа
         "CONDITIONAL"      — условный чек по триггеру
 
+    Canonical display semantics (NEW):
+        display_text         — первичный human-readable factual текст результата,
+                               формируется result_semantics.py в result_saver.
+                               Это единственный источник primary cell text для
+                               DD Grid — агрегатор и фронтенд не переформируют.
+        machine_reason_code  — внутренний диагностический код для debugging,
+                               не показывается юристу напрямую.
+        review_status        — canonical workflow статус:
+                               "needs_review" | "ok" | "not_applicable" | "unclear"
+        review_message       — advisory explanation для юриста (рекомендация).
+        needs_manual_review  — явный workflow-флаг: True → требует ручной проверки.
+        ui_mode              — denormalized semantic type чека из CheckDefinition
+                               (например "clause_presence", "extraction", "risk_flag").
+
+    structured_data:
+        Raw structured payload из CheckResult.structured_data.
+        Нужен downstream в build_document_detail() и других UI-проекциях,
+        которые должны показывать исходные extracted values, а не только preview.
+
+    evidence_snippet:
+        Secondary raw summary. Приоритет: display_text → value_text.
+        Используется в TopRisk, DDRequest и Excel-экспорте как запасной текст.
+
     Segment/chunk provenance (NEW):
     - single-document: segment_id/chunk_id обычно пустые
     - multi-document: позволяют понять, к какому логическому сегменту/чанку относится строка
@@ -242,6 +267,7 @@ class ExportRow:
     qc_at: str | None = None  # ISO string
     document_id: str = ""
     run_id: str = ""
+    structured_data: dict[str, Any] = field(default_factory=dict)
     structured_data_preview: str = ""
     conditional_check_triggered: bool = False
     trigger_name: str = ""
@@ -255,6 +281,16 @@ class ExportRow:
     is_primary_segment: bool | None = None
     chunk_id: str = ""
     chunk_index: int | None = None
+    # ── Canonical display semantics ────────────────────────────────────────
+    # Denormalized из CheckResult — заполняются агрегатором из cr dict.
+    # Downstream consumers (deal_review_service, DD Grid, Excel) читают
+    # эти поля напрямую, не переформируют текст.
+    display_text: str | None = None
+    machine_reason_code: str | None = None
+    review_status: str | None = None
+    review_message: str | None = None
+    needs_manual_review: bool = False
+    ui_mode: str | None = None
 
 
 @dataclass
@@ -634,3 +670,4 @@ class DDMatrixResponse:
     quarantine_count: int = 0
     degraded_count: int = 0
     evidence_validity_rate: float = 1.0
+

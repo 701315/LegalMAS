@@ -250,6 +250,64 @@ class CheckResult(Base):
         nullable=True,
     )
 
+    # --- Canonical display semantics (Spec v2) ---
+
+    ui_mode: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment=(
+            "Denormalized ui_mode from CheckDefinition: "
+            "clause_presence, risk_detection, field_extraction, compliance"
+        ),
+    )
+
+    display_text: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Canonical human-facing factual text for DD Grid cell. "
+            "Single source of truth for primary display."
+        ),
+    )
+
+    machine_reason_code: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment=(
+            "Internal machine reason code (e.g. rules_confident_positive). "
+            "For diagnostics only, never shown as primary text."
+        ),
+    )
+
+    # --- Canonical review semantics (Spec v2) ---
+
+    review_status: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment=(
+            "Canonical review workflow status: "
+            "no_issue_detected, issue_detected, clause_missing, "
+            "unclear, manual_review_required, not_applicable, technical_failure"
+        ),
+    )
+
+    review_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Advisory explanation for lawyer. "
+            "Shown in drawer/details, never as primary cell text."
+        ),
+    )
+
+    needs_manual_review: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        comment="Explicit boolean flag for review workflow filtering.",
+    )
+
+
     __table_args__ = (
         Index("idx_results_run", "run_id"),
         Index("idx_results_doc", "document_id"),
@@ -284,5 +342,12 @@ class CheckResult(Base):
             "check_id",
             unique=True,
             postgresql_where=(segment_id.isnot(None)),
+        ),
+        Index("idx_results_review_status", "run_id", "review_status"),
+        Index(
+            "idx_results_manual_review",
+            "run_id",
+            "needs_manual_review",
+            postgresql_where=(needs_manual_review.is_(True)),
         ),
     )

@@ -197,12 +197,20 @@ def build_document_detail(
                 trigger_name=row.trigger_name,
                 structured_data=structured_data,
                 origin=row.origin,
-                # NEW: segment metadata (совпадает с DTO)
+                # Segment metadata
                 segment_id=row.segment_id or None,
                 segment_type=row.segment_type or None,
                 segment_title=row.segment_title or None,
                 segment_order=row.segment_order,
                 is_primary_segment=row.is_primary_segment,
+                # Canonical display semantics — thin projection из ExportRow.
+                # ExportRow уже несёт денормализованные поля из CheckResult.
+                # build_document_detail не переформирует текст — только проецирует.
+                display_text=row.display_text,
+                review_status=row.review_status,
+                review_message=row.review_message,
+                needs_manual_review=row.needs_manual_review,
+                ui_mode=row.ui_mode,
             )
         )
 
@@ -237,7 +245,7 @@ def build_dd_requests(agg: AggregatedResults) -> list[DDRequestDTO]:
             document_names=req.document_names,
             doc_types=req.doc_types,
             structured_values=req.structured_values,
-            # NEW: segment provenance для viewer navigation
+            # Segment provenance для viewer navigation
             segment_id=req.segment_id or None,
             segment_type=req.segment_type or None,
             segment_title=req.segment_title or None,
@@ -324,16 +332,20 @@ def build_dd_matrix(
     Алгоритм:
       1. Из agg.rows собираем реестр уникальных чеков (CheckMetaDTO).
          GLOBAL_PLAYBOOK получают меньший order_index и идут первыми.
-      2. Из agg.structured_value_rows строим индекс
-         (doc_id, check_id) → [ExtractedFieldDTO] для заполнения ячеек.
-         (пока без разбиения по сегментам, этого достаточно для MVP).
+      2. Из agg.structured_value_rows строим два индекса:
+         - segment-aware: (doc_id, seg_id, check_id) → [ExtractedFieldDTO]
+         - fallback:      (doc_id, check_id) → [ExtractedFieldDTO]
+         Segment-aware индекс используется для SegmentMatrixRowDTO ячеек,
+         fallback — для legacy DocumentMatrixRowDTO и как запасной вариант.
       3. Строим индекс результатов на уровне файла: (doc_id, check_id) → ExportRow.
          Это legacy-слой для DocumentMatrixRowDTO.
       4. Строим segment-ориентированные строки: группируем agg.rows по
          (document_id, segment_id), внутри — по check_id, выбираем "лучший"
          ExportRow по result/severity/confidence и формируем SegmentMatrixRowDTO.
+         MatrixCellDTO получает canonical display semantics из ExportRow.
       5. Строим legacy file-ориентированные строки (как было раньше), чтобы
          не ломать текущий фронт: DocumentMatrixRowDTO по (doc_id, check_id).
+         MatrixCellDTO также получает canonical display semantics.
       6. Сортируем строки по риску: сначала critical fail, затем прочие fail,
          карантинные документы в конце.
       7. Формируем global_check_ids и doc_type_check_ids для вкладок фронта.
@@ -402,18 +414,30 @@ def build_dd_matrix(
                     doc_type_check_ids[doc_type].append(check_id)
 
     # ------------------------------------------------------------------
-    # Шаг 2. Индекс структурированных значений: (doc_id, check_id) → [ExtractedFieldDTO]
+    # Шаг 2. Индекс структурированных значений
+    #
+    # Segment-aware ключ: (doc_id, seg_id, check_id)
+    #   Используется для ячеек segment_documents — каждый сегмент получает
+    #   только свои extracted values, а не все значения документа.
+    #
+    # Fallback ключ: (doc_id, check_id)
+    #   Используется для legacy file-level ячеек и как запасной вариант
+    #   когда segment-aware ключ не найден (seg_id пустой).
     # ------------------------------------------------------------------
-    sv_index: dict[tuple[str, str], list[ExtractedFieldDTO]] = defaultdict(list)
+    sv_index_segment: dict[tuple[str, str, str], list[ExtractedFieldDTO]] = defaultdict(list)
+    sv_index_fallback: dict[tuple[str, str], list[ExtractedFieldDTO]] = defaultdict(list)
+
     for sv in agg.structured_value_rows:
-        key = (sv.document_id, sv.check_id)
-        sv_index[key].append(
-            ExtractedFieldDTO(
-                field_name=sv.field_name,
-                field_value=sv.field_value,
-                field_format=sv.field_format,
-            )
+        extracted_field = ExtractedFieldDTO(
+            field_name=sv.field_name,
+            field_value=sv.field_value,
+            field_format=sv.field_format,
         )
+        seg_id = sv.segment_id or ""
+        # Segment-aware индекс
+        sv_index_segment[(sv.document_id, seg_id, sv.check_id)].append(extracted_field)
+        # Fallback индекс (doc-level) — агрегирует все сегменты
+        sv_index_fallback[(sv.document_id, sv.check_id)].append(extracted_field)
 
     # ------------------------------------------------------------------
     # Шаг 3. Индекс результатов на уровне файла: (doc_id, check_id) → ExportRow
@@ -460,7 +484,7 @@ def build_dd_matrix(
     for row in agg.rows:
         doc_order[row.document_id] = None
 
-    segment_rows: list[SegmentMatrixRowDTO] = []  # правильный тип
+    segment_rows: list[SegmentMatrixRowDTO] = []
 
     for (doc_id, seg_id), rows_for_segment in segment_groups.items():
         doc_meta = documents.get(doc_id, {})
@@ -474,8 +498,14 @@ def build_dd_matrix(
 
         for check_id, rows_for_check in by_check.items():
             best = select_best_row(rows_for_check)
-            sv_key = (doc_id, check_id)
-            extracted = sv_index.get(sv_key, [])
+
+            # Segment-aware extracted values:
+            # приоритет — точный ключ (doc_id, seg_id, check_id),
+            # fallback — (doc_id, check_id) для несегментированных документов.
+            sv_seg_key = (doc_id, seg_id, check_id)
+            extracted = sv_index_segment.get(sv_seg_key)
+            if extracted is None:
+                extracted = sv_index_fallback.get((doc_id, check_id), [])
 
             segment_results[check_id] = MatrixCellDTO(
                 result=best.result,
@@ -498,10 +528,17 @@ def build_dd_matrix(
                 is_primary_segment=best.is_primary_segment,
                 chunk_id=best.chunk_id or None,
                 chunk_index=best.chunk_index,
+                # Canonical display semantics — thin projection из ExportRow.
+                # build_dd_matrix не переформирует текст — только проецирует.
+                display_text=best.display_text,
+                review_status=best.review_status,
+                review_message=best.review_message,
+                needs_manual_review=best.needs_manual_review,
+                ui_mode=best.ui_mode,
             )
 
         segment_rows.append(
-            SegmentMatrixRowDTO(  # правильный класс
+            SegmentMatrixRowDTO(
                 document_id=doc_id,
                 document_name=doc_meta.get("name", ""),
                 doc_type=doc_meta.get("doc_type", "Generic"),
@@ -542,16 +579,16 @@ def build_dd_matrix(
                 snippet=export_row.evidence_snippet or "",
                 page=export_row.page,
                 clause_uid=export_row.clause_uid or "",
-                extracted=sv_index.get((doc_id, check_id), []),
+                extracted=sv_index_fallback.get((doc_id, check_id), []),
                 confidence=export_row.confidence or 0.0,
                 qc_status=export_row.qc_status or "pending",
-                qc_by=export_row.qc_by,  # ← ИСПРАВЛЕНО
-                qc_comment=export_row.qc_comment,  # ← ИСПРАВЛЕНО
-                qc_at=export_row.qc_at,  # ← ИСПРАВЛЕНО
+                qc_by=export_row.qc_by,
+                qc_comment=export_row.qc_comment,
+                qc_at=export_row.qc_at,
                 conditional_check_triggered=export_row.conditional_check_triggered,
                 trigger_name=export_row.trigger_name or "",
-                # segment_* / chunk_* здесь можно не заполнять, т.к. этот слой legacy;
-                # для честной навигации фронт должен использовать segment_documents.
+                # File-level строки не несут segment provenance —
+                # для навигации фронт использует segment_documents.
                 segment_id=None,
                 segment_type=None,
                 segment_title=None,
@@ -559,6 +596,12 @@ def build_dd_matrix(
                 is_primary_segment=None,
                 chunk_id=None,
                 chunk_index=None,
+                # Canonical display semantics — thin projection из ExportRow.
+                display_text=export_row.display_text,
+                review_status=export_row.review_status,
+                review_message=export_row.review_message,
+                needs_manual_review=export_row.needs_manual_review,
+                ui_mode=export_row.ui_mode,
             )
 
         file_rows.append(
@@ -611,3 +654,6 @@ def build_dd_matrix(
         degraded_count=agg.degraded_count,
         evidence_validity_rate=round(agg.evidence_validity_rate, 3),
     )
+
+
+    

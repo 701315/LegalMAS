@@ -220,6 +220,14 @@ function mapSegmentRowFinding(
     chunkId: cell.chunk_id ?? null,
     chunkIndex: cell.chunk_index ?? null,
 
+    // Canonical display semantics — thin projection из MatrixCellDTO.
+    // Selector не интерпретирует, только проецирует.
+    displayText: cell.display_text ?? null,
+    reviewStatus: cell.review_status ?? null,
+    reviewMessage: cell.review_message ?? null,
+    needsManualReview: cell.needs_manual_review ?? false,
+    uiMode: cell.ui_mode ?? null,
+
     cell,
   };
 }
@@ -318,7 +326,6 @@ function selectAvailableOrigins(columns: ReviewCheckColumn[]): string[] {
 
   return Array.from(origins).sort();
 }
-
 
 
 

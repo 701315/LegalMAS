@@ -2,6 +2,18 @@
 
 """
 Сохранение результатов проверок в БД.
+
+Spec v2:
+- canonical display/review semantics формируются через result_semantics.py;
+- user-facing explanation больше НЕ пишется в quality_flags;
+- quality_flags остаётся техническим/диагностическим слоем;
+- в CheckResult сохраняются отдельные canonical поля:
+    * ui_mode
+    * display_text
+    * machine_reason_code
+    * review_status
+    * review_message
+    * needs_manual_review
 """
 
 from __future__ import annotations
@@ -15,26 +27,9 @@ from engine.checks.result_normalizer import (
     normalize_check_result,
     resolve_execution_status,
 )
-from engine.checks.ui_explanation import build_user_explanation
+from engine.checks.result_semantics import build_canonical_result_semantics
 
 logger = get_logger(__name__)
-
-
-def _merge_ui_explanation_into_quality_flags(
-    normalized: dict[str, Any],
-    ui_explanation: dict[str, Any],
-) -> None:
-    """
-    Безопасно добавить user-facing explanation в quality_flags.
-    """
-    quality_flags = normalized.get("quality_flags")
-    if not isinstance(quality_flags, dict):
-        quality_flags = {}
-
-    quality_flags["user_status"] = ui_explanation["user_status"]
-    quality_flags["user_message"] = ui_explanation["user_message"]
-    quality_flags["needs_manual_review"] = ui_explanation["needs_manual_review"]
-    normalized["quality_flags"] = quality_flags
 
 
 def _resolve_persisted_check_name(
@@ -74,37 +69,46 @@ async def save_check_result(
 ) -> Any:
     """
     Сохранить результат одной проверки в check_results идемпотентно
-    по ключу (run_id, document_id, check_id).
+    по ключу (run_id, document_id, segment_id, check_id).
 
-    Одна пара (run, doc, check) имеет одну запись,
-    которая обновляется при retry / rerun / timeout recovery.
+    Одна storage-единица результата:
+    - single-document: (run, doc, NULL-segment, check)
+    - multi-document:  (run, doc, segment_id, check)
 
     ВАЖНО:
-    - здесь мы не решаем, какой именно должен быть result/execution_status;
-      это делает resolve_execution_status(exec_result);
-    - если на уровне БД произойдёт ошибка (например, слишком длинная строка),
-      repo.upsert_single_check_result поднимет исключение, и вызывающий
-      код (run_single_check / Celery) решит, ретраить задачу или считать
-      ошибку постоянной.
+    - здесь мы не решаем result/execution_status — это делает:
+        * normalize_check_result(...)
+        * resolve_execution_status(...)
+    - canonical display/review semantics для UI строятся здесь же
+      через build_canonical_result_semantics(...), пока у нас есть:
+        * check / ui_mode
+        * exec_result
+        * execution_status
+        * structured_data
+    - если на уровне БД произойдёт ошибка, repo.upsert_single_check_result
+      поднимет исключение, и вызывающий код (Celery) решит:
+        * retry / fail / alerting.
     """
     # Сохраняем doc_id заранее как обычное значение.
-    # Это важно: в except-блоке нельзя лишний раз трогать ORM-объект,
+    # Это важно: в except-блоке нельзя лишний раз трогать ORM/snapshot-объект,
     # потому что после DB-ошибки это может вызвать вторичную async/ORM ошибку.
     doc_id = getattr(doc, "id", None)
 
-    # Нормализуем «сырые» exec_result + check в единый словарь.
+    # Нормализуем «сырые» exec_result + check в единый словарь
+    # для persistence-полей (value_text, evidence_ref, quality_flags, structured_data, provenance).
     normalized = normalize_check_result(exec_result, check)
 
     # Определяем execution_status и error_details на основе результата работы check.
     execution_status, error_details = resolve_execution_status(exec_result)
 
-    ui_explanation = build_user_explanation(
+    # Spec v2: canonical display/review semantics.
+    semantics = build_canonical_result_semantics(
         check=check,
+        check_name=getattr(check, "name", None) or exec_result.get("check_name"),
         exec_result=exec_result,
         execution_status=execution_status,
         structured_data=normalized.get("structured_data"),
     )
-    _merge_ui_explanation_into_quality_flags(normalized, ui_explanation)
 
     # Гарантируем валидное имя проверки для записи в БД.
     persisted_check_name = _resolve_persisted_check_name(
@@ -113,10 +117,6 @@ async def save_check_result(
     )
 
     try:
-        # Пишем в репозиторий. Здесь важно НИЧЕГО не глушить:
-        # - repo.upsert_single_check_result уже делает rollback при DB-ошибках;
-        # - если возникнет RuntimeError permanent/transient, мы дадим ей подняться
-        #   до уровня Celery-task, чтобы там решить, что делать с задачей.
         return await repo.upsert_single_check_result(
             run_id=run_id,
             document_id=doc_id,
@@ -124,6 +124,9 @@ async def save_check_result(
             check_name=persisted_check_name,
             result=exec_result["result"],
             severity=exec_result["severity"],
+            # Spec v2:
+            # value_text остаётся secondary raw summary / legacy helper,
+            # НЕ дублирует display_text.
             value_text=normalized["value_text"],
             evidence_ref=normalized["evidence_ref"],
             confidence=exec_result.get("confidence"),
@@ -145,9 +148,15 @@ async def save_check_result(
             is_primary_segment=normalized.get("is_primary_segment"),
             execution_status=execution_status,
             error_details=error_details,
+            # ── Spec v2: canonical display semantics ──────────────────────────
+            ui_mode=getattr(check, "ui_mode", None),
+            display_text=semantics.display_text,
+            machine_reason_code=semantics.machine_reason_code,
+            review_status=semantics.review_status,
+            review_message=semantics.review_message,
+            needs_manual_review=semantics.needs_manual_review,
         )
     except Exception as e:
-        # Логируем, но не глушим исключение: оно важно для Celery retry/alerting.
         logger.exception(
             "save_check_result: failed to upsert check result",
             extra={
@@ -158,8 +167,6 @@ async def save_check_result(
                 "error": str(e),
             },
         )
-        # Пробрасываем дальше — вызывающий код решит, что делать
-        # (ретраить, помечать Run как FAILED, и т.п.).
         raise
 
 
@@ -180,25 +187,21 @@ async def save_not_applicable_result(
     - поэтому execution_status здесь должен быть SUCCESS,
       чтобы такой кейс не помечал весь Run как ошибочный.
 
-    Пока бизнес-семантику результата не меняем:
+    Доменная семантика пока сохраняется как:
     - result="unclear"
     - severity="unclear"
 
-    Позже, когда API и фронт будут готовы, можно будет заменить это
-    на отдельный доменный статус, например "not_applicable"
-    или "missing_required_clause" — но это уже отдельный этап.
+    Но Spec v2 поверх этого строит canonical review semantics:
+    - review_status = "not_applicable"
+    - review_message = "Проверка не применима ..."
+    - display_text = None
     """
-    # Сохраняем doc_id заранее как обычное значение.
-    # Это защищает logging/error-path от вторичных ORM async ошибок.
     doc_id = getattr(doc, "id", None)
 
     exec_result: dict[str, Any] = {
         "doc_id": str(doc_id) if doc_id is not None else None,
         "check_id": check_id,
-        # ВАЖНО:
-        # Даже если у нас нет "красивого" имени проверки,
-        # мы обязаны сохранить в БД непустой check_name.
-        # Для этого используем стабильный безопасный fallback = check_id.
+        # Даже если красивого имени нет — сохраняем валидный fallback.
         "check_name": check_id,
         "result": "unclear",
         "severity": "unclear",
@@ -218,19 +221,21 @@ async def save_not_applicable_result(
         "bbox": None,
     }
 
-    # Нормализуем так же, как обычный exec_result.
+    # Нормализуем как обычный exec_result.
     normalized = normalize_check_result(exec_result, check=None)
 
-    ui_explanation = build_user_explanation(
+    # Для not_applicable execution считается SUCCESS:
+    # проверка не "сломалась", а корректно определила неприменимость.
+    execution_status = CheckExecutionStatus.SUCCESS.value
+
+    semantics = build_canonical_result_semantics(
         check=None,
+        check_name=check_id,
         exec_result=exec_result,
-        execution_status=CheckExecutionStatus.SUCCESS.value,
+        execution_status=execution_status,
         structured_data=normalized.get("structured_data"),
     )
-    _merge_ui_explanation_into_quality_flags(normalized, ui_explanation)
 
-    # Дополнительная защита: даже если кто-то в будущем снова поменяет
-    # exec_result["check_name"], в БД всё равно уйдёт безопасное значение.
     persisted_check_name = _resolve_persisted_check_name(
         check_id=check_id,
         check_name=exec_result.get("check_name"),
@@ -244,6 +249,7 @@ async def save_not_applicable_result(
             check_name=persisted_check_name,
             result=exec_result["result"],
             severity=exec_result["severity"],
+            # Spec v2: raw summary остаётся независимым от display_text.
             value_text=normalized["value_text"],
             evidence_ref=normalized["evidence_ref"],
             confidence=exec_result.get("confidence"),
@@ -263,11 +269,18 @@ async def save_not_applicable_result(
             segment_title=normalized.get("segment_title"),
             segment_order=normalized.get("segment_order"),
             is_primary_segment=normalized.get("is_primary_segment"),
-            execution_status=CheckExecutionStatus.SUCCESS.value,
+            execution_status=execution_status,
             error_details={
                 "type": "check_not_applicable",
                 "message": "check not found or not applicable for this document",
             },
+            # ── Spec v2: canonical display semantics ──────────────────────────
+            ui_mode=None,
+            display_text=semantics.display_text,
+            machine_reason_code=semantics.machine_reason_code,
+            review_status=semantics.review_status,
+            review_message=semantics.review_message,
+            needs_manual_review=semantics.needs_manual_review,
         )
     except Exception as e:
         logger.exception(
@@ -280,3 +293,5 @@ async def save_not_applicable_result(
             },
         )
         raise
+
+    

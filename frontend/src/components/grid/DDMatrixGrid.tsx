@@ -48,6 +48,7 @@ import type {
 
 import {
   mapReviewCellToDetailsCell,
+  getCellPrimaryText,
   getCellSeverity,
   getCellStatusText,
   buildCellTooltip,
@@ -91,6 +92,11 @@ function getRowCompositionBadgeData(row: ReviewGridRow) {
   });
 }
 
+/**
+ * Ключ для AG Grid change detection.
+ * Включает canonical display semantics чтобы при пересчёте
+ * display_text ячейка корректно перерисовывалась.
+ */
 function buildRiskCellDiffKey(
   cell: MatrixCellDTO | null | undefined,
 ): string | null {
@@ -100,6 +106,10 @@ function buildRiskCellDiffKey(
     cell.severity ?? "",
     cell.qc_status ?? "",
     cell.confidence ?? "",
+    cell.display_text ?? "",
+    cell.review_status ?? "",
+    cell.needs_manual_review ? "1" : "0",
+    cell.ui_mode ?? "",
   ].join("|");
 }
 
@@ -132,8 +142,13 @@ export interface DDMatrixGridProps {
   clearSelectionToken?: number;
 }
 
+/**
+ * rowId добавлен для корректной идентификации ячейки в segment-based grid.
+ * В отличие от documentId, rowId уникален для каждого сегмента одного файла.
+ */
 interface SelectedCellState {
   open: boolean;
+  rowId: string | null;
   documentId: string | null;
   documentName: string | null;
   checkId: string | null;
@@ -176,6 +191,7 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
 
   const [selectedCell, setSelectedCell] = useState<SelectedCellState>({
     open: false,
+    rowId: null,
     documentId: null,
     documentName: null,
     checkId: null,
@@ -188,11 +204,13 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
     [rows],
   );
 
+  // Валидация по rowId — корректно для segment-based grid,
+  // где один documentId может давать несколько строк (сегментов).
   const isSelectedCellValid =
     selectedCell.open &&
-    selectedCell.documentId != null &&
+    selectedCell.rowId != null &&
     selectedCell.checkId != null &&
-    rows.some((row) => row.documentId === selectedCell.documentId) &&
+    rows.some((row) => row.rowId === selectedCell.rowId) &&
     columns.some((col) => col.checkId === selectedCell.checkId);
 
   const selectedCellRef = useRef<SelectedCellState>(selectedCell);
@@ -200,11 +218,14 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
     selectedCellRef.current = selectedCell;
   }, [selectedCell]);
 
+  // Обновляем drawer при изменении данных строки/колонки.
+  // Ищем по rowId, а не documentId — иначе при segment grid
+  // можно попасть на другой сегмент того же файла.
   useEffect(() => {
     const sc = selectedCellRef.current;
-    if (!sc.open || !sc.documentId || !sc.checkId) return;
+    if (!sc.open || !sc.rowId || !sc.checkId) return;
 
-    const currentRow = rows.find((row) => row.documentId === sc.documentId);
+    const currentRow = rows.find((row) => row.rowId === sc.rowId);
     if (!currentRow) return;
 
     const currentCell = currentRow.cellsByCheckId[sc.checkId];
@@ -222,7 +243,7 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
     setSelectedCell((prev) => {
       if (
         !prev.open ||
-        prev.documentId !== currentRow.documentId ||
+        prev.rowId !== currentRow.rowId ||
         prev.checkId !== currentColumn.checkId
       ) {
         return prev;
@@ -257,6 +278,7 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
   const closeDetails = useCallback(() => {
     setSelectedCell({
       open: false,
+      rowId: null,
       documentId: null,
       documentName: null,
       checkId: null,
@@ -279,6 +301,7 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
 
       setSelectedCell({
         open: true,
+        rowId: params.row.rowId,
         documentId: params.row.documentId,
         documentName: params.row.documentName ?? null,
         checkId: params.meta.checkId,
@@ -484,7 +507,9 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
             params: ValueFormatterParams<MatrixGridRow>,
           ): string => {
             const cell = params.data?.[field];
-            return formatRiskCellValue(cell ?? null);
+            // display_text приоритет для export/clipboard
+            const displayText = cell?.display_text?.trim();
+            return displayText || formatRiskCellValue(cell ?? null);
           },
           tooltipValueGetter: (
             params: ITooltipParams<MatrixGridRow>,
@@ -502,7 +527,12 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
               );
             }
 
-            const statusText = getCellStatusText(cell);
+            // Primary: factual display_text из backend.
+            // Secondary: workflow status — показываем только если отличается.
+            const primaryText = getCellPrimaryText(cell);
+            const secondaryText = getCellStatusText(cell);
+            const showSecondary =
+              !!secondaryText && secondaryText !== primaryText;
             const severity = getCellSeverity(cell);
 
             return (
@@ -515,9 +545,16 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
                     handleCellOpen({ row, meta, cell });
                   }}
                 >
-                  <div className="text-[11px] text-[var(--text-primary)]">
-                    {statusText}
+                  <div className="text-[11px] font-medium text-[var(--text-primary)]">
+                    {primaryText}
                   </div>
+
+                  {showSecondary ? (
+                    <div className="mt-0.5 text-[10px] text-[var(--text-muted)]">
+                      {secondaryText}
+                    </div>
+                  ) : null}
+
                   {(severity || cell.qc_status) && (
                     <div className="mt-1 flex flex-wrap items-center gap-1">
                       {severity && (

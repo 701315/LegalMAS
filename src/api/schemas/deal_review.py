@@ -62,6 +62,17 @@ class CheckItemDTO(BaseModel):
     - метаданные условной проверки;
     - structured_data с извлечёнными полями;
     - (опционально) метаданные сегмента для multi-document файлов.
+
+    Canonical display semantics (NEW):
+        display_text        — первичный human-readable factual текст результата.
+                              Формируется result_semantics.py в result_saver.
+                              Фронтенд показывает его как primary cell text.
+        review_status       — canonical workflow статус:
+                              "needs_review" | "ok" | "not_applicable" | "unclear"
+        review_message      — advisory explanation для юриста (рекомендация системы).
+        needs_manual_review — явный workflow-флаг: True → требует ручной проверки.
+        ui_mode             — semantic type чека: "clause_presence" | "extraction" |
+                              "risk_flag" | "comparison" | "summary" | None.
     """
 
     check_id: str
@@ -79,12 +90,21 @@ class CheckItemDTO(BaseModel):
     structured_data: dict[str, Any]
     origin: str | None = None
 
-    # NEW: segment metadata (optional, для multi-document физических файлов)
+    # Segment metadata (optional, для multi-document физических файлов)
     segment_id: str | None = None
     segment_type: str | None = None
     segment_title: str | None = None
     segment_order: int | None = None
     is_primary_segment: bool | None = None
+
+    # Canonical display semantics — source of truth для primary cell text.
+    # None означает что result_semantics не сформировал текст (старый ран или n/a).
+    # Фронтенд в этом случае использует fallback на review_status label.
+    display_text: str | None = None
+    review_status: str | None = None
+    review_message: str | None = None
+    needs_manual_review: bool = False
+    ui_mode: str | None = None
 
 
 class CheckMetaDTO(BaseModel):
@@ -131,6 +151,21 @@ class MatrixCellDTO(BaseModel):
     - короткий сниппет evidence, страницу, clause_uid;
     - список извлечённых полей;
     - статус QC и флаги условной проверки.
+
+    Canonical display semantics (NEW):
+        display_text        — первичный human-readable factual текст результата.
+                              Формируется result_semantics.py в result_saver.
+                              Фронтенд показывает его как primary cell text в DD Grid.
+                              None → фронтенд использует fallback на review_status label.
+        review_status       — canonical workflow статус:
+                              "needs_review" | "ok" | "not_applicable" | "unclear"
+        review_message      — advisory explanation для юриста (рекомендация системы).
+                              Отображается в панели деталей ячейки как отдельная секция.
+        needs_manual_review — явный workflow-флаг: True → ячейка требует ручной проверки.
+                              Используется для фильтрации и выделения в UI.
+        ui_mode             — semantic type чека: "clause_presence" | "extraction" |
+                              "risk_flag" | "comparison" | "summary" | None.
+                              Позволяет фронтенду выбирать правильный renderer.
     """
 
     result: str  # "fail" / "pass" / "unclear"
@@ -149,7 +184,7 @@ class MatrixCellDTO(BaseModel):
     conditional_check_triggered: bool
     trigger_name: str
 
-    # NEW: segment / chunk provenance (опционально, для multi-document файлов).
+    # Segment / chunk provenance (опционально, для multi-document файлов).
     segment_id: str | None = None
     segment_type: str | None = None
     segment_title: str | None = None
@@ -157,6 +192,14 @@ class MatrixCellDTO(BaseModel):
     is_primary_segment: bool | None = None
     chunk_id: str | None = None
     chunk_index: int | None = None
+
+    # Canonical display semantics — source of truth для primary cell text.
+    # None означает что result_semantics не сформировал текст (старый ран или n/a).
+    display_text: str | None = None
+    review_status: str | None = None
+    review_message: str | None = None
+    needs_manual_review: bool = False
+    ui_mode: str | None = None
 
 
 class DocumentMatrixRowDTO(BaseModel):
@@ -232,8 +275,8 @@ class DDMatrixResponseDTO(BaseModel):
     doc_type_check_ids: dict[str, list[str]]
 
     documents: list[DocumentMatrixRowDTO]
-    # NEW: сегмент-ориентированные строки матрицы.
-    # Именно они будут основным источником данных для DD Grid на фронте.
+    # Сегмент-ориентированные строки матрицы.
+    # Именно они являются основным источником данных для DD Grid на фронте.
     segment_documents: list[SegmentMatrixRowDTO] = []
 
     total_documents: int
@@ -290,9 +333,7 @@ class DDRequestDTO(BaseModel):
     doc_types: list[str]
     structured_values: list[dict[str, Any]]
 
-    # NEW: Segment provenance для viewer navigation (MR4)
-    # Заполняется, если запрос привязан к конкретному сегменту multi-document файла.
-    # Позволяет фронтенду открыть PDF viewer на точной позиции в документе.
+    # Segment provenance для viewer navigation
     segment_id: str | None = None
     segment_type: str | None = None
     segment_title: str | None = None
@@ -349,7 +390,7 @@ class ExtractedValueDTO(BaseModel):
     page: int | None
     clause_uid: str
 
-    # NEW: опциональные метаданные сегмента
+    # Опциональные метаданные сегмента
     segment_id: str | None = None
     segment_type: str | None = None
     segment_title: str | None = None
@@ -384,3 +425,5 @@ class DocumentStructuredDataDTO(BaseModel):
 
     total_values: int
     values: list[ExtractedValueDTO]
+
+    

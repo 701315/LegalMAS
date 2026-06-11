@@ -1,3 +1,5 @@
+# src/services/export/aggregator.py
+
 """
 Export Aggregator Service.
 
@@ -14,8 +16,10 @@ DD‑запросы, плоские строки экспорта, условн�
   2) rows (list[ExportRow]) — плоский список строк экспорта с:
      документом, check_id/name, result/severity, evidence_snippet, page,
      clause_uid, confidence, detector_used, quality_flags, qc_status,
-     classification_level/confidence, origin, structured_data_preview и
-     флагами условных проверок (conditional_check_triggered, trigger_name);
+     classification_level/confidence, origin, structured_data,
+     structured_data_preview, флагами условных проверок
+     (conditional_check_triggered, trigger_name)
+     и canonical display semantics (display_text, review_status, и т.п.);
   3) top_risks (list[TopRisk]) — топ N (EXPORT_TOP_RISKS_COUNT) fail‑рисков,
      отсортированных по важности (critical/high/medium, затем по confidence),
      с вложенным structured_data и метаданными conditional checks;
@@ -84,21 +88,27 @@ def aggregate_results(
             check_id, check_name, result, severity, value_text,
             confidence, detector_used, quality_flags, qc_status,
             document_id,
-            structured_data (NEW),
-            conditional_check_triggered (NEW),
-            trigger_name (NEW),
-            segment_id (NEW),
-            segment_type (NEW),
-            segment_title (NEW),
-            segment_order (NEW),
-            is_primary_segment (NEW),
-            chunk_id (NEW),
-            chunk_index (NEW)
+            structured_data,
+            conditional_check_triggered,
+            trigger_name,
+            segment_id,
+            segment_type,
+            segment_title,
+            segment_order,
+            is_primary_segment,
+            chunk_id,
+            chunk_index,
+            display_text (NEW — canonical factual text from result_semantics),
+            machine_reason_code (NEW),
+            review_status (NEW),
+            review_message (NEW),
+            needs_manual_review (NEW),
+            ui_mode (NEW)
         documents: Dict of document_id → {
             name, folder_path, doc_type, status,
-            classification_level (NEW),
-            classification_confidence (NEW),
-            applicable_triggers (NEW)
+            classification_level,
+            classification_confidence,
+            applicable_triggers
         }
     """
     logger.info(
@@ -170,6 +180,11 @@ def aggregate_results(
         is_conditional = bool(cr.get("conditional_check_triggered"))
         trigger_name = cr.get("trigger_name", "")
 
+        # evidence_snippet: приоритет display_text → value_text.
+        # display_text — canonical factual result из result_semantics.
+        # value_text — legacy raw summary (может содержать machine codes).
+        raw_evidence = cr.get("display_text") or cr.get("value_text", "")
+
         row = ExportRow(
             document_name=doc_info.get("name", "Unknown"),
             folder_path=doc_info.get("folder_path", ""),
@@ -179,7 +194,7 @@ def aggregate_results(
             result=result,
             severity=severity if result == "fail" else ("pass" if result == "pass" else severity),
             evidence_snippet=_truncate(
-                cr.get("value_text", ""),
+                raw_evidence,
                 settings.EXPORT_EVIDENCE_MAX_LENGTH,
             ),
             page=cr.get("page"),
@@ -193,6 +208,8 @@ def aggregate_results(
             qc_at=cr.get("qc_at").isoformat() if cr.get("qc_at") else None,
             document_id=doc_id,
             run_id=run_id,
+            # Raw structured payload нужен downstream в build_document_detail()
+            structured_data=structured_data,
             structured_data_preview=structured_preview,
             conditional_check_triggered=is_conditional,
             trigger_name=trigger_name,
@@ -206,6 +223,13 @@ def aggregate_results(
             is_primary_segment=cr.get("is_primary_segment"),
             chunk_id=cr.get("chunk_id") or "",
             chunk_index=cr.get("chunk_index"),
+            # Canonical display semantics — denormalized из CheckResult.
+            display_text=cr.get("display_text"),
+            machine_reason_code=cr.get("machine_reason_code"),
+            review_status=cr.get("review_status"),
+            review_message=cr.get("review_message"),
+            needs_manual_review=bool(cr.get("needs_manual_review", False)),
+            ui_mode=cr.get("ui_mode"),
         )
         rows.append(row)
 
@@ -220,7 +244,7 @@ def aggregate_results(
                     result=result,
                     severity=severity,
                     evidence_snippet=_truncate(
-                        cr.get("value_text", ""),
+                        raw_evidence,
                         settings.EXPORT_EVIDENCE_MAX_LENGTH,
                     ),
                     page=cr.get("page"),
@@ -366,6 +390,8 @@ def _generate_dd_requests(
     Generate deduplicated DD requests with segment/chunk provenance.
 
     Text from YAML templates.
+
+    evidence_refs: приоритет display_text → value_text (как в ExportRow.evidence_snippet).
 
     Provenance strategy:
     - При дедупликации берётся provenance ПЕРВОГО наиболее важного результата
@@ -559,3 +585,5 @@ def _truncate(text: str, max_length: int) -> str:
     if len(text) <= max_length:
         return text
     return text[: max_length - 3] + "..."
+
+

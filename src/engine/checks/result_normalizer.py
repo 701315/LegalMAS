@@ -3,6 +3,20 @@
 """
 Нормализация результатов проверок: маппинг DTO от CheckExecutor
 на поля CheckResult + сохранение в БД.
+
+Ответственность этого модуля:
+- привести "сырой" exec_result к полям, пригодным для persistence;
+- нормализовать structured_data;
+- выделить technical/diagnostic quality_flags;
+- сохранить provenance (page/clause/segment/citation anchors);
+- определить execution_status + error_details.
+
+Важно:
+- здесь НЕ формируется canonical display semantics для UI;
+  это делает отдельный слой result_semantics.py;
+- здесь НЕ должны жить user-facing поля вроде user_status / user_message;
+  если они случайно попали в raw/quality_flags из legacy path,
+  мы их очищаем.
 """
 
 from __future__ import annotations
@@ -13,6 +27,15 @@ from core.constants import CheckExecutionStatus
 from core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Legacy UI explanation keys, которые больше НЕ являются canonical частью quality_flags.
+# В Spec v2 эти данные переезжают в отдельные поля CheckResult:
+#   review_status, review_message, needs_manual_review.
+_LEGACY_UI_KEYS = frozenset({
+    "user_status",
+    "user_message",
+    "needs_manual_review",
+})
 
 
 def normalize_check_result(
@@ -29,19 +52,23 @@ def normalize_check_result(
 
     ВАЖНО:
     - здесь мы не решаем финальный execution_status;
-    - это делает resolve_execution_status().
+      это делает resolve_execution_status();
+    - здесь мы не строим display_text / review_message;
+      это делает result_semantics.py.
     """
     reason = exec_result.get("reason")
     evidence = exec_result.get("evidence") or ""
     detector_method = exec_result.get("detector_method")
     raw = exec_result.get("raw") or {}
 
-    # value_text — это короткое объяснение.
-    # Если reason нет, берём укороченный evidence.
+    # value_text — secondary raw summary / legacy helper.
+    # В Spec v2 он НЕ является canonical UI text.
+    # Сохраняем старую semantics:
+    #   если reason есть — берём reason,
+    #   иначе — укороченный evidence.
     value_text = reason or (evidence[:500] if evidence else None)
 
-    # evidence_ref — сохраняем полную строку evidence.
-    # После миграции на TEXT это безопасно.
+    # evidence_ref — полная строка evidence.
     evidence_ref = evidence or None
 
     quality_flags: dict[str, Any] = {}
@@ -99,11 +126,9 @@ def normalize_check_result(
     # Segment provenance
     segment_info = _extract_segment_provenance(exec_result)
 
-    # ── Этап 7: новые anchor поля из CitationResolver ─────────────────────────
+    # ── Anchor / citation fields ──────────────────────────────────────────────
     # Эти поля заполняются когда детектор использует legal units + citation resolver.
-    # Для старых детекторов которые не знают про citation — поля будут None.
-    # Это backward-compatible: старый контракт (page, clause_uid, element_id, bbox)
-    # остаётся на месте, новые поля добавляются рядом.
+    # Для старых детекторов поля будут None.
     anchor_uid = exec_result.get("anchor_uid") or exec_result.get("clause_uid")
     anchor_title = exec_result.get("anchor_title")
     quoted_text = exec_result.get("quoted_text")
@@ -111,14 +136,16 @@ def normalize_check_result(
     quote_end_char = exec_result.get("quote_end_char")
     source_unit_id = exec_result.get("source_unit_id")
 
-    # Прокидываем citation anchor в quality_flags для diagnostics
-    # (не заменяем основные поля, просто добавляем для explainability)
+    # Citation diagnostics в quality_flags.
     if anchor_uid and isinstance(quality_flags, dict):
         quality_flags["citation_anchor_uid"] = anchor_uid
         if quoted_text:
             quality_flags["citation_has_quote"] = True
         if source_unit_id:
             quality_flags["citation_source_unit_id"] = source_unit_id
+
+    # ── Spec v2 cleanup: legacy user-facing keys НЕ должны жить в quality_flags ──
+    _cleanup_legacy_ui_keys(quality_flags)
 
     return {
         "value_text": value_text,
@@ -129,22 +156,17 @@ def normalize_check_result(
         "conditional_check_triggered": is_conditional,
         "trigger_name": trigger_name,
         "origin": check_origin,
-        # ── Существующие anchor поля (backward-compatible) ────────────────────
+        # ── Existing anchor fields (backward-compatible) ───────────────────────
         "page": exec_result.get("page"),
         "clause_uid": exec_result.get("clause_uid"),
         "element_id": exec_result.get("element_id"),
         "bbox": exec_result.get("bbox"),
-        # ── Этап 7: новые anchor поля ─────────────────────────────────────────
-        # anchor_uid: canonical effective_uid клаузы (предпочтительнее clause_uid)
+        # ── Citation anchor fields ─────────────────────────────────────────────
         "anchor_uid": anchor_uid,
-        # anchor_title: заголовок клаузы для display
         "anchor_title": anchor_title,
-        # quoted_text: дословная цитата из текста договора
         "quoted_text": quoted_text,
-        # quote_start_char/quote_end_char: позиция цитаты в own_text клаузы
         "quote_start_char": quote_start_char,
         "quote_end_char": quote_end_char,
-        # source_unit_id: ID LegalUnit из которого взята цитата
         "source_unit_id": source_unit_id,
         **segment_info,
     }
@@ -169,8 +191,6 @@ def resolve_execution_status(exec_result: dict) -> tuple[str, dict[str, Any] | N
     raw = exec_result.get("raw") or {}
 
     # Берём признаки как из верхнего уровня exec_result, так и из raw.
-    # Это важно, потому что в реальном пайплайне часть LLM-диагностики
-    # часто оказывается именно в raw.
     llm_error_type = exec_result.get("llm_error_type") or (
         raw.get("llm_error_type") if isinstance(raw, dict) else None
     )
@@ -191,20 +211,15 @@ def resolve_execution_status(exec_result: dict) -> tuple[str, dict[str, Any] | N
         raw.get("rules_llm_decision") if isinstance(raw, dict) else None
     )
 
-    # По умолчанию считаем, что check отработал успешно.
     execution_status = CheckExecutionStatus.SUCCESS.value
     error_details: dict[str, Any] | None = None
 
-    # Если LLM был обязателен и реально произошла ошибка,
-    # то это уже не SUCCESS.
     if llm_required and llm_error_type:
         llm_error_type_str = str(llm_error_type).lower()
 
         if "timeout" in llm_error_type_str:
             execution_status = CheckExecutionStatus.TIMEOUT.value
         else:
-            # В текущей архитектуре используем только те terminal-статусы,
-            # которые уже понимают run counters и finalize_run_if_finished.
             execution_status = CheckExecutionStatus.FAILED.value
 
         error_details = {
@@ -280,6 +295,30 @@ def _extract_red_flags(
             quality_flags["red_flags"] = codes
 
 
+def _cleanup_legacy_ui_keys(quality_flags: dict[str, Any]) -> None:
+    """
+    Удалить legacy UI explanation keys из quality_flags.
+
+    Spec v2:
+    - user_status        -> review_status
+    - user_message       -> review_message
+    - needs_manual_review -> отдельное bool поле needs_manual_review
+
+    Если эти ключи случайно попали в quality_flags или quality_flags["raw"]
+    из старого/legacy path, они НЕ должны сохраняться как canonical данные.
+    """
+    if not isinstance(quality_flags, dict):
+        return
+
+    for key in _LEGACY_UI_KEYS:
+        quality_flags.pop(key, None)
+
+    raw = quality_flags.get("raw")
+    if isinstance(raw, dict):
+        for key in _LEGACY_UI_KEYS:
+            raw.pop(key, None)
+
+
 def _extract_segment_provenance(exec_result: dict) -> dict[str, Any]:
     """
     Извлечь segment-aware информацию из exec_result.
@@ -328,3 +367,6 @@ def _extract_segment_provenance(exec_result: dict) -> dict[str, Any]:
         "segment_order": segment_order,
         "is_primary_segment": is_primary_segment,
     }
+
+
+

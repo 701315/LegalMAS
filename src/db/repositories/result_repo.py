@@ -15,6 +15,12 @@ Repository for CheckResult operations.
   (ExtractionExecutor / CheckRunner) в CheckResult.structured_data.
 - контракт structured_data задаётся в api/schemas/results.py
   (StructuredField / LocationField и т.п.).
+
+Spec v2:
+- upsert_single_check_result принимает 6 новых canonical display semantics полей:
+  ui_mode, display_text, machine_reason_code, review_status,
+  review_message, needs_manual_review.
+- get_by_run_with_docs и get_page_for_run прокидывают эти поля в output dict.
 """
 
 import uuid
@@ -79,6 +85,27 @@ def is_permanent_db_error(err: DBAPIError) -> bool:
         return True
 
     return False
+
+
+# ── Canonical display semantics block для dict output ────────────────────────
+# Вынесен как helper чтобы не дублировать в трёх местах.
+
+
+def _display_semantics_dict(cr: CheckResult) -> dict[str, Any]:
+    """
+    Вернуть словарь canonical display semantics полей из ORM-объекта CheckResult.
+
+    Используется в get_by_run_with_docs и get_page_for_run чтобы
+    не дублировать одинаковый блок полей.
+    """
+    return {
+        "ui_mode": cr.ui_mode,
+        "display_text": cr.display_text,
+        "machine_reason_code": cr.machine_reason_code,
+        "review_status": cr.review_status,
+        "review_message": cr.review_message,
+        "needs_manual_review": cr.needs_manual_review or False,
+    }
 
 
 class ResultRepository:
@@ -149,7 +176,8 @@ class ResultRepository:
         - origin / origin_type (источник определения проверки);
         - document_name, doc_type;
         - doc_classification_level, doc_classification_confidence;
-        - doc_requires_manual_review.
+        - doc_requires_manual_review;
+        - Spec v2: canonical display semantics поля.
         """
         stmt = (
             select(
@@ -209,6 +237,8 @@ class ResultRepository:
                 "segment_title": cr.segment_title,
                 "segment_order": cr.segment_order,
                 "is_primary_segment": cr.is_primary_segment,
+                # ── Spec v2: canonical display semantics ──────────────────────
+                **_display_semantics_dict(cr),
             }
             out.append(item)
 
@@ -280,7 +310,7 @@ class ResultRepository:
         qc_status: str,
         qc_by: str,
         qc_comment: str | None,
-    ) -> int:  # ← ВАЖНО: int, не list[CheckResult]
+    ) -> int:
         """
         Обновить QC-статус для одной review-находки.
 
@@ -318,7 +348,7 @@ class ResultRepository:
             )
         )
         result = await self.session.execute(stmt)
-        return result.rowcount  # ← Возвращаем int, не список
+        return result.rowcount
 
     async def count_by_severity(self, run_id: uuid.UUID) -> dict[str, int]:
         """
@@ -351,6 +381,7 @@ class ResultRepository:
 
         ВАЖНО: здесь мы показываем "сырые" строки результатов,
         поэтому segment_id/segment_* попадают в ответ как есть.
+        Spec v2: включены canonical display semantics поля.
         """
         base_stmt = (
             select(
@@ -430,6 +461,8 @@ class ResultRepository:
                 "segment_title": cr.segment_title,
                 "segment_order": cr.segment_order,
                 "is_primary_segment": cr.is_primary_segment,
+                # ── Spec v2: canonical display semantics ──────────────────────
+                **_display_semantics_dict(cr),
             }
             items.append(item)
 
@@ -571,6 +604,15 @@ class ResultRepository:
         is_primary_segment: bool | None = None,
         execution_status: str,
         error_details: dict | None = None,
+        # ── Spec v2: canonical display semantics ──────────────────────────────
+        # Все со значениями по умолчанию — saver начнёт передавать их
+        # сразу на Шаге 5, но до тех пор repo работает без ошибок.
+        ui_mode: str | None = None,
+        display_text: str | None = None,
+        machine_reason_code: str | None = None,
+        review_status: str | None = None,
+        review_message: str | None = None,
+        needs_manual_review: bool = False,
     ) -> CheckResult:
         """
         Создать или обновить результат одной проверки.
@@ -586,6 +628,12 @@ class ResultRepository:
         - Основная транзакция сессии остаётся живой.
         - Все ORM-объекты, загруженные до этого вызова, остаются валидными.
         - log_error() выполняется в рамках той же основной транзакции.
+
+        Spec v2:
+        - Новые параметры ui_mode, display_text, machine_reason_code,
+          review_status, review_message, needs_manual_review записываются
+          в CheckResult при create и update.
+        - Все имеют значения по умолчанию для безопасного rollout.
         """
         now = datetime.now(UTC)
 
@@ -653,11 +701,19 @@ class ResultRepository:
                         started_at=now if status_value in started_statuses else None,
                         finished_at=now if status_value in finished_statuses else None,
                         error_details=error_details,
+                        # ── Spec v2: canonical display semantics ──────────────
+                        ui_mode=ui_mode,
+                        display_text=display_text,
+                        machine_reason_code=machine_reason_code,
+                        review_status=review_status,
+                        review_message=review_message,
+                        needs_manual_review=needs_manual_review,
                     )
                     self.session.add(cr)
                     await self.session.flush()
                     return cr
 
+                # ── UPDATE path ───────────────────────────────────────────────
                 existing.check_name = check_name
                 existing.result = result
                 existing.severity = severity
@@ -682,6 +738,13 @@ class ResultRepository:
                 existing.is_primary_segment = is_primary_segment
                 existing.execution_status = status_value
                 existing.error_details = error_details
+                # ── Spec v2: canonical display semantics ──────────────────────
+                existing.ui_mode = ui_mode
+                existing.display_text = display_text
+                existing.machine_reason_code = machine_reason_code
+                existing.review_status = review_status
+                existing.review_message = review_message
+                existing.needs_manual_review = needs_manual_review
 
                 if existing.started_at is None and status_value in started_statuses:
                     existing.started_at = now
@@ -727,12 +790,15 @@ class ResultRepository:
                 "is_primary_segment": is_primary_segment,
                 "execution_status": execution_status,
                 "error_details": error_details,
+                # ── Spec v2: включаем в payload для диагностики ───────────────
+                "ui_mode": ui_mode,
+                "display_text": display_text,
+                "machine_reason_code": machine_reason_code,
+                "review_status": review_status,
+                "review_message": review_message,
+                "needs_manual_review": needs_manual_review,
             }
 
-            # log_error теперь выполняется в рамках основной транзакции,
-            # а не после её разрушения через rollback.
-            # Это архитектурно правильнее: fallback-запись и основная транзакция
-            # коммитятся вместе, либо откатываются вместе при внешней ошибке.
             persist_error_repo = CheckResultPersistErrorRepository(self.session)
             await persist_error_repo.log_error(
                 run_id=run_id,
@@ -881,3 +947,6 @@ class ResultRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none() is not None
+    
+
+    

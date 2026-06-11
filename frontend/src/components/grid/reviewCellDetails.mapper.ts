@@ -18,6 +18,15 @@ type ExtractedFieldDTO = MatrixCellDTO["extracted"] extends Array<infer T>
   ? T
   : never;
 
+// Canonical review_status → human label.
+// Используется как fallback когда display_text отсутствует.
+const REVIEW_STATUS_LABELS: Record<string, string> = {
+  needs_review: "Требует внимания юриста",
+  ok: "Проверка завершена",
+  not_applicable: "Неприменимо",
+  unclear: "Результат не определён",
+};
+
 function normalizeString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
@@ -60,38 +69,22 @@ export function isRiskSeverity(
 }
 
 /**
- * Признак того, что юрист уже принял решение по этому finding.
- * pending / null означают, что review ещё не проводился.
- *
- * Используется в getCellStatusText для перекрытия machine-generated текста
- * единым "Просмотрено юристом" — детализация решения доступна в отдельной
- * колонке "QC" и в drawer.
+ * Translate review_status to human label.
+ * Returns null if value is empty or unknown.
  */
-function isQcReviewed(cell: MatrixCellDTO): boolean {
-  return (
-    cell.qc_status === "approved" ||
-    cell.qc_status === "rejected" ||
-    cell.qc_status === "needs_review"
-  );
+function getReviewStatusLabel(
+  value: string | null | undefined,
+): string | null {
+  const normalized = normalizeString(value);
+  if (!normalized) return null;
+  return REVIEW_STATUS_LABELS[normalized] ?? normalized;
 }
 
 /**
- * Human-readable status for matrix/list presentation.
- *
- * Приоритет: QC review status перекрывает machine-generated результат.
- * Если юрист уже посмотрел finding (qc_status != pending/null), показываем
- * единый маркер "Просмотрено юристом". Конкретное решение (approved /
- * rejected / needs_review) видно в отдельной колонке "QC" и в drawer.
- *
- * Это соответствует legal review workflow:
- * - "Требует внимания юриста" — нужно посмотреть
- * - "Просмотрено юристом" — посмотрено, детали в QC
+ * Conservative legacy fallback status text by result/severity.
+ * Используется только если нет canonical review_status.
  */
-export function getCellStatusText(cell: MatrixCellDTO): string {
-  if (isQcReviewed(cell)) {
-    return "Просмотрено юристом";
-  }
-
+function getLegacyStatusText(cell: MatrixCellDTO): string {
   if (cell.result === "fail") {
     if (cell.severity === "critical" || cell.severity === "high") {
       return "Требует внимания юриста";
@@ -103,7 +96,53 @@ export function getCellStatusText(cell: MatrixCellDTO): string {
     return "Требует внимания юриста";
   }
 
+  // pass или любой другой result
   return "Не найден";
+}
+
+/**
+ * Workflow/advisory status text.
+ *
+ * Приоритет:
+ * 1. canonical review_status label из backend (result_semantics.py);
+ * 2. needs_manual_review flag;
+ * 3. conservative legacy fallback по result/severity.
+ *
+ * ВАЖНО: это НЕ primary semantic text ячейки.
+ * Primary text — getCellPrimaryText() через display_text.
+ * getCellStatusText() используется как secondary/fallback.
+ *
+ * Breaking change vs предыдущей версии:
+ * Убран QC-reviewed override ("Просмотрено юристом").
+ * QC-reviewed state теперь виден через QcStatusBadge в ячейке и drawer.
+ * Это соответствует архитектурному принципу: фронтенд — renderer,
+ * не semantic interpreter.
+ */
+export function getCellStatusText(cell: MatrixCellDTO): string {
+  const reviewStatusLabel = getReviewStatusLabel(cell.review_status);
+  if (reviewStatusLabel) {
+    return reviewStatusLabel;
+  }
+
+  if (cell.needs_manual_review) {
+    return REVIEW_STATUS_LABELS.needs_review;
+  }
+
+  return getLegacyStatusText(cell);
+}
+
+/**
+ * Primary human-facing cell text для DD Grid.
+ *
+ * Приоритет:
+ * 1. canonical display_text из backend (result_semantics.py);
+ * 2. fallback на getCellStatusText().
+ *
+ * display_text содержит factual result: "Применимое право: РФ",
+ * "Оговорка обнаружена", "Golden parachute: present" и т.п.
+ */
+export function getCellPrimaryText(cell: MatrixCellDTO): string {
+  return normalizeString(cell.display_text) ?? getCellStatusText(cell);
 }
 
 /**
@@ -179,18 +218,23 @@ export function getCellQualityFlags(
 
 /**
  * Compact summary for list cells / quick overviews.
- * Keeps snippet out to avoid noisy grid/export strings.
  */
 export function getCellSummaryText(
   cell: MatrixCellDTO | null | undefined,
 ): string {
   if (!cell) return "—";
 
+  const primary = getCellPrimaryText(cell);
+  const status = getCellStatusText(cell);
+  const location = getCellLocationText(cell) || null;
+  const segment = getCellSegmentText(cell) || null;
+
+  // Показываем secondary только если он отличается от primary
   return [
-    getCellStatusText(cell),
-    getCellSeverity(cell),
-    getCellLocationText(cell),
-    getCellSegmentText(cell),
+    primary,
+    status !== primary ? status : null,
+    location,
+    segment,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -198,19 +242,26 @@ export function getCellSummaryText(
 
 /**
  * Tooltip text for matrix/list grid.
- * Snippet is preferred here because tooltip is a rich hover surface.
+ * Предпочитает factual display_text, добавляет snippet если отличается.
  */
 export function buildCellTooltip(
   cell: MatrixCellDTO | null | undefined,
 ): string {
   if (!cell) return "";
 
-  return (
-    normalizeString(cell.snippet) ||
-    getCellLocationText(cell) ||
-    getCellSegmentText(cell) ||
-    getCellStatusText(cell)
-  );
+  const primary = getCellPrimaryText(cell);
+  const snippet = normalizeString(cell.snippet);
+  const location = getCellLocationText(cell) || null;
+  const segment = getCellSegmentText(cell) || null;
+
+  return [
+    primary,
+    snippet !== primary ? snippet : null,
+    location,
+    segment,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /**
@@ -309,10 +360,17 @@ export function mapReviewCellToDetailsCell(
     chunkId: normalizeString(cell.chunk_id),
     chunkIndex: normalizeNumber(cell.chunk_index),
 
+    // Canonical display semantics — thin projection из MatrixCellDTO.
+    // mapper не интерпретирует, только проецирует.
+    displayText: normalizeString(cell.display_text),
+    reviewStatus: normalizeString(cell.review_status),
+    reviewMessage: normalizeString(cell.review_message),
+    needsManualReview: Boolean(cell.needs_manual_review),
+    uiMode: normalizeString(cell.ui_mode),
+
     extractedFields: Array.isArray(cell.extracted)
       ? cell.extracted.map(mapExtractedField)
       : [],
   };
 }
-
 

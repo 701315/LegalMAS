@@ -2,7 +2,8 @@
 // src/types/dealReview.ts
 // DTO-типы для UI deal review API.
 // Базово повторяют backend-контракт из src/api/schemas/deal_review.py,
-// но дополнены optional полями для backward-compatible segment-aware UX.
+// но дополнены optional полями для canonical display semantics
+// и segment-aware UX.
 // =============================================================
 
 export type ReviewResult = "fail" | "pass" | "unclear";
@@ -25,12 +26,33 @@ export type ReviewQcStatus =
   | "rejected"
   | "needs_review";
 
+/**
+ * Canonical review workflow status из backend result semantics.
+ * Фронт не интерпретирует бизнес-смысл заново — только рендерит.
+ */
+export type ReviewWorkflowStatus =
+  | "needs_review"
+  | "ok"
+  | "not_applicable"
+  | "unclear";
+
 export type ReviewCheckOrigin =
   | "GLOBAL_PLAYBOOK"
   | "DOCUMENT_TYPE"
   | "CONDITIONAL";
 
 export type ReviewFieldFormat = "money" | "date" | "entity_name" | "text";
+
+/**
+ * Denormalized semantic type чека из backend playbook/result semantics.
+ * Нужен для правильного renderer / details UX.
+ */
+export type ReviewUiMode =
+  | "clause_presence"
+  | "extraction"
+  | "risk_flag"
+  | "comparison"
+  | "summary";
 
 /**
  * Общий provenance-блок для segment/chunk-aware navigation.
@@ -98,6 +120,13 @@ export interface CheckItemDTO extends SegmentProvenanceDTO {
 
   structured_data: Record<string, unknown>;
   origin?: ReviewCheckOrigin | string | null;
+
+  // Canonical display semantics (NEW)
+  display_text?: string | null;
+  review_status?: ReviewWorkflowStatus | string | null;
+  review_message?: string | null;
+  needs_manual_review?: boolean;
+  ui_mode?: ReviewUiMode | string | null;
 }
 
 /**
@@ -153,6 +182,13 @@ export interface MatrixCellDTO extends SegmentProvenanceDTO {
 
   conditional_check_triggered: boolean;
   trigger_name: string | null;
+
+  // Canonical display semantics (NEW)
+  display_text?: string | null;
+  review_status?: ReviewWorkflowStatus | string | null;
+  review_message?: string | null;
+  needs_manual_review?: boolean;
+  ui_mode?: ReviewUiMode | string | null;
 }
 
 /**
@@ -361,5 +397,4 @@ export interface DocumentStructuredDataDTO {
   total_values: number;
   values: ExtractedValueDTO[];
 }
-
 

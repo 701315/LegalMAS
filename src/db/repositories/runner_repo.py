@@ -18,6 +18,19 @@ Repository for Runner integration (Stage 7–10).
 
 Таким образом, бизнес‑логика Runner и UI‑слой не обращаются к ORM
 напрямую, а используют этот репозиторий как единую точку доступа.
+
+Spec v2:
+- load_documents_for_run(...) дополнительно прокидывает
+  classification_requires_review, потому что DD Matrix / review UI
+  уже используют этот флаг для requires_manual_review badge на уровне документа.
+- load_check_results_for_run(...) дополнительно прокидывает
+  canonical display semantics поля:
+    * ui_mode
+    * display_text
+    * machine_reason_code
+    * review_status
+    * review_message
+    * needs_manual_review
 """
 
 import uuid
@@ -116,6 +129,11 @@ class RunnerRepository:
 
         Эти данные используются Aggregator'ом и UI‑API для построения
         обзора сделки.
+
+        Spec v2:
+        - дополнительно возвращаем classification_requires_review,
+          потому что deal_review_service.py уже использует этот флаг
+          для requires_manual_review на уровне row DTO.
         """
         stmt = (
             select(Document)
@@ -135,6 +153,9 @@ class RunnerRepository:
                 "status": d.status or "",
                 "classification_level": d.classification_level or "",
                 "classification_confidence": d.classification_confidence or 0.0,
+                "classification_requires_review": bool(
+                    getattr(d, "classification_requires_review", False) or False
+                ),
                 "applicable_triggers": d.applicable_triggers or [],
             }
         return docs_dict
@@ -145,6 +166,16 @@ class RunnerRepository:
         в формате, который ожидает Aggregator (Stage 9).
 
         Эти данные затем передаются в aggregate_results(...).
+
+        Spec v2:
+        - дополнительно прокидываем canonical display semantics поля,
+          которые уже были сохранены в CheckResult:
+            * ui_mode
+            * display_text
+            * machine_reason_code
+            * review_status
+            * review_message
+            * needs_manual_review
         """
         stmt = select(CheckResult).where(CheckResult.run_id == run_id)
         result = await self.session.execute(stmt)
@@ -181,7 +212,17 @@ class RunnerRepository:
                     "is_primary_segment": r.is_primary_segment,
                     "chunk_id": r.chunk_id,
                     "chunk_index": r.chunk_index,
+                    # ── Spec v2: canonical display semantics ──────────────────
+                    "ui_mode": r.ui_mode,
+                    "display_text": r.display_text,
+                    "machine_reason_code": r.machine_reason_code,
+                    "review_status": r.review_status,
+                    "review_message": r.review_message,
+                    "needs_manual_review": bool(r.needs_manual_review or False),
                 }
             )
 
         return out
+    
+
+    
