@@ -3,10 +3,12 @@ name: "Лицензионные условия и смена контроля"
 description: >
   Анализирует лицензионные условия на ПО, технологии и иные IP-права:
   тип лицензии (exclusive / non-exclusive / sole), территорию и срок,
-  field of use и иные функциональные ограничения, право на
-  сублицензирование, передаваемость лицензии внутри группы и при M&A,
-  а также поведение лицензии при смене контроля. Оценивает риск
-  потери или ограничения критичных лицензий после сделки.
+  field of use и функциональные ограничения, право на сублицензирование,
+  передаваемость лицензии при внутригрупповых передачах и M&A,
+  поведение лицензии при смене контроля.
+
+  Формирует краткий user-facing вывод и оценивает риск потери или
+  ограничения критичных лицензий после сделки.
 
 doc_types: []
 
@@ -16,13 +18,14 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
 
   keywords:
     high:
-      # Лицензия — точные термины
+      # Лицензия
       - "(?i)\\blicen[cs]e\\b"
       - "(?i)лицензи[яеию]"
       - "(?i)лицензионн(ое|ого)\\s+соглашени"
@@ -31,93 +34,69 @@ rules:
       - "(?i)software\\s+license"
 
       # Тип лицензии
-      - "(?i)non[-\\s]?exclusive"
+      - "(?i)non[-\\s]?exclusive\\s+license"
       - "(?i)exclusive\\s+license"
       - "(?i)sole\\s+license"
       - "(?i)исключительн(ая|ого)\\s+лицензи"
       - "(?i)неисключительн(ая|ого)\\s+лицензи"
-      - "(?i)единоличн(ая|ого)\\s+лицензи"
 
       # Территория / срок
-      - "(?i)territory"
-      - "(?i)территори[яи]"
-      - "(?i)worldwide"
-      - "(?i)по\\s+всему\\s+миру"
       - "(?i)term\\s+of\\s+(the\\s+)?license"
       - "(?i)срок\\s+действия\\s+лицензи"
-      - "(?i)perpetual"
-      - "(?i)бессрочн"
+      - "(?i)perpetual\\s+license"
+      - "(?i)бессрочн(ая|ого)\\s+лицензи"
+      - "(?i)worldwide\\s+license"
 
       # Field of use / ограничения
       - "(?i)field\\s+of\\s+use"
-      - "(?i)поле\\s+использовани[яе]"
       - "(?i)internal\\s+use\\s+only"
       - "(?i)только\\s+для\\s+внутреннего\\s+использовани"
+      - "(?i)no\\s+right\\s+to\\s+(sublicense|resell|distribute)"
       - "(?i)reverse\\s+engineering"
-      - "(?i)обратн(ый|ого)\\s+инжиниринг"
-      - "(?i)white[-\\s]?label"
-      - "(?i)resale"
-      - "(?i)SaaS"
-      - "(?i)embedding"
 
       # Сублицензия / передача
       - "(?i)sublicen[cs]e"
       - "(?i)сублицензи[яеию]"
-      - "(?i)assign\\s+or\\s+transfer"
-      - "(?i)assign(ment)?"
-      - "(?i)transfer\\s+of\\s+license"
-      - "(?i)не\\s+подлежит\\s+передаче"
       - "(?i)non[-\\s]?transferable"
+      - "(?i)не\\s+подлежит\\s+передаче"
       - "(?i)consent\\s+of\\s+(the\\s+)?licensor"
       - "(?i)согласие\\s+лицензиара"
+      - "(?i)transfer\\s+of\\s+license"
 
       # Change of control
-      - "(?i)change\\s+of\\s+control"
-      - "(?i)смен[аы]\\s+контрол[яю]"
-      - "(?i)upon\\s+(a\\s+)?change\\s+of\\s+control"
-      - "(?i)в\\s+случае\\s+смены\\s+контрол"
-      - "(?i)deemed\\s+assignment"
-      - "(?i)считается\\s+уступкой"
+      - "(?i)change\\s+of\\s+control[\\s\\S]{0,40}(license|лицензи)"
+      - "(?i)смен[аы]\\s+контрол[яю][\\s\\S]{0,40}лицензи"
+      - "(?i)deemed\\s+assignment[\\s\\S]{0,30}(license|лицензи)"
+      - "(?i)считается\\s+уступкой[\\s\\S]{0,30}лицензи"
 
     medium:
       # Аффилированные лица / M&A carve-out
-      - "(?i)affiliate"
-      - "(?i)аффилированн(ое|ым|ым\\s+лицам?)"
-      - "(?i)intra[-\\s]?group"
-      - "(?i)внутригруппов"
-      - "(?i)successor"
-      - "(?i)правопреемник"
-      - "(?i)merger"
-      - "(?i)слияни"
-      - "(?i)reorganization"
-      - "(?i)реорганизаци"
+      - "(?i)affiliate[\\s\\S]{0,30}(license|use|sublicense)"
+      - "(?i)intra[-\\s]?group[\\s\\S]{0,30}(license|use)"
+      - "(?i)successor[\\s\\S]{0,30}(license|лицензи)"
+      - "(?i)правопреемник[\\s\\S]{0,30}лицензи"
+      - "(?i)merger[\\s\\S]{0,20}(license|лицензи)"
       - "(?i)purchaser\\s+of\\s+(all|substantially\\s+all)"
-      - "(?i)покупател[ьяю]\\s+бизнеса"
 
       # Прекращение лицензии
       - "(?i)terminate\\s+(the\\s+)?license"
       - "(?i)termination\\s+of\\s+(the\\s+)?license"
       - "(?i)прекращени[ея]\\s+лицензи"
       - "(?i)licensor\\s+may\\s+terminate"
-      - "(?i)лицензиар\\s+вправе\\s+расторгнуть"
 
       # Пролонгация
-      - "(?i)auto(matic)?\\s+renewal"
-      - "(?i)автоматическ(ое|ая)\\s+продлени"
-      - "(?i)renews?\\s+automatically"
+      - "(?i)auto(matic)?\\s+renewal[\\s\\S]{0,20}license"
+      - "(?i)автоматическ[оея]\\s+продлени[ея]\\s+лицензи"
 
     low:
-      # Общие термины
-      - "(?i)IP"
-      - "(?i)интеллектуальн(ая|ого)\\s+собственност"
-      - "(?i)software"
-      - "(?i)ПО"
-      - "(?i)technology"
-      - "(?i)технологи"
-      - "(?i)rights?"
-      - "(?i)прав[аоы]"
-      - "(?i)use"
-      - "(?i)использовани"
+      - "(?i)exclusive\\s+license"
+      - "(?i)non[-\\s]?exclusive"
+      - "(?i)field\\s+of\\s+use"
+      - "(?i)sublicen[cs]e"
+      - "(?i)non[-\\s]?transferable"
+      - "(?i)consent\\s+of\\s+licensor"
+      - "(?i)perpetual\\s+license"
+      - "(?i)change\\s+of\\s+control[\\s\\S]{0,20}license"
 
   regex_patterns: []
   clause_patterns: []
@@ -141,220 +120,279 @@ retrieval:
     - "licence"
     - "лицензия"
     - "license agreement"
-    - "non-exclusive"
-    - "exclusive"
+    - "non-exclusive license"
+    - "exclusive license"
     - "sole license"
-    - "territory"
-    - "территория"
     - "term of the license"
     - "срок действия лицензии"
-    - "perpetual"
+    - "perpetual license"
     - "field of use"
     - "поле использования"
     - "internal use only"
+    - "только для внутреннего использования"
     - "sublicense"
     - "сублицензия"
     - "non-transferable"
-    - "assign or transfer"
+    - "не подлежит передаче"
+    - "transfer of license"
     - "consent of licensor"
-    - "affiliate"
-    - "intra-group"
+    - "согласие лицензиара"
+    - "affiliate license"
+    - "intra-group license"
     - "change of control"
     - "смена контроля"
     - "deemed assignment"
-    - "internal use only"
-    - "non-transferable"
-    - "consent of licensor"
-    - "affiliate"
-    - "successor"
-    - "prohibited assignment"
+    - "licensor may terminate"
+    - "прекращение лицензии"
   rerank: true
   filters: {}
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "annex"
+    - "appendix"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+  preferred_clause_functions:
+    - "intellectual_property"
+    - "assignment"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 480
   llm_prompt_extraction: |
     <role>
     Ты — юрист по IP, лицензированию и M&A.
-    Твоя специализация — анализ лицензионных соглашений на ПО,
-    технологии, базы данных и иные IP-объекты, включая их
-    передаваемость, сублицензирование и поведение при смене
-    контроля, внутригрупповых передачах и сделках M&A.
+    Твоя задача — точно извлечь из текста:
+    1) тип, территорию и срок лицензии;
+    2) ограничения field of use;
+    3) права на сублицензирование и передаваемость;
+    4) поведение лицензии при смене контроля.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора, касающиеся лицензий на ПО,
-    технологии или иные IP-права:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
-    <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует
-    одному или нескольким полям итоговой оценки.
+    <task>
+    Заполни только следующие поля:
+    - license_display
+    - license_type
+    - territory_scope
+    - term_type
+    - term_value
+    - field_of_use_restrictions
+    - has_sublicense_rights
+    - is_transferable_to_affiliates_or_on_mna
+    - change_of_control_treatment
+    - red_flags
+    - reason
 
+    Важно:
+    - не делай предположений если данных нет;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
+    <instructions>
     Шаг 1 — ТИП ЛИЦЕНЗИИ
-    (используется для заполнения поля "license_type"):
-    - Определи, является ли лицензия:
-      * "exclusive";
-      * "non-exclusive";
-      * "sole";
-      * "unclear".
-    - Если тип прямо не указан, не делай предположений.
+
+    Заполни поле "license_type".
+
+    Значения:
+    - "exclusive" — исключительная лицензия.
+    - "non_exclusive" — неисключительная лицензия.
+    - "sole" — единоличная лицензия.
+    - "unclear" — тип прямо не указан.
 
     Шаг 2 — ТЕРРИТОРИЯ
-    (используется для заполнения поля "territory_scope"):
-    - Определи территорию действия лицензии:
-      * "worldwide" — worldwide / global;
-      * "limited" — ограничена странами, регионами или рынками;
-      * "unclear" — неясно.
+
+    Заполни поле "territory_scope".
+
+    Значения:
+    - "worldwide" — по всему миру.
+    - "limited" — ограничена странами, регионами, рынками.
+    - "unclear" — неясно.
 
     Шаг 3 — СРОК ЛИЦЕНЗИИ
-    (используется для заполнения поля "term_type"):
-    - Определи срок действия лицензии:
-      * "fixed_term" — фиксированный срок;
-      * "perpetual" — бессрочная;
-      * "tied_to_master_agreement" — действует, пока действует
-        основной договор;
-      * "auto_renewable" — есть автопродление;
-      * "unclear" — неясно.
 
-    Шаг 4 — FIELD OF USE И ФУНКЦИОНАЛЬНЫЕ ОГРАНИЧЕНИЯ
-    (используется для заполнения поля "field_of_use_restrictions"):
-    - Определи, ограничена ли лицензия:
-      * только внутренним использованием;
-      * определённым продуктом, сегментом, индустрией;
-      * запретом на SaaS, resale, white-label, embedding,
-        modification, reverse engineering.
-    - Верни:
-      * "yes" — ограничения есть;
-      * "no" — существенных ограничений не видно;
-      * "unclear" — неясно.
-    - Ключевые ограничения обязательно опиши в reason.
+    Заполни поле "term_type".
+
+    Значения:
+    - "fixed_term" — фиксированный срок.
+    - "perpetual" — бессрочная.
+    - "tied_to_master_agreement" — действует пока действует
+      основной договор.
+    - "auto_renewable" — есть автопродление.
+    - "unclear" — неясно.
+
+    Заполни поле "term_value".
+
+    Правила:
+    - Если фиксированный срок: "5 лет", "до 31.12.2028".
+    - Если бессрочная: "Бессрочная"
+    - Если привязана к договору: "Срок основного договора"
+    - Если неясно: "Не удалось определить"
+
+    Шаг 4 — FIELD OF USE И ОГРАНИЧЕНИЯ
+
+    Заполни поле "field_of_use_restrictions".
+
+    Значения:
+    - "yes" — ограничения есть:
+      * только внутреннее использование;
+      * запрет SaaS, resale, white-label, embedding,
+        modification, reverse engineering;
+      * ограничение по продукту / сегменту / индустрии.
+    - "no" — существенных ограничений нет.
+    - "unclear" — неясно.
 
     Шаг 5 — СУБЛИЦЕНЗИРОВАНИЕ
-    (используется для заполнения поля "has_sublicense_rights"):
-    - Определи, вправе ли лицензиат выдавать сублицензии
-    - Верни:
-      * "yes" — ограничения есть;
-      * "no" — существенных ограничений не видно;
-      * "unclear" — неясно.
+
+    Заполни поле "has_sublicense_rights".
+
+    Значения:
+    - "yes" — право сублицензирования есть.
+    - "no" — нет.
+    - "unclear" — неясно.
 
     Шаг 6 — ПЕРЕДАВАЕМОСТЬ ЛИЦЕНЗИИ
-    (используется для заполнения поля "is_transferable_to_affiliates_or_on_mna"):
-    - Оцени, допускается ли передача / уступка лицензии:
-      * аффилированным лицам;
-      * правопреемнику при merger, reorganization,
-        sale of business, M&A;
-      * по общему правилу.
-    - Учитывай формулировки:
-      * "non-transferable";
-      * "assign or transfer";
-      * "consent of licensor";
-      * carve-out для affiliates / successor / purchaser
-        of substantially all assets.
-    - Верни:
-      * "yes";
-      * "no";
-      * "unclear".
+
+    Заполни поле "is_transferable_to_affiliates_or_on_mna".
+
+    Значения:
+    - "yes" — передача допустима: аффилированным лицам,
+      правопреемнику при M&A / merger / reorganization.
+    - "no" — non-transferable / assignment prohibited без
+      consent licensor.
+    - "unclear" — неясно.
 
     Шаг 7 — ПОВЕДЕНИЕ ЛИЦЕНЗИИ ПРИ СМЕНЕ КОНТРОЛЯ
-    (используется для заполнения поля "change_of_control_treatment"):
-    - Определи, что происходит с лицензией при CoC:
-      * "survives" — лицензия сохраняется автоматически;
-      * "consent_required" — нужен consent licensor;
-      * "terminable" — лицензиар вправе прекратить лицензию;
-      * "prohibited_assignment" — CoC приравнивается к запрещённой передаче;
-      * "unclear" — неясно.
+
+    Заполни поле "change_of_control_treatment".
+
+    Значения:
+    - "survives" — лицензия сохраняется автоматически.
+    - "consent_required" — нужен consent licensor.
+    - "terminable" — лицензиар вправе прекратить лицензию.
+    - "prohibited_assignment" — CoC = запрещённая передача.
+    - "not_addressed" — CoC не урегулирован.
+    - "unclear" — неясно.
 
     Шаг 8 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    Присвой один или несколько кодов из списка ниже.
-    Если ни один код не применим — верни "NONE".
-    Если данных недостаточно для оценки — верни "UNCLEAR".
 
-    Коды:
-    • IPLIC1 — Лицензия прекращается или может быть прекращена
-      при смене контроля.
-    • IPLIC2 — Лицензия non-transferable / assignment prohibited
-      без согласия лицензиара, что блокирует M&A / реорганизацию.
-    • IPLIC3 — Нет права на сублицензирование или внутригрупповое
-      использование при модели, где это требуется.
-    • IPLIC4 — Жёсткие field-of-use / internal-use-only ограничения,
-      несовместимые с бизнес-моделью Target.
-    • IPLIC5 — Срок лицензии короткий, привязан к основному договору
-      или лицензия легко прекращаема.
-    • IPLIC6 — Ключевые параметры лицензии (тип, срок, CoC-режим,
-      transferability) неясны.
+    Заполни поле "red_flags".
 
-    Формат ответа: коды через запятую без комментариев
-    (например: "IPLIC1, IPLIC2").
-    Вся аргументация — в поле reason.
+    Используй:
+    - "NONE" — если существенных риск-факторов нет.
+    - "UNCLEAR" — если данных недостаточно.
+    - Коды через запятую:
+      * IPLIC1 — лицензия прекращается или может быть
+        прекращена при CoC.
+      * IPLIC2 — non-transferable / assignment prohibited
+        без consent licensor — блокирует M&A.
+      * IPLIC3 — нет права на сублицензирование /
+        внутригрупповое использование где это требуется.
+      * IPLIC4 — жёсткие field-of-use / internal-use-only
+        ограничения, несовместимые с бизнес-моделью Target.
+      * IPLIC5 — срок лицензии короткий, привязан к
+        основному договору или легко прекращаема.
+      * IPLIC6 — ключевые параметры (тип, срок, CoC-режим,
+        transferability) неясны.
 
-    Шаг 9 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Шаг 9 — USER-FACING SUMMARY
 
-    - В reason кратко обоснуй вывод, ссылаясь на ключевые
-      формулировки из текста (с цитатами в кавычках), и укажи:
-      * тип лицензии, срок и территорию;
-      * права на sublicense / transfer;
-      * режим при CoC;
-      * ключевые ограничения field of use;
-      * если выставлены red_flags — обоснуй каждый код;
-      * если red_flags = "NONE" — укажи, почему лицензия
-        комфортна для сделки.
+    Заполни поле "license_display".
+
+    Примеры:
+    - "Non-exclusive; worldwide; perpetual; CoC — прекращение"
+    - "Exclusive; ограниченная территория; 5 лет;
+       non-transferable без consent licensor"
+    - "Non-exclusive; internal use only; CoC не урегулирован"
+    - "Не удалось определить условия лицензии"
+
+    Правила:
+    - Отрази максимум 4 ключевых факта через ";".
+    - Если всё unclear:
+      "Не удалось определить условия лицензии"
+
+    Шаг 10 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: тип, срок, территория, sublicense, transfer,
+      CoC-режим, ключевые ограничения, почему red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему лицензия комфортна для сделки.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - Non-transferable + consent licensor + CoC = assignment:
+      * is_transferable_to_affiliates_or_on_mna = "no"
+      * change_of_control_treatment = "prohibited_assignment"
+      * red_flags = "IPLIC1, IPLIC2"
 
-    - Лицензия прямо названа non-transferable и требует consent
-      licensor для assignment / CoC:
-      зафиксируй IPLIC2; если CoC приравнен к assignment —
-      также IPLIC1.
+    - Perpetual worldwide non-exclusive с affiliate use,
+      без CoC ограничений:
+      * сильный фактор low risk
+      * red_flags = "NONE"
 
-    - Любая смена контроля считается prohibited assignment
-      и даёт лицензиару право прекратить лицензию:
-      change_of_control_treatment = "prohibited_assignment";
-      red_flags как минимум "IPLIC1, IPLIC2".
+    - Internal-use-only при SaaS-бизнес-модели Target:
+      * field_of_use_restrictions = "yes"
+      * red_flags включает "IPLIC4"
 
-    - Лицензия "perpetual, worldwide, non-exclusive" с affiliate use
-      и без CoC-ограничений:
-      это сильный фактор в пользу low risk.
+    - Срок лицензии = срок основного договора (3 года):
+      * term_type = "tied_to_master_agreement"
+      * red_flags включает "IPLIC5"
 
-    - Есть internal-use-only или запрет на SaaS / resale:
-      это не нейтрально — оцени как field-of-use restriction
-      и при необходимости ставь IPLIC4.
+    - Тип лицензии, срок и CoC-режим не определены:
+      * license_type = "unclear"
+      * change_of_control_treatment = "unclear"
+      * red_flags включает "IPLIC6"
 
-    - Нет возможности определить тип лицензии, срок или CoC-режим:
-      не додумывай; используй "unclear" и при необходимости IPLIC6.
-
-    - Пустые или явно нерелевантные фрагменты:
-      укажи, что данных недостаточно для анализа лицензии;
-      red_flags = "UNCLEAR"; overall_risk_level не занижай.
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * license_display =
+        "Не удалось определить условия лицензии"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "license_display"
+      type: "string"
+      description: "Условия лицензии: краткий вывод"
+
     - name: "license_type"
       type: "string"
+      description: "Тип лицензии"
       allowed_values:
         - "exclusive"
-        - "non-exclusive"
+        - "non_exclusive"
         - "sole"
         - "unclear"
 
     - name: "territory_scope"
       type: "string"
+      description: "Территория действия лицензии"
       allowed_values:
         - "worldwide"
         - "limited"
@@ -362,6 +400,7 @@ extraction:
 
     - name: "term_type"
       type: "string"
+      description: "Тип срока лицензии"
       allowed_values:
         - "fixed_term"
         - "perpetual"
@@ -369,8 +408,13 @@ extraction:
         - "auto_renewable"
         - "unclear"
 
+    - name: "term_value"
+      type: "string"
+      description: "Конкретный срок лицензии"
+
     - name: "field_of_use_restrictions"
       type: "string"
+      description: "Ограничения field of use"
       allowed_values:
         - "yes"
         - "no"
@@ -378,6 +422,7 @@ extraction:
 
     - name: "has_sublicense_rights"
       type: "string"
+      description: "Право на сублицензирование"
       allowed_values:
         - "yes"
         - "no"
@@ -385,6 +430,7 @@ extraction:
 
     - name: "is_transferable_to_affiliates_or_on_mna"
       type: "string"
+      description: "Передаваемость лицензии при M&A"
       allowed_values:
         - "yes"
         - "no"
@@ -392,45 +438,24 @@ extraction:
 
     - name: "change_of_control_treatment"
       type: "string"
+      description: "Поведение лицензии при CoC"
       allowed_values:
         - "survives"
         - "consent_required"
         - "terminable"
         - "prohibited_assignment"
+        - "not_addressed"
         - "unclear"
 
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "IPLIC1"
-      description: >
-        Лицензия прекращается или может быть прекращена
-        при смене контроля.
-    - code: "IPLIC2"
-      description: >
-        Лицензия non-transferable / assignment prohibited
-        без согласия лицензиара, что блокирует M&A
-        или реорганизацию.
-    - code: "IPLIC3"
-      description: >
-        Нет права на сублицензирование или внутригрупповое
-        использование при модели, где это требуется.
-    - code: "IPLIC4"
-      description: >
-        Жёсткие field-of-use / internal-use-only ограничения,
-        несовместимые с бизнес-моделью Target.
-    - code: "IPLIC5"
-      description: >
-        Срок лицензии короткий, привязан к основному договору
-        или лицензия легко прекращаема.
-    - code: "IPLIC6"
-      description: >
-        Ключевые параметры лицензии (тип, срок, CoC-режим,
-        transferability) неясны.
+
+  

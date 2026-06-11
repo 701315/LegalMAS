@@ -4,9 +4,13 @@ description: >
   Анализирует полноту пакета документов по сделке в контексте
   M&A due diligence: наличие всех приложений, допсоглашений,
   протоколов разногласий, side letters, disclosure schedules.
-  Проверяет соответствие пакета внутренним реестрам (contract
-  register, litigation register), наличие entire agreement clause,
-  версионность и консолидацию документов. Оценивает риск скрытых
+
+  Извлекает: признаки отсутствующих документов, риск side letters
+  и скрытых договорённостей, наличие entire agreement clause,
+  качество disclosure schedules, наличие amendments и их
+  консолидацию, соответствие реестрам.
+
+  Формирует краткий user-facing вывод и оценивает риск скрытых
   условий и неполноты информации.
 
 doc_types: []
@@ -17,13 +21,14 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
 
   keywords:
     high:
-      # Приложения и schedules
+      # Приложения и schedules с конкретной ссылкой
       - "(?i)\\bschedule\\s+[A-Z0-9]"
       - "(?i)\\bexhibit\\s+[A-Z0-9]"
       - "(?i)\\bappendix\\s+[A-Z0-9]"
@@ -36,8 +41,8 @@ rules:
       # Side letters
       - "(?i)side\\s+letter"
       - "(?i)сайд[-\\s]?леттер"
-      - "(?i)отдельное\\s+соглашение"
-      - "(?i)separate\\s+agreement"
+      - "(?i)отдельное\\s+соглашение[\\s\\S]{0,30}(сторонами|заключен)"
+      - "(?i)separate\\s+agreement[\\s\\S]{0,30}(parties|entered|executed)"
       - "(?i)сторонами\\s+также\\s+заключено"
       - "(?i)parties\\s+have\\s+also\\s+(entered|executed)"
       - "(?i)supplemental\\s+agreement"
@@ -46,15 +51,13 @@ rules:
       # Disclosure schedules
       - "(?i)disclosure\\s+schedule"
       - "(?i)disclosure\\s+letter"
-      - "(?i)раскрыти[ея]"
       - "(?i)disclosed\\s+in\\s+(the\\s+)?Schedule"
       - "(?i)раскрыт[оы]\\s+в\\s+Приложении"
 
-      # Допсоглашения
-      - "(?i)дополнительное\\s+соглашение"
-      - "(?i)amendment"
-      - "(?i)variation"
-      - "(?i)изменени[ея]\\s+к\\s+договору"
+      # Допсоглашения / amendments
+      - "(?i)дополнительное\\s+соглашение\\s+(№|#|\\d)"
+      - "(?i)amendment\\s+(№|#|No\\.?\\s*\\d)"
+      - "(?i)изменени[ея]\\s+к\\s+договору\\s+(№|#|\\d)"
       - "(?i)протокол\\s+разногласий"
       - "(?i)protocol\\s+of\\s+disagreements?"
 
@@ -73,40 +76,29 @@ rules:
       - "(?i)litigation\\s+register"
       - "(?i)реестр\\s+(судебных\\s+)?споров"
       - "(?i)data\\s+room\\s+index"
-      - "(?i)индекс\\s+дата[-\\s]?рума"
       - "(?i)document\\s+list"
       - "(?i)перечень\\s+документов"
 
-      # Ссылки на приложения (общие)
+      # Ссылки на приложения
       - "(?i)attached\\s+hereto"
       - "(?i)прилага(ется|ются)\\s+к\\s+настоящему"
       - "(?i)incorporated\\s+(herein\\s+)?by\\s+reference"
       - "(?i)является\\s+неотъемлемой\\s+частью"
 
-      # Версии
+      # Версионность
       - "(?i)consolidated\\s+version"
       - "(?i)консолидированн[а-я]+\\s+версия"
-      - "(?i)as\\s+amended"
-      - "(?i)в\\s+редакции"
-      - "(?i)restated"
       - "(?i)amended\\s+and\\s+restated"
+      - "(?i)в\\s+редакции[\\s\\S]{0,20}(допсоглашени|изменени|amendment)"
 
     low:
-      # Общие термины
-      - "(?i)schedule"
-      - "(?i)приложени"
-      - "(?i)exhibit"
-      - "(?i)appendix"
-      - "(?i)annex"
-      - "(?i)amendment"
-      - "(?i)изменени"
-      - "(?i)дополнени"
-      - "(?i)agreement"
-      - "(?i)соглашени"
-      - "(?i)register"
-      - "(?i)реестр"
-      - "(?i)disclosure"
-      - "(?i)раскрыти"
+      - "(?i)side\\s+letter"
+      - "(?i)disclosure\\s+schedule"
+      - "(?i)entire\\s+agreement"
+      - "(?i)contract\\s+register"
+      - "(?i)протокол\\s+разногласий"
+      - "(?i)amended\\s+and\\s+restated"
+      - "(?i)consolidated\\s+version"
 
   regex_patterns: []
   clause_patterns: []
@@ -130,6 +122,7 @@ retrieval:
     - "exhibit"
     - "appendix"
     - "Приложение"
+    - "as set out in Schedule"
     - "side letter"
     - "отдельное соглашение"
     - "дополнительное соглашение"
@@ -137,213 +130,277 @@ retrieval:
     - "протокол разногласий"
     - "disclosure schedule"
     - "disclosure letter"
-    - "раскрытие"
     - "entire agreement"
     - "полное соглашение"
+    - "supersedes prior agreements"
     - "contract register"
     - "реестр договоров"
     - "litigation register"
     - "реестр споров"
-    - "as set out in"
-    - "согласно Приложению"
     - "consolidated version"
-    - "as amended"
+    - "amended and restated"
+    - "сторонами также заключено"
+    - "parties have also entered"
   rerank: true
   filters: {}
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+    - "annex"
+    - "appendix"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+  preferred_clause_functions:
+    - "general_provisions"
+  confidence_bonus_on_match: 0.08
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 460
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A и due diligence.
-    Твоя специализация — анализ полноты документации по сделке,
-    выявление side letters, проверка соответствия пакета
-    внутренним реестрам и оценка рисков скрытых условий.
+    Твоя задача — точно извлечь из текста:
+    1) признаки отсутствующих документов в пакете;
+    2) наличие side letters и скрытых договорённостей;
+    3) наличие entire agreement clause;
+    4) качество disclosure schedules;
+    5) наличие amendments и их консолидацию;
+    6) соответствие реестрам.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора и/или ссылки на приложения,
-    допсоглашения, side letters, disclosure schedules и реестры:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
-    <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
+    <task>
+    Заполни только следующие поля:
+    - document_completeness_display
+    - has_suspected_missing_documents
+    - missing_documents_list
+    - side_letters_risk
+    - has_entire_agreement_clause
+    - disclosure_schedules_assessment
+    - has_amendments
+    - consolidation_status
+    - registers_gap_risk
+    - red_flags
+    - reason
 
-    Шаг 1 — ОТСУТСТВУЮЩИЕ ДОКУМЕНТЫ
-    (используется для заполнения поля "has_suspected_missing_documents"):
-    - Оцени, есть ли признаки отсутствия документов в пакете:
-      * ссылки вида «as set out in Schedule X» без текста Schedule X;
+    Важно:
+    - не придумывай данные, которых нет в тексте;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
+    <instructions>
+    Шаг 1 — ПОДОЗРЕНИЕ НА ОТСУТСТВУЮЩИЕ ДОКУМЕНТЫ
+
+    Заполни поле "has_suspected_missing_documents".
+
+    Значения:
+    - "yes" — обоснованное подозрение:
+      * ссылки "as set out in Schedule X" без текста Schedule X;
       * пропуски в нумерации приложений;
       * упоминание side letter без его текста;
-      * ссылки на amendments без их содержания.
-    - Оцени:
-      * "yes" — есть обоснованное подозрение на отсутствие;
-      * "no" — все упомянутые документы присутствуют;
-      * "unclear" — невозможно определить.
+      * ссылки на amendments без содержания.
+    - "no" — все упомянутые документы присутствуют.
+    - "unclear" — невозможно определить.
 
-    Шаг 2 — SIDE LETTERS И СКРЫТЫЕ ДОГОВОРЁННОСТИ
-    (используется для заполнения поля "side_letters_risk"):
-    - Определи, есть ли признаки side letters или скрытых
-      договорённостей:
-      * прямое упоминание side letter;
-      * фразы «сторонами также заключено отдельное соглашение»;
-      * ссылки на supplemental agreements без их текста.
-    - Оцени риск:
-      * "high" — side letter упоминается, но не предоставлен;
-      * "medium" — есть косвенные признаки;
-      * "low" — нет признаков side letters;
-      * "unclear" — невозможно определить.
+    Шаг 2 — СПИСОК ПРЕДПОЛОЖИТЕЛЬНО ОТСУТСТВУЮЩИХ ДОКУМЕНТОВ
 
-    Шаг 3 — ENTIRE AGREEMENT CLAUSE
-    (используется для заполнения поля "has_entire_agreement_clause"):
-    - Определи, содержит ли договор entire agreement clause
-      (полное соглашение), которая:
-      * подтверждает, что договор представляет полную
-        договорённость сторон;
-      * исключает / замещает предшествующие соглашения.
-    - Оцени:
-      * "yes" — есть;
-      * "no" — нет;
-      * "unclear" — неясно.
+    Заполни поле "missing_documents_list".
 
-    Шаг 4 — DISCLOSURE SCHEDULES
-    (используется для заполнения поля "disclosure_schedules_assessment"):
-    - Определи, упоминаются ли disclosure schedules / disclosure
-      letters.
-    - По содержанию фрагментов оцени их полноту:
-      * "adequate" — детализированные, содержательные;
-      * "weak" — формальные, blanket statements,
-        недостаточная детализация;
-      * "empty" — пустые или отсутствуют;
-      * "unclear" — невозможно оценить.
+    Правила:
+    - Если has_suspected_missing_documents = "yes":
+      перечисли предположительно отсутствующие документы
+      через ";":
+      * "Schedule A; Amendment #2; Disclosure Schedule"
+    - Если has_suspected_missing_documents = "no":
+      "Не применимо"
+    - Если unclear:
+      "Не удалось определить"
 
-    Шаг 5 — AMENDMENTS И ВЕРСИОННОСТЬ
-    (используется для заполнения поля
-     "has_amendments"):
-    - Определи, есть ли amendments / variations к договору:
-      * "yes" — есть;
-      * "no" — нет;
-      * "unclear" — неясно.
+    Шаг 3 — РИСК SIDE LETTERS
 
-    Шаг 6 — СООТВЕТСТВИЕ РЕЕСТРАМ
-    (используется для заполнения поля "registers_gap_risk"):
-    - Проверь, упоминаются ли внутренние реестры
-      (contract register, litigation register, data room index).
-    - Оцени, есть ли признаки расхождения между реестрами
-      и фактическим пакетом:
-      * "high" — очевидный разрыв (реестр упоминает документы,
-        которых нет; или vice versa);
-      * "medium" — есть отдельные несоответствия;
-      * "low" — реестры соответствуют пакету
-        или реестры не упоминаются;
-      * "unclear" — невозможно определить.
+    Заполни поле "side_letters_risk".
 
-    Шаг 7 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    Присвой один или несколько кодов из списка ниже.
-    Если ни один код не применим — верни "NONE".
-    Если данных недостаточно для оценки — верни "UNCLEAR".
+    Значения:
+    - "high" — side letter упоминается, но не предоставлен.
+    - "medium" — есть косвенные признаки скрытых договорённостей.
+    - "low" — нет признаков side letters.
+    - "unclear" — невозможно определить.
 
-    Коды:
-    • DOC1 — Отсутствие приложений / schedules, на которые
-      прямо ссылается договор.
-    • DOC2 — Упоминание side letter без предоставления
-      его текста — риск скрытых условий.
-    • DOC3 — Очевидный разрыв между реестрами и фактическим
-      пакетом документов.
-    • DOC4 — Disclosure schedules пустые, формальные
-      или содержат blanket statements.
-    • DOC5 — Нет entire agreement clause — договор может
-      не охватывать все договорённости.
-    • DOC6 — Множественные amendments без консолидированной
-      версии договора — сложность отслеживания актуальных
-      условий.
+    Шаг 4 — ENTIRE AGREEMENT CLAUSE
 
-    Формат ответа: коды через запятую без комментариев
-    (например: "DOC1, DOC2").
-    Вся аргументация — в поле reason.
+    Заполни поле "has_entire_agreement_clause".
 
-    Шаг 8 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Значения:
+    - "yes" — есть: договор = полная договорённость,
+      замещает предшествующие соглашения.
+    - "no" — нет.
+    - "unclear" — неясно.
 
-    - В reason кратко обоснуй вывод, опираясь на ключевые
-      формулировки из текста (с цитатами в кавычках), и укажи:
-      * какие документы упоминаются и какие отсутствуют;
-      * есть ли признаки side letters;
-      * есть ли entire agreement clause;
-      * каково состояние disclosure schedules;
-      * есть ли amendments и консолидация;
-      * если выставлены red_flags — обоснуй каждый код;
-      * если red_flags = "NONE" — укажи, почему пакет
-        выглядит полным.
+    Шаг 5 — DISCLOSURE SCHEDULES
+
+    Заполни поле "disclosure_schedules_assessment".
+
+    Значения:
+    - "adequate" — детализированные, содержательные.
+    - "weak" — формальные, blanket statements,
+      недостаточная детализация.
+    - "empty" — пустые или "Nothing to disclose".
+    - "not_present" — disclosure schedules не упоминаются.
+    - "unclear" — невозможно оценить.
+
+    Шаг 6 — AMENDMENTS И ВЕРСИОННОСТЬ
+
+    Заполни поле "has_amendments".
+
+    Значения:
+    - "yes" — есть amendments / variations к договору.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Заполни поле "consolidation_status".
+
+    Значения:
+    - "consolidated" — есть консолидированная /
+      restated версия договора.
+    - "not_consolidated" — amendments без консолидации.
+    - "not_applicable" — amendments нет.
+    - "unclear" — неясно.
+
+    Шаг 7 — СООТВЕТСТВИЕ РЕЕСТРАМ
+
+    Заполни поле "registers_gap_risk".
+
+    Значения:
+    - "high" — очевидный разрыв: реестр упоминает документы
+      которых нет, или наоборот.
+    - "medium" — отдельные несоответствия.
+    - "low" — реестры соответствуют пакету или не упоминаются.
+    - "unclear" — невозможно определить.
+
+    Шаг 8 — RED FLAGS
+
+    Заполни поле "red_flags".
+
+    Используй:
+    - "NONE" — если существенных риск-факторов нет.
+    - "UNCLEAR" — если данных недостаточно.
+    - Коды через запятую:
+      * DOC1 — отсутствие приложений / schedules, на которые
+        прямо ссылается договор.
+      * DOC2 — упоминание side letter без его текста.
+      * DOC3 — очевидный разрыв между реестрами и пакетом.
+      * DOC4 — disclosure schedules пустые или формальные.
+      * DOC5 — нет entire agreement clause.
+      * DOC6 — множественные amendments без консолидации.
+
+    Шаг 9 — USER-FACING SUMMARY
+
+    Заполни поле "document_completeness_display".
+
+    Примеры:
+    - "Пакет полный; entire agreement есть; amendments консолидированы"
+    - "Отсутствует Schedule A; упоминается side letter;
+       disclosure schedules формальные"
+    - "Amendments без консолидации; нет entire agreement clause"
+    - "Не удалось оценить полноту документации"
+
+    Правила:
+    - Отрази максимум 3 ключевых факта через ";".
+    - Если все параметры unclear:
+      "Не удалось оценить полноту документации"
+    - Если нет проблем:
+      "Пакет выглядит полным"
+
+    Шаг 10 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: отсутствующие документы, признаки side letters,
+      состояние disclosure schedules, amendments, реестры,
+      почему выставлены red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему пакет выглядит полным.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - Договор упоминает Schedule X, текста нет:
+      * has_suspected_missing_documents = "yes"
+      * missing_documents_list = "Schedule X"
+      * red_flags включает "DOC1"
 
-    - Договор упоминает множество приложений, но их текст
-      не в доступных фрагментах:
-      has_suspected_missing_documents = "yes";
-      зафиксируй DOC1; в missing_documents_list перечисли
-      упомянутые документы.
-
-    - Side letter упоминается фразой «сторонами также
-      заключено отдельное соглашение», текста нет:
-      side_letters_risk = "high";
-      зафиксируй DOC2.
+    - "Сторонами также заключено отдельное соглашение",
+      текста нет:
+      * side_letters_risk = "high"
+      * red_flags включает "DOC2"
 
     - Нет ссылок на приложения, schedules, реестры:
-      has_suspected_missing_documents = "no";
-      в reason отметь, что дополнительных документов
-      по тексту не видно — это не признак риска само по себе.
+      * has_suspected_missing_documents = "no"
+      * side_letters_risk = "low"
+      * в reason: дополнительных документов не видно
 
     - Есть entire agreement clause:
-      has_entire_agreement_clause = "yes";
-      это снижает риск side letters; DOC5 не выставляется.
+      * has_entire_agreement_clause = "yes"
+      * DOC5 не выставляется
 
-    - Disclosure schedules содержат только «None» или
-      «Nothing to disclose»:
-      disclosure_schedules_assessment = "weak" или "empty";
-      зафиксируй DOC4.
+    - Disclosure schedules "Nothing to disclose":
+      * disclosure_schedules_assessment = "empty"
+      * red_flags включает "DOC4"
 
-    - Множество amendments (Amendment #1, #2, #3...)
-      без consolidated / restated версии:
-      has_amendments = "yes";
-      consolidation_status = "not_consolidated";
-      зафиксируй DOC6.
+    - Amendment #1, #2, #3 без consolidated version:
+      * has_amendments = "yes"
+      * consolidation_status = "not_consolidated"
+      * red_flags включает "DOC6"
 
-    - Реестр договоров упоминает контракт, который
-      не в пакете DD:
-      registers_gap_risk = "high";
-      зафиксируй DOC3.
-
-    - Пустые или явно нерелевантные фрагменты:
-      red_flags = "UNCLEAR"; в reason укажи недостаток данных.
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * document_completeness_display =
+        "Не удалось оценить полноту документации"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные
-    формулировки из текста, на которых они основаны.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "document_completeness_display"
+      type: "string"
+      description: "Полнота документации: краткий вывод"
+
     - name: "has_suspected_missing_documents"
       type: "string"
+      description: "Подозрение на отсутствующие документы"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
+    - name: "missing_documents_list"
+      type: "string"
+      description: "Предположительно отсутствующие документы"
+
     - name: "side_letters_risk"
       type: "string"
+      description: "Риск side letters / скрытых договорённостей"
       allowed_values:
         - "high"
         - "medium"
@@ -352,6 +409,7 @@ extraction:
 
     - name: "has_entire_agreement_clause"
       type: "string"
+      description: "Entire agreement clause"
       allowed_values:
         - "yes"
         - "no"
@@ -359,14 +417,17 @@ extraction:
 
     - name: "disclosure_schedules_assessment"
       type: "string"
+      description: "Качество disclosure schedules"
       allowed_values:
         - "adequate"
         - "weak"
         - "empty"
+        - "not_present"
         - "unclear"
 
     - name: "has_amendments"
       type: "string"
+      description: "Наличие amendments / допсоглашений"
       allowed_values:
         - "yes"
         - "no"
@@ -374,6 +435,7 @@ extraction:
 
     - name: "consolidation_status"
       type: "string"
+      description: "Статус консолидации amendments"
       allowed_values:
         - "consolidated"
         - "not_consolidated"
@@ -382,6 +444,7 @@ extraction:
 
     - name: "registers_gap_risk"
       type: "string"
+      description: "Риск расхождения с реестрами"
       allowed_values:
         - "high"
         - "medium"
@@ -390,35 +453,13 @@ extraction:
 
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "DOC1"
-      description: >
-        Отсутствие приложений / schedules, на которые
-        прямо ссылается договор.
-    - code: "DOC2"
-      description: >
-        Упоминание side letter без предоставления его текста —
-        риск скрытых условий.
-    - code: "DOC3"
-      description: >
-        Очевидный разрыв между реестрами (contract/litigation
-        register) и фактическим пакетом документов.
-    - code: "DOC4"
-      description: >
-        Disclosure schedules пустые, формальные или содержат
-        blanket statements.
-    - code: "DOC5"
-      description: >
-        Нет entire agreement clause — договор может не охватывать
-        все договорённости сторон.
-    - code: "DOC6"
-      description: >
-        Множественные amendments без консолидированной версии
-        договора — сложность отслеживания актуальных условий.
+
+  

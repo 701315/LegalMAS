@@ -2,9 +2,12 @@ id: "termination_consequences"
 name: "Последствия расторжения"
 description: >
   Анализирует последствия расторжения: судьба авансов и минимальных
-  платежей, переходный период (transition), миграция данных,
-  конфиденциальная информация, лицензии/IP, перечень survival-положений
-  и баланс рисков для Target.
+  платежей (возврат / невозвратимые / early termination fee),
+  наличие переходного периода (transition), условия возврата данных,
+  судьба IP / лицензий, перечень survival-положений и баланс рисков
+  для Target.
+
+  Формирует краткий user-facing вывод.
 
 doc_types: []
 
@@ -14,6 +17,7 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
@@ -26,6 +30,7 @@ rules:
       - "(?i)consequences?\\s+of\\s+termination"
       - "(?i)последстви[яи]\\s+расторжени[яи]"
       - "(?i)following\\s+termination"
+      - "(?i)after\\s+termination"
       - "(?i)после\\s+расторжени[яи]"
       - "(?i)post[-\\s]?termination"
 
@@ -41,76 +46,52 @@ rules:
       - "(?i)early\\s+termination\\s+fee"
       - "(?i)плат[аы]\\s+за\\s+досрочн[а-яое]+\\s+расторжени"
       - "(?i)termination\\s+(fee|charge|penalty)"
-      - "(?i)штраф\\s+за\\s+расторжени"
       - "(?i)breakage\\s+(fee|cost)"
 
       # Survival
       - "(?i)\\bsurviv(e|al|es|ing)\\b"
       - "(?i)сохраня[ею]т\\s+силу"
-      - "(?i)продолжа[ею]т\\s+действовать"
       - "(?i)shall\\s+(continue\\s+to\\s+)?remain\\s+in\\s+(full\\s+)?force"
-      - "(?i)остаётся\\s+в\\s+силе"
 
     medium:
       # Авансы и минимальные платежи
-      - "(?i)\\bаванс[а-я]*\\b"
-      - "(?i)\\badvance\\s+payment"
-      - "(?i)\\bprepayment\\b"
-      - "(?i)предоплат"
-      - "(?i)minimum\\s+(commitment|payment|fee)"
-      - "(?i)минимальн[а-яый]+\\s+(платёж|платеж|обязательств)"
-      - "(?i)за\\s+вычетом"
-      - "(?i)less\\s+(any\\s+)?deductions?"
+      - "(?i)advance\\s+payment[\\s\\S]{0,30}(terminat|refund|return)"
+      - "(?i)prepayment[\\s\\S]{0,30}(terminat|refund|return)"
+      - "(?i)аванс[а-я]*[\\s\\S]{0,30}(расторж|возврат)"
+      - "(?i)minimum\\s+(commitment|payment)[\\s\\S]{0,30}terminat"
+      - "(?i)минимальн[а-яый]+\\s+(платёж|обязательств)[\\s\\S]{0,30}расторж"
 
-      # Переходный период / transition
+      # Переходный период
       - "(?i)transition\\s+(period|plan|service|assistance)"
       - "(?i)переходн[а-яый]+\\s+период"
-      - "(?i)migration\\s+(period|plan|assistance)"
-      - "(?i)миграци[яию]\\s+(данных|систем)"
       - "(?i)wind[-\\s]?down\\s+period"
-      - "(?i)data\\s+(export|migration|portability|return)"
-      - "(?i)экспорт\\s+данных"
-      - "(?i)возврат\\s+данных"
+      - "(?i)data\\s+(export|migration|portability|return)[\\s\\S]{0,20}terminat"
+      - "(?i)экспорт\\s+данных[\\s\\S]{0,20}(расторж|прекращ)"
+      - "(?i)возврат\\s+данных[\\s\\S]{0,20}(расторж|прекращ)"
 
       # Конфиденциальность после расторжения
-      - "(?i)confidential(ity)?\\s+[\\s\\S]{0,40}(surviv|terminat|expir|continu)"
-      - "(?i)конфиденциальност[ьи]\\s+[\\s\\S]{0,40}(сохраня|продолжа|после\\s+расторж)"
+      - "(?i)confidential(ity)?[\\s\\S]{0,40}(surviv|terminat|continu)"
+      - "(?i)конфиденциальност[ьи][\\s\\S]{0,40}(сохраня|продолжа|после\\s+расторж)"
       - "(?i)return\\s+[\\s\\S]{0,20}confidential"
-      - "(?i)возврат[\\s\\S]{0,20}конфиденциальн"
       - "(?i)destroy\\s+[\\s\\S]{0,20}confidential"
-      - "(?i)уничтожени[ея]\\s+[\\s\\S]{0,20}конфиденциальн"
 
       # IP / лицензии после расторжения
-      - "(?i)(licen[cs]e|IP|intellectual\\s+property)\\s+[\\s\\S]{0,40}(terminat|expir|ceas|revok)"
-      - "(?i)(лицензи|IP|интеллектуальн)[\\s\\S]{0,40}(прекращ|истек|аннулир|отзыв)"
-      - "(?i)perpetual\\s+licen[cs]e"
-      - "(?i)бессрочн[а-яая]+\\s+лицензи"
-      - "(?i)(licen[cs]e|right)\\s+[\\s\\S]{0,30}surviv"
-
-      # Обязательства по возврату
-      - "(?i)return\\s+(all\\s+)?(materials?|documents?|equipment|property)"
-      - "(?i)возврат\\s+(всех\\s+)?(материал|документ|оборудовани|имуществ)"
+      - "(?i)(licen[cs]e|IP)[\\s\\S]{0,40}(terminat|expir|ceas|revok)"
+      - "(?i)лицензи[яи][\\s\\S]{0,40}(прекращ|истек|аннулир|отзыв)"
+      - "(?i)perpetual\\s+licen[cs]e[\\s\\S]{0,20}(surviv|terminat)"
+      - "(?i)бессрочн[а-яая]+\\s+лицензи[\\s\\S]{0,20}(сохраня|расторж)"
 
     low:
-      # Общие ссылки на расторжение
-      - "(?i)terminat"
-      - "(?i)расторжени"
-      - "(?i)прекращени"
-      - "(?i)expir(y|ation)"
-      - "(?i)истечени"
-
-      # Общие ссылки на платежи
-      - "(?i)payment"
-      - "(?i)платёж"
-      - "(?i)платеж"
-      - "(?i)refund"
-      - "(?i)возврат"
-
-      # Общие ссылки на обязательства
-      - "(?i)obligation"
-      - "(?i)обязательств"
-      - "(?i)liability"
-      - "(?i)ответственност"
+      - "(?i)upon\\s+termination"
+      - "(?i)post[-\\s]?termination"
+      - "(?i)non[-\\s]?refundable"
+      - "(?i)early\\s+termination\\s+fee"
+      - "(?i)surviv(e|al)"
+      - "(?i)сохраняют\\s+силу"
+      - "(?i)transition\\s+period"
+      - "(?i)переходный\\s+период"
+      - "(?i)при\\s+расторжении"
+      - "(?i)последствия\\s+расторжения"
 
   regex_patterns: []
   clause_patterns: []
@@ -138,8 +119,7 @@ retrieval:
     - "non-refundable"
     - "невозвратимый"
     - "early termination fee"
-    - "minimum commitment"
-    - "минимальные платежи"
+    - "плата за досрочное расторжение"
     - "survive"
     - "survival"
     - "сохраняют силу"
@@ -150,202 +130,247 @@ retrieval:
     - "data export"
     - "return confidential"
     - "возврат конфиденциальной"
-    - "perpetual license"
     - "license termination"
+    - "perpetual license"
     - "wind-down"
   rerank: true
   filters: {}
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+    - "annex"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+    - "schedule"
+  preferred_clause_functions:
+    - "termination"
+    - "confidentiality"
+    - "intellectual_property"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 440
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим договорам.
-    Твоя специализация — последствия расторжения, выживающие
-    обязательства (survival), переходные периоды (transition),
-    судьба платежей, данных, IP и конфиденциальной информации
-    после прекращения договора.
+    Твоя задача — точно извлечь из текста последствия расторжения:
+    1) судьба авансов и минимальных платежей;
+    2) early termination fee;
+    3) переходный период и возврат данных;
+    4) судьба IP / лицензий;
+    5) конфиденциальность после расторжения.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора с возможными положениями
-    о последствиях расторжения:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
-    <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
+    <task>
+    Заполни только следующие поля:
+    - termination_consequences_display
+    - payments_treatment
+    - has_early_termination_fee
+    - has_transition_period
+    - transition_period_value
+    - data_handling_after_termination
+    - ip_license_survival
+    - confidentiality_survival
+    - red_flags
+    - reason
 
+    Важно:
+    - не придумывай данные если их нет в тексте;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
+    <instructions>
     Шаг 1 — СУДЬБА АВАНСОВ И МИНИМАЛЬНЫХ ПЛАТЕЖЕЙ
-    (используется для заполнения поля "payments_treatment"):
-    - Определи, что происходит с авансовыми и минимальными
-      платежами при расторжении:
-      * подлежат ли возврату (полностью или частично);
-      * обозначены ли как non-refundable / невозвратимые;
-      * удерживаются ли как неустойка / liquidated damages;
-      * различается ли режим при виновном и безвиновном
-        расторжении.
-    - Оцени условия для Target:
-      * "favorable" — возврат неиспользованной части,
-        или pro-rata refund;
-      * "unfavorable" — крупные невозвратимые суммы,
-        удержание как penalty, early termination fee;
-      * "unclear" — невозможно определить.
+
+    Заполни поле "payments_treatment".
+
+    Значения:
+    - "favorable" — возврат неиспользованной части или
+      pro-rata refund при расторжении.
+    - "unfavorable" — non-refundable, удержание как penalty,
+      крупные невозвратимые суммы.
+    - "neutral" — дифференцированный подход: зависит от причины
+      расторжения (виновное / безвиновное).
+    - "not_addressed" — вопрос не урегулирован.
+    - "unclear" — неясно.
 
     Шаг 2 — EARLY TERMINATION FEE
-    (используется для заполнения поля "has_early_termination_fee"):
-    - Определи, предусмотрена ли отдельная плата за досрочное
-      расторжение (early termination fee / breakage fee):
-      * "yes" — прямо предусмотрена;
-      * "no" — не предусмотрена;
-      * "unclear" — невозможно определить.
 
-    Шаг 3 — ПЕРЕХОДНЫЙ ПЕРИОД (TRANSITION)
-    (используется для заполнения поля "has_transition_period"):
-    - Определи, предусмотрен ли переходный период после
-      расторжения:
-      * transition services / assistance;
-      * wind-down period;
-      * период для миграции данных/систем;
-      * период для завершения текущих проектов.
-    - Сформулируй вывод: "yes" / "no" / "unclear".
+    Заполни поле "has_early_termination_fee".
 
-    Шаг 4 — КОНФИДЕНЦИАЛЬНОСТЬ ПОСЛЕ РАСТОРЖЕНИЯ
-    (используется для заполнения поля "confidentiality_survival"):
-    - Определи, как регулируется конфиденциальность после
-      расторжения:
-      * "none" — survival нет;
-      * "yes" — более 2 лет или бессрочно;
-      * "unclear" — невозможно оценить.
+    Значения:
+    - "yes" — прямо предусмотрена отдельная плата.
+    - "no" — не предусмотрена.
+    - "unclear" — неясно.
 
-    Шаг 5 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    - Оцени наличие следующих рисковых факторов:
+    Шаг 3 — ПЕРЕХОДНЫЙ ПЕРИОД
 
-      * «TERM5» — Невозвратимые крупные авансы/минимальные
-        платежи при досрочном расторжении. Признаки:
-        - payments_treatment = "unfavorable";
-        - формулировки "non-refundable", "retained as penalty",
-          "early termination fee";
-        - Target теряет значительные суммы при выходе
-          из договора.
+    Заполни поля "has_transition_period"
+    и "transition_period_value".
 
-      * «TERM6» — Прекращение ключевых лицензий/IP без
-        разумного переходного периода. Признаки:
-        - ip_license_survival = "terminated";
-        - has_transition_period = "no";
-        - для IT/SaaS-договоров это критично:
-          Target теряет доступ к системам/данным немедленно.
+    Значения для has_transition_period:
+    - "yes" — transition services / wind-down / migration period.
+    - "no" — не предусмотрен.
+    - "unclear" — неясно.
 
-      * «TERM7» — Чрезмерно широкий перечень survival-
-        обязательств, создающий долгосрочные ограничения
-        для Target. Признаки:
-        - surviving_obligations_list содержит широкие
-          обязательства (non-compete, extensive indemnity,
-          бессрочные платежи);
-        - при этом аналогичные survival-обязательства
-          контрагента минимальны;
-        - Target де-факто остаётся связана обязательствами
-          надолго после расторжения.
+    Для transition_period_value:
+    - Если есть: "30 дней", "90 дней", "до миграции данных"
+    - Если нет: "Не применимо"
+    - Если неясно: "Не удалось определить"
 
-    - Если условия расторжения сбалансированы (разумный
-      возврат платежей, переходный период, стандартный
-      survival) — верни "NONE".
-    - Если данных недостаточно для оценки — верни "UNCLEAR".
-    - Формат: один или несколько кодов через запятую
-      ("TERM5", "TERM6", "TERM5, TERM6, TERM7"),
-      "NONE" или "UNCLEAR".
-      Без комментариев в этом поле — всё объясняющее в reason.
+    Шаг 4 — ВОЗВРАТ ДАННЫХ ПОСЛЕ РАСТОРЖЕНИЯ
 
-    Шаг 6 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Заполни поле "data_handling_after_termination".
 
-    - В "reason" кратко обоснуй вывод:
-      * ссылайся на ключевые формулировки (по возможности
-        с короткими цитатами);
-      * поясни, какие именно последствия расторжения
-        создают основной риск для Target;
-      * если выставлены red_flags — объясни, почему именно
-        эти коды.
+    Значения:
+    - "export_provided" — явно предусмотрен экспорт /
+      возврат данных клиенту.
+    - "deletion_only" — данные удаляются без возможности
+      экспорта.
+    - "both" — и экспорт, и удаление предусмотрены.
+    - "not_addressed" — не урегулировано.
+    - "unclear" — неясно.
+
+    Шаг 5 — СУДЬБА IP / ЛИЦЕНЗИЙ
+
+    Заполни поле "ip_license_survival".
+
+    Значения:
+    - "terminated_immediately" — лицензии / IP прекращаются
+      немедленно при расторжении.
+    - "terminated_with_transition" — прекращаются, но после
+      разумного transition period.
+    - "perpetual" — лицензии сохраняются бессрочно.
+    - "not_addressed" — не урегулировано.
+    - "unclear" — неясно.
+
+    Шаг 6 — КОНФИДЕНЦИАЛЬНОСТЬ ПОСЛЕ РАСТОРЖЕНИЯ
+
+    Заполни поле "confidentiality_survival".
+
+    Значения:
+    - "none" — survival нет.
+    - "short" — до 1 года.
+    - "standard" — 1–3 года.
+    - "long" — более 3 лет или бессрочно.
+    - "unclear" — неясно.
+
+    Шаг 7 — RED FLAGS
+
+    Заполни поле "red_flags".
+
+    Используй:
+    - "NONE" — сбалансированные условия расторжения.
+    - "UNCLEAR" — данных недостаточно.
+    - Коды через запятую:
+      * TERM5 — невозвратимые крупные авансы / early
+        termination fee при досрочном расторжении.
+      * TERM6 — прекращение ключевых лицензий / IP без
+        разумного переходного периода (ip_license_survival =
+        "terminated_immediately" + has_transition_period = "no").
+      * TERM7 — чрезмерно широкий перечень survival-обязательств,
+        создающий долгосрочные ограничения для Target.
+
+    Шаг 8 — USER-FACING SUMMARY
+
+    Заполни поле "termination_consequences_display".
+
+    Примеры:
+    - "Авансы не возвращаются; нет transition; лицензии
+       прекращаются немедленно"
+    - "Авансы pro-rata; transition 30 дней; данные экспортируются;
+       конфиденциальность 3 года"
+    - "Early termination fee; нет transition; лицензии бессрочные"
+    - "Последствия расторжения не урегулированы"
+
+    Правила:
+    - Отрази максимум 3–4 ключевых факта через ";".
+    - Если не урегулировано: "Последствия расторжения не урегулированы"
+    - Если всё unclear: "Не удалось определить последствия расторжения"
+
+    Шаг 9 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: платежи, переходный период, IP, конфиденциальность,
+      почему red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему условия сбалансированы.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - Non-refundable авансы + нет transition:
+      * payments_treatment = "unfavorable"
+      * has_transition_period = "no"
+      * red_flags включает "TERM5"
 
-    - Крупные авансы/минимальные платежи как non-refundable
-      при расторжении по инициативе Target:
-      payments_treatment = "unfavorable";
-      ставь TERM5; overall_risk_level = "high".
+    - Лицензии прекращаются немедленно, нет transition (SaaS):
+      * ip_license_survival = "terminated_immediately"
+      * has_transition_period = "no"
+      * red_flags включает "TERM6"
 
-    - Конфиденциальность и IP-ограничения бессрочны
-      и охватывают широкий круг информации без carve-out:
-      confidentiality_survival = "long";
-      ip_license_survival = "long" (если ограничения);
-      overall_risk_level ≥ "medium".
+    - Transition 30 дней + export данных предусмотрен:
+      * has_transition_period = "yes"
+      * data_handling_after_termination = "export_provided"
+      * red_flags не включает "TERM6"
 
-    - Лицензии/IP прекращаются немедленно без transition
-      period (для IT/SaaS-договоров):
-      ip_license_survival = "terminated";
-      has_transition_period = "no";
-      ставь TERM6; overall_risk_level = "high".
+    - Non-refundable только при виновном расторжении:
+      * payments_treatment = "neutral"
+      * в reason: дифференцированный подход
 
-    - Предусмотрен разумный transition period (30–90 дней)
-      с обязательством поставщика помочь с миграцией данных:
-      has_transition_period = "yes";
-      data_handling = "export_provided" или "both";
-      это снижает риск; не ставь TERM6.
+    - Стандартный survival (конфиденциальность 3 года, liability
+      cap, юрисдикция):
+      * red_flags = "NONE"
 
-    - Survival-перечень чрезмерно широк (non-compete,
-      бессрочные платежи, широкая indemnity)
-      при минимальной защите Target:
-      ставь TERM7; overall_risk_level = "high".
-
-    - Стандартный survival (конфиденциальность 3–5 лет,
-      ограничение ответственности, юрисдикция):
-      это типично; red_flags = "NONE";
-      overall_risk_level = "low".
-
-    - Non-refundable аванс, но только при расторжении
-      по вине Target (breach); при безвиновном
-      расторжении — pro-rata refund:
-      payments_treatment = "neutral" (дифференцированный
-      подход); это стандартно.
-
-    - Текст фрагментарный: упомянуты отдельные аспекты,
-      но нет полной картины:
-      "unclear" для недостающих полей;
-      red_flags = "UNCLEAR";
-      overall_risk_level = "medium".
-
-    - Пустые или нерелевантные фрагменты:
-      все поля = "unclear";
-      red_flags = "UNCLEAR";
-      overall_risk_level = "medium".
+    - Не урегулировано:
+      * payments_treatment = "not_addressed"
+      * has_transition_period = "unclear"
+      * termination_consequences_display =
+        "Последствия расторжения не урегулированы"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны. Не генерируй JSON —
-    просто излагай выводы структурированно и однозначно.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "termination_consequences_display"
+      type: "string"
+      description: "Последствия расторжения: краткий вывод"
+
     - name: "payments_treatment"
       type: "string"
+      description: "Судьба авансов и минимальных платежей"
       allowed_values:
         - "favorable"
         - "unfavorable"
+        - "neutral"
+        - "not_addressed"
         - "unclear"
 
     - name: "has_early_termination_fee"
       type: "string"
+      description: "Early termination fee"
       allowed_values:
         - "yes"
         - "no"
@@ -353,13 +378,39 @@ extraction:
 
     - name: "has_transition_period"
       type: "string"
+      description: "Переходный период"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
+    - name: "transition_period_value"
+      type: "string"
+      description: "Длительность переходного периода"
+
+    - name: "data_handling_after_termination"
+      type: "string"
+      description: "Обращение с данными после расторжения"
+      allowed_values:
+        - "export_provided"
+        - "deletion_only"
+        - "both"
+        - "not_addressed"
+        - "unclear"
+
+    - name: "ip_license_survival"
+      type: "string"
+      description: "Судьба IP / лицензий после расторжения"
+      allowed_values:
+        - "terminated_immediately"
+        - "terminated_with_transition"
+        - "perpetual"
+        - "not_addressed"
+        - "unclear"
+
     - name: "confidentiality_survival"
       type: "string"
+      description: "Конфиденциальность после расторжения"
       allowed_values:
         - "none"
         - "short"
@@ -369,17 +420,12 @@ extraction:
 
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "TERM5"
-      description: "Невозвратимые крупные авансы/минимальные платежи или early termination fee при досрочном расторжении."
-    - code: "TERM6"
-      description: "Прекращение ключевых лицензий/IP без разумного переходного периода — потеря доступа к системам/данным."
-    - code: "TERM7"
-      description: "Чрезмерно широкий перечень survival-обязательств."
+  

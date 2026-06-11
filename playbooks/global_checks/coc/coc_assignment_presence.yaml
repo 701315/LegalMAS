@@ -1,12 +1,17 @@
 id: "coc_assignment_presence"
-name: "Наличие клауз об уступке и переводе долга"
+name: "Режим уступки прав и перевода долга"
 description: >
-  Проверяет, содержит ли договор положения об уступке прав (assignment)
-  и/или переводе долга, включая тип запрета (полный / с согласия /
-  свободный), покрытие (assignment / transfer / оба), асимметрию
-  между сторонами и наличие carve-out для M&A / группы.
-  Детальный анализ условий согласия (форма, сроки, deemed consent,
-  reasonableness standard) выполняется чеком coc_consent_terms.
+  Анализирует режим уступки прав (assignment) и перевода долга /
+  передачи обязательств в договоре: полный запрет, только с согласия,
+  свободное разрешение или смешанный режим. Извлекает покрытие
+  (уступка прав / перевод долга / оба), асимметрию между сторонами
+  и тип carve-out (аффилированные лица / группа / правопреемник /
+  M&A / банк-залогодержатель).
+
+  Этот check относится к семейству Assignment / Transfer и не анализирует
+  смену контроля (CoC) как таковую. Детальный анализ механики получения
+  согласия (форма, сроки, deemed consent, reasonableness standard)
+  выполняется отдельным чеком coc_consent_terms.
 
 doc_types: []
 
@@ -16,83 +21,76 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
 
   keywords:
     high:
-      # Уступка прав — точные термины
+      # Assignment / уступка прав
       - "(?i)assignment\\s+of\\s+(rights?|this\\s+agreement|the\\s+contract)"
+      - "(?i)assign\\s+(this\\s+agreement|any\\s+rights?|its?\\s+rights?)"
       - "(?i)уступк[аи]\\s+(прав|требовани[яий])"
-      - "(?i)assign\\s+(this\\s+agreement|any\\s+rights?)"
       - "(?i)уступить\\s+(прав[аы]|требовани[яие])"
-      - "(?i)\\bcession\\b"
       - "(?i)переуступк[аи]"
       - "(?i)цесси[яи]"
+      - "(?i)\\bcession\\b"
 
-      # Перевод долга
-      - "(?i)transfer\\s+of\\s+obligations?"
+      # Transfer / delegation / перевод долга
+      - "(?i)transfer\\s+of\\s+(obligations?|duties)"
+      - "(?i)delegation\\s+of\\s+(duties|obligations)"
+      - "(?i)transfer\\s+this\\s+agreement"
       - "(?i)перевод\\s+долга"
       - "(?i)перевод\\s+обязательств"
-      - "(?i)transfer\\s+of\\s+duties"
-      - "(?i)delegation\\s+of\\s+(duties|obligations)"
+      - "(?i)передач[аи]\\s+прав\\s+и\\s+обязанностей"
+      - "(?i)передач[аи]\\s+договора"
 
-      # Запрет уступки
+      # Restriction / consent
       - "(?i)shall\\s+not\\s+assign"
+      - "(?i)no\\s+party\\s+may\\s+assign"
+      - "(?i)without\\s+(the\\s+)?(prior\\s+)?(written\\s+)?consent[\\s\\S]{0,40}(assign|transfer|delegate)"
       - "(?i)не\\s+вправе\\s+уступ(ить|ать)"
-      - "(?i)no\\s+(party|side)\\s+may\\s+assign"
-      - "(?i)ни\\s+одна\\s+из\\s+сторон\\s+не\\s+вправе\\s+(уступ|перевес)"
-      - "(?i)without\\s+(the\\s+)?(prior\\s+)?(written\\s+)?consent[\\s\\S]{0,30}(assign|transfer)"
-      - "(?i)без\\s+(предварительного\\s+)?(письменного\\s+)?согласи[яи][\\s\\S]{0,30}(уступ|перевод)"
+      - "(?i)ни\\s+одна\\s+из\\s+сторон\\s+не\\s+вправе"
+      - "(?i)без\\s+(предварительного\\s+)?(письменного\\s+)?согласи[яи][\\s\\S]{0,40}(уступ|перевод|передач)"
 
-      # Permitted assignee / разрешённая уступка
+      # Permitted assignee / carve-out
       - "(?i)permitted\\s+assign(ee|ment)"
-      - "(?i)разрешённ[а-я]+\\s+уступк"
       - "(?i)may\\s+assign\\s+to\\s+(its?\\s+)?(affiliates?|group)"
+      - "(?i)successors?\\s+and\\s+assigns?"
+      - "(?i)разрешённ[а-я]+\\s+уступк"
       - "(?i)вправе\\s+уступить\\s+(аффилированн|групп)"
+      - "(?i)правопреемник"
 
     medium:
-      # Общие формулировки assignment
       - "(?i)\\bassignment\\b"
-      - "(?i)\\bassign\\b"
-      - "(?i)уступк"
-      - "(?i)transfer\\s+of\\s+rights"
-      - "(?i)передач[аи]\\s+прав"
+      - "(?i)\\bassign(?:ment|ed|ee|s)?\\b"
       - "(?i)novation"
       - "(?i)новаци[яи]"
-
-      # Согласие (общие)
-      - "(?i)consent\\s+to\\s+(the\\s+)?(assignment|transfer)"
+      - "(?i)consent\\s+to\\s+(assignment|transfer)"
       - "(?i)согласи[ея]\\s+на\\s+(уступк|перевод|передач)"
       - "(?i)prior\\s+written\\s+consent"
       - "(?i)предварительн[а-я]+\\s+письменн[а-я]+\\s+согласи"
-
-      # Carve-out
-      - "(?i)except\\s+(for\\s+)?(assignment|transfer)\\s+to"
+      - "(?i)except\\s+(for\\s+)?assignment\\s+to"
       - "(?i)за\\s+исключением\\s+(уступк|передач|перевод)"
       - "(?i)intra[-\\s]?group"
-      - "(?i)внутригрупповой"
       - "(?i)affiliate"
       - "(?i)аффилированн"
-      - "(?i)purchaser\\s+of\\s+(all\\s+or\\s+substantially\\s+all)"
-      - "(?i)покупател[ьяю]\\s+(всего\\s+)?бизнес"
       - "(?i)successor"
-      - "(?i)правопреемник"
+      - "(?i)reorganization"
+      - "(?i)merger"
+      - "(?i)sale\\s+of\\s+(all\\s+or\\s+substantially\\s+all)"
+      - "(?i)покупател[ьяю]\\s+бизнеса"
+      - "(?i)pledge\\s+of\\s+(rights?|receivables?)"
+      - "(?i)залог\\s+(прав|требовани)"
+      - "(?i)security\\s+assignment"
 
     low:
-      # Общие термины
-      - "(?i)assign"
-      - "(?i)уступ"
-      - "(?i)transfer"
-      - "(?i)передач"
-      - "(?i)перевод"
-      - "(?i)obligation"
-      - "(?i)обязательств"
-      - "(?i)rights?"
-      - "(?i)прав[аоы]?"
-      - "(?i)consent"
-      - "(?i)согласи"
+      - "(?i)assignment\\s+clause"
+      - "(?i)successors?\\s+and\\s+assigns?"
+      - "(?i)переход\\s+прав\\s+и\\s+обязанностей"
+      - "(?i)уступк[аи]"
+      - "(?i)перевод\\s+долга"
 
   regex_patterns: []
   clause_patterns: []
@@ -101,7 +99,7 @@ llm:
   prompt_file: "detection/generic_presence.txt"
   context_k: 5
   temperature: 0.0
-  max_tokens: 512
+  max_tokens: 560
 
 evidence:
   required: true
@@ -110,45 +108,71 @@ evidence:
 
 retrieval:
   context_k: 5
-  max_chunks: 8
+  max_chunks: 10
   boost_keywords:
-    - "assignment"
+    - "assignment of rights"
+    - "assignment of this agreement"
     - "уступка прав"
     - "уступка требования"
     - "переуступка"
-    - "cession"
     - "цессия"
     - "перевод долга"
+    - "перевод обязательств"
+    - "передача прав и обязанностей"
     - "transfer of obligations"
     - "shall not assign"
-    - "не вправе уступить"
-    - "without consent"
-    - "без согласия"
+    - "without prior written consent"
+    - "без предварительного письменного согласия"
     - "permitted assignee"
-    - "разрешённая уступка"
-    - "intra-group"
-    - "внутригрупповая"
+    - "successors and assigns"
+    - "правопреемник"
     - "affiliate"
     - "аффилированное лицо"
-    - "purchaser of all or substantially all"
-    - "правопреемник"
+    - "intra-group"
+    - "внутригрупповая уступка"
+    - "merger"
+    - "reorganization"
+    - "sale of substantially all assets"
+    - "покупатель бизнеса"
+    - "security assignment"
+    - "залог прав"
   rerank: true
   filters: {}
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+    - "annex"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+  preferred_clause_functions:
+    - "assignment"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
-  llm_max_tokens: 350
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 460
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по защите персональных данных.
-    Твоя задача — не оценивать compliance-риск, а точно извлечь
-    из текста:
-    1) есть ли в договоре требования по управлению персональными
-       данными;
-    2) если есть — на каком уровне они закреплены: отдельное
-       соглашение (DPA), отдельный раздел договора или только
-       упоминание / ссылка на закон.
+    Ты — юрист по коммерческим договорам и сделкам M&A.
+    Твоя задача — не оценивать риск, а точно извлечь из текста:
+    1) есть ли в договоре положения об уступке прав и/или переводе долга;
+    2) какой режим установлен;
+    3) что именно покрывается;
+    4) есть ли асимметрия между сторонами;
+    5) есть ли carve-out и какого типа.
+
+    Этот check не анализирует смену контроля (CoC) как таковую.
+    Детальный анализ механики согласия (форма, сроки, deemed consent,
+    reasonableness standard) выполняется отдельным чеком.
     </role>
 
     <context>
@@ -159,148 +183,185 @@ extraction:
 
     <task>
     Заполни только следующие поля:
-    - personal_data_status
-    - personal_data_regulation_level
-    - personal_data_regulation_display
+    - assignment_transfer_display
+    - assignment_transfer_status
+    - assignment_transfer_regime_type
+    - assignment_transfer_coverage
+    - assignment_transfer_asymmetry
+    - assignment_transfer_carveout_type
     - reason
 
     Важно:
-    - не оценивай compliance-риск и не выставляй red flags;
-    - не анализируй роли сторон, subprocessors, трансграничные
-      передачи или права субъектов данных;
+    - не оценивай риск и не выставляй red flags;
+    - не анализируй форму согласия, сроки ответа, deemed consent,
+      reasonableness standard или последствия нарушения —
+      это задача отдельного check;
+    - не анализируй смену контроля (CoC) как самостоятельный триггер;
     - пиши user-facing значения коротко и по-русски.
     </task>
 
     <instructions>
-    Шаг 1 — ОПРЕДЕЛИ НАЛИЧИЕ ТРЕБОВАНИЙ ПО ПЕРСОНАЛЬНЫМ ДАННЫМ
-    Заполни поле "personal_data_status".
+    Шаг 1 — ОПРЕДЕЛИ НАЛИЧИЕ ПОЛОЖЕНИЙ
+
+    Заполни поле "assignment_transfer_status".
 
     Правила:
-    - "present" — если договор содержит любые из следующего:
-      * прямое упоминание персональных данных / personal data /
-        ПДн / PII;
-      * ссылку на GDPR, 152-ФЗ, CCPA или аналогичный
-        регуляторный режим;
-      * положения об обработке данных, DPA, поручение
-        на обработку;
-      * обязательства сторон в отношении персональных данных.
-    - "missing" — если договор явно не содержит никаких
-      упоминаний персональных данных и законов об их защите.
-    - "unclear" — если фрагменты не позволяют уверенно
-      определить наличие или отсутствие таких требований.
+    - "present" — если договор прямо регулирует уступку прав, assignment,
+      перевод долга, передачу обязательств, передачу договора целиком,
+      согласие на такие действия или carve-out для них.
+    - "missing" — если таких положений нет.
+    - "unclear" — если есть косвенные формулировки, но нельзя надёжно
+      определить наличие полноценного режима.
 
-    Шаг 2 — ОПРЕДЕЛИ УРОВЕНЬ РЕГУЛИРОВАНИЯ
-    Заполни поля "personal_data_regulation_level"
-    и "personal_data_regulation_display".
+    Шаг 2 — ОПРЕДЕЛИ ТИП РЕЖИМА
 
-    Правила для personal_data_regulation_level:
-    - "dpa_attachment" — если есть отдельное соглашение
-      об обработке персональных данных (DPA / поручение
-      на обработку) оформленное как:
-      * отдельный документ / приложение к договору;
-      * exhibit / annex / schedule с полноценными условиями
-        обработки данных.
-      Признаки: наличие хотя бы части из следующего —
-      цели обработки, категории данных, срок обработки,
-      технические меры, обязанности сторон как отдельный
-      структурированный блок в приложении.
-    - "dedicated_section" — если в основном тексте договора
-      есть отдельный раздел / статья, специально посвящённая
-      персональным данным, с содержательными обязательствами
-      сторон.
-      Признаки: раздел с заголовком типа "Personal Data",
-      "Персональные данные", "Data Protection", "Защита данных"
-      и содержательными условиями внутри.
-    - "law_reference_only" — если договор только:
-      * упоминает персональные данные или законы без
-        содержательных обязательств;
-      * содержит общую фразу типа "стороны обязуются соблюдать
-        применимое законодательство о защите данных";
-      * ссылается на GDPR / 152-ФЗ без раскрытия условий.
-    - "not_specified" — если personal_data_status = "missing".
-    - "unclear" — если personal_data_status = "unclear"
-      или уровень невозможно определить.
+    Заполни поле "assignment_transfer_regime_type".
 
-    Важно при разграничении уровней:
-    - Если есть и отдельное приложение, и раздел в договоре,
-      выбирай "dpa_attachment" как более высокий уровень.
-    - Не считай общие формулировки про конфиденциальность
-      информации за регулирование персональных данных, если ПДн
-      или законы о них прямо не упоминаются.
-    - Одна строка про "соблюдение применимого законодательства"
-      без конкретики = "law_reference_only".
+    Значения:
+    - "prohibited" — уступка / перевод долга прямо запрещены.
+    - "consent_required" — допустимы только с согласия другой стороны.
+    - "freely_permitted" — прямо разрешены без требования согласия.
+    - "mixed" — режим различается:
+      * между уступкой прав и переводом долга;
+      * между сторонами;
+      * между общим правилом и carve-out.
+    - "not_specified" — если assignment_transfer_status = "missing".
+    - "unclear" — режим нельзя определить надёжно.
 
-    Правила для personal_data_regulation_display:
-    - Возвращай одно из следующих значений строго в соответствии
-      с personal_data_regulation_level:
-      * "dpa_attachment" →
-        "Отдельное соглашение об обработке ПДн (DPA)"
-      * "dedicated_section" →
-        "Отдельный раздел договора по ПДн"
-      * "law_reference_only" →
-        "Только ссылка на применимый закон"
-      * "not_specified" →
-        "Требования по ПДн не установлены"
-      * "unclear" →
-        "Не удалось определить"
+    Шаг 3 — ОПРЕДЕЛИ ПОКРЫТИЕ
 
-    Шаг 3 — КРАТКО ОБОСНУЙ ВЫВОД
+    Заполни поле "assignment_transfer_coverage".
+
+    Значения:
+    - "assignment_only" — регулируется только уступка прав / требований.
+    - "transfer_only" — регулируется только перевод долга /
+      передача обязательств.
+    - "both" — регулируются и уступка прав, и перевод долга /
+      передача обязательств.
+    - "not_specified" — если assignment_transfer_status = "missing".
+    - "unclear" — покрытие нельзя определить.
+
+    Шаг 4 — ОПРЕДЕЛИ АСИММЕТРИЮ
+
+    Заполни поле "assignment_transfer_asymmetry".
+
+    Значения:
+    - "symmetric" — режим одинаков для всех сторон договора.
+    - "one_sided" — одной стороне разрешено то, что другой запрещено
+      или доступно только с более жёсткими условиями.
+    - "not_specified" — если assignment_transfer_status = "missing".
+    - "unclear" — асимметрию нельзя определить.
+
+    Шаг 5 — ОПРЕДЕЛИ ТИП CARVE-OUT
+
+    Заполни поле "assignment_transfer_carveout_type".
+
+    Значения:
+    - "none" — carve-out не предусмотрен.
+    - "affiliate_group" — carve-out для аффилированных лиц,
+      группы компаний, внутригрупповой передачи.
+    - "successor_mna" — carve-out для правопреемника, merger,
+      reorganization, sale of business / substantially all assets.
+    - "security_financing" — carve-out для банка, залогодержателя,
+      обеспечения (security assignment, залог прав требования).
+    - "multiple" — есть два и более типа carve-out одновременно.
+    - "not_specified" — carve-out не урегулирован при отсутствии
+      положений об уступке в целом.
+    - "not_applicable" — assignment_transfer_status = "missing".
+    - "unclear" — carve-out упоминается, но тип нельзя определить.
+
+    Шаг 6 — СФОРМИРУЙ КОРОТКИЙ USER-FACING RESULT
+
+    Заполни поле "assignment_transfer_display".
+
+    Правила:
+    - Поле должно быть коротким, factual и пригодным для DD Grid.
+    - Строй display по модели:
+      {режим}; {carve-out если есть и материально важен}
+
+    Примеры:
+    - "Уступка прав и перевод долга запрещены"
+    - "Уступка прав и перевод долга — только с письменного согласия"
+    - "Уступка прав — только с письменного согласия; есть carve-out для аффилированных лиц"
+    - "Уступка прав — только с письменного согласия; carve-out для правопреемника при M&A"
+    - "Уступка прав разрешена свободно"
+    - "Уступка прав разрешена свободно; перевод долга — только с согласия"
+    - "Уступка прав запрещена; есть carve-out для аффилированных лиц и правопреемника"
+    - "Положения об уступке и переводе долга не установлены"
+    - "Не удалось определить режим уступки / перевода долга"
+
+    Дополнительные правила:
+    - Если regime = "mixed" — кратко отрази различие в display.
+    - Если carve-out материально важен для M&A — включи его в display.
+    - Если asymmetry = "one_sided" и это существенно — отрази в display или reason.
+    - Если status = "missing": "Положения об уступке и переводе долга не установлены"
+    - Если status = "unclear": "Не удалось определить режим уступки / перевода долга"
+
+    Шаг 7 — КРАТКО ОБОСНУЙ ВЫВОД
+
     Заполни поле "reason".
 
     Правила:
     - 1–2 коротких предложения.
-    - Укажи отдельно вывод по наличию требований и по уровню
-      регулирования.
-    - Приведи краткую цитату или укажи на наличие / отсутствие
-      конкретного элемента (приложения, раздела, фразы).
-    - Не анализируй риск, не выставляй оценки.
+    - Укажи вывод по режиму, покрытию и carve-out.
+    - Если есть asymmetry — упомяни.
+    - Приведи короткую цитату из текста в кавычках.
+    - Не анализируй риск и не делай правовых выводов сверх текста.
     </instructions>
 
     <edge_cases>
-    - Если есть приложение с DPA / поручением на обработку:
-      * personal_data_status = "present"
-      * personal_data_regulation_level = "dpa_attachment"
-      * personal_data_regulation_display =
-        "Отдельное соглашение об обработке ПДн (DPA)"
+    - "Neither party may assign this Agreement without prior written consent":
+      * assignment_transfer_status = "present"
+      * assignment_transfer_regime_type = "consent_required"
+      * assignment_transfer_coverage = "assignment_only"
+      * assignment_transfer_asymmetry = "symmetric"
+      * assignment_transfer_carveout_type = "none"
+      * assignment_transfer_display =
+        "Уступка прав — только с письменного согласия"
 
-    - Если есть раздел "Персональные данные" / "Data Protection"
-      в теле договора с содержательными условиями, но без
-      отдельного приложения:
-      * personal_data_status = "present"
-      * personal_data_regulation_level = "dedicated_section"
-      * personal_data_regulation_display =
-        "Отдельный раздел договора по ПДн"
+    - Явный запрет и assignment, и transfer of obligations:
+      * assignment_transfer_regime_type = "prohibited"
+      * assignment_transfer_coverage = "both"
+      * assignment_transfer_display =
+        "Уступка прав и перевод долга запрещены"
 
-    - Если договор содержит только фразу вида
-      "Стороны обязуются соблюдать требования 152-ФЗ"
-      или "The Parties shall comply with applicable data
-      protection laws" без детализации:
-      * personal_data_status = "present"
-      * personal_data_regulation_level = "law_reference_only"
-      * personal_data_regulation_display =
-        "Только ссылка на применимый закон"
+    - Carve-out для affiliates / group companies:
+      * assignment_transfer_carveout_type = "affiliate_group"
+      * assignment_transfer_display =
+        "Уступка прав — только с письменного согласия; есть carve-out для аффилированных лиц"
 
-    - Если упоминание ПДн есть только в разделе
-      о конфиденциальности, без явной отсылки к законам
-      о персональных данных:
-      * оцени по существу: если ПДн прямо названы —
-        personal_data_status = "present",
-        personal_data_regulation_level = "law_reference_only"
-        или "dedicated_section" в зависимости от содержания;
-      * если ПДн не названы явно — personal_data_status =
-        "unclear".
+    - Carve-out для правопреемника / merger / sale of substantially all assets:
+      * assignment_transfer_carveout_type = "successor_mna"
 
-    - Если релевантных фрагментов нет:
-      * personal_data_status = "missing"
-      * personal_data_regulation_level = "not_specified"
-      * personal_data_regulation_display =
-        "Требования по ПДн не установлены"
+    - Carve-out для банка / залогодержателя / security assignment:
+      * assignment_transfer_carveout_type = "security_financing"
 
-    - Если фрагменты есть, но вывод сделать нельзя:
-      * personal_data_status = "unclear"
-      * personal_data_regulation_level = "unclear"
-      * personal_data_regulation_display =
-        "Не удалось определить"
+    - Есть carve-out и для группы, и для правопреемника при M&A:
+      * assignment_transfer_carveout_type = "multiple"
+      * в assignment_transfer_display: "есть carve-out для аффилированных лиц и правопреемника"
+
+    - Одной стороне свободная уступка, другой — только с согласия:
+      * assignment_transfer_regime_type = "mixed"
+      * assignment_transfer_asymmetry = "one_sided"
+      * в display отрази асимметрию кратко
+
+    - Нет релевантных фрагментов:
+      * assignment_transfer_status = "missing"
+      * assignment_transfer_regime_type = "not_specified"
+      * assignment_transfer_coverage = "not_specified"
+      * assignment_transfer_asymmetry = "not_specified"
+      * assignment_transfer_carveout_type = "not_applicable"
+      * assignment_transfer_display =
+        "Положения об уступке и переводе долга не установлены"
+
+    - Фрагменты есть, но вывод сделать нельзя:
+      * assignment_transfer_status = "unclear"
+      * assignment_transfer_regime_type = "unclear"
+      * assignment_transfer_coverage = "unclear"
+      * assignment_transfer_asymmetry = "unclear"
+      * assignment_transfer_carveout_type = "unclear"
+      * assignment_transfer_display =
+        "Не удалось определить режим уступки / перевода долга"
     </edge_cases>
 
     <output_expectations>
@@ -310,25 +371,64 @@ extraction:
     </output_expectations>
 
   fields:
-    - name: "personal_data_status"
+    - name: "assignment_transfer_display"
       type: "string"
+      description: "Режим уступки / перевода долга"
+
+    - name: "assignment_transfer_status"
+      type: "string"
+      description: "Наличие положений"
       allowed_values:
         - "present"
         - "missing"
         - "unclear"
 
-    - name: "personal_data_regulation_level"
+    - name: "assignment_transfer_regime_type"
       type: "string"
+      description: "Тип режима"
       allowed_values:
-        - "dpa_attachment"
-        - "dedicated_section"
-        - "law_reference_only"
+        - "prohibited"
+        - "consent_required"
+        - "freely_permitted"
+        - "mixed"
         - "not_specified"
         - "unclear"
 
-    - name: "personal_data_regulation_display"
+    - name: "assignment_transfer_coverage"
       type: "string"
+      description: "Покрытие"
+      allowed_values:
+        - "assignment_only"
+        - "transfer_only"
+        - "both"
+        - "not_specified"
+        - "unclear"
+
+    - name: "assignment_transfer_asymmetry"
+      type: "string"
+      description: "Асимметрия между сторонами"
+      allowed_values:
+        - "symmetric"
+        - "one_sided"
+        - "not_specified"
+        - "unclear"
+
+    - name: "assignment_transfer_carveout_type"
+      type: "string"
+      description: "Тип carve-out"
+      allowed_values:
+        - "none"
+        - "affiliate_group"
+        - "successor_mna"
+        - "security_financing"
+        - "multiple"
+        - "not_specified"
+        - "not_applicable"
+        - "unclear"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
+
+  store_payload: true
 

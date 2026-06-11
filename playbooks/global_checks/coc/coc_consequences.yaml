@@ -2,11 +2,21 @@ id: "coc_consequences"
 name: "Последствия смены контроля и уступки"
 description: >
   Анализирует последствия, предусмотренные при смене контроля (CoC),
-  уступке прав или переводе долга: право на расторжение (включая
-  автоматическое прекращение), акселерация обязательств, изменение
-  цены/условий, требование дополнительного обеспечения, новация,
-  наличие cure period / waiver. Оценивает совокупный уровень риска
-  для покупателя бизнеса / Target в контексте M&A.
+  уступке прав или переводе долга, и явно определяет, к какому
+  триггеру они относятся (CoC / уступка / оба).
+
+  Извлекает: право на расторжение и его механизм (опциональное /
+  автоматическое / с cure period), акселерацию обязательств,
+  изменение цены / условий (step-up, отмена скидок), требование
+  дополнительного обеспечения, новацию / перезаключение договора,
+  наличие cure period / waiver и компенсации при расторжении.
+
+  Формирует краткий user-facing вывод с явным указанием scope
+  (для CoC / для уступки / для обоих) и оценивает совокупный
+  уровень риска для покупателя бизнеса / Target в контексте M&A.
+
+  Анализ механики получения согласия (форма, сроки, deemed consent,
+  reasonableness standard) выполняется отдельным чеком coc_consent_terms.
 
 doc_types: []
 
@@ -16,6 +26,7 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
@@ -24,51 +35,53 @@ rules:
     high:
       # Расторжение при CoC — точные маркеры
       - "(?i)right\\s+to\\s+terminate[\\s\\S]{0,40}(change\\s+of\\s+control|смен[а-я]+\\s+контрол)"
+      - "(?i)terminat(e|ion)\\s+upon[\\s\\S]{0,20}(change|control|CoC)"
       - "(?i)право\\s+(на\\s+)?(одностороннее\\s+)?расторжени[ея][\\s\\S]{0,40}(смен[а-я]+\\s+контрол|CoC)"
-      - "(?i)terminat(e|ion)\\s+upon[\\s\\S]{0,20}(change|transfer|CoC)"
       - "(?i)automatic(ally)?\\s+terminat(e|ion|ed)"
       - "(?i)автоматическ[а-я]+\\s+(прекращени|расторжени)"
       - "(?i)договор\\s+прекращает(ся)?\\s+действ"
       - "(?i)shall\\s+cease\\s+to\\s+be\\s+in\\s+(force|effect)"
 
+      # Расторжение при уступке — точные маркеры
+      - "(?i)right\\s+to\\s+terminate[\\s\\S]{0,40}(assign|transfer|уступк|перевод)"
+      - "(?i)terminat(e|ion)\\s+upon[\\s\\S]{0,20}(assign|transfer)"
+      - "(?i)право\\s+(на\\s+)?расторжени[ея][\\s\\S]{0,40}(уступк|перевод|передач)"
+
       # Акселерация
-      - "(?i)acceleration"
-      - "(?i)акселераци"
+      - "(?i)acceleration\\s+of[\\s\\S]{0,30}(payment|obligation|debt)"
       - "(?i)досрочн[а-я]+\\s+(исполнени|взыскани|погашени|возврат)"
-      - "(?i)immediate(ly)?\\s+(repay|due|payable)"
-      - "(?i)demand\\s+immediate\\s+repayment"
       - "(?i)all\\s+outstanding\\s+amounts?\\s+(shall\\s+)?become\\s+due"
+      - "(?i)immediate(ly)?\\s+(repay|due|payable)"
       - "(?i)вся\\s+сумма\\s+задолженност[ьи]\\s+(подлежит|становится)"
+      - "(?i)demand\\s+immediate\\s+repayment"
 
       # Step-up / изменение условий
       - "(?i)step[-\\s]?up"
       - "(?i)увеличени[ея]\\s+(ставк|марж|процент)"
       - "(?i)increase\\s+in\\s+(the\\s+)?(rate|margin|interest)"
-      - "(?i)изменени[ея]\\s+цен[аы]"
-      - "(?i)price\\s+(adjustment|increase|change)"
-      - "(?i)отмен[аы]\\s+(скид[а-я]+|льгот)"
+      - "(?i)изменени[ея]\\s+цен[аы]\\s+(при|в\\s+случае)"
+      - "(?i)price\\s+(adjustment|increase)[\\s\\S]{0,30}(change|control|assign)"
+      - "(?i)отмен[аы]\\s+(скид[а-я]+|льгот|преференц)"
       - "(?i)revocation\\s+of\\s+(discount|benefit|concession)"
 
       # Дополнительное обеспечение
-      - "(?i)дополнительн[а-я]+\\s+(обеспечени|гарант|залог|поручительств)"
       - "(?i)additional\\s+(security|collateral|guarantee|pledge)"
       - "(?i)provide\\s+(additional|further)\\s+(security|collateral)"
+      - "(?i)дополнительн[а-я]+\\s+(обеспечени|гарант|залог|поручительств)"
 
       # Новация
+      - "(?i)novation[\\s\\S]{0,30}(required|shall|must|необходим)"
+      - "(?i)enter\\s+into\\s+a\\s+new\\s+agreement[\\s\\S]{0,30}(successor|assignee)"
       - "(?i)новаци[яи]"
-      - "(?i)новировани[ея]"
-      - "(?i)novation"
-      - "(?i)заключ(ить|ени[ея])\\s+нов[а-я]+\\s+договор"
-      - "(?i)enter\\s+into\\s+a\\s+new\\s+agreement"
+      - "(?i)заключ(ить|ени[ея])\\s+нов[а-я]+\\s+договор[\\s\\S]{0,30}(правопреем|уступ)"
 
     medium:
-      # Расторжение — общие формулировки
-      - "(?i)право\\s+расторгнуть"
-      - "(?i)одностороннее\\s+расторжение"
+      # Расторжение — общие
       - "(?i)right\\s+to\\s+terminate"
       - "(?i)termination\\s+(right|option)"
       - "(?i)unilateral\\s+termination"
-      - "(?i)terminat(e|ion)"
+      - "(?i)право\\s+расторгнуть"
+      - "(?i)одностороннее\\s+расторжение"
 
       # Cure period / waiver
       - "(?i)cure\\s+period"
@@ -77,9 +90,8 @@ rules:
       - "(?i)льготн[а-я]+\\s+период"
       - "(?i)waiver"
       - "(?i)отказ\\s+от\\s+права"
-      - "(?i)consent\\s+not\\s+to\\s+be\\s+unreasonably\\s+withheld"
 
-      # Break fee / компенсация при расторжении
+      # Break fee
       - "(?i)break\\s+fee"
       - "(?i)termination\\s+fee"
       - "(?i)штраф\\s+за\\s+расторжение"
@@ -88,32 +100,21 @@ rules:
 
       # Обеспечение — общие
       - "(?i)залог"
-      - "(?i)mortgage"
       - "(?i)pledge"
       - "(?i)поручительств"
-      - "(?i)guarantee"
       - "(?i)security\\s+interest"
 
       # Правопреемство
-      - "(?i)правопреемник"
       - "(?i)successor"
-      - "(?i)правопреемств"
-      - "(?i)succession"
+      - "(?i)правопреемник"
 
     low:
-      # Общие термины
-      - "(?i)расторж"
-      - "(?i)прекращ"
-      - "(?i)terminate"
-      - "(?i)termination"
-      - "(?i)досрочн"
-      - "(?i)acceleration"
-      - "(?i)обеспечени"
-      - "(?i)security"
-      - "(?i)условия"
-      - "(?i)terms"
-      - "(?i)change"
-      - "(?i)изменени"
+      - "(?i)automatic(ally)?\\s+terminat"
+      - "(?i)right\\s+to\\s+terminat"
+      - "(?i)досрочн[а-я]+\\s+погашени"
+      - "(?i)additional\\s+security"
+      - "(?i)step[-\\s]?up"
+      - "(?i)cure\\s+period"
 
   regex_patterns: []
   clause_patterns: []
@@ -137,22 +138,27 @@ retrieval:
     - "право расторгнуть"
     - "одностороннее расторжение"
     - "termination upon change of control"
+    - "termination upon assignment"
     - "automatic termination"
     - "автоматическое прекращение"
+    - "shall cease to be in force"
+    - "договор прекращает действие"
     - "acceleration"
     - "досрочное исполнение"
     - "досрочное погашение"
-    - "досрочное взыскание"
+    - "all outstanding amounts become due"
     - "step-up"
-    - "увеличение ставки"
-    - "изменение цены"
+    - "увеличение ставки при смене контроля"
+    - "изменение цены при смене контроля"
     - "отмена скидок"
-    - "дополнительное обеспечение"
+    - "revocation of discount"
     - "additional security"
     - "additional collateral"
+    - "дополнительное обеспечение"
     - "новация"
     - "novation"
     - "cure period"
+    - "grace period"
     - "waiver"
     - "break fee"
     - "termination fee"
@@ -162,207 +168,403 @@ retrieval:
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+    - "annex"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+    - "schedule"
+  preferred_clause_functions:
+    - "change_of_control"
+    - "termination"
+    - "liability"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 600
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A, финансированию и коммерческим договорам.
-    Твоя специализация — анализ последствий смены контроля
-    (change of control), уступки прав и перевода долга,
-    включая расторжение, акселерацию, изменение условий,
-    дополнительное обеспечение и новацию.
+    Твоя задача — точно извлечь из текста последствия, которые
+    наступают при смене контроля (CoC) и/или уступке прав /
+    переводе долга, и явно определить, к какому именно триггеру
+    они относятся.
+
+    Не анализируй механику согласия (форму, сроки, deemed consent) —
+    это задача отдельного check.
+    Не анализируй CoC-trigger (определение контроля, пороговые значения).
+    Не выходи за рамки последствий.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора с положениями о последствиях
-    смены контроля и/или уступки прав, перевода долга:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
+    <task>
+    Заполни только следующие поля:
+    - consequences_display
+    - consequence_trigger_scope
+    - consequences_severity_profile
+    - termination_right
+    - termination_mechanism
+    - termination_compensation
+    - acceleration
+    - price_terms_change
+    - additional_security
+    - novation_required
+    - cure_or_waiver_available
+    - red_flags
+    - overall_risk_level
+    - reason
+
+    Важно:
+    - не анализируй условия согласия (форму, сроки, deemed consent);
+    - не анализируй CoC-trigger / definition of control;
+    - не выходи за рамки последствий;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
     <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
+    Шаг 1 — ОПРЕДЕЛИ SCOPE ПОСЛЕДСТВИЙ
 
-    Шаг 1 — ПРАВО НА РАСТОРЖЕНИЕ
-    (используется для заполнения поля "termination_right"):
-    - Определи, предусмотрено ли право на расторжение
-      при CoC/уступке:
-      * "none" — нет специального права на расторжение;
-      * "limited" — ограниченное (только при CoC определённой
-        стороны, с условиями, с cure period);
-      * "broad" — широкое, безусловное право на расторжение;
-      * "unclear" — формулировки размыты.
+    Заполни поле "consequence_trigger_scope".
 
-    Шаг 2 — КОМПЕНСАЦИЯ / BREAK FEE ПРИ РАСТОРЖЕНИИ
-    (используется для заполнения поля "termination_compensation"):
-    - Определи, предусмотрена ли компенсация при расторжении
-      по CoC-основанию:
-      * "break_fee" — установлен break fee / termination fee;
-      * "damages" — право на возмещение убытков;
-      * "none" — компенсация не предусмотрена;
-      * "not_applicable" — права на расторжение нет;
-      * "unclear" — неясно.
+    Определи, к чему именно относятся последствия
+    в найденных фрагментах:
+    - "coc_only" — последствия наступают только при смене контроля.
+    - "assignment_only" — последствия наступают только при уступке
+      прав / переводе долга.
+    - "both" — одни и те же последствия применяются при CoC
+      и при уступке / переводе долга.
+    - "unclear" — невозможно разграничить.
 
-    Шаг 3 — АКСЕЛЕРАЦИЯ
-    (используется для заполнения поля "acceleration"):
-    - Определи, даёт ли CoC/уступка право требовать досрочного
-      исполнения обязательств:
-      * досрочное погашение кредита;
-      * взыскание всей суммы задолженности;
-      * досрочный возврат имущества.
-    - Оцени:
-      * "yes" — акселерация предусмотрена;
-      * "no" — не предусмотрена;
-      * "unclear" — неясно.
+    Важно: если для CoC и для уступки последствия разные —
+    зафиксируй это в reason и отрази в consequences_display.
 
-    Шаг 4 — ИЗМЕНЕНИЕ ЦЕНЫ / УСЛОВИЙ
-    (используется для заполнения поля "price_terms_change"):
-    - Определи, предусмотрены ли ухудшающие изменения при CoC:
-      * повышение ставки/маржи (step-up);
-      * отмена скидок, льгот, преференций;
-      * иные ухудшения ключевых условий.
-    - Оцени:
-      * "yes" — изменения предусмотрены;
-      * "no" — не предусмотрены;
-      * "unclear" — неясно.
+    Шаг 2 — ПРАВО НА РАСТОРЖЕНИЕ
 
-    Шаг 5 — ДОПОЛНИТЕЛЬНОЕ ОБЕСПЕЧЕНИЕ
-    (используется для заполнения поля "additional_security"):
-    - Определи, возникает ли при CoC/уступке обязанность
-      предоставить дополнительное обеспечение:
-      * залог, ипотека, pledge;
-      * поручительство, гарантия;
-      * иные формы обеспечения.
-    - Оцени:
-      * "yes" — требование есть;
-      * "no" — нет;
-      * "unclear" — неясно.
+    Заполни поле "termination_right".
 
-    Шаг 6 — НОВАЦИЯ / ПЕРЕЗАКЛЮЧЕНИЕ
-    (используется для заполнения поля "novation_required"):
-    - Определи, требуется ли новация договора или заключение
-      нового договора с правопреемником:
-      * "yes" — требуется;
-      * "no" — не требуется, договор сохраняется;
-      * "unclear" — неясно.
+    Значения:
+    - "none" — нет специального права на расторжение.
+    - "limited" — право есть, но ограниченное: только при CoC
+      определённой стороны, только с cure period,
+      только при определённых условиях.
+    - "broad" — безусловное право расторгнуть.
+    - "unclear" — формулировки не позволяют надёжно определить.
 
-    Шаг 7 — CURE PERIOD / WAIVER
-    (используется для заполнения поля "cure_or_waiver_available"):
-    - Определи, предусмотрены ли механизмы смягчения:
-      * cure period — срок для устранения нарушения / получения
-        согласия;
+    Шаг 3 — МЕХАНИЗМ РАСТОРЖЕНИЯ
+
+    Заполни поле "termination_mechanism".
+
+    Значения:
+    - "optional" — расторжение по выбору стороны
+      (право, не обязанность).
+    - "automatic" — договор прекращается автоматически.
+    - "with_cure" — расторжение допускается только после
+      истечения cure period.
+    - "not_applicable" — termination_right = "none".
+    - "unclear" — нельзя определить механизм.
+
+    Шаг 4 — КОМПЕНСАЦИЯ ПРИ РАСТОРЖЕНИИ
+
+    Заполни поле "termination_compensation".
+
+    Значения:
+    - "break_fee" — установлен break fee / termination fee.
+    - "damages" — право на возмещение убытков без фиксированной суммы.
+    - "none" — компенсация явно не предусмотрена.
+    - "not_applicable" — termination_right = "none".
+    - "unclear" — нельзя определить.
+
+    Шаг 5 — АКСЕЛЕРАЦИЯ
+
+    Заполни поле "acceleration".
+
+    Значения:
+    - "yes" — предусмотрено требование досрочного исполнения:
+      погашение кредита, взыскание всей суммы задолженности,
+      досрочный возврат имущества.
+    - "no" — не предусмотрено.
+    - "unclear" — нельзя определить.
+
+    Шаг 6 — ИЗМЕНЕНИЕ ЦЕНЫ / УСЛОВИЙ
+
+    Заполни поле "price_terms_change".
+
+    Значения:
+    - "yes" — предусмотрено ухудшение условий:
+      повышение ставки / маржи (step-up), отмена скидок /
+      льгот / преференций, иные ухудшения ключевых условий.
+    - "no" — не предусмотрено.
+    - "unclear" — нельзя определить.
+
+    Шаг 7 — ДОПОЛНИТЕЛЬНОЕ ОБЕСПЕЧЕНИЕ
+
+    Заполни поле "additional_security".
+
+    Значения:
+    - "yes" — возникает обязанность предоставить дополнительный
+      залог, поручительство, гарантию или иное обеспечение.
+    - "no" — не предусмотрено.
+    - "unclear" — нельзя определить.
+
+    Шаг 8 — НОВАЦИЯ / ПЕРЕЗАКЛЮЧЕНИЕ
+
+    Заполни поле "novation_required".
+
+    Значения:
+    - "yes" — требуется новация договора или заключение нового
+      договора с правопреемником как условие продолжения отношений.
+    - "no" — не требуется, договор сохраняется.
+    - "unclear" — нельзя определить.
+
+    Шаг 9 — CURE PERIOD / WAIVER
+
+    Заполни поле "cure_or_waiver_available".
+
+    Значения:
+    - "yes" — есть хотя бы один из следующих механизмов:
+      * cure period — срок для устранения CoC / получения согласия;
       * waiver — возможность отказа контрагента от права
         на расторжение / акселерацию;
-      * consent not to be unreasonably withheld — согласие
-        не может быть необоснованно удержано.
-    - Оцени:
-      * "yes" — есть cure period и/или waiver;
-      * "no" — нет смягчающих механизмов;
-      * "unclear" — неясно.
+      * not unreasonably withheld — согласие не может быть
+        необоснованно удержано.
+    - "no" — смягчающих механизмов нет.
+    - "unclear" — нельзя определить.
 
-    Шаг 8 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    Присвой один или несколько кодов из списка ниже.
-    Если ни один код не применим — верни "NONE".
-    Если данных недостаточно для оценки — верни "UNCLEAR".
+    Шаг 10 — RED FLAGS
 
-    Коды:
-    • CON1 — Право контрагента расторгнуть ключевой договор
-      при CoC без компенсации / break fee.
-    • CON2 — Акселерация крупных обязательств
-      (досрочное погашение, взыскание всей суммы) при CoC.
-    • CON3 — Ухудшение цены/условий (step-up, отмена скидок)
-      при CoC.
-    • CON4 — Жёсткое требование дополнительного обеспечения,
-      трудновыполнимое после сделки.
-    • CON5 — Автоматическое прекращение договора при CoC
-      (без cure period / waiver).
-    • CON6 — Обязательная новация / перезаключение договора
-      с правопреемником — фактический барьер для сделки.
+    Заполни поле "red_flags".
 
-    Формат ответа: коды через запятую без комментариев
-    (например: "CON1, CON5").
-    Вся аргументация — в поле reason.
+    Используй:
+    - "NONE" — если существенных риск-факторов нет.
+    - "UNCLEAR" — если данных недостаточно.
+    - Коды через запятую:
+      * CON1 — право контрагента расторгнуть договор при CoC
+        без компенсации / break fee.
+      * CON2 — акселерация крупных обязательств при CoC
+        (досрочное погашение, взыскание всей суммы).
+      * CON3 — ухудшение цены / условий при CoC
+        (step-up, отмена скидок).
+      * CON4 — жёсткое требование дополнительного обеспечения
+        после CoC, трудновыполнимое для покупателя.
+      * CON5 — автоматическое прекращение договора при CoC
+        без cure period / waiver.
+      * CON6 — обязательная новация / перезаключение договора
+        с правопреемником как фактический барьер для сделки.
 
-    Шаг 9 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Шаг 11 — ОБЩИЙ УРОВЕНЬ РИСКА
 
-    - В reason кратко обоснуй вывод, опираясь на ключевые
-      формулировки из текста (с цитатами в кавычках), и укажи:
-      * какие последствия предусмотрены и для каких событий;
-      * есть ли автоматическое прекращение или право по выбору;
-      * предусмотрены ли cure period, waiver, компенсация;
-      * если выставлены red_flags — обоснуй каждый код;
-      * если red_flags = "NONE" — укажи, почему последствия
-        приемлемы для M&A.
+    Заполни поле "overall_risk_level".
+
+    Значения:
+    - "low" — последствия отсутствуют или минимальны
+      (уведомление, согласие с workable условиями).
+    - "medium" — есть ограниченные последствия, управляемые:
+      ограниченное расторжение с cure period, break fee,
+      один тип ухудшения условий.
+    - "high" — есть одно или несколько из следующего:
+      * автоматическое прекращение без cure;
+      * акселерация крупных обязательств;
+      * совокупность двух и более тяжёлых последствий;
+      * право расторгнуть без компенсации.
+    - "unclear" — данных недостаточно.
+
+    Шаг 12 — ПРОФИЛЬ ТЯЖЕСТИ ПОСЛЕДСТВИЙ
+
+    Заполни поле "consequences_severity_profile".
+
+    Значения:
+    - "none" — нет специальных последствий.
+    - "mild" — только уведомление / обязанность получить согласие,
+      без расторжения / акселерации / изменения условий.
+    - "moderate" — одно тяжёлое последствие с cure period
+      или break fee; или несколько мягких последствий.
+    - "severe" — хотя бы одно из следующего:
+      * автоматическое прекращение без cure;
+      * акселерация крупных обязательств;
+      * два и более тяжёлых последствия одновременно;
+      * новация как обязательное условие.
+    - "unclear" — недостаточно данных.
+
+    Шаг 13 — USER-FACING SUMMARY
+
+    Заполни поле "consequences_display".
+
+    Правила построения:
+    - Всегда начинай с явного scope:
+      * consequence_trigger_scope = "coc_only"
+        → "Для CoC — ..."
+      * consequence_trigger_scope = "assignment_only"
+        → "Для уступки — ..."
+      * consequence_trigger_scope = "both"
+        → "Для CoC и уступки — ..."
+      * consequence_trigger_scope = "unclear"
+        → без scope prefix
+    - Перечисляй последствия через точку с запятой
+      в порядке убывания тяжести.
+    - Если cure / waiver есть — добавь в конец.
+    - Если для CoC и для уступки последствия разные —
+      опиши оба через " / " или двумя частями через ";".
+
+    Примеры:
+    - "Для CoC — автоматическое прекращение договора"
+    - "Для CoC — расторжение + акселерация; cure period — 30 дней"
+    - "Для CoC — расторжение без компенсации; step-up ставки"
+    - "Для CoC и уступки — требуется новация;
+       дополнительное обеспечение"
+    - "Для уступки — расторжение; для CoC — только уведомление"
+    - "Для CoC — только уведомление контрагента"
+    - "Последствия CoC не установлены"
+    - "Не удалось определить последствия CoC"
+
+    Шаг 14 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: к чему относятся последствия (scope),
+      какие именно предусмотрены, механизм расторжения,
+      есть ли cure / break fee / waiver,
+      почему выставлены именно эти red_flags.
+    - Если NONE — почему последствия приемлемы для M&A.
+    - Приведи короткую цитату в кавычках.
+    - Не анализируй согласие, CoC-триггер или вопросы вне текста.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
-
-    - CoC-клауза есть, но последствия ограничиваются
-      обязанностью уведомить и получить согласие:
-      termination_right = "none" или "limited";
-      acceleration = "no"; price_terms_change = "no";
-      в reason укажи, что последствия мягкие;
-      red_flags может быть "NONE".
+    - CoC-клауза есть, но последствия = только уведомление / согласие:
+      * termination_right = "none"
+      * acceleration = "no"
+      * price_terms_change = "no"
+      * consequences_severity_profile = "mild"
+      * overall_risk_level = "low"
+      * red_flags = "NONE"
+      * consequences_display =
+        "Для CoC — только уведомление контрагента"
 
     - Договор прекращается автоматически при CoC:
-      termination_right = "broad";
-      termination_mechanism = "automatic";
-      зафиксируй CON5; в reason укажи, что автоматическое
-      прекращение — наиболее жёсткое последствие.
+      * consequence_trigger_scope = "coc_only"
+      * termination_right = "broad"
+      * termination_mechanism = "automatic"
+      * cure_or_waiver_available = "no"
+      * consequences_severity_profile = "severe"
+      * overall_risk_level = "high"
+      * red_flags = "CON5"
+      * consequences_display =
+        "Для CoC — автоматическое прекращение договора"
 
-    - Формулировки общие («Сторона вправе пересмотреть условия»)
-      без конкретики:
-      price_terms_change = "unclear";
-      в reason укажи, что размытость оставляет широкое
-      усмотрение контрагенту.
+    - Право расторгнуть есть, но с cure period:
+      * termination_right = "limited"
+      * termination_mechanism = "with_cure"
+      * cure_or_waiver_available = "yes"
+      * consequences_severity_profile = "moderate"
+      * overall_risk_level = "medium"
+      * consequences_display = "Для CoC — расторжение;
+        cure period — [срок]"
 
-    - Право расторгнуть есть, но с cure period (например,
-      90 дней для получения согласия):
-      termination_right = "limited";
-      termination_mechanism = "with_cure";
-      cure_or_waiver_available = "yes";
-      risk может быть снижен до MEDIUM.
+    - Акселерация как право, а не автоматическое последствие:
+      * acceleration = "yes"
+      * в reason: "право на акселерацию, не автоматическое последствие"
 
-    - Акселерация сформулирована как право, а не обязанность
-      («may demand immediate repayment»):
-      acceleration = "yes"; в reason укажи, что это право,
-      а не автоматическое последствие.
+    - Право расторгнуть без break fee / компенсации:
+      * termination_compensation = "none"
+      * red_flags включает "CON1"
 
-    - Нет упоминаний последствий при CoC/уступке:
-      все поля = "none" или "no";
-      red_flags = "NONE" (или COC1 из чека coc_presence,
-      если CoC-клауза вообще отсутствует — но это не
-      ответственность данного чека);
-      overall_risk_level = "low".
+    - Для CoC — расторжение; для уступки — новация:
+      * consequence_trigger_scope = "both"
+      * termination_right = "limited" (для CoC)
+      * novation_required = "yes" (для уступки)
+      * consequences_display =
+        "Для CoC — расторжение; для уступки — требуется новация"
 
-    - Пустые или явно нерелевантные фрагменты:
-      red_flags = "UNCLEAR"; в reason укажи, что данных
-      недостаточно для оценки последствий CoC.
+    - Нет упоминаний последствий CoC / уступки:
+      * consequence_trigger_scope = "unclear"
+      * termination_right = "none"
+      * termination_mechanism = "not_applicable"
+      * termination_compensation = "not_applicable"
+      * acceleration = "no"
+      * price_terms_change = "no"
+      * additional_security = "no"
+      * novation_required = "no"
+      * consequences_severity_profile = "none"
+      * red_flags = "NONE"
+      * overall_risk_level = "low"
+      * consequences_display = "Последствия CoC не установлены"
+
+    - Фрагменты нерелевантны или пусты:
+      * consequence_trigger_scope = "unclear"
+      * consequences_severity_profile = "unclear"
+      * red_flags = "UNCLEAR"
+      * overall_risk_level = "unclear"
+      * consequences_display =
+        "Не удалось определить последствия CoC"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные
-    формулировки из текста, на которых они основаны.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "consequences_display"
+      type: "string"
+      description: "Последствия CoC / уступки (с указанием scope)"
+
+    - name: "consequence_trigger_scope"
+      type: "string"
+      description: "К чему относятся последствия"
+      allowed_values:
+        - "coc_only"
+        - "assignment_only"
+        - "both"
+        - "unclear"
+
+    - name: "consequences_severity_profile"
+      type: "string"
+      description: "Тяжесть совокупных последствий"
+      allowed_values:
+        - "none"
+        - "mild"
+        - "moderate"
+        - "severe"
+        - "unclear"
+
     - name: "termination_right"
       type: "string"
+      description: "Право на расторжение"
       allowed_values:
         - "none"
         - "limited"
         - "broad"
         - "unclear"
 
+    - name: "termination_mechanism"
+      type: "string"
+      description: "Механизм расторжения"
+      allowed_values:
+        - "optional"
+        - "automatic"
+        - "with_cure"
+        - "not_applicable"
+        - "unclear"
+
     - name: "termination_compensation"
       type: "string"
+      description: "Компенсация при расторжении"
       allowed_values:
         - "break_fee"
         - "damages"
@@ -372,6 +574,7 @@ extraction:
 
     - name: "acceleration"
       type: "string"
+      description: "Акселерация обязательств"
       allowed_values:
         - "yes"
         - "no"
@@ -379,6 +582,7 @@ extraction:
 
     - name: "price_terms_change"
       type: "string"
+      description: "Изменение цены / условий"
       allowed_values:
         - "yes"
         - "no"
@@ -386,6 +590,7 @@ extraction:
 
     - name: "additional_security"
       type: "string"
+      description: "Требование дополнительного обеспечения"
       allowed_values:
         - "yes"
         - "no"
@@ -393,6 +598,7 @@ extraction:
 
     - name: "novation_required"
       type: "string"
+      description: "Новация / перезаключение договора"
       allowed_values:
         - "yes"
         - "no"
@@ -400,6 +606,7 @@ extraction:
 
     - name: "cure_or_waiver_available"
       type: "string"
+      description: "Cure period / waiver / смягчающие механизмы"
       allowed_values:
         - "yes"
         - "no"
@@ -407,36 +614,21 @@ extraction:
 
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков для M&A"
+
+    - name: "overall_risk_level"
+      type: "string"
+      description: "Совокупный уровень риска для покупателя"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
+        - "unclear"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "CON1"
-      description: >
-        Право контрагента расторгнуть ключевой договор при CoC
-        без компенсации / break fee.
-    - code: "CON2"
-      description: >
-        Акселерация крупных обязательств (досрочное погашение,
-        взыскание всей суммы) при CoC.
-    - code: "CON3"
-      description: >
-        Ухудшение цены/условий (step-up, отмена скидок/льгот)
-        при CoC.
-    - code: "CON4"
-      description: >
-        Жёсткое требование дополнительного обеспечения
-        (залог, поручительство), трудновыполнимое после сделки.
-    - code: "CON5"
-      description: >
-        Автоматическое прекращение договора при CoC
-        без cure period / waiver.
-    - code: "CON6"
-      description: >
-        Обязательная новация / перезаключение договора
-        с правопреемником — фактический барьер для сделки.
-        
+  

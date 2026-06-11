@@ -1,13 +1,18 @@
 id: "ip_ownership_and_assignments"
 name: "Принадлежность IP и assignment от разработчиков"
 description: >
-  Анализирует принадлежность ключевых IP-активов: ПО, исходного кода,
-  результатов работ, контента, баз данных, товарных знаков и иных объектов
-  интеллектуальной собственности. Проверяет цепочку прав (chain of title),
-  наличие assignment / отчуждения прав от основателей, сотрудников и подрядчиков,
-  полноту объёма передачи прав, а также признаки сторонних или pre-existing IP.
-  Оценивает риск того, что ключевые IP-активы не полностью принадлежат Target
-  или не могут быть свободно монетизированы / переданы в рамках сделки.
+  Анализирует принадлежность ключевых IP-активов: ПО, исходного
+  кода, результатов работ, контента, баз данных, товарных знаков
+  и иных объектов интеллектуальной собственности.
+
+  Проверяет цепочку прав (chain of title), наличие assignment /
+  отчуждения прав от основателей, сотрудников и подрядчиков,
+  полноту объёма передачи прав, признаки сторонних или
+  pre-existing IP.
+
+  Формирует краткий user-facing вывод и оценивает риск того,
+  что ключевые IP-активы не полностью принадлежат Target или не
+  могут быть свободно монетизированы / переданы в рамках сделки.
 
 doc_types: []
 
@@ -17,6 +22,7 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
@@ -48,84 +54,66 @@ rules:
       - "(?i)служебн(ое|ого)\\s+произведени"
       - "(?i)work\\s+made\\s+for\\s+hire"
 
-      # Assignment / отчуждение
-      - "(?i)assignment"
-      - "(?i)assign(ed|ment)?\\s+(all\\s+)?rights?"
-      - "(?i)передач[аеи]\\s+прав"
-      - "(?i)отчуждени[ея]\\s+прав"
-      - "(?i)cede"
+      # Assignment / отчуждение — точные формулы
       - "(?i)all\\s+right,\\s*title\\s+and\\s+interest"
       - "(?i)все\\s+права\\s+передаются"
       - "(?i)hereby\\s+assigns?"
+      - "(?i)assign(ed)?\\s+all\\s+(rights?|IP)"
+      - "(?i)передач[аеи]\\s+прав[\\s\\S]{0,20}(ПО|IP|произведени)"
+      - "(?i)отчуждени[ея]\\s+прав[\\s\\S]{0,20}(ПО|IP|произведени)"
+      - "(?i)IP\\s+assignment\\s+agreement"
+      - "(?i)deed\\s+of\\s+assignment"
+      - "(?i)акт\\s+отчуждения"
 
       # Основатели / сотрудники / подрядчики
-      - "(?i)founder"
-      - "(?i)основател"
-      - "(?i)developer"
-      - "(?i)разработчик"
-      - "(?i)contractor"
-      - "(?i)подрядчик"
-      - "(?i)employee"
-      - "(?i)работник"
-      - "(?i)consultant"
-      - "(?i)консультант"
+      - "(?i)founder[\\s\\S]{0,20}(IP|rights?|assign)"
+      - "(?i)основател[\\s\\S]{0,20}(IP|прав|передач)"
+      - "(?i)developer[\\s\\S]{0,20}(assign|rights?|IP)"
+      - "(?i)разработчик[\\s\\S]{0,20}(передач|прав)"
+      - "(?i)contractor[\\s\\S]{0,20}(assign|rights?|IP)"
+      - "(?i)подрядчик[\\s\\S]{0,20}(передач|прав)"
 
     medium:
       # Chain of title / pre-existing IP
       - "(?i)chain\\s+of\\s+title"
       - "(?i)цепочк[аи]\\s+прав"
       - "(?i)pre[-\\s]?existing\\s+IP"
-      - "(?i)предшествующ(ая|ие)\\s+интеллектуальн"
       - "(?i)background\\s+IP"
-      - "(?i)existing\\s+materials?"
-      - "(?i)ранее\\s+созданн(ое|ые)\\s+ПО"
       - "(?i)retains?\\s+ownership"
+      - "(?i)retains?\\s+all\\s+rights?"
       - "(?i)сохраняет\\s+прав[ао]"
+      - "(?i)ранее\\s+созданн(ое|ые)\\s+(ПО|IP)"
 
       # Лицензия вместо assignment
-      - "(?i)license\\s+only"
-      - "(?i)non[-\\s]?exclusive\\s+license"
-      - "(?i)предоставля[ею]тся\\s+права\\s+использования"
-      - "(?i)лицензи[яи]\\s+вместо\\s+отчуждения"
-      - "(?i)grants?\\s+a\\s+license"
-      - "(?i)retains?\\s+all\\s+rights?"
+      - "(?i)license\\s+only[\\s\\S]{0,20}(not\\s+assign|не\\s+передает)"
+      - "(?i)grants?\\s+a\\s+(non[-\\s]?exclusive\\s+)?license[\\s\\S]{0,20}(no\\s+ownership|не\\s+передает\\s+прав)"
 
       # Полнота assignment
-      - "(?i)worldwide"
-      - "(?i)по\\s+всему\\s+миру"
-      - "(?i)for\\s+the\\s+full\\s+term"
+      - "(?i)worldwide[\\s\\S]{0,20}(irrevocable|perpetual|all\\s+rights)"
+      - "(?i)for\\s+the\\s+full\\s+term[\\s\\S]{0,20}(copyright|охраны)"
       - "(?i)на\\s+весь\\s+срок\\s+охраны"
-      - "(?i)all\\s+fields\\s+of\\s+use"
-      - "(?i)во\\s+всех\\s+сферах\\s+использования"
-      - "(?i)irrevocable"
-      - "(?i)безотзывн"
+      - "(?i)irrevocable[\\s\\S]{0,20}(assignment|assign)"
+      - "(?i)безотзывн[аяо]\\s+передач"
 
-      # Акты / подтверждение передачи
+      # Акты передачи
       - "(?i)acceptance\\s+certificate"
       - "(?i)акт\\s+приема[-\\s]?передачи"
-      - "(?i)deed\\s+of\\s+assignment"
-      - "(?i)акт\\s+отчуждения"
-      - "(?i)IP\\s+assignment\\s+agreement"
 
       # Open source / third-party
       - "(?i)open\\s+source"
-      - "(?i)opensource"
-      - "(?i)открыт(ый|ого)\\s+исходн(ый|ого)\\s+код"
-      - "(?i)third[-\\s]?party\\s+component"
-      - "(?i)сторонн(ий|ие)\\s+компонент"
+      - "(?i)third[-\\s]?party\\s+(component|software|IP)"
+      - "(?i)сторонн(ий|ие)\\s+(компонент|ПО|IP)"
 
     low:
-      # Общие маркеры
-      - "(?i)IP"
-      - "(?i)прав[ао]\\s+на\\s+ПО"
-      - "(?i)ownership"
-      - "(?i)принадлеж"
-      - "(?i)rights?"
-      - "(?i)прав[аоы]"
-      - "(?i)content"
-      - "(?i)контент"
-      - "(?i)code"
-      - "(?i)код"
+      - "(?i)all\\s+right,\\s*title\\s+and\\s+interest"
+      - "(?i)hereby\\s+assigns?"
+      - "(?i)deed\\s+of\\s+assignment"
+      - "(?i)pre[-\\s]?existing\\s+IP"
+      - "(?i)background\\s+IP"
+      - "(?i)chain\\s+of\\s+title"
+      - "(?i)служебн[оое]\\s+произведени"
+      - "(?i)work\\s+made\\s+for\\s+hire"
+      - "(?i)open\\s+source"
 
   regex_patterns: []
   clause_patterns: []
@@ -153,10 +141,8 @@ retrieval:
     - "исходный код"
     - "work product"
     - "результаты работ"
-    - "assignment"
-    - "передача прав"
-    - "отчуждение прав"
-    - "all right, title and interest"
+    - "all right title and interest"
+    - "hereby assigns"
     - "служебное произведение"
     - "work made for hire"
     - "founder"
@@ -166,9 +152,12 @@ retrieval:
     - "contractor"
     - "подрядчик"
     - "deed of assignment"
+    - "IP assignment agreement"
     - "акт приема-передачи"
     - "pre-existing IP"
     - "background IP"
+    - "chain of title"
+    - "retains ownership"
     - "license only"
     - "open source"
   rerank: true
@@ -176,171 +165,247 @@ retrieval:
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "annex"
+    - "appendix"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+  preferred_clause_functions:
+    - "intellectual_property"
+    - "assignment"
+    - "representations_warranties"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 520
   llm_prompt_extraction: |
     <role>
     Ты — юрист по интеллектуальной собственности и технологиям.
-    Твоя специализация — структурирование прав на IP
-    в технологических компаниях, включая chain of title,
-    assignment от основателей, сотрудников и подрядчиков,
-    а также выявление пробелов в принадлежности ключевых
-    IP-активов.
+    Твоя задача — точно извлечь из текста:
+    1) кому принадлежат ключевые IP-активы;
+    2) есть ли assignment от основателей / сотрудников;
+    3) есть ли assignment от подрядчиков / разработчиков;
+    4) насколько полон scope передачи прав.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора и/или соглашений,
-    где регулируются права на результаты работ и IP:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
-    <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует
-    одному или нескольким полям итоговой оценки.
+    <task>
+    Заполни только следующие поля:
+    - ip_ownership_display
+    - ip_owner_status
+    - has_assignments_from_founders_and_employees
+    - has_assignments_from_contractors
+    - assignment_scope_appears_full
+    - has_third_party_or_preexisting_ip_risk
+    - chain_of_title_clarity
+    - overall_ip_risk_level
+    - red_flags
+    - reason
 
+    Важно:
+    - не делай предположений о chain of title без явных данных;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
+    <instructions>
     Шаг 1 — ФОРМАЛЬНЫЙ ВЛАДЕЛЕЦ КЛЮЧЕВЫХ IP-АКТИВОВ
-    (используется для заполнения поля "ip_owner_status"):
-    - Определи, кому по тексту принадлежат:
-      * программное обеспечение и исходный код;
-      * контент, базы данных и иные результаты работ;
-      * товарные знаки, бренды и иные объекты IP.
-    - Для поля ip_owner_status используй:
-      * "target";
-      * "founders";
-      * "contractors";
-      * "mixed";
-      * "third_party";
-      * "unclear".
+
+    Заполни поле "ip_owner_status".
+
+    Значения:
+    - "target" — IP принадлежит Target по документам.
+    - "founders" — IP формально у основателей.
+    - "contractors" — IP у подрядчиков / разработчиков.
+    - "mixed" — частично Target, частично третьи лица.
+    - "third_party" — у стороннего правообладателя.
+    - "unclear" — нельзя определить.
 
     Шаг 2 — ASSIGNMENT ОТ ОСНОВАТЕЛЕЙ И СОТРУДНИКОВ
-    (используется для заполнения поля "has_assignments_from_founders_and_employees"):
-    - Проверь наличие явных положений об отчуждении прав:
-      * от основателей / акционеров;
-      * на доинкорпорационный код и pre-incorporation IP;
-      * от сотрудников по служебным произведениям;
-      * отдельных assignment agreements или формул
-        "all right, title and interest".
-    - Оцени:
-      * "yes" — assignment явно есть;
-      * "no" — assignment отсутствует или видна только
-        лицензия / общие слова;
-      * "partial" — по одной категории лиц есть,
-        по другой нет;
-      * "unclear" — неясно.
 
-    Шаг 3 — ASSIGNMENT ОТ ПОДРЯДЧИКОВ / РАЗРАБОТЧИКОВ
-    (используется для заполнения поля "has_assignments_from_contractors"):
-    - Определи, есть ли:
-      * явное отчуждение всех прав на результаты работ подрядчиков;
-      * deed of assignment / IP assignment agreement;
-      * акты передачи;
-      * либо только лицензия без assignment.
-    - Оцени:
-      * "yes";
-      * "no";
-      * "partial";
-      * "unclear".
+    Заполни поле "has_assignments_from_founders_and_employees".
 
-    Шаг 4 — ПОЛНОТА ОБЪЁМА ПЕРЕДАЧИ ПРАВ
-    (используется для заполнения поля "assignment_scope_appears_full"):
-    - Оцени, насколько полно описан scope передачи:
-      * все виды использования / all right, title and interest;
-      * весь мир / worldwide;
-      * весь срок охраны / full term of protection;
-      * все доработки, derivative works, updates;
-      * безотзывность / irrevocability.
-    - Оцени:
-      * "yes" — scope выглядит полным;
-      * "no" — scope явно ограничен или неполон;
-      * "partial" — часть элементов есть, часть отсутствует;
-      * "unclear" — неясно.
+    Значения:
+    - "yes" — явный assignment: "all right, title and interest",
+      служебные произведения / work made for hire,
+      deed of assignment от основателей.
+    - "no" — assignment отсутствует или только лицензия.
+    - "partial" — для одной категории есть, для другой нет.
+    - "unclear" — неясно.
 
-    Шаг 5 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    Присвой один или несколько кодов из списка ниже.
-    Если ни один код не применим — верни "NONE".
-    Если данных недостаточно для оценки — верни "UNCLEAR".
+    Шаг 3 — ASSIGNMENT ОТ ПОДРЯДЧИКОВ
 
-    Коды:
-    • IPOWN1 — Ключевые IP-активы не принадлежат Target
-      или принадлежат смешанно (основатели / подрядчики /
-      третьи лица).
-    • IPOWN2 — Отсутствуют явные assignment-документы
-      от ключевых разработчиков / подрядчиков.
-    • IPOWN3 — Ключевой продукт создан до регистрации
-      компании и нет явного отчуждения в пользу Target.
-    • IPOWN4 — Scope assignment неполный: нет worldwide /
-      full term / all rights / derivative works.
-    • IPOWN5 — Значимый pre-existing IP / third-party IP risk:
-      Target получает только лицензию или есть retained rights.
-    • IPOWN6 — Chain of title не прослеживается или
-      прослеживается лишь частично.
+    Заполни поле "has_assignments_from_contractors".
 
-    Формат ответа: коды через запятую без комментариев
-    (например: "IPOWN1, IPOWN2").
-    Вся аргументация — в поле reason.
+    Значения:
+    - "yes" — явное отчуждение прав на результаты работ
+      подрядчиков / deed of assignment.
+    - "no" — нет assignment; только лицензия или retained rights.
+    - "partial" — частично есть.
+    - "unclear" — неясно.
 
-    Шаг 6 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Шаг 4 — ПОЛНОТА SCOPE ПЕРЕДАЧИ ПРАВ
 
-    - В reason кратко обоснуй вывод, ссылаясь на ключевые
-      формулировки из текста (с цитатами в кавычках), и укажи:
-      * кто владеет ключевыми IP;
-      * есть ли assignment от founders / employees / contractors;
-      * полный ли scope передачи;
-      * есть ли third-party / pre-existing IP risk;
-      * если выставлены red_flags — обоснуй каждый код;
-      * если red_flags = "NONE" — укажи, почему структура прав
-        выглядит безопасной.
+    Заполни поле "assignment_scope_appears_full".
+
+    Значения:
+    - "yes" — scope выглядит полным:
+      worldwide / full term / all uses / derivative works /
+      irrevocable.
+    - "no" — scope явно ограничен.
+    - "partial" — часть элементов есть, часть отсутствует.
+    - "unclear" — неясно.
+
+    Шаг 5 — THIRD-PARTY / PRE-EXISTING IP РИСК
+
+    Заполни поле "has_third_party_or_preexisting_ip_risk".
+
+    Значения:
+    - "yes" — есть признаки:
+      * Target получает только лицензию на pre-existing IP;
+      * retained rights у подрядчиков / основателей;
+      * значимые open source или third-party components.
+    - "no" — признаков нет.
+    - "unclear" — неясно.
+
+    Шаг 6 — CHAIN OF TITLE
+
+    Заполни поле "chain_of_title_clarity".
+
+    Значения:
+    - "clear" — цепочка прав прослеживается явно.
+    - "partial" — частично прослеживается.
+    - "unclear" — нельзя прослеdit.
+    - "not_established" — chain of title явно не установлена
+      или есть пробелы.
+
+    Шаг 7 — ОБЩИЙ УРОВЕНЬ IP-РИСКА
+
+    Заполни поле "overall_ip_risk_level".
+
+    Значения:
+    - "low" — IP принадлежит Target, assignment полный,
+      chain of title чистая.
+    - "medium" — есть отдельные пробелы, но критичных
+      блокеров нет.
+    - "high" — IP не полностью у Target, нет assignment
+      от ключевых лиц, chain of title неясна.
+    - "unclear" — данных недостаточно.
+
+    Шаг 8 — RED FLAGS
+
+    Заполни поле "red_flags".
+
+    Используй:
+    - "NONE" — если существенных риск-факторов нет.
+    - "UNCLEAR" — если данных недостаточно.
+    - Коды через запятую:
+      * IPOWN1 — ключевые IP-активы не принадлежат Target
+        или принадлежат смешанно.
+      * IPOWN2 — нет явных assignment от разработчиков /
+        подрядчиков.
+      * IPOWN3 — ключевой продукт создан до регистрации
+        компании без явного отчуждения в пользу Target.
+      * IPOWN4 — scope assignment неполный: нет worldwide /
+        full term / all rights / derivative works.
+      * IPOWN5 — Target получает только лицензию на ключевой IP
+        или есть retained rights у третьих лиц.
+      * IPOWN6 — chain of title не прослеживается или
+        прослеживается лишь частично.
+
+    Шаг 9 — USER-FACING SUMMARY
+
+    Заполни поле "ip_ownership_display".
+
+    Примеры:
+    - "IP принадлежит Target; assignment от основателей
+       и подрядчиков есть; scope полный"
+    - "IP у основателей; assignment отсутствует;
+       chain of title не установлена"
+    - "Смешанная принадлежность; assignment от подрядчиков
+       отсутствует; scope неполный"
+    - "Не удалось определить принадлежность IP"
+
+    Правила:
+    - Отрази максимум 3 ключевых факта через ";".
+    - Если всё unclear:
+      "Не удалось определить принадлежность IP"
+
+    Шаг 10 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: кому принадлежит IP, есть ли assignment,
+      насколько полон scope, chain of title, third-party риск,
+      почему выставлены red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему структура прав выглядит безопасной.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - Служебные произведения → работодатель, но нет assignment
+      от подрядчиков:
+      * has_assignments_from_founders_and_employees = "yes"
+      * has_assignments_from_contractors = "no"
+      * red_flags включает "IPOWN2"
 
-    - В уставных / трудовых документах видно, что служебные
-      произведения принадлежат работодателю, но assignment
-      от подрядчиков нет:
-      has_assignments_from_founders_and_employees = "yes";
-      has_assignments_from_contractors = "no" или "unclear";
-      риск не занижай.
+    - Продукт создан до регистрации компании:
+      * ip_owner_status = "founders"
+      * red_flags включает "IPOWN3, IPOWN1"
 
-    - Ключевой продукт создан до регистрации компании
-      и формально остаётся на основателях:
-      зафиксируй IPOWN3 и, как правило, IPOWN1.
+    - "All right, title and interest are hereby assigned
+       worldwide, irrevocable, for full term":
+      * assignment_scope_appears_full = "yes"
+      * это сильный фактор low risk
 
-    - Есть формулы "all right, title and interest are hereby
-      assigned to Company" по миру и на весь срок:
-      это сильный фактор в пользу полного scope assignment.
+    - Target получает только лицензию на ключевой IP:
+      * has_third_party_or_preexisting_ip_risk = "yes"
+      * red_flags включает "IPOWN5"
 
-    - Видно только, что Target имеет лицензию, а не ownership:
-      возможно IPOWN5.
+    - Нет данных о chain of title:
+      * chain_of_title_clarity = "unclear"
+      * red_flags включает "IPOWN6"
 
-    - По фрагментам нельзя понять, кому принадлежат права,
-      и есть только общие слова "IP компании":
-      ip_owner_status = "unclear";
-      риск не занижай.
+    - Open source компоненты без признаков нарушения:
+      * has_third_party_or_preexisting_ip_risk = "yes"
+      * в reason: степень риска по контексту
 
-    - Open source / third-party components упомянуты,
-      но без признаков нарушения chain of title:
-      это не всегда критично; оцени как medium / unclear
-      в зависимости от контекста.
-
-    - Пустые или явно нерелевантные фрагменты:
-      red_flags = "UNCLEAR"; в reason укажи недостаток данных.
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * ip_ownership_display =
+        "Не удалось определить принадлежность IP"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "ip_ownership_display"
+      type: "string"
+      description: "Принадлежность IP: краткий вывод"
+
     - name: "ip_owner_status"
       type: "string"
+      description: "Формальный владелец IP"
       allowed_values:
         - "target"
         - "founders"
@@ -351,6 +416,7 @@ extraction:
 
     - name: "has_assignments_from_founders_and_employees"
       type: "string"
+      description: "Assignment от основателей и сотрудников"
       allowed_values:
         - "yes"
         - "no"
@@ -359,6 +425,7 @@ extraction:
 
     - name: "has_assignments_from_contractors"
       type: "string"
+      description: "Assignment от подрядчиков / разработчиков"
       allowed_values:
         - "yes"
         - "no"
@@ -367,44 +434,48 @@ extraction:
 
     - name: "assignment_scope_appears_full"
       type: "string"
+      description: "Полнота scope передачи прав"
       allowed_values:
         - "yes"
         - "no"
         - "partial"
         - "unclear"
 
+    - name: "has_third_party_or_preexisting_ip_risk"
+      type: "string"
+      description: "Риск third-party / pre-existing IP"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "chain_of_title_clarity"
+      type: "string"
+      description: "Чистота цепочки прав"
+      allowed_values:
+        - "clear"
+        - "partial"
+        - "unclear"
+        - "not_established"
+
+    - name: "overall_ip_risk_level"
+      type: "string"
+      description: "Общий уровень IP-риска"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
+        - "unclear"
+
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "IPOWN1"
-      description: >
-        Ключевые IP-активы не принадлежат Target
-        или принадлежат смешанно (основатели / подрядчики /
-        третьи лица).
-    - code: "IPOWN2"
-      description: >
-        Отсутствуют явные assignment-документы
-        от ключевых разработчиков / подрядчиков.
-    - code: "IPOWN3"
-      description: >
-        Ключевой продукт создан до регистрации компании
-        и нет явного отчуждения в пользу Target.
-    - code: "IPOWN4"
-      description: >
-        Scope assignment неполный: нет worldwide /
-        full term / all rights / derivative works.
-    - code: "IPOWN5"
-      description: >
-        Значимый pre-existing IP / third-party IP risk:
-        Target получает только лицензию или есть retained rights.
-    - code: "IPOWN6"
-      description: >
-        Chain of title не прослеживается или прослеживается
-        лишь частично.
+
+  

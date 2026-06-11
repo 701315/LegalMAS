@@ -40,6 +40,7 @@ from engine.retrieval.tokenization import count_tokens
 from ops.metrics import METRICS
 
 from ..detectors.hybrid_detector import HybridDetector
+from engine.checks.semantic_context import SemanticEnrichmentContext
 from ..detectors.models import RetrievedChunk
 from ..playbook.models import CheckDefinition
 from ..retrieval.engine import RetrievalEngine
@@ -297,7 +298,13 @@ class CheckExecutor:
     # Main entry point
     # ------------------------------------------------------------------
 
-    def execute(self, doc, check: CheckDefinition, chunks: list[dict]) -> dict:
+    def execute(
+        self,
+        doc,
+        check: CheckDefinition,
+        chunks: list[dict],
+        semantic_context: "SemanticEnrichmentContext | None" = None,
+    ) -> dict:
         """
         Выполнить один check для одного документа.
 
@@ -417,6 +424,75 @@ class CheckExecutor:
 
             return sorted(chunks_rc, key=_score, reverse=True)
 
+        # ── Semantic enrichment scoring ───────────────────────────────────────
+        # Apply soft multipliers to combined_score based on semantic_context.
+        # Runs before _simple_rerank so semantic signals feed into sort order.
+        # Only active when:
+        #   - semantic_context is available and enrichment was loaded
+        #   - check has enrichment_hints configured
+        # All multipliers are soft (never zero): base retrieval always preserved.
+        _enrichment_hints = getattr(check, "enrichment_hints", None)
+        if (
+            semantic_context is not None
+            and semantic_context.enrichment_available
+            and _enrichment_hints is not None
+        ):
+            _pref_seg_types = {
+                t.lower().strip()
+                for t in (getattr(_enrichment_hints, "preferred_segment_types", None) or [])
+                if t and t.strip()
+            }
+            _excl_seg_types = {
+                t.lower().strip()
+                for t in (getattr(_enrichment_hints, "excluded_segment_types", None) or [])
+                if t and t.strip()
+            }
+            _pref_clause_funcs = {
+                f.lower().strip()
+                for f in (getattr(_enrichment_hints, "preferred_clause_functions", None) or [])
+                if f and f.strip()
+            }
+            _seg_type_lower = (semantic_context.segment_type or "").lower().strip()
+            _seg_clause_funcs = semantic_context.clause_functions  # frozenset[str]
+
+            _semantic_multiplier = 1.0
+
+            # Preferred segment type: boost
+            if _pref_seg_types and _seg_type_lower in _pref_seg_types:
+                _semantic_multiplier *= 1.4
+
+            # Excluded segment type: penalty
+            if _excl_seg_types and _seg_type_lower in _excl_seg_types:
+                _semantic_multiplier *= 0.6
+
+            # Preferred clause function match: boost
+            if _pref_clause_funcs and (_pref_clause_funcs & _seg_clause_funcs):
+                _semantic_multiplier *= 1.5
+
+            # Apply multiplier to all chunks if non-neutral
+            if _semantic_multiplier != 1.0:
+                _adjusted: list[RetrievedChunk] = []
+                for _rc in retrieved_chunks:
+                    _new_score = float(_rc.combined_score or 0.0) * _semantic_multiplier
+                    _adjusted.append(
+                        RetrievedChunk(
+                            element_id=_rc.element_id,
+                            text=_rc.text,
+                            page=_rc.page,
+                            clause_uid=_rc.clause_uid,
+                            bbox=_rc.bbox,
+                            dense_score=_rc.dense_score,
+                            sparse_score=_rc.sparse_score,
+                            metadata_score=_rc.metadata_score,
+                            combined_score=_new_score,
+                            path_titles=_rc.path_titles,
+                            start_page=_rc.start_page,
+                            end_page=_rc.end_page,
+                            element_ids=_rc.element_ids,
+                        )
+                    )
+                retrieved_chunks = _adjusted
+
         if do_rerank and retrieved_chunks:
             # Строим индекс contexts по element_id ДО rerank,
             # чтобы после пересортировки retrieved_chunks восстановить
@@ -480,6 +556,16 @@ class CheckExecutor:
             classification_confidence = float(getattr(doc, "classification_confidence", 1.0) or 0.0)
         except (TypeError, ValueError):
             classification_confidence = 0.0
+
+        # ── Structural context augmentation ───────────────────────────────────
+        # Prepend a compact structural preamble to joined_text for LLM.
+        # Helps LLM understand which part of the document it is reading.
+        # Only added when semantic_context carries segment/enrichment info.
+        # If enrichment is absent: joined_text remains unchanged.
+        if semantic_context is not None:
+            _struct_block = semantic_context.to_prompt_block()
+            if _struct_block:
+                joined_text = _struct_block + "\n\n" + joined_text
 
         try:
             detection = self.detector.run(
@@ -685,4 +771,24 @@ class CheckExecutor:
             "rules_llm_decision": llm_flags["rules_llm_decision"],
             "llm_required": llm_flags["llm_required"],
             "llm_degraded": llm_flags["llm_degraded"],
+            # ── Semantic enrichment signals ────────────────────────────────────
+            # Passed downstream to result_normalizer → quality_flags.
+            # False/None/[] when semantic_context was not available.
+            "semantic_enrichment_used": (
+                semantic_context.enrichment_available
+                if semantic_context is not None
+                else False
+            ),
+            "semantic_segment_type": (
+                semantic_context.segment_type
+                if semantic_context is not None
+                else None
+            ),
+            "semantic_clause_functions": (
+                sorted(semantic_context.clause_functions)
+                if semantic_context is not None and semantic_context.clause_functions
+                else []
+            ),
         }
+
+

@@ -1,13 +1,19 @@
 id: "sticky_long_term_obligations"
 name: "Долгосрочные 'липкие' обязательства и минимальные уровни"
 description: >
-  Анализирует долгосрочные обязательства, минимальные платежи
-  и гарантированные объёмы: take-or-pay схемы, минимальные объёмы
-  закупки/поставки, фиксированные платежи. Оценивает срок действия,
-  условия пересмотра и indexation, выживаемость при смене контроля,
-  penalties за невыполнение, стоимость выхода (exit fee),
-  auto-renewal. Определяет степень «липкости» обязательств
-  и их влияние на Target после M&A-сделки.
+  Анализирует долгосрочные минимальные обязательства: take-or-pay
+  схемы, минимальные объёмы закупки / поставки, фиксированные
+  платежи. Оценивает срок действия, наличие автоматической
+  пролонгации, индексацию, выживаемость при смене контроля,
+  penalties за невыполнение, стоимость досрочного выхода
+  (exit fee) и механизмы пересмотра условий.
+
+  Формирует краткий user-facing вывод и определяет степень
+  «липкости» обязательств для Target после M&A-сделки.
+
+  Платежные условия (валюта, сроки, штрафы за просрочку,
+  escrow) анализируются чеком payment_terms_and_structures.
+  Финансовые ковенанты анализируются чеком financial_covenants.
 
 doc_types: []
 
@@ -17,6 +23,7 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
@@ -39,8 +46,7 @@ rules:
       - "(?i)многолетн[а-я]+\\s+(соглашени|обязательств)"
 
       # Обязательство приобретать/поставлять
-      - "(?i)обязательств[оа]\\s+(приобретать|закупать|поставлять)"
-      - "(?i)obligation\\s+to\\s+(purchase|buy|supply|deliver)"
+      - "(?i)obligation\\s+to\\s+(purchase|buy|supply|deliver)[\\s\\S]{0,20}minimum"
       - "(?i)shall\\s+(purchase|buy|supply)\\s+a\\s+minimum"
       - "(?i)обязан[аоы]?\\s+(закупать|приобретать|поставлять)\\s+не\\s+менее"
 
@@ -74,12 +80,10 @@ rules:
       - "(?i)rolling\\s+(term|contract)"
 
       # Indexation / escalation
-      - "(?i)price\\s+(escalation|indexation|adjustment)"
-      - "(?i)индексаци[яи]\\s+(цен|стоимост)"
-      - "(?i)annual\\s+(price\\s+)?increase"
-      - "(?i)ежегодн[а-я]+\\s+(увеличени|повышени|рост)"
-      - "(?i)CPI\\s+(adjustment|escalation)"
-      - "(?i)привязка\\s+к\\s+(индексу|инфляци)"
+      - "(?i)price\\s+(escalation|indexation|adjustment)[\\s\\S]{0,20}(minimum|volume|commitment)"
+      - "(?i)индексаци[яи]\\s+(цен|стоимост)[\\s\\S]{0,20}(минимальн|объём)"
+      - "(?i)annual\\s+(price\\s+)?increase[\\s\\S]{0,20}(minimum|obligation)"
+      - "(?i)CPI\\s+(adjustment|escalation)[\\s\\S]{0,20}(minimum|volume)"
 
       # Срок
       - "(?i)term\\s+of\\s+\\d+\\s+years?"
@@ -87,24 +91,22 @@ rules:
       - "(?i)initial\\s+term"
       - "(?i)первоначальн[а-я]+\\s+срок"
 
+      # Механизм пересмотра
+      - "(?i)meet[-\\s]?or[-\\s]?release"
+      - "(?i)renegotiation\\s+clause"
+      - "(?i)hardship\\s+clause"
+      - "(?i)market\\s+reset"
+
     low:
-      # Общие термины
-      - "(?i)minimum"
-      - "(?i)минимальн"
-      - "(?i)commitment"
-      - "(?i)обязательств"
-      - "(?i)volume"
-      - "(?i)объём"
-      - "(?i)purchase"
-      - "(?i)закупк"
-      - "(?i)supply"
-      - "(?i)поставк"
-      - "(?i)long[-\\s]?term"
-      - "(?i)долгосрочн"
-      - "(?i)renewal"
-      - "(?i)пролонгац"
-      - "(?i)penalty"
-      - "(?i)штраф"
+      - "(?i)take[-\\s]?or[-\\s]?pay"
+      - "(?i)minimum\\s+(volume|purchase|quantity)"
+      - "(?i)минимальн[а-я]+\\s+(объём|закупк)"
+      - "(?i)guaranteed\\s+minimum"
+      - "(?i)auto[-\\s]?renewal"
+      - "(?i)автоматическ[а-я]+\\s+пролонгаци"
+      - "(?i)survive[\\s\\S]{0,20}(change|control)"
+      - "(?i)exit\\s+fee"
+      - "(?i)shortfall\\s+payment"
 
   regex_patterns: []
   clause_patterns: []
@@ -131,8 +133,8 @@ retrieval:
     - "фиксированный минимальный платёж"
     - "long-term commitment"
     - "долгосрочные обязательства"
-    - "обязательство приобретать"
-    - "obligation to purchase"
+    - "obligation to purchase minimum"
+    - "обязательство приобретать не менее"
     - "survive change of control"
     - "переживает смену контроля"
     - "shortfall payment"
@@ -144,229 +146,294 @@ retrieval:
     - "автоматическая пролонгация"
     - "evergreen"
     - "price escalation"
-    - "индексация цен"
+    - "индексация минимального объёма"
     - "multi-year agreement"
-    - "многолетний контракт"
+    - "meet-or-release"
+    - "hardship clause"
   rerank: true
   filters: {}
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+    - "annex"
+    - "schedule"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+  preferred_clause_functions:
+    - "payment_terms"
+    - "termination"
+    - "change_of_control"
+    - "delivery"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 500
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим и долгосрочным договорам.
-    Твоя специализация — анализ долгосрочных минимальных обязательств
-    (take-or-pay, гарантированные объёмы), их выживаемости при смене
-    контроля, условий пересмотра и стоимости выхода.
+    Твоя задача — точно извлечь долгосрочные минимальные
+    обязательства (take-or-pay, гарантированные объёмы),
+    их срок, выживаемость при CoC, auto-renewal, indexation,
+    penalties за невыполнение и стоимость досрочного выхода.
+
+    Не анализируй базовые платежные условия (валюту, штрафы
+    за просрочку, escrow) — это задача чека
+    payment_terms_and_structures.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора с долгосрочными обязательствами
-    и/или минимальными уровнями:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
+    <task>
+    Заполни только следующие поля:
+    - sticky_obligations_display
+    - has_long_term_minimum_commitments
+    - commitments_description
+    - term_duration
+    - has_auto_renewal
+    - survives_change_of_control
+    - has_indexation
+    - has_shortfall_penalties
+    - has_exit_or_termination_fee
+    - has_renegotiation_mechanism
+    - red_flags
+    - reason
+
+    Важно:
+    - не анализируй базовые платежные условия;
+    - не анализируй финансовые ковенанты;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
     <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
-
     Шаг 1 — НАЛИЧИЕ ДОЛГОСРОЧНЫХ МИНИМАЛЬНЫХ ОБЯЗАТЕЛЬСТВ
-    (используется для заполнения поля "has_long_term_minimum_commitments"):
-    - Определи, содержит ли договор:
-      * минимальные объёмы закупки / поставки;
-      * фиксированные минимальные платежи;
-      * take-or-pay схемы;
-      * guaranteed minimum commitments.
-    - Оцени:
-      * "yes" — есть;
-      * "no" — нет;
-      * "unclear" — неясно.
-    - В commitments_description опиши:
-      * вид обязательств;
-      * уровень (объём, сумма, % от capacity);
-      * базовую логику (годовые минимумы, ежемесячные и т.п.).
 
-    Шаг 2 — СРОК ДЕЙСТВИЯ И ПРОЛОНГАЦИЯ
-    (используется для заполнения полей "term_duration" и "has_auto_renewal"):
-    - Определи срок действия обязательств:
-      * конкретный период (например, "5 years");
-      * бессрочный / indefinite;
-      * не указан.
-    - Определи, есть ли автоматическая пролонгация:
-      * "yes_auto" — автоматическое продление (evergreen,
-        auto-renewal);
-      * "yes_with_notice" — продление, если не направлено
-        уведомление об отказе;
-      * "no" — нет автоматического продления;
-      * "unclear" — неясно.
+    Заполни поле "has_long_term_minimum_commitments".
 
-    Шаг 3 — ВЫЖИВАЕМОСТЬ ПРИ СМЕНЕ КОНТРОЛЯ
-    (используется для заполнения поля "survives_change_of_control"):
-    - Определи, переживают ли обязательства смену контроля:
-      * "yes" — явно указано, что договор/обязательства
-        сохраняют силу при CoC;
-      * "no" — при CoC контрагент может расторгнуть договор
-        или обязательства прекращаются;
-      * "unclear" — не урегулировано.
+    Значения:
+    - "yes" — есть: минимальные объёмы закупки/поставки,
+      фиксированные минимальные платежи, take-or-pay,
+      guaranteed minimum commitments.
+    - "no" — нет.
+    - "unclear" — неясно.
 
-    Шаг 4 — INDEXATION / ESCALATION
-    (используется для заполнения поля "has_indexation"):
-    - Определи, предусмотрена ли индексация / эскалация
-      минимальных обязательств:
-      * привязка к CPI / инфляции;
-      * ежегодное увеличение на фиксированный %;
-      * market reset / benchmark adjustment.
-    - Оцени:
-      * "yes_uncapped" — индексация без cap;
-      * "yes_capped" — индексация с cap;
-      * "no" — нет индексации;
-      * "unclear" — неясно.
+    Шаг 2 — ОПИСАНИЕ ОБЯЗАТЕЛЬСТВ
 
-    Шаг 5 — PENALTIES ЗА НЕВЫПОЛНЕНИЕ
-    (используется для заполнения поля "has_shortfall_penalties"):
-    - Определи, предусмотрены ли санкции за невыполнение
-      минимальных объёмов:
-      * shortfall payment;
-      * deficiency payment;
-      * штрафы / penalties;
-      * requirement to pay for unused capacity.
-    - Оцени:
-      * "yes" — есть;
-      * "no" — нет;
-      * "unclear" — неясно.
+    Заполни поле "commitments_description".
 
-    Шаг 6 — СТОИМОСТЬ ВЫХОДА (EXIT FEE)
-    (используется для заполнения поля "has_exit_or_termination_fee"):
-    - Определи, предусмотрена ли плата за досрочный выход:
-      * exit fee / termination fee;
-      * early termination penalty;
-      * liquidated damages при досрочном расторжении.
-    - Оцени:
-      * "yes_significant" — есть, значительный размер;
-      * "yes_reasonable" — есть, разумный размер;
-      * "no" — нет;
-      * "unclear" — неясно.
+    Правила:
+    - Кратко опиши вид, уровень и логику обязательств:
+      * "Take-or-pay: min 1000 тонн/год"
+      * "Минимальная закупка: 60% от годовой потребности"
+      * "Фиксированный платёж: 5M RUB/месяц"
+    - Если нет: "Не применимо"
+    - Если неясно: "Не удалось определить"
 
-    Шаг 7 — УСЛОВИЯ ПЕРЕСМОТРА
-    (используется для заполнения поля "has_renegotiation_mechanism"):
-    - Определи, предусмотрены ли механизмы пересмотра условий:
-      * periodic review / renegotiation clause;
-      * market reset;
-      * meet-or-release;
-      * hardship clause.
-    - Оцени:
-      * "yes" — есть механизм пересмотра;
-      * "no" — обязательства «забетонированы»;
-      * "unclear" — неясно.
+    Шаг 3 — СРОК ДЕЙСТВИЯ
 
-    Шаг 8 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    Присвой один или несколько кодов из списка ниже.
-    Если ни один код не применим — верни "NONE".
-    Если данных недостаточно для оценки — верни "UNCLEAR".
+    Заполни поле "term_duration".
 
-    Коды:
-    • LTO1 — Крупные take-or-pay или минимальные объёмы
-      при волатильном спросе / неопределённой загрузке.
-    • LTO2 — Долгосрочные обязательства (> 5 лет) без права
-      досрочного выхода или с высоким exit fee.
-    • LTO3 — Обязательства явно переживают смену контроля
-      (survive CoC), ограничивая гибкость покупателя.
-    • LTO4 — Автоматическая пролонгация (auto-renewal /
-      evergreen) без механизма отказа или с коротким
-      notice period.
-    • LTO5 — Высокие penalties / shortfall payments
-      за невыполнение минимальных объёмов.
-    • LTO6 — Indexation / escalation в пользу контрагента
-      без cap или market reset.
+    Правила:
+    - Конкретный срок: "5 лет", "10 лет", "до 2030 года"
+    - Бессрочный: "Бессрочный"
+    - Не указан: "Не указан"
+    - Если неясно: "Не удалось определить"
 
-    Формат ответа: коды через запятую без комментариев
-    (например: "LTO1, LTO3").
-    Вся аргументация — в поле reason.
+    Шаг 4 — АВТОМАТИЧЕСКАЯ ПРОЛОНГАЦИЯ
 
-    Шаг 9 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Заполни поле "has_auto_renewal".
 
-    - В reason кратко обоснуй вывод, опираясь на ключевые
-      формулировки из текста (с цитатами в кавычках), и укажи:
-      * какие минимальные обязательства установлены
-        и на какой срок;
-      * переживают ли они CoC;
-      * есть ли auto-renewal, indexation, penalties, exit fee;
-      * есть ли механизм пересмотра;
-      * если выставлены red_flags — обоснуй каждый код;
-      * если red_flags = "NONE" — укажи, почему обязательства
-        не создают существенного риска.
+    Значения:
+    - "yes_auto" — автоматическое продление (evergreen).
+    - "yes_with_notice" — продление если не направлено
+      уведомление об отказе.
+    - "no" — нет автопродления.
+    - "unclear" — неясно.
+
+    Шаг 5 — ВЫЖИВАЕМОСТЬ ПРИ СМЕНЕ КОНТРОЛЯ
+
+    Заполни поле "survives_change_of_control".
+
+    Значения:
+    - "yes" — явно указано, что обязательства сохраняют силу при CoC.
+    - "no" — при CoC контрагент может расторгнуть или
+      обязательства прекращаются.
+    - "unclear" — не урегулировано.
+
+    Шаг 6 — ИНДЕКСАЦИЯ / ESCALATION
+
+    Заполни поле "has_indexation".
+
+    Значения:
+    - "yes_uncapped" — индексация без cap.
+    - "yes_capped" — индексация с cap.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 7 — PENALTIES ЗА НЕВЫПОЛНЕНИЕ
+
+    Заполни поле "has_shortfall_penalties".
+
+    Значения:
+    - "yes" — есть: shortfall payment, deficiency payment,
+      штрафы за недобор.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 8 — СТОИМОСТЬ ДОСРОЧНОГО ВЫХОДА
+
+    Заполни поле "has_exit_or_termination_fee".
+
+    Значения:
+    - "yes_significant" — есть, значительная сумма.
+    - "yes_reasonable" — есть, разумная сумма.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 9 — МЕХАНИЗМ ПЕРЕСМОТРА
+
+    Заполни поле "has_renegotiation_mechanism".
+
+    Значения:
+    - "yes" — есть: periodic review, market reset,
+      meet-or-release, hardship clause.
+    - "no" — обязательства «забетонированы».
+    - "unclear" — неясно.
+
+    Шаг 10 — RED FLAGS
+
+    Заполни поле "red_flags".
+
+    Используй:
+    - "NONE" — если существенных риск-факторов нет.
+    - "UNCLEAR" — если данных недостаточно.
+    - Коды через запятую:
+      * LTO1 — крупные take-or-pay или минимальные объёмы
+        при волатильном спросе / неопределённой загрузке.
+      * LTO2 — долгосрочные обязательства (> 5 лет) без
+        права досрочного выхода или с высоким exit fee.
+      * LTO3 — обязательства явно переживают CoC,
+        ограничивая гибкость покупателя.
+      * LTO4 — auto-renewal без механизма отказа или
+        с коротким notice period (< 60 дней).
+      * LTO5 — высокие shortfall penalties за невыполнение
+        минимальных объёмов.
+      * LTO6 — indexation без cap в пользу контрагента.
+
+    Шаг 11 — USER-FACING SUMMARY
+
+    Заполни поле "sticky_obligations_display".
+
+    Примеры:
+    - "Take-or-pay: min 1000 тонн/год; срок 7 лет;
+       переживает CoC; auto-renewal 30 дней"
+    - "Минимальная закупка 60%; срок 5 лет; есть exit fee;
+       нет механизма пересмотра"
+    - "Долгосрочных минимальных обязательств не обнаружено"
+    - "Не удалось определить"
+
+    Правила:
+    - Отрази максимум 3–4 ключевых факта через ";".
+    - Если нет обязательств:
+      "Долгосрочных минимальных обязательств не обнаружено"
+    - Если всё unclear: "Не удалось определить"
+
+    Шаг 12 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: вид обязательств, срок, CoC-выживаемость,
+      auto-renewal, indexation, penalties, exit fee, почему
+      выставлены red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему обязательства не создают риска.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - Минимальные объёмы, срок < 3 лет, нет auto-renewal:
+      * overall risk: MEDIUM или LOW
+      * в reason: ограниченность срока снижает риск
 
-    - Минимальные объёмы есть, но срок договора ограничен
-      (< 3 лет), нет auto-renewal:
-      has_long_term_minimum_commitments = "yes";
-      risk может быть MEDIUM или LOW в зависимости
-      от объёма; в reason укажи ограниченность срока.
+    - CoC: контрагент может расторгнуть:
+      * survives_change_of_control = "no"
+      * LTO3 не выставляется
 
-    - При CoC контрагент может расторгнуть договор:
-      survives_change_of_control = "no";
-      LTO3 не выставляется; в reason отметь, что
-      долгосрочная «липкость» снижается.
+    - "Shall remain in full force regardless of CoC":
+      * survives_change_of_control = "yes"
+      * red_flags включает "LTO3"
 
-    - Договор явно указывает: «shall remain in full force
-      regardless of change of control»:
-      survives_change_of_control = "yes";
-      зафиксируй LTO3.
-
-    - Auto-renewal с 180-дневным notice period:
-      has_auto_renewal = "yes_with_notice";
-      LTO4 может не выставляться, если notice разумный;
-      в reason укажи детали.
+    - Auto-renewal c 180-дневным notice:
+      * has_auto_renewal = "yes_with_notice"
+      * LTO4 не выставляется (notice разумный)
 
     - Auto-renewal с 30-дневным notice:
-      зафиксируй LTO4 — короткий notice затрудняет отказ.
+      * red_flags включает "LTO4"
 
     - Indexation CPI + 3% без cap:
-      has_indexation = "yes_uncapped";
-      зафиксируй LTO6.
+      * has_indexation = "yes_uncapped"
+      * red_flags включает "LTO6"
 
-    - Есть meet-or-release clause:
-      has_renegotiation_mechanism = "yes";
-      в reason укажи, что это снижает «липкость».
+    - Meet-or-release clause:
+      * has_renegotiation_mechanism = "yes"
+      * в reason: снижает «липкость»
 
-    - Только общие обязанности поставлять/покупать
-      без минимальных уровней:
-      has_long_term_minimum_commitments = "no";
-      red_flags = "NONE".
+    - Только общие обязанности поставлять без минимумов:
+      * has_long_term_minimum_commitments = "no"
+      * red_flags = "NONE"
+      * sticky_obligations_display =
+        "Долгосрочных минимальных обязательств не обнаружено"
 
-    - Пустые или явно нерелевантные фрагменты:
-      red_flags = "UNCLEAR"; в reason укажи недостаток данных.
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * sticky_obligations_display = "Не удалось определить"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные
-    формулировки из текста, на которых они основаны.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "sticky_obligations_display"
+      type: "string"
+      description: "Долгосрочные обязательства: краткий вывод"
+
     - name: "has_long_term_minimum_commitments"
       type: "string"
+      description: "Наличие долгосрочных минимальных обязательств"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
+    - name: "commitments_description"
+      type: "string"
+      description: "Описание обязательств"
+
     - name: "term_duration"
       type: "string"
+      description: "Срок действия обязательств"
 
     - name: "has_auto_renewal"
       type: "string"
+      description: "Автоматическая пролонгация"
       allowed_values:
         - "yes_auto"
         - "yes_with_notice"
@@ -375,6 +442,7 @@ extraction:
 
     - name: "survives_change_of_control"
       type: "string"
+      description: "Выживаемость при CoC"
       allowed_values:
         - "yes"
         - "no"
@@ -382,6 +450,7 @@ extraction:
 
     - name: "has_indexation"
       type: "string"
+      description: "Индексация / escalation"
       allowed_values:
         - "yes_uncapped"
         - "yes_capped"
@@ -390,6 +459,7 @@ extraction:
 
     - name: "has_shortfall_penalties"
       type: "string"
+      description: "Penalties за невыполнение"
       allowed_values:
         - "yes"
         - "no"
@@ -397,6 +467,7 @@ extraction:
 
     - name: "has_exit_or_termination_fee"
       type: "string"
+      description: "Стоимость досрочного выхода"
       allowed_values:
         - "yes_significant"
         - "yes_reasonable"
@@ -405,6 +476,7 @@ extraction:
 
     - name: "has_renegotiation_mechanism"
       type: "string"
+      description: "Механизм пересмотра условий"
       allowed_values:
         - "yes"
         - "no"
@@ -412,35 +484,13 @@ extraction:
 
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "LTO1"
-      description: >
-        Крупные take-or-pay или минимальные объёмы при волатильном
-        спросе / неопределённой загрузке.
-    - code: "LTO2"
-      description: >
-        Долгосрочные обязательства (> 5 лет) без права досрочного
-        выхода или с высоким exit fee.
-    - code: "LTO3"
-      description: >
-        Обязательства явно переживают смену контроля (survive CoC),
-        ограничивая гибкость покупателя.
-    - code: "LTO4"
-      description: >
-        Автоматическая пролонгация (auto-renewal / evergreen)
-        без механизма отказа или с коротким notice period.
-    - code: "LTO5"
-      description: >
-        Высокие penalties / shortfall payments за невыполнение
-        минимальных объёмов.
-    - code: "LTO6"
-      description: >
-        Indexation / escalation в пользу контрагента без cap
-        или market reset.
+
+  

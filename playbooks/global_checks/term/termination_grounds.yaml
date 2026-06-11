@@ -3,8 +3,11 @@ name: "Основания досрочного расторжения"
 description: >
   Анализирует основания для досрочного расторжения: по вине (for cause),
   без причины (for convenience), при смене контроля, банкротстве,
-  изменении законодательства, санкциях. Оценивает баланс прав
-  между сторонами и наличие cure periods.
+  санкциях / изменении законодательства. Оценивает cure periods,
+  баланс прав между сторонами и асимметрию.
+
+  Формирует краткий user-facing вывод и оценивает риск одностороннего
+  выхода контрагента или «заперания» Target в договоре.
 
 doc_types: []
 
@@ -14,6 +17,7 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
@@ -24,39 +28,30 @@ rules:
       - "(?i)termination\\s+for\\s+convenience"
       - "(?i)terminate[d]?\\s+at\\s+(its?|any\\s+party'?s?)\\s+(sole\\s+)?discretion"
       - "(?i)terminat[e]?\\s+without\\s+cause"
-      - "(?i)terminat[e]?\\s+for\\s+any\\s+reason\\s+or\\s+no\\s+reason"
+      - "(?i)terminat[e]?\\s+for\\s+any\\s+reason"
       - "(?i)односторонн[а-яий]+\\s+отказ"
       - "(?i)расторгнуть\\s+[\\s\\S]{0,30}без\\s+указания\\s+причин"
       - "(?i)расторгнуть\\s+[\\s\\S]{0,30}по\\s+(собственному\\s+)?усмотрени"
-      - "(?i)право\\s+на\\s+односторонний\\s+отказ"
 
       # Termination for cause / material breach
       - "(?i)termination\\s+for\\s+cause"
       - "(?i)material\\s+breach"
       - "(?i)существенн[а-яое]+\\s+нарушени[ея]"
-      - "(?i)terminat[e]?\\s+[\\s\\S]{0,40}(breach|default|violation)"
-      - "(?i)расторгнуть\\s+[\\s\\S]{0,40}нарушени[яи]"
-      - "(?i)право\\s+расторгнуть\\s+[\\s\\S]{0,30}случае\\s+неисполнени"
+      - "(?i)terminat[e]?\\s+[\\s\\S]{0,40}(material\\s+breach|default|violation)"
+      - "(?i)расторгнуть\\s+[\\s\\S]{0,40}существенн[а-яого]+\\s+нарушени[яи]"
 
       # Change of control
-      - "(?i)change\\s+of\\s+control"
-      - "(?i)смен[аы]\\s+контрол[яи]"
-      - "(?i)change\\s+in\\s+(ownership|control|management)"
-      - "(?i)смен[аы]\\s+(собственник|владелец|контролирующ)"
-      - "(?i)termination\\s+[\\s\\S]{0,30}change\\s+of\\s+control"
+      - "(?i)change\\s+of\\s+control[\\s\\S]{0,40}terminat"
+      - "(?i)terminat[\\s\\S]{0,30}change\\s+of\\s+control"
       - "(?i)расторжени[ея]\\s+[\\s\\S]{0,30}смене\\s+контрол"
 
       # Insolvency / bankruptcy
-      - "(?i)\\binsolvency\\b"
-      - "(?i)\\bbankruptcy\\b"
-      - "(?i)\\bбанкротств[оа]\\b"
-      - "(?i)несостоятельност[ьи]"
-      - "(?i)liquidation"
-      - "(?i)ликвидаци"
-      - "(?i)administration"
-      - "(?i)winding[-\\s]?up"
-      - "(?i)termination\\s+[\\s\\S]{0,30}(insolven|bankrupt)"
-      - "(?i)расторжени[ея]\\s+[\\s\\S]{0,30}банкротств"
+      - "(?i)\\binsolvency\\b[\\s\\S]{0,30}terminat"
+      - "(?i)\\bbankruptcy\\b[\\s\\S]{0,30}terminat"
+      - "(?i)банкротств[оа][\\s\\S]{0,30}расторж"
+      - "(?i)liquidation[\\s\\S]{0,30}terminat"
+      - "(?i)winding[-\\s]?up[\\s\\S]{0,30}terminat"
+      - "(?i)ликвидаци[яи][\\s\\S]{0,30}расторж"
 
     medium:
       # Общие termination формулировки
@@ -64,55 +59,41 @@ rules:
       - "(?i)right\\s+to\\s+terminate"
       - "(?i)may\\s+terminate"
       - "(?i)вправе\\s+расторгнуть"
-      - "(?i)может\\s+быть\\s+расторгнут"
-      - "(?i)настоящий\\s+договор\\s+может\\s+быть\\s+расторгнут"
 
       # Cure period / grace period
       - "(?i)cure\\s+period"
       - "(?i)grace\\s+period"
       - "(?i)срок\\s+(для\\s+)?устранени[яи]"
-      - "(?i)within\\s+\\d+\\s+(days?|business\\s+days?)\\s+[\\s\\S]{0,20}(cure|remedy|rectify)"
-      - "(?i)в\\s+течени[ие]\\s+\\d+\\s+(дн|рабочих)\\s+[\\s\\S]{0,20}устранить"
+      - "(?i)within\\s+\\d+\\s+(days?|business\\s+days?)[\\s\\S]{0,20}(cure|remedy|rectify)"
+      - "(?i)в\\s+течени[ие]\\s+\\d+\\s+(дн|рабочих)[\\s\\S]{0,20}устранить"
 
-      # Notice period
+      # Notice period для расторжения
       - "(?i)notice\\s+of\\s+termination"
       - "(?i)уведомлени[ея]\\s+о\\s+расторжени"
-      - "(?i)\\d+\\s+(days?'?|months?'?)\\s+(prior\\s+)?notice"
-      - "(?i)уведомив\\s+за\\s+\\d+\\s+(дн|календарн|рабоч)"
-      - "(?i)не\\s+менее\\s+чем\\s+за\\s+\\d+\\s+(дн|календарн)"
+      - "(?i)\\d+\\s+(days?|months?)[\\s\\S]{0,10}(prior\\s+)?notice[\\s\\S]{0,20}terminat"
+      - "(?i)уведомив\\s+за\\s+\\d+\\s+(дн|рабоч)[\\s\\S]{0,20}расторж"
 
-      # Law change / sanctions
-      - "(?i)изменени[ея]\\s+законодательств"
-      - "(?i)change[s]?\\s+(in|of)\\s+(law|legislation|regulation)"
-      - "(?i)санкци[яий]"
-      - "(?i)sanctions?"
-      - "(?i)termination\\s+[\\s\\S]{0,30}sanction"
-      - "(?i)расторжени[ея]\\s+[\\s\\S]{0,30}санкци"
-      - "(?i)illegality"
-      - "(?i)невозможность\\s+исполнени[яи]"
-
-      # Иные основания
-      - "(?i)event\\s+of\\s+default"
-      - "(?i)событие\\s+дефолта"
-      - "(?i)grounds?\\s+for\\s+termination"
-      - "(?i)основани[яиеях]\\s+(для\\s+)?расторжени"
+      # Санкции / law change
+      - "(?i)termination[\\s\\S]{0,30}sanction"
+      - "(?i)расторжени[ея][\\s\\S]{0,30}санкци"
+      - "(?i)termination[\\s\\S]{0,30}(change\\s+in\\s+law|change\\s+of\\s+law)"
+      - "(?i)расторжени[ея][\\s\\S]{0,30}изменени[яи]\\s+законодательств"
+      - "(?i)illegality[\\s\\S]{0,30}terminat"
+      - "(?i)невозможность\\s+исполнени[яи][\\s\\S]{0,30}расторж"
+      - "(?i)risk\\s+of\\s+sanctions[\\s\\S]{0,30}terminat"
+      - "(?i)риск\\s+санкций[\\s\\S]{0,30}расторж"
 
     low:
-      # Общие ссылки на расторжение
-      - "(?i)terminat"
-      - "(?i)расторж"
-      - "(?i)прекращ"
-      - "(?i)отказ\\s+от\\s+договора"
-
-      # Общие ссылки на нарушения
-      - "(?i)breach"
-      - "(?i)нарушени"
-      - "(?i)default"
-      - "(?i)неисполнени"
-
-      # Общие ссылки на уведомления
-      - "(?i)notice"
-      - "(?i)уведомлени"
+      - "(?i)termination\\s+for\\s+cause"
+      - "(?i)termination\\s+for\\s+convenience"
+      - "(?i)material\\s+breach"
+      - "(?i)существенное\\s+нарушение"
+      - "(?i)cure\\s+period"
+      - "(?i)срок\\s+устранения"
+      - "(?i)insolvency"
+      - "(?i)bankruptcy"
+      - "(?i)банкротство"
+      - "(?i)sanctions[\\s\\S]{0,20}terminat"
 
   regex_patterns: []
   clause_patterns: []
@@ -147,6 +128,7 @@ retrieval:
     - "банкротство"
     - "sanctions"
     - "санкции"
+    - "risk of sanctions"
     - "change in law"
     - "изменение законодательства"
     - "cure period"
@@ -154,216 +136,246 @@ retrieval:
     - "grace period"
     - "notice of termination"
     - "уведомление о расторжении"
+    - "terminate without cause"
+    - "без указания причин"
   rerank: true
   filters: {}
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+    - "annex"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+    - "schedule"
+  preferred_clause_functions:
+    - "termination"
+    - "general_provisions"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 460
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим договорам и M&A.
-    Твоя специализация — основания досрочного расторжения,
-    распределение рисков между сторонами, cure periods
-    и баланс прав на выход из договора.
+    Твоя задача — точно извлечь из текста основания
+    досрочного расторжения и баланс прав между сторонами.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора с возможными положениями
-    о расторжении:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
+    <task>
+    Заполни только следующие поля:
+    - termination_grounds_display
+    - for_cause
+    - has_cure_period
+    - cure_period_days
+    - for_convenience
+    - convenience_notice_days
+    - on_change_of_control
+    - on_insolvency
+    - on_sanctions_or_law_change
+    - rights_balance
+    - red_flags
+    - reason
+
+    Важно:
+    - чётко различай for cause и for convenience;
+    - не путай cure period расторжения с FM grace period;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
     <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
-
     Шаг 1 — РАСТОРЖЕНИЕ ПО ВИНЕ (FOR CAUSE)
-    (используется для заполнения поля "for_cause"):
-    - Определи, предусмотрено ли расторжение по вине:
-      * material breach / существенное нарушение;
-      * иные нарушения как основание расторжения.
-    - Оцени распределение права:
-      * "mutual" — симметричное право у обеих сторон;
-      * "target_only" — право только у Target;
-      * "counterparty_only" — право только у контрагента;
-      * "none" — расторжение по вине не предусмотрено;
-      * "unclear" — невозможно определить.
 
-    Шаг 2 — CURE PERIOD (СРОК НА УСТРАНЕНИЕ)
-    (используется для заполнения поля "has_cure_period"):
-    - Определи, предусмотрен ли срок на устранение нарушения
-      перед расторжением (cure period / grace period):
-      * "yes" — есть cure period;
-      * "no" — немедленное право расторжения без cure;
-      * "unclear" — невозможно определить.
+    Заполни поле "for_cause".
 
-    Шаг 3 — ДЛИТЕЛЬНОСТЬ CURE PERIOD
-    (используется для заполнения поля "cure_period_days"):
-    - Если cure period есть, укажи количество дней
-      (например: "30", "60", "10 рабочих дней").
-    - Если нет cure period — укажи "N/A".
-    - Если неясно — укажи "Не указан".
+    Значения:
+    - "mutual" — право у обеих сторон.
+    - "target_only" — только у Target.
+    - "counterparty_only" — только у контрагента.
+    - "none" — не предусмотрено.
+    - "unclear" — неясно.
 
-    Шаг 4 — РАСТОРЖЕНИЕ БЕЗ ПРИЧИНЫ (FOR CONVENIENCE)
-    (используется для заполнения поля "for_convenience"):
-    - Определи, предусмотрено ли расторжение без причины:
-      * termination for convenience;
-      * односторонний отказ без указания причин;
-      * право расторгнуть "at sole discretion".
-    - Оцени распределение права:
-      * "mutual" — право у обеих сторон;
-      * "target_only" — право только у Target;
-      * "counterparty_only" — право только у контрагента;
-      * "none" — расторжение без причины не предусмотрено;
-      * "unclear" — невозможно определить.
+    Шаг 2 — CURE PERIOD
 
-    Шаг 5 — СРОК УВЕДОМЛЕНИЯ ПРИ FOR CONVENIENCE
-    (используется для заполнения поля "convenience_notice_days"):
-    - Если for convenience есть, укажи срок уведомления
-      (например: "30 дней", "90 days", "3 месяца").
-    - Если нет for convenience — укажи "N/A".
-    - Если срок не указан — укажи "Не указан".
+    Заполни поля "has_cure_period" и "cure_period_days".
 
-    Шаг 6 — РАСТОРЖЕНИЕ ПРИ СМЕНЕ КОНТРОЛЯ
-    (используется для заполнения поля "on_change_of_control"):
-    - Определи, есть ли право расторжения при смене контроля/
-      собственника:
-      * "yes" — прямо предусмотрено;
-      * "no" — не предусмотрено;
-      * "unclear" — невозможно определить.
+    Значения для has_cure_period:
+    - "yes" — есть срок на устранение нарушения.
+    - "no" — немедленное право расторжения без cure.
+    - "unclear" — неясно.
 
-    Шаг 7 — РАСТОРЖЕНИЕ ПРИ БАНКРОТСТВЕ
-    (используется для заполнения поля "on_insolvency"):
-    - Определи, есть ли право расторжения при банкротстве/
-      несостоятельности/ликвидации:
-      * "yes" — прямо предусмотрено;
-      * "no" — не предусмотрено;
-      * "unclear" — невозможно определить.
+    Для cure_period_days:
+    - Если есть: "30", "60", "10 рабочих дней"
+    - Если нет: "Не применимо"
+    - Если неясно: "Не указан"
 
-    Шаг 8 — РАСТОРЖЕНИЕ ПРИ САНКЦИЯХ / LAW CHANGE
-    (используется для заполнения поля "on_sanctions_or_law_change"):
-    - Определи, есть ли право расторжения при:
-      * изменении законодательства;
-      * введении санкций;
-      * illegality (невозможность исполнения из-за закона).
-    - Сформулируй вывод:
-      * "yes" — расторжение при фактическом запрете и "risk of sanctions"
-        или субъективной оценке;
-      * "no" — не предусмотрено;
-      * "unclear" — невозможно определить.
+    Шаг 3 — РАСТОРЖЕНИЕ БЕЗ ПРИЧИНЫ (FOR CONVENIENCE)
+
+    Заполни поле "for_convenience".
+
+    Значения:
+    - "mutual" — право у обеих сторон.
+    - "target_only" — только у Target.
+    - "counterparty_only" — только у контрагента.
+    - "none" — не предусмотрено.
+    - "unclear" — неясно.
+
+    Шаг 4 — СРОК УВЕДОМЛЕНИЯ ПРИ FOR CONVENIENCE
+
+    Заполни поле "convenience_notice_days".
+
+    Правила:
+    - Если есть: "30 дней", "90 дней", "3 месяца"
+    - Если нет for convenience: "Не применимо"
+    - Если срок не указан: "Не указан"
+
+    Шаг 5 — РАСТОРЖЕНИЕ ПРИ СМЕНЕ КОНТРОЛЯ
+
+    Заполни поле "on_change_of_control".
+
+    Значения:
+    - "yes" — прямо предусмотрено.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 6 — РАСТОРЖЕНИЕ ПРИ БАНКРОТСТВЕ
+
+    Заполни поле "on_insolvency".
+
+    Значения:
+    - "yes" — прямо предусмотрено.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 7 — РАСТОРЖЕНИЕ ПРИ САНКЦИЯХ / LAW CHANGE
+
+    Заполни поле "on_sanctions_or_law_change".
+
+    Значения:
+    - "yes_objective" — только при фактическом запрете /
+      фактическом включении в санкционный список.
+    - "yes_risk_based" — при "риске нарушения санкций"
+      или субъективной оценке контрагента.
+    - "no" — не предусмотрено.
+    - "unclear" — неясно.
+
+    Шаг 8 — БАЛАНС ПРАВ
+
+    Заполни поле "rights_balance".
+
+    Значения:
+    - "balanced" — права расторжения симметричны.
+    - "favors_target" — Target имеет больше прав.
+    - "favors_counterparty" — контрагент имеет больше прав.
+    - "unclear" — неясно.
 
     Шаг 9 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    - Оцени наличие следующих рисковых факторов:
 
-      * «TERM8» — Право контрагента расторгнуть без причины
-        (for convenience) с коротким уведомлением. Признаки:
-        - for_convenience = "counterparty_only" или "mutual"
-          (но реально используется контрагентом);
-        - convenience_notice_days < 60 (при длительном договоре);
-        - Target не имеет такого же права или имеет
-          с бо́льшим сроком уведомления.
+    Заполни поле "red_flags".
 
-      * «TERM9» — Асимметричное/одностороннее распределение
-        прав расторжения. Признаки:
-        - for_cause = "counterparty_only";
-        - for_convenience = "counterparty_only";
-        - rights_balance = "favors_counterparty";
-        - Target де-факто "заперта" в договоре,
-          а контрагент может выйти легко.
+    Используй:
+    - "NONE" — права сбалансированы, cure periods разумные.
+    - "UNCLEAR" — данных недостаточно.
+    - Коды через запятую:
+      * TERM8 — право контрагента расторгнуть без причины
+        (for convenience = "counterparty_only") с коротким
+        уведомлением (< 60 дней для длительных договоров).
+      * TERM9 — асимметричное распределение прав расторжения:
+        контрагент имеет больше оснований / меньше ограничений.
+      * TERM10 — расторжение при санкциях / law change
+        на субъективных основаниях (risk-based trigger).
 
-      * «TERM10» — Расторжение при санкциях/law change
-        на субъективных основаниях ("risk of"). Признаки:
-        - on_sanctions_or_law_change = "yes_risk_based";
-        - контрагент может расторгнуть при "risk of
-          sanctions violation" без фактического запрета;
-        - это создаёт произвольный рычаг для выхода.
+    Шаг 10 — USER-FACING SUMMARY
 
-    - Если права на расторжение сбалансированы, cure periods
-      разумны, convenience взаимный или отсутствует —
-      верни "NONE".
-    - Если данных недостаточно для оценки — верни "UNCLEAR".
-    - Формат: один или несколько кодов через запятую
-      ("TERM8", "TERM9", "TERM8, TERM9, TERM10"),
-      "NONE" или "UNCLEAR".
-      Без комментариев в этом поле — всё объясняющее в reason.
+    Заполни поле "termination_grounds_display".
 
-    Шаг 10 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Примеры:
+    - "For cause: взаимное; cure 30 дней; for convenience:
+       только контрагент (30 дней); расторжение при CoC"
+    - "For cause: взаимное; нет cure; нет for convenience;
+       санкции: risk-based"
+    - "For cause: только контрагент; for convenience: только
+       контрагент — асимметрия"
+    - "Не удалось определить основания расторжения"
 
-    - В "reason" кратко обоснуй вывод:
-      * ссылайся на ключевые формулировки (по возможности
-        с короткими цитатами);
-      * поясни, как структура оснований расторжения
-        влияет на риск для Target;
-      * если выставлены red_flags — объясни, почему именно
-        эти коды.
+    Правила:
+    - Отрази максимум 4 ключевых факта через ";".
+    - Если всё unclear:
+      "Не удалось определить основания расторжения"
+
+    Шаг 11 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: for cause, cure period, for convenience, CoC,
+      баланс прав, почему red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему права сбалансированы.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - For convenience только у контрагента + 30 дней:
+      * for_convenience = "counterparty_only"
+      * convenience_notice_days = "30 дней"
+      * rights_balance = "favors_counterparty"
+      * red_flags = "TERM8, TERM9"
 
-    - Контрагент имеет широкое право for convenience
-      с 30-дневным уведомлением, а у Target такого права нет:
-      for_convenience = "counterparty_only";
-      convenience_notice_days = "30 дней";
-      ставь TERM8 и TERM9; overall_risk_level = "high".
+    - For cause только у контрагента без cure:
+      * for_cause = "counterparty_only"
+      * has_cure_period = "no"
+      * red_flags включает "TERM9"
 
-    - For cause прописан только в пользу контрагента
-      (контрагент может расторгнуть при любом нарушении,
-      Target — нет):
-      for_cause = "counterparty_only";
-      ставь TERM9.
+    - Sanctions trigger = "reasonable opinion":
+      * on_sanctions_or_law_change = "yes_risk_based"
+      * red_flags включает "TERM10"
 
-    - Право расторжения при CoC Target без зеркального права
-      для Target при CoC контрагента:
-      on_change_of_control = "yes";
-      отметь в reason, что это асимметрично;
-      учитывай в rights_balance.
+    - Симметричный for cause, 30-дневный cure, нет for convenience:
+      * rights_balance = "balanced"
+      * red_flags = "NONE"
 
-    - Триггеры по санкциям/law change позволяют расторгнуть
-      при "risk of violation" без объективного запрета:
-      on_sanctions_or_law_change = "yes_risk_based";
-      ставь TERM10; overall_risk_level ≥ "medium".
+    - Расторжение при CoC только контрагента, без зеркального права:
+      * on_change_of_control = "yes"
+      * rights_balance = "favors_counterparty"
+      * в reason: асимметрия по CoC
 
-    - Симметричный for cause с 30-дневным cure period
-      для обеих сторон:
-      for_cause = "mutual";
-      has_cure_period = "yes";
-      это стандартно; red_flags = "NONE".
-
-    - Нет for convenience ни у одной стороны:
-      for_convenience = "none";
-      это снижает риск; учитывай в overall_risk_level.
-
-    - Текст фрагментарный: упоминается расторжение,
-      но неясны основания и стороны:
-      соответствующие поля = "unclear";
-      red_flags = "UNCLEAR";
-      overall_risk_level = "medium".
-
-    - Пустые или нерелевантные фрагменты:
-      все поля = "unclear";
-      red_flags = "UNCLEAR";
-      overall_risk_level = "medium".
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * termination_grounds_display =
+        "Не удалось определить основания расторжения"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны. Не генерируй JSON —
-    просто излагай выводы структурированно и однозначно.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
-    # Блок A: Основания
+    - name: "termination_grounds_display"
+      type: "string"
+      description: "Основания расторжения: краткий вывод"
+
     - name: "for_cause"
       type: "string"
+      description: "Расторжение по вине"
       allowed_values:
         - "mutual"
         - "target_only"
@@ -373,6 +385,7 @@ extraction:
 
     - name: "has_cure_period"
       type: "string"
+      description: "Cure period"
       allowed_values:
         - "yes"
         - "no"
@@ -380,9 +393,11 @@ extraction:
 
     - name: "cure_period_days"
       type: "string"
+      description: "Длительность cure period"
 
     - name: "for_convenience"
       type: "string"
+      description: "Расторжение без причины"
       allowed_values:
         - "mutual"
         - "target_only"
@@ -392,9 +407,11 @@ extraction:
 
     - name: "convenience_notice_days"
       type: "string"
+      description: "Срок уведомления при for convenience"
 
     - name: "on_change_of_control"
       type: "string"
+      description: "Расторжение при смене контроля"
       allowed_values:
         - "yes"
         - "no"
@@ -402,6 +419,7 @@ extraction:
 
     - name: "on_insolvency"
       type: "string"
+      description: "Расторжение при банкротстве"
       allowed_values:
         - "yes"
         - "no"
@@ -409,25 +427,31 @@ extraction:
 
     - name: "on_sanctions_or_law_change"
       type: "string"
+      description: "Расторжение при санкциях / изменении закона"
       allowed_values:
         - "yes_objective"
         - "yes_risk_based"
         - "no"
         - "unclear"
 
+    - name: "rights_balance"
+      type: "string"
+      description: "Баланс прав расторжения"
+      allowed_values:
+        - "balanced"
+        - "favors_target"
+        - "favors_counterparty"
+        - "unclear"
+
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "TERM8"
-      description: "Право контрагента расторгнуть без причины (for convenience)."
-    - code: "TERM9"
-      description: "Асимметричное распределение прав расторжения."
-    - code: "TERM10"
-      description: "Расторжение при санкциях/law change на субъективных основаниях."
+
+  

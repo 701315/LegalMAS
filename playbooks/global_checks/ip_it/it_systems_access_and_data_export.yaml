@@ -2,10 +2,20 @@ id: "it_systems_access_and_data_export"
 name: "Доступ к ИТ-системам и экспорт данных при прекращении"
 description: >
   Анализирует условия доступа к критическим ИТ-системам и сервисам,
-  а также порядок экспорта, хранения, резервного копирования и удаления
-  данных при приостановке и расторжении договора. Оценивает операционный
-  риск отключения сервиса, риск потери данных и степень vendor lock-in
-  для Target.
+  а также порядок экспорта, хранения, резервного копирования и
+  удаления данных при приостановке и расторжении договора.
+
+  Извлекает: условия и основания приостановки / отключения сервиса,
+  наличие уведомления и grace period, право на экспорт данных и
+  качество окна выгрузки, форматы экспорта, условия хранения и
+  удаления данных после расторжения, прозрачность backup / restore.
+
+  Формирует краткий user-facing вывод и оценивает операционный риск
+  отключения сервиса, риск потери данных и степень vendor lock-in.
+
+  Детальный анализ ИБ-обязательств провайдера, SLA и общих
+  условий аутсорсинга выполняется чеком
+  outsourced_it_and_security_risk.
 
 doc_types: []
 
@@ -15,31 +25,20 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
 
   keywords:
     high:
-      # Доступ / сервис
-      - "(?i)access\\s+to\\s+the\\s+system"
-      - "(?i)access\\s+to\\s+services?"
-      - "(?i)доступ\\s+к\\s+системе"
-      - "(?i)доступ\\s+к\\s+сервис"
-      - "(?i)service\\s+availability"
-      - "(?i)доступност[ьи]\\s+сервис"
-      - "(?i)\\bSaaS\\b"
-      - "(?i)облачн(ый|ого)\\s+сервис"
-      - "(?i)cloud\\s+service"
-
       # Приостановка / отключение
-      - "(?i)suspension\\s+of\\s+service"
+      - "(?i)suspension\\s+of\\s+(access|service)"
       - "(?i)service\\s+suspension"
-      - "(?i)приостановлени[ея]\\s+услуг"
-      - "(?i)приостановлени[ея]\\s+сервис"
-      - "(?i)termination\\s+of\\s+service"
-      - "(?i)отключени[ея]\\s+сервис"
-      - "(?i)disable\\s+(the\\s+)?service"
+      - "(?i)приостановлени[ея]\\s+(услуг|сервис|доступа)"
+      - "(?i)termination\\s+of\\s+(access|service)"
+      - "(?i)отключени[ея]\\s+(сервис|доступа)"
+      - "(?i)disable\\s+(the\\s+)?(service|access)"
       - "(?i)restrict\\s+access"
       - "(?i)ограничени[ея]\\s+доступа"
       - "(?i)immediate\\s+suspension"
@@ -51,82 +50,61 @@ rules:
       - "(?i)export\\s+of\\s+data"
       - "(?i)экспорт\\s+данных"
       - "(?i)выгрузк[аи]\\s+данных"
-      - "(?i)retrieve\\s+your\\s+data"
+      - "(?i)retrieve\\s+your\\s+(own\\s+)?data"
       - "(?i)получени[ея]\\s+своих\\s+данных"
+      - "(?i)portability\\s+of\\s+data"
 
-      # Удаление / хранение
-      - "(?i)data\\s+deletion"
-      - "(?i)удалени[ея]\\s+данных"
-      - "(?i)delete\\s+(the\\s+)?data"
-      - "(?i)retention\\s+period"
-      - "(?i)срок\\s+хранени[яе]\\s+данных"
-      - "(?i)anonymi[sz]ation"
-      - "(?i)анонимизаци[яи]"
+      # Удаление / хранение после расторжения
+      - "(?i)data\\s+deletion[\\s\\S]{0,30}(terminat|расторж)"
+      - "(?i)удалени[ея]\\s+данных[\\s\\S]{0,30}(расторж|прекращ)"
+      - "(?i)retention\\s+period[\\s\\S]{0,30}(after|terminat)"
+      - "(?i)срок\\s+хранени[яе]\\s+данных[\\s\\S]{0,30}(после|расторж)"
+      - "(?i)anonymi[sz]ation[\\s\\S]{0,30}(terminat|расторж)"
 
       # Backup / restore
-      - "(?i)backup"
-      - "(?i)резервн(ое|ого)\\s+копировани"
-      - "(?i)restore"
+      - "(?i)backup[\\s\\S]{0,20}(data|данных)"
+      - "(?i)резервн(ое|ого)\\s+копировани[ея][\\s\\S]{0,20}данных"
+      - "(?i)restore[\\s\\S]{0,20}data"
       - "(?i)восстановлени[ея]\\s+данных"
-      - "(?i)disaster\\s+recovery"
 
     medium:
       # Уведомление / grace period
-      - "(?i)prior\\s+notice"
-      - "(?i)предварительн(ое|ого)\\s+уведомлени"
-      - "(?i)written\\s+notice"
-      - "(?i)письменн(ое|ого)\\s+уведомлени"
-      - "(?i)grace\\s+period"
-      - "(?i)льготн(ый|ого)\\s+период"
-      - "(?i)cure\\s+period"
-      - "(?i)срок\\s+для\\s+устранени"
+      - "(?i)prior\\s+notice[\\s\\S]{0,30}(suspend|terminat|отключ)"
+      - "(?i)предварительн(ое|ого)\\s+уведомлени[ея][\\s\\S]{0,30}(приостановк|отключ)"
+      - "(?i)grace\\s+period[\\s\\S]{0,30}(data|export|access)"
+      - "(?i)льготн(ый|ого)\\s+период[\\s\\S]{0,30}данных"
+      - "(?i)cure\\s+period[\\s\\S]{0,30}(suspend|access)"
 
       # Форматы / API
-      - "(?i)CSV"
-      - "(?i)XML"
-      - "(?i)JSON"
-      - "(?i)API"
+      - "(?i)machine[-\\s]?readable\\s+format"
       - "(?i)машиночитаем(ый|ом)\\s+формат"
-      - "(?i)standard\\s+format"
-      - "(?i)read[-\\s]?only\\s+access"
-      - "(?i)режим\\s+только\\s+чтения"
+      - "(?i)standard\\s+format[\\s\\S]{0,20}(export|data)"
+      - "(?i)read[-\\s]?only\\s+access[\\s\\S]{0,20}(after|terminat)"
+      - "(?i)\\bCSV\\b"
+      - "(?i)\\bJSON\\b"
+      - "(?i)\\bAPI\\b[\\s\\S]{0,20}(export|access|data)"
 
       # Платность экспорта
       - "(?i)export\\s+fees?"
       - "(?i)fee\\s+for\\s+data\\s+export"
       - "(?i)плат[аы]\\s+за\\s+экспорт\\s+данных"
-      - "(?i)addition(al)?\\s+charge"
 
-      # Нарушения / abuse / security
-      - "(?i)breach\\s+of\\s+agreement"
-      - "(?i)нарушени[ея]\\s+договора"
-      - "(?i)security\\s+incident"
-      - "(?i)инцидент\\s+безопасности"
-      - "(?i)abuse\\s+of\\s+service"
-      - "(?i)злоупотреблени[ея]\\s+сервис"
-
-      # Просрочка оплаты
-      - "(?i)late\\s+payment"
-      - "(?i)payment\\s+default"
-      - "(?i)просрочк[аи]\\s+оплат"
-      - "(?i)неоплат[аы]"
+      # Основания приостановки
+      - "(?i)late\\s+payment[\\s\\S]{0,30}(suspend|terminate|отключ)"
+      - "(?i)просрочк[аи]\\s+оплат[ыа][\\s\\S]{0,30}(приостановк|отключ)"
+      - "(?i)breach\\s+of\\s+agreement[\\s\\S]{0,30}(suspend|terminat)"
+      - "(?i)нарушени[ея]\\s+договора[\\s\\S]{0,30}(приостановк|отключ)"
 
     low:
-      # Общие термины
-      - "(?i)access"
-      - "(?i)доступ"
-      - "(?i)service"
-      - "(?i)сервис"
-      - "(?i)system"
-      - "(?i)систем"
-      - "(?i)data"
-      - "(?i)данн"
-      - "(?i)export"
-      - "(?i)экспорт"
-      - "(?i)delete"
-      - "(?i)удал"
-      - "(?i)retain"
-      - "(?i)хран"
+      - "(?i)service\\s+suspension"
+      - "(?i)data\\s+export"
+      - "(?i)data\\s+retrieval"
+      - "(?i)data\\s+deletion"
+      - "(?i)retention\\s+period"
+      - "(?i)backup"
+      - "(?i)read[-\\s]?only\\s+access"
+      - "(?i)grace\\s+period"
+      - "(?i)prior\\s+notice[\\s\\S]{0,20}suspend"
 
   regex_patterns: []
   clause_patterns: []
@@ -146,228 +124,349 @@ retrieval:
   context_k: 5
   max_chunks: 10
   boost_keywords:
-    - "access to the system"
-    - "доступ к системе"
     - "service suspension"
     - "приостановление услуг"
+    - "access suspension"
     - "termination of service"
     - "отключение сервиса"
+    - "immediate suspension"
     - "data export"
     - "экспорт данных"
     - "data retrieval"
     - "выгрузка данных"
+    - "data portability"
     - "data deletion"
     - "удаление данных"
     - "retention period"
     - "срок хранения данных"
     - "backup"
     - "резервное копирование"
-    - "read-only access"
-    - "SaaS"
-    - "cloud service"
     - "grace period"
     - "prior notice"
+    - "read-only access"
+    - "machine-readable format"
     - "CSV"
     - "JSON"
     - "API"
+    - "export fees"
+    - "плата за экспорт данных"
   rerank: true
   filters: {}
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "annex"
+    - "appendix"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+  preferred_clause_functions:
+    - "termination"
+    - "data_protection"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 480
   llm_prompt_extraction: |
     <role>
     Ты — юрист по ИТ и SaaS-договорам.
-    Твоя специализация — условия доступа к облачным сервисам,
-    приостановка и отключение критичных ИТ-систем, экспорт данных,
-    резервное копирование и обращение с данными при прекращении
-    договора.
+    Твоя задача — точно извлечь из текста:
+    1) условия и основания приостановки / отключения сервиса;
+    2) наличие и качество права на экспорт данных;
+    3) условия хранения и удаления данных после расторжения;
+    4) прозрачность backup / restore.
+
+    Не анализируй ИБ-обязательства провайдера, SLA и общие
+    условия аутсорсинга — это задача чека
+    outsourced_it_and_security_risk.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора, касающиеся доступа
-    к ИТ-системам и данным:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
+    <task>
+    Заполни только следующие поля:
+    - it_access_display
+    - service_suspension_severity
+    - suspension_notice_period
+    - has_data_export_rights
+    - export_window_quality
+    - export_format_quality
+    - data_retention_after_termination
+    - backup_and_restore_transparency
+    - red_flags
+    - reason
+
+    Важно:
+    - не предполагай право на экспорт по умолчанию
+      если оно не указано;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
     <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует
-    одному или нескольким полям итоговой оценки.
+    Шаг 1 — ЖЁСТКОСТЬ УСЛОВИЙ ПРИОСТАНОВКИ
 
-    Шаг 1 — УСЛОВИЯ ПРИОСТАНОВКИ / ОТКЛЮЧЕНИЯ СЕРВИСА
-    (используется для заполнения полей "service_suspension_conditions"):
-    - Определи, наличие условий когда поставщик может приостанавливать
-      или отключать сервис:
-      * просрочка оплаты;
-      * нарушение договора;
-      * инциденты безопасности;
-      * злоупотребление сервисом;
-      * спор / расследование.
-    - Верни:
-      * "yes";
-      * "no";
-      * "unclear".
+    Заполни поле "service_suspension_severity".
 
-    Шаг 2 — ПРАВО КЛИЕНТА НА ЭКСПОРТ ДАННЫХ
-    (используется для заполнения поля "has_data_export_rights"):
-    - Проверь, предусмотрено ли явное право клиента
-      на выгрузку / получение своих данных.
-    - Учитывай:
-      * прямое право export / retrieval;
-      * ограничения по объёму, периодичности, каналам доступа;
-      * платность услуги.
-    - Верни:
-      * "yes";
-      * "no";
-      * "unclear".
+    Значения:
+    - "strict" — провайдер может немедленно отключить
+      при небольших нарушениях (просрочка < 30 дней,
+      любой спор, по усмотрению).
+    - "moderate" — приостановка при серьёзных нарушениях
+      с разумным уведомлением.
+    - "mild" — ограниченные основания, длинный notice,
+      cure period предусмотрен.
+    - "not_addressed" — условия приостановки не описаны.
+    - "unclear" — неясно.
 
-    Шаг 3 — УДАЛЕНИЕ, ХРАНЕНИЕ И BACKUP
-    (используется для заполнения поля "data_deletion_or_retention_terms"):
-    - Оцени, что происходит с данными клиента:
-      * сроки хранения после расторжения;
-      * окончательное удаление / anonymization;
-      * наличие backup и возможности restore;
-      * удаление по запросу клиента.
-    - Верни:
-      * "yes";
-      * "no";
-      * "unclear".
+    Шаг 2 — СРОК УВЕДОМЛЕНИЯ О ПРИОСТАНОВКЕ
 
-    Шаг 4 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    Присвой один или несколько кодов из списка ниже.
-    Если ни один код не применим — верни "NONE".
-    Если данных недостаточно для оценки — верни "UNCLEAR".
+    Заполни поле "suspension_notice_period".
 
-    Коды:
-    • ITEXIT1 — Поставщик вправе немедленно отключить сервис
-      при небольших нарушениях или без разумного уведомления.
-    • ITEXIT2 — Нет реального права на экспорт данных
-      или оно описано формально.
-    • ITEXIT3 — Нет разумного окна после расторжения
-      для выгрузки данных.
-    • ITEXIT4 — Данные удаляются быстро / немедленно
-      после расторжения без safe exit периода.
-    • ITEXIT5 — Форматы экспорта неудобны, неполны
-      или не машиночитаемы, что усиливает vendor lock-in.
-    • ITEXIT6 — Условия backup / restore непрозрачны,
-      что повышает риск потери данных.
+    Правила:
+    - Если срок указан: "0 дней", "5 рабочих дней", "30 дней"
+    - Если нет уведомления: "Без уведомления"
+    - Если не установлен: "Не установлен"
+    - Если неясно: "Не удалось определить"
 
-    Формат ответа: коды через запятую без комментариев
-    (например: "ITEXIT1, ITEXIT3").
-    Вся аргументация — в поле reason.
+    Шаг 3 — ПРАВО НА ЭКСПОРТ ДАННЫХ
 
-    Шаг 5 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Заполни поле "has_data_export_rights".
 
-    - В reason кратко обоснуй вывод, ссылаясь на ключевые
-      формулировки из текста (с цитатами в кавычках), и укажи:
-      * как и когда сервис может быть отключён;
-      * есть ли export rights;
-      * каково окно и формат выгрузки;
-      * что происходит с данными после termination;
-      * если выставлены red_flags — обоснуй каждый код;
-      * если red_flags = "NONE" — укажи, почему риск
-        приемлем.
+    Значения:
+    - "yes" — есть явное право клиента на выгрузку данных.
+    - "no" — право не предусмотрено или явно отсутствует.
+    - "unclear" — неясно.
+
+    Шаг 4 — КАЧЕСТВО ОКНА ВЫГРУЗКИ
+
+    Заполни поле "export_window_quality".
+
+    Значения:
+    - "good" — есть разумное окно (≥ 30 дней) после
+      расторжения с доступом к данным.
+    - "limited" — окно есть, но короткое (< 30 дней).
+    - "none" — окна нет, данные недоступны сразу.
+    - "not_applicable" — права на экспорт нет.
+    - "unclear" — неясно.
+
+    Шаг 5 — КАЧЕСТВО ФОРМАТОВ ЭКСПОРТА
+
+    Заполни поле "export_format_quality".
+
+    Значения:
+    - "machine_readable" — стандартные машиночитаемые
+      форматы (CSV, JSON, XML, API).
+    - "partial" — частично машиночитаемые.
+    - "poor" — только PDF / нестандартные форматы.
+    - "not_specified" — форматы не указаны.
+    - "not_applicable" — права на экспорт нет.
+    - "unclear" — неясно.
+
+    Шаг 6 — ХРАНЕНИЕ И УДАЛЕНИЕ ДАННЫХ ПОСЛЕ РАСТОРЖЕНИЯ
+
+    Заполни поле "data_retention_after_termination".
+
+    Значения:
+    - "defined_period" — чётко установлен срок хранения
+      после расторжения (укажи в reason).
+    - "immediate_deletion" — данные удаляются немедленно /
+      быстро без периода для выгрузки.
+    - "on_request" — удаление по запросу клиента.
+    - "not_specified" — не урегулировано.
+    - "unclear" — неясно.
+
+    Шаг 7 — ПРОЗРАЧНОСТЬ BACKUP / RESTORE
+
+    Заполни поле "backup_and_restore_transparency".
+
+    Значения:
+    - "clear" — backup предусмотрен с чёткими условиями:
+      частота, срок хранения, процедура restore.
+    - "partial" — backup упомянут, но без детальных
+      условий (нет частоты / срока / процедуры).
+    - "absent" — backup не упоминается.
+    - "unclear" — неясно.
+
+    Шаг 8 — RED FLAGS
+
+    Заполни поле "red_flags".
+
+    Используй:
+    - "NONE" — если существенных риск-факторов нет.
+    - "UNCLEAR" — если данных недостаточно.
+    - Коды через запятую:
+      * ITEXIT1 — провайдер вправе немедленно отключить
+        сервис при небольших нарушениях или без уведомления.
+      * ITEXIT2 — нет реального права на экспорт данных.
+      * ITEXIT3 — нет разумного окна после расторжения
+        для выгрузки данных.
+      * ITEXIT4 — данные удаляются немедленно после
+        расторжения без safe exit периода.
+      * ITEXIT5 — форматы экспорта неудобны или не
+        машиночитаемы — усиливает vendor lock-in.
+      * ITEXIT6 — условия backup / restore непрозрачны
+        — повышен риск потери данных.
+
+    Шаг 9 — USER-FACING SUMMARY
+
+    Заполни поле "it_access_display".
+
+    Примеры:
+    - "Приостановка: без уведомления при просрочке;
+       экспорт есть; окно 30 дней; CSV/JSON"
+    - "Приостановка при нарушении с 5 днями notice;
+       нет права на экспорт; backup не описан"
+    - "Умеренные условия приостановки; экспорт есть;
+       данные удаляются через 90 дней"
+    - "Не удалось определить условия доступа и экспорта"
+
+    Правила:
+    - Отрази максимум 3–4 ключевых факта через ";".
+    - Если всё unclear:
+      "Не удалось определить условия доступа и экспорта"
+
+    Шаг 10 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: основания / жёсткость приостановки, notice period,
+      право на экспорт и качество окна, хранение / удаление,
+      backup, почему red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему риск приемлем.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - Немедленное отключение при просрочке < 30 дней:
+      * service_suspension_severity = "strict"
+      * suspension_notice_period = "0 дней"
+      * red_flags включает "ITEXIT1"
 
-    - Поставщик вправе немедленно отключить сервис
-      при небольшой просрочке или споре без уведомления:
-      suspension_severity = "strict";
-      зафиксируй ITEXIT1.
+    - Договор молчит о праве на экспорт:
+      * has_data_export_rights = "no"
+      * export_window_quality = "not_applicable"
+      * red_flags включает "ITEXIT2"
 
-    - Договор молчит о праве клиента на экспорт данных:
-      has_data_export_rights = "no" или "unclear";
-      возможно ITEXIT2 — не предполагая право по умолчанию.
+    - Чёткое окно 30 дней, CSV/JSON:
+      * export_window_quality = "good"
+      * export_format_quality = "machine_readable"
+      * в reason: снижает риск vendor lock-in
 
-    - Есть чёткое окно 30–60 дней и стандартные форматы:
-      export_window_quality = "good";
-      это снижает риск.
+    - Данные удаляются немедленно после расторжения:
+      * data_retention_after_termination = "immediate_deletion"
+      * red_flags включает "ITEXIT4"
 
-    - Данные удаляются немедленно при расторжении
-      без периода для выгрузки:
-      зафиксируй ITEXIT4; overall_risk_level обычно HIGH.
+    - Экспорт только в PDF:
+      * export_format_quality = "poor"
+      * red_flags включает "ITEXIT5"
 
-    - Экспорт только в PDF / нестандартных отчётах:
-      export_window_quality = "poor";
-      зафиксируй ITEXIT5.
+    - Backup упомянут без сроков / частоты / restore:
+      * backup_and_restore_transparency = "partial"
+      * red_flags включает "ITEXIT6"
 
-    - Backup упомянут, но без сроков хранения
-      и условий восстановления:
-      backup_and_restore_transparency = "partial" или "poor";
-      возможно ITEXIT6.
-
-    - Пустые или явно нерелевантные фрагменты:
-      red_flags = "UNCLEAR"; в reason укажи недостаток данных.
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * it_access_display =
+        "Не удалось определить условия доступа и экспорта"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
-    - name: "service_suspension_conditions"
+    - name: "it_access_display"
       type: "string"
+      description: "Доступ и экспорт данных: краткий вывод"
+
+    - name: "service_suspension_severity"
+      type: "string"
+      description: "Жёсткость условий приостановки"
       allowed_values:
-        - "yes"
-        - "no"
+        - "strict"
+        - "moderate"
+        - "mild"
+        - "not_addressed"
         - "unclear"
+
+    - name: "suspension_notice_period"
+      type: "string"
+      description: "Срок уведомления о приостановке"
 
     - name: "has_data_export_rights"
       type: "string"
+      description: "Право на экспорт данных"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
-    - name: "data_deletion_or_retention_terms"
+    - name: "export_window_quality"
       type: "string"
+      description: "Качество окна выгрузки после расторжения"
       allowed_values:
-        - "yes"
-        - "no"
+        - "good"
+        - "limited"
+        - "none"
+        - "not_applicable"
+        - "unclear"
+
+    - name: "export_format_quality"
+      type: "string"
+      description: "Качество форматов экспорта"
+      allowed_values:
+        - "machine_readable"
+        - "partial"
+        - "poor"
+        - "not_specified"
+        - "not_applicable"
+        - "unclear"
+
+    - name: "data_retention_after_termination"
+      type: "string"
+      description: "Хранение и удаление данных после расторжения"
+      allowed_values:
+        - "defined_period"
+        - "immediate_deletion"
+        - "on_request"
+        - "not_specified"
+        - "unclear"
+
+    - name: "backup_and_restore_transparency"
+      type: "string"
+      description: "Прозрачность backup / restore"
+      allowed_values:
+        - "clear"
+        - "partial"
+        - "absent"
         - "unclear"
 
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "ITEXIT1"
-      description: >
-        Поставщик вправе немедленно отключить сервис
-        при небольших нарушениях или без разумного уведомления.
-    - code: "ITEXIT2"
-      description: >
-        Нет реального права на экспорт данных
-        или оно описано формально.
-    - code: "ITEXIT3"
-      description: >
-        Нет разумного окна после расторжения
-        для выгрузки данных.
-    - code: "ITEXIT4"
-      description: >
-        Данные удаляются быстро / немедленно после расторжения
-        без safe exit периода.
-    - code: "ITEXIT5"
-      description: >
-        Форматы экспорта неудобны, неполны или не машиночитаемы,
-        что усиливает vendor lock-in.
-    - code: "ITEXIT6"
-      description: >
-        Условия backup / restore непрозрачны,
-        что повышает риск потери данных.
+
+  

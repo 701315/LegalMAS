@@ -1,10 +1,19 @@
 id: "liability_and_indemnity_scope"
 name: "Общий объём ответственности и indemnity"
 description: >
-  Анализирует общий объём ответственности сторон и формулировки indemnity:
-  наличие и уровень caps (ограничений по сумме), исключения видов убытков,
-  широту обязательств indemnify/hold harmless, фиксированные штрафы и
-  liquidated damages, баланс защиты между Target и контрагентом.
+  Анализирует общий объём ответственности сторон и формулировки
+  indemnity: наличие и уровень caps (ограничений по сумме),
+  исключения видов убытков, широту обязательств indemnify /
+  hold harmless, значимые штрафы и liquidated damages, баланс
+  защиты между Target и контрагентом.
+
+  Формирует краткий user-facing вывод и оценивает риск-профиль
+  ответственности Target.
+
+  Детальный анализ структуры caps / basket / de minimis /
+  carve-out выполняется чеком liability_caps_and_baskets.
+  Детальный анализ исключений видов убытков выполняется чеком
+  liability_exclusions.
 
 doc_types: []
 
@@ -14,6 +23,7 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
@@ -24,47 +34,43 @@ rules:
       - "(?i)unlimited\\s+liability"
       - "(?i)неограниченн[а-я]+\\s+ответственност[ьи]"
       - "(?i)без\\s+ограничени[яий]\\s+ответственност[ьи]"
-      - "(?i)полн[а-я]+\\s+ответственност[ьи]\\s+без\\s+ограничени[яй]"
       - "(?i)shall\\s+be\\s+liable\\s+without\\s+(any\\s+)?limit(ation)?"
+      - "(?i)полн[а-я]+\\s+ответственност[ьи]\\s+без\\s+ограничени[яй]"
 
-      # Широкая indemnity (any and all)
-      - "(?i)indemnif(y|ies|ied|ication)\\s+[\\s\\S]{0,40}any\\s+and\\s+all\\s+(loss|damage|claim|cost|expense)"
-      - "(?i)возмест(ить|ит|ят)\\s+любые\\s+(и\\s+все\\s+)?(убытки|потери|расходы|ущерб)"
+      # Широкая indemnity
+      - "(?i)indemnif(y|ies|ied|ication)[\\s\\S]{0,40}any\\s+and\\s+all\\s+(loss|damage|claim|cost|expense)"
+      - "(?i)возмест(ить|ит|ят)[\\s\\S]{0,20}любые\\s+(и\\s+все\\s+)?(убытки|потери|расходы|ущерб)"
       - "(?i)any\\s+and\\s+all\\s+loss(es)?[,\\s]+(damage|cost|expense|claim|liability)"
       - "(?i)все\\s+без\\s+исключени[яи]\\s+(убытки|потери|расходы)"
 
       # Hold harmless
       - "(?i)hold\\s+harmless"
-      - "(?i)defend[,\\s]+indemnif(y|ies)"
       - "(?i)indemnif(y|ies)[,\\s]+defend[,\\s]+and\\s+hold\\s+harmless"
+      - "(?i)defend[,\\s]+indemnif(y|ies)"
 
-      # Отсутствие cap при широкой ответственности
-      - "(?i)without\\s+(any\\s+)?cap"
-      - "(?i)no\\s+(monetary\\s+)?cap"
-      - "(?i)без\\s+(какого[-\\s]?либо\\s+)?лимит[аов]"
+      # Cap — точные формулировки
+      - "(?i)aggregate\\s+liability\\s+(shall\\s+)?not\\s+exceed"
+      - "(?i)maximum\\s+(aggregate\\s+)?liability"
+      - "(?i)liability\\s+cap"
+      - "(?i)лимит\\s+ответственност[ьи]"
+      - "(?i)максимальн[а-я]+\\s+(размер|сумм[аы])\\s+ответственност[ьи]"
 
     medium:
-      # Indemnity / indemnification (общие)
+      # Indemnity / indemnification — общие
       - "(?i)indemnif(y|ies|ied|ication)"
       - "(?i)indemnity"
       - "(?i)возмещени[ея]\\s+(убытков|потерь|ущерба|расходов)"
-      - "(?i)обязательств[оа]\\s+по\\s+возмещени[юя]"
 
-      # Cap / ограничение ответственности
-      - "(?i)liability\\s+(cap|limit)"
+      # Cap — общие
       - "(?i)cap\\s+on\\s+liability"
-      - "(?i)aggregate\\s+liability\\s+shall\\s+not\\s+exceed"
-      - "(?i)total\\s+liability\\s+[\\s\\S]{0,40}(not|shall\\s+not)\\s+exceed"
+      - "(?i)total\\s+liability[\\s\\S]{0,40}not\\s+exceed"
       - "(?i)ограничени[ея]\\s+ответственност[ьи]"
-      - "(?i)максимальн[а-я]+\\s+(размер|сумм[аы])\\s+ответственност[ьи]"
       - "(?i)предел[ы]?\\s+ответственност[ьи]"
-      - "(?i)ответственность\\s+[\\s\\S]{0,40}не\\s+(может|должна)\\s+превышать"
+      - "(?i)ответственность[\\s\\S]{0,40}не\\s+(может|должна)\\s+превышать"
 
       # Exclusion косвенных убытков
-      - "(?i)exclud(e|es|ed|ing)\\s+[\\s\\S]{0,30}(indirect|consequential|special|incidental)"
-      - "(?i)shall\\s+not\\s+be\\s+liable\\s+for\\s+[\\s\\S]{0,30}(indirect|consequential)"
-      - "(?i)исключ[а-я]+\\s+(косвенн|непрям)[а-я]+\\s+убытк[иов]"
-      - "(?i)не\\s+отвеча[еюя]т\\s+за\\s+упущенн[а-я]+\\s+выгод[уы]"
+      - "(?i)exclud(e|es|ed|ing)[\\s\\S]{0,30}(indirect|consequential|special|incidental)"
+      - "(?i)не\\s+отвеча[еюя]т\\s+за\\s+упущенн[а-я]+\\s+выгод"
       - "(?i)lost\\s+profits"
       - "(?i)упущенн[а-я]+\\s+выгод[аыу]"
 
@@ -72,39 +78,21 @@ rules:
       - "(?i)liquidated\\s+damages"
       - "(?i)заранее\\s+оценённ[а-я]+\\s+убытк[иов]"
       - "(?i)agreed\\s+damages"
-      - "(?i)predetermined\\s+amount\\s+of\\s+damages"
 
-      # Штрафы / неустойки
-      - "(?i)штраф\\b"
-      - "(?i)penalt(y|ies)"
-      - "(?i)неустойк[аи]"
-      - "(?i)пен[яи]"
-      - "(?i)fixed\\s+(fee|penalty|amount)"
-      - "(?i)фиксированн[а-я]+\\s+(штраф|неустойк|сумм)"
+      # Штрафы / неустойки (в контексте ответственности)
+      - "(?i)без\\s+(какого[-\\s]?либо\\s+)?лимит[аов][\\s\\S]{0,30}(штраф|неустойк|пен[яи])"
+      - "(?i)штраф[\\s\\S]{0,20}(неограниченн|без\\s+предела|без\\s+cap)"
+      - "(?i)кумулятивн[а-я]+\\s+(штраф|неустойк)"
 
     low:
-      # Общие ссылки на ответственность
-      - "(?i)несёт\\s+ответственность"
-      - "(?i)несет\\s+ответственность"
-      - "(?i)ответственность\\s+сторон"
-      - "(?i)полностью\\s+отвечает"
-      - "(?i)shall\\s+be\\s+(solely\\s+)?liable"
-      - "(?i)liability\\s+of\\s+the\\s+parties"
-      - "(?i)liability"
-      - "(?i)ответственност[ьи]"
-
-      # Общие ссылки на убытки / damages
-      - "(?i)damages"
-      - "(?i)убытк[иов]"
-      - "(?i)losses"
-      - "(?i)потер[ьи]"
-      - "(?i)ущерб"
-
-      # Общие ссылки на возмещение
-      - "(?i)compensat(e|ion)"
-      - "(?i)компенсац[ия]"
-      - "(?i)reimburse"
-      - "(?i)возмест(ить|ят|ит)"
+      - "(?i)unlimited\\s+liability"
+      - "(?i)hold\\s+harmless"
+      - "(?i)indemnif(y|ies)"
+      - "(?i)any\\s+and\\s+all\\s+losses"
+      - "(?i)liability\\s+cap"
+      - "(?i)liquidated\\s+damages"
+      - "(?i)лимит\\s+ответственност"
+      - "(?i)неограниченн[а-я]+\\s+ответственност"
 
   regex_patterns: []
   clause_patterns: []
@@ -141,210 +129,208 @@ retrieval:
     - "косвенные убытки"
     - "упущенная выгода"
     - "liquidated damages"
-    - "штраф"
-    - "неустойка"
-    - "penalty"
+    - "заранее оценённые убытки"
   rerank: true
   filters: {}
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+    - "annex"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+    - "schedule"
+  preferred_clause_functions:
+    - "liability"
+    - "indemnification"
+    - "limitation_of_liability"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 420
   llm_prompt_extraction: |
     <role>
     Ты — юрист по контрактному праву и управлению рисками.
-    Твоя специализация — анализ объёма ответственности сторон,
-    обязательств indemnity/hold harmless, договорных штрафов,
-    liquidated damages и баланса рисков между сторонами
-    в коммерческих договорах.
+    Твоя задача — точно извлечь из текста:
+    1) ограничена ли ответственность Target (limited / unlimited);
+    2) каков объём и характер indemnity;
+    3) есть ли значимые штрафы / liquidated damages.
+
+    Детальный анализ caps / basket / de minimis / carve-out
+    выполняется отдельным чеком liability_caps_and_baskets.
+    Детальный анализ исключений видов убытков выполняется
+    отдельным чеком liability_exclusions.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора с положениями об ответственности,
-    indemnity, штрафах и/или ограничениях убытков:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
+    <task>
+    Заполни только следующие поля:
+    - liability_display
+    - liability_general
+    - indemnity_scope
+    - indemnity_beneficiary
+    - has_significant_penalties
+    - red_flags
+    - reason
+
+    Важно:
+    - не анализируй детально caps / basket / de minimis —
+      это задача чека liability_caps_and_baskets;
+    - не анализируй детально исключения видов убытков —
+      это задача чека liability_exclusions;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
     <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
-
     Шаг 1 — ОБЩИЙ ХАРАКТЕР ОТВЕТСТВЕННОСТИ
-    (используется для заполнения поля "liability_general"):
-    - Определи, является ли ответственность Target по договору:
-      * "limited" — если в договоре явно есть ограничения:
-        - caps (лимиты по сумме: например, стоимость договора,
-          платежи за определённый период, фиксированная сумма),
-        - исключения косвенных убытков (indirect, consequential,
-          special, incidental damages),
-        - исключения упущенной выгоды (lost profits),
-        - иные чётко прописанные ограничения видов или объёма убытков;
-      * "unlimited" — если:
-        - есть прямые формулировки о неограниченной ответственности
-          ("unlimited liability", "без ограничения"),
-        - либо допускается возмещение любых убытков без видимых caps,
-          exclusions или carve-outs;
-      * "unclear" — если по доступным фрагментам невозможно надёжно
-        отнести ответственность к limited или unlimited.
-    - Сформулируй вывод:
-      * "limited";
-      * "unlimited";
-      * "unclear" — невозможно оценить масштаб.
 
-    Шаг 2 — МАСШТАБ И ХАРАКТЕР INDEMNITY
-    (используется для заполнения поля "indemnity_scope"):
-    - Определи, присутствуют ли обязательства indemnify / hold harmless
-      и насколько они широкие:
-      * "none" — indemnity-обязательства отсутствуют в доступных
-        фрагментах;
-      * "narrow" — indemnity ограничено конкретными и узкими рисками:
-        - нарушение IP-прав,
-        - налоговые претензии по конкретному периоду,
-        - конкретные regulatory claims,
-        - иные чётко очерченные основания;
-      * "broad" — indemnity охватывает широкий спектр последствий:
-        - "any and all losses, damages, fines, penalties, costs
-          and expenses",
-        - широкие основания (любые претензии третьих лиц, любые
-          нарушения договора, любые действия/бездействия),
-        - включение косвенных убытков, штрафов, судебных расходов
-          без существенных carve-out;
-      * "unclear" — если indemnity упомянуто, но объём не удаётся
-        однозначно квалифицировать.
+    Заполни поле "liability_general".
 
-    Шаг 3 — ЗНАЧИМЫЕ ШТРАФЫ И LIQUIDATED DAMAGES
-    (используется для заполнения поля "has_significant_penalties"):
-    - Оцени, есть ли:
-      * крупные фиксированные штрафы/penalties;
-      * liquidated damages в значительном размере или с высокой
-        ставкой (например, крупный процент от цены контракта
-        или высокая дневная ставка без разумного cap);
-      * штрафные неустойки, несоразмерные нарушению.
-    - Контекст для оценки «значительности»:
-      * соотношение штрафа с ценой договора (если известна);
-      * наличие cap на штрафы;
-      * кумулятивный характер (штрафы суммируются без ограничения).
-    - Сформулируй вывод:
-      * "yes" — штрафы/liquidated damages значительны;
-      * "no" — штрафы умеренны или отсутствуют;
-      * "unclear" — невозможно оценить масштаб по доступным
-        фрагментам.
+    Значения:
+    - "limited" — есть явные ограничения: caps, исключения
+      косвенных убытков, иные чётко прописанные ограничения.
+    - "unlimited" — прямые формулировки о неограниченной
+      ответственности, или любые убытки без видимых caps /
+      exclusions.
+    - "unclear" — невозможно надёжно определить.
+
+    Шаг 2 — МАСШТАБ INDEMNITY
+
+    Заполни поле "indemnity_scope".
+
+    Значения:
+    - "none" — indemnity-обязательства отсутствуют.
+    - "narrow" — indemnity ограничено конкретными рисками:
+      нарушение IP, налоговые претензии, regulatory claims.
+    - "broad" — "any and all losses, damages, fines, penalties,
+      costs and expenses" без существенных carve-out.
+    - "unclear" — неясно.
+
+    Шаг 3 — В ЧЬЮ ПОЛЬЗУ INDEMNITY
+
+    Заполни поле "indemnity_beneficiary".
+
+    Значения:
+    - "mutual" — обязательства симметричны для обеих сторон.
+    - "counterparty" — преимущественно в пользу контрагента
+      (Target обязана indemnify контрагента).
+    - "target" — преимущественно в пользу Target.
+    - "not_applicable" — indemnity нет.
+    - "unclear" — неясно.
+
+    Шаг 4 — ЗНАЧИМЫЕ ШТРАФЫ / LIQUIDATED DAMAGES
+
+    Заполни поле "has_significant_penalties".
+
+    Значения:
+    - "yes" — есть: крупные liquidated damages, высокая дневная
+      ставка без cap, кумулятивные штрафы без ограничения.
+    - "no" — штрафы умеренные или отсутствуют.
+    - "unclear" — невозможно оценить.
 
     Шаг 5 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    - Оцени наличие следующих рисковых факторов:
 
-      * «LIAB1» — Неограниченная или непропорциональная
-        ответственность Target при одновременно ограниченной
-        ответственности контрагента. Признаки:
-        - формулировки "unlimited liability" / "без ограничения
-          ответственности" применительно к Target;
-        - cap на ответственность контрагента, но не на Target;
-        - контрагент исключает косвенные убытки в свою сторону,
-          но Target такого исключения не получает.
+    Заполни поле "red_flags".
 
-      * «LIAB2» — Очень широкая indemnity в пользу контрагента,
-        покрывающая "any and all losses, damages, fines, penalties,
-        costs and expenses" (включая косвенные убытки и штрафы)
-        без существенных carve-out или caps. Признаки:
-        - формулировки "indemnify, defend and hold harmless"
-          с перечнем "any and all …";
-        - отсутствие исключений из объёма indemnity;
-        - indemnity односторонняя (только от Target).
-
-      * «LIAB3» — Значительные liquidated damages или штрафные
+    Используй:
+    - "NONE" — если ответственность ограничена разумным cap,
+      indemnity узкое или симметричное, штрафы умеренные.
+    - "UNCLEAR" — если данных недостаточно.
+    - Коды через запятую:
+      * LIAB1 — неограниченная или непропорциональная
+        ответственность Target при ограниченной ответственности
+        контрагента.
+      * LIAB2 — очень широкая indemnity в пользу контрагента
+        (any and all losses, включая косвенные убытки и штрафы)
+        без существенных carve-out или caps.
+      * LIAB3 — значительные liquidated damages или штрафные
         неустойки без разумного cap, несоразмерные характеру
-        возможного нарушения. Признаки:
-        - высокая дневная/недельная ставка без верхнего предела;
-        - штраф за расторжение или досрочное прекращение в размере,
-          кратно превышающем разумные потери;
-        - кумулятивные штрафы (суммируются без ограничения).
+        нарушения.
 
-    - Если ответственность ограничена разумным cap'ом, indemnity
-      узкое или симметричное, штрафы умеренные — верни "NONE".
-    - Если данных недостаточно для оценки или текст противоречив —
-      верни "UNCLEAR".
-    - Формат: один или несколько кодов через запятую
-      ("LIAB1", "LIAB2", "LIAB1, LIAB2, LIAB3"),
-      "NONE" или "UNCLEAR".
-      Без комментариев в этом поле — всё объясняющее в reason.
+    Шаг 6 — USER-FACING SUMMARY
 
-    Шаг 6 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Заполни поле "liability_display".
 
-    - В "reason" кратко обоснуй вывод:
-      * ссылайся на ключевые формулировки (по возможности
-        с короткими цитатами);
-      * поясни, как конструкция ответственности влияет на Target;
-      * если выставлены red_flags — объясни, почему именно
-        эти коды.
+    Примеры:
+    - "Ответственность ограничена; indemnity широкая в пользу
+       контрагента; значимые штрафы"
+    - "Ответственность неограниченная; hold harmless без cap"
+    - "Ответственность ограничена; indemnity узкое; штрафы умеренные"
+    - "Не удалось определить объём ответственности"
+
+    Правила:
+    - Отрази максимум 3 ключевых факта через ";".
+    - Если всё unclear:
+      "Не удалось определить объём ответственности"
+
+    Шаг 7 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: тип ответственности, характер indemnity, штрафы,
+      почему выставлены red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему конструкция ответственности приемлема.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - "Unlimited liability" или "any and all losses" без caps:
+      * liability_general = "unlimited"
+      * red_flags включает "LIAB1"
 
-    - Прямая оговорка "unlimited liability" или возмещение
-      "any and all losses" без caps:
-      рассматривай это как неограниченную ответственность;
-      при широком indemnity в пользу контрагента — ставь
-      LIAB1 и/или LIAB2.
+    - Cap на уровне стоимости договора + исключение косвенных:
+      * liability_general = "limited"
+      * в reason: разумное ограничение
 
-    - Ответственность ограничена cap'ом (стоимость договора,
-      платежи за 12 месяцев и т.п.), исключены косвенные убытки
-      и упущенная выгода:
-      отражай как "limited"; не завышай риск, если cap разумный
-      и indemnity отсутствует или узкое.
+    - "Any and all losses" в indemnity без carve-out:
+      * indemnity_scope = "broad"
+      * если в пользу контрагента: red_flags включает "LIAB2"
 
-    - Indemnity в пользу контрагента покрывает "any and all
-      losses, damages, fines, penalties, costs and expenses"
-      без существенных carve-out:
-      квалифицируй как "broad", ставь LIAB2; учитывай это
-      как значительный фактор повышенного риска.
+    - Кумулятивные штрафы без cap:
+      * has_significant_penalties = "yes"
+      * red_flags включает "LIAB3"
 
-    - Только стандартные неустойки/штрафы в умеренных размерах
-      (например, 0,1% в день с cap'ом в 10% от суммы) без
-      широкого indemnity:
-      не завышай риск; has_significant_penalties = "no",
-      если cap разумный.
+    - Ответственность ограничена, indemnity узкое, штрафы 0.1%/день
+      с cap 10%:
+      * red_flags = "NONE"
 
-    - Штрафы кумулятивные (суммируются без ограничения)
-      или с высокой ставкой без верхнего предела:
-      ставь has_significant_penalties = "yes" и LIAB3.
-
-    - Cap на ответственность есть, но он применяется только
-      к прямым убыткам, а indemnity по отдельным основаниям
-      (например, IP infringement, data breach) — без cap'а:
-      отражай nuance в scope_description; liability_general
-      может быть "limited", но indemnity_scope — "broad"
-      по конкретным рискам. Оценивай общий уровень по
-      совокупности.
-
-    - Ответственность сторон описана симметрично, но для Target
-      предусмотрены дополнительные штрафы, которых нет
-      для контрагента:
-      отражай дисбаланс в beneficiary_of_indemnity и reason.
-
-    - Пустые или явно нерелевантные фрагменты:
-      укажи, что данных недостаточно для анализа объёма
-      ответственности и indemnity. Поставь liability_general =
-      "unclear", indemnity_scope = "unclear",
-      red_flags = "UNCLEAR", overall_risk_level = "medium".
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * liability_display =
+        "Не удалось определить объём ответственности"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны. Не генерируй JSON —
-    просто излагай выводы структурированно и однозначно.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "liability_display"
+      type: "string"
+      description: "Ответственность и indemnity: краткий вывод"
+
     - name: "liability_general"
       type: "string"
+      description: "Общий характер ответственности"
       allowed_values:
         - "limited"
         - "unlimited"
@@ -352,14 +338,26 @@ extraction:
 
     - name: "indemnity_scope"
       type: "string"
+      description: "Масштаб indemnity"
       allowed_values:
         - "none"
         - "narrow"
         - "broad"
         - "unclear"
 
+    - name: "indemnity_beneficiary"
+      type: "string"
+      description: "В чью пользу работает indemnity"
+      allowed_values:
+        - "mutual"
+        - "counterparty"
+        - "target"
+        - "not_applicable"
+        - "unclear"
+
     - name: "has_significant_penalties"
       type: "string"
+      description: "Значимые штрафы / liquidated damages"
       allowed_values:
         - "yes"
         - "no"
@@ -367,17 +365,12 @@ extraction:
 
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "LIAB1"
-      description: "Неограниченная или непропорциональная ответственность Target при ограниченной ответственности контрагента."
-    - code: "LIAB2"
-      description: "Очень широкая indemnity в пользу контрагента (any and all losses, включая косвенные убытки и штрафы) без существенных carve-out или caps."
-    - code: "LIAB3"
-      description: "Значительные liquidated damages или штрафные неустойки без разумного cap, несоразмерные характеру возможного нарушения."
+      

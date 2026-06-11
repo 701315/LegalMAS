@@ -1,11 +1,15 @@
 id: "rw_specific_and_survival"
 name: "Специальные R&W и срок их действия"
 description: >
-  Анализирует специальные R&W по ключевым зонам риска (налоги, санкции,
-  судебные споры, комплаенс, IP, обременения), наличие и влияние
-  knowledge qualifiers, а также структуру и длину сроков действия
-  (survival) R&W. Оценивает полноту покрытия рисков и адекватность
-  survival periods.
+  Анализирует специальные R&W по ключевым зонам риска (налоги,
+  санкции, судебные споры, комплаенс / AML / антикоррупция, IP,
+  обременения), наличие и масштаб knowledge qualifiers, а также
+  структуру и длину сроков действия (survival) R&W.
+
+  Оценивает полноту покрытия рисков и адекватность survival periods.
+
+  Фундаментальные R&W (статус, полномочия, title, no conflict,
+  general compliance) анализируются чеком rw_fundamental.
 
 doc_types: []
 
@@ -15,6 +19,7 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
@@ -31,90 +36,66 @@ rules:
       - "(?i)survival\\s+(period|of)"
       - "(?i)shall\\s+survive\\s+(for|until|the\\s+closing)"
       - "(?i)срок\\s+действи[яи]\\s+(заверени|гарантий)"
-      - "(?i)действу[ею]т\\s+в\\s+течени[ие]"
       - "(?i)\\d+\\s+(months?|years?)\\s+(after|from|following)\\s+(closing|completion)"
       - "(?i)\\d+\\s+(месяц|год|лет)\\s+(после|с\\s+момента)\\s+(закрытия|завершения)"
+      - "(?i)unlimited\\s+survival"
+      - "(?i)indefinite\\s+survival"
+      - "(?i)survive\\s+indefinitely"
+      - "(?i)бессрочн[а-я]+\\s+действи[ея]\\s+заверени"
 
       # Налоговые R&W
-      - "(?i)tax(es)?\\s+[\\s\\S]{0,40}(represent|warrant|заверя|гарантир)"
-      - "(?i)(represent|warrant)[\\s\\S]{0,40}tax(es)?"
-      - "(?i)налог[а-я]*\\s+[\\s\\S]{0,40}(заверени|гарантии)"
+      - "(?i)tax(es)?[\\s\\S]{0,40}(represent|warrant|заверя|гарантир)"
       - "(?i)no\\s+(material\\s+)?tax\\s+(liability|deficiency|claim)"
       - "(?i)отсутстви[ея]\\s+налогов[а-я]*\\s+(задолженност|претензи|спор)"
+      - "(?i)all\\s+taxes\\s+(have\\s+been\\s+)?paid"
+      - "(?i)все\\s+налог[а-яи]\\s+(уплачен|перечислен)"
 
       # Санкционные R&W
-      - "(?i)sanctions?\\s+[\\s\\S]{0,40}(represent|warrant|compliance)"
-      - "(?i)(represent|warrant)[\\s\\S]{0,40}sanctions?"
-      - "(?i)санкци[а-яё]*\\s+[\\s\\S]{0,40}(заверени|соответстви|соблюдени)"
+      - "(?i)sanctions?[\\s\\S]{0,40}(represent|warrant|compliance)"
       - "(?i)not\\s+(a\\s+)?sanctioned\\s+(person|party|entity)"
-      - "(?i)OFAC"
-      - "(?i)SDN\\s+list"
+      - "(?i)\\bOFAC\\b"
+      - "(?i)\\bSDN\\b"
+      - "(?i)санкци[а-яё]*[\\s\\S]{0,40}(заверени|соответстви)"
 
-      # Споры/litigation R&W
-      - "(?i)litigation\\s+[\\s\\S]{0,40}(represent|warrant)"
+      # Litigation R&W
       - "(?i)no\\s+(material\\s+)?(pending|threatened)\\s+(litigation|lawsuit|claim|proceeding)"
-      - "(?i)отсутстви[ея]\\s+[\\s\\S]{0,40}(судебн|спор|иск|разбирательств)"
-      - "(?i)(судебн|спор|иск)[а-я]*\\s+[\\s\\S]{0,40}(заверени|гарантии)"
+      - "(?i)отсутстви[ея][\\s\\S]{0,40}(судебн|спор|иск|разбирательств)"
 
     medium:
       # Knowledge qualifiers
-      - "(?i)to\\s+the\\s+(best\\s+of\\s+)?(its?|seller'?s?|target'?s?)\\s+knowledge"
+      - "(?i)to\\s+the\\s+(best\\s+of\\s+)?(its?|seller'?s?)\\s+knowledge"
       - "(?i)по\\s+(наилучшему\\s+)?сведени[яиям]"
       - "(?i)насколько\\s+известно"
       - "(?i)so\\s+far\\s+as\\s+[\\s\\S]{0,20}(aware|known)"
-      - "(?i)to\\s+[\\s\\S]{0,20}knowledge"
 
-      # Комплаенс R&W
-      - "(?i)compliance\\s+[\\s\\S]{0,40}(represent|warrant)"
-      - "(?i)anti[-\\s]?corruption\\s+[\\s\\S]{0,40}(represent|warrant|compliance)"
-      - "(?i)AML\\s+[\\s\\S]{0,40}(represent|warrant|compliance)"
-      - "(?i)антикорруп[а-яё]*\\s+[\\s\\S]{0,40}(заверени|соответстви)"
-      - "(?i)комплаенс[а-я]*\\s+[\\s\\S]{0,40}(заверени|гарантии)"
+      # Комплаенс / AML / антикоррупция R&W
+      - "(?i)anti[-\\s]?corruption[\\s\\S]{0,40}(represent|warrant|compliance)"
+      - "(?i)\\bAML\\b[\\s\\S]{0,40}(represent|warrant)"
+      - "(?i)антикорруп[а-яё]*[\\s\\S]{0,40}(заверени|соответстви)"
+      - "(?i)FCPA[\\s\\S]{0,20}(comply|represent|warrant)"
+      - "(?i)UK\\s+Bribery\\s+Act[\\s\\S]{0,20}(comply|represent)"
 
       # IP R&W
-      - "(?i)intellectual\\s+property\\s+[\\s\\S]{0,40}(represent|warrant|own)"
-      - "(?i)\\bIP\\b\\s+[\\s\\S]{0,40}(represent|warrant|own)"
-      - "(?i)интеллектуальн[а-я]+\\s+собственност[ьи]\\s+[\\s\\S]{0,40}(заверени|принадлеж)"
-      - "(?i)patent|trademark|copyright"
-      - "(?i)патент|товарн[а-я]+\\s+знак|авторск"
+      - "(?i)intellectual\\s+property[\\s\\S]{0,40}(represent|warrant|own)"
+      - "(?i)patent[\\s\\S]{0,20}(represent|warrant)"
+      - "(?i)trademark[\\s\\S]{0,20}(represent|warrant)"
+      - "(?i)интеллектуальн[а-я]+\\s+собственност[ьи][\\s\\S]{0,40}(заверени|принадлеж)"
 
       # Обременения R&W
-      - "(?i)encumbrance[s]?\\s+[\\s\\S]{0,40}(represent|warrant|free)"
-      - "(?i)lien[s]?\\s+[\\s\\S]{0,40}(represent|warrant|free)"
-      - "(?i)обременени[яие]\\s+[\\s\\S]{0,40}(заверени|отсутстви|свободн)"
-      - "(?i)залог[а-я]*\\s+[\\s\\S]{0,40}(заверени|отсутстви)"
-
-      # Общие специальные R&W категории
-      - "(?i)tax(es)?\\b"
-      - "(?i)налог"
-      - "(?i)sanctions?"
-      - "(?i)санкци"
-      - "(?i)litigation"
-      - "(?i)судебн[а-яые]+\\s+спор"
-      - "(?i)compliance"
-      - "(?i)комплаенс"
+      - "(?i)encumbrance[s]?[\\s\\S]{0,40}(represent|warrant|free)"
+      - "(?i)lien[s]?[\\s\\S]{0,40}(represent|warrant|free)"
+      - "(?i)обременени[яие][\\s\\S]{0,40}(заверени|отсутстви|свободн)"
 
     low:
-      # Общие R&W термины
-      - "(?i)represents?"
-      - "(?i)warrants?"
-      - "(?i)заверя"
-      - "(?i)гарантир"
-
-      # Общие сроки
-      - "(?i)survival"
-      - "(?i)срок\\s+действи"
-      - "(?i)период"
-      - "(?i)months?"
-      - "(?i)years?"
-      - "(?i)месяц"
-      - "(?i)год"
-
-      # Общие ссылки на области
-      - "(?i)intellectual\\s+property"
-      - "(?i)encumbrance"
-      - "(?i)lien"
-      - "(?i)обременени"
+      - "(?i)survival\\s+period"
+      - "(?i)shall\\s+survive"
+      - "(?i)срок\\s+действи[яи]\\s+заверени"
+      - "(?i)no\\s+(material\\s+)?tax\\s+(liability|claim)"
+      - "(?i)not\\s+a\\s+sanctioned\\s+(person|entity)"
+      - "(?i)no\\s+pending\\s+litigation"
+      - "(?i)anti[-\\s]?corruption[\\s\\S]{0,20}represent"
+      - "(?i)OFAC"
+      - "(?i)knowledge[\\s\\S]{0,10}qualifier"
 
   regex_patterns: []
   clause_patterns: []
@@ -141,15 +122,19 @@ retrieval:
     - "срок действия заверений"
     - "tax"
     - "налог"
+    - "no material tax liability"
+    - "all taxes have been paid"
     - "sanctions"
     - "санкции"
     - "OFAC"
+    - "SDN"
+    - "no pending litigation"
     - "litigation"
     - "судебные споры"
-    - "no pending litigation"
     - "compliance"
-    - "комплаенс"
     - "anti-corruption"
+    - "AML"
+    - "FCPA"
     - "intellectual property"
     - "IP"
     - "encumbrance"
@@ -157,215 +142,277 @@ retrieval:
     - "lien"
     - "to the best of knowledge"
     - "по сведениям"
-    - "12 months"
-    - "24 months"
     - "18 months"
+    - "24 months"
+    - "unlimited survival"
+    - "indefinite survival"
   rerank: true
   filters: {}
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+    - "annex"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+    - "schedule"
+  preferred_clause_functions:
+    - "representations_warranties"
+    - "liability"
+    - "intellectual_property"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 480
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A.
-    Твоя специализация — структура специальных заверений и гарантий
-    (Specific R&W) и сроки их действия (Survival) в сделках
-    купли-продажи бизнеса. Специальные R&W покрывают конкретные
-    зоны риска: налоги, санкции, судебные споры, комплаенс, IP,
-    обременения.
+    Твоя задача — точно извлечь из текста:
+    1) наличие специальных R&W по критичным зонам риска;
+    2) масштаб knowledge qualifiers;
+    3) структуру и сроки действия (survival) R&W.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора с заверениями и гарантиями (R&W)
-    и возможными положениями о сроках их действия (Survival):
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
-    <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
+    <task>
+    Заполни только следующие поля:
+    - rw_specific_display
+    - rw_tax
+    - rw_sanctions
+    - rw_litigation
+    - rw_compliance_specific
+    - rw_ip_encumbrances
+    - knowledge_qualifiers_scope
+    - has_survival_period
+    - survival_general_value
+    - survival_structure_summary
+    - red_flags
+    - reason
 
+    Важно:
+    - не анализируй фундаментальные R&W (статус, полномочия,
+      title, no conflict, general compliance) — это задача
+      чека rw_fundamental;
+    - не придумывай сроки если они не указаны;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
+    <instructions>
     Шаг 1 — НАЛОГОВЫЕ R&W
-    (используется для заполнения поля "rw_tax"):
-    - Определи, есть ли специальные заверения по налогам:
-      * уплата всех налогов в срок;
-      * отсутствие существенных доначислений, налоговых претензий,
-        споров, штрафов, расследований;
-      * отсутствие нераскрытых налоговых обязательств;
-      * своевременная подача налоговых деклараций.
-    - Обрати внимание на knowledge qualifiers:
-      * если налоговые R&W завешены "to the best of knowledge" —
-        это существенное ослабление.
-    - Классифицируй: present / missing / unclear.
+
+    Заполни поле "rw_tax".
+
+    Значения:
+    - "present" — явные заверения: все налоги уплачены,
+      нет существенных налоговых претензий / задолженностей /
+      доначислений.
+    - "missing" — отсутствуют.
+    - "unclear" — неясно.
 
     Шаг 2 — САНКЦИОННЫЕ R&W
-    (используется для заполнения поля "rw_sanctions"):
-    - Определи, есть ли специальные заверения по санкциям:
-      * отсутствие нарушений санкционного законодательства
-        (OFAC, EU sanctions, UK sanctions, российские санкции);
-      * статус не-санкционного лица (не включён в SDN list,
-        EU consolidated list и т.п.);
-      * неприменимость ограничительных мер к Target/группе;
-      * отсутствие операций с санкционными лицами/юрисдикциями.
-    - Классифицируй: present / missing / unclear.
 
-    Шаг 3 — R&W ПО СУДЕБНЫМ СПОРАМ И РАССЛЕДОВАНИЯМ
-    (используется для заполнения поля "rw_litigation"):
-    - Определи, есть ли специальные заверения:
-      * отсутствие существенных pending или threatened
-        судебных споров, арбитражей;
-      * отсутствие административных и уголовных дел;
-      * отсутствие расследований регуляторов;
-      * раскрытие существующих споров в Disclosure Schedule.
-    - Классифицируй: present / missing / unclear.
+    Заполни поле "rw_sanctions".
 
-    Шаг 4 — КОМПЛАЕНС R&W
-    (используется для заполнения поля "rw_compliance"):
-    - Определи, есть ли специальные заверения:
-      * соблюдение антикоррупционного законодательства
-        (FCPA, UK Bribery Act, ФЗ-273);
-      * соблюдение AML-законодательства;
-      * соблюдение отраслевого регуляторного комплаенса;
-      * отсутствие существенных нарушений внутренних политик.
-    - Классифицируй: present / missing / unclear.
+    Значения:
+    - "present" — есть: не является санкционным лицом (OFAC,
+      EU, UK), нет нарушений санкционного законодательства,
+      нет операций с санкционными лицами / юрисдикциями.
+    - "missing" — отсутствуют.
+    - "unclear" — неясно.
+
+    Шаг 3 — R&W ПО СУДЕБНЫМ СПОРАМ
+
+    Заполни поле "rw_litigation".
+
+    Значения:
+    - "present" — есть: нет существенных pending / threatened
+      споров, арбитражей, административных дел, расследований.
+    - "missing" — отсутствуют.
+    - "unclear" — неясно.
+
+    Шаг 4 — КОМПЛАЕНС / AML / АНТИКОРРУПЦИЯ R&W
+
+    Заполни поле "rw_compliance_specific".
+
+    Это специальные R&W — не general compliance with law.
+
+    Значения:
+    - "present" — есть: соблюдение антикоррупционного
+      законодательства (FCPA, UK Bribery Act, ФЗ-273),
+      AML-требований, отраслевого регуляторного комплаенса.
+    - "missing" — отсутствуют.
+    - "unclear" — неясно.
 
     Шаг 5 — IP И ОБРЕМЕНЕНИЯ R&W
-    (используется для заполнения поля "rw_ip_encumbrances"):
-    - Определи, есть ли специальные заверения:
-      * принадлежность ключевых прав IP Target
-        (патенты, товарные знаки, авторские права);
-      * наличие необходимых лицензий на IP;
-      * отсутствие нарушений IP третьих лиц;
-      * отсутствие нераскрытых обременений, залогов, liens
-        на активы и IP.
-    - Классифицируй: present / missing / unclear.
 
-    Шаг 6 — ИСПОЛЬЗОВАНИЕ KNOWLEDGE QUALIFIERS
-    (используется для заполнения поля "knowledge_qualifiers_scope"):
-    - Определи, используются ли knowledge qualifiers:
-      * "to the best of Seller's knowledge";
-      * "so far as Seller is aware";
-      * "по сведениям Продавца", "насколько известно".
-    - Оцени масштаб применения:
-      * "none" — knowledge qualifiers не используются;
-      * "yes" — применяются к большинству специальных R&W,
-        включая налоги, санкции, комплаенс, что существенно
-        ослабляет защиту;
-      * "unclear" — невозможно определить.
+    Заполни поле "rw_ip_encumbrances".
 
-    Шаг 7 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    - Оцени наличие следующих рисковых факторов:
+    Значения:
+    - "present" — есть: принадлежность ключевых IP,
+      наличие лицензий, нет нарушений IP третьих лиц,
+      нет нераскрытых обременений / liens.
+    - "missing" — отсутствуют.
+    - "unclear" — неясно.
 
-      * «RW4» — Отсутствуют специальные R&W по критичным зонам
-        риска. Признаки:
-        - rw_tax = "missing";
-        - и/или rw_sanctions = "missing";
-        - и/или rw_litigation = "missing";
-        - отсутствие R&W по этим зонам создаёт существенный
-          непокрытый риск.
+    Шаг 6 — KNOWLEDGE QUALIFIERS
 
-      * «RW5» — Очень короткие survival-сроки по критичным R&W.
-        Признаки:
-        - survival_general_months < 18 (или < 12 для
-          высокорисковых сделок);
-        - нет дифференцированных более длинных сроков для
-          налогов, санкций, комплаенса;
-        - короткий срок не позволит выявить скрытые проблемы.
+    Заполни поле "knowledge_qualifiers_scope".
 
-      * «RW6» — Специальные R&W чрезмерно ослаблены knowledge
-        qualifiers. Признаки:
-        - knowledge_qualifiers_scope = "extensive";
-        - knowledge qualifiers применяются к налоговым,
-          санкционным, комплаенс R&W;
-        - продавец может уйти от ответственности, заявив
-          "не знал".
+    Значения:
+    - "none" — knowledge qualifiers не используются.
+    - "limited" — применяются только к объективно сложным
+      категориям (IP infringement by third parties, скрытые
+      pretensions) — стандартно и приемлемо.
+    - "extensive" — применяются к налоговым, санкционным,
+      комплаенс R&W — существенно ослабляет защиту.
+    - "unclear" — неясно.
 
-    - Если специальные R&W по критичным зонам присутствуют
-      (present или qualified с limited qualifiers),
-      survival-сроки разумные и дифференцированные —
-      верни "NONE".
-    - Если данных недостаточно для оценки или текст противоречив —
-      верни "UNCLEAR".
-    - Формат: один или несколько кодов через запятую
-      ("RW4", "RW5", "RW4, RW5, RW6"), "NONE" или "UNCLEAR".
-      Без комментариев в этом поле — всё объясняющее в reason.
+    Шаг 7 — НАЛИЧИЕ SURVIVAL PERIOD
 
-    Шаг 8 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Заполни поле "has_survival_period".
 
-    - В "reason" кратко обоснуй вывод:
-      * перечисли, какие специальные R&W покрыты/не покрыты;
-      * опиши масштаб knowledge qualifiers;
-      * опиши структуру survival;
-      * ссылайся на ключевые формулировки (по возможности
-        с короткими цитатами);
-      * если выставлены red_flags — объясни, почему именно
-        эти коды.
+    Значения:
+    - "yes" — сроки действия R&W явно установлены.
+    - "no" — не установлены.
+    - "unclear" — неясно.
+
+    Шаг 8 — ОБЩИЙ СРОК SURVIVAL
+
+    Заполни поле "survival_general_value".
+
+    Правила:
+    - Если общий срок указан: "12 месяцев", "18 месяцев",
+      "24 месяца", "2 года"
+    - Если бессрочно / unlimited: "Бессрочно"
+    - Если не установлен: "Не установлен"
+    - Если неясно: "Не удалось определить"
+
+    Шаг 9 — СТРУКТУРА SURVIVAL
+
+    Заполни поле "survival_structure_summary".
+
+    Правила:
+    - Кратко опиши дифференцированную структуру через ";":
+      * "18 мес. — общий; 4 года — налоги; бессрочно — санкции"
+      * "18 мес. для всех R&W без дифференциации"
+    - Если нет survival: "Не установлен"
+    - Если неясно: "Не удалось определить"
+
+    Шаг 10 — RED FLAGS
+
+    Заполни поле "red_flags".
+
+    Используй:
+    - "NONE" — специальные R&W по критичным зонам присутствуют,
+      knowledge qualifiers limited или none, survival разумный.
+    - "UNCLEAR" — данных недостаточно.
+    - Коды через запятую:
+      * RW4 — отсутствуют специальные R&W по критичным зонам:
+        налоги и/или санкции и/или litigation missing.
+      * RW5 — очень короткие survival-сроки (< 18 месяцев общий,
+        нет дифференцированных длинных сроков для налогов /
+        санкций).
+      * RW6 — специальные R&W чрезмерно ослаблены knowledge
+        qualifiers (extensive) — особенно на налоги, санкции,
+        комплаенс.
+
+    Шаг 11 — USER-FACING SUMMARY
+
+    Заполни поле "rw_specific_display".
+
+    Примеры:
+    - "Налоги: да; Санкции: да; Споры: да; Комплаенс: да;
+       Survival: 18 мес. общий / 4 года налоги / бессрочно санкции"
+    - "Налоги: нет; Санкции: нет; Остальные: да;
+       Survival: 12 мес. без дифференциации"
+    - "Knowledge qualifiers на санкции и налоги (extensive);
+       Survival: 18 мес."
+    - "Не удалось определить специальные R&W"
+
+    Правила:
+    - Отрази максимум 4 ключевых факта через ";".
+    - Если всё unclear:
+      "Не удалось определить специальные R&W"
+
+    Шаг 12 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: покрытие по зонам риска, knowledge qualifiers,
+      структуру survival, почему red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему покрытие достаточное.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - Налоговые и санкционные R&W завешены knowledge qualifiers:
+      * rw_tax = "present"
+      * rw_sanctions = "present"
+      * knowledge_qualifiers_scope = "extensive"
+      * red_flags включает "RW6"
 
-    - Специальные R&W по налогам, санкциям, комплаенсу формально
-      широкие, но почти все завешены knowledge qualifiers:
-      соответствующие поля = "qualified";
-      knowledge_qualifiers_scope = "extensive";
-      ставь RW6; overall_risk_level = "medium" или "high".
+    - По налогам и санкциям нет R&W:
+      * rw_tax = "missing"
+      * rw_sanctions = "missing"
+      * red_flags включает "RW4"
 
-    - По критичным областям (налоги, санкции, существенные споры)
-      нет специальных R&W:
-      соответствующие поля = "missing";
-      ставь RW4; overall_risk_level = "high".
+    - Survival 12 месяцев для всех R&W без дифференциации:
+      * survival_general_value = "12 месяцев"
+      * survival_structure_summary = "12 мес. для всех R&W"
+      * red_flags включает "RW5"
 
-    - Survival по большинству R&W очень короткий (6–12 месяцев),
-      без дифференциации для налогов и санкций:
-      survival_general_months = 6/12;
-      ставь RW5; overall_risk_level = "high".
+    - Дифференцированные сроки: 18 мес. общий, 4 года налоги,
+      бессрочно санкции:
+      * survival_general_value = "18 месяцев"
+      * survival_structure_summary =
+        "18 мес. — общий; 4 года — налоги; бессрочно — санкции"
+      * red_flags не включает "RW5"
 
-    - Дифференцированные survival-сроки: налоги 4 года,
-      санкции/антикоррупция unlimited, прочие 18 месяцев:
-      survival_structure отражает это;
-      это снижает риск; не ставь RW5.
+    - Knowledge qualifiers только на IP infringement by third parties:
+      * knowledge_qualifiers_scope = "limited"
+      * стандартно, red_flags не включает "RW6"
 
-    - Knowledge qualifiers применяются только к IP infringement
-      by third parties и hidden claims (объективно оправдано):
-      knowledge_qualifiers_scope = "limited";
-      это стандартно; не ставь RW6.
+    - "Until the statute of limitations expires":
+      * survival_general_value = "До истечения срока исковой давности"
+      * это длинный срок
 
-    - Survival = "until the statute of limitations expires":
-      интерпретируй как длинный срок (зависит от юрисдикции);
-      укажи в survival_structure.
-
-    - Текст фрагментарный: видно упоминание отдельных R&W,
-      но нет полной картины:
-      по недостающим блокам = "unclear";
-      red_flags = "UNCLEAR";
-      overall_risk_level = "medium".
-
-    - Пустые или явно нерелевантные фрагменты:
-      все поля = "unclear";
-      red_flags = "UNCLEAR";
-      overall_risk_level = "medium";
-      reason = "Недостаточно данных для анализа специальных R&W
-      и сроков их действия."
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * rw_specific_display =
+        "Не удалось определить специальные R&W"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны. Не генерируй JSON —
-    просто излагай выводы структурированно и однозначно.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "rw_specific_display"
+      type: "string"
+      description: "Специальные R&W и survival: краткий вывод"
+
     - name: "rw_tax"
       type: "string"
+      description: "Налоговые R&W"
       allowed_values:
         - "present"
         - "missing"
@@ -373,6 +420,7 @@ extraction:
 
     - name: "rw_sanctions"
       type: "string"
+      description: "Санкционные R&W"
       allowed_values:
         - "present"
         - "missing"
@@ -380,13 +428,15 @@ extraction:
 
     - name: "rw_litigation"
       type: "string"
+      description: "R&W по судебным спорам"
       allowed_values:
         - "present"
         - "missing"
         - "unclear"
 
-    - name: "rw_compliance"
+    - name: "rw_compliance_specific"
       type: "string"
+      description: "R&W по комплаенсу / AML / антикоррупции"
       allowed_values:
         - "present"
         - "missing"
@@ -394,6 +444,7 @@ extraction:
 
     - name: "rw_ip_encumbrances"
       type: "string"
+      description: "R&W по IP и обременениям"
       allowed_values:
         - "present"
         - "missing"
@@ -401,24 +452,38 @@ extraction:
 
     - name: "knowledge_qualifiers_scope"
       type: "string"
+      description: "Масштаб knowledge qualifiers"
       allowed_values:
         - "none"
-        - "yes"
+        - "limited"
+        - "extensive"
         - "unclear"
+
+    - name: "has_survival_period"
+      type: "string"
+      description: "Наличие survival period"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "survival_general_value"
+      type: "string"
+      description: "Общий срок survival"
+
+    - name: "survival_structure_summary"
+      type: "string"
+      description: "Структура дифференцированных survival сроков"
 
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "RW4"
-      description: "Отсутствуют специальные R&W по критичным зонам риска."
-    - code: "RW5"
-      description: "Очень короткие survival-сроки по критичным R&W."
-    - code: "RW6"
-      description: "Специальные R&W чрезмерно ослаблены knowledge qualifiers."
+
+  

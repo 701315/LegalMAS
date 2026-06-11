@@ -1,10 +1,13 @@
 id: "aml_kyc"
 name: "AML/KYC требования"
 description: >
-  Анализирует положения об AML/KYC: идентификация клиентов и бенефициаров,
-  мониторинг подозрительных транзакций, обязанности по сообщениям,
-  ссылки на законодательство (ФЗ-115, FATF, EU AML Directives),
-  последствия нарушений и баланс прав между сторонами.
+  Анализирует положения об AML/KYC: идентификация клиентов и
+  бенефициаров, мониторинг подозрительных транзакций, обязанности
+  по сообщениям, ссылки на законодательство (ФЗ-115, FATF, EU AML
+  Directives), последствия нарушений и асимметрия прав между сторонами.
+
+  Формирует краткий user-facing вывод и оценивает регуляторный и
+  операционный риск для Target.
 
 doc_types: []
 
@@ -14,6 +17,7 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
@@ -24,103 +28,76 @@ rules:
       - "(?i)\\bAML\\b"
       - "(?i)anti[-\\s]?money\\s+laundering"
       - "(?i)противодействи[ея]\\s+(легализаци[ия]|отмывани[юя])"
-      - "(?i)борьб[аы]\\s+с\\s+отмывани[ея]м"
       - "(?i)\\bKYC\\b"
       - "(?i)know\\s+your\\s+customer"
       - "(?i)идентификаци[яию]\\s+клиент[аов]"
       - "(?i)customer\\s+(identification|due\\s+diligence)"
-      - "(?i)CDD"
-      - "(?i)EDD"
+      - "(?i)\\bCDD\\b"
+      - "(?i)\\bEDD\\b"
       - "(?i)enhanced\\s+due\\s+diligence"
 
       # Бенефициары
-      - "(?i)beneficial\\s+owner"
+      - "(?i)beneficial\\s+owner[\\s\\S]{0,20}(AML|KYC|identify|disclose)"
       - "(?i)ultimate\\s+beneficial\\s+owner"
-      - "(?i)UBO"
-      - "(?i)бенефициарн[а-яый]+\\s+(владелец|собственник)"
-      - "(?i)контролирующ[а-яее]+\\s+лиц[оа]"
-      - "(?i)конечн[а-яый]+\\s+бенефициар"
+      - "(?i)\\bUBO\\b"
+      - "(?i)бенефициарн[а-яый]+\\s+(владелец|собственник)[\\s\\S]{0,20}(KYC|идентификац)"
+      - "(?i)конечн[а-яый]+\\s+бенефициар[\\s\\S]{0,20}(идентификац|раскры)"
 
       # Подозрительные транзакции
       - "(?i)suspicious\\s+(transaction|activity|operation)"
-      - "(?i)SAR"
-      - "(?i)STR"
+      - "(?i)\\bSAR\\b"
+      - "(?i)\\bSTR\\b"
       - "(?i)подозрительн[а-яые]+\\s+(транзакц|операц|сделк)"
       - "(?i)необычн[а-яые]+\\s+(операц|сделк)"
-      - "(?i)сомнительн[а-яые]+\\s+операц"
 
       # Законодательство
       - "(?i)ФЗ[-\\s]?115"
       - "(?i)115[-\\s]?ФЗ"
-      - "(?i)Федеральн[а-яый]+\\s+закон[\\s\\S]{0,30}противодействи[ия]\\s+легализаци"
       - "(?i)FATF"
       - "(?i)Financial\\s+Action\\s+Task\\s+Force"
       - "(?i)EU\\s+AML\\s+Directive"
       - "(?i)4AMLD|5AMLD|6AMLD"
       - "(?i)Bank\\s+Secrecy\\s+Act"
-      - "(?i)BSA"
-      - "(?i)FinCEN"
+      - "(?i)\\bFinCEN\\b"
+      - "(?i)Росфинмониторинг"
 
     medium:
       # Мониторинг и reporting
       - "(?i)transaction\\s+monitoring"
       - "(?i)мониторинг\\s+(операц|транзакц)"
-      - "(?i)reporting\\s+obligations?"
-      - "(?i)обязанност[ьи]\\s+по\\s+сообщени[юя]"
-      - "(?i)report\\s+to\\s+[\\s\\S]{0,30}(authority|regulator|Росфинмониторинг)"
-      - "(?i)сообщ[а-я]+\\s+в\\s+[\\s\\S]{0,30}(Росфинмониторинг|уполномоченн)"
-      - "(?i)file\\s+a\\s+report"
-      - "(?i)financial\\s+intelligence\\s+unit"
-      - "(?i)FIU"
-      - "(?i)Росфинмониторинг"
+      - "(?i)reporting\\s+obligations?[\\s\\S]{0,20}(AML|KYC|suspicious)"
+      - "(?i)report\\s+to\\s+[\\s\\S]{0,30}(Росфинмониторинг|FIU|FinCEN)"
+      - "(?i)сообщ[а-я]+\\s+в\\s+Росфинмониторинг"
 
       # KYC процедуры
-      - "(?i)KYC\\s+(documents?|information|data|procedures?)"
-      - "(?i)документ[ыа]\\s+KYC"
-      - "(?i)KYC[-\\s]?процедур"
+      - "(?i)KYC\\s+(documents?|procedures?|information)"
       - "(?i)identity\\s+verification"
       - "(?i)верификаци[яию]\\s+личност"
-      - "(?i)проверк[аи]\\s+клиент[аов]"
       - "(?i)customer\\s+onboarding"
+      - "(?i)sanctions?\\s+screening"
+      - "(?i)проверк[аи]\\s+(по\\s+)?санкционн[а-яый]+\\s+списк"
 
-      # Обновление информации
-      - "(?i)update[d]?\\s+[\\s\\S]{0,20}(KYC|customer|beneficial)"
-      - "(?i)обновлени[ея]\\s+[\\s\\S]{0,20}(KYC|информаци[ия]|данн)"
-      - "(?i)periodic\\s+(review|update)"
-      - "(?i)периодическ[а-яое]+\\s+(обновлени|проверк)"
+      # Обновление KYC
+      - "(?i)periodic\\s+(review|update)[\\s\\S]{0,20}(KYC|customer|beneficial)"
+      - "(?i)обновлени[ея]\\s+[\\s\\S]{0,20}KYC"
+      - "(?i)update[d]?\\s+[\\s\\S]{0,20}(KYC|beneficial|UBO)"
 
       # Последствия нарушений
-      - "(?i)suspend[ed]?\\s+(account|operation|transaction|service)"
-      - "(?i)приостанов[а-я]+\\s+(счёт|операц|обслуживани)"
-      - "(?i)block[ed]?\\s+(account|transaction|funds)"
-      - "(?i)заблокировать\\s+(счёт|средств|операц)"
-      - "(?i)refuse[d]?\\s+to\\s+(process|execute)"
-      - "(?i)отказ[а-я]*\\s+в\\s+(обслуживании|проведении)"
-      - "(?i)terminate[d]?\\s+[\\s\\S]{0,30}(AML|KYC|compliance)"
+      - "(?i)(suspend|block|terminat)[\\s\\S]{0,30}(AML|KYC|compliance)"
+      - "(?i)(приостанов|заблокир|расторг)[\\s\\S]{0,30}(AML|KYC|комплаенс)"
+      - "(?i)refus[a-z]+\\s+to\\s+(process|execute)[\\s\\S]{0,20}(AML|KYC)"
 
     low:
-      # Общие compliance-термины
-      - "(?i)compliance"
-      - "(?i)комплаенс"
-      - "(?i)due\\s+diligence"
-      - "(?i)надлежащ[а-яая]+\\s+проверк"
-
-      # Общие ссылки на клиентов
-      - "(?i)customer"
-      - "(?i)клиент"
-      - "(?i)counterparty"
-      - "(?i)контрагент"
-
-      # Общие ссылки на идентификацию
-      - "(?i)identification"
-      - "(?i)идентификаци"
-      - "(?i)verification"
-      - "(?i)верификаци"
-
-      # Общие ссылки на транзакции
-      - "(?i)transaction"
-      - "(?i)транзакц"
-      - "(?i)операци"
+      - "(?i)\\bAML\\b"
+      - "(?i)\\bKYC\\b"
+      - "(?i)anti[-\\s]?money\\s+laundering"
+      - "(?i)противодействие\\s+отмыванию"
+      - "(?i)beneficial\\s+owner"
+      - "(?i)бенефициарный\\s+владелец"
+      - "(?i)suspicious\\s+transaction"
+      - "(?i)подозрительная\\s+транзакция"
+      - "(?i)ФЗ[-\\s]?115"
+      - "(?i)FATF"
 
   regex_patterns: []
   clause_patterns: []
@@ -157,208 +134,257 @@ retrieval:
     - "Росфинмониторинг"
     - "ФЗ-115"
     - "FATF"
-    - "suspend account"
-    - "приостановить обслуживание"
     - "customer due diligence"
     - "CDD"
     - "EDD"
+    - "sanctions screening"
+    - "suspend account"
+    - "приостановить обслуживание"
   rerank: true
   filters: {}
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "annex"
+    - "appendix"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+    - "schedule"
+  preferred_clause_functions:
+    - "data_protection"
+    - "representations_warranties"
+    - "general_provisions"
+  confidence_bonus_on_match: 0.08
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 440
   llm_prompt_extraction: |
     <role>
     Ты — юрист по AML/KYC и финансовому комплаенсу.
-    Твоя специализация — договорные обязательства по идентификации
-    клиентов (KYC), мониторингу транзакций (AML), раскрытию
-    бенефициаров, а также последствия нарушений AML/KYC-требований.
+    Твоя задача — точно извлечь из текста:
+    1) характер AML/KYC-обязательств и их детализацию;
+    2) требования по раскрытию бенефициаров;
+    3) AML-мониторинг и reporting;
+    4) ссылки на законодательство;
+    5) право контрагента заблокировать / приостановить сервис.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора, где могут быть положения
-    AML/KYC:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
+    <task>
+    Заполни только следующие поля:
+    - aml_kyc_display
+    - has_kyc_obligations
+    - kyc_detail_level
+    - requires_kyc_update
+    - requires_ubo_disclosure
+    - has_aml_monitoring
+    - references_legislation
+    - counterparty_suspension_rights
+    - red_flags
+    - reason
+
+    Важно:
+    - не придумывай обязательства если их нет в тексте;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
     <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
+    Шаг 1 — KYC-ОБЯЗАТЕЛЬСТВА
 
-    Шаг 1 — ОБЯЗАТЕЛЬСТВА ПО ИДЕНТИФИКАЦИИ КЛИЕНТОВ (KYC)
-    (используется для заполнения поля "has_kyc_obligations"):
-    - Определи, есть ли в тексте:
-      * требования по KYC / know your customer;
-      * обязанности по идентификации клиентов;
-      * сбор и предоставление KYC-документов;
-      * customer due diligence (CDD) / enhanced due diligence (EDD).
-    - Сформулируй вывод:
-      * "yes" — явно прописанные и детализированные
-        KYC-обязательства;
-      * "none" — явное отсутствие KYC-требований;
-      * "unclear" — невозможно определить.
+    Заполни поле "has_kyc_obligations".
 
-    Шаг 2 — ПЕРИОДИЧЕСКОЕ ОБНОВЛЕНИЕ KYC
-    (используется для заполнения поля "requires_kyc_update"):
-    - Определи, предусмотрено ли:
-      * периодическое обновление KYC-информации;
-      * обязанность уведомлять об изменениях;
-      * regular review / periodic update.
-    - Сформулируй вывод: "yes" / "no" / "unclear".
+    Значения:
+    - "yes" — явные KYC-требования: идентификация клиентов,
+      сбор KYC-документов, CDD/EDD.
+    - "no" — отсутствуют.
+    - "unclear" — неясно.
 
-    Шаг 3 — РАСКРЫТИЕ БЕНЕФИЦИАРОВ
-    (используется для заполнения поля "requires_ubo_disclosure"):
-    - Определи, есть ли требования:
-      * раскрывать beneficial owner / UBO / бенефициарных владельцев;
-      * раскрывать контролирующих лиц;
-      * обновлять информацию при изменении бенефициаров.
-    - Сформулируй вывод: "yes" / "no" / "unclear".
+    Шаг 2 — УРОВЕНЬ ДЕТАЛИЗАЦИИ KYC
 
-    Шаг 4 — AML-МОНИТОРИНГ И СООБЩЕНИЯ
-    (используется для заполнения поля "has_aml_monitoring"):
-    - Определи, предусмотрены ли:
-      * обязанности мониторить операции на предмет
-        подозрительных/необычных транзакций;
-      * transaction monitoring;
-      * обязанности по сообщению (reporting obligations)
-        в уполномоченные органы (Росфинмониторинг, FinCEN, FIU).
-    - Сформулируй вывод:
-      * "yes" — детализированные обязанности по мониторингу
-        и reporting;
-      * "none" — отсутствуют;
-      * "unclear" — невозможно определить.
+    Заполни поле "kyc_detail_level".
 
-    Шаг 5 — ССЫЛКИ НА ЗАКОНОДАТЕЛЬСТВО
-    (используется для заполнения поля "references_legislation"):
-    - Определи, есть ли ссылки на конкретное AML-законодательство:
-      * ФЗ-115 (Россия);
-      * FATF рекомендации;
-      * EU AML Directives (4AMLD, 5AMLD, 6AMLD);
-      * Bank Secrecy Act / FinCEN (США);
-      * другое.
-    - Сформулируй вывод: "yes" / "no" / "unclear".
+    Значения:
+    - "detailed" — конкретные процедуры, ссылки на законы,
+      перечень документов, CDD/EDD.
+    - "general" — только общие фразы "соблюдать KYC /
+      AML законодательство" без процедур.
+    - "not_applicable" — KYC нет.
+    - "unclear" — неясно.
 
-    Шаг 6 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    - Оцени наличие следующих рисковых факторов:
+    Шаг 3 — ПЕРИОДИЧЕСКОЕ ОБНОВЛЕНИЕ KYC
 
-      * «AML1» — Отсутствие AML/KYC-положений при явно
-        высокорискованной структуре или юрисдикции. Признаки:
-        - has_kyc_obligations = "none";
-        - has_aml_monitoring = "none";
-        - при этом контекст предполагает финансовые операции,
-          трансграничные платежи или высокорисковые юрисдикции.
+    Заполни поле "requires_kyc_update".
 
-      * «AML2» — Чрезмерно жёсткие AML/KYC-права контрагента
-        с высокой асимметрией. Признаки:
-        - rights_asymmetry = "high";
-        - контрагент может приостановить/расторгнуть при
-          "reasonable suspicion" без объективных критериев;
-        - Target не имеет права оспорить или получить
-          уведомление;
-        - это создаёт операционный риск блокировки критичных
-          услуг.
+    Значения:
+    - "yes" — periodic review / update KYC предусмотрен.
+    - "no" — нет.
+    - "unclear" — неясно.
 
-      * «AML3» — Формальные/декларативные AML/KYC-положения
-        без детализации при необходимости развёрнутого комплаенса.
-        Признаки:
-        - has_kyc_obligations = "general";
-        - has_aml_monitoring = "general";
-        - references_legislation = "no";
-        - при этом контекст требует детализированного
-          AML/KYC-комплаенса.
+    Шаг 4 — РАСКРЫТИЕ БЕНЕФИЦИАРОВ (UBO)
 
-    - Если AML/KYC-положения детализированы, сбалансированы
-      и содержат ссылки на законодательство — верни "NONE".
-    - Если данных недостаточно для оценки или текст противоречив —
-      верни "UNCLEAR".
-    - Формат: один или несколько кодов через запятую
-      ("AML1", "AML2", "AML1, AML3"), "NONE" или "UNCLEAR".
-      Без комментариев в этом поле — всё объясняющее в reason.
+    Заполни поле "requires_ubo_disclosure".
 
-    Шаг 7 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Значения:
+    - "yes" — требуется раскрыть beneficial owner / UBO /
+      контролирующих лиц.
+    - "no" — нет.
+    - "unclear" — неясно.
 
-    - В "reason" кратко обоснуй вывод:
-      * ссылайся на ключевые формулировки (по возможности
-        с короткими цитатами);
-      * поясни, как структура AML/KYC-обязательств влияет
-        на регуляторный и операционный риск Target;
-      * если выставлены red_flags — объясни, почему именно
-        эти коды.
+    Шаг 5 — AML-МОНИТОРИНГ И REPORTING
+
+    Заполни поле "has_aml_monitoring".
+
+    Значения:
+    - "yes" — есть: мониторинг транзакций, reporting
+      obligations в уполномоченные органы (Росфинмониторинг,
+      FinCEN, FIU).
+    - "no" — отсутствуют.
+    - "unclear" — неясно.
+
+    Шаг 6 — ССЫЛКИ НА ЗАКОНОДАТЕЛЬСТВО
+
+    Заполни поле "references_legislation".
+
+    Значения:
+    - "yes" — конкретные законы: ФЗ-115, FATF,
+      EU AML Directives, Bank Secrecy Act / FinCEN.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 7 — ПРАВО КОНТРАГЕНТА НА ПРИОСТАНОВКУ
+
+    Заполни поле "counterparty_suspension_rights".
+
+    Значения:
+    - "broad" — широкое право: при "reasonable suspicion",
+      по субъективному усмотрению, без объективных критериев.
+    - "proportionate" — право ограничено: только при
+      реальном нарушении / фактическом включении в список.
+    - "none" — нет права на приостановку.
+    - "unclear" — неясно.
+
+    Шаг 8 — RED FLAGS
+
+    Заполни поле "red_flags".
+
+    Используй:
+    - "NONE" — AML/KYC-положения детализированы, сбалансированы,
+      с ссылками на законодательство.
+    - "UNCLEAR" — данных недостаточно.
+    - Коды через запятую:
+      * AML1 — нет AML/KYC-положений при очевидно высокорискованном
+        контексте (финансовые операции, трансграничные платежи).
+      * AML2 — чрезмерно жёсткое право контрагента на приостановку
+        (counterparty_suspension_rights = "broad") без права Target
+        оспорить: операционный риск блокировки критичных услуг.
+      * AML3 — формальные декларативные AML/KYC-положения
+        (kyc_detail_level = "general") без детализации при
+        необходимости развёрнутого комплаенса.
+
+    Шаг 9 — USER-FACING SUMMARY
+
+    Заполни поле "aml_kyc_display".
+
+    Примеры:
+    - "AML/KYC детализированы (ФЗ-115 / FATF); UBO раскрытие;
+       мониторинг транзакций; право приостановки пропорциональное"
+    - "AML/KYC только декларативно; нет UBO; право приостановки
+       широкое"
+    - "AML/KYC не обнаружены"
+    - "Не удалось определить AML/KYC"
+
+    Правила:
+    - Отрази максимум 3–4 ключевых факта через ";".
+    - Если нет AML/KYC: "AML/KYC не обнаружены"
+    - Если всё unclear: "Не удалось определить AML/KYC"
+
+    Шаг 10 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: характер KYC, UBO, мониторинг, законодательство,
+      право приостановки, почему red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему риск приемлем.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - "Соблюдать применимое AML/KYC законодательство"
+      без конкретики:
+      * has_kyc_obligations = "yes"
+      * kyc_detail_level = "general"
+      * red_flags может включать "AML3"
 
-    - В договоре только общая фраза "Стороны соблюдают применимое
-      AML/KYC законодательство" без конкретики:
-      has_kyc_obligations = "general";
-      has_aml_monitoring = "general";
-      рассматривай AML3, если контекст требует детализации.
+    - Детализированные KYC + UBO + ФЗ-115 + FATF +
+      пропорциональная приостановка:
+      * kyc_detail_level = "detailed"
+      * red_flags = "NONE"
 
-    - AML/KYC-блок очень жёсткий: широкое право одностороннего
-      приостановления при "reasonable suspicion" без критериев,
-      без права Target оспорить:
-      rights_asymmetry = "high";
-      ставь AML2; overall_risk_level = "high" или "medium"
-      в зависимости от критичности услуг.
+    - Право приостановить при "reasonable suspicion"
+      без объективных критериев:
+      * counterparty_suspension_rights = "broad"
+      * red_flags включает "AML2"
 
-    - Детализированные KYC-процедуры, требования по бенефициарам,
-      ссылки на ФЗ-115 и FATF, пропорциональные последствия:
-      has_kyc_obligations = "detailed";
-      references_legislation = "yes";
-      overall_risk_level = "low";
-      red_flags = "NONE".
+    - Договор не предполагает финансовых операций,
+      AML/KYC не упоминаются:
+      * has_kyc_obligations = "no"
+      * red_flags = "NONE"
+      * aml_kyc_display = "AML/KYC не обнаружены"
 
-    - Есть мониторинг и reporting obligations, но последствия
-      включают только "notify authorities" без блокировок:
-      breach_consequences = "reporting";
-      rights_asymmetry = "low";
-      это менее рискованно для Target.
-
-    - Текст фрагментарный: упоминается "AML" или "KYC",
-      но обязанности и последствия неясны:
-      соответствующие поля = "unclear";
-      red_flags = "UNCLEAR";
-      overall_risk_level = "medium".
-
-    - Договор с нефинансовой организацией, AML/KYC не упоминаются:
-      это может быть нормально (не все договоры требуют AML);
-      has_kyc_obligations = "none";
-      has_aml_monitoring = "none";
-      red_flags = "NONE" (если нет высокорискованного контекста);
-      overall_risk_level = "low".
-
-    - Пустые или явно нерелевантные фрагменты:
-      все поля = "unclear";
-      red_flags = "UNCLEAR";
-      overall_risk_level = "medium";
-      reason = "Недостаточно данных для анализа AML/KYC-обязательств."
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * aml_kyc_display = "Не удалось определить AML/KYC"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны. Не генерируй JSON —
-    просто излагай выводы структурированно и однозначно.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "aml_kyc_display"
+      type: "string"
+      description: "AML/KYC: краткий вывод"
+
     - name: "has_kyc_obligations"
       type: "string"
+      description: "Наличие KYC-обязательств"
       allowed_values:
         - "yes"
-        - "none"
+        - "no"
+        - "unclear"
+
+    - name: "kyc_detail_level"
+      type: "string"
+      description: "Уровень детализации KYC"
+      allowed_values:
+        - "detailed"
+        - "general"
+        - "not_applicable"
         - "unclear"
 
     - name: "requires_kyc_update"
       type: "string"
+      description: "Периодическое обновление KYC"
       allowed_values:
         - "yes"
         - "no"
@@ -366,6 +392,7 @@ extraction:
 
     - name: "requires_ubo_disclosure"
       type: "string"
+      description: "Раскрытие бенефициаров (UBO)"
       allowed_values:
         - "yes"
         - "no"
@@ -373,31 +400,38 @@ extraction:
 
     - name: "has_aml_monitoring"
       type: "string"
-      allowed_values:
-        - "yes"
-        - "none"
-        - "unclear"
-
-    - name: "references_legislation"
-      type: "string"
+      description: "AML-мониторинг и reporting"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
+    - name: "references_legislation"
+      type: "string"
+      description: "Ссылки на AML-законодательство"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "counterparty_suspension_rights"
+      type: "string"
+      description: "Право контрагента на приостановку"
+      allowed_values:
+        - "broad"
+        - "proportionate"
+        - "none"
+        - "unclear"
+
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "AML1"
-      description: "Отсутствие AML/KYC-положений ."
-    - code: "AML2"
-      description: "Чрезмерно жёсткие AML/KYC-права контрагента."
-    - code: "AML3"
-      description: "Формальные AML/KYC-положения без детализации при контексте."
+
+  

@@ -1,11 +1,14 @@
 id: "regulatory_industry_compliance"
 name: "Отраслевой комплаенс и регуляторные нарушения"
 description: >
-  Анализирует обязательства соблюдать отраслевые требования (финансы,
-  медицина, телеком, энергетика, образование, защита данных и др.),
-  наличие упоминаний о проверках, расследованиях, предписаниях, штрафах,
-  заверения об отсутствии нарушений, а также статус remedial-мер.
-  Оценивает уровень регуляторного риска для Target.
+  Анализирует обязательства соблюдать отраслевые требования
+  (финансы, медицина, телеком, энергетика, образование, защита
+  данных и др.), наличие упоминаний о проверках, расследованиях,
+  предписаниях, штрафах, заверения об отсутствии нарушений,
+  а также статус remedial-мер.
+
+  Формирует краткий user-facing вывод и оценивает уровень
+  регуляторного риска для Target.
 
 doc_types: []
 
@@ -15,13 +18,14 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
 
   keywords:
     high:
-      # Конкретные регуляторные события — расследования, штрафы
+      # Конкретные регуляторные события
       - "(?i)enforcement\\s+action"
       - "(?i)regulatory\\s+(investigation|inquiry|proceeding)"
       - "(?i)регуляторн[а-я]+\\s+(расследовани[ея]|проверк[аи])"
@@ -41,7 +45,7 @@ rules:
       - "(?i)отсутстви[ея]\\s+существенн[а-я]+\\s+нарушени[йя]"
       - "(?i)нет\\s+текущих\\s+(расследовани[йя]|проверок)"
 
-      # Конкретные отраслевые регуляторы
+      # Конкретные регуляторы
       - "(?i)(ЦБ|Центральный\\s+банк|Банк\\s+России)"
       - "(?i)(SEC|FINRA|FCA|PRA|BaFin|CFTC)"
       - "(?i)(FDA|EMA|Росздравнадзор)"
@@ -51,74 +55,44 @@ rules:
       - "(?i)(DOJ|Department\\s+of\\s+Justice)"
 
     medium:
-      # Общие compliance-обязательства
+      # Compliance-обязательства
       - "(?i)compliance\\s+with\\s+(all\\s+)?applicable\\s+(laws?|regulations?)"
       - "(?i)соответств[а-я]+\\s+(применим[а-я]+\\s+)?законодательств"
-      - "(?i)соблюд[а-я]+\\s+(все[хм]?\\s+)?применим[а-я]+\\s+требовани[яй]"
       - "(?i)regulatory\\s+requirements?"
       - "(?i)регуляторн[а-я]+\\s+требовани[яй]"
       - "(?i)отраслев[а-я]+\\s+требовани[яй]"
 
-      # Лицензии и разрешения
+      # Лицензии и разрешения — регуляторный контекст
       - "(?i)licens(e|ing|ed)\\s+[\\s\\S]{0,30}(regulatory|authority)"
       - "(?i)лицензи[яию]\\s+[\\s\\S]{0,30}(регулятор|надзорн)"
-      - "(?i)permit[s]?\\s+[\\s\\S]{0,30}(regulatory|government)"
-      - "(?i)разрешени[ея]\\s+[\\s\\S]{0,30}(регулятор|государств)"
 
       # Проверки и инспекции
-      - "(?i)inspection"
-      - "(?i)инспекци[яи]"
-      - "(?i)проверк[аи]"
+      - "(?i)inspection[\\s\\S]{0,20}(regulator|authority|надзорн)"
       - "(?i)audit\\s+by\\s+[\\s\\S]{0,30}(regulator|authority)"
-      - "(?i)regulatory\\s+audit"
       - "(?i)регуляторн[а-я]+\\s+аудит"
 
       # Штрафы и penalties (общие)
-      - "(?i)\\bfine[s]?\\b"
-      - "(?i)\\bpenalt(y|ies)\\b"
-      - "(?i)\\bштраф[ыа]?\\b"
+      - "(?i)\\bfine[s]?\\b[\\s\\S]{0,20}(regulator|authority)"
+      - "(?i)\\bpenalt(y|ies)\\b[\\s\\S]{0,20}(regulator|authority)"
+      - "(?i)\\bштраф[ыа]?\\b[\\s\\S]{0,20}(регулятор|надзорн)"
       - "(?i)administrative\\s+liability"
-      - "(?i)административн[а-я]+\\s+ответственност"
 
-      # Расследования (общие)
-      - "(?i)investigation"
-      - "(?i)расследовани[ея]"
-      - "(?i)inquiry"
-      - "(?i)proceeding"
-
-      # Remedial / устранение нарушений
+      # Remedial
       - "(?i)remedial\\s+(action|measure|plan)"
       - "(?i)corrective\\s+(action|measure)"
       - "(?i)устранени[ея]\\s+нарушени[йя]"
       - "(?i)исправительн[а-я]+\\s+мер[ыа]"
 
     low:
-      # Общие ссылки на регуляторов
-      - "(?i)regulator"
-      - "(?i)регулятор"
-      - "(?i)надзорн[а-я]+\\s+орган"
-      - "(?i)supervisory\\s+authority"
-      - "(?i)competent\\s+authority"
-      - "(?i)government\\s+agency"
-      - "(?i)государственн[а-я]+\\s+орган"
-
-      # Отраслевые термины (общие)
-      - "(?i)financial\\s+services"
-      - "(?i)финансов[а-я]+\\s+услуг"
-      - "(?i)healthcare"
-      - "(?i)здравоохранени"
-      - "(?i)telecommunications"
-      - "(?i)телеком"
-      - "(?i)energy\\s+sector"
-      - "(?i)энергетик"
-      - "(?i)education"
-      - "(?i)образовани"
-
-      # Общие compliance-термины
-      - "(?i)compliance"
-      - "(?i)комплаенс"
-      - "(?i)compliant"
-      - "(?i)соответству[ею]т"
+      - "(?i)enforcement\\s+action"
+      - "(?i)regulatory\\s+investigation"
+      - "(?i)no\\s+material\\s+violation"
+      - "(?i)no\\s+ongoing\\s+investigation"
+      - "(?i)consent\\s+order"
+      - "(?i)cease\\s+and\\s+desist"
+      - "(?i)settlement\\s+with\\s+regulator"
+      - "(?i)надзорная\\s+проверка"
+      - "(?i)предписание\\s+регулятора"
 
   regex_patterns: []
   clause_patterns: []
@@ -150,8 +124,6 @@ retrieval:
     - "штраф"
     - "fine"
     - "penalty"
-    - "investigation"
-    - "расследование"
     - "no material violation"
     - "no ongoing investigation"
     - "отсутствие нарушений"
@@ -168,207 +140,241 @@ retrieval:
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "annex"
+    - "appendix"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+  preferred_clause_functions:
+    - "representations_warranties"
+    - "general_provisions"
+  confidence_bonus_on_match: 0.08
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 440
   llm_prompt_extraction: |
     <role>
     Ты — юрист по регуляторному комплаенсу.
-    Твоя специализация — отраслевое регулирование (финансы, медицина,
-    телеком, энергетика, образование, защита данных и др.),
-    взаимодействие с надзорными органами, анализ регуляторных рисков
-    и комплаенс-истории компаний.
+    Твоя задача — точно извлечь из текста:
+    1) наличие и характер compliance-обязательств;
+    2) упоминания регуляторных событий (расследования, штрафы);
+    3) заверения об отсутствии нарушений;
+    4) наличие remedial-мер;
+    5) отраслевую принадлежность для оценки риска.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора и/или заявлений сторон,
-    где могут упоминаться отраслевые требования, отношения
-    с регуляторами, проверки, нарушения и штрафы:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
+    <task>
+    Заполни только следующие поля:
+    - regulatory_compliance_display
+    - has_compliance_obligations
+    - identified_industries
+    - mentions_regulatory_events
+    - has_no_violations_representations
+    - has_remedial_measures
+    - regulatory_risk_level
+    - red_flags
+    - reason
+
+    Важно:
+    - не придумывай отрасли без явных данных;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
     <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
-
     Шаг 1 — ОБЯЗАТЕЛЬСТВА ПО КОМПЛАЕНСУ
-    (используется для заполнения поля "has_compliance_obligations"):
-    - Определи, содержатся ли в тексте:
-      * общие формулировки "compliance with all applicable laws
-        and regulations";
-      * специальные отраслевые требования:
-        - финансовое регулирование (banking, securities, insurance),
-        - медицина/фарма (healthcare, FDA, clinical trials),
-        - телеком (telecommunications, spectrum, broadcasting),
-        - энергетика (energy, utilities, environmental),
-        - образование (education, accreditation),
-        - защита данных (GDPR, 152-ФЗ, CCPA);
-      * ссылки на конкретные регуляторы (ЦБ, SEC, FDA, FCC, ФАС и др.)
-        и их нормативные акты.
-    - Если специальные отраслевые требования явно прописаны —
-      вывод "industry_specific".
-    - Если только общие формулировки — вывод "general_only".
-    - Если обязательства отсутствуют — вывод "none".
-    - Если неясно — вывод "unclear".
 
-    Шаг 2 — УПОМИНАНИЯ ПРОВЕРОК, РАССЛЕДОВАНИЙ, ШТРАФОВ
-    (используется для заполнения поля "mentions_regulatory_events"):
-    - Определи, есть ли в фрагментах упоминания:
-      * прошлых или текущих проверок, инспекций;
-      * расследований (investigations, inquiries, proceedings);
-      * предписаний, enforcement actions;
-      * штрафов, penalties, fines;
-      * settlement agreements с регуляторами;
-      * consent orders, cease and desist orders.
-    - Если такие события упоминаются — вывод "yes".
-    - Если явно указано их отсутствие — вывод "none_mentioned".
-    - Если не упоминаются и нет заверений — вывод "no".
-    - Если неясно — вывод "unclear".
+    Заполни поле "has_compliance_obligations".
 
-    Шаг 3 — ЗАВЕРЕНИЯ ОБ ОТСУТСТВИИ НАРУШЕНИЙ
-    (используется для заполнения поля "has_no_violations_representations"):
-    - Определи, есть ли representations/warranties о том, что:
-      * нет существенных нарушений регуляторных требований
-        (no material violations);
-      * нет текущих расследований (no ongoing/pending investigations);
-      * отсутствуют существенные непогашенные штрафы.
-    - Учитывай:
-      * упоминается ли материальность (material);
-      * указан ли период (за последние X лет);
-      * есть ли квалификации/исключения.
-    - Если такие заверения есть — вывод "yes".
-    - Если нет — вывод "no".
-    - Если неясно — вывод "unclear".
+    Значения:
+    - "industry_specific" — специальные отраслевые требования:
+      финансовое регулирование, медицина / фарма, телеком,
+      энергетика, образование, защита данных; ссылки на
+      конкретных регуляторов (ЦБ, SEC, FDA, FCC, ФАС и др.).
+    - "general_only" — только общие формулировки "compliance
+      with all applicable laws" без отраслевой конкретики.
+    - "none" — обязательства отсутствуют.
+    - "unclear" — неясно.
 
-    Шаг 4 — REMEDIAL-МЕРЫ
-    (используется для заполнения поля "has_remedial_measures"):
-    - Определи, упоминаются ли:
-      * remedial actions / corrective measures;
-      * устранение нарушений;
-      * закрытие предписаний;
-      * compliance enhancement programs;
-      * settlement и выполнение его условий.
-    - Если да — вывод "yes".
-    - Если нет — вывод "no".
-    - Если неясно — вывод "unclear".
+    Шаг 2 — ИДЕНТИФИКАЦИЯ ОТРАСЛЕЙ
 
-    Шаг 5 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    - Оцени наличие следующих рисковых факторов:
+    Заполни поле "identified_industries".
 
-      * «REG1» — Упоминания расследований/штрафов/enforcement actions
-        без ясного статуса и remedial-плана. Признаки:
-        - mentions_regulatory_events = "yes";
-        - has_remedial_measures = "no" или "unclear";
-        - статус события неясен (в процессе? урегулировано?);
-        - размер штрафов значительный или не указан.
+    Правила:
+    - Кратко перечисли отрасли через ";":
+      * "финансы; медицина; защита данных"
+      * "телеком; энергетика"
+    - Если отрасль неясна: "Не определено"
+    - Если нет отраслевой специфики: "Не применимо"
 
-      * «REG2» — Формальные/декларативные комплаенс-положения
-        при очевидно высокорискованной отрасли. Признаки:
-        - identified_industries включает финансы, медицину,
-          телеком, энергетику;
-        - has_compliance_obligations = "general_only";
-        - нет ссылок на конкретные отраслевые требования
-          или регуляторов;
-        - нет заверений об отсутствии нарушений.
+    Шаг 3 — УПОМИНАНИЯ РЕГУЛЯТОРНЫХ СОБЫТИЙ
 
-      * «REG3» — Отсутствие заверений об отсутствии нарушений
-        при наличии отраслевого регулирования. Признаки:
-        - identified_industries не пуст;
-        - has_no_violations_representations = "no";
-        - это создаёт неопределённость о регуляторной истории.
+    Заполни поле "mentions_regulatory_events".
 
-    - Если комплаенс-положения развёрнутые, нет упоминаний
-      нарушений/штрафов (или они урегулированы), есть заверения
-      об отсутствии нарушений — верни "NONE".
-    - Если данных недостаточно для оценки или текст противоречив —
-      верни "UNCLEAR".
-    - Формат: один или несколько кодов через запятую
-      ("REG1", "REG2", "REG1, REG3"), "NONE" или "UNCLEAR".
-      Без комментариев в этом поле — всё объясняющее в reason.
+    Значения:
+    - "yes" — упоминаются: проверки, расследования,
+      предписания, штрафы, enforcement actions, settlement,
+      consent orders.
+    - "none_mentioned" — явно указано их отсутствие.
+    - "no" — не упоминаются и нет заверений.
+    - "unclear" — неясно.
 
-    Шаг 6 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Шаг 4 — ЗАВЕРЕНИЯ ОБ ОТСУТСТВИИ НАРУШЕНИЙ
 
-    - В "reason" кратко обоснуй вывод:
-      * ссылайся на ключевые формулировки (по возможности
-        с короткими цитатами);
-      * поясни, как сочетание обязательств, событий, заверений
-        и remedial-мер влияет на риск для Target;
-      * если выставлены red_flags — объясни, почему именно эти коды.
+    Заполни поле "has_no_violations_representations".
+
+    Значения:
+    - "yes" — есть representations: no material violations,
+      no ongoing / pending investigations, отсутствие
+      существенных штрафов.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 5 — REMEDIAL-МЕРЫ
+
+    Заполни поле "has_remedial_measures".
+
+    Значения:
+    - "yes" — упоминаются: remedial actions, corrective
+      measures, устранение нарушений, закрытие предписаний,
+      settlement выполнен.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 6 — УРОВЕНЬ РЕГУЛЯТОРНОГО РИСКА
+
+    Заполни поле "regulatory_risk_level".
+
+    Значения:
+    - "low" — compliance-положения развёрнутые, нет упоминаний
+      нарушений (или они урегулированы), есть заверения.
+    - "medium" — есть отдельные факторы риска, управляемые.
+    - "high" — упоминаются расследования / штрафы без ясного
+      статуса, нет заверений, высокорисковая отрасль без
+      отраслевых требований.
+    - "unclear" — данных недостаточно.
+
+    Шаг 7 — RED FLAGS
+
+    Заполни поле "red_flags".
+
+    Используй:
+    - "NONE" — compliance-положения развёрнутые, нет нарушений
+      или они урегулированы, есть заверения.
+    - "UNCLEAR" — данных недостаточно.
+    - Коды через запятую:
+      * REG1 — расследования / штрафы / enforcement actions
+        без ясного статуса и remedial-плана.
+      * REG2 — формальные compliance-положения при
+        высокорисковой отрасли (финансы, медицина, телеком,
+        энергетика) без отраслевой конкретики.
+      * REG3 — нет заверений об отсутствии нарушений при
+        наличии отраслевого регулирования.
+
+    Шаг 8 — USER-FACING SUMMARY
+
+    Заполни поле "regulatory_compliance_display".
+
+    Примеры:
+    - "Финансы; отраслевые требования ЦБ; нет нарушений
+       (заверения); remedial план закрыт"
+    - "Медицина; только общие compliance-обязательства;
+       упоминаются расследования без статуса"
+    - "Телеком; нет отраслевых требований; нет заверений"
+    - "Не удалось определить отраслевой комплаенс"
+
+    Правила:
+    - Отрази максимум 3–4 ключевых факта через ";".
+    - Если всё unclear:
+      "Не удалось определить отраслевой комплаенс"
+
+    Шаг 9 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: отрасль, характер compliance-обязательств,
+      регуляторные события, заверения, remedial-меры,
+      почему red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему регуляторный риск приемлем.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - "Компания соблюдает применимое законодательство"
+      без отраслевой конкретики:
+      * has_compliance_obligations = "general_only"
+      * если высокорисковая отрасль: red_flags включает "REG2"
 
-    - Только стандартная фраза "компания соблюдает применимое
-      законодательство" без отраслевой конкретики:
-      has_compliance_obligations = "general_only";
-      в reason отмечай отсутствие отраслевой детализации;
-      если отрасль высокорисковая — рассматривай REG2.
+    - Расследования упомянуты, статус неясен, remedial нет:
+      * mentions_regulatory_events = "yes"
+      * has_remedial_measures = "no" или "unclear"
+      * red_flags = "REG1"
 
-    - Прямо указано, что против компании ведутся расследования
-      или есть крупные штрафы, при этом неясно, устранены ли
-      нарушения:
-      mentions_regulatory_events = "yes";
-      has_remedial_measures = "unclear" или "no";
-      ставь REG1; regulatory_risk_level = "high".
+    - "No material violations" + "no ongoing investigations":
+      * has_no_violations_representations = "yes"
+      * это снижает риск
 
-    - В тексте есть заверения "no material violations" и
-      "no ongoing investigations", но ничего не говорится
-      про прошлые штрафы:
-      has_no_violations_representations = "yes";
-      учитывай как фактор снижения риска;
-      regulatory_risk_level может быть "low" или "medium".
+    - Прошлые штрафы, remedial план закрыт, settlement выполнен:
+      * mentions_regulatory_events = "yes"
+      * has_remedial_measures = "yes"
+      * regulatory_risk_level = "medium"
+      * в reason: вопросы урегулированы
 
-    - Упоминаются прошлые штрафы/предписания, но явно описан
-      remedial-план и закрытие вопросов с регулятором:
-      mentions_regulatory_events = "yes";
-      has_remedial_measures = "yes";
-      отмечай факт нарушений, но в reason указывай, что
-      вопросы урегулированы; regulatory_risk_level = "medium".
+    - Финансовая отрасль, нет отраслевых требований, нет заверений:
+      * has_compliance_obligations = "general_only" или "none"
+      * has_no_violations_representations = "no"
+      * red_flags = "REG2, REG3"
 
-    - Договор касается высокорегулируемой отрасли (финансы,
-      медицина), но нет ни отраслевых требований, ни заверений:
-      has_compliance_obligations = "none" или "general_only";
-      has_no_violations_representations = "no";
-      ставь REG2 и REG3; regulatory_risk_level = "high".
-
-    - Есть settlement agreement с регулятором, все условия
-      выполнены, штраф уплачен:
-      mentions_regulatory_events = "yes";
-      has_remedial_measures = "yes";
-      в reason укажи, что settlement закрыт;
-      это может снижать regulatory_risk_level до "medium".
-
-    - Пустые или явно нерелевантные фрагменты:
-      укажи, что данных недостаточно для анализа отраслевого
-      комплаенса и регуляторных событий.
-      regulatory_risk_level = "unclear";
-      overall_risk_level = "medium";
-      red_flags = "UNCLEAR".
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * regulatory_compliance_display =
+        "Не удалось определить отраслевой комплаенс"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны. Не генерируй JSON —
-    просто излагай выводы структурированно и однозначно.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "regulatory_compliance_display"
+      type: "string"
+      description: "Отраслевой комплаенс: краткий вывод"
+
     - name: "has_compliance_obligations"
       type: "string"
+      description: "Характер compliance-обязательств"
       allowed_values:
         - "industry_specific"
         - "general_only"
         - "none"
         - "unclear"
 
+    - name: "identified_industries"
+      type: "string"
+      description: "Идентифицированные отрасли"
+
     - name: "mentions_regulatory_events"
       type: "string"
+      description: "Упоминания регуляторных событий"
       allowed_values:
         - "yes"
         - "none_mentioned"
@@ -377,6 +383,7 @@ extraction:
 
     - name: "has_no_violations_representations"
       type: "string"
+      description: "Заверения об отсутствии нарушений"
       allowed_values:
         - "yes"
         - "no"
@@ -384,24 +391,28 @@ extraction:
 
     - name: "has_remedial_measures"
       type: "string"
+      description: "Наличие remedial-мер"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
+    - name: "regulatory_risk_level"
+      type: "string"
+      description: "Уровень регуляторного риска"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
+        - "unclear"
+
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
-
-red_flags:
-  items:
-    - code: "REG1"
-      description: "Упоминания расследований/штрафов/enforcement actions без ясного статуса."
-    - code: "REG2"
-      description: "Формальные комплаенс-положения."
-    - code: "REG3"
-      description: "Отсутствие заверений об отсутствии нарушений (no material violations)."
+  

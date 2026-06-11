@@ -2,9 +2,12 @@ id: "export_control"
 name: "Экспортный контроль и dual-use"
 description: >
   Анализирует положения об экспортном контроле: ограничения на передачу
-  технологий, софта, оборудования, необходимость лицензий, соблюдение
-  ITAR/EAR/EU dual-use/локальных режимов, ограничения на re-export
-  и влияние на операционную модель Target.
+  технологий, ПО, оборудования, необходимость экспортных лицензий,
+  соблюдение ITAR / EAR / EU dual-use / локальных режимов,
+  ограничения на re-export и влияние на операционную модель Target.
+
+  Формирует краткий user-facing вывод и оценивает регуляторный и
+  операционный риск для Target.
 
 doc_types: []
 
@@ -14,6 +17,7 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
@@ -33,27 +37,23 @@ rules:
       - "(?i)International\\s+Traffic\\s+in\\s+Arms\\s+Regulations?"
       - "(?i)\\bEAR\\b"
       - "(?i)Export\\s+Administration\\s+Regulations?"
-      - "(?i)\\bBIS\\b"
-      - "(?i)Bureau\\s+of\\s+Industry\\s+and\\s+Security"
       - "(?i)Commerce\\s+Control\\s+List"
       - "(?i)\\bCCL\\b"
-      - "(?i)USML"
-      - "(?i)United\\s+States\\s+Munitions\\s+List"
+      - "(?i)\\bUSML\\b"
       - "(?i)\\bECCN\\b"
       - "(?i)Export\\s+Control\\s+Classification\\s+Number"
+      - "(?i)\\bBIS\\b"
 
       # Конкретные режимы — ЕС
       - "(?i)EU\\s+dual[-\\s]?use"
-      - "(?i)Council\\s+Regulation\\s+\\(EC\\)\\s+No\\s+428"
       - "(?i)Regulation\\s+\\(EU\\)\\s+2021/821"
-      - "(?i)EU\\s+export\\s+control"
+      - "(?i)Council\\s+Regulation\\s+\\(EC\\)\\s+No\\s+428"
 
       # Конкретные режимы — Россия
       - "(?i)ФЗ[-\\s]?183"
       - "(?i)183[-\\s]?ФЗ"
-      - "(?i)Федеральн[а-яый]+\\s+закон[\\s\\S]{0,30}экспортн[а-яом]+\\s+контрол"
-      - "(?i)ФСТЭК"
-      - "(?i)контрольн[а-яые]+\\s+списк[иа]"
+      - "(?i)\\bФСТЭК\\b"
+      - "(?i)контрольн[а-яые]+\\s+списк[иа][\\s\\S]{0,20}(экспорт|двойн)"
 
       # Экспортные лицензии
       - "(?i)export\\s+licen[cs]e"
@@ -68,59 +68,40 @@ rules:
 
     medium:
       # Technology transfer
-      - "(?i)technology\\s+transfer"
-      - "(?i)передач[аи]\\s+технолог"
-      - "(?i)technical\\s+data"
-      - "(?i)техническ[а-яие]+\\s+данн"
-      - "(?i)technical\\s+assistance"
-      - "(?i)техническ[а-яая]+\\s+помощь"
+      - "(?i)technology\\s+transfer[\\s\\S]{0,20}(control|restrict|licen)"
+      - "(?i)передач[аи]\\s+технолог[\\s\\S]{0,20}(контрол|ограничен|лицензи)"
+      - "(?i)technical\\s+data[\\s\\S]{0,20}(export|control|restrict)"
 
       # Контролируемые страны/получатели
-      - "(?i)restricted\\s+(countr|destination|part)"
+      - "(?i)restricted\\s+(countr|destination|part)[\\s\\S]{0,20}(export|control)"
       - "(?i)denied\\s+part(y|ies)"
       - "(?i)entity\\s+list"
       - "(?i)embargoed\\s+(countr|destination)"
-      - "(?i)запрещённ[а-яые]+\\s+(страны|получател|направлени)"
-      - "(?i)санкционн[а-яые]+\\s+(страны|юрисдикц)"
+      - "(?i)запрещённ[а-яые]+\\s+(страны|получател)[\\s\\S]{0,20}(экспорт|контрол)"
 
       # End-use / end-user
-      - "(?i)end[-\\s]?use"
-      - "(?i)end[-\\s]?user"
-      - "(?i)конечн[а-яое]+\\s+использовани"
-      - "(?i)конечн[а-яый]+\\s+пользовател"
-      - "(?i)end[-\\s]?user\\s+certificate"
+      - "(?i)end[-\\s]?use\\s+(certificate|restriction|verification)"
+      - "(?i)end[-\\s]?user\\s+(certificate|verification|check)"
+      - "(?i)конечн[а-яое]+\\s+использовани[ея][\\s\\S]{0,20}(сертификат|контрол)"
       - "(?i)сертификат\\s+конечного\\s+пользовател"
 
-      # Общие ограничения на передачу
-      - "(?i)transfer\\s+restriction"
-      - "(?i)ограничени[яе]\\s+на\\s+передач"
-      - "(?i)shall\\s+not\\s+(export|transfer|disclose)"
-      - "(?i)не\\s+(вправе|допускается)\\s+(экспортировать|передавать)"
-      - "(?i)prior\\s+(written\\s+)?consent\\s+[\\s\\S]{0,30}(export|transfer)"
-      - "(?i)предварительн[а-яое]+\\s+согласи[ея]\\s+[\\s\\S]{0,30}(экспорт|передач)"
+      # Ограничения на передачу
+      - "(?i)transfer\\s+restriction[\\s\\S]{0,20}(export|technology)"
+      - "(?i)shall\\s+not\\s+(export|re[-\\s]?export)"
+      - "(?i)prior\\s+(written\\s+)?consent[\\s\\S]{0,30}(export|re[-\\s]?export)"
+      - "(?i)не\\s+(вправе|допускается)\\s+экспортировать"
 
     low:
-      # Общие ссылки на регулирование
-      - "(?i)export"
-      - "(?i)экспорт"
-      - "(?i)import"
-      - "(?i)импорт"
-      - "(?i)controlled"
-      - "(?i)контролируем"
-
-      # Общие ссылки на технологии
-      - "(?i)technology"
-      - "(?i)технолог"
-      - "(?i)software"
-      - "(?i)програмн[а-яое]+\\s+обеспечени"
-      - "(?i)equipment"
-      - "(?i)оборудовани"
-
-      # Общие compliance-термины
-      - "(?i)compliance"
-      - "(?i)комплаенс"
-      - "(?i)restriction"
-      - "(?i)ограничени"
+      - "(?i)export\\s+control"
+      - "(?i)dual[-\\s]?use"
+      - "(?i)\\bITAR\\b"
+      - "(?i)\\bEAR\\b"
+      - "(?i)re[-\\s]?export"
+      - "(?i)экспортный\\s+контроль"
+      - "(?i)двойного\\s+назначения"
+      - "(?i)export\\s+licen[cs]e"
+      - "(?i)ФСТЭК"
+      - "(?i)ФЗ[-\\s]?183"
 
   regex_patterns: []
   clause_patterns: []
@@ -158,211 +139,271 @@ retrieval:
     - "реэкспорт"
     - "technology transfer"
     - "передача технологий"
-    - "end-user"
+    - "end-user certificate"
     - "конечный пользователь"
     - "restricted countries"
     - "denied parties"
     - "entity list"
+    - "deemed export"
   rerank: true
   filters: {}
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "annex"
+    - "appendix"
+    - "amendment"
+  excluded_segment_types:
+    - "price_list"
+    - "invoice"
+    - "act"
+  preferred_clause_functions:
+    - "representations_warranties"
+    - "general_provisions"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 440
   llm_prompt_extraction: |
     <role>
     Ты — юрист по экспортному контролю и товарам двойного назначения.
-    Твоя специализация — ITAR, EAR, EU dual-use Regulation,
-    российский экспортный контроль (ФЗ-183, ФСТЭК),
-    лицензирование экспорта и ограничения на re-export.
+    Твоя задача — точно извлечь из текста:
+    1) есть ли положения об экспортном контроле и их детализацию;
+    2) применимые режимы (ITAR, EAR, EU dual-use, ФЗ-183);
+    3) обязательства по соблюдению и лицензированию;
+    4) ограничения на re-export и передачу третьим лицам;
+    5) влияние на бизнес-модель Target.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора, где могут быть положения
-    об экспортном контроле:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
+    <task>
+    Заполни только следующие поля:
+    - export_control_display
+    - has_export_control_provisions
+    - export_control_detail_level
+    - applicable_regimes
+    - requires_export_compliance
+    - requires_export_licenses
+    - reexport_restrictions
+    - reexport_restriction_severity
+    - business_model_impact
+    - red_flags
+    - reason
+
+    Важно:
+    - не придумывай режимы если они не упоминаются;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
     <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
+    Шаг 1 — НАЛИЧИЕ ЭКСПОРТНО-КОНТРОЛЬНЫХ ПОЛОЖЕНИЙ
 
-    Шаг 1 — УПОМИНАНИЯ ЭКСПОРТНОГО КОНТРОЛЯ / DUAL-USE
-    (используется для заполнения поля "has_export_control_provisions"):
-    - Определи, есть ли в тексте:
-      * прямые ссылки на export control, экспортный контроль,
-        dual-use, controlled items;
-      * упоминания конкретных режимов (ITAR, EAR, EU dual-use,
-        ФЗ-183, ФСТЭК);
-      * указание, что предмет договора подпадает под режим
-        экспортного контроля.
-    - Сформулируй вывод:
-      * "yes" — экспортно-контрольные
-        положения с ссылками на конкретные режимы;
-      * "none" — экспортно-контрольные положения отсутствуют;
-      * "unclear" — невозможно определить.
+    Заполни поле "has_export_control_provisions".
 
-    Шаг 2 — ПРИМЕНИМЫЕ РЕЖИМЫ
-    (используется для заполнения поля "applicable_regimes"):
-    - Определи, какие конкретные режимы экспортного контроля
-      упоминаются:
-      * ITAR (США, военные товары);
-      * EAR (США, dual-use);
-      * EU dual-use Regulation;
-      * ФЗ-183 / ФСТЭК (Россия);
-      * Wassenaar Arrangement;
-      * другие.
-    - Перечисли через запятую.
-    - Если режимы не указаны — укажи "Не указаны".
+    Значения:
+    - "yes" — есть: экспортный контроль, dual-use,
+      controlled items, конкретные режимы.
+    - "no" — экспортно-контрольных положений нет.
+    - "unclear" — неясно.
 
-    Шаг 3 — ОБЯЗАТЕЛЬСТВА ПО СОБЛЮДЕНИЮ
-    (используется для заполнения поля "requires_export_compliance"):
-    - Определи, предусмотрены ли:
-      * прямые обязательства соблюдать ITAR/EAR/EU dual-use/
-        локальные законы об экспортном контроле;
-      * запреты на нарушение экспортных ограничений;
-      * обязательства проверять end-user/end-use.
-    - Сформулируй вывод: "yes" / "no" / "unclear".
+    Шаг 2 — УРОВЕНЬ ДЕТАЛИЗАЦИИ
 
-    Шаг 4 — НЕОБХОДИМОСТЬ ЭКСПОРТНЫХ ЛИЦЕНЗИЙ
-    (используется для заполнения поля "requires_export_licenses"):
-    - Определи, указано ли:
-      * экспорт/реэкспорт возможен только при наличии
-        соответствующих лицензий/разрешений;
-      * какая сторона обязана получать лицензии;
-      * процедура получения лицензий.
-    - Сформулируй вывод: "yes" / "no" / "unclear".
+    Заполни поле "export_control_detail_level".
 
-    Шаг 5 — ОГРАНИЧЕНИЯ НА RE-EXPORT И ПЕРЕДАЧУ ТРЕТЬИМ ЛИЦАМ
-    (используется для заполнения поля "reexport_restrictions"):
-    - Определи, есть ли:
-      * запреты на реэкспорт товаров/ПО/технологий;
-      * ограничения на передачу третьим лицам;
-      * запреты на экспорт в определённые страны/получателям;
-      * требования получать согласие для передачи.
-    - Сформулируй вывод:
-      * "yes" — ограничения (запрет или требование 
-        prior written consent для любой передачи);
-      * "none" — ограничений нет;
-      * "unclear" — невозможно определить.
+    Значения:
+    - "detailed" — конкретные режимы (ITAR/EAR/ФЗ-183),
+      процедуры, лицензии, end-user.
+    - "general" — только общие фразы "соблюдать
+      законодательство" без конкретных режимов.
+    - "not_applicable" — экспортный контроль нет.
+    - "unclear" — неясно.
 
-    Шаг 6 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    - Оцени наличие следующих рисковых факторов:
+    Шаг 3 — ПРИМЕНИМЫЕ РЕЖИМЫ
 
-      * «EXP1» — Отсутствие экспортно-контрольных положений
-        при очевидной поставке dual-use/технологий. Признаки:
-        - has_export_control_provisions = "none";
-        - при этом предмет договора — ПО, оборудование,
-          технологии, которые потенциально подпадают
-          под экспортный контроль;
-        - отсутствие положений создаёт регуляторный риск.
+    Заполни поле "applicable_regimes".
 
-      * «EXP2» — Жёсткие ограничения на re-export, мешающие
-        обычной операционной модели Target. Признаки:
-        - reexport_restrictions = "strict";
-        - business_model_impact = "high";
-        - Target занимается дистрибуцией, интеграцией,
-          resale, sublicensing;
-        - ограничения делают бизнес-модель неработоспособной
-          или требуют существенной перестройки.
+    Правила:
+    - Перечисли конкретные режимы через ";":
+      * "ITAR; EAR"
+      * "EU dual-use; ФЗ-183"
+      * "ITAR; EAR; EU dual-use; ФЗ-183"
+    - Если режимы не указаны: "Не указаны"
+    - Если нет экспортного контроля: "Не применимо"
 
-      * «EXP3» — Формальные/общие положения об экспортном
-        контроле без детализации при очевидной необходимости.
-        Признаки:
-        - has_export_control_provisions = "general";
-        - applicable_regimes = "Не указаны";
-        - requires_export_compliance = "unclear" или "no";
-        - при этом предмет договора чувствителен
-          к экспортному контролю.
+    Шаг 4 — ОБЯЗАТЕЛЬСТВА ПО СОБЛЮДЕНИЮ
 
-    - Если экспортно-контрольные положения детализированы,
-      режимы указаны, ограничения пропорциональны и не мешают
-      бизнес-модели Target — верни "NONE".
-    - Если данных недостаточно для оценки или текст противоречив —
-      верни "UNCLEAR".
-    - Формат: один или несколько кодов через запятую
-      ("EXP1", "EXP2", "EXP1, EXP3"), "NONE" или "UNCLEAR".
-      Без комментариев в этом поле — всё объясняющее в reason.
+    Заполни поле "requires_export_compliance".
 
-    Шаг 7 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Значения:
+    - "yes" — прямые обязательства соблюдать конкретные
+      экспортно-контрольные режимы.
+    - "no" — нет.
+    - "unclear" — неясно.
 
-    - В "reason" кратко обоснуй вывод:
-      * ссылайся на ключевые формулировки (по возможности
-        с короткими цитатами);
-      * поясни, как положения влияют на регуляторный
-        и операционный риск Target;
-      * если выставлены red_flags — объясни, почему именно
-        эти коды.
+    Шаг 5 — НЕОБХОДИМОСТЬ ЭКСПОРТНЫХ ЛИЦЕНЗИЙ
+
+    Заполни поле "requires_export_licenses".
+
+    Значения:
+    - "yes" — экспорт / реэкспорт только при наличии лицензий.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 6 — ОГРАНИЧЕНИЯ НА RE-EXPORT
+
+    Заполни поля "reexport_restrictions"
+    и "reexport_restriction_severity".
+
+    Значения для reexport_restrictions:
+    - "yes" — есть ограничения на реэкспорт / передачу.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Значения для reexport_restriction_severity:
+    - "strict" — полный запрет или prior written consent
+      для любой передачи.
+    - "moderate" — ограничения для определённых стран /
+      получателей.
+    - "mild" — только информационные требования.
+    - "not_applicable" — ограничений нет.
+    - "unclear" — неясно.
+
+    Шаг 7 — ВЛИЯНИЕ НА БИЗНЕС-МОДЕЛЬ TARGET
+
+    Заполни поле "business_model_impact".
+
+    Значения:
+    - "high" — ограничения существенно мешают бизнес-модели:
+      Target занимается дистрибуцией, resale, sublicensing,
+      а ограничения блокируют или требуют серьёзной перестройки.
+    - "medium" — есть ограничения, но управляемые.
+    - "low" — ограничения пропорциональны и не мешают.
+    - "not_applicable" — экспортного контроля нет.
+    - "unclear" — неясно.
+
+    Шаг 8 — RED FLAGS
+
+    Заполни поле "red_flags".
+
+    Используй:
+    - "NONE" — положения детализированы, режимы указаны,
+      ограничения пропорциональны и не мешают бизнес-модели.
+    - "UNCLEAR" — данных недостаточно.
+    - Коды через запятую:
+      * EXP1 — нет экспортно-контрольных положений при
+        поставке dual-use / технологий / ПО / оборудования.
+      * EXP2 — жёсткие ограничения на re-export, мешающие
+        дистрибуции / resale (business_model_impact = "high").
+      * EXP3 — формальные / общие положения без детализации
+        при чувствительном предмете договора.
+
+    Шаг 9 — USER-FACING SUMMARY
+
+    Заполни поле "export_control_display".
+
+    Примеры:
+    - "ITAR + EAR; обязанность лицензировать; strict re-export;
+       влияние на дистрибуцию — высокое"
+    - "EU dual-use; общие обязательства; умеренные re-export
+       ограничения"
+    - "Экспортный контроль не обнаружен"
+    - "Не удалось определить экспортный контроль"
+
+    Правила:
+    - Отрази максимум 4 ключевых факта через ";".
+    - Если нет экспортного контроля:
+      "Экспортный контроль не обнаружен"
+    - Если всё unclear:
+      "Не удалось определить экспортный контроль"
+
+    Шаг 10 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: режимы, обязательства, re-export, влияние
+      на бизнес-модель, почему red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему риск приемлем.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - Поставка ПО / технологий без экспортно-контрольных положений:
+      * has_export_control_provisions = "no"
+      * red_flags включает "EXP1"
 
-    - Предмет договора — ПО, оборудование или технологии,
-      потенциально подпадающие под dual-use/ITAR/EAR,
-      но экспортно-контрольные положения отсутствуют:
-      has_export_control_provisions = "none";
-      ставь EXP1; overall_risk_level = "high".
+    - Только "соблюдать применимое законодательство" без режимов:
+      * export_control_detail_level = "general"
+      * red_flags может включать "EXP3"
 
-    - Только общая фраза "Стороны обязуются соблюдать
-      применимое законодательство" без указания на экспортный
-      контроль:
-      has_export_control_provisions = "general" или "none";
-      рассматривай EXP3 при чувствительном предмете договора.
+    - ITAR + EAR, strict re-export, Target = дистрибьютор:
+      * reexport_restriction_severity = "strict"
+      * business_model_impact = "high"
+      * red_flags включает "EXP2"
 
-    - Подробно прописаны ITAR/EAR/EU dual-use, необходимость
-      лицензий, запреты на re-export в определённые страны:
-      has_export_control_provisions = "detailed";
-      это снижает регуляторный риск;
-      но оцени business_model_impact.
+    - EU dual-use, moderate ограничения, Target = разработчик:
+      * business_model_impact = "low"
+      * red_flags = "NONE"
 
-    - Жёсткие ограничения на re-export (полный запрет
-      без согласия) при бизнес-модели Target, основанной
-      на дистрибуции/resale:
-      reexport_restrictions = "strict";
-      business_model_impact = "high";
-      ставь EXP2; overall_risk_level = "high".
+    - Договор на консалтинг без передачи технологий:
+      * has_export_control_provisions = "no"
+      * red_flags = "NONE"
+      * export_control_display = "Экспортный контроль не обнаружен"
 
-    - Договор на услуги/консалтинг, не связанный с передачей
-      товаров/технологий — экспортный контроль не релевантен:
-      has_export_control_provisions = "none";
-      red_flags = "NONE" (если нет чувствительного контекста);
-      overall_risk_level = "low".
-
-    - Пустые или явно нерелевантные фрагменты:
-      все поля = "unclear";
-      red_flags = "UNCLEAR";
-      overall_risk_level = "medium";
-      reason = "Недостаточно данных для анализа положений
-      об экспортном контроле."
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * export_control_display =
+        "Не удалось определить экспортный контроль"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны. Не генерируй JSON —
-    просто излагай выводы структурированно и однозначно.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "export_control_display"
+      type: "string"
+      description: "Экспортный контроль: краткий вывод"
+
     - name: "has_export_control_provisions"
       type: "string"
+      description: "Наличие экспортно-контрольных положений"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
+    - name: "export_control_detail_level"
+      type: "string"
+      description: "Уровень детализации"
+      allowed_values:
+        - "detailed"
+        - "general"
+        - "not_applicable"
+        - "unclear"
+
     - name: "applicable_regimes"
       type: "string"
+      description: "Применимые режимы экспортного контроля"
 
     - name: "requires_export_compliance"
       type: "string"
+      description: "Обязательства по соблюдению"
       allowed_values:
         - "yes"
         - "no"
@@ -370,6 +411,7 @@ extraction:
 
     - name: "requires_export_licenses"
       type: "string"
+      description: "Необходимость экспортных лицензий"
       allowed_values:
         - "yes"
         - "no"
@@ -377,24 +419,41 @@ extraction:
 
     - name: "reexport_restrictions"
       type: "string"
+      description: "Ограничения на re-export"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
+    - name: "reexport_restriction_severity"
+      type: "string"
+      description: "Жёсткость re-export ограничений"
+      allowed_values:
+        - "strict"
+        - "moderate"
+        - "mild"
+        - "not_applicable"
+        - "unclear"
+
+    - name: "business_model_impact"
+      type: "string"
+      description: "Влияние на бизнес-модель Target"
+      allowed_values:
+        - "high"
+        - "medium"
+        - "low"
+        - "not_applicable"
+        - "unclear"
+
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "EXP1"
-      description: "Отсутствие экспортно-контрольных положений."
-    - code: "EXP2"
-      description: "Жёсткие ограничения на re-export."
-    - code: "EXP3"
-      description: "Формальные/общие положения об экспортном контроле без детализации."
+
+  

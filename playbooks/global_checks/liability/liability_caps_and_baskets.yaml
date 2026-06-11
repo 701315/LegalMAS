@@ -1,11 +1,19 @@
 id: "liability_caps_and_baskets"
 name: "Лимиты ответственности и пороги (caps, baskets)"
 description: >
-  Анализирует наличие и структуру лимитов ответственности (caps),
-  порогов (basket, de minimis) и carve-out для ключевых рисков.
-  Оценивает соразмерность cap'ов масштабу договора, механику
-  basket/de minimis (tipping vs. deductible), и какие категории
-  рисков выведены из-под ограничений.
+  Анализирует структуру лимитов ответственности (caps), порогов
+  (basket, de minimis) и carve-out для ключевых рисков.
+
+  Извлекает: наличие и размер cap, наличие basket / de minimis,
+  механику basket (tipping vs. deductible), категории рисков,
+  выведенных из-под ограничений (fraud, gross negligence,
+  санкции, IP, данные, compliance).
+
+  Формирует краткий user-facing вывод и оценивает соразмерность
+  ограничений масштабу договора.
+
+  Верхнеуровневый анализ объёма ответственности и indemnity
+  выполняется чеком liability_and_indemnity_scope.
 
 doc_types: []
 
@@ -15,13 +23,14 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
 
   keywords:
     high:
-      # Cap / лимит ответственности — конкретные формулировки
+      # Cap / лимит ответственности
       - "(?i)aggregate\\s+liability\\s+(shall\\s+)?not\\s+exceed"
       - "(?i)total\\s+liability\\s+[\\s\\S]{0,40}(shall\\s+)?not\\s+exceed"
       - "(?i)maximum\\s+(aggregate\\s+)?liability"
@@ -29,16 +38,14 @@ rules:
       - "(?i)cap\\s+on\\s+(aggregate\\s+)?liability"
       - "(?i)лимит\\s+ответственност[ьи]"
       - "(?i)максимальн[а-я]+\\s+(размер|сумм[аы])\\s+ответственност[ьи]"
-      - "(?i)совокупн[а-я]+\\s+ответственность\\s+[\\s\\S]{0,40}не\\s+(может|должна)\\s+превышать"
       - "(?i)предел[ы]?\\s+ответственност[ьи]"
 
-      # Basket — агрегатный порог
-      - "(?i)\\baggregate\\s+basket\\b"
-      - "(?i)\\bbasket\\s+(threshold|amount)\\b"
+      # Basket
+      - "(?i)aggregate\\s+basket"
+      - "(?i)basket\\s+(threshold|amount)"
       - "(?i)tipping\\s+basket"
       - "(?i)first[-\\s]?dollar\\s+basket"
       - "(?i)deductible\\s+basket"
-      - "(?i)threshold\\s+basket"
       - "(?i)совокупн[а-я]+\\s+порог\\s+убытк[ов]"
       - "(?i)порог\\s+претенз[ийи]"
 
@@ -47,75 +54,58 @@ rules:
       - "(?i)minimum\\s+claim\\s+(amount|threshold)"
       - "(?i)individual\\s+claim\\s+threshold"
       - "(?i)минимальн[а-я]+\\s+(размер|сумм[аы])\\s+претенз[ийи]"
-      - "(?i)минимальн[а-я]+\\s+порог\\s+требовани[яй]"
 
-      # Carve-out для ключевых рисков
-      - "(?i)carve[-\\s]?out"
-      - "(?i)except(ion)?\\s+for\\s+[\\s\\S]{0,30}(fraud|willful|gross\\s+negligence)"
-      - "(?i)shall\\s+not\\s+apply\\s+to\\s+[\\s\\S]{0,30}(fraud|willful|gross)"
-      - "(?i)(fraud|willful\\s+misconduct|gross\\s+negligence)\\s+[\\s\\S]{0,30}(excluded?|not\\s+subject)"
+      # Carve-out — ключевые формулировки
+      - "(?i)carve[-\\s]?out[\\s\\S]{0,30}(fraud|willful|gross\\s+negligence|санкци|IP|данных)"
+      - "(?i)except(ion)?\\s+for[\\s\\S]{0,30}(fraud|willful|gross\\s+negligence)"
+      - "(?i)shall\\s+not\\s+apply\\s+to[\\s\\S]{0,30}(fraud|willful|gross)"
+      - "(?i)(fraud|willful\\s+misconduct|gross\\s+negligence)[\\s\\S]{0,30}(excluded?|not\\s+subject)"
       - "(?i)исключ[а-я]+\\s+из[-\\s]?под\\s+(лимит|cap|ограничен)"
-      - "(?i)(мошенничество|умысел|грубая\\s+неосторожность)\\s+[\\s\\S]{0,30}не\\s+подпада[ею]т"
 
     medium:
-      # Cap / aggregate liability — общие упоминания
+      # Cap — общие
       - "(?i)\\bcap\\b"
       - "(?i)aggregate\\s+liability"
-      - "(?i)cumulative\\s+liability"
       - "(?i)в\\s+совокупности"
       - "(?i)совокупн[а-я]+\\s+ответственност[ьи]"
 
-      # Basket — общие упоминания
+      # Basket / threshold — общие
       - "(?i)\\bbasket\\b"
       - "(?i)aggregate\\s+threshold"
       - "(?i)threshold\\s+amount"
       - "(?i)порог[аи]?\\s+(для\\s+)?претенз[ийи]"
-      - "(?i)порог[аи]?\\s+убытк[ов]"
 
-      # De minimis — общие упоминания
-      - "(?i)minimum\\s+amount"
-      - "(?i)minimum\\s+threshold"
+      # De minimis — общие
+      - "(?i)minimum\\s+(amount|threshold)"
       - "(?i)минимальн[а-я]+\\s+сумм[аы]"
 
       # Deductible / excess
       - "(?i)\\bdeductible\\b"
       - "(?i)\\bexcess\\b"
-      - "(?i)франшиз[аы]"
       - "(?i)вычет\\s+из\\s+возмещени[яи]"
 
-      # Carve-out категории — ключевые слова
+      # Carve-out категории
       - "(?i)\\bfraud\\b"
       - "(?i)willful\\s+misconduct"
       - "(?i)gross\\s+negligence"
       - "(?i)грубая\\s+неосторожность"
-      - "(?i)умышленн[а-я]+\\s+(нарушени[ея]|действи[яй])"
       - "(?i)мошенничеств[оа]"
       - "(?i)санкци[яий]"
       - "(?i)sanctions?\\s+(violation|breach)"
-      - "(?i)нарушени[ея]\\s+(IP|интеллектуальн[а-я]+\\s+собственност[ьи])"
       - "(?i)(IP|intellectual\\s+property)\\s+(infringement|breach)"
-      - "(?i)нарушени[ея]\\s+конфиденциальност[ьи]"
-      - "(?i)breach\\s+of\\s+confidentiality"
-      - "(?i)data\\s+(breach|protection)"
-      - "(?i)нарушени[ея]\\s+защит[ыа]\\s+(данных|персональн)"
+      - "(?i)data\\s+(breach|protection)[\\s\\S]{0,20}(carve|exclude|not\\s+apply)"
+      - "(?i)breach\\s+of\\s+confidentiality[\\s\\S]{0,20}(carve|exclude|not\\s+apply)"
 
     low:
-      # Общие ссылки на ограничения
-      - "(?i)limit(ation)?\\s+of\\s+liability"
-      - "(?i)ограничени[ея]\\s+ответственност[ьи]"
-      - "(?i)subject\\s+to\\s+(a\\s+)?limit"
-      - "(?i)в\\s+пределах"
-
-      # Общие ссылки на исключения
-      - "(?i)except(ion)?"
-      - "(?i)исключ[а-яё]+"
-      - "(?i)shall\\s+not\\s+apply"
-      - "(?i)не\\s+распростран[яи][её]тся"
-
-      # Общие числовые паттерны (суммы, проценты)
-      - "(?i)\\d+[\\s]*%\\s+(of|от)"
-      - "(?i)(USD|EUR|RUB|\\$|€|₽)\\s*[\\d,.]+"
-      - "(?i)[\\d,.]+\\s*(USD|EUR|RUB|долларов|евро|рублей)"
+      - "(?i)liability\\s+cap"
+      - "(?i)aggregate\\s+basket"
+      - "(?i)de\\s+minimis"
+      - "(?i)tipping\\s+basket"
+      - "(?i)carve[-\\s]?out"
+      - "(?i)fraud"
+      - "(?i)willful\\s+misconduct"
+      - "(?i)gross\\s+negligence"
+      - "(?i)sanctions?\\s+violation"
 
   regex_patterns: []
   clause_patterns: []
@@ -154,7 +144,6 @@ retrieval:
     - "willful misconduct"
     - "gross negligence"
     - "грубая неосторожность"
-    - "санкции"
     - "sanctions violation"
     - "IP infringement"
     - "data breach"
@@ -163,177 +152,245 @@ retrieval:
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+    - "annex"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+    - "schedule"
+  preferred_clause_functions:
+    - "liability"
+    - "limitation_of_liability"
+    - "indemnification"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 440
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A и коммерческим контрактам.
-    Твоя специализация — структура ограничений ответственности:
-    caps (лимиты), basket/de minimis пороги, механика возмещения
-    (tipping vs. deductible), carve-out для ключевых рисков
-    (fraud, gross negligence, санкции, IP, данные).
+    Твоя задача — точно извлечь из текста структуру ограничений
+    ответственности: caps, basket / de minimis, механику basket,
+    carve-out для ключевых рисков.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора с положениями об ограничении
-    ответственности, порогах и исключениях:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
+    <task>
+    Заполни только следующие поля:
+    - caps_display
+    - has_liability_cap
+    - cap_description
+    - has_basket
+    - basket_type
+    - has_de_minimis
+    - has_key_carveouts
+    - carveouts_summary
+    - red_flags
+    - reason
+
+    Важно:
+    - не анализируй общий объём ответственности и indemnity —
+      это задача чека liability_and_indemnity_scope;
+    - не анализируй исключения видов убытков (indirect, loss of
+      profit) — это задача чека liability_exclusions;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
     <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
-
     Шаг 1 — НАЛИЧИЕ ЛИМИТА ОТВЕТСТВЕННОСТИ (CAP)
-    (используется для заполнения поля "has_liability_cap"):
-    - Определи, предусмотрен ли cap (лимит) на ответственность
-      одной или обеих сторон.
-    - Если cap явно установлен (фиксированная сумма, процент от цены,
-      кратность годовых платежей и т.п.) — вывод "yes".
-    - Если cap отсутствует или ответственность явно не ограничена —
-      вывод "no".
-    - Если из фрагментов невозможно определить — вывод "unclear".
 
-    Шаг 2 — НАЛИЧИЕ DE MINIMIS (МИНИМАЛЬНЫЙ ПОРОГ ПРЕТЕНЗИИ)
-    (используется для заполнения поля "has_de_minimis"):
-    - Определи, установлен ли минимальный размер отдельной претензии
-      (de minimis threshold), ниже которого:
-      * требование не учитывается при расчёте basket, и/или
-      * требование не подлежит возмещению вообще.
-    - Если de minimis есть — вывод "yes".
-    - Если de minimis отсутствует — вывод "no".
-    - Если невозможно определить — вывод "unclear".
+    Заполни поле "has_liability_cap".
 
-    Шаг 3 — CARVE-OUT ДЛЯ КЛЮЧЕВЫХ РИСКОВ
-    (используется для заполнения поля "has_key_carveouts"):
-    - Определи, выведены ли из-под cap, basket и/или de minimis
-      отдельные категории нарушений:
-      * fraud (мошенничество);
-      * willful misconduct / умышленные нарушения;
-      * gross negligence / грубая неосторожность;
-      * нарушения санкционного режима;
-      * нарушения конфиденциальности;
-      * нарушения прав интеллектуальной собственности (IP);
-      * нарушения защиты персональных данных;
-      * нарушения compliance / антикоррупционных требований;
-      * налоговые нарушения;
-      * экологические нарушения.
-    - Если carve-out для таких рисков явно прописан — вывод "yes".
-    - Если carve-out отсутствует — вывод "no".
-    - Если невозможно определить — вывод "unclear".
+    Значения:
+    - "yes" — cap явно установлен.
+    - "no" — cap отсутствует.
+    - "unclear" — неясно.
 
-    Шаг 4 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    - Оцени наличие следующих рисковых факторов:
+    Заполни поле "cap_description".
 
-      * «LIAB4» — Отсутствие разумного cap при существенных
-        обязательствах или несоразмерно низкий cap. Признаки:
-        - cap отсутствует вообще (has_liability_cap = "no");
-        - cap установлен, но на очень низком уровне относительно
-          потенциальных рисков (например, cap = 10% от цены при
-          широких warranty/indemnity обязательствах);
-        - cap не покрывает ключевые категории требований
-          (например, только warranty, но не indemnity).
+    Правила:
+    - Если cap есть: "Стоимость договора", "12-месячные платежи",
+      "USD 1M", "50% от суммы договора"
+    - Если нет: "Не установлен"
+    - Если неясно: "Не удалось определить"
 
-      * «LIAB5» — Отсутствие carve-out для ключевых высокорисковых
-        категорий (fraud, gross negligence, санкции, IP, данные,
-        compliance). Признаки:
-        - cap и/или basket применяются ко ВСЕМ требованиям без
-          исключений (has_key_carveouts = "no");
-        - carve-out есть, но не покрывает критичные категории
-          (например, только fraud, но не санкции или данные).
+    Шаг 2 — НАЛИЧИЕ BASKET
 
-    - Если cap разумный, basket/de minimis адекватны масштабу
-      сделки, и ключевые риски выведены из-под ограничений —
-      верни "NONE".
-    - Если данных недостаточно для оценки или текст противоречив —
-      верни "UNCLEAR".
-    - Формат: один или несколько кодов через запятую
-      ("LIAB4", "LIAB5", "LIAB4, LIAB5"), "NONE" или "UNCLEAR".
-      Без комментариев в этом поле — всё объясняющее в reason.
+    Заполни поля "has_basket" и "basket_type".
 
-    Шаг 5 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Значения для has_basket:
+    - "yes" — basket есть.
+    - "no" — нет.
+    - "unclear" — неясно.
 
-    - В "reason" кратко обоснуй вывод:
-      * ссылайся на ключевые формулировки (по возможности
-        с короткими цитатами);
-      * поясни, как структура caps/baskets/carve-outs влияет
-        на возможности Target по получению/минимизации компенсации;
-      * если выставлены red_flags — объясни, почему именно эти коды.
+    Значения для basket_type:
+    - "tipping" — tipping basket (первый доллар возмещается
+      с момента превышения порога).
+    - "deductible" — deductible basket (только сумма превышения).
+    - "not_applicable" — basket нет.
+    - "unclear" — тип неясен.
+
+    Шаг 3 — НАЛИЧИЕ DE MINIMIS
+
+    Заполни поле "has_de_minimis".
+
+    Значения:
+    - "yes" — минимальный порог отдельной претензии установлен.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 4 — CARVE-OUT ДЛЯ КЛЮЧЕВЫХ РИСКОВ
+
+    Заполни поля "has_key_carveouts" и "carveouts_summary".
+
+    Значения для has_key_carveouts:
+    - "yes" — ключевые риски выведены из-под cap / basket.
+    - "no" — carve-out нет, ограничения применяются ко всему.
+    - "partial" — часть ключевых рисков выведена, часть нет.
+    - "unclear" — неясно.
+
+    Для carveouts_summary перечисли выведенные категории через ";":
+    - "fraud; willful misconduct; gross negligence"
+    - "fraud; sanctions; IP; data breach"
+    - Если нет: "Не предусмотрено"
+    - Если неясно: "Не удалось определить"
+
+    Шаг 5 — RED FLAGS
+
+    Заполни поле "red_flags".
+
+    Используй:
+    - "NONE" — cap разумный, basket / de minimis адекватны,
+      ключевые риски выведены из-под ограничений.
+    - "UNCLEAR" — данных недостаточно.
+    - Коды через запятую:
+      * LIAB4 — нет разумного cap при существенных обязательствах,
+        или cap несоразмерно низкий.
+      * LIAB5 — нет carve-out для ключевых высокорисковых категорий
+        (fraud, gross negligence, санкции, IP, данные, compliance).
+
+    Шаг 6 — USER-FACING SUMMARY
+
+    Заполни поле "caps_display".
+
+    Примеры:
+    - "Cap: стоимость договора; tipping basket 1%; de minimis есть;
+       carve-out: fraud, sanctions"
+    - "Нет cap; нет basket; нет carve-out"
+    - "Cap: 12 мес. платежей; deductible basket;
+       carve-out: fraud, IP"
+    - "Не удалось определить структуру ограничений"
+
+    Правила:
+    - Отрази максимум 4 ключевых факта через ";".
+    - Если нет ни cap, ни basket, ни carve-out:
+      "Нет cap; нет basket; нет carve-out"
+    - Если всё unclear:
+      "Не удалось определить структуру ограничений"
+
+    Шаг 7 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: cap, basket, de minimis, carve-out, почему red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему структура сбалансирована.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - Нет cap, ответственность иначе не ограничена:
+      * has_liability_cap = "no"
+      * red_flags включает "LIAB4"
 
-    - Cap отсутствует, а ответственность иначе не ограничена:
-      фиксируй has_liability_cap = "no", ставь LIAB4;
-      учитывай это как фактор повышенного риска.
+    - Cap низкий (10% от цены) при широких warranty:
+      * has_liability_cap = "yes"
+      * cap_description = "10% от цены договора"
+      * red_flags включает "LIAB4"
+      * в reason: cap несоразмерен потенциальным рискам
 
-    - Cap есть, но очень низкий относительно масштаба сделки
-      (например, 10% от цены при широких warranty/indemnity):
-      отрази низкий уровень cap в cap_description, ставь LIAB4;
-      поясни в reason, что Target может не получить адекватную
-      компенсацию при существенном нарушении.
+    - Cap 100% цены, carve-out для fraud, gross negligence,
+      sanctions, IP, data breach:
+      * сбалансированная конструкция
+      * red_flags = "NONE"
 
-    - Cap на уровне 100% цены договора или 12-месячных платежей,
-      при этом fraud, gross negligence, санкции, IP и данные
-      выведены из-под cap:
-      воспринимай как сбалансированную конструкцию; риск
-      может быть medium или low; не ставь LIAB4/LIAB5, если
-      carve-out покрывает ключевые риски.
+    - Basket механика не уточнена:
+      * basket_type = "unclear"
+      * в reason: неопределённость механики
 
-    - Basket механика не уточнена (не ясно: tipping или deductible):
-      зафиксируй неопределённость в basket_description;
-      это не критично для риска, но влияет на оценку возмещаемости.
+    - Carve-out только для fraud, но не для sanctions / IP:
+      * has_key_carveouts = "partial"
+      * carveouts_summary = "fraud"
+      * red_flags может включать "LIAB5"
 
-    - De minimis установлен на высоком уровне (например, $500K
-      при цене контракта $2M):
-      отрази это как барьер для возмещения мелких и средних
-      нарушений; учитывай в overall_risk_level.
+    - Cap только для warranty, indemnity без cap:
+      * cap_description = "только warranty claims"
+      * в reason: частичный cap
 
-    - Carve-out только для fraud, но не для санкций, IP, данных:
-      зафиксируй частичный carve-out в carveouts_list;
-      рассмотри возможность LIAB5, если непокрытые категории
-      критичны для Target.
-
-    - Cap применяется только к warranty claims, а indemnity —
-      без cap:
-      отрази это в cap_description (указать, что cap частичный);
-      оценивай риск по совокупности обязательств.
-
-    - Ограничения применяются асимметрично (cap только для
-      контрагента, но не для Target):
-      зафиксируй дисбаланс в reason; учитывай в overall_risk_level.
-
-    - Пустые или явно нерелевантные фрагменты:
-      укажи, что данных недостаточно для анализа лимитов
-      ответственности и порогов. Поставь has_liability_cap = "unclear",
-      has_basket = "unclear", has_de_minimis = "unclear",
-      has_key_carveouts = "unclear", red_flags = "UNCLEAR",
-      overall_risk_level = "medium".
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * caps_display =
+        "Не удалось определить структуру ограничений"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны. Не генерируй JSON —
-    просто излагай выводы структурированно и однозначно.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "caps_display"
+      type: "string"
+      description: "Caps / basket / carve-out: краткий вывод"
+
     - name: "has_liability_cap"
       type: "string"
+      description: "Наличие лимита ответственности"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
+    - name: "cap_description"
+      type: "string"
+      description: "Размер и база cap"
+
+    - name: "has_basket"
+      type: "string"
+      description: "Наличие basket (агрегатный порог)"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "basket_type"
+      type: "string"
+      description: "Тип basket"
+      allowed_values:
+        - "tipping"
+        - "deductible"
+        - "not_applicable"
+        - "unclear"
+
     - name: "has_de_minimis"
       type: "string"
+      description: "Минимальный порог претензии"
       allowed_values:
         - "yes"
         - "no"
@@ -341,22 +398,25 @@ extraction:
 
     - name: "has_key_carveouts"
       type: "string"
+      description: "Carve-out для ключевых рисков"
       allowed_values:
         - "yes"
         - "no"
+        - "partial"
         - "unclear"
+
+    - name: "carveouts_summary"
+      type: "string"
+      description: "Перечень выведенных категорий рисков"
 
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "LIAB4"
-      description: "Отсутствие разумного cap при существенных обязательствах."
-    - code: "LIAB5"
-      description: "Отсутствие carve-out для ключевых высокорисковых категорий."
+      

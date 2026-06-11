@@ -384,6 +384,48 @@ class ExtractionConfig(BaseModel):
 # ────────────────────────── CHECK & PLAYBOOK ─────────────────────────
 
 
+class EnrichmentHints(BaseModel):
+    """
+    Optional semantic enrichment hints for a check definition.
+
+    Controls how legal-unit enrichment metadata influences retrieval
+    scoring and confidence calibration for this specific check.
+
+    All fields optional. Absence of this block = no change to base behaviour.
+
+    preferred_segment_types:
+        Segment types where evidence is most expected.
+        Chunks from these segments receive a soft retrieval boost.
+        Example: ["contract", "amendment"]
+
+    excluded_segment_types:
+        Segment types where evidence is unlikely or misleading.
+        Chunks from these segments receive a soft retrieval penalty.
+        Example: ["technical_specification", "price_list"]
+
+    preferred_clause_functions:
+        Clause functions relevant to this check (from enrichment sidecar).
+        When segment has these functions, retrieval boost is applied.
+        Example: ["confidentiality", "data_protection"]
+
+    confidence_bonus_on_match:
+        Float 0.0-1.0 added to confidence when semantic match occurs.
+        Applied when segment clause_functions intersect preferred_clause_functions.
+        Result is capped at 1.0.
+
+    confidence_penalty_on_excluded_segment:
+        Float 0.0-1.0 subtracted from confidence when evidence comes
+        from an excluded_segment_type.
+        Result is floored at 0.0.
+    """
+
+    preferred_segment_types: list[str] = Field(default_factory=list)
+    excluded_segment_types: list[str] = Field(default_factory=list)
+    preferred_clause_functions: list[str] = Field(default_factory=list)
+    confidence_bonus_on_match: float = Field(default=0.0, ge=0.0, le=1.0)
+    confidence_penalty_on_excluded_segment: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
 class CheckDefinition(BaseModel):
     """
     Описание одной проверки (check), с которой работает движок.
@@ -428,6 +470,11 @@ class CheckDefinition(BaseModel):
     retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
     conditional: ConditionalConfig | None = None
     extraction: ExtractionConfig | None = None
+
+    # Optional semantic enrichment hints.
+    # When present, influences retrieval scoring and confidence calibration.
+    # Absence = no change to base behaviour.
+    enrichment_hints: EnrichmentHints | None = None
 
 
 class PlaybookDefinition(BaseModel):

@@ -37,6 +37,9 @@ from db.repositories.run_repo import RunRepository
 from db.repositories.runner_repo import RunnerRepository
 from db.uow import db_uow
 from engine.checks.executor import CheckExecutor
+from engine.checks.enrichment_loader import load_enrichment_context_for_segment
+from engine.checks.semantic_context import SemanticEnrichmentContext  # noqa: F401
+from storage.artifact_store import ArtifactStore
 from engine.checks.planning.chunks import ChunksPreparer
 from engine.checks.planning.context import CheckContext, SegmentInfo
 from engine.checks.planning.planner import CheckPlanner
@@ -548,8 +551,25 @@ class CheckRunner:
                     segment_id=ctx.segment_id,
                 )
 
+                # ── Load semantic enrichment context for this segment ──────────
+                # Reads legal_units_enrichment_ref from segment_meta.
+                # Returns SemanticEnrichmentContext.unavailable() on any error:
+                # no exception propagates, pipeline degrades gracefully.
+                # ArtifactStore is synchronous — no await needed.
+                _artifact_store = ArtifactStore()
+                _semantic_context = load_enrichment_context_for_segment(
+                    document_id=doc_snap.document_id_str,
+                    segment=segment,
+                    artifact_store=_artifact_store,
+                )
+
                 for check in checks:
-                    exec_result = self.executor.execute(doc_snap, check, safe_chunks)
+                    exec_result = self.executor.execute(
+                        doc_snap,
+                        check,
+                        safe_chunks,
+                        semantic_context=_semantic_context,
+                    )
 
                     exec_result["segment_id"] = getattr(segment, "segment_id", None)
                     exec_result["segment_type"] = getattr(segment, "segment_type", None)

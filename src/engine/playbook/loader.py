@@ -55,6 +55,7 @@ from db.models.playbook import PlaybookVersion
 from .models import (
     CheckDefinition,
     DetectorType,
+    EnrichmentHints,
     ExtractionConfig,
     LLMConfig,
     PlaybookDefinition,
@@ -240,6 +241,17 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
         extra_keyword_groups = getattr(cfg, "keyword_groups", None) or {}
         rules = _build_rules_config(cfg.rules or {}, extra_keyword_groups)
 
+        # Parse enrichment_hints if present in compiled check config.
+        # getattr with None default: safe for configs that predate enrichment_hints.
+        _raw_enrichment_hints = getattr(cfg, "enrichment_hints", None)
+        _enrichment_hints: EnrichmentHints | None = None
+        if isinstance(_raw_enrichment_hints, dict) and _raw_enrichment_hints:
+            try:
+                _enrichment_hints = EnrichmentHints(**_raw_enrichment_hints)
+            except Exception:
+                # Malformed hints: degrade gracefully, do not block check loading.
+                _enrichment_hints = None
+
         checks.append(
             CheckDefinition(
                 id=cfg.id,
@@ -257,6 +269,7 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
                 llm=LLMConfig(**(cfg.llm or {})),
                 retrieval=RetrievalConfig(**(cfg.retrieval or {})),
                 extraction=ExtractionConfig(**(cfg.extraction or {})) if cfg.extraction else None,
+                enrichment_hints=_enrichment_hints,
             )
         )
 

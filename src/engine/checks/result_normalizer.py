@@ -101,6 +101,22 @@ def normalize_check_result(
         if rules_llm_decision:
             quality_flags["rules_llm_decision"] = rules_llm_decision
 
+        # ── Semantic enrichment quality flags ─────────────────────────────────
+        # Written when executor had semantic_context available.
+        # Absent when enrichment was not loaded (old behaviour preserved).
+        _sem_used = raw.get("semantic_enrichment_used")
+        if _sem_used is not None:
+            quality_flags["enrichment_used"] = bool(_sem_used)
+
+        _sem_seg_type = raw.get("semantic_segment_type")
+        if _sem_seg_type:
+            quality_flags["enrichment_segment_type"] = _sem_seg_type
+
+        _sem_clause_funcs = raw.get("semantic_clause_functions")
+        if _sem_clause_funcs:
+            quality_flags["enrichment_clause_functions"] = _sem_clause_funcs
+            quality_flags["enrichment_clause_match"] = True
+
         # Сохраняем raw целиком.
         # Это допустимо, потому что поле quality_flags в модели — JSONB.
         quality_flags["raw"] = raw

@@ -18,6 +18,8 @@ import DocumentsTab from "./tabs/DocumentsTab";
 import { RequestsTab } from "./tabs/RequestsTab";
 import { ReportTab } from "./tabs/ReportTab";
 import { AuditTab } from "./tabs/AuditTab";
+import CounterpartiesTab from "./tabs/CounterpartiesTab";
+import RealEstateTab from "./tabs/RealEstateTab";
 import SettingsTab from "./tabs/SettingsTab";
 import { useEnsureProjectRole } from "../hooks/useEnsureProjectRole";
 import { useDealPermissions } from "../hooks/usePermissions";
@@ -34,6 +36,8 @@ type TabKey =
   | "requests"
   | "report"
   | "audit"
+  | "counterparties"
+  | "real_estate"
   | "settings";
 
 const TAB_KEYS: TabKey[] = [
@@ -43,6 +47,8 @@ const TAB_KEYS: TabKey[] = [
   "requests",
   "report",
   "audit",
+  "counterparties",
+  "real_estate",
   "settings",
 ];
 
@@ -53,6 +59,8 @@ const TAB_LABELS: Record<TabKey, string> = {
   requests: "Запросы",
   report: "Отчёт",
   audit: "Аудит",
+  counterparties: "Контрагенты",
+  real_estate: "Имущество",
   settings: "Настройки",
 };
 
@@ -251,6 +259,18 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
       return <AuditTab dealId={deal.id} />;
     }
 
+    if (activeTab === "counterparties") {
+      return (
+        <CounterpartiesTab dealId={deal.id} currentRunId={currentRunId} />
+      );
+    }
+
+    if (activeTab === "real_estate") {
+      return (
+        <RealEstateTab dealId={deal.id} currentRunId={currentRunId} />
+      );
+    }
+
     return (
       <SettingsTab
         dealId={deal.id}
@@ -289,6 +309,12 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             className="flex h-full flex-col overflow-y-auto px-3 py-4"
             aria-label="Навигация по проекту"
           >
+            {/* ── Группа: Анализ документов по сделке ── */}
+            <div className="mb-1.5 px-3">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                Анализ документов по сделке
+              </span>
+            </div>
             <div className="space-y-1">
               <SidebarItem
                 label={TAB_LABELS.overview}
@@ -328,6 +354,39 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
               />
             </div>
 
+            {/* ── Группа: Анализ выявленных контрагентов ── */}
+            <div className="mt-5 border-t border-[var(--border)] pt-4">
+              <div className="mb-1.5 px-3">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  Анализ выявленных контрагентов
+                </span>
+              </div>
+              <SidebarItem
+                label="Контрагенты"
+                tabKey="counterparties"
+                activeTab={activeTab}
+                onSelect={handleSetTab}
+                badge="Скоро"
+              />
+            </div>
+
+            {/* ── Группа: Анализ выявленного недвижимого имущества ── */}
+            <div className="mt-5 border-t border-[var(--border)] pt-4">
+              <div className="mb-1.5 px-3">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  Анализ выявленного недвижимого имущества
+                </span>
+              </div>
+              <SidebarItem
+                label="Имущество"
+                tabKey="real_estate"
+                activeTab={activeTab}
+                onSelect={handleSetTab}
+                badge="Скоро"
+              />
+            </div>
+
+            {/* ── Настройки ── */}
             <div className="mt-5 border-t border-[var(--border)] pt-4">
               <SidebarItem
                 label={TAB_LABELS.settings}
@@ -408,6 +467,18 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                     onSelect={handleSetTab}
                   />
                   <MobileTab
+                    label={TAB_LABELS.counterparties}
+                    tabKey="counterparties"
+                    activeTab={activeTab}
+                    onSelect={handleSetTab}
+                  />
+                  <MobileTab
+                    label={TAB_LABELS.real_estate}
+                    tabKey="real_estate"
+                    activeTab={activeTab}
+                    onSelect={handleSetTab}
+                  />
+                  <MobileTab
                     label={TAB_LABELS.settings}
                     tabKey="settings"
                     activeTab={activeTab}
@@ -434,12 +505,17 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   );
 };
 
+// ---------------------------------------------------------------------------
+// SidebarItem
+// ---------------------------------------------------------------------------
+
 interface SidebarItemProps {
   label: string;
   tabKey: TabKey;
   activeTab: TabKey;
   onSelect: (tab: TabKey) => void;
   disabled?: boolean;
+  badge?: string;
 }
 
 const SidebarItem: React.FC<SidebarItemProps> = ({
@@ -448,6 +524,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
   activeTab,
   onSelect,
   disabled = false,
+  badge,
 }) => {
   const isActive = activeTab === tabKey;
 
@@ -463,6 +540,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
       aria-current={isActive ? "page" : undefined}
       className={[
         sidebarItemBaseClassName,
+        "flex items-center justify-between gap-2",
         disabled
           ? "cursor-not-allowed text-[var(--text-muted)] opacity-50"
           : isActive
@@ -470,10 +548,19 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
             : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
       ].join(" ")}
     >
-      {label}
+      <span className="truncate">{label}</span>
+      {badge && (
+        <span className="shrink-0 rounded-full bg-[var(--accent-primary)]/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--accent-primary)]">
+          {badge}
+        </span>
+      )}
     </button>
   );
 };
+
+// ---------------------------------------------------------------------------
+// MobileTab
+// ---------------------------------------------------------------------------
 
 interface MobileTabProps {
   label: string;
@@ -521,6 +608,7 @@ const MobileTab: React.FC<MobileTabProps> = ({
 };
 
 export default DealPage;
+
 
 
 

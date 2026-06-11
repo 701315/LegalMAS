@@ -2,10 +2,13 @@ id: "anti_corruption_and_related_parties"
 name: "Антикоррупция и сделки с аффилированными лицами"
 description: >
   Анализирует антикоррупционные положения (запрет взяток, откатов,
-  неподобающих подарков/hospitality, ссылки на FCPA/UK Bribery Act,
-  кодексы этики, права аудита, whistleblowing) и регулирование сделок
-  с аффилированными лицами (раскрытие, arm's length, корпоративные
-  одобрения). Оценивает комплаенс-зрелость и риски конфликтов интересов.
+  неподобающих подарков / hospitality, ссылки на FCPA / UK Bribery
+  Act / ФЗ-273, кодексы этики, права аудита, whistleblowing) и
+  регулирование сделок с аффилированными лицами (раскрытие,
+  arm's length, корпоративные одобрения).
+
+  Формирует краткий user-facing вывод и оценивает комплаенс-зрелость
+  и риски конфликтов интересов.
 
 doc_types: []
 
@@ -15,6 +18,7 @@ severity_if_pass: "pass"
 severity_if_unclear: "medium"
 
 detector_type: "hybrid"
+ui_mode: "field_extraction"
 
 rules:
   keyword_mode: any
@@ -57,13 +61,13 @@ rules:
 
       # Корпоративные одобрения заинтересованных сделок
       - "(?i)board\\s+(of\\s+directors\\s+)?approval\\s+[\\s\\S]{0,40}(related|interested|affiliate)"
-      - "(?i)одобрени[ея]\\s+[\\s\\S]{0,40}(совет[оа]?\\s+директор|собрани[яем]\\s+участник)"
+      - "(?i)одобрени[ея]\\s+[\\s\\S]{0,40}(совет[оа]?\\s+директор|собрани[яем]\\s+участник)[\\s\\S]{0,40}(аффилированн|заинтересован)"
       - "(?i)(related|interested)\\s+party\\s+transaction\\s+[\\s\\S]{0,40}approv"
       - "(?i)заинтересованн[а-я]+\\s+сделк[аи]\\s+[\\s\\S]{0,40}одобрен"
       - "(?i)independent\\s+director\\s+approval"
 
     medium:
-      # Антикоррупция — общие термины
+      # Антикоррупция — термины
       - "(?i)bribe"
       - "(?i)bribery"
       - "(?i)kickback"
@@ -71,14 +75,12 @@ rules:
       - "(?i)взятк[аи]"
       - "(?i)откат[ыа]?"
       - "(?i)коррупц[ия]"
-      - "(?i)corruption"
 
       # Подарки и hospitality
       - "(?i)gift[s]?\\s+(and\\s+)?hospitalit(y|ies)"
       - "(?i)подарк[иов]\\s+(и\\s+)?гостеприимств"
       - "(?i)improper\\s+(gift|payment|benefit)"
       - "(?i)facilitation\\s+payment"
-      - "(?i)grease\\s+payment"
 
       # Код этики / политики
       - "(?i)code\\s+of\\s+conduct"
@@ -90,10 +92,10 @@ rules:
 
       # Whistleblowing
       - "(?i)whistleblow(ing|er)"
-      - "(?i)сообщ[а-я]+\\s+о\\s+нарушени[яих]"
       - "(?i)hotline"
       - "(?i)горяч[а-я]+\\s+лини[яи]"
       - "(?i)report(ing)?\\s+(suspected\\s+)?violation"
+      - "(?i)сообщ[а-я]+\\s+о\\s+нарушени[яих]"
 
       # Related party / affiliate transactions
       - "(?i)related\\s+party\\s+transaction"
@@ -103,35 +105,21 @@ rules:
       - "(?i)сделк[аи]\\s+с\\s+заинтересованност"
       - "(?i)заинтересованн[а-я]+\\s+сделк"
 
-      # Раскрытие / disclosure
+      # Раскрытие
       - "(?i)disclos(e|ure)\\s+[\\s\\S]{0,30}(related|affiliate|interested)"
       - "(?i)раскры[тв][а-я]+\\s+[\\s\\S]{0,30}(аффилированн|заинтересован)"
 
     low:
-      # Общие compliance-термины
-      - "(?i)compliance"
-      - "(?i)комплаенс"
-      - "(?i)соблюдени[ея]\\s+(применим[а-я]+\\s+)?законодательств"
-      - "(?i)applicable\\s+law"
-      - "(?i)применим[оеа]+\\s+законодательств"
-
-      # Общие ссылки на аффилированность
-      - "(?i)affiliate"
-      - "(?i)related\\s+party"
-      - "(?i)аффилированн[а-я]+\\s+лиц"
-      - "(?i)связанн[а-я]+\\s+сторон"
-
-      # Общие ссылки на одобрения
-      - "(?i)approval"
-      - "(?i)одобрени[ея]"
-      - "(?i)consent"
-      - "(?i)согласи[ея]"
-
-      # Общие ссылки на аудит/проверки
-      - "(?i)audit"
-      - "(?i)аудит"
-      - "(?i)inspection"
-      - "(?i)проверк[аи]"
+      - "(?i)anti[-\\s]?corruption"
+      - "(?i)anti[-\\s]?bribery"
+      - "(?i)FCPA"
+      - "(?i)UK\\s+Bribery\\s+Act"
+      - "(?i)code\\s+of\\s+conduct"
+      - "(?i)whistleblow"
+      - "(?i)related\\s+party\\s+transaction"
+      - "(?i)arm['']?s[-\\s]?length"
+      - "(?i)антикоррупц"
+      - "(?i)кодекс\\s+этик"
 
   regex_patterns: []
   clause_patterns: []
@@ -164,9 +152,11 @@ retrieval:
     - "code of ethics"
     - "кодекс этики"
     - "compliance policy"
+    - "антикоррупционная политика"
     - "audit rights"
     - "право на аудит"
     - "whistleblowing"
+    - "hotline"
     - "related party transaction"
     - "affiliate transaction"
     - "заинтересованная сделка"
@@ -180,222 +170,241 @@ retrieval:
 
 conditional: null
 
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "annex"
+    - "appendix"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+    - "schedule"
+  preferred_clause_functions:
+    - "representations_warranties"
+    - "general_provisions"
+    - "confidentiality"
+  confidence_bonus_on_match: 0.08
+  confidence_penalty_on_excluded_segment: 0.15
+
 extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 440
   llm_prompt_extraction: |
     <role>
     Ты — юрист по комплаенсу и корпоративному праву.
-    Твоя специализация — антикоррупционные политики (FCPA, UK Bribery Act,
-    российское антикоррупционное законодательство), кодексы этики,
-    корпоративное управление и контроль сделок с аффилированными лицами
-    (related party transactions).
+    Твоя задача — точно извлечь из текста:
+    1) наличие антикоррупционных положений;
+    2) ссылки на кодексы этики и политики;
+    3) права аудита комплаенса;
+    4) механизмы whistleblowing;
+    5) регулирование сделок с аффилированными лицами.
     </role>
 
     <context>
-    Ниже приведены фрагменты договора и/или политик с возможными
-    антикоррупционными положениями и регулированием сделок
-    с аффилированными лицами:
+    Ниже приведены релевантные фрагменты договора:
 
     {context}
     </context>
 
-    <instructions>
-    Проведи анализ по шагам. Каждый шаг логически соответствует одному
-    или нескольким полям итоговой оценки риска.
+    <task>
+    Заполни только следующие поля:
+    - anti_corruption_display
+    - has_anti_corruption_clauses
+    - has_code_of_conduct_reference
+    - has_audit_rights
+    - has_whistleblowing_mechanism
+    - has_related_party_regulation
+    - requires_arms_length
+    - requires_corporate_approvals
+    - red_flags
+    - reason
 
-    Шаг 1 — НАЛИЧИЕ АНТИКОРРУПЦИОННЫХ ПОЛОЖЕНИЙ
-    (используется для заполнения поля "has_anti_corruption_clauses"):
-    - Определи, есть ли в тексте специальные антикоррупционные нормы:
-      * прямые запреты взяток, откатов, коррупционных платежей,
-        неподобающих подарков и hospitality;
-      * запрет facilitation/grease payments;
-      * запрет платежей госслужащим/чиновникам вне рамок закона;
-      * ссылки на FCPA, UK Bribery Act, ФЗ-273 и аналогичные законы;
-      * representations/warranties о соблюдении антикоррупционного
-        законодательства.
-    - Не считай достаточным общие фразы "соблюдать применимое
-      законодательство" без конкретики по антикоррупции.
-    - Если специальные антикоррупционные нормы явно есть — вывод "yes".
-    - Если их нет — вывод "no".
-    - Если формулировки общие/декларативные — вывод "unclear".
+    Важно:
+    - не считай достаточным общие фразы "соблюдать применимое
+      законодательство" без конкретики по антикоррупции;
+    - пиши user-facing значения коротко и по-русски.
+    </task>
+
+    <instructions>
+    Шаг 1 — АНТИКОРРУПЦИОННЫЕ ПОЛОЖЕНИЯ
+
+    Заполни поле "has_anti_corruption_clauses".
+
+    Значения:
+    - "yes" — явные антикоррупционные нормы:
+      * прямые запреты взяток, откатов, коррупционных платежей;
+      * ссылки на FCPA, UK Bribery Act, ФЗ-273;
+      * representations о соблюдении антикоррупционного
+        законодательства с конкретикой.
+    - "no" — нет.
+    - "unclear" — только общие декларативные формулировки
+      "соблюдать законодательство" без конкретики по взяткам.
 
     Шаг 2 — КОДЕКСЫ ЭТИКИ И ПОЛИТИКИ
-    (используется для заполнения поля "has_code_of_conduct_reference"):
-    - Определи, упоминаются ли:
-      * code of conduct / code of ethics;
-      * ethics & compliance policy;
-      * антикоррупционная политика группы / компании;
-      * обязательство контрагента соблюдать политики Target
-        (или наоборот).
-    - Если такие ссылки есть — вывод "yes".
-    - Если нет — вывод "no".
-    - Если неясно — вывод "unclear".
 
-    Шаг 3 — ПРАВА НА АУДИТ И ПРОВЕРКИ КОМПЛАЕНСА
-    (используется для заполнения поля "has_audit_rights"):
-    - Определи, предоставляют ли положения:
-      * право одной из сторон проводить аудит соблюдения
-        антикоррупционных требований;
-      * право инспектировать документы, записи, требовать
-        отчётности или сертификатов комплаенса;
-      * право привлекать третьих лиц для проверки.
-    - Если такие права явно прописаны — вывод "yes".
-    - Если нет — вывод "no".
-    - Если неясно — вывод "unclear".
+    Заполни поле "has_code_of_conduct_reference".
 
-    Шаг 4 — WHISTLEBLOWING / СООБЩЕНИЕ О НАРУШЕНИЯХ
-    (используется для заполнения поля "has_whistleblowing_mechanism"):
-    - Определи, упоминаются ли:
-      * механизмы сообщения о нарушениях (hotline, горячая линия);
-      * защита информаторов (whistleblower protection);
-      * обязанность сообщать о подозрительных действиях.
-    - Если такие механизмы есть — вывод "yes".
-    - Если нет — вывод "no".
-    - Если неясно — вывод "unclear".
+    Значения:
+    - "yes" — упоминается code of conduct / code of ethics /
+      антикоррупционная политика с обязательством соблюдения.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 3 — ПРАВА АУДИТА КОМПЛАЕНСА
+
+    Заполни поле "has_audit_rights".
+
+    Значения:
+    - "yes" — явное право проводить аудит соблюдения
+      антикоррупционных требований / инспектировать
+      документы / требовать отчётности.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 4 — WHISTLEBLOWING
+
+    Заполни поле "has_whistleblowing_mechanism".
+
+    Значения:
+    - "yes" — есть: hotline, механизм сообщения о нарушениях,
+      защита информаторов.
+    - "no" — нет.
+    - "unclear" — неясно.
 
     Шаг 5 — РЕГУЛИРОВАНИЕ СДЕЛОК С АФФИЛИРОВАННЫМИ ЛИЦАМИ
-    (используется для заполнения поля "has_related_party_regulation"):
-    - Определи, есть ли специальные правила для:
-      * related party / affiliate / interested party transactions;
-      * раскрытия таких сделок (disclosure requirements);
-      * ограничений или запретов на определённые виды сделок
-        с аффилированными лицами.
-    - Если такое регулирование есть — вывод "yes".
-    - Если нет — вывод "no".
-    - Если неясно — вывод "unclear".
 
-    Шаг 6 — ТРЕБОВАНИЯ ARM'S LENGTH
-    (используется для заполнения поля "requires_arms_length"):
-    - Определи, есть ли прямые требования, что сделки
-      с аффилированными лицами должны заключаться:
-      * на рыночных условиях (arm's length, on market terms,
-        fair market value);
-      * с применением рыночного ценообразования.
-    - Если такие требования есть — вывод "yes".
-    - Если нет — вывод "no".
-    - Если неясно — вывод "unclear".
+    Заполни поле "has_related_party_regulation".
+
+    Значения:
+    - "yes" — специальные правила для related party / affiliate /
+      interested party transactions: disclosure, ограничения,
+      запреты.
+    - "no" — нет.
+    - "unclear" — неясно.
+
+    Шаг 6 — ТРЕБОВАНИЕ ARM'S LENGTH
+
+    Заполни поле "requires_arms_length".
+
+    Значения:
+    - "yes" — сделки с аффилированными лицами должны быть
+      на рыночных условиях (arm's length, fair market value).
+    - "no" — нет.
+    - "unclear" — неясно.
 
     Шаг 7 — КОРПОРАТИВНЫЕ ОДОБРЕНИЯ
-    (используется для заполнения поля "requires_corporate_approvals"):
-    - Определи, упоминается ли необходимость:
-      * одобрения органами управления (board of directors,
-        совет директоров, собрание участников/акционеров);
-      * одобрения независимыми директорами;
-      * следования корпоративным процедурам согласования
-        related party / interested party transactions.
-    - Если такие требования есть — вывод "yes".
-    - Если нет — вывод "no".
-    - Если неясно — вывод "unclear".
+
+    Заполни поле "requires_corporate_approvals".
+
+    Значения:
+    - "yes" — требуется одобрение СД / ОСА / независимых
+      директоров для related party transactions.
+    - "no" — нет.
+    - "unclear" — неясно.
 
     Шаг 8 — RED FLAGS
-    (используется для заполнения поля "red_flags"):
-    - Оцени наличие следующих рисковых факторов:
 
-      * «COMPL1» — Слабые или отсутствующие антикоррупционные
-        положения при очевидном комплаенс-риск профиле. Признаки:
-        - has_anti_corruption_clauses = "no" или "unclear";
-        - нет ссылок на FCPA/UK Bribery Act/ФЗ-273;
-        - нет конкретных запретов взяток/откатов;
-        - нет прав аудита комплаенса;
-        - при этом контекст предполагает взаимодействие с госсектором,
-          международные операции или высокорисковые юрисдикции.
+    Заполни поле "red_flags".
 
-      * «COMPL2» — Отсутствие контроля за сделками с аффилированными
-        лицами. Признаки:
-        - has_related_party_regulation = "no";
-        - requires_arms_length = "no";
-        - requires_corporate_approvals = "no";
-        - при этом контекст предполагает наличие аффилированных лиц
-          или групповую структуру.
+    Используй:
+    - "NONE" — антикоррупционные положения развёрнутые
+      (конкретные запреты, ссылки на законы, права аудита,
+      code of conduct) И related party transactions
+      регулируются.
+    - "UNCLEAR" — данных недостаточно.
+    - Коды через запятую:
+      * COMPL1 — слабые или отсутствующие антикоррупционные
+        положения при очевидном комплаенс-риске:
+        нет конкретных запретов, нет ссылок на законы,
+        нет прав аудита.
+      * COMPL2 — нет контроля за сделками с аффилированными
+        лицами: нет regulation, нет arm's length, нет
+        корпоративных одобрений при групповой структуре.
+      * COMPL3 — формальные / декларативные антикоррупционные
+        положения без механизмов контроля:
+        общие representations без прав аудита и code of conduct.
 
-      * «COMPL3» — Формальные/декларативные антикоррупционные
-        положения без механизмов контроля. Признаки:
-        - есть общие representations "соблюдаем законодательство",
-          но нет конкретных запретов, прав аудита, code of conduct;
-        - has_anti_corruption_clauses = "unclear" при отсутствии
-          has_audit_rights = "yes" и has_code_of_conduct_reference = "yes".
+    Шаг 9 — USER-FACING SUMMARY
 
-    - Если антикоррупционные положения развёрнутые (конкретные
-      запреты, ссылки на законы, права аудита, code of conduct)
-      И сделки с аффилированными лицами регулируются (disclosure,
-      arm's length, approvals) — верни "NONE".
-    - Если данных недостаточно для оценки или текст противоречив —
-      верни "UNCLEAR".
-    - Формат: один или несколько кодов через запятую
-      ("COMPL1", "COMPL2", "COMPL1, COMPL2, COMPL3"),
-      "NONE" или "UNCLEAR".
-      Без комментариев в этом поле — всё объясняющее в reason.
+    Заполни поле "anti_corruption_display".
 
-    Шаг 9 — ОБОСНОВАНИЕ
-    (используется для заполнения поля "reason"):
+    Примеры:
+    - "Антикоррупционные положения есть (FCPA / UK Bribery Act);
+       код этики; аудит; related party на рыночных условиях"
+    - "Антикоррупционные положения декларативные; нет аудита;
+       нет контроля related party"
+    - "Антикоррупционных положений нет; нет контроля
+       аффилированных сделок"
+    - "Не удалось определить антикоррупционный комплаенс"
 
-    - В "reason" кратко обоснуй вывод:
-      * ссылайся на ключевые формулировки (по возможности
-        с короткими цитатами);
-      * поясни, как структура положений влияет на комплаенс-риски
-        и риски конфликтов интересов для Target;
-      * если выставлены red_flags — объясни, почему именно эти коды.
+    Правила:
+    - Отрази максимум 3–4 ключевых факта через ";".
+    - Если всё unclear:
+      "Не удалось определить антикоррупционный комплаенс"
+
+    Шаг 10 — ОБОСНОВАНИЕ
+
+    Заполни поле "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: ключевые положения, ссылки на законы, права аудита,
+      related party regulation, почему red_flags.
+    - Приведи короткую цитату в кавычках.
+    - Если NONE — почему комплаенс-конфигурация сильная.
     </instructions>
 
     <edge_cases>
-    Обрабатывай пограничные ситуации так:
+    - "Компания соблюдает применимое законодательство"
+      без конкретики по взяткам:
+      * has_anti_corruption_clauses = "unclear"
+      * red_flags включает "COMPL3"
 
-    - Антикоррупционные положения минимальны или декларативны
-      (общие фразы "соблюдать применимое законодательство"
-      без конкретики по взяткам/откатам):
-      has_anti_corruption_clauses = "unclear";
-      фиксируй как фактор повышения риска; рассматривай COMPL3.
+    - Развитый anti-bribery раздел + FCPA + code of conduct
+      + audit rights + whistleblowing:
+      * has_anti_corruption_clauses = "yes"
+      * red_flags = "NONE"
 
-    - Есть развитый anti-bribery раздел, ссылка на FCPA/UK Bribery Act,
-      code of conduct, права аудита, whistleblowing hotline:
-      воспринимай как сильную комплаенс-конфигурацию;
-      has_anti_corruption_clauses = "yes", has_code_of_conduct_reference = "yes",
-      has_audit_rights = "yes", has_whistleblowing_mechanism = "yes";
-      overall_risk_level может быть "low" при адекватном
-      регулировании related party transactions.
+    - Нет упоминаний related party, arm's length, одобрений
+      при групповой структуре:
+      * has_related_party_regulation = "no"
+      * red_flags включает "COMPL2"
 
-    - По сделкам с аффилированными лицами нет упоминаний раскрытия,
-      arm's length, корпоративных одобрений:
-      has_related_party_regulation = "no", requires_arms_length = "no",
-      requires_corporate_approvals = "no";
-      ставь COMPL2, особенно если контекст предполагает
-      групповую структуру или известных аффилированных лиц.
+    - Только representations "соблюдаем антикоррупционный закон"
+      без механизмов аудита / контроля:
+      * has_anti_corruption_clauses = "unclear"
+      * has_audit_rights = "no"
+      * red_flags включает "COMPL3"
 
-    - Есть только representations "Сторона соблюдает
-      антикоррупционное законодательство", но нет механизмов
-      аудита/контроля/конкретных запретов:
-      has_anti_corruption_clauses = "unclear";
-      has_audit_rights = "no";
-      рассматривай COMPL3.
+    - Code of conduct упомянут, но не детализирован:
+      * has_code_of_conduct_reference = "yes"
+      * в reason: содержание политики неизвестно
 
-    - Договор содержит обязательства по compliance для Target,
-      но не для контрагента (односторонние):
-      отрази этот дисбаланс в reason; это может влиять на
-      overall_risk_level.
-
-    - Code of conduct упомянут, но не приложен и не детализирован:
-      has_code_of_conduct_reference = "yes", но отметь в reason,
-      что содержание политики неизвестно.
-
-    - Пустые или явно нерелевантные фрагменты:
-      укажи, что данных недостаточно для анализа антикоррупционных
-      положений и регулирования сделок с аффилированными лицами.
-      Поставь все поля в "unclear", red_flags = "UNCLEAR",
-      overall_risk_level = "medium".
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * red_flags = "UNCLEAR"
+      * anti_corruption_display =
+        "Не удалось определить антикоррупционный комплаенс"
     </edge_cases>
 
     <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны. Не генерируй JSON —
-    просто излагай выводы структурированно и однозначно.
+    Все значения должны быть короткими, точными и пригодными
+    для отображения пользователю в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
-  enabled: true
-  mode: "hybrid"
   fields:
+    - name: "anti_corruption_display"
+      type: "string"
+      description: "Антикоррупция и related party: краткий вывод"
+
     - name: "has_anti_corruption_clauses"
       type: "string"
+      description: "Антикоррупционные положения"
       allowed_values:
         - "yes"
         - "no"
@@ -403,6 +412,7 @@ extraction:
 
     - name: "has_code_of_conduct_reference"
       type: "string"
+      description: "Код этики / антикоррупционная политика"
       allowed_values:
         - "yes"
         - "no"
@@ -410,6 +420,7 @@ extraction:
 
     - name: "has_audit_rights"
       type: "string"
+      description: "Права аудита комплаенса"
       allowed_values:
         - "yes"
         - "no"
@@ -417,6 +428,7 @@ extraction:
 
     - name: "has_whistleblowing_mechanism"
       type: "string"
+      description: "Механизм whistleblowing"
       allowed_values:
         - "yes"
         - "no"
@@ -424,6 +436,7 @@ extraction:
 
     - name: "has_related_party_regulation"
       type: "string"
+      description: "Регулирование related party transactions"
       allowed_values:
         - "yes"
         - "no"
@@ -431,6 +444,7 @@ extraction:
 
     - name: "requires_arms_length"
       type: "string"
+      description: "Требование arm's length"
       allowed_values:
         - "yes"
         - "no"
@@ -438,6 +452,7 @@ extraction:
 
     - name: "requires_corporate_approvals"
       type: "string"
+      description: "Корпоративные одобрения для related party"
       allowed_values:
         - "yes"
         - "no"
@@ -445,17 +460,12 @@ extraction:
 
     - name: "red_flags"
       type: "string"
+      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      description: "Обоснование"
 
   store_payload: true
 
-red_flags:
-  items:
-    - code: "COMPL1"
-      description: "Слабые или отсутствующие антикоррупционные положения."
-    - code: "COMPL2"
-      description: "Отсутствие контроля за сделками с аффилированными лицами."
-    - code: "COMPL3"
-      description: "Формальные антикоррупционные положения без механизмов контроля."
+  
