@@ -1,0 +1,2354 @@
+type: contract_2.6_gratuitous_use
+name: "Договор безвозмездного пользования"
+
+description: |
+  Договор, по которому ссудодатель передает ссудополучателю индивидуально-определённую вещь 
+  в безвозмездное временное пользование с обязательством вернуть её в том же состоянии 
+  (с учётом нормального износа). Регулируется Главой 36 ГК РФ (ст. 689-701).
+  
+  Ключевые особенности:
+  - Полное ОТСУТСТВИЕ платы за пользование (иначе — аренда)
+  - ВСЕ расходы на содержание и ремонт (текущий И капитальный) несёт ссудополучатель
+  - ЗАПРЕТ передачи аффилированным лицам коммерческих организаций (ст. 690 п.2 ГК РФ)
+  - НАЛОГОВЫЕ РИСКИ: ссудополучатель-юрлицо признаёт внереализационный доход (ст. 250 НК РФ)
+  - Риск случайной гибели по умолчанию на ссудодателе, но переходит при нарушениях
+
+version: 4.0
+parent: class_2_transfer_for_use
+
+metadata:
+  category: contract
+  subcategory: use_transfer
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "Глава 36 ГК РФ (ст. 689-701), НК РФ ст. 250"
+  doc_types_supported:
+    - "договор безвозмездного пользования имуществом"
+    - "договор ссуды оборудования"
+    - "договор ссуды транспортного средства"
+    - "договор ссуды недвижимости"
+    - "договор безвозмездного пользования помещением"
+    - "соглашение о бесплатном пользовании"
+    - "договор безвозмездного пользования"
+    - "договор ссуды"
+    - "договор передачи имущества в безвозмездное пользование"
+    - "договор безвозмездного пользования имуществом"
+    - "договор безвозмездного пользования помещением"
+    - "договор безвозмездного пользования недвижимостью"
+    - "договор безвозмездного пользования оборудованием"
+    - "договор безвозмездного пользования транспортным средством"
+    - "договор ссуды недвижимости"
+    - "договор ссуды оборудования"
+    - "договор ссуды транспортного средства"
+    - "соглашение о безвозмездном пользовании"
+    - "соглашение о бесплатном пользовании"
+
+    - "gratuitous use agreement"
+    - "loan for use agreement"
+    - "agreement for free use of property"
+    - "commodatum"
+    - "gratuitous bailment"
+    - "free use agreement"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
+  rules:
+
+    filename_patterns:
+      # Русский — явные договоры безвозмездного пользования / ссуды
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое название: договор безвозмездного пользования
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия][_\\s-]*имуществом?"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия][_\\s-]*помещени[яия]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия][_\\s-]*недвижимост[иьи]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия][_\\s-]*оборудовани[яия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия][_\\s-]*транспортн[а-я\\s]*средств[ао]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*ссуд[ыы]"
+        kind: specific_subject
+        weight: 0.98
+        # Договор ссуды
+
+      - pattern: "(?i)ссуд[аы][_\\s-]*имуществ[ао]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)ссуд[аы][_\\s-]*недвижимост[иьи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)ссуд[аы][_\\s-]*оборудовани[яия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)ссуд[аы][_\\s-]*транспортн[а-я\\s]*средств[ао]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*передач[ии][_\\s-]*имуществ[ао][_\\s-]*в[_\\s-]*безвозмездн[оеое][_\\s-]*пользовани[ею]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)соглашени[ея][_\\s-]*о[_\\s-]*безвозмездн[омым][_\\s-]*пользовани[иия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[ея][_\\s-]*о[_\\s-]*бесплатн[омым][_\\s-]*пользовани[иия]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)безвозмездн[оеаяы][_\\s-]*пользовани[еия]"
+        kind: specific_subject
+        weight: 0.9
+        # Свободная форма "безвозмездное пользование" в имени файла
+
+      - pattern: "(?i)бесплатн[оеаяы][_\\s-]*пользовани[еия]"
+        kind: specific_subject
+        weight: 0.85
+
+      - pattern: "(?i)ссудн[а-я]*[_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+
+      # Английский — gratuitous use / loan for use / commodatum
+
+      - pattern: "(?i)gratuitous[_\\s-]*use[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)free[_\\s-]*use[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)agreement[_\\s-]*for[_\\s-]*free[_\\s-]*use[_\\s-]*of[_\\s-]*propert[y|ies]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)loan[_\\s-]*for[_\\s-]*use[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)gratuitous[_\\s-]*bailment"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)commodatum"
+        kind: specific_subject
+        weight: 0.9
+        # commodatum как латинский термин договора ссуды/безвозмездного пользования
+
+      # Более общие "free use/loan" — как generic/context, чтобы не ловить все free-политики
+
+      - pattern: "(?i)gratuitous[_\\s-]*use"
+        kind: generic_form
+        weight: 0.6
+        # Если нет слова agreement/contract, оставляем как форму
+
+      - pattern: "(?i)free[_\\s-]*use"
+        kind: generic_form
+        weight: 0.5
+
+      - pattern: "(?i)free[_\\s-]*loan"
+        kind: generic_form
+        weight: 0.5
+        # Может быть и про финансовый "беспроцентный заём", а не пользование вещью
+
+    folder_patterns:
+      - pattern: "(?i)ссуда"
+        kind: specific_subject
+        weight: 0.8
+        # Папка с договорами ссуды / безвозмездного пользования
+
+      - pattern: "(?i)безвозмездн"
+        kind: specific_subject
+        weight: 0.8
+        # Папка "безвозмездное пользование" / "безвозмездные договоры"
+
+      - pattern: "(?i)бесплатн[оеаяы]"
+        kind: specific_subject
+        weight: 0.75
+        # Папка "бесплатное пользование" и т.п.
+
+      - pattern: "(?i)free[_\\s-]*use"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)gratuitous"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)loan[_\\s-]*for[_\\s-]*use"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)commodatum"
+        kind: specific_subject
+        weight: 0.75
+
+    keywords:
+
+      high:
+        - pattern: "(?i)безвозмездн[оеая]\\s+пользован[иеия]"
+          weight: 1.0
+          distinctiveness: high
+          context: any
+          description: "Ключевая формула безвозмездного пользования"
+
+        - pattern: "(?i)договор\\s+безвозмездн[огоой]\\s+пользован[ияия]\\s+имуществ[ома]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название договора безвозмездного пользования имуществом"
+
+        - pattern: "(?i)договор\\s+ссуд[ыыу]\\s+оборудован[ияи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Ссуда оборудования — разновидность безвозмездного пользования"
+
+        - pattern: "(?i)договор\\s+ссуд[ыыу]\\s+транспортн[огоое\\s]*средств[ао]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Ссуда транспортного средства"
+
+        - pattern: "(?i)договор\\s+ссуд[ыыу]\\s+недвижимост[иью]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Ссуда недвижимости / помещения"
+
+        - pattern: "(?i)договор\\s+безвозмездн[огоой]\\s+пользован[ияия]\\s+помещен[иемия]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Безвозмездное пользование помещением"
+
+        - pattern: "(?i)соглашен[иея]\\s+о\\s+бесплатн[омой]\\s+пользован[ииии]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Соглашение о бесплатном пользовании — прямой синоним конструкции ссуды"
+
+        - pattern: "(?i)ссуд[аыу]\\s+имуществ[ао]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Упоминание договора ссуды имущества"
+
+        - pattern: "(?i)ссудодател[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Ссудодатель — ключевой участник по Главе 36 ГК РФ"
+
+        - pattern: "(?i)ссудополучател[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Ссудополучатель — ключевой участник по Главе 36 ГК РФ"
+
+        - pattern: "(?i)бесплатн[оаяые]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Явное указание на бесплатный характер пользования"
+
+        - pattern: "(?i)без\\s+взиман[ияию]\\s+плат[ыуы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Прямой запрет взимания платы за пользование"
+
+        - pattern: "(?i)вернуть\\s+ту\\s+же\\s+вещ[ьию]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Обязанность вернуть ту же вещь в том же состоянии (с учётом износа)"
+
+      medium:
+        - pattern: "(?i)нормальн[ыо]й\\s+износ"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Нормальный износ — ключевая категория по Гл. 36 ГК РФ"
+
+        - pattern: "(?i)расход[ыо]\\s+на\\s+содержани[ея]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Расходы на содержание предмета — обычно возлагаются на ссудополучателя"
+
+        - pattern: "(?i)текущ[иоя]+\\s+и\\s+капитальн[ыо]й\\s+ремонт"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Текущий и капитальный ремонт за счёт ссудополучателя"
+
+        - pattern: "(?i)риск\\s+случайн[оа]й\\s+гибел[ии]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Распределение риска случайной гибели предмета"
+
+        - pattern: "(?i)передать\\s+безвозмездно"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Безвозмездная передача вещи во временное пользование"
+
+        - pattern: "(?i)в\\s+том\\s+же\\s+состояни[ии]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Обязанность возврата в том же состоянии"
+
+        - pattern: "(?i)временн[оа]е\\s+пользовани[ея]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Указание на временный характер пользования"
+
+      low:
+        - pattern: "(?i)\\bоборудовани[ея]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Оборудование как возможный предмет ссуды"
+
+        - pattern: "(?i)транспортн[оеая]\\s+средств[оа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Транспортное средство как возможный предмет ссуды"
+
+        - pattern: "(?i)\\bпомещени[ея]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Помещение как возможный предмет безвозмездного пользования"
+
+        - pattern: "(?i)внереализационн[ыо]й\\s+доход"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Налоговый эффект у ссудополучателя-юрлица (ст. 250 НК РФ)"
+
+        - pattern: "(?i)рыночн[а-яё]+\\s+стоимост[ьи]\\s+аренд[ыы]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Оценка рыночной стоимости аренды для налоговых целей"
+
+        - pattern: "(?i)аффилированн[ыо]е\\s+лиц[аа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Упоминание аффилированных лиц — важно для запрета ст. 690 ГК РФ"
+
+    exclusions:
+      - pattern: "(?i)арендн[а-яё]+\\s+плат[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Наличие арендной платы означает возмездный характер (аренда, не ссуда)"
+
+      - pattern: "(?i)ежемесячн[ыо]й\\s+плат[её]ж"
+        severity: hard
+        weight: -1.0
+        description: "Регулярные платежи за пользование характерны для аренды/лизинга, не ссуды"
+
+      - pattern: "(?i)плат[аа]\\s+за\\s+пользовани[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Любая плата за пользование исключает безвозмездный характер договора"
+
+      - pattern: "(?i)за[её]м\\s+денежн[ыо]х\\s+средств"
+        severity: hard
+        weight: -1.0
+        description: "Договор займа денежных средств — иной тип обязательства"
+
+      - pattern: "(?i)денежн[а-яё]+\\s+ссуд[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Денежная ссуда — договор займа, не безвозмездное пользование вещью"
+
+      - pattern: "(?i)переходит\\s+в\\s+собственност[ььи]"
+        severity: hard
+        weight: -1.0
+        description: "Переход в собственность указывает на дарение или куплю-продажу, а не ссуду"
+
+      - pattern: "(?i)\\bдарени[ея]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Дарение — безвозмездная передача в собственность, не временное пользование"
+
+      - pattern: "(?i)безвозмездн[а-яё]+\\s+передач[аа]\\s+в\\s+собственност[ььи]"
+        severity: hard
+        weight: -1.0
+        description: "Безвозмездная передача в собственность — дарение, не договор ссуды"
+
+      # ── Soft exclusions
+
+      - pattern: "(?i)договор\\s+аренд[ыыу]"
+        severity: soft
+        weight: -0.35
+        description: "Прямое упоминание договора аренды рядом с безвозмездным пользованием"
+
+      - pattern: "(?i)лизинг[ауы]?"
+        severity: soft
+        weight: -0.4
+        description: "Упоминание лизинга указывает на финансовую аренду, а не ссуду"
+
+      - pattern: "(?i)плат[ауы]\\s+за\\s+на[её]м"
+        severity: soft
+        weight: -0.35
+        description: "Плата за найм жилья тянет к договору жилищного найма (contract_2.5_residential_lease)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  corporate_lender:
+    any_keywords:
+      - "(?i)\\bООО\\b"
+      - "(?i)\\bАО\\b"
+      - "(?i)\\bПАО\\b"
+      - "(?i)\\bЗАО\\b"
+      - "(?i)\\bобществ[оа]\\b"
+      - "(?i)\\bорганизаци[яи]\\b"
+      - "(?i)\\bОГРН\\b"
+      - "(?i)\\bИНН\\b"
+      - "(?i)в\\s+лице\\s+генеральн[оа]го\\s+директор[аа]"
+      - "(?i)действующ[еёа-я]+\\s+на\\s+основани[ии]\\s+устав[аа]"
+
+  corporate_borrower:
+    any_keywords:
+      - "(?i)\\bООО\\b"
+      - "(?i)\\bАО\\b"
+      - "(?i)\\bПАО\\b"
+      - "(?i)юридическ[оеая]\\s+лиц[оа]"
+      - "(?i)\\bорганизаци[яи]\\b"
+      - "(?i)\\bОГРН\\b"
+      - "(?i)в\\s+лице\\s+директор[аа]"
+
+  individual_borrower:
+    any_keywords:
+      - "(?i)\\bгражданин\\b"
+      - "(?i)физическ[оеая]\\s+лиц[оа]"
+      - "(?i)\\bпаспорт\\b"
+      - "(?i)зарегистрированн[ыо]й\\s+по\\s+адресу"
+
+  related_parties:
+    any_keywords:
+      - "(?i)аффилированн[ыо]е\\s+лиц[аа]"
+      - "(?i)взаимозависим[ыо]е\\s+лиц[аа]"
+      - "(?i)групп[аы]\\s+компан[ийи]"
+      - "(?i)\\bхолдинг\\b"
+      - "(?i)материнск[а-яё]+\\s+компани[яи]"
+      - "(?i)дочерн[яея]+\\s+компани[яи]"
+      - "(?i)\\bучредител[ья]\\b"
+      - "(?i)участник\\s+обществ[аа]"
+      - "(?i)генеральн[ыо]й\\s+директор"
+      - "(?i)член\\s+совет[аа]\\s+директор[оа]в"
+      - "(?i)\\bродственник[ииов]?\\b"
+
+  founder_director_transfer:
+    any_keywords:
+      - "(?i)учредител[юя]"
+      - "(?i)участник[ау]\\s+обществ[аа]"
+      - "(?i)директор[уа]"
+      - "(?i)руководител[юя]"
+      - "(?i)генеральн[оа]му\\s+директор[уу]"
+      - "(?i)член[уу]\\s+орган[аа]\\s+управлени[яя]"
+
+  real_estate_loan:
+    any_keywords:
+      - "(?i)\\bпомещени[ея]\\b"
+      - "(?i)\\bздани[ея]\\b"
+      - "(?i)\\bсооружени[ея]\\b"
+      - "(?i)\\bквартир[аеиу]\\b"
+      - "(?i)нежил[оаоеые]+\\s+помещени[ея]"
+      - "(?i)\\bнедвижимост[ьи]\\b"
+      - "(?i)кадастров[а-яё]+\\s+номер"
+      - "(?i)\\bЕГРН\\b"
+
+  vehicle_loan:
+    any_keywords:
+      - "(?i)\\bавтомобил[ьяею]\\b"
+      - "(?i)транспортн[оеая]\\s+средств[оа]"
+      - "(?i)\\bVIN\\b"
+      - "(?i)государственн[ыо]й\\s+номер"
+      - "(?i)\\bПТС\\b"
+      - "(?i)\\bСТС\\b"
+      - "(?i)\\bтехпаспорт\\b"
+
+  equipment_loan:
+    any_keywords:
+      - "(?i)\\bоборудовани[ея]\\b"
+      - "(?i)\\bстан[оа]к\\b"
+      - "(?i)\\bтехник[аи]\\b"
+      - "(?i)производственн[оа]е\\s+оборудовани[ея]"
+      - "(?i)серийн[ыо]й\\s+номер"
+      - "(?i)инвентарн[ыо]й\\s+номер"
+
+  indefinite_term:
+    any_keywords:
+      - "(?i)на\\s+неопредел[её]нн[ыо]й\\s+срок"
+      - "(?i)\\bбессрочн[ыо]й\\b"
+      - "(?i)срок\\s+не\\s+определ[её]н"
+      - "(?i)без\\s+указани[яя]\\s+срока"
+
+  fixed_term:
+    any_keywords:
+      - "(?i)на\\s+срок"
+      - "(?i)\\bдо\\b"
+      - "(?i)\\bпо\\b"
+      - "(?i)месяц[еа]в"
+      - "(?i)\\bлет\\b"
+      - "(?i)дата\\s+окончани[яя]"
+
+  maintenance_transferred:
+    any_keywords:
+      - "(?i)текущ[иоя]+\\s+и\\s+капитальн[ыо]й\\s+ремонт"
+      - "(?i)все\\s+расход[ыо]\\s+на\\s+содержани[ея]"
+      - "(?i)обязанност[ьи]\\s+по\\s+ремонт[уу]"
+      - "(?i)эксплуатационн[ыо]е\\s+расход[ыо]"
+
+  improvements_allowed:
+    any_keywords:
+      - "(?i)улучшени[яя]"
+      - "(?i)неотделим[ыо]е\\s+улучшени[яя]"
+      - "(?i)модернизаци[яи]"
+      - "(?i)реконструкци[яи]"
+      - "(?i)\\bремонт\\b"
+
+  subloan_mentioned:
+    any_keywords:
+      - "(?i)передач[аи]\\s+третьим\\s+лицам"
+      - "(?i)\\bсубпользовани[ея]\\b"
+      - "(?i)запрещаетс[яьа]\\s+передавать"
+      - "(?i)с\\s+согласием\\s+ссудодател[яя]"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)\\b"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+  vin_number: "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
+  inn_pattern: "(?i)ИНН\\s*:?\\s*\\d{10,12}"
+  ogrn_pattern: "(?i)ОГРН\\s*:?\\s*\\d{13,15}"
+  term_pattern: "(?i)на\\s+срок\\s+\\d+\\s*(?:дн[ея]|месяц(?:ев|а)?|лет?)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "founder_director_loan_prohibition"
+    name: "Запрет ссуды учредителю/руководителю коммерческой организации (ст. 690 п.2 ГК РФ)"
+    description: |
+      Коммерческая организация НЕ ВПРАВЕ передавать имущество в безвозмездное пользование:
+      - лицу, являющемуся её учредителем (участником)
+      - руководителю организации
+      - членам органов управления или контроля
+      Такой договор НИЧТОЖЕН.
+    legal_base: "ст. 690 п. 2 ГК РФ"
+    required_triggers: ["corporate_lender", "founder_director_transfer"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "учредитель"
+        - "участник общества"
+        - "директор"
+        - "генеральный директор"
+        - "член совета директоров"
+        - "член правления"
+        - "руководитель"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Проверь, не является ли ссудополучатель лицом, которому ЗАПРЕЩЕНО передавать имущество 
+        по ст. 690 п.2 ГК РФ.
+
+        ЗАПРЕЩЕНО передавать имущество коммерческой организации:
+        - учредителю/участнику этой организации
+        - руководителю (директору, генеральному директору)
+        - членам органов управления или контроля
+
+        Ответь строго в JSON:
+        {
+          "lender_is_commercial_org": "<yes / no / unclear>",
+          "borrower_is_founder": "<yes / no / unclear>",
+          "borrower_is_director": "<yes / no / unclear>",
+          "borrower_is_board_member": "<yes / no / unclear>",
+          "prohibition_violated": "<yes / no / unclear>",
+          "evidence_snippet": "<цитата или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      boost_keywords:
+        - "ссудодатель"
+        - "ссудополучатель"
+        - "учредитель"
+        - "директор"
+        - "ООО"
+        - "АО"
+      rerank: true
+
+  - id: "payment_converts_to_lease"
+    name: "Переквалификация в аренду при наличии платы"
+    description: "Если в договоре предусмотрена плата за пользование, это договор аренды, а не ссуды"
+    legal_base: "ст. 689 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "reclassify"
+    reclassify_to: "contract_2.1"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "арендная плата"
+        - "плата за пользование"
+        - "ежемесячный платёж"
+        - "вознаграждение"
+        - "оплата"
+        - "рублей в месяц"
+      keyword_mode: "any"
+      negative_keywords:
+        - "безвозмездно"
+        - "бесплатно"
+        - "без взимания платы"
+      regex_patterns:
+        - "(?i)плат(а|у)\\s+за\\s+пользован"
+        - "(?i)\\d+.*руб.*в\\s+месяц"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "плата"
+        - "оплата"
+        - "безвозмездно"
+      rerank: true
+
+  - id: "ownership_transfer_converts_to_gift"
+    name: "Переквалификация в дарение при переходе собственности"
+    description: "Если предусмотрен переход права собственности, это дарение, а не ссуда"
+    legal_base: "ст. 572, 689 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "reclassify"
+    reclassify_to: "contract_1.8"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "переходит в собственность"
+        - "передаётся в собственность"
+        - "право собственности переходит"
+        - "дарение"
+        - "безвозмездная передача в собственность"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "собственность"
+        - "переходит"
+        - "передача"
+      rerank: true
+
+  - id: "money_as_subject_converts_to_loan"
+    name: "Переквалификация в заём при денежном предмете"
+    description: "Если предмет — денежные средства, это договор займа"
+    legal_base: "ст. 807, 689 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "reclassify"
+    reclassify_to: "contract_4.3"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "денежные средства"
+        - "заём"
+        - "займ"
+        - "сумма займа"
+        - "ссуда денег"
+        - "денежная ссуда"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "денежные"
+        - "заём"
+        - "сумма"
+      rerank: true
+
+  - id: "gratuitous_between_commercial_orgs_donation_risk"
+    name: "Риск переквалификации в дарение между коммерческими организациями (ст. 575 п. 4 ГК РФ)"
+    description: |
+      Безвозмездное пользование между двумя коммерческими организациями
+      без экономического обоснования может быть оспорено как притворная сделка,
+      прикрывающая дарение (ст. 170 ГК РФ). Дарение между коммерческими
+      организациями запрещено (ст. 575 п. 4 ГК РФ). Налоговые органы
+      квалифицируют такие сделки как способ получения необоснованной
+      налоговой выгоды (ст. 54.1 НК РФ).
+    legal_base: "ст. 575 п. 4, ст. 170 ГК РФ; ст. 54.1 НК РФ"
+    required_triggers: ["corporate_lender", "corporate_borrower"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "ООО"
+        - "АО"
+        - "ПАО"
+        - "коммерческая организация"
+        - "безвозмездно"
+        - "бесплатно"
+      keyword_mode: "any"
+      negative_keywords:
+        - "деловая цель"
+        - "экономическое обоснование"
+        - "связано с хозяйственной деятельностью"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "ссудодатель"
+        - "ссудополучатель"
+        - "коммерческая организация"
+        - "экономическое обоснование"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: loan_subject_identification
+    name: "Идентификация предмета ссуды (ст. 689, 607 ГК РФ)"
+    description: "Извлекает данные об имуществе, передаваемом в безвозмездное пользование"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "предмет ссуды"
+        - "передаётся в пользование"
+        - "имущество"
+        - "вещь"
+        - "оборудование"
+        - "транспортное средство"
+        - "помещение"
+        - "индивидуальные признаки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)передаётся.*в.*безвозмездное.*пользование"
+        - "(?i)предмет.*ссуды"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Найди данные о предмете ссуды — имуществе, передаваемом в пользование.
+
+        Ответь строго в JSON:
+        {
+          "asset_type": "<equipment / vehicle / real_estate / other / not_found>",
+          "asset_name": "<наименование или not_found>",
+          "unique_identifiers": "<серийный номер, VIN, кадастровый номер и т.п. или not_found>",
+          "technical_condition": "<описание состояния или not_found>",
+          "accessories_included": "<комплектация, принадлежности или not_found>",
+          "estimated_value": "<оценочная стоимость или not_found>"
+        }
+
+        ВАЖНО: Предмет должен быть индивидуально-определённым. Если описание размыто — укажи это.
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "предмет"
+        - "имущество"
+        - "передаётся"
+        - "оборудование"
+        - "транспорт"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "asset_type"
+          type: "string"
+          allowed_values: ["equipment", "vehicle", "real_estate", "other", "not_found"]
+          description: "Тип имущества"
+        - name: "asset_name"
+          type: "string"
+          keyword_hints: ["наименование", "марка", "модель"]
+          description: "Наименование имущества"
+        - name: "unique_identifiers"
+          type: "string"
+          keyword_hints: ["серийный номер", "VIN", "кадастровый номер", "инвентарный"]
+          description: "Уникальные идентификаторы"
+      store_payload: true
+
+  - id: gratuitous_nature_verification
+    name: "Подтверждение безвозмездного характера (ст. 689 ГК РФ)"
+    description: "Проверяет явное указание на отсутствие платы за пользование"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "безвозмездно"
+        - "бесплатно"
+        - "без взимания платы"
+        - "плата не взимается"
+        - "без оплаты"
+        - "безвозмездное пользование"
+      keyword_mode: "any"
+      negative_keywords:
+        - "арендная плата"
+        - "ежемесячный платёж"
+        - "плата за пользование составляет"
+      regex_patterns:
+        - "(?i)безвозмездн.*пользован"
+        - "(?i)плата.*не.*взимается"
+        - "(?i)бесплатн.*пользован"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Проверь, является ли договор действительно БЕЗВОЗМЕЗДНЫМ.
+
+        КРИТЕРИИ:
+        - Должно быть ЯВНОЕ указание на отсутствие платы
+        - НЕ должно быть никаких платежей за пользование (даже скрытых)
+        - Расходы на содержание/ремонт — это НЕ плата за пользование
+
+        Ответь строго в JSON:
+        {
+          "gratuitous_declared": "<yes / no / unclear>",
+          "gratuitous_snippet": "<цитата о безвозмездности или not_found>",
+          "payment_clauses_found": "<yes / no>",
+          "payment_description": "<описание платежей, если есть, или not_found>",
+          "hidden_payment_risk": "<yes / no / unclear>"
+        }
+
+        Если обнаружены платежи за пользование — это НЕ ссуда, а аренда.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "безвозмездно"
+        - "бесплатно"
+        - "плата"
+        - "оплата"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "gratuitous_declared"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Указана ли безвозмездность явно"
+        - name: "payment_clauses_found"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Обнаружены ли условия о плате"
+      store_payload: true
+
+  - id: loan_term_analysis
+    name: "Срок безвозмездного пользования (ст. 610, 692, 699 ГК РФ)"
+    description: "Определяет срок договора и последствия для сторон"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "срок"
+        - "на период"
+        - "до"
+        - "по"
+        - "бессрочный"
+        - "неопределённый срок"
+        - "месяцев"
+        - "лет"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)на\\s+срок\\s+(\\d+)\\s*(месяц|год|лет)"
+        - "(?i)с\\s+\\d{1,2}[.]\\d{1,2}[.]\\d{4}.*по\\s+\\d{1,2}[.]\\d{1,2}[.]\\d{4}"
+        - "(?i)на\\s+неопределённый\\s+срок"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Определи срок договора.
+
+        ВАЖНО по ГК РФ:
+        - Если срок НЕ указан — договор бессрочный
+        - При бессрочном договоре каждая сторона может отказаться, уведомив за 1 месяц (ст. 699)
+        - Для недвижимости — уведомление за 3 месяца
+
+        Ответь строго в JSON:
+        {
+          "term_specified": "<yes / no>",
+          "term_type": "<fixed / indefinite>",
+          "start_date": "<дата начала или not_found>",
+          "end_date": "<дата окончания или not_found>",
+          "term_duration": "<срок в месяцах/годах или not_found>",
+          "termination_notice_period": "<срок уведомления о расторжении или not_found>",
+          "auto_renewal_clause": "<yes / no / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "срок"
+        - "действие"
+        - "до"
+        - "бессрочный"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "term_type"
+          type: "string"
+          allowed_values: ["fixed", "indefinite"]
+          description: "Тип срока"
+        - name: "term_duration"
+          type: "string"
+          keyword_hints: ["на срок", "месяцев", "лет"]
+          description: "Продолжительность срока"
+      store_payload: true
+
+  - id: maintenance_expenses_allocation
+    name: "Распределение расходов на содержание и ремонт (ст. 695 ГК РФ)"
+    description: "Проверяет обязанности по содержанию имущества — критично для ссудодателя"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "текущий ремонт"
+        - "капитальный ремонт"
+        - "расходы на содержание"
+        - "эксплуатационные расходы"
+        - "обязанность по ремонту"
+        - "поддерживать в исправном состоянии"
+        - "несёт ссудополучатель"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ссудополучатель.*обязан.*содержа"
+        - "(?i)расходы.*на.*содержание.*несёт"
+        - "(?i)текущ.*и.*капитальн.*ремонт"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Проверь распределение расходов на содержание и ремонт.
+
+        По ст. 695 ГК РФ ссудополучатель обязан нести ВСЕ расходы:
+        - текущий ремонт
+        - капитальный ремонт
+        - содержание имущества
+
+        Ответь строго в JSON:
+        {
+          "current_repair_payer": "<borrower / lender / not_specified / not_found>",
+          "capital_repair_payer": "<borrower / lender / not_specified / not_found>",
+          "maintenance_payer": "<borrower / lender / not_specified / not_found>",
+          "compliant_with_law": "<yes / no / partially>",
+          "deviations_from_law": "<описание отклонений или not_found>"
+        }
+
+        По умолчанию (ст. 695 ГК РФ) все расходы несёт ссудополучатель.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "ремонт"
+        - "содержание"
+        - "расходы"
+        - "эксплуатация"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "current_repair_payer"
+          type: "string"
+          allowed_values: ["borrower", "lender", "not_specified", "not_found"]
+          description: "Кто несёт расходы на текущий ремонт"
+        - name: "capital_repair_payer"
+          type: "string"
+          allowed_values: ["borrower", "lender", "not_specified", "not_found"]
+          description: "Кто несёт расходы на капитальный ремонт"
+      store_payload: true
+
+  - id: accidental_loss_risk_analysis
+    name: "Распределение риска случайной гибели (ст. 696 ГК РФ)"
+    description: "Анализирует распределение риска гибели/повреждения имущества"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "риск случайной гибели"
+        - "риск случайного повреждения"
+        - "несёт риск"
+        - "использование не по назначению"
+        - "передача третьим лицам"
+        - "гибель имущества"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)риск.*случайн.*гибел"
+        - "(?i)риск.*переходит.*на.*ссудополучател"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Проверь распределение риска случайной гибели имущества.
+
+        По ст. 696 ГК РФ:
+        - По умолчанию риск несёт ССУДОДАТЕЛЬ (собственник)
+        - Риск ПЕРЕХОДИТ на ссудополучателя, если:
+          а) вещь использовалась не по назначению
+          б) вещь передана третьему лицу без согласия
+          в) ссудополучатель мог предотвратить гибель, пожертвовав своей вещью
+
+        Ответь строго в JSON:
+        {
+          "default_risk_bearer": "<lender / borrower / not_specified>",
+          "risk_transfer_conditions_specified": "<yes / no>",
+          "risk_transfer_conditions": ["<список условий перехода риска>"],
+          "misuse_transfer_clause": "<yes / no / not_found>",
+          "third_party_transfer_clause": "<yes / no / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "риск"
+        - "гибель"
+        - "повреждение"
+        - "назначение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "default_risk_bearer"
+          type: "string"
+          allowed_values: ["lender", "borrower", "not_specified"]
+          description: "Кто несёт риск по умолчанию"
+        - name: "risk_transfer_conditions_specified"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Указаны ли условия перехода риска"
+      store_payload: true
+
+  - id: tax_consequences_analysis
+    name: "Налоговые последствия для ссудополучателя (ст. 250 НК РФ)"
+    description: "Проверяет осведомлённость о налоговых рисках — критично для юрлиц"
+    triggers:
+      any: ["corporate_borrower"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "налоговые последствия"
+        - "внереализационный доход"
+        - "рыночная стоимость аренды"
+        - "налог на прибыль"
+        - "ст. 250 НК РФ"
+        - "налоговые риски"
+        - "осведомлён о налоговых"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)внереализационн.*доход"
+        - "(?i)налог.*на.*прибыль"
+        - "(?i)рыночн.*стоимост.*аренд"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Проверь наличие информации о налоговых последствиях.
+
+        КРИТИЧЕСКИЙ РИСК для ссудополучателя-юрлица:
+        По п. 8 ст. 250 НК РФ безвозмездное пользование образует ВНЕРЕАЛИЗАЦИОННЫЙ ДОХОД,
+        облагаемый налогом на прибыль по РЫНОЧНОЙ СТОИМОСТИ АРЕНДЫ аналогичного имущества.
+
+        Ответь строго в JSON:
+        {
+          "borrower_is_legal_entity": "<yes / no / unclear>",
+          "tax_warning_present": "<yes / no>",
+          "tax_warning_snippet": "<цитата о налогах или not_found>",
+          "market_rent_value_mentioned": "<yes / no>",
+          "tax_calculation_method": "<описание метода или not_found>",
+          "tax_risk_acknowledged": "<yes / no / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "налог"
+        - "внереализационный"
+        - "доход"
+        - "рыночная стоимость"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "tax_warning_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Есть ли предупреждение о налогах"
+        - name: "tax_risk_acknowledged"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Признаны ли налоговые риски"
+      store_payload: true
+
+  - id: related_parties_analysis
+    name: "Аффилированность сторон и риски (ст. 690 п.2 ГК, ст. 54.1 НК)"
+    description: "Проверяет взаимозависимость сторон и связанные риски"
+    triggers:
+      any: ["related_parties", "founder_director_transfer"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "аффилированные"
+        - "взаимозависимые"
+        - "группа компаний"
+        - "холдинг"
+        - "учредитель"
+        - "участник общества"
+        - "директор"
+        - "родственники"
+        - "деловая цель"
+        - "экономическое обоснование"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)аффилированн.*лиц"
+        - "(?i)взаимозависим"
+        - "(?i)группа.*компан"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Проверь, являются ли стороны аффилированными/взаимозависимыми.
+
+        РИСКИ:
+        1. Ст. 690 п.2 ГК РФ: коммерческая организация НЕ ВПРАВЕ передавать имущество 
+           учредителю/директору/членам органов управления — договор НИЧТОЖЕН
+        2. Ст. 54.1 НК РФ: налоговые органы могут оспорить безвозмездность как способ 
+           уклонения от налогов
+
+        Ответь строго в JSON:
+        {
+          "parties_related": "<yes / no / unclear>",
+          "relationship_type": "<founder / director / group_company / relatives / other / not_found>",
+          "lender_is_commercial_org": "<yes / no / unclear>",
+          "prohibition_690_risk": "<high / medium / low / none>",
+          "tax_challenge_risk": "<high / medium / low / none>",
+          "business_justification_present": "<yes / no / not_found>",
+          "evidence_snippet": "<цитата или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "аффилированные"
+        - "взаимозависимые"
+        - "учредитель"
+        - "директор"
+        - "группа компаний"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "parties_related"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Являются ли стороны аффилированными"
+        - name: "prohibition_690_risk"
+          type: "string"
+          allowed_values: ["high", "medium", "low", "none"]
+          description: "Риск ничтожности по ст. 690 п.2"
+      store_payload: true
+
+  - id: defects_liability_analysis
+    name: "Ответственность за недостатки вещи (ст. 693 ГК РФ)"
+    description: "Проверяет условия об ответственности ссудодателя за скрытые дефекты"
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "недостатки"
+        - "скрытые недостатки"
+        - "дефекты"
+        - "ответственность за недостатки"
+        - "умышленно не оговорил"
+        - "грубая неосторожность"
+        - "реальный ущерб"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ссудодатель.*отвечает.*за.*недостатки"
+        - "(?i)скрыт.*недостатк"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Проверь условия об ответственности за недостатки вещи.
+
+        По ст. 693 ГК РФ:
+        - Ссудодатель отвечает за недостатки, которые УМЫШЛЕННО или по ГРУБОЙ НЕОСТОРОЖНОСТИ не оговорил
+        - Ссудополучатель вправе требовать: безвозмездного устранения ИЛИ возмещения расходов ИЛИ расторжения
+
+        Ответь строго в JSON:
+        {
+          "defects_liability_clause": "<yes / no>",
+          "lender_liability_conditions": "<описание условий или not_found>",
+          "borrower_remedies": ["<список средств защиты>"],
+          "defects_waiver_present": "<yes / no>",
+          "as_is_clause_present": "<yes / no>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "недостатки"
+        - "дефекты"
+        - "ответственность"
+        - "скрытые"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "defects_liability_clause"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Есть ли условия об ответственности за недостатки"
+        - name: "as_is_clause_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Есть ли оговорка 'как есть'"
+      store_payload: true
+
+  - id: third_party_transfer_prohibition
+    name: "Запрет на передачу третьим лицам (ст. 696 ГК РФ)"
+    description: "Проверяет ограничения на субпользование"
+    triggers:
+      any: ["subloan_mentioned"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "передача третьим лицам"
+        - "запрещается передавать"
+        - "без согласия ссудодателя"
+        - "субпользование"
+        - "только личное использование"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не.*вправе.*передавать.*третьим"
+        - "(?i)запрещ.*передач.*третьим"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Проверь условия о передаче имущества третьим лицам.
+
+        По ст. 696 ГК РФ:
+        - При передаче третьему лицу БЕЗ согласия риск случайной гибели переходит на ссудополучателя
+
+        Ответь строго в JSON:
+        {
+          "third_party_transfer_clause": "<prohibited / allowed_with_consent / allowed / not_specified>",
+          "consent_procedure": "<описание процедуры согласования или not_found>",
+          "risk_transfer_warning": "<yes / no / not_found>",
+          "sanctions_for_violation": "<описание санкций или not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 5
+      boost_keywords:
+        - "третьи лица"
+        - "передача"
+        - "согласие"
+        - "субпользование"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "third_party_transfer_clause"
+          type: "string"
+          allowed_values: ["prohibited", "allowed_with_consent", "allowed", "not_specified"]
+          description: "Режим передачи третьим лицам"
+      store_payload: true
+
+  - id: return_procedure_analysis
+    name: "Порядок возврата имущества (ст. 689, 692 ГК РФ)"
+    description: "Проверяет условия и процедуру возврата имущества"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "возврат имущества"
+        - "акт возврата"
+        - "акт приёма-передачи"
+        - "в том же состоянии"
+        - "нормальный износ"
+        - "срок возврата"
+        - "место возврата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возврат.*имуществ.*оформляется"
+        - "(?i)акт.*возврат"
+        - "(?i)в.*том.*же.*состоянии"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Проверь условия возврата имущества.
+
+        По ст. 689 ГК РФ:
+        - Вещь должна быть возвращена в том же состоянии с учётом НОРМАЛЬНОГО ИЗНОСА
+        - Нормальный износ НЕ является основанием для претензий
+
+        Ответь строго в JSON:
+        {
+          "return_procedure_specified": "<yes / no>",
+          "return_deadline": "<срок возврата или not_found>",
+          "return_location": "<место возврата или not_found>",
+          "return_act_required": "<yes / no / not_specified>",
+          "condition_documentation": "<описание требований к фиксации состояния или not_found>",
+          "normal_wear_excluded": "<yes / no / not_specified>",
+          "return_costs_bearer": "<borrower / lender / not_specified / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "возврат"
+        - "акт"
+        - "состояние"
+        - "износ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "return_procedure_specified"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Указан ли порядок возврата"
+        - name: "normal_wear_excluded"
+          type: "string"
+          allowed_values: ["yes", "no", "not_specified"]
+          description: "Исключён ли нормальный износ из претензий"
+      store_payload: true
+
+  - id: improvements_compensation_analysis
+    name: "Компенсация за улучшения имущества (ст. 623 ГК РФ по аналогии)"
+    description: "Проверяет условия о произведённых улучшениях"
+    triggers:
+      any: ["improvements_allowed"]
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "улучшения"
+        - "неотделимые улучшения"
+        - "отделимые улучшения"
+        - "модернизация"
+        - "компенсация улучшений"
+        - "с согласия ссудодателя"
+        - "стоимость улучшений"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неотделим.*улучшен"
+        - "(?i)компенсац.*улучшен"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Проверь условия о произведённых улучшениях имущества.
+
+        По ст. 623 ГК РФ (применяется по аналогии):
+        - Отделимые улучшения — собственность того, кто их произвёл
+        - Неотделимые улучшения БЕЗ согласия — не компенсируются
+        - Неотделимые улучшения С СОГЛАСИЯ — могут компенсироваться
+
+        Ответь строго в JSON:
+        {
+          "improvements_clause_present": "<yes / no>",
+          "separable_improvements_rule": "<описание правила или not_found>",
+          "inseparable_improvements_rule": "<описание правила или not_found>",
+          "consent_required": "<yes / no / not_specified>",
+          "compensation_conditions": "<условия компенсации или not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 5
+      boost_keywords:
+        - "улучшения"
+        - "модернизация"
+        - "компенсация"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "improvements_clause_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Есть ли условия об улучшениях"
+        - name: "consent_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_specified"]
+          description: "Требуется ли согласие на улучшения"
+      store_payload: true
+
+  - id: early_termination_rights_analysis
+    name: "Право ссудодателя на досрочный возврат и расторжение (ст. 698, 699 ГК РФ)"
+    description: |
+      Проверяет наличие и полноту оснований для досрочного истребования имущества
+      ссудодателем. По ст. 698 ГК РФ ссудодатель вправе потребовать возврата, если:
+      1) вещь используется не по назначению
+      2) не выполняется обязанность по содержанию
+      3) состояние вещи существенно ухудшилось
+      4) вещь передана третьему лицу без согласия
+      Для бессрочных договоров: право отказа с уведомлением за 1 месяц (ст. 699).
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "досрочный возврат"
+        - "досрочное расторжение"
+        - "потребовать возврата"
+        - "использование не по назначению"
+        - "существенное ухудшение"
+        - "не выполняет обязанность по содержанию"
+        - "ст. 698 ГК"
+        - "ст. 699 ГК"
+        - "предупредив за"
+        - "уведомив за 1 месяц"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ссудодатель.*вправе.*потребовать.*досрочн.*возврат"
+        - "(?i)ст\\.?\\s*(698|699)\\s+ГК\\s+РФ"
+        - "(?i)предупредив.*за\\s+(один|1)\\s+месяц"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор безвозмездного пользования (ссуды).
+        Проверь условия досрочного возврата и расторжения (ст. 698, 699 ГК РФ).
+
+        По закону ссудодатель вправе потребовать досрочного возврата при:
+        1) использовании не по назначению
+        2) невыполнении обязанности по содержанию/ремонту
+        3) существенном ухудшении состояния
+        4) передаче третьему лицу без согласия
+
+        Для бессрочных: отказ с уведомлением за 1 месяц (недвижимость — 3 месяца).
+
+        Ответь строго в JSON:
+        {
+          "lender_early_return_right": "<explicit / implied / absent / not_found>",
+          "early_return_grounds_listed": "<yes / no / not_found>",
+          "grounds_match_law": "<full / partial / absent / not_found>",
+          "borrower_early_return_right": "<yes / no / not_found>",
+          "notice_period_specified": "<yes / no / not_found>",
+          "notice_period_duration": "<срок или not_found>",
+          "termination_snippet": "<цитата или not_found>"
+        }
+
+        - "full" — все 4 основания из ст. 698 указаны
+        - "partial" — указаны не все основания
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "досрочный возврат"
+        - "расторжение"
+        - "потребовать возврата"
+        - "ст. 698"
+        - "ст. 699"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "lender_early_return_right"
+          type: "string"
+          allowed_values: ["explicit", "implied", "absent", "not_found"]
+          description: "Право ссудодателя на досрочный возврат"
+        - name: "grounds_match_law"
+          type: "string"
+          allowed_values: ["full", "partial", "absent", "not_found"]
+          description: "Полнота оснований для досрочного возврата"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "subject_identification_required"
+    name: "Идентификация предмета ссуды (ст. 689, 607 ГК РФ)"
+    description: "Индивидуально-определённая вещь должна быть точно описана"
+    legal_base: "ст. 689, 607 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "предмет"
+        - "имущество"
+        - "передаётся"
+        - "наименование"
+        - "характеристики"
+        - "серийный номер"
+        - "инвентарный номер"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)предмет.*ссуды"
+        - "(?i)передаётся.*в.*пользование"
+
+  - id: "gratuitous_nature_explicit"
+    name: "Явное указание на безвозмездность (ст. 689 ГК РФ)"
+    description: "Безвозмездный характер должен быть прямо указан"
+    legal_base: "ст. 689 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "безвозмездно"
+        - "бесплатно"
+        - "без взимания платы"
+        - "плата не взимается"
+        - "безвозмездное пользование"
+      keyword_mode: "any"
+      negative_keywords:
+        - "арендная плата"
+        - "ежемесячный платёж"
+        - "плата за пользование составляет"
+      regex_patterns:
+        - "(?i)безвозмездн"
+        - "(?i)плата.*не.*взимается"
+
+  - id: "parties_identification"
+    name: "Идентификация сторон: ссудодатель и ссудополучатель"
+    description: "Проверяет наличие данных сторон договора"
+    legal_base: "ст. 689 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ссудодатель"
+        - "ссудополучатель"
+        - "именуемый"
+        - "в лице"
+        - "действующий"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ссудодатель.*именуем"
+        - "(?i)ссудополучатель.*именуем"
+
+  - id: "maintenance_obligation_clear"
+    name: "Обязанность по содержанию и ремонту на ссудополучателе (ст. 695 ГК)"
+    description: "Ссудополучатель должен нести ВСЕ расходы на содержание"
+    legal_base: "ст. 695 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "текущий и капитальный ремонт"
+        - "все расходы на содержание"
+        - "обязанность по ремонту"
+        - "эксплуатационные расходы"
+        - "несёт ссудополучатель"
+        - "поддерживать в исправном состоянии"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ссудополучатель.*обязан.*ремонт"
+        - "(?i)расходы.*на.*содержание.*несёт.*ссудополучатель"
+
+  - id: "risk_transfer_conditions"
+    name: "Условия перехода риска случайной гибели (ст. 696 ГК)"
+    description: "Проверяет наличие условий о переходе риска"
+    legal_base: "ст. 696 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "риск случайной гибели"
+        - "переходит на ссудополучателя"
+        - "использование не по назначению"
+        - "передача третьим лицам без согласия"
+        - "несёт риск"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)риск.*случайн.*гибел.*переходит"
+        - "(?i)использован.*не.*по.*назначен"
+
+  - id: "third_party_prohibition"
+    name: "Запрет на передачу третьим лицам"
+    description: "Проверяет наличие запрета на субпользование"
+    legal_base: "ст. 696 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "запрещается передавать третьим лицам"
+        - "без права передачи"
+        - "только личное использование"
+        - "без согласия ссудодателя"
+        - "запрет субпользования"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не.*вправе.*передавать.*третьим"
+        - "(?i)запрещ.*передач"
+
+  - id: "designated_use_specified"
+    name: "Целевое назначение использования"
+    description: "Проверяет указание на целевое использование имущества"
+    legal_base: "ст. 689, 615 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "использовать по назначению"
+        - "целевое использование"
+        - "для целей"
+        - "назначение имущества"
+        - "только для"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)использовать.*только.*для"
+        - "(?i)целево.*назначени"
+
+  - id: "termination_notice_right"
+    name: "Право на отказ от бессрочного договора (ст. 699 ГК)"
+    description: "Проверяет условия об отказе с уведомлением"
+    legal_base: "ст. 699 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["indefinite_term"]
+    rules:
+      keywords:
+        - "отказаться от договора"
+        - "предупредив за 1 месяц"
+        - "за один месяц"
+        - "уведомление о расторжении"
+        - "в любое время"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)вправе.*отказаться.*предупредив.*за.*месяц"
+
+  - id: "defects_liability_clause"
+    name: "Ответственность за недостатки вещи (ст. 693 ГК)"
+    description: "Проверяет условия об ответственности за скрытые дефекты"
+    legal_base: "ст. 693 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "отвечает за недостатки"
+        - "скрытые недостатки"
+        - "умышленно не оговорил"
+        - "грубая неосторожность"
+        - "возместить реальный ущерб"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ссудодатель.*отвечает.*за.*недостатки"
+
+  - id: "normal_wear_protection"
+    name: "Защита от претензий по нормальному износу"
+    description: "Проверяет исключение нормального износа из оснований ответственности"
+    legal_base: "ст. 689 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "нормальный износ"
+        - "естественный износ"
+        - "не является основанием"
+        - "с учётом износа"
+        - "не подлежит возмещению"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)нормальн.*износ.*не.*является.*основанием"
+        - "(?i)с.*учётом.*нормальн.*износ"
+
+  - id: "tax_consequences_warning"
+    name: "Предупреждение о налоговых последствиях (ст. 250 НК)"
+    description: "Проверяет наличие информации о налоговых рисках для юрлиц"
+    legal_base: "ст. 250 НК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["corporate_borrower"]
+    rules:
+      keywords:
+        - "налоговые последствия"
+        - "внереализационный доход"
+        - "рыночная стоимость аренды"
+        - "налог на прибыль"
+        - "ст. 250 НК РФ"
+        - "налоговые риски"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)внереализационн.*доход"
+        - "(?i)рыночн.*стоимост.*аренд"
+
+  - id: "handover_act_required"
+    name: "Акт приёма-передачи имущества"
+    description: "Проверяет требование об акте передачи"
+    legal_base: "ГК РФ (общие положения)"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "акт приёма-передачи"
+        - "передаточный акт"
+        - "передача оформляется актом"
+        - "состояние имущества"
+        - "фотофиксация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт.*прием.*передач"
+        - "(?i)передач.*оформляется.*актом"
+
+  - id: "return_procedure_specified"
+    name: "Порядок возврата имущества"
+    description: "Проверяет условия возврата"
+    legal_base: "ст. 689, 692 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "порядок возврата"
+        - "акт возврата"
+        - "в том же состоянии"
+        - "срок возврата"
+        - "место возврата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возврат.*имуществ"
+        - "(?i)в.*том.*же.*состоянии"
+
+  - id: "improvements_clause"
+    name: "Условия об улучшениях имущества (ст. 623 ГК по аналогии)"
+    description: "Проверяет регулирование произведённых улучшений"
+    legal_base: "ст. 623 ГК РФ (по аналогии)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "улучшения"
+        - "неотделимые улучшения"
+        - "отделимые улучшения"
+        - "компенсация улучшений"
+        - "с согласия ссудодателя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неотделим.*улучшен"
+        - "(?i)компенсац.*улучшен"
+
+  - id: "liability_for_damage"
+    name: "Ответственность за повреждение/утрату имущества"
+    description: "Проверяет условия ответственности за ущерб"
+    legal_base: "ст. 696, 1064 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "возмещение ущерба"
+        - "ответственность за повреждение"
+        - "ответственность за утрату"
+        - "компенсация стоимости"
+        - "восстановительный ремонт"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возмещ.*ущерб"
+        - "(?i)ответственност.*за.*(поврежден|утрат)"
+
+  - id: "insurance_clause"
+    name: "Страхование имущества"
+    description: "Проверяет условия о страховании"
+    legal_base: "ГК РФ (общие положения)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "страхование"
+        - "страховой полис"
+        - "застраховать"
+        - "выгодоприобретатель"
+        - "страховое покрытие"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)страхован"
+
+  - id: "lender_early_return_grounds"
+    name: "Основания для досрочного истребования вещи (ст. 698 ГК РФ)"
+    description: "Проверяет наличие перечня оснований для досрочного возврата имущества ссудодателю"
+    legal_base: "ст. 698 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "досрочный возврат"
+        - "потребовать возврата"
+        - "использование не по назначению"
+        - "существенное ухудшение"
+        - "не выполняет обязанность по содержанию"
+        - "передача третьим лицам без согласия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ссудодатель.*вправе.*потребовать.*возврат"
+        - "(?i)ст\\.?\\s*698\\s+ГК\\s+РФ"
+
+  - id: "ownership_change_preservation"
+    name: "Сохранение ссуды при смене собственника (ст. 700 ГК РФ)"
+    description: "При отчуждении вещи права и обязанности ссудодателя переходят к новому собственнику"
+    legal_base: "ст. 700 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "смена собственника"
+        - "переход права собственности"
+        - "новый собственник"
+        - "отчуждение вещи"
+        - "права и обязанности переходят"
+        - "ст. 700 ГК"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)переход.*права.*собственности.*не.*прекращает"
+        - "(?i)ст\\.?\\s*700\\s+ГК\\s+РФ"
+
+  - id: "force_majeure_clause"
+    name: "Форс-мажор: определение и последствия (ст. 401 ГК РФ)"
+    description: "Проверяет наличие форс-мажорной оговорки"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "освобождение от ответственности"
+        - "уведомление о форс-мажоре"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс[\\s\\-]?мажор"
+        - "(?i)непреодолим(ой|ая)\\s+сил"
+
+  - id: "dispute_resolution"
+    name: "Разрешение споров: претензионный порядок и подсудность"
+    description: "Проверяет наличие претензионного порядка и подсудности"
+    legal_base: "АПК РФ, ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "претензионный порядок"
+        - "арбитражный суд"
+        - "подсудность"
+        - "суд общей юрисдикции"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)претензионн(ый|ого)\\s+порядк"
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  loan_subject_identification:
+    text: >
+      Просим предоставить полные данные о предмете ссуды по {doc_names}:
+      наименование, индивидуальные признаки (серийный/инвентарный номер, VIN, кадастровый номер),
+      техническое состояние, комплектация, оценочная стоимость.
+    addressee: "Ссудодатель"
+
+  gratuitous_nature_verification:
+    text: >
+      Просим подтвердить безвозмездный характер договора {doc_names}:
+      убедиться, что отсутствуют скрытые платежи, компенсации или иные возмездные элементы,
+      которые могут привести к переквалификации в аренду.
+    addressee: "Юридический советник"
+
+  parties_identification:
+    text: >
+      Просим предоставить полные реквизиты сторон по {doc_names}:
+      наименование/ФИО, ИНН, ОГРН, адрес, документы уполномоченных лиц,
+      а также информацию об аффилированности сторон.
+    addressee: "Обе стороны"
+
+  tax_consequences_analysis:
+    text: >
+      ВНИМАНИЕ: Для ссудополучателя-юрлица по {doc_names} возникает внереализационный доход,
+      облагаемый налогом на прибыль по рыночной стоимости аренды (п. 8 ст. 250 НК РФ).
+      Просим предоставить: (а) расчёт рыночной стоимости аренды аналогичного имущества;
+      (б) подтверждение отражения дохода в налоговом учёте.
+    addressee: "Налоговый консультант / Главный бухгалтер ссудополучателя"
+
+  tax_consequences_warning:
+    text: >
+      Просим добавить в {doc_names} предупреждение о налоговых последствиях:
+      ссудополучатель-организация признаёт внереализационный доход по рыночной стоимости 
+      аренды аналогичного имущества (ст. 250 НК РФ).
+    addressee: "Юридический советник"
+
+  related_parties_analysis:
+    text: >
+      КРИТИЧЕСКИЙ РИСК по {doc_names}: проверка на аффилированность сторон.
+      Просим предоставить: (а) информацию о взаимозависимости сторон (учредители, руководители);
+      (б) подтверждение, что ссудополучатель НЕ является учредителем/директором ссудодателя
+      (запрет по ст. 690 п.2 ГК РФ); (в) экономическое обоснование безвозмездности (если стороны взаимозависимы).
+    addressee: "Юридический советник обеих сторон"
+
+  founder_director_loan_prohibition:
+    text: >
+      КРИТИЧЕСКАЯ ПРОВЕРКА по {doc_names}: по ст. 690 п.2 ГК РФ коммерческая организация
+      НЕ ВПРАВЕ передавать имущество в ссуду своему учредителю/директору/члену органов управления.
+      Просим подтвердить, что ссудополучатель не относится к указанным категориям.
+      При нарушении договор НИЧТОЖЕН.
+    addressee: "Юридический советник ссудодателя"
+
+  maintenance_expenses_allocation:
+    text: >
+      Просим уточнить по {doc_names} распределение расходов на содержание:
+      (а) кто несёт расходы на текущий ремонт; (б) кто несёт расходы на капитальный ремонт;
+      (в) соответствует ли это ст. 695 ГК РФ (по умолчанию — всё на ссудополучателе).
+    addressee: "Юридический советник"
+
+  maintenance_obligation_clear:
+    text: >
+      Просим явно указать в {doc_names}, что ссудополучатель несёт ВСЕ расходы
+      на содержание имущества, включая текущий и капитальный ремонт,
+      эксплуатационные расходы, коммунальные платежи (если применимо)
+      в соответствии со ст. 695 ГК РФ.
+    addressee: "Юридический советник ссудодателя"
+
+  loan_term_analysis:
+    text: >
+      Просим уточнить в {doc_names}: (а) определённый или неопределённый срок;
+      (б) конкретные даты (начало/окончание); (в) условия автопролонгации;
+      (г) срок уведомления об отказе — по умолчанию 1 месяц (ст. 699 ГК РФ),
+      для недвижимости — 3 месяца.
+    addressee: "Обе стороны"
+
+  accidental_loss_risk_analysis:
+    text: >
+      Просим уточнить в {doc_names} распределение риска случайной гибели (ст. 696 ГК РФ):
+      (а) по умолчанию риск на ссудодателе; (б) переход риска при: использовании
+      не по назначению, передаче третьим лицам, непредотвращении гибели;
+      (в) страхование имущества.
+    addressee: "Юридический советник"
+
+  defects_liability_analysis:
+    text: >
+      Просим уточнить в {doc_names} ответственность за недостатки (ст. 693 ГК РФ):
+      (а) наличие оговорки «как есть»; (б) ответственность за умышленное сокрытие
+      дефектов; (в) средства защиты ссудополучателя (устранение/возмещение/расторжение).
+    addressee: "Юридический советник"
+
+  third_party_transfer_prohibition:
+    text: >
+      Просим уточнить в {doc_names}: (а) запрет или разрешение передачи третьим лицам;
+      (б) процедура получения согласия; (в) последствия несанкционированной передачи
+      (переход риска гибели — ст. 696 ГК РФ).
+    addressee: "Юридический советник"
+
+  return_procedure_analysis:
+    text: >
+      Просим уточнить в {doc_names}: (а) срок возврата после прекращения договора;
+      (б) место возврата; (в) необходимость акта возврата с фиксацией состояния;
+      (г) исключение нормального износа из оснований претензий;
+      (д) кто несёт расходы на доставку при возврате.
+    addressee: "Обе стороны"
+
+  improvements_compensation_analysis:
+    text: >
+      Просим уточнить в {doc_names}: (а) требуется ли согласие на улучшения;
+      (б) судьба отделимых улучшений (собственность ссудополучателя);
+      (в) компенсация неотделимых улучшений (по умолчанию — нет, если без согласия);
+      (г) порядок согласования стоимости (ст. 623 ГК РФ по аналогии).
+    addressee: "Юридический советник"
+
+  early_termination_rights_analysis:
+    text: >
+      Просим уточнить в {doc_names}: (а) основания для досрочного возврата
+      ссудодателем (ст. 698 ГК РФ — 4 основания); (б) право ссудополучателя
+      на досрочный отказ; (в) срок уведомления; (г) порядок возврата
+      и фиксации состояния при досрочном прекращении.
+    addressee: "Юридический советник"
+
+  subject_identification_required:
+    text: >
+      Просим включить в {doc_names} полное описание предмета ссуды:
+      наименование, индивидуальные признаки, техническое состояние,
+      комплектация, оценочная стоимость (ст. 689, 607 ГК РФ).
+    addressee: "Ссудодатель"
+
+  gratuitous_nature_explicit:
+    text: >
+      Просим явно указать в {doc_names} безвозмездный характер пользования
+      и отсутствие каких-либо платежей за пользование (ст. 689 ГК РФ).
+    addressee: "Юридический советник"
+
+  risk_transfer_conditions:
+    text: >
+      Просим включить в {doc_names} условия перехода риска случайной гибели
+      на ссудополучателя (ст. 696 ГК РФ): использование не по назначению,
+      передача третьим лицам, непредотвращение гибели.
+    addressee: "Юридический советник ссудодателя"
+
+  third_party_prohibition:
+    text: >
+      Просим включить в {doc_names} явный запрет на передачу имущества третьим
+      лицам без письменного согласия ссудодателя (ст. 696 ГК РФ).
+    addressee: "Юридический советник ссудодателя"
+
+  designated_use_specified:
+    text: >
+      Просим указать в {doc_names} целевое назначение использования имущества.
+      Нарушение целевого назначения — основание для досрочного возврата (ст. 698 ГК РФ).
+    addressee: "Обе стороны"
+
+  termination_notice_right:
+    text: >
+      Просим включить в {doc_names} право на отказ от бессрочного договора
+      с уведомлением за 1 месяц (ст. 699 ГК РФ). Для недвижимости — за 3 месяца.
+    addressee: "Юридический советник"
+
+  defects_liability_clause:
+    text: >
+      Просим включить в {doc_names} условия об ответственности ссудодателя
+      за скрытые недостатки (ст. 693 ГК РФ): умышленное сокрытие,
+      средства защиты ссудополучателя.
+    addressee: "Юридический советник"
+
+  normal_wear_protection:
+    text: >
+      Просим включить в {doc_names} оговорку: нормальный (естественный) износ
+      не является основанием для претензий при возврате (ст. 689 ГК РФ).
+    addressee: "Юридический советник ссудополучателя"
+
+  handover_act_required:
+    text: >
+      Просим предусмотреть в {doc_names} обязательный акт приёма-передачи
+      с описанием состояния, комплектации и фотофиксацией имущества.
+    addressee: "Обе стороны"
+
+  return_procedure_specified:
+    text: >
+      Просим включить в {doc_names}: порядок возврата имущества (акт возврата),
+      срок, место, расходы на транспортировку, порядок фиксации состояния.
+    addressee: "Обе стороны"
+
+  improvements_clause:
+    text: >
+      Просим включить в {doc_names}: порядок согласования улучшений,
+      правила компенсации неотделимых улучшений, принадлежность отделимых
+      (ст. 623 ГК РФ по аналогии).
+    addressee: "Юридический советник"
+
+  liability_for_damage:
+    text: >
+      Просим уточнить в {doc_names}: условия ответственности ссудополучателя
+      за повреждение/утрату имущества, порядок оценки ущерба, сроки возмещения.
+    addressee: "Юридический советник"
+
+  insurance_clause:
+    text: >
+      Просим уточнить в {doc_names}: обязанность по страхованию, кто страхует,
+      страховая сумма, выгодоприобретатель, срок предоставления полиса.
+    addressee: "Обе стороны"
+
+  lender_early_return_grounds:
+    text: >
+      Просим включить в {doc_names} основания для досрочного возврата (ст. 698 ГК РФ):
+      (а) использование не по назначению; (б) невыполнение обязанности по содержанию;
+      (в) существенное ухудшение; (г) передача третьему лицу без согласия.
+    addressee: "Юридический советник ссудодателя"
+
+  ownership_change_preservation:
+    text: >
+      Просим включить в {doc_names} оговорку: при смене собственника (продаже,
+      дарении) имущества права и обязанности ссудодателя переходят к новому
+      собственнику, ссуда не прекращается (ст. 700 ГК РФ).
+    addressee: "Юридический советник"
+
+  force_majeure_clause:
+    text: >
+      Просим включить в {doc_names}: перечень форс-мажорных обстоятельств,
+      порядок уведомления, последствия (приостановка/расторжение).
+    addressee: "Юридический советник"
+
+  dispute_resolution:
+    text: >
+      Просим уточнить в {doc_names}: претензионный порядок (срок),
+      подсудность, возможность медиации.
+    addressee: "Юридический советник"
+
+  gratuitous_between_commercial_orgs_donation_risk:
+    text: >
+      ВНИМАНИЕ: в {doc_names} обе стороны — коммерческие организации.
+      Ссуда между коммерческими юрлицами может быть оспорена как дарение
+      (ст. 575 п. 4 ГК РФ — запрет дарения между коммерческими орг-ями).
+      Просим предоставить: (а) экономическое обоснование безвозмездности
+      (деловая цель); (б) подтверждение, что сделка не является притворной
+      (ст. 170 ГК РФ).
+    addressee: "Юридический советник обеих сторон"
+
+  payment_converts_to_lease:
+    text: >
+      ВНИМАНИЕ: в {doc_names} обнаружены признаки возмездности (платежи за пользование).
+      Если предусмотрена плата — это договор аренды, а не ссуды (ст. 689 ГК РФ).
+      Просим уточнить: являются ли указанные платежи оплатой за пользование
+      или компенсацией расходов на содержание.
+    addressee: "Юридический советник"
+
+  ownership_transfer_converts_to_gift:
+    text: >
+      ВНИМАНИЕ: в {doc_names} обнаружены признаки перехода права собственности.
+      Если предусмотрена передача в собственность — это дарение, а не ссуда
+      (ст. 572, 689 ГК РФ). Просим уточнить правовую природу сделки.
+    addressee: "Юридический советник"
+
+  money_as_subject_converts_to_loan:
+    text: >
+      ВНИМАНИЕ: в {doc_names} предметом являются денежные средства.
+      Ссуда денег — это договор займа (ст. 807 ГК РФ), а не безвозмездное
+      пользование (ст. 689 ГК РФ). Просим переквалифицировать договор.
+    addressee: "Юридический советник"
+
+   # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"
+    

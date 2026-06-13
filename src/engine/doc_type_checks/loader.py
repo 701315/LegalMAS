@@ -26,6 +26,15 @@ DocTypeCheckLoader — загружает специфические checks из
     Является тонкой надстройкой над load_checks_for_doc().
     Для scope="document" использует document_type как ключ к YAML.
     Для scope="segment" использует segment_doc_type как ключ к YAML.
+
+Изменения (enrichment_hints support):
+  - Добавлен метод _parse_enrichment_hints().
+  - _build_check_from_v8() теперь читает блок enrichment_hints из YAML
+    и передаёт его в CheckDefinition.
+  - Позволяет задавать preferred_clause_functions, confidence_bonus_on_match
+    и другие enrichment-сигналы прямо в doc-type YAML инструкции.
+  - Влияние: executor применяет confidence_bonus_on_match когда
+    clause_functions сегмента пересекаются с preferred_clause_functions.
 """
 
 from __future__ import annotations
@@ -43,6 +52,7 @@ from engine.playbook.models import (
     CheckDefinition,
     ConditionalConfig,
     DetectorType,
+    EnrichmentHints,
     EvidenceConfig,
     ExtractionConfig,
     ExtractionFieldConfig,
@@ -55,7 +65,6 @@ from engine.playbook.models import (
 )
 
 if TYPE_CHECKING:
-    # Импортируем только для аннотаций, чтобы не создавать circular import.
     from engine.checks.planning.context import CheckContext
 
 logger = get_logger(__name__)
@@ -84,11 +93,6 @@ class DocTypeCheckLoader:
     def load_checks_for_context(self, ctx: CheckContext) -> list[CheckDefinition]:
         """
         Загрузить checks по контексту (document или segment).
-
-        Для непрофессионального программиста:
-        - Если scope="document", ключом к YAML служит document_type документа.
-        - Если scope="segment", ключом служит segment_doc_type сегмента.
-        - В обоих случаях внутри вызывается тот же load_checks_for_doc.
         """
         if ctx.scope == "segment":
             doc_type = ctx.segment_doc_type
@@ -203,10 +207,6 @@ class DocTypeCheckLoader:
     def _load_yaml(self, doc_type: str) -> dict | None:
         """
         Загрузить YAML-файл для типа документа.
-
-        Поддерживаем два варианта размещения:
-          1) <registry_dir>/<doc_type>.yaml
-          2) <registry_dir>/**/<doc_type>.yaml  (в любых подпапках)
         """
         direct = self._dir / f"{doc_type}.yaml"
         if direct.exists():
@@ -254,11 +254,6 @@ class DocTypeCheckLoader:
     def _trigger_matches(self, item: dict, trigger_set: set[str]) -> bool:
         """
         Проверить, подходит ли check для данного набора триггеров.
-
-        Форматы triggers в YAML:
-          triggers: {}                  → всегда запускать
-          triggers: {any: ["t1","t2"]}  → достаточно одного триггера
-          triggers: {all: ["t1","t2"]}  → нужны все
         """
         triggers_cfg = item.get("triggers")
         if not triggers_cfg:
@@ -276,8 +271,7 @@ class DocTypeCheckLoader:
 
     def _resolve_patterns(self, patterns: list[str], shared: dict) -> list[str]:
         """
-        Резолвит шаблонные ссылки вида {{ shared_patterns.cadastral_number }}
-        или {{ cadastral_number }} в реальные regex-паттерны.
+        Резолвит шаблонные ссылки вида {{ shared_patterns.name }} или {{ name }}.
         """
         template_re = re.compile(r"\{\{\s*([\w.]+)\s*\}\}")
         resolved: list[str] = []
@@ -302,37 +296,13 @@ class DocTypeCheckLoader:
     ) -> RulesConfig:
         """
         Построить RulesConfig из сырого dict блока rules.
-
-        Обрабатывает два формата keywords:
-
-        Старый (flat list):
-            rules:
-              keywords: ["word1", "word2"]
-
-        Новый (уровни):
-            rules:
-              keywords:
-                high: ["(?i)governed\\s+by"]
-                medium: ["jurisdiction"]
-                low: ["court"]
-
-        Также поддерживает отдельное поле keyword_groups рядом с keywords:
-            rules:
-              keyword_groups:
-                high: [...]
-                low: [...]
-
-        Regex-паттерны из keyword_groups автоматически роутятся в
-        regex_patterns через model_validator в RulesConfig.
         """
         raw_keywords = rules_raw.get("keywords")
 
         if isinstance(raw_keywords, dict):
-            # Новый формат: keywords содержит уровни
             keyword_groups = raw_keywords
             flat_keywords: list[str] = []
         else:
-            # Старый формат: keywords — плоский список
             flat_keywords = raw_keywords or []
             keyword_groups = rules_raw.get("keyword_groups") or {}
 
@@ -340,7 +310,6 @@ class DocTypeCheckLoader:
             rules_raw.get("regex_patterns") or [], shared_patterns
         )
 
-        # Мягкий guard: предупреждаем, если rules-конфиг совсем пустой.
         has_flat_keywords = bool(flat_keywords)
         has_grouped_keywords = (
             any(isinstance(v, list) and len(v) > 0 for v in keyword_groups.values())
@@ -353,14 +322,12 @@ class DocTypeCheckLoader:
         if not has_flat_keywords and not has_grouped_keywords and not has_regex and not has_clause:
             logger.warning(
                 "DocTypeCheckLoader: RulesConfig has no keywords, keyword_groups, "
-                "regex_patterns or clause_patterns — rules scoring will be skipped entirely. "
-                "If this check is rules-only, it will never trigger.",
+                "regex_patterns or clause_patterns — rules scoring will be skipped entirely.",
                 extra={"rules_id": rules_raw.get("id", "<unknown>")},
             )
         elif isinstance(raw_keywords, dict) and not has_grouped_keywords:
             logger.warning(
-                "DocTypeCheckLoader: keyword_groups dict is present but all levels are empty "
-                "— scoring will use zero keywords. Check your YAML.",
+                "DocTypeCheckLoader: keyword_groups dict is present but all levels are empty.",
                 extra={
                     "rules_id": rules_raw.get("id", "<unknown>"),
                     "keyword_groups_keys": list(keyword_groups.keys()),
@@ -375,6 +342,58 @@ class DocTypeCheckLoader:
             negative_keywords=rules_raw.get("negative_keywords") or [],
             keyword_groups=keyword_groups,
         )
+
+    def _parse_enrichment_hints(
+        self,
+        hints_raw: dict | None,
+    ) -> EnrichmentHints | None:
+        """
+        Конвертировать блок enrichment_hints из YAML в EnrichmentHints.
+
+        Поддерживаемые поля:
+          preferred_segment_types:               list[str]
+          excluded_segment_types:                list[str]
+          preferred_clause_functions:            list[str]
+          confidence_bonus_on_match:             float 0.0-1.0
+          confidence_penalty_on_excluded_segment: float 0.0-1.0
+
+        Пример в YAML check:
+          enrichment_hints:
+            preferred_clause_functions:
+              - "obligations"
+              - "procedures"
+            confidence_bonus_on_match: 0.10
+
+        Влияние в runtime:
+          executor применяет confidence_bonus_on_match когда
+          clause_functions сегмента пересекаются с preferred_clause_functions.
+
+        Возвращает None при любой ошибке — не блокирует загрузку check.
+        """
+        if not hints_raw or not isinstance(hints_raw, dict):
+            return None
+
+        try:
+            return EnrichmentHints(
+                preferred_segment_types=hints_raw.get("preferred_segment_types") or [],
+                excluded_segment_types=hints_raw.get("excluded_segment_types") or [],
+                preferred_clause_functions=hints_raw.get("preferred_clause_functions") or [],
+                confidence_bonus_on_match=float(
+                    hints_raw.get("confidence_bonus_on_match", 0.0)
+                ),
+                confidence_penalty_on_excluded_segment=float(
+                    hints_raw.get("confidence_penalty_on_excluded_segment", 0.0)
+                ),
+            )
+        except Exception as e:
+            logger.warning(
+                "DocTypeCheckLoader: cannot parse enrichment_hints, skipping",
+                extra={
+                    "error": str(e),
+                    "hints_raw": str(hints_raw)[:200],
+                },
+            )
+            return None
 
     def _parse_extraction(self, extraction_cfg: dict | None) -> ExtractionConfig | None:
         """
@@ -498,13 +517,20 @@ class DocTypeCheckLoader:
             extraction = self._parse_extraction(item.get("extraction"))
             conditional = self._parse_conditional(item.get("triggers"))
 
+            # Читаем enrichment_hints из YAML.
+            # Влияет на confidence через executor:
+            # если clause_functions сегмента пересекаются с preferred_clause_functions,
+            # к confidence добавляется confidence_bonus_on_match.
+            enrichment_hints = self._parse_enrichment_hints(
+                item.get("enrichment_hints")
+            )
+
             dtype_str = item.get("detector_type", "rules")
             try:
                 detector_type = DetectorType(dtype_str)
             except ValueError:
                 detector_type = DetectorType.RULES
 
-            # Fix 8: rules-only checks_v8 с полностью пустым rules-конфигом не загружаем.
             if detector_type == DetectorType.RULES:
                 if (
                     not rules.keywords
@@ -536,6 +562,7 @@ class DocTypeCheckLoader:
                 evidence=evidence,
                 extraction=extraction,
                 conditional=conditional,
+                enrichment_hints=enrichment_hints,
             )
 
         except (ValidationError, Exception) as e:
@@ -567,7 +594,6 @@ class DocTypeCheckLoader:
             rules_raw = item.get("rules") or {}
             rules = self._build_rules_config(rules_raw, shared_patterns)
 
-            # Fix 8: жёсткая валидация rules-only doc_type_checks
             if (
                 not rules.keywords
                 and not rules.regex_patterns
@@ -631,7 +657,6 @@ class DocTypeCheckLoader:
     ) -> CheckDefinition | None:
         """
         Конвертировать элемент compliance_rules в CheckDefinition.
-        Compliance-проверки всегда result="fail" если сработали (критические риски).
         """
         rule_id = rule.get("id")
         if not rule_id:
@@ -640,7 +665,6 @@ class DocTypeCheckLoader:
         try:
             rules = self._build_rules_config(rule.get("rules") or {}, {})
 
-            # Fix 8: жёсткая валидация rules-only compliance_rules
             if (
                 not rules.keywords
                 and not rules.regex_patterns

@@ -1,0 +1,2075 @@
+type: contract_1.12_accord
+name: "Соглашение об отступном"
+
+description: |
+  Соглашение, по которому существующее обязательство прекращается полностью или частично
+  путём предоставления кредитору иного исполнения взамен первоначального:
+  денежных средств, имущества, имущественного права, ценных бумаг или иного актива.
+  Регулируется ст. 409 ГК РФ. Ключевая особенность — обязательство прекращается
+  не само по себе в момент подписания соглашения, а по факту предоставления отступного,
+  если иное не вытекает из существа согласованной конструкции и требований к переходу прав.
+  Отступное необходимо чётко отличать от новации, прощения долга, зачёта и купли-продажи.
+  Особое значение имеют идентификация первоначального обязательства, описание предмета отступного,
+  объём прекращения долга, момент прекращения обязательства, налоговые и банкротные риски.
+
+version: 4.1
+parent: class_2_modification_of_obligations
+
+metadata:
+  category: contract
+  subcategory: obligation_termination
+  complexity: high
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "ст. 409 ГК РФ"
+  doc_types_supported:
+    - "соглашение об отступном"
+    - "соглашение о предоставлении отступного"
+    - "соглашение о прекращении обязательства отступным"
+    - "погашение долга имуществом"
+    - "погашение долга правом требования"
+    - "отступное по кредитному договору"
+    - "отступное недвижимостью"
+    - "соглашение о замене исполнения"
+    - "отступное векселем"
+
+    - "accord and satisfaction"
+    - "accord agreement"
+    - "settlement in lieu of performance"
+    - "debt settlement agreement"
+    - "composition agreement"
+    - "settlement and release agreement"
+    - "transfer in satisfaction of debt"
+    - "deed in satisfaction"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  scoring:
+    accept_threshold: 0.80
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
+  rules:
+
+    filename_patterns:
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*об[\\s_.-]*отступн[а-я]*\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование соглашения об отступном
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*предоставлени[а-я]*[\\s_.-]*отступн[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Прямое покрытие из supported types
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*прекращени[а-я]*[\\s_.-]*обязательств[а-я]*[\\s_.-]*отступн[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Прекращение обязательства отступным — юридически точная формула
+
+      - pattern: "(?i)\\bотступн[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Базовый русский маркер; достаточно специфичен для данного типа
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*замен[а-я]*[\\s_.-]*исполнени[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Замена исполнения — функциональный эквивалент отступного из supported types
+
+      - pattern: "(?i)\\bпогашени[ея][\\s_.-]*долг[а-я]*[\\s_.-]*имуществ[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Погашение долга имуществом — прямой subject-маркер отступного
+
+      - pattern: "(?i)\\bпогашени[ея][\\s_.-]*долг[а-я]*[\\s_.-]*прав[а-я]*[\\s_.-]*требован[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Погашение долга правом требования из supported types
+
+      - pattern: "(?i)\\bотступн[а-я]*[\\s_.-]*(?:по[\\s_.-]*кредитн[а-я]*[\\s_.-]*договор[а-я]*|недвижимост[а-я]*|векселем)\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Предметные формы отступного: по кредиту, недвижимостью, векселем
+
+      - pattern: "(?i)\\baccord[\\s_.-]*and[\\s_.-]*satisfaction\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Прямой англоязычный юридический термин
+
+      - pattern: "(?i)\\baccord[\\s_.-]*agreement\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Accord agreement — поддерживаемый английский маркер
+
+      - pattern: "(?i)\\bdation[\\s_.-]*in[\\s_.-]*payment\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Dation in payment — романо-правовой аналог отступного, достаточно специфичен
+
+      - pattern: "(?i)\\btransfer[\\s_.-]*in[\\s_.-]*satisfaction[\\s_.-]*of[\\s_.-]*debt\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Transfer in satisfaction of debt — прямой маркер из supported types
+
+      - pattern: "(?i)\\bdeed[\\s_.-]*in[\\s_.-]*satisfaction\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Deed in satisfaction — формальная английская форма
+
+      - pattern: "(?i)\\bdeed[\\s_.-]*in[\\s_.-]*lieu(?:[\\s_.-]*of[\\s_.-]*(?:payment|foreclosure))?\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Deed in lieu (of payment/foreclosure) — практически применяемая форма
+
+      - pattern: "(?i)\\bsettlement[\\s_.-]*in[\\s_.-]*lieu[\\s_.-]*of[\\s_.-]*performance\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Settlement in lieu of performance — из supported types, достаточно специфично
+
+      - pattern: "(?i)(?=.*\\bв[\\s_.-]*счёт\\b|\\bв[\\s_.-]*счет\\b)(?=.*\\bпогашени[а-я]*\\b).*"
+        kind: specific_subject
+        weight: 0.84
+        # В счёт погашения — характерная формула для отступного, более специфична в связке
+
+      - pattern: "(?i)\\bin[\\s_.-]*lieu[\\s_.-]*of[\\s_.-]*payment\\b"
+        kind: specific_subject
+        weight: 0.82
+        # In lieu of payment — функциональный маркер отступного
+
+      - pattern: "(?i)\\bdebt[\\s_.-]*settlement[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.56
+        # Debt settlement agreement из supported types, но шире отступного; конфликт с debt restructuring
+
+      - pattern: "(?i)\\bsettlement[\\s_.-]*and[\\s_.-]*release[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.52
+        # Settlement and release шире отступного: может быть litigation settlement, general release
+
+      - pattern: "(?i)\\bcomposition[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.46
+        # Composition agreement в ряде юрисдикций ближе к реструктуризации/рассрочке, чем к отступному
+
+      - pattern: "(?i)\\bsettlement[\\s_.-]*agreement\\b"
+        kind: context
+        weight: 0.22
+        # Settlement agreement без уточнения слишком широко: litigation, commercial, employment и т.д.
+
+      - pattern: "(?i)\\bsettlement\\b"
+        kind: context
+        weight: 0.16
+        # Сам по себе settlement — слишком широкий контекстный маркер
+
+
+    folder_patterns:
+      - pattern: "(?i)отступн"
+        kind: specific_subject
+        weight: 0.86
+        # Явная папка по соглашениям об отступном
+
+      - pattern: "(?i)accord[_\\s-]*(?:and[_\\s-]*)?satisfaction|dation[_\\s-]*in[_\\s-]*payment"
+        kind: specific_subject
+        weight: 0.84
+        # Прямые англоязычные folder-markers отступного
+
+      - pattern: "(?i)transfer[_\\s-]*in[_\\s-]*satisfaction|deed[_\\s-]*in[_\\s-]*(?:satisfaction|lieu)"
+        kind: specific_subject
+        weight: 0.80
+        # Folder по deed/transfer in satisfaction формам
+
+      - pattern: "(?i)замен[а-я]*[_\\s-]*исполнени|погашени[ея][_\\s-]*долг[а-я]*[_\\s-]*имуществ"
+        kind: specific_subject
+        weight: 0.76
+        # Папка по русскоязычным эквивалентам отступного
+
+      - pattern: "(?i)debt[_\\s-]*settlement"
+        kind: generic_form
+        weight: 0.50
+        # Debt settlement folder полезен, но шире чистого отступного
+
+      - pattern: "(?i)settlement[_\\s-]*(?:and[_\\s-]*release|in[_\\s-]*lieu)"
+        kind: generic_form
+        weight: 0.46
+        # Settlement with qualifier — умеренно полезен, но неоднозначен
+
+      - pattern: "(?i)obligation[_\\s-]*termination|прекращени[ея][_\\s-]*обязательств"
+        kind: generic_form
+        weight: 0.44
+        # Прекращение обязательств — правильный контекст, но шире отступного (новация, зачёт и др.)
+
+      - pattern: "(?i)settlement"
+        kind: context
+        weight: 0.20
+        # Settlement folder слишком широк
+
+      - pattern: "(?i)termination"
+        kind: context
+        weight: 0.18
+        # Termination folder неоднозначен: termination of contract, of employment и т.д.
+
+      - pattern: "(?i)obligation"
+        kind: context
+        weight: 0.16
+        # Obligation folder почти ничего не определяет
+
+      - pattern: "(?i)debt"
+        kind: context
+        weight: 0.16
+        # Debt folder слишком широк: collections, restructuring, assignment и др.
+
+    keywords:
+
+      high:
+        - pattern: "(?i)\\bсоглашение\\s+об\\s+отступном\\b"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Базовое наименование соглашения об отступном (ст. 409 ГК РФ)"
+
+        - pattern: "(?i)\\bсоглашение\\s+о\\s+предоставлении\\s+отступного\\b"
+          weight: 0.98
+          distinctiveness: high
+          context: header
+          description: "Прямое указание на предоставление отступного"
+
+        - pattern: "(?i)\\bсоглашение\\s+о\\s+прекращении\\s+обязательства\\s+отступным\\b"
+          weight: 0.98
+          distinctiveness: high
+          context: header
+          description: "Прекращение обязательства отступным"
+
+        - pattern: "(?i)соглашение\\s+о\\s+прекращении\\s+обязательства\\s+предоставлением\\s+отступного"
+          weight: 0.97
+          distinctiveness: high
+          context: header
+          description: "Развёрнутая формула прекращения обязательства предоставлением отступного"
+
+        - pattern: "(?i)\\bотступное\\b"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Ключевой термин отступное — уникален для ст. 409 ГК РФ"
+
+        - pattern: "(?i)погашение\\s+долга\\s+имуществом"
+          weight: 0.90
+          distinctiveness: high
+          context: body
+          description: "Погашение долга передачей имущества вместо первоначального исполнения"
+
+        - pattern: "(?i)погашение\\s+долга\\s+правом\\s+требования"
+          weight: 0.90
+          distinctiveness: high
+          context: body
+          description: "Предоставление права требования как отступного"
+
+        - pattern: "(?i)отступное\\s+по\\s+кредитному\\s+договору"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Отступное по кредитному договору — частый практический случай"
+
+        - pattern: "(?i)отступное\\s+недвижимостью"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Недвижимость как предмет отступного"
+
+        - pattern: "(?i)предоставление\\s+отступного"
+          weight: 0.90
+          distinctiveness: high
+          context: body
+          description: "Фактическое предоставление отступного"
+
+        - pattern: "(?i)обязательство\\s+считается\\s+прекращённым\\s+(?:после|с\\s+момента)\\s+предоставления\\s+отступного"
+          weight: 0.94
+          distinctiveness: high
+          context: body
+          description: "Ключевой квалификатор: прекращение после предоставления (не после подписания)"
+
+        - pattern: "(?i)обязательство\\s+прекращается\\s+(?:после|по\\s+факту)\\s+фактической\\s+передачи"
+          weight: 0.94
+          distinctiveness: high
+          context: body
+          description: "Прекращение обязательства после фактической передачи актива"
+
+        - pattern: "(?i)\\bвзамен\\s+исполнения\\b"
+          weight: 0.86
+          distinctiveness: high
+          context: body
+          description: "Иное исполнение взамен первоначального"
+
+        - pattern: "(?i)в\\s+счёт\\s+погашения\\s+долга|в\\s+счет\\s+погашения\\s+долга"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Передача актива в счёт погашения долга"
+
+        - pattern: "(?i)должник\\s+предоставляет\\s+отступное"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Формула предоставления отступного должником"
+
+        - pattern: "(?i)кредитор\\s+принимает\\s+отступное"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Принятие отступного кредитором"
+
+        - pattern: "(?i)\\bреальная\\s+сделка\\b"
+          weight: 0.82
+          distinctiveness: high
+          context: body
+          description: "Указание на реальный характер конструкции отступного"
+
+        - pattern: "(?i)отступное\\s+как\\s+способ\\s+прекращения\\s+обязательства"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Квалификация отступного как способа прекращения обязательства"
+
+        - pattern: "(?i)ст(?:атья|\\.)?\\s*409\\s+ГК"
+          weight: 0.92
+          distinctiveness: high
+          context: any
+          description: "Ст. 409 ГК РФ — единственная норма, регулирующая отступное"
+
+        - pattern: "(?i)предмет\\s+отступного"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Описание предмета отступного — ключевой реквизит ст. 409 ГК"
+
+        - pattern: "(?i)объём\\s+прекращения\\s+(?:долга|обязательства)|объем\\s+прекращения\\s+(?:долга|обязательства)"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Объём прекращения долга — существенное условие соглашения об отступном"
+
+        - pattern: "(?i)ценные\\s+бумаги\\s+в\\s+качестве\\s+отступного"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Ценные бумаги как предмет отступного — прямо указан в description"
+
+        - pattern: "(?i)имущественное\\s+право\\s+в\\s+качестве\\s+отступного"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Имущественное право как предмет отступного — прямо из description"
+
+        - pattern: "(?i)оспаривание\\s+отступного\\s+в\\s+(?:процедуре\\s+)?банкротств"
+          weight: 0.85
+          distinctiveness: high
+          context: body
+          description: "Банкротные риски оспаривания — ст. 61.2-61.3 Закона о банкротстве"
+
+      medium:
+        - pattern: "(?i)первоначальное\\s+обязательство"
+          weight: 0.64
+          distinctiveness: medium
+          context: body
+          description: "Идентификация первоначального обязательства — существенное условие"
+
+        - pattern: "(?i)погашение\\s+задолженности"
+          weight: 0.58
+          distinctiveness: medium
+          context: body
+          description: "Общая формула погашения задолженности"
+
+        - pattern: "(?i)акт\\s+приёма-?передачи\\s+имущества|акт\\s+приема-?передачи\\s+имущества"
+          weight: 0.62
+          distinctiveness: medium
+          context: body
+          description: "Акт передачи имущества — этап исполнения соглашения об отступном"
+
+        - pattern: "(?i)момент\\s+прекращения\\s+обязательства"
+          weight: 0.65
+          distinctiveness: medium
+          context: body
+          description: "Момент прекращения обязательства — ключевое для квалификации"
+
+        - pattern: "(?i)частичное\\s+прекращение\\s+обязательства"
+          weight: 0.62
+          distinctiveness: medium
+          context: body
+          description: "Частичное прекращение обязательства отступным"
+
+        - pattern: "(?i)остаток\\s+долга"
+          weight: 0.56
+          distinctiveness: medium
+          context: body
+          description: "Сохранение остатка долга после частичного отступного"
+
+        - pattern: "(?i)вместо\\s+исполнения\\s+обязательства"
+          weight: 0.60
+          distinctiveness: medium
+          context: body
+          description: "Иное исполнение вместо изначального"
+
+        - pattern: "(?i)имущество\\s+передаётся\\s+вместо\\s+денежного\\s+обязательства|имущество\\s+передается\\s+вместо\\s+денежного\\s+обязательства"
+          weight: 0.62
+          distinctiveness: medium
+          context: body
+          description: "Имущество вместо денежного обязательства"
+
+        - pattern: "(?i)погашение\\s+займа\\s+имуществом"
+          weight: 0.58
+          distinctiveness: medium
+          context: body
+          description: "Погашение займа имуществом"
+
+        - pattern: "(?i)переход\\s+права\\s+собственности\\s+к\\s+кредитору"
+          weight: 0.58
+          distinctiveness: medium
+          context: body
+          description: "Переход права собственности к кредитору при исполнении"
+
+        - pattern: "(?i)соглашение\\s+о\\s+прекращении\\s+обязательства"
+          weight: 0.54
+          distinctiveness: medium
+          context: body
+          description: "Общая формула соглашения о прекращении обязательства"
+
+        - pattern: "(?i)идентификация\\s+(?:первоначального\\s+)?обязательства"
+          weight: 0.64
+          distinctiveness: medium
+          context: body
+          description: "Идентификация первоначального обязательства — существенное условие из description"
+
+        - pattern: "(?i)НДС\\s+при\\s+отступном|налоговые\\s+(?:последствия|риски)\\s+отступного"
+          weight: 0.65
+          distinctiveness: medium
+          context: body
+          description: "Налоговые последствия отступного — НДС при передаче имущества"
+
+        - pattern: "(?i)ст(?:атья|\\.)?\\s*61\\.3\\s+(?:Закона|ФЗ)\\s+о\\s+банкротстве"
+          weight: 0.65
+          distinctiveness: medium
+          context: body
+          description: "Ст. 61.3 Закона о банкротстве — оспаривание отступного как сделки с предпочтением"
+
+      low:
+        - pattern: "(?i)кредитный\\s+договор"
+          weight: 0.28
+          distinctiveness: low
+          context: body
+          description: "Кредитный договор — частая база для отступного"
+
+        - pattern: "(?i)\\bзадолженность\\b"
+          weight: 0.24
+          distinctiveness: low
+          context: body
+          description: "Общая задолженность"
+
+        - pattern: "(?i)денежное\\s+обязательство"
+          weight: 0.24
+          distinctiveness: low
+          context: body
+          description: "Денежное обязательство"
+
+        - pattern: "(?i)имущественное\\s+обязательство"
+          weight: 0.22
+          distinctiveness: low
+          context: body
+          description: "Общая имущественная обязанность"
+
+        - pattern: "(?i)передача\\s+имущества\\s+кредитору"
+          weight: 0.26
+          distinctiveness: low
+          context: body
+          description: "Передача имущества кредитору"
+
+        - pattern: "(?i)стоимость\\s+отступного"
+          weight: 0.26
+          distinctiveness: low
+          context: body
+          description: "Оценка стоимости предмета отступного"
+
+        - pattern: "(?i)погашение\\s+кредита\\s+имуществом"
+          weight: 0.28
+          distinctiveness: low
+          context: body
+          description: "Частный случай исполнения кредитного обязательства имуществом"
+
+    exclusions:
+      - pattern: "(?i)\\bновация\\b"
+        severity: hard
+        weight: -1.0
+        description: "Новация — замена обязательства новым (ст. 414 ГК); не является отступным"
+
+      - pattern: "(?i)соглашение\\s+о\\s+новации"
+        severity: hard
+        weight: -1.0
+        description: "Прямое указание на соглашение о новации"
+
+      - pattern: "(?i)прощение\\s+долга"
+        severity: hard
+        weight: -1.0
+        description: "Прощение долга — безвозмездное прекращение без встречного предоставления"
+
+      - pattern: "(?i)зачёт\\s+встречных\\s+требований|зачет\\s+встречных\\s+требований"
+        severity: hard
+        weight: -1.0
+        description: "Зачёт — самостоятельный способ прекращения обязательств (ст. 410 ГК)"
+
+      - pattern: "(?i)безвозмездное\\s+прекращение\\s+обязательства"
+        severity: hard
+        weight: -1.0
+        description: "Безвозмездное прекращение противоречит логике отступного"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+купли-?продажи\\b"
+        severity: hard
+        weight: -1.0
+        description: "Прямой договор купли-продажи — иной договорный тип"
+
+      # ── Soft exclusions
+
+      - pattern: "(?i)\\bкупля-?продажа\\b"
+        severity: soft
+        weight: -0.40
+        description: "Купля-продажа может описывать предмет передачи, но не должна доминировать"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+дарения\\b"
+        severity: hard
+        weight: -1.0
+        description: "Прямое указание на договор дарения"
+
+      - pattern: "(?i)\\bдарение\\b"
+        severity: soft
+        weight: -0.40
+        description: "Дарение конкурирует при передаче имущества без встречного предоставления"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+мены\\b"
+        severity: hard
+        weight: -1.0
+        description: "Мена — обменная конструкция, отличная от прекращения обязательства отступным"
+
+      - pattern: "(?i)реструктуризация\\s+(?:долга|задолженности|обязательства)"
+        severity: soft
+        weight: -0.38
+        description: "Реструктуризация — изменение условий обязательства, а не прекращение его отступным"
+
+      - pattern: "(?i)надлежащее\\s+исполнение\\s+обязательства"
+        severity: soft
+        weight: -0.35
+        description: "Надлежащее исполнение обязательства исключает конструкцию отступного"
+
+      - pattern: "(?i)соглашение\\s+о\\s+расторжении\\s+договора"
+        severity: soft
+        weight: -0.38
+        description: "Расторжение договора — отдельное основание прекращения (ст. 450 ГК), не отступное"
+
+      - pattern: "(?i)\\bрента\\b"
+        severity: soft
+        weight: -0.35
+        description: "Рента — длящееся обязательство (гл. 33 ГК); снижает уверенность в отступном"
+        
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  real_estate_as_otsupnoe:
+    any_keywords:
+      - "(?i)\\bквартир[аеиу]\\b"
+      - "(?i)земельн[а-яё]+\\s+участ[оа]к"
+      - "(?i)\\bздани[ея]\\b"
+      - "(?i)\\bпомещени[ея]\\b"
+      - "(?i)\\bнедвижимост[ьи]\\b"
+      - "(?i)кадастров[а-яё]+\\s+номер"
+      - "(?i)\\bЕГРН\\b"
+      - "(?i)государственн[а-яё]+\\s+регистраци[яи]"
+      - "(?i)\\bРосреестр\\b"
+
+  claim_assignment_as_otsupnoe:
+    any_keywords:
+      - "(?i)прав[оа]\\s+требовани[яя]"
+      - "(?i)\\bцесси[яи]\\b"
+      - "(?i)уступк[аи]\\s+требовани[яя]"
+      - "(?i)договор\\s+уступк[ии]"
+      - "(?i)должник\\s+по\\s+уступаем[оа]му\\s+требовани[юя]"
+      - "(?i)передач[аи]\\s+прав[ао]\\s+требовани[яя]"
+      - "(?i)цесси[яи]\\s+в\\s+качеств[ее]\\s+отступн[оа]го"
+
+  movable_property_as_otsupnoe:
+    any_keywords:
+      - "(?i)\\bавтомобил[ьяею]\\b"
+      - "(?i)\\bоборудовани[ея]\\b"
+      - "(?i)\\bтовар\\b"
+      - "(?i)ценн[а-яё]+\\s+бумаг[аи]"
+      - "(?i)движим[оа]е?\\s+имуществ[оа]"
+      - "(?i)транспортн[оеая]\\s+средств[оа]"
+      - "(?i)серийн[ыо]й\\s+номер"
+      - "(?i)\\bVIN\\b"
+
+  partial_termination:
+    any_keywords:
+      - "(?i)\\bчастично\\b"
+      - "(?i)\\bв\\s+части\\b"
+      - "(?i)остат[оа]к\\s+долг[аа]"
+      - "(?i)неполн[оа]е\\s+погашени[ея]"
+      - "(?i)\\bв\\s+размере\\b"
+      - "(?i)погашаетс[яьа]\\s+част[ььи]\\s+обязательств[аа]"
+      - "(?i)сохраняетс[яьа]\\s+остат[оа]к"
+
+  bankruptcy_risk_context:
+    any_keywords:
+      - "(?i)\\bбанкротств[оа]\\b"
+      - "(?i)\\bнесостоятельност[ьи]\\b"
+      - "(?i)\\bкредитор[ыаов]\\b"
+      - "(?i)предпочтительн[оа]е\\s+удовлетворени[ея]"
+      - "(?i)подозрительн[а-яё]+\\s+сделк[аи]"
+      - "(?i)конкурсн[а-яё]+\\s+масс[аа]"
+      - "(?i)арбитражн[ыо]й\\s+управляющ[иаяй]"
+
+  secured_original_obligation:
+    any_keywords:
+      - "(?i)\\bзалог\\b"
+      - "(?i)\\bипотек[аи]\\b"
+      - "(?i)\\bпоручительств[оа]\\b"
+      - "(?i)обеспеченн[а-яё]+\\s+обязательств[оа]"
+      - "(?i)обеспечени[ея]\\s+исполнени[яя]"
+      - "(?i)\\bзалогодержател[ья]\\b"
+      - "(?i)\\bзакладн[а-яё]+\\b"
+
+  corporate_approval_context:
+    any_keywords:
+      - "(?i)крупн[а-яё]+\\s+сделк[аи]"
+      - "(?i)сделк[аи]\\s+с\\s+заинтересованност[ьюи]"
+      - "(?i)одобрени[ея]\\s+общего\\s+собрани[яя]"
+      - "(?i)решени[ея]\\s+единственн[оа]го\\s+участник[аа]"
+      - "(?i)совет\\s+директор[оа]в"
+      - "(?i)корпоративн[оа]е\\s+одобрени[ея]"
+
+  individual_party:
+    any_keywords:
+      - "(?i)\\bгражданин\\b"
+      - "(?i)физическ[оеая]\\s+лиц[оа]"
+      - "(?i)\\bпаспорт\\b"
+      - "(?i)дата\\s+рождения"
+      - "(?i)место\\s+рождения"
+
+  tax_sensitive_structure:
+    any_keywords:
+      - "(?i)\\bНДС\\b"
+      - "(?i)налогов[ыо]е\\s+последстви[яя]"
+      - "(?i)рыночн[а-яё]+\\s+стоимост[ьи]"
+      - "(?i)налогов[а-яё]+\\s+баз[аа]"
+      - "(?i)не\\s+являетс[яьа]\\s+дарени[еям]"
+      - "(?i)экономическ[а-яё]+\\s+обоснованност[ьи]"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|usd|eur)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+  inn_ogrn: "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"
+  percentage: "(?i)\\b\\d+[,.]?\\d*\\s*%"
+  vin_number: "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "bankruptcy_preference_or_suspect_transaction_risk"
+    name: "Банкротный риск: предпочтение / подозрительная сделка"
+    description: >
+      Отступное, предоставленное незадолго до банкротства должника, может быть оспорено
+      как сделка с предпочтением или подозрительная сделка, особенно при несоразмерности
+      отступного, аффилированности или ухудшении положения иных кредиторов.
+    legal_base: "ст. 61.2, 61.3 ФЗ-127 «О несостоятельности (банкротстве)»"
+    required_triggers: ["bankruptcy_risk_context"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "банкротство"
+        - "предпочтительное удовлетворение"
+        - "подозрительная сделка"
+        - "кредиторы"
+        - "неплатежеспособность"
+        - "конкурсная масса"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "предпочтительное удовлетворение"
+        - "подозрительная сделка"
+        - "банкротство"
+      rerank: true
+
+  - id: "real_estate_transfer_registration_required"
+    name: "Недвижимость как отступное: требуется госрегистрация перехода права"
+    description: >
+      Если отступным выступает недвижимость, переход права собственности требует
+      государственной регистрации. Без неё кредитор не приобретает право на объект,
+      а модель прекращения обязательства должна быть согласована особенно тщательно.
+    legal_base: "ст. 131, 551 ГК РФ, ФЗ-218"
+    required_triggers: ["real_estate_as_otsupnoe"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "государственная регистрация"
+        - "ЕГРН"
+        - "Росреестр"
+        - "переход права собственности"
+        - "кадастровый номер"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "государственная регистрация"
+        - "Росреестр"
+        - "ЕГРН"
+      rerank: true
+
+  - id: "claim_assignment_identification_required"
+    name: "Право требования как отступное: требуется чёткая идентификация и передача документов"
+    description: >
+      Если отступным выступает право требования, необходимо чётко определить уступаемое требование,
+      его основание, должника, объём, обеспечительные права и порядок передачи документов.
+      Иначе высок риск неисполнения модели отступного и споров о действительности уступки.
+    legal_base: "ст. 382-390, 409 ГК РФ"
+    required_triggers: ["claim_assignment_as_otsupnoe"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "право требования"
+        - "цессия"
+        - "уступка"
+        - "договор уступки"
+        - "передача документов"
+        - "должник по требованию"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "право требования"
+        - "цессия"
+        - "передача документов"
+      rerank: true
+
+  - id: "misclassification_risk_not_novation_or_forgiveness"
+    name: "Риск неверной квалификации: не новация и не прощение долга"
+    description: >
+      При неудачной формулировке соглашение об отступном может быть смешано с новацией,
+      прощением долга, зачётом или возмездной отчуждательной сделкой. Это влияет на
+      момент прекращения обязательства, налоговые последствия и банкротные риски.
+    legal_base: "ст. 409, 410-415 ГК РФ"
+    required_triggers: []
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "новация"
+        - "прощение долга"
+        - "зачет"
+        - "замена обязательства"
+        - "безвозмездное прекращение"
+        - "вместо исполнения"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "новация"
+        - "прощение долга"
+        - "зачет"
+        - "отступное"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: original_obligation_extraction
+    name: "Отступное: извлечение первоначального обязательства"
+    description: >
+      Извлекает реквизиты обязательства, которое прекращается: основание, сумму,
+      состав долга, сроки, обеспечительные меры и объём прекращения.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "первоначальное обязательство"
+        - "договор №"
+        - "задолженность"
+        - "основной долг"
+        - "проценты"
+        - "неустойка"
+        - "в счет погашения"
+        - "прекращается обязательство"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)договор\\s*№"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)\\b"
+        - "(?i)основн(ой|ого)\\s+долг|процент|неустойк"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий соглашение об отступном.
+        Найди, какое обязательство прекращается.
+
+        Ответь строго в JSON:
+        {
+          "original_obligation_basis": "<договор/судебный акт/иное основание или not_found>",
+          "original_obligation_details": "<реквизиты обязательства или not_found>",
+          "debt_amount": "<сумма долга или not_found>",
+          "includes_interest_and_penalties": "<yes / no / partial / not_found>",
+          "termination_scope": "<full / partial / unclear / not_found>",
+          "secured_obligation": "<yes / no / not_found>"
+        }
+
+        ВАЖНО: Возвращай only_found_in_text.
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 520
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "первоначальное обязательство"
+        - "в счет погашения"
+        - "основной долг"
+        - "проценты"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "original_obligation_basis"
+          type: "string"
+          description: "Основание прекращаемого обязательства"
+        - name: "debt_amount"
+          type: "string"
+          description: "Размер долга"
+        - name: "termination_scope"
+          type: "string"
+          allowed_values: ["full", "partial", "unclear", "not_found"]
+          description: "Объем прекращения обязательства"
+        - name: "secured_obligation"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Было ли обязательство обеспеченным"
+      store_payload: true
+
+  - id: otsupnoe_subject_and_transfer_check
+    name: "Предмет отступного и механизм его передачи"
+    description: >
+      Проверяет описание предмета отступного и механизм фактической передачи:
+      деньги, имущество, недвижимость, право требования, ценные бумаги.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "отступное"
+        - "предмет отступного"
+        - "передача имущества"
+        - "акт приема-передачи"
+        - "право требования"
+        - "денежные средства"
+        - "недвижимость"
+        - "автомобиль"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт\\s+(приема|приёма|передач)"
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+        - "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий соглашение об отступном.
+        Определи, что именно передается как отступное и как оформляется передача.
+
+        Ответь строго в JSON:
+        {
+          "otsupnoe_type": "<money / movable_property / real_estate / claim / securities / mixed / not_found>",
+          "otsupnoe_description": "<описание предмета или not_found>",
+          "transfer_document": "<payment / act / assignment_docs / registration / mixed / not_found>",
+          "transfer_deadline": "<срок передачи или not_found>",
+          "registration_required": "<yes / no / not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "отступное"
+        - "акт приема-передачи"
+        - "передача имущества"
+        - "право требования"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "otsupnoe_type"
+          type: "string"
+          allowed_values: ["money", "movable_property", "real_estate", "claim", "securities", "mixed", "not_found"]
+          description: "Тип отступного"
+        - name: "transfer_document"
+          type: "string"
+          allowed_values: ["payment", "act", "assignment_docs", "registration", "mixed", "not_found"]
+          description: "Документ/механизм передачи"
+        - name: "registration_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Требуется ли регистрация"
+      store_payload: true
+
+  - id: real_character_and_termination_moment_check
+    name: "Реальный характер сделки и момент прекращения обязательства"
+    description: >
+      Проверяет, что прекращение обязательства привязано к фактическому предоставлению
+      отступного, а не только к подписанию соглашения.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "с момента передачи отступного"
+        - "с момента фактической передачи"
+        - "после предоставления отступного"
+        - "с момента зачисления денежных средств"
+        - "с момента государственной регистрации"
+        - "с даты подписания"
+      keyword_mode: "any"
+      negative_keywords:
+        - "обязательство прекращается с даты подписания настоящего соглашения"
+      regex_patterns:
+        - "(?i)обязательств(о|а).*прекраща(ется|ются).*с\\s+момента"
+        - "(?i)с\\s+момента\\s+фактическ(ой|ого)\\s+передач"
+        - "(?i)с\\s+даты\\s+подписания"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий соглашение об отступном.
+        Проверь, корректно ли определён момент прекращения обязательства.
+
+        Ответь строго в JSON:
+        {
+          "termination_moment": "<upon_actual_transfer / upon_registration / upon_payment_receipt / upon_signing / unclear / not_found>",
+          "real_character_respected": "<yes / no / unclear>",
+          "creditor_right_preserved_until_transfer": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "с момента передачи"
+        - "фактическая передача"
+        - "с даты подписания"
+        - "прекращение обязательства"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "termination_moment"
+          type: "string"
+          allowed_values: ["upon_actual_transfer", "upon_registration", "upon_payment_receipt", "upon_signing", "unclear", "not_found"]
+          description: "Момент прекращения обязательства"
+        - name: "real_character_respected"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Соблюдён ли реальный характер отступного"
+      store_payload: true
+
+  - id: valuation_and_settlement_scope_check
+    name: "Стоимость отступного и объём погашения долга"
+    description: >
+      Проверяет, согласована ли стоимость отступного и понятно ли,
+      прекращается долг полностью или частично, а также что происходит с остатком.
+    triggers:
+      any: ["partial_termination", "tax_sensitive_structure"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "стоимость отступного"
+        - "оценивается сторонами"
+        - "в полном объеме"
+        - "частично"
+        - "остаток долга"
+        - "полное погашение"
+        - "неполное погашение"
+        - "согласованная стоимость"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)стоимост(ь|и)\\s+отступн"
+        - "(?i)в\\s+полном\\s+объеме|частичн"
+        - "(?i)остат(ок|ка)\\s+долг"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий соглашение об отступном.
+        Проверь стоимость отступного и объём прекращения обязательства.
+
+        Ответь строго в JSON:
+        {
+          "agreed_value_present": "<yes / no / partial>",
+          "debt_termination_scope": "<full / partial / unclear / not_found>",
+          "remaining_debt_defined": "<yes / no / not_applicable / not_found>",
+          "value_vs_debt_relation": "<equal / lower_but_full_settlement / lower_partial / unclear / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "стоимость отступного"
+        - "полное погашение"
+        - "остаток долга"
+        - "в полном объеме"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "agreed_value_present"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Согласована ли стоимость отступного"
+        - name: "debt_termination_scope"
+          type: "string"
+          allowed_values: ["full", "partial", "unclear", "not_found"]
+          description: "Объем прекращения долга"
+        - name: "remaining_debt_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "not_applicable", "not_found"]
+          description: "Определен ли остаток долга"
+      store_payload: true
+
+  - id: recharacterization_distinction_check
+    name: "Отграничение от новации, прощения долга и иных конструкций"
+    description: >
+      Проверяет, не создает ли текст риска переквалификации соглашения
+      в новацию, прощение долга, зачет или иную сделку.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "не является новацией"
+        - "не является прощением долга"
+        - "не является зачетом"
+        - "не является куплей-продажей"
+        - "прекращение обязательства отступным"
+        - "вместо исполнения"
+        - "замена обязательства"
+        - "прощение долга"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+является\\s+новаци"
+        - "(?i)не\\s+является\\s+прощени(ем|я)\\s+долг"
+        - "(?i)замен(а|яет)\\s+обязательств"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий соглашение об отступном.
+        Проверь риск смешения с новацией, прощением долга, зачетом или иной конструкцией.
+
+        Ответь строго в JSON:
+        {
+          "qualification_as_otsupnoe": "<clear / mixed / doubtful>",
+          "novation_risk": "<yes / no / unclear>",
+          "debt_forgiveness_risk": "<yes / no / unclear>",
+          "setoff_risk": "<yes / no / unclear>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 420
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "новация"
+        - "прощение долга"
+        - "зачет"
+        - "отступное"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "qualification_as_otsupnoe"
+          type: "string"
+          allowed_values: ["clear", "mixed", "doubtful"]
+          description: "Четкость квалификации как отступного"
+        - name: "novation_risk"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Риск квалификации как новации"
+        - name: "debt_forgiveness_risk"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Риск квалификации как прощения долга"
+      store_payload: true
+
+  - id: bankruptcy_and_fair_value_risk_check
+    name: "Банкротный риск и соразмерность отступного"
+    description: >
+      Проверяет наличие признаков банкротного риска, несоразмерности стоимости,
+      аффилированности и иных факторов оспаривания.
+    triggers:
+      any: ["bankruptcy_risk_context", "tax_sensitive_structure"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "отсутствие признаков банкротства"
+        - "платежеспособность"
+        - "не является сделкой с предпочтением"
+        - "рыночная стоимость"
+        - "соразмерность"
+        - "аффилированность"
+        - "кредиторы"
+        - "подозрительная сделка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)признак(ов)?\\s+банкротств"
+        - "(?i)рыночн(ая|ой)\\s+стоимост"
+        - "(?i)сделк(а|и)\\s+с\\s+предпочтени"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий соглашение об отступном.
+        Проверь банкротный риск и соразмерность стоимости.
+
+        Ответь строго в JSON:
+        {
+          "bankruptcy_risk_disclosed": "<yes / no / partial>",
+          "fair_value_support": "<yes / no / partial>",
+          "affiliate_risk": "<yes / no / unclear>",
+          "challenge_risk_level": "<high / medium / low>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 420
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "банкротство"
+        - "рыночная стоимость"
+        - "предпочтение"
+        - "аффилированность"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "bankruptcy_risk_disclosed"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Раскрыт ли банкротный риск"
+        - name: "fair_value_support"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Есть ли подтверждение соразмерной стоимости"
+        - name: "challenge_risk_level"
+          type: "string"
+          allowed_values: ["high", "medium", "low"]
+          description: "Уровень риска оспаривания"
+      store_payload: true
+
+  - id: secured_obligation_fate_check
+    name: "Судьба обеспечений при прекращении основного обязательства"
+    description: >
+      Критическая проверка: если прекращаемое обязательство обеспечено залогом,
+      ипотекой или поручительством, прекращение основного обязательства отступным
+      влечёт прекращение обеспечительных обязательств (ст. 329, 352, 367 ГК РФ).
+      Необходимо урегулировать: снятие залога/ипотеки, уведомление поручителей,
+      прекращение записей в реестрах, возврат закладной.
+    triggers:
+      any: ["secured_original_obligation"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "залог"
+        - "ипотека"
+        - "поручительство"
+        - "обеспечение прекращается"
+        - "снятие залога"
+        - "погашение записи об ипотеке"
+        - "закладная"
+        - "залогодержатель"
+        - "поручитель"
+        - "освобождение от обеспечения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)залог.*прекращ"
+        - "(?i)ипотек.*прекращ|погашени(е|я)\\s+записи"
+        - "(?i)поручительств.*прекращ"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий соглашение об отступном.
+        Проверь, как урегулирована судьба обеспечений основного обязательства.
+
+        По ст. 329, 352, 367 ГК РФ:
+        - Прекращение основного обязательства влечёт прекращение обеспечительных
+        - Залог/ипотека подлежат снятию (погашение записи в ЕГРН)
+        - Поручительство прекращается автоматически, но поручители должны быть уведомлены
+        - Закладная подлежит возврату/погашению
+
+        Ответь строго в JSON:
+        {
+          "secured_obligation_identified": "<yes / no / not_found>",
+          "security_type": "<pledge / mortgage / surety / mixed / not_found>",
+          "security_termination_clause": "<described / partial / not_found>",
+          "mortgage_release_procedure": "<described / not_found / not_applicable>",
+          "surety_notification": "<described / not_found / not_applicable>",
+          "pledge_document_return": "<described / not_found / not_applicable>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "залог"
+        - "ипотека"
+        - "поручительство"
+        - "обеспечение"
+        - "снятие залога"
+        - "закладная"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "security_type"
+          type: "string"
+          allowed_values: ["pledge", "mortgage", "surety", "mixed", "not_found"]
+          description: "Тип обеспечения"
+        - name: "security_termination_clause"
+          type: "string"
+          allowed_values: ["described", "partial", "not_found"]
+          description: "Описан ли порядок прекращения обеспечений"
+      store_payload: true
+
+  - id: spousal_consent_for_individual_check
+    name: "Согласие супруга при передаче совместного имущества (ст. 35 СК РФ)"
+    description: >
+      Если должник — физлицо и отступным является недвижимость или иное совместно
+      нажитое имущество, требуется нотариальное согласие супруга.
+      Отсутствие согласия = риск оспаривания сделки (ст. 35 СК РФ).
+    triggers:
+      any: ["individual_party"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "согласие супруга"
+        - "нотариальное согласие"
+        - "не состоит в браке"
+        - "совместно нажитое имущество"
+        - "личная собственность"
+        - "брачный договор"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)согласи(е|я)\\s+супруг"
+        - "(?i)не\\s+состоит?\\s+в\\s+браке"
+        - "(?i)совместн(о|ого)\\s+нажит"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий соглашение об отступном.
+        Если должник — физическое лицо, проверь наличие согласия супруга.
+
+        По ст. 35 СК РФ:
+        - Для распоряжения недвижимостью и сделок, требующих нотариального удостоверения
+          или госрегистрации, нужно нотариальное согласие супруга
+        - При отсутствии — супруг вправе оспорить сделку в течение года
+
+        Ответь строго в JSON:
+        {
+          "individual_party_as_debtor": "<yes / no / not_found>",
+          "spousal_consent_status": "<present / not_married / not_found>",
+          "consent_document_type": "<notarized / statement / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "согласие супруга"
+        - "нотариальное согласие"
+        - "в браке"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "spousal_consent_status"
+          type: "string"
+          allowed_values: ["present", "not_married", "not_found"]
+          description: "Статус согласия супруга"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification"
+    name: "Стороны: должник и кредитор"
+    description: "Проверяет идентификацию сторон соглашения об отступном"
+    legal_base: "ст. 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "должник"
+        - "кредитор"
+        - "именуем"
+        - "в лице"
+        - "действующего на основании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(должник|кредитор).*именуем"
+        - "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"
+
+  - id: "original_obligation_identification"
+    name: "Первоначальное обязательство: точная идентификация"
+    description: "Проверяет наличие реквизитов обязательства, которое прекращается"
+    legal_base: "ст. 409, 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "обязательство"
+        - "договор №"
+        - "задолженность"
+        - "основной долг"
+        - "проценты"
+        - "неустойка"
+        - "в счет погашения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)договор\\s*№"
+        - "(?i)основн(ой|ого)\\s+долг|процент|неустойк"
+
+  - id: "otsupnoe_subject_description"
+    name: "Предмет отступного: индивидуализация"
+    description: "Проверяет достаточное описание предмета отступного"
+    legal_base: "ст. 409 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "отступное"
+        - "денежные средства"
+        - "имущество"
+        - "право требования"
+        - "акт приема-передачи"
+        - "кадастровый номер"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)отступн"
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+        - "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
+
+  - id: "termination_scope_required"
+    name: "Объём прекращения: полностью или частично"
+    description: "Проверяет, определён ли объём прекращения обязательства"
+    legal_base: "ст. 409 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "в полном объеме"
+        - "полностью"
+        - "частично"
+        - "остаток долга"
+        - "неполное погашение"
+        - "прекращается обязательство"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)в\\s+полном\\s+объеме|частичн"
+        - "(?i)остат(ок|ка)\\s+долг"
+
+  - id: "real_character_clause"
+    name: "Реальный характер: прекращение после фактического предоставления"
+    description: "Проверяет наличие корректной формулировки о моменте прекращения обязательства"
+    legal_base: "ст. 409 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "с момента передачи отступного"
+        - "с момента фактической передачи"
+        - "после предоставления отступного"
+        - "после зачисления денежных средств"
+        - "после регистрации перехода права"
+      keyword_mode: "any"
+      negative_keywords:
+        - "с даты подписания соглашения"
+        - "с момента заключения соглашения"
+      regex_patterns:
+        - "(?i)с\\s+момента\\s+фактическ(ой|ого)\\s+передач"
+        - "(?i)после\\s+предоставления\\s+отступного"
+
+  - id: "agreed_value_of_otsupnoe"
+    name: "Согласованная стоимость отступного"
+    description: "Проверяет наличие согласованной стоимости предмета отступного"
+    legal_base: "ст. 409 ГК РФ, НК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "стоимость отступного"
+        - "оценивается сторонами"
+        - "рыночная стоимость"
+        - "согласованная стоимость"
+        - "стоимость для целей налогообложения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)стоимост(ь|и)\\s+отступн"
+        - "(?i)рыночн(ая|ой)\\s+стоимост"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+
+  - id: "full_and_final_settlement"
+    name: "Полное и окончательное урегулирование"
+    description: "Проверяет, закрыт ли риск последующих требований кредитора"
+    legal_base: "ст. 409 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "стороны не имеют претензий"
+        - "долг считается погашенным"
+        - "прекращаются все обязательства"
+        - "без права на предъявление дальнейших требований"
+        - "окончательное прекращение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+имеют\\s+друг\\s+к\\s+другу\\s+претенз"
+        - "(?i)долг\\s+считается\\s+погашенн"
+
+  - id: "real_estate_registration_clause"
+    name: "Недвижимость как отступное: регистрация перехода права"
+    description: "Проверяет порядок госрегистрации, если отступное — недвижимость"
+    legal_base: "ст. 131, 551 ГК РФ, ФЗ-218"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["real_estate_as_otsupnoe"]
+    rules:
+      keywords:
+        - "государственная регистрация"
+        - "ЕГРН"
+        - "Росреестр"
+        - "переход права собственности"
+        - "расходы на регистрацию"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)государственн(ая|ой)\\s+регистрац"
+        - "(?i)ЕГРН|Росреестр"
+
+  - id: "claim_assignment_specifics"
+    name: "Право требования как отступное: условия уступки"
+    description: "Проверяет описание уступаемого требования и передачу подтверждающих документов"
+    legal_base: "ст. 382-390, 409 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["claim_assignment_as_otsupnoe"]
+    rules:
+      keywords:
+        - "право требования"
+        - "уступка"
+        - "должник по требованию"
+        - "документы, удостоверяющие требование"
+        - "передача документов"
+        - "объем уступаемого права"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уступк(а|и)\\s+прав"
+        - "(?i)право\\s+требован"
+        - "(?i)передач(а|и)\\s+документ"
+
+  - id: "warranties_for_otsupnoe_subject"
+    name: "Гарантии в отношении предмета отступного"
+    description: "Проверяет наличие заверений о титуле, обременениях и качестве предмета"
+    legal_base: "ст. 460, 469, 475 ГК РФ по аналогии"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "свободно от прав третьих лиц"
+        - "не заложено"
+        - "не арестовано"
+        - "право собственности принадлежит"
+        - "надлежащее качество"
+        - "отсутствие скрытых недостатков"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)свободн(о|ым)\\s+от\\s+прав\\s+третьих\\s+лиц"
+        - "(?i)не\\s+заложен|не\\s+арестован"
+
+  - id: "bankruptcy_risk_disclosure"
+    name: "Банкротный риск: заверения о платежеспособности и отсутствии preference risk"
+    description: "Проверяет наличие заверений о банкротном статусе и добросовестности сделки"
+    legal_base: "ФЗ-127"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["bankruptcy_risk_context"]
+    rules:
+      keywords:
+        - "отсутствие признаков банкротства"
+        - "платежеспособность"
+        - "не является сделкой с предпочтением"
+        - "не нарушает права кредиторов"
+        - "не находится в процедуре банкротства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)признак(ов)?\\s+банкротств"
+        - "(?i)сделк(а|и)\\s+с\\s+предпочтени"
+
+  - id: "risk_allocation_before_transfer"
+    name: "Распределение рисков до передачи отступного"
+    description: "Проверяет, кто несет риск случайной гибели/повреждения до передачи"
+    legal_base: "ст. 211, 459 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "риск случайной гибели"
+        - "риск повреждения"
+        - "до момента передачи"
+        - "несет должник"
+        - "обязанность по сохранности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)риск\\s+случайн(ой|ого)\\s+гибел"
+        - "(?i)до\\s+момента\\s+передач"
+
+  - id: "tax_liabilities_allocation"
+    name: "Налоговые последствия и первичные документы"
+    description: "Проверяет распределение налоговых рисков и документального оформления"
+    legal_base: "НК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["tax_sensitive_structure"]
+    rules:
+      keywords:
+        - "налоговые обязательства"
+        - "НДС"
+        - "доход кредитора"
+        - "расход должника"
+        - "первичные документы"
+        - "акт приема-передачи"
+        - "стоимость для целей налогообложения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bНДС\\b"
+        - "(?i)налогов(ые|ых|ой)\\s+обязательств"
+        - "(?i)первичн(ые|ых)\\s+документ"
+
+  - id: "corporate_approvals_if_needed"
+    name: "Корпоративные одобрения при необходимости"
+    description: "Проверяет наличие одобрений, если сторона — юрлицо и сделка может быть крупной/заинтересованной"
+    legal_base: "ФЗ-14, ФЗ-208"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["corporate_approval_context"]
+    rules:
+      keywords:
+        - "крупная сделка"
+        - "сделка с заинтересованностью"
+        - "одобрение общего собрания"
+        - "решение единственного участника"
+        - "одобрение не требуется"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)крупн(ая|ой)\\s+сделк"
+        - "(?i)заинтересованност"
+        - "(?i)одобрен(ие|а)"
+
+  - id: "distinction_from_novation_and_forgiveness"
+    name: "Отграничение от новации / прощения долга / зачета"
+    description: "Проверяет, отражено ли в тексте отличие от иных способов прекращения обязательств"
+    legal_base: "ст. 409-415 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "не является новацией"
+        - "не является прощением долга"
+        - "не является зачетом"
+        - "ст. 409 ГК РФ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+является\\s+новаци"
+        - "(?i)не\\s+является\\s+прощени(ем|я)\\s+долг"
+        - "(?i)не\\s+является\\s+зачет"
+
+  - id: "dispute_resolution_jurisdiction"
+    name: "Подсудность и порядок разрешения споров"
+    description: "Проверяет наличие подсудности и/или претензионного порядка"
+    legal_base: "АПК РФ, ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "подсудность"
+        - "арбитражный суд"
+        - "претензионный порядок"
+        - "досудебный порядок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+        - "(?i)претензионн(ый|ого)\\s+поряд"
+
+  - id: "confidentiality"
+    name: "Конфиденциальность"
+    description: "Проверяет наличие условий о конфиденциальности"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "не раскрывать третьим лицам"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)не\\s+разглаш"
+
+  - id: "otsupnoe_transfer_deadline"
+    name: "Срок предоставления отступного (ст. 409 ГК РФ)"
+    description: "Проверяет наличие конкретного срока передачи отступного — элемент существенных условий"
+    legal_base: "ст. 409 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "в течение"
+        - "не позднее"
+        - "срок передачи"
+        - "срок предоставления"
+        - "до даты"
+        - "календарных дней"
+        - "рабочих дней"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(календарн|рабоч|дней|банковск)"
+        - "(?i)срок\\s+(передач|предоставлен).*отступн"
+
+  - id: "security_release_on_termination"
+    name: "Судьба обеспечений при прекращении обязательства"
+    description: "Проверяет наличие условий о снятии залога/ипотеки/поручительства"
+    legal_base: "ст. 329, 352, 367 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["secured_original_obligation"]
+    rules:
+      keywords:
+        - "залог прекращается"
+        - "снятие залога"
+        - "снятие ипотеки"
+        - "погашение записи об ипотеке"
+        - "поручительство прекращается"
+        - "возврат закладной"
+        - "прекращение обеспечения"
+        - "освобождение от обеспечения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)залог.*прекращ|снят(ие|ь)\\s+залог"
+        - "(?i)ипотек.*прекращ|погашени(е|я)\\s+записи"
+        - "(?i)поручительств.*прекращ"
+
+  - id: "spousal_consent_required"
+    name: "Согласие супруга при передаче совместного имущества (ст. 35 СК РФ)"
+    description: "Проверяет наличие согласия супруга или подтверждения отсутствия брака"
+    legal_base: "ст. 35 СК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["individual_party"]
+    rules:
+      keywords:
+        - "согласие супруга"
+        - "нотариальное согласие"
+        - "не состоит в браке"
+        - "брачный договор"
+        - "личная собственность"
+        - "совместно нажитое"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)согласи(е|я)\\s+супруг"
+        - "(?i)не\\s+состоит?\\s+в\\s+браке"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_identification:
+    text: >
+      Просим подтвердить по {doc_names}: полные реквизиты должника и кредитора,
+      включая ИНН/ОГРН или паспортные данные, адреса и полномочия подписантов.
+    addressee: "Обе стороны"
+
+  original_obligation_extraction:
+    text: >
+      Просим предоставить по {doc_names}: точные реквизиты прекращаемого обязательства,
+      состав долга (основной долг, проценты, неустойка), сумму задолженности
+      и указание, прекращается ли обязательство полностью или частично.
+    addressee: "Обе стороны"
+
+  original_obligation_identification:
+    text: >
+      Просим уточнить в {doc_names}: какое именно обязательство прекращается,
+      на каком основании возник долг, каков его размер и состав.
+    addressee: "Юридический советник"
+
+  otsupnoe_subject_and_transfer_check:
+    text: >
+      Просим предоставить по {doc_names}: детальное описание предмета отступного,
+      порядок фактической передачи, подтверждающие документы, срок передачи
+      и указание, требуется ли регистрация/дополнительные transfer steps.
+    addressee: "Должник / Юридический советник"
+
+  otsupnoe_subject_description:
+    text: >
+      Просим уточнить в {doc_names}: точный предмет отступного, его индивидуализирующие
+      признаки, комплект документов и форму передачи.
+    addressee: "Должник"
+
+  real_character_and_termination_moment_check:
+    text: >
+      Просим уточнить в {doc_names}, что обязательство прекращается не в момент
+      подписания соглашения, а в момент фактического предоставления отступного
+      (либо регистрации / зачисления денежных средств, если применимо).
+    addressee: "Юридический советник"
+
+  real_character_clause:
+    text: >
+      Просим привести в {doc_names} формулировку о моменте прекращения обязательства
+      в соответствие с реальным характером отступного по ст. 409 ГК РФ.
+    addressee: "Юридический советник"
+
+  valuation_and_settlement_scope_check:
+    text: >
+      Просим уточнить в {doc_names}: согласованную стоимость отступного,
+      прекращается ли долг полностью или частично, и как определяется остаток
+      задолженности (если он сохраняется).
+    addressee: "Обе стороны"
+
+  agreed_value_of_otsupnoe:
+    text: >
+      Просим подтвердить в {doc_names}: стоимость отступного, метод её определения
+      и значение этой стоимости для налоговых и расчётных целей.
+    addressee: "Финансовый / Налоговый консультант"
+
+  termination_scope_required:
+    text: >
+      Просим уточнить в {doc_names}: долг прекращается полностью или частично,
+      а также остаются ли у кредитора какие-либо дополнительные требования.
+    addressee: "Юридический советник"
+
+  full_and_final_settlement:
+    text: >
+      Просим включить/уточнить в {doc_names} условие о полном и окончательном
+      урегулировании обязательства и отсутствии дальнейших претензий,
+      если именно это соответствует воле сторон.
+    addressee: "Юридический советник"
+
+  recharacterization_distinction_check:
+    text: >
+      Просим уточнить в {doc_names}: что соглашение квалифицируется именно как
+      отступное по ст. 409 ГК РФ, а не как новация, прощение долга, зачет
+      или иная конструкция.
+    addressee: "Юридический советник"
+
+  distinction_from_novation_and_forgiveness:
+    text: >
+      Просим включить в {doc_names} формулировки, исключающие риск смешения
+      с новацией, прощением долга и зачетом.
+    addressee: "Юридический советник"
+
+  bankruptcy_and_fair_value_risk_check:
+    text: >
+      Просим предоставить по {doc_names}: сведения о платежеспособности должника,
+      отсутствии признаков банкротства, подтверждение рыночной / согласованной
+      соразмерной стоимости отступного и анализ риска оспаривания сделки.
+    addressee: "Финансовый консультант / Юридический советник"
+
+  bankruptcy_risk_disclosure:
+    text: >
+      Просим подтвердить по {doc_names}, что должник не находится в процедуре
+      банкротства, не обладает признаками неплатежеспособности и сделка
+      не предоставляет предпочтение одному кредитору перед другими.
+    addressee: "Должник / Юридический советник"
+
+  real_estate_registration_clause:
+    text: >
+      Если в {doc_names} отступным является недвижимость, просим предоставить:
+      кадастровые данные, выписку ЕГРН, правоустанавливающие документы,
+      порядок регистрации перехода права и распределение расходов на регистрацию.
+    addressee: "Должник / Юридический советник"
+
+  claim_assignment_specifics:
+    text: >
+      Если в {doc_names} отступным является право требования, просим предоставить:
+      основание требования, договор/документы, сведения о должнике по уступаемому
+      требованию, объем права и комплект передаваемых подтверждающих документов.
+    addressee: "Должник / Юридический советник"
+
+  warranties_for_otsupnoe_subject:
+    text: >
+      Просим предоставить по {doc_names}: заверения должника о титуле на предмет
+      отступного, отсутствии обременений, арестов, прав третьих лиц и скрытых недостатков.
+    addressee: "Должник"
+
+  risk_allocation_before_transfer:
+    text: >
+      Просим уточнить в {doc_names}: кто несет риск случайной гибели/повреждения
+      предмета отступного до его фактической передачи кредитору.
+    addressee: "Юридический советник"
+
+  tax_liabilities_allocation:
+    text: >
+      Просим уточнить в {doc_names}: налоговые последствия сделки для каждой стороны,
+      стоимость отступного для целей налогообложения, необходимость оформления
+      первичных документов и НДС-последствия.
+    addressee: "Налоговый консультант"
+
+  corporate_approvals_if_needed:
+    text: >
+      Просим предоставить по {doc_names}: корпоративные одобрения сделки
+      (если сторона — юрлицо и требуется одобрение как крупной / заинтересованной),
+      либо заключение о том, что одобрение не требуется.
+    addressee: "Корпоративный юрист"
+
+  dispute_resolution_jurisdiction:
+    text: >
+      Просим уточнить в {doc_names}: подсудность споров, наличие претензионного
+      порядка и процедуру разрешения разногласий.
+    addressee: "Юридический советник"
+
+  confidentiality:
+    text: >
+      Просим добавить в {doc_names} условия о конфиденциальности и неразглашении
+      условий урегулирования долга.
+    addressee: "Юридический советник"
+
+  bankruptcy_preference_or_suspect_transaction_risk:
+    text: >
+      Внимание: по {doc_names} имеется риск оспаривания как предпочтительной
+      или подозрительной сделки в банкротстве. Просим предоставить банкротный анализ,
+      подтверждение платежеспособности и fair value memorandum.
+    addressee: "Юридический советник / Финансовый консультант"
+
+  real_estate_transfer_registration_required:
+    text: >
+      Внимание: если в {doc_names} отступным является недвижимость,
+      требуется государственная регистрация перехода права. Просим подготовить
+      регистрационный пакет и план действий по подаче документов в Росреестр.
+    addressee: "Юридический советник / Росреестр"
+
+  claim_assignment_identification_required:
+    text: >
+      Внимание: если в {doc_names} отступным является право требования,
+      требуется полная идентификация уступаемого права и пакет transfer documents.
+      Просим предоставить договор-основание, уведомление должника и документы по требованию.
+    addressee: "Юридический советник"
+
+  misclassification_risk_not_novation_or_forgiveness:
+    text: >
+      Внимание: {doc_names} содержит риск неверной квалификации. Просим
+      уточнить конструкцию сделки и привести формулировки в соответствие
+      именно с моделью отступного по ст. 409 ГК РФ.
+    addressee: "Юридический советник"
+
+  secured_obligation_fate_check:
+    text: >
+      Просим уточнить в {doc_names}: если прекращаемое обязательство обеспечено
+      залогом/ипотекой/поручительством — как урегулирована судьба обеспечений:
+      снятие залога/ипотеки (погашение записи в ЕГРН), уведомление поручителей,
+      возврат закладной, порядок и сроки совершения регистрационных действий.
+    addressee: "Юридический советник / Кредитор"
+
+  security_release_on_termination:
+    text: >
+      Просим включить в {doc_names}: порядок прекращения обеспечительных обязательств
+      (залог, ипотека, поручительство) в связи с прекращением основного обязательства
+      отступным (ст. 329, 352, 367 ГК РФ).
+    addressee: "Юридический советник"
+
+  spousal_consent_for_individual_check:
+    text: >
+      Если должник по {doc_names} — физическое лицо, просим предоставить:
+      нотариальное согласие супруга на распоряжение совместным имуществом (ст. 35 СК РФ)
+      либо подтверждение, что должник в браке не состоит / имущество является личной
+      собственностью / действует брачный договор.
+    addressee: "Должник"
+
+  otsupnoe_transfer_deadline:
+    text: >
+      Просим уточнить в {doc_names}: конкретный срок предоставления отступного
+      (ст. 409 ГК РФ требует указания размера, сроков и порядка). Укажите дату
+      или количество дней с даты подписания, а также последствия просрочки.
+    addressee: "Юридический советник"
+
+  spousal_consent_required:
+    text: >
+      Просим включить в {doc_names}: согласие супруга должника (нотариальное,
+      если отступное — недвижимость) или подтверждение отсутствия брака.
+    addressee: "Должник / Юридический советник"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"
+    

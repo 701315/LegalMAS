@@ -1,0 +1,2358 @@
+type: contract_1.4_contract_farming
+name: "Договор контрактации"
+
+description: |
+  Специализированный вид купли-продажи сельскохозяйственной продукции, регулируемый § 5 Главы 30 ГК РФ.
+  Характеризуется особым субъектным составом (производитель сельскохозяйственной продукции vs заготовитель),
+  учётом зависимости производства от природных факторов, повышенной защитой производителя при форс-мажоре
+  и субсидиарным применением норм о договоре поставки (§ 3 Главы 30 ГК РФ).
+  Заготовитель — лицо, закупающее продукцию для последующей переработки или продажи.
+
+version: 4.1
+parent: class_1_transfer_of_ownership
+
+metadata:
+  category: contract
+  subcategory: ownership_transfer
+  complexity: medium
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "§ 5 Главы 30 ГК РФ (ст. 535-538)"
+  doc_types_supported:
+    - "договор контрактации"
+    - "договор закупки сельскохозяйственной продукции"
+    - "договор на поставку сельхозпродукции"
+    - "договор на закупку зерна"
+    - "договор на закупку молока"
+    - "договор на закупку мяса"
+    - "договор на закупку скота"
+    - "договор на закупку овощей"
+    - "договор на закупку фруктов"
+    - "договор контрактации с авансированием"
+    - "договор закупки урожая"
+    - "договор поставки сельхозпродукции"
+    - "договор контрактации урожая"
+    - "договор закупки сельхозпродукции на корню"
+    - "форвардный договор на урожай"
+    - "договор поставки зерна после уборки"
+
+    - "agricultural produce purchase agreement"
+    - "crop purchase agreement"
+    - "contract farming agreement"
+    - "forward agricultural contract"
+    - "forward contract for agricultural products"
+    - "grain supply agreement"
+    - "commodity farming agreement"
+    - "FOSFA agreement"
+    - "GAFTA agreement"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  scoring:
+    accept_threshold: 0.79
+    strong_signal_threshold: 0.87
+    ambiguity_margin: 0.17
+    input_quality_weight: 1.0
+
+  rules:
+
+    filename_patterns:
+      - pattern: "(?i)\\bдоговор[\\s_.-]*контрактаци[яи]\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора контрактации
+
+      - pattern: "(?i)\\bконтрактаци[яи]\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Базовый русский subject-marker данного типа
+
+      - pattern: "(?i)\\bcontract[\\s_.-]*farming(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.95
+        # Прямой англоязычный маркер contract farming
+
+      - pattern: "(?i)\\bcommodity[\\s_.-]*farming(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Поддерживаемая, но менее стандартная англоязычная форма
+
+      - pattern: "(?i)\\bagricultural[\\s_.-]*produce[\\s_.-]*(?:purchase|procurement)(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Agricultural produce purchase/procurement — хороший предметный маркер контрактации
+
+      - pattern: "(?i)\\bcrop[\\s_.-]*purchase(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Crop purchase agreement — специфичный маркер закупки урожая
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?(?:на[\\s_.-]*)?закупк[а-я]*[\\s_.-]*(?:сельхоз|сельскохозяйственн)[а-я]*[\\s_.-]*продукци[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Прямая закупка сельскохозяйственной продукции
+
+      - pattern: "(?i)\\b(?:закупк[а-я]*|контрактаци[яи])[\\s_.-]*урожа[йя]\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Закупка/контрактация урожая — сильный subject-marker
+
+      - pattern: "(?i)\\b(?:сельхоз(?:продукци[а-я]*)?|сельскохозяйственн[а-я]*[\\s_.-]*продукци[а-я]*|урожа[йя])[\\s_.-]*на[\\s_.-]*корню\\b"
+        kind: specific_subject
+        weight: 0.93
+        # Закупка продукции/урожая на корню — очень характерный признак контрактации
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?(?:на[\\s_.-]*)?закупк[а-я]*[\\s_.-]*(?:зерн[ао]|молок[ао]|мяс[ао]|скот[аоу]?|овощ[а-я]*|фрукт[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Закупка типичных сельхоз-товаров, перечисленных в supported doc types
+
+      - pattern: "(?i)(?=.*\\b(?:forward|форвардн[а-я]*)\\b)(?=.*\\b(?:agricultural|crop|grain|harvest|сельхоз|сельскохозяйственн|урожа[йя]|зерн[ао])\\b).*"
+        kind: specific_subject
+        weight: 0.80
+        # Forward agricultural / crop / harvest contract — поддерживаемый, но потенциально конфликтный с generic forward deal
+
+      - pattern: "(?i)\\bпоставк[аиу][\\s_.-]*зерн[ао][\\s_.-]*после[\\s_.-]*уборк[аи]\\b"
+        kind: specific_subject
+        weight: 0.78
+        # Поставка зерна после уборки ближе к harvest procurement, чем к обычной supply
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?(?:на[\\s_.-]*)?поставк[аиу][\\s_.-]*(?:сельхоз|сельскохозяйственн)[а-я]*[\\s_.-]*продукци[а-я]*\\b"
+        kind: generic_form
+        weight: 0.58
+        # Формулировка из supported types, но слишком близка к goods_supply, поэтому не subject-specific
+
+      - pattern: "(?i)\\bsupply[\\s_.-]*of[\\s_.-]*agricultural[\\s_.-]*products?\\b"
+        kind: generic_form
+        weight: 0.56
+        # Англоязычная supply-форма для сельхозпродукции; учитываем осторожно из-за конфликта с supply
+
+      - pattern: "(?i)\\bgrain[\\s_.-]*supply(?:[\\s_.-]*(?:agreement|contract))?\\b"
+        kind: generic_form
+        weight: 0.54
+        # Grain supply agreement — поддерживаемая форма, но недостаточно специфична без иных agri-procurement сигналов
+
+      - pattern: "(?i)\\b(?:GAFTA|FOSFA)\\b"
+        kind: context
+        weight: 0.24
+        # Отраслевые commodity templates/forms, сами по себе не доказывают именно contract_farming
+
+
+    folder_patterns:
+      - pattern: "(?i)контрактаци[яи]"
+        kind: specific_subject
+        weight: 0.86
+        # Явная папка контрактации
+
+      - pattern: "(?i)contract[_\\s-]*farming"
+        kind: specific_subject
+        weight: 0.84
+        # Прямой англоязычный folder-marker
+
+      - pattern: "(?i)agricultural[_\\s-]*(?:produce|products)[_\\s-]*(?:purchase|procurement)"
+        kind: specific_subject
+        weight: 0.78
+        # Явная папка закупки сельхозпродукции
+
+      - pattern: "(?i)crop[_\\s-]*purchase|harvest[_\\s-]*purchase|закупк[а-я]*[_\\s-]*урожа[йя]"
+        kind: specific_subject
+        weight: 0.78
+        # Папка закупки урожая / crop purchase
+
+      - pattern: "(?i)forward[_\\s-]*(?:agricultural|crop|grain|harvest)|форвардн[а-я]*[_\\s-]*(?:урожа[йя]|зерн[ао]|сельхоз)"
+        kind: generic_form
+        weight: 0.58
+        # Forward agri-folder полезен, но возможен конфликт с более общими forward/commodity типами
+
+      - pattern: "(?i)supply[_\\s-]*(?:of[_\\s-]*)?(?:agricultural[_\\s-]*products?|grain)|поставк[а-я]*[_\\s-]*(?:сельхоз(?:продукц[а-я]*)?|зерн[ао])"
+        kind: generic_form
+        weight: 0.50
+        # Supply-taxonomy учитываем, но ослабляем из-за пересечения с goods_supply
+
+      - pattern: "(?i)сельхоз|сельскохозяйствен"
+        kind: context
+        weight: 0.30
+        # Слишком широкий отраслевой маркер
+
+      - pattern: "(?i)selsk\\w*|agri|agro"
+        kind: context
+        weight: 0.28
+        # Широкие отраслевые/translit-маркеры
+
+      - pattern: "(?i)farming|harvest|урожа[йя]"
+        kind: context
+        weight: 0.26
+        # Полезный, но не самодостаточный контекст
+
+      - pattern: "(?i)GAFTA|FOSFA"
+        kind: context
+        weight: 0.22
+        # Commodity-trade context, не уникален для contract_farming
+
+    keywords:
+
+      high:
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+контрактации\\b"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название договора контрактации, ст. 535 ГК РФ"
+
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+закупки\\s+сельскохозяйственной\\s+продукции\\b"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название закупочного договора с указанием на сельхозпродукцию"
+
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+контрактации\\s+с\\s+авансированием\\b"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Контрактация с авансированием производителя — характерная форма"
+
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+на\\s+поставку\\s+сельхозпродукции\\b"
+          weight: 0.90
+          distinctiveness: high
+          context: header
+          description: "Название договора с использованием сокращения сельхозпродукция"
+
+        - pattern: "(?i)производитель\\s+сельскохозяйственной\\s+продукции"
+          weight: 1.0
+          distinctiveness: high
+          context: any
+          description: "Роль производителя сельхозпродукции — ключевой субъект контрактации (ст. 535 ГК)"
+
+        - pattern: "(?i)производитель\\s+сельхозпродукции"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Сокращённое обозначение производителя — специфично для контрактации"
+
+        - pattern: "(?i)\\bзаготовитель[а-я]*\\b"
+          weight: 1.0
+          distinctiveness: high
+          context: any
+          description: "Заготовитель — специальная роль второй стороны контрактации (ст. 535 ГК РФ)"
+
+        - pattern: "(?i)ст(?:атья|\\.)?\\s*535\\s+ГК"
+          weight: 0.97
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на ст. 535 ГК РФ — основная норма о контрактации"
+
+        - pattern: "(?i)ст(?:атья|\\.)?\\s*53[6-8]\\s+ГК"
+          weight: 0.90
+          distinctiveness: high
+          context: any
+          description: "Ссылки на ст. 536-538 ГК РФ — специальные нормы о контрактации"
+
+        - pattern: "(?i)§\\s*5\\s+глав[ыы]\\s*30\\s+ГК"
+          weight: 0.90
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на параграф ГК о контрактации"
+
+        - pattern: "(?i)сдать\\s+сельскохозяйственную\\s+продукцию"
+          weight: 0.85
+          distinctiveness: high
+          context: body
+          description: "Обязанность производителя сдать продукцию — характеристика контрактации"
+
+        - pattern: "(?i)принять\\s+и\\s+оплатить\\s+сельскохозяйственную\\s+продукцию"
+          weight: 0.85
+          distinctiveness: high
+          context: body
+          description: "Обязанность заготовителя принять и оплатить — специфично для контрактации"
+
+        - pattern: "(?i)выращенный\\s+урожай"
+          weight: 0.80
+          distinctiveness: high
+          context: any
+          description: "Выращенный урожай как предмет договора — признак контрактации"
+
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+на\\s+закупку\\s+зерн[ао]\\b"
+          weight: 0.88
+          distinctiveness: high
+          context: header
+          description: "Заголовок закупки зерна — специфичный вид контрактации"
+
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+на\\s+закупку\\s+молок[ао]\\b"
+          weight: 0.88
+          distinctiveness: high
+          context: header
+          description: "Заголовок закупки молока — специфичный вид контрактации"
+
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+на\\s+закупку\\s+мяс[ао](?:\\s*/\\s*скот[аоу]?)?\\b"
+          weight: 0.88
+          distinctiveness: high
+          context: header
+          description: "Заголовок закупки мяса/скота — специфичный вид контрактации"
+
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+на\\s+закупку\\s+(?:овощ[ейья]|фрукт[овы]?)\\b"
+          weight: 0.85
+          distinctiveness: high
+          context: header
+          description: "Заголовок закупки овощей/фруктов — специфичный вид контрактации"
+
+        - pattern: "(?i)\\bконтрактант[аоу]?\\b"
+          weight: 0.80
+          distinctiveness: high
+          context: any
+          description: "Контрактант — устаревший, но встречающийся термин для стороны контрактации"
+
+        - pattern: "(?i)сельскохозяйственная\\s+продукция"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Прямое указание на сельскохозяйственную продукцию как предмет"
+
+        - pattern: "(?i)\\bсельхозпродукция\\b"
+          weight: 0.80
+          distinctiveness: high
+          context: any
+          description: "Сокращённая форма — специфична для документов о контрактации"
+
+        - pattern: "(?i)выращенная\\s+продукция"
+          weight: 0.75
+          distinctiveness: high
+          context: any
+          description: "Выращенная продукция — признак сельскохозяйственного производства"
+
+        - pattern: "(?i)произведённая\\s+сельхозпродукция"
+          weight: 0.80
+          distinctiveness: high
+          context: any
+          description: "Произведённая сельхозпродукция — формула из контрактационных договоров"
+
+        - pattern: "(?i)природн[а-я]+\\s+(?:явлени[яи]|услови[яи]|факторы?)"
+          weight: 0.75
+          distinctiveness: high
+          context: body
+          description: "Природные условия/явления — форс-мажорная специфика контрактации (ст. 538 ГК)"
+
+        - pattern: "(?i)зависимост[ьи]\\s+(?:урожая|производства|сбора)\\s+от\\s+природн"
+          weight: 0.85
+          distinctiveness: high
+          context: body
+          description: "Зависимость от природных условий — квалифицирующий признак контрактации"
+
+      medium:
+        - pattern: "(?i)крестьянское\\s+фермерское\\s+хозяйство"
+          weight: 0.60
+          distinctiveness: medium
+          context: any
+          description: "КФХ — типичный субъект на стороне производителя в контрактации"
+
+        - pattern: "(?i)\\bКФХ\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Аббревиатура крестьянско-фермерского хозяйства"
+
+        - pattern: "(?i)авансирование\\s+производителя"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Авансирование производителя — характерный инструмент контрактации"
+
+        - pattern: "(?i)\\bграфик\\s+сдачи\\s+продукции\\b"
+          weight: 0.60
+          distinctiveness: medium
+          context: any
+          description: "График сдачи продукции — плановый элемент контрактации"
+
+        - pattern: "(?i)страхование\\s+урожая"
+          weight: 0.60
+          distinctiveness: medium
+          context: any
+          description: "Страхование урожая — управление аграрными рисками"
+
+        - pattern: "(?i)заготовка\\s+урожая"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Заготовка урожая — смежный термин к роли заготовителя"
+
+        - pattern: "(?i)обязанность\\s+принять\\s+продукцию"
+          weight: 0.60
+          distinctiveness: medium
+          context: any
+          description: "Безусловная обязанность заготовителя принять продукцию (ст. 536 ГК)"
+
+        - pattern: "(?i)фермерское\\s+хозяйство"
+          weight: 0.50
+          distinctiveness: medium
+          context: any
+          description: "Фермерское хозяйство как сторона договора"
+
+        - pattern: "(?i)субсидиарно\\s+(?:применяются?|действуют?)\\s+нормы\\s+о\\s+поставке"
+          weight: 0.70
+          distinctiveness: high
+          context: body
+          description: "Субсидиарное применение норм о поставке — ст. 535(2) ГК, специфично для контрактации"
+
+        - pattern: "(?i)государственные?\\s+закупки\\s+сельскохозяйственной\\s+продукции"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Госзакупки сельхозпродукции — частая форма контрактации"
+
+      low:
+        - pattern: "(?i)\\bзерн[оа]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Зерно — может встречаться в поставке, страховании, хранении"
+
+        - pattern: "(?i)\\bмолок[оа]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Молоко — общий продовольственный термин"
+
+        - pattern: "(?i)\\bмяс[оа]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Мясо — общий продовольственный термин"
+
+        - pattern: "(?i)\\bудобрени[яи]\\b"
+          weight: 0.20
+          distinctiveness: low
+          context: any
+          description: "Удобрения — может указывать на производственный контекст или поставку ресурсов"
+
+        - pattern: "(?i)\\bагроном\\b"
+          weight: 0.20
+          distinctiveness: low
+          context: any
+          description: "Агроном — слабый маркер аграрного контекста"
+
+        - pattern: "(?i)\\bурожайность\\b"
+          weight: 0.22
+          distinctiveness: low
+          context: any
+          description: "Урожайность — аграрный контекст, но слабый дискриминатор"
+
+        - pattern: "(?i)площадь\\s+(?:угодий|посевов|полей)"
+          weight: 0.20
+          distinctiveness: low
+          context: any
+          description: "Площадь угодий/посевов — сельскохозяйственный контекст"
+
+    exclusions:
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+поставки\\s+промышленных\\s+товаров\\b"
+        severity: hard
+        weight: -1.0
+        description: "Поставка промышленных товаров — § 3 Гл. 30 ГК, не контрактация"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+поставки\\s+оборудования\\b"
+        severity: hard
+        weight: -1.0
+        description: "Поставка оборудования — явно не сельхозпродукция"
+
+      - pattern: "(?i)\\bрозничная\\s+купля-?продажа\\b"
+        severity: hard
+        weight: -1.0
+        description: "Розничная купля-продажа — B2C, § 2 Гл. 30 ГК, несовместима с контрактацией"
+
+      - pattern: "(?i)для\\s+личных(?:,\\s*семейных)?(?:,\\s*домашних)?(?:,?\\s*или\\s+иных)?\\s+нужд"
+        severity: hard
+        weight: -1.0
+        description: "Формула потребительской цели — признак розницы, исключает контрактацию"
+
+      - pattern: "(?i)\\bпубличная\\s+оферта\\b"
+        severity: hard
+        weight: -1.0
+        description: "Публичная оферта — форма розничной торговли, не контрактации"
+
+      - pattern: "(?i)\\bнедвижимость\\b"
+        severity: hard
+        weight: -1.0
+        description: "Недвижимость — совершенно другой объект и тип договора"
+
+      - pattern: "(?i)\\bквартир[аеиу]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Квартира — объект недвижимости, не сельхозпродукция"
+
+      - pattern: "(?i)(?:здани[ея]|сооружени[ея])"
+        severity: hard
+        weight: -1.0
+        description: "Здание/сооружение — объект недвижимости, не предмет контрактации"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+оказания\\s+услуг\\b"
+        severity: hard
+        weight: -1.0
+        description: "Договор оказания услуг — Гл. 39 ГК, иная правовая природа"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+подряда\\b"
+        severity: hard
+        weight: -1.0
+        description: "Договор подряда — Гл. 37 ГК, выполнение работ, не передача продукции"
+
+      - pattern: "(?i)\\bэнергоснабжение\\b"
+        severity: hard
+        weight: -1.0
+        description: "Энергоснабжение — § 6 Гл. 30 ГК, не имеет отношения к сельхозпродукции"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+аренды\\s+(?:земельного\\s+участка|сельскохозяйственных\\s+угодий)\\b"
+        severity: hard
+        weight: -1.0
+        description: "Аренда сельхозземель — Гл. 34 ГК; не контрактация, хотя аграрный контекст совпадает"
+
+      # ── Soft exclusions
+
+      - pattern: "(?i)поставка\\s+готовой\\s+продукции"
+        severity: soft
+        weight: -0.35
+        description: "Поставка готовой продукции — скорее § 3 Гл. 30 ГК, не контрактация"
+
+      - pattern: "(?i)\\bперепродажа\\b"
+        severity: soft
+        weight: -0.30
+        description: "Перепродажа указывает на торговый, а не производственный характер"
+
+      - pattern: "(?i)промышленные\\s+товары"
+        severity: soft
+        weight: -0.30
+        description: "Промышленные товары — вероятно поставка, не сельхозконтрактация"
+
+      - pattern: "(?i)гражданин-?потребитель"
+        severity: soft
+        weight: -0.40
+        description: "Гражданин-потребитель — B2C-маркер, снижает вероятность контрактации"
+
+      - pattern: "(?i)интернет-?магазин"
+        severity: soft
+        weight: -0.35
+        description: "Интернет-магазин — e-commerce контекст, не закупка сельхозпродукции"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+хранения\\s+(?:зерна|сельскохозяйственной\\s+продукции)\\b"
+        severity: soft
+        weight: -0.45
+        description: "Хранение сельхозпродукции — Гл. 47 ГК; аграрный контекст, но иная конструкция"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  grain_crops:
+    any_keywords:
+      - "(?i)\\bзерн[оа]\\b"
+      - "(?i)\\bпшениц[аы]\\b"
+      - "(?i)\\bячмен[ья]\\b"
+      - "(?i)\\bрож[ьи]\\b"
+      - "(?i)\\bкукуруз[аы]\\b"
+      - "(?i)\\bов[её]с\\b"
+      - "(?i)\\bподсолнечник\\b"
+      - "(?i)\\bсоя\\b"
+      - "(?i)\\bрапс\\b"
+      - "(?i)\\bгречих[аы]\\b"
+      - "(?i)\\bпрос[оа]\\b"
+      - "(?i)\\bрис\\b"
+      - "(?i)зернов[а-яё]+\\s+культур[аы]"
+      - "(?i)масличн[а-яё]+\\s+культур[аы]"
+
+  livestock_products:
+    any_keywords:
+      - "(?i)\\bмолок[оа]\\b"
+      - "(?i)\\bмяс[оа]\\b"
+      - "(?i)\\bскот\\b"
+      - "(?i)\\bКРС\\b"
+      - "(?i)\\bсвинин[аы]\\b"
+      - "(?i)\\bптиц[аы]\\b"
+      - "(?i)\\bяйц[оа]\\b"
+      - "(?i)\\bшерст[ьи]\\b"
+      - "(?i)\\bм[ёе]д\\b"
+      - "(?i)животноводческ[а-яё]+\\s+продукци[яи]"
+      - "(?i)жив[оа]й\\s+вес"
+      - "(?i)убойн[а-яё]+\\s+вес"
+
+  perennial_crops:
+    any_keywords:
+      - "(?i)многолетн[иияё]+\\s+насаждени[яй]"
+      - "(?i)плодов[а-яё]+\\s+деревь[яев]"
+      - "(?i)\\bвиноградник\\b"
+      - "(?i)\\bсад\\b"
+      - "(?i)\\bплантаци[яи]\\b"
+      - "(?i)\\bкустарник\\b"
+      - "(?i)многолетн[иияё]+\\s+культур[аы]"
+      - "(?i)многолетн[иияё]+\\s+трав[аы]"
+      - "(?i)ягодн[а-яё]+\\s+культур[аы]"
+
+  seasonal_delivery:
+    any_keywords:
+      - "(?i)\\bсезон\\b"
+      - "(?i)\\bурожа[йя]\\b"
+      - "(?i)период\\s+сбор[аы]"
+      - "(?i)по\\s+мере\\s+созревани[яя]"
+      - "(?i)уборочн[а-яё]+\\s+кампани[яи]"
+      - "(?i)период\\s+уборк[ии]"
+      - "(?i)\\bпосевн[а-яё]+\\b"
+      - "(?i)вегетационн[а-яё]+\\s+период"
+      - "(?i)календарн[а-яё]+\\s+план\\s+поставок"
+
+  advance_financing:
+    any_keywords:
+      - "(?i)авансировани[ея]"
+      - "(?i)\\bпредоплат[аы]\\b"
+      - "(?i)предварительн[а-яё]+\\s+оплат[аы]"
+      - "(?i)аванс\\s+производител[юя]"
+      - "(?i)финансировани[ея]\\s+производств[аа]"
+      - "(?i)частичн[а-яё]+\\s+предоплат[аы]"
+      - "(?i)авансов[ыо]й\\s+плат[её]ж"
+
+  crop_insurance:
+    any_keywords:
+      - "(?i)страховани[ея]\\s+урожа[яя]"
+      - "(?i)страховани[ея]\\s+сельскохозяйственн[а-яё]+\\s+рисков"
+      - "(?i)\\bагростраховани[ея]\\b"
+      - "(?i)страхов[оа]й\\s+полис"
+      - "(?i)страхов[а-яё]+\\s+сумм[аы]"
+      - "(?i)страхов[оа]й\\s+случа[йя]"
+      - "(?i)гибел[ьи]\\s+урожа[яя]"
+
+  production_support:
+    any_keywords:
+      - "(?i)предоставлени[ея]\\s+семян"
+      - "(?i)обеспечени[ея]\\s+удобрени[яями]"
+      - "(?i)средств[ао]\\s+защит[ыи]\\s+растени[йя]"
+      - "(?i)предоставлени[ея]\\s+техник[ии]"
+      - "(?i)агрономическ[а-яё]+\\s+сопровождени[ея]"
+      - "(?i)обеспечени[ея]\\s+тар[оы]й"
+      - "(?i)обеспечени[ея]\\s+производственн[а-яё]+\\s+процесс[аа]"
+
+  organic_products:
+    any_keywords:
+      - "(?i)органическ[а-яё]+\\s+продукци[яи]"
+      - "(?i)органическ[оае]+\\s+земледели[ея]"
+      - "(?i)экологическ[иоя]+\\s+чист[а-яё]+"
+      - "(?i)без\\s+пестицид[оа]в"
+      - "(?i)\\bбио\\b"
+      - "(?i)\\bэко\\b"
+      - "(?i)сертификат\\s+органическ[а-яё]+\\s+продукци[ии]"
+
+  export_supply:
+    any_keywords:
+      - "(?i)\\bэкспорт\\b"
+      - "(?i)экспортн[а-яё]+\\s+поставк[аи]"
+      - "(?i)внешнеэкономическ[а-яё]+"
+      - "(?i)таможенн[а-яё]+\\s+оформлени[ея]"
+      - "(?i)фитосанитарн[а-яё]+\\s+сертификат"
+      - "(?i)стран[аы]-импорт[её]р"
+      - "(?i)международн[а-яё]+\\s+поставк[аи]"
+
+  veterinary_control:
+    any_keywords:
+      - "(?i)ветеринарн[а-яё]+\\s+сертификат"
+      - "(?i)ветеринарн[а-яё]+\\s+свидетельств[оа]"
+      - "(?i)ветеринарн[а-яё]+\\s+контрол[ьяю]"
+      - "(?i)\\bВСД\\b"
+      - "(?i)\\bМеркурий\\b"
+      - "(?i)\\bФГИС\\s+Меркурий\\b"
+      - "(?i)ветеринарно-санитарн[а-яё]+\\s+экспертиз[аы]"
+
+  phytosanitary_control:
+    any_keywords:
+      - "(?i)фитосанитарн[а-яё]+\\s+сертификат"
+      - "(?i)карантинн[а-яё]+\\s+сертификат"
+      - "(?i)карантин\\s+растени[йя]"
+      - "(?i)\\bРоссельхознадзор\\b"
+      - "(?i)подкарантинн[а-яё]+\\s+продукци[яи]"
+      - "(?i)фитосанитарн[а-яё]+\\s+контрол[ьяю]"
+
+  high_value_crops:
+    any_keywords:
+      - "(?i)элитн[а-яё]+\\s+семен[ао]"
+      - "(?i)ценн[а-яё]+\\s+сорт[аы]"
+      - "(?i)дорогостоящ[а-яё]+\\s+культур[аы]"
+      - "(?i)селекционн[а-яё]+\\s+достижени[яй]"
+      - "(?i)племенн[оа]й\\s+скот"
+      - "(?i)племенн[оа]е\\s+поголовь[еия]"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  weight_volume: "(?i)\\b\\d[\\d\\s,.]*(?:тонн|кг|центнер|литр|л\\b|ц\\b|т\\b)"
+  percentage: "(?i)\\b\\d+[,.]?\\d*\\s*%"
+  gost_tu: "(?i)\\b(?:ГОСТ|ТУ|СТО|ОСТ)\\s*[\\d\\s.-]+\\b"
+  inn_ogrn: "(?i)\\b(?:ИНН|ОГРН|ОГРНИП)\\s*:?\\s*\\d{10,15}\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "veterinary_certificate_required"
+    name: "Обязательный ветеринарный сертификат для продукции животноводства"
+    description: >
+      Оборот продукции животного происхождения (молоко, мясо, яйцо и т.д.)
+      без ветеринарного сопроводительного документа (ВСД) запрещён.
+      Оформление через ФГИС «Меркурий» обязательно.
+    legal_base: "ФЗ от 14.05.1993 № 4979-1 «О ветеринарии», Приказ Минсельхоза № 589"
+    required_triggers: ["livestock_products"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "ветеринарный сертификат"
+        - "ВСД"
+        - "Меркурий"
+        - "ветеринарное свидетельство"
+        - "продукция животного происхождения"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "ветеринарный сертификат"
+        - "ФГИС Меркурий"
+        - "ВСД"
+      rerank: true
+
+  - id: "phytosanitary_export_certificate_required"
+    name: "Фитосанитарный сертификат для экспорта подкарантинной продукции"
+    description: >
+      Экспорт подкарантинной продукции (зерно, овощи, фрукты, семена)
+      без фитосанитарного сертификата запрещён.
+    legal_base: "ФЗ от 21.07.2014 № 206-ФЗ «О карантине растений»"
+    required_triggers: ["export_supply"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "фитосанитарный сертификат"
+        - "карантинный сертификат"
+        - "подкарантинная продукция"
+        - "Россельхознадзор"
+        - "экспорт"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "фитосанитарный сертификат"
+        - "экспорт сельхозпродукции"
+      rerank: true
+
+  - id: "organic_certification_required"
+    name: "Сертификация органической продукции (ФЗ-280)"
+    description: >
+      Маркировка и реализация продукции как «органической» без сертификата
+      соответствия по ФЗ от 03.08.2018 № 280-ФЗ запрещена.
+    legal_base: "ФЗ от 03.08.2018 № 280-ФЗ «Об органической продукции»"
+    required_triggers: ["organic_products"]
+    severity: "high"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "органическая продукция"
+        - "сертификат органической"
+        - "органическое земледелие"
+        - "ФЗ-280"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "органическая продукция"
+        - "сертификат соответствия"
+      rerank: true
+
+  - id: "grain_safety_declaration_required"
+    name: "Обязательная декларация соответствия зерна (ТР ТС 015/2011)"
+    description: >
+      Каждая партия зерна, выпускаемая в обращение на территории ЕАЭС,
+      подлежит обязательному декларированию соответствия требованиям
+      ТР ТС 015/2011. Без декларации оборот зерна запрещён.
+    legal_base: "ТР ТС 015/2011 «О безопасности зерна», ст. 3, 7"
+    required_triggers: ["grain_crops"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "декларация соответствия"
+        - "ТР ТС 015"
+        - "безопасность зерна"
+        - "подтверждение соответствия"
+        - "декларирование зерна"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "декларация соответствия"
+        - "ТР ТС 015"
+        - "безопасность зерна"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: contracting_subject_extraction
+    name: "Контрактация: базовое извлечение предмета договора"
+    description: "Извлекает наименование, вид, количество, качество с/х продукции и ключевые параметры"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "сельскохозяйственная продукция"
+        - "выращенная продукция"
+        - "произведённая продукция"
+        - "наименование продукции"
+        - "вид продукции"
+        - "количество"
+        - "объём поставки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d[\\d\\s,.]*(?:тонн|кг|центнер|литр|л\\b|ц\\b|т\\b)"
+        - "(?i)\\b(?:ГОСТ|ТУ|СТО|ОСТ)\\s*[\\d\\s.-]+\\b"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор контрактации (закупки сельскохозяйственной продукции).
+        Тип документа: договор контрактации.
+        Твоя задача — найти в тексте сведения о предмете договора.
+
+        Ответь строго в JSON-формате:
+        {
+          "product_name": "<наименование продукции или not_found>",
+          "product_kind": "<grain / livestock / dairy / vegetables / fruits / perennial / other / not_found>",
+          "quantity": "<количество с единицей измерения или not_found>",
+          "quality_standard": "<ГОСТ/ТУ/стандарт или not_found>",
+          "delivery_period": "<срок/период сдачи или not_found>",
+          "delivery_place": "<место сдачи или not_found>"
+        }
+
+        ВАЖНО: Возвращай only_found_in_text. Если значение явно не указано — пиши "not_found".
+        Не придумывай и не выводи значения из контекста.
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "сельскохозяйственная продукция"
+        - "наименование"
+        - "количество"
+        - "ГОСТ"
+        - "сдача продукции"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "product_name"
+          type: "string"
+          keyword_hints: ["наименование", "продукция", "зерно", "молоко", "мясо", "овощи"]
+          description: "Наименование сельскохозяйственной продукции"
+        - name: "product_kind"
+          type: "string"
+          allowed_values: ["grain", "livestock", "dairy", "vegetables", "fruits", "perennial", "other", "not_found"]
+          description: "Вид продукции"
+        - name: "quantity"
+          type: "string"
+          keyword_hints: ["количество", "объём", "тонн", "кг", "центнер", "литр"]
+          regex_patterns:
+            - "(?i)\\b\\d[\\d\\s,.]*(?:тонн|кг|центнер|литр|л\\b|ц\\b|т\\b)"
+          description: "Количество продукции"
+        - name: "quality_standard"
+          type: "string"
+          keyword_hints: ["ГОСТ", "ТУ", "стандарт", "качество", "СТО"]
+          regex_patterns:
+            - "(?i)\\b(?:ГОСТ|ТУ|СТО|ОСТ)\\s*[\\d\\s.-]+\\b"
+          description: "Стандарт качества"
+        - name: "delivery_period"
+          type: "string"
+          keyword_hints: ["срок сдачи", "период поставки", "до", "не позднее", "график"]
+          description: "Срок/период сдачи продукции"
+        - name: "delivery_place"
+          type: "string"
+          keyword_hints: ["место сдачи", "пункт приёмки", "склад", "элеватор", "ферма"]
+          description: "Место сдачи продукции"
+      store_payload: true
+
+  - id: agricultural_force_majeure_check
+    name: "Специальная оговорка о форс-мажоре для с/х (ст. 538 ГК РФ)"
+    description: >
+      Проверяет наличие детализированного перечня сельскохозяйственных форс-мажорных
+      обстоятельств и порядка освобождения производителя от ответственности.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "неблагоприятные погодные условия"
+        - "засуха"
+        - "наводнение"
+        - "заморозки"
+        - "град"
+        - "эпидемии"
+        - "эпизоотия"
+        - "нашествие вредителей"
+        - "стихийные бедствия"
+        - "гибель урожая"
+        - "форс-мажор"
+        - "непреодолимая сила"
+        - "освобождается от ответственности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)производитель.*освобождается.*ответственности"
+        - "(?i)обстоятельств(а|ами)\\s+непреодолимой\\s+силы"
+        - "(?i)форс[\\s-]?мажор"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор контрактации.
+        Проверь наличие и полноту форс-мажорной оговорки для сельскохозяйственного производства (ст. 538 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "force_majeure_clause_present": "<yes / partial / not_found>",
+          "specific_agricultural_risks_listed": "<yes / no / not_found>",
+          "listed_risks": ["<риск1>", "<риск2>", "..."],
+          "notification_procedure": "<described / not_found>",
+          "proof_requirements": "<described / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        - "yes" — полная детализированная оговорка с перечнем с/х рисков
+        - "partial" — общая формулировка без конкретных с/х рисков
+        - "not_found" — отсутствует
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "форс-мажор"
+        - "непреодолимая сила"
+        - "засуха"
+        - "гибель урожая"
+        - "ст. 538"
+        - "освобождение от ответственности"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "force_majeure_clause_present"
+          type: "string"
+          allowed_values: ["yes", "partial", "not_found"]
+          description: "Наличие форс-мажорной оговорки"
+        - name: "specific_agricultural_risks_listed"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Перечислены ли специфические с/х риски"
+        - name: "notification_procedure"
+          type: "string"
+          allowed_values: ["described", "not_found"]
+          description: "Описан ли порядок уведомления о форс-мажоре"
+      store_payload: true
+
+  - id: purchaser_obligation_to_accept
+    name: "Обязанность заготовителя принять продукцию (ст. 536 ГК РФ)"
+    description: >
+      Проверяет наличие чёткого условия об обязанности заготовителя принять
+      выращенную/произведённую продукцию, порядке приёмки, обеспечении тарой и вывозом.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "обязан принять продукцию"
+        - "обязанность заготовителя принять"
+        - "не вправе отказаться от приемки"
+        - "принять выращенную продукцию"
+        - "обеспечить приёмку"
+        - "вывоз продукции"
+        - "обеспечить тарой"
+        - "обеспечить транспортом"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заготовитель.*обязан.*принять"
+        - "(?i)обязанност(ь|и).*заготовител.*при(нять|ёмк)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор контрактации.
+        Проверь наличие обязанности заготовителя принять продукцию (ст. 536 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "acceptance_obligation_present": "<yes / not_found>",
+          "acceptance_at_producer_location": "<yes / no / not_found>",
+          "packaging_provision": "<yes / no / not_found>",
+          "transport_provision": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "заготовитель обязан принять"
+        - "обеспечить тарой"
+        - "вывоз продукции"
+        - "ст. 536 ГК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "acceptance_obligation_present"
+          type: "string"
+          allowed_values: ["yes", "not_found"]
+          description: "Обязанность заготовителя принять продукцию"
+        - name: "acceptance_at_producer_location"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Приёмка по месту нахождения производителя"
+        - name: "packaging_provision"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Обеспечение тарой/упаковкой"
+        - name: "transport_provision"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Обеспечение транспортом для вывоза"
+      store_payload: true
+
+  - id: product_quality_standards_check
+    name: "Требования к качеству продукции (ГОСТ/ТУ/СТО)"
+    description: >
+      Проверяет наличие чётких требований к качеству, ссылок на стандарты,
+      порядка определения качества при приёмке и последствий несоответствия.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "качество продукции"
+        - "требования к качеству"
+        - "стандарты качества"
+        - "соответствие ГОСТ"
+        - "технические условия"
+        - "параметры качества"
+        - "сертификат качества"
+        - "декларация соответствия"
+        - "лабораторный анализ"
+        - "влажность"
+        - "сорность"
+        - "жирность"
+        - "кислотность"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b(?:ГОСТ|ТУ|СТО|ОСТ)\\s*[\\d\\s.-]+\\b"
+        - "(?i)продукция.*должна.*соответствовать"
+        - "(?i)качество.*определяется"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор контрактации.
+        Проверь наличие и полноту требований к качеству сельскохозяйственной продукции.
+
+        Ответь строго в JSON:
+        {
+          "quality_requirements_present": "<detailed / general / not_found>",
+          "quality_standard_reference": "<ГОСТ/ТУ номер или not_found>",
+          "quality_parameters_listed": "<yes / no / not_found>",
+          "quality_check_procedure": "<described / not_found>",
+          "rejection_procedure": "<described / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        - "detailed" — есть конкретные стандарты и параметры
+        - "general" — общая формулировка без конкретики
+        - "not_found" — требования к качеству не указаны
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "качество"
+        - "ГОСТ"
+        - "стандарт"
+        - "параметры"
+        - "требования"
+        - "приёмка"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "quality_requirements_present"
+          type: "string"
+          allowed_values: ["detailed", "general", "not_found"]
+          description: "Наличие и полнота требований к качеству"
+        - name: "quality_standard_reference"
+          type: "string"
+          keyword_hints: ["ГОСТ", "ТУ", "СТО", "ОСТ"]
+          description: "Ссылка на стандарт качества"
+        - name: "quality_check_procedure"
+          type: "string"
+          allowed_values: ["described", "not_found"]
+          description: "Порядок проверки качества при приёмке"
+      store_payload: true
+
+  - id: crop_insurance_check
+    name: "Страхование урожая / сельскохозяйственных рисков"
+    description: >
+      Проверяет наличие условий о страховании урожая, распределение расходов
+      на страхование и порядок действий при наступлении страхового случая.
+    triggers:
+      any: ["crop_insurance", "high_value_crops"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "страхование урожая"
+        - "страхование сельскохозяйственных рисков"
+        - "агрострахование"
+        - "страховой полис"
+        - "страховая сумма"
+        - "страховой случай"
+        - "гибель урожая"
+        - "выгодоприобретатель"
+        - "застраховать"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)страхов(ание|ой)\\s+(урожа|сельскохозяйственн)"
+        - "(?i)обязуется.*застраховать"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор контрактации.
+        Проверь наличие условий о страховании урожая/сельскохозяйственных рисков.
+
+        Ответь строго в JSON:
+        {
+          "insurance_clause_present": "<yes / not_found>",
+          "insurance_obligated_party": "<producer / purchaser / both / not_found>",
+          "insurance_cost_allocation": "<producer / purchaser / shared / not_found>",
+          "beneficiary": "<producer / purchaser / both / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "страхование урожая"
+        - "агрострахование"
+        - "страховой полис"
+        - "гибель урожая"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "insurance_clause_present"
+          type: "string"
+          allowed_values: ["yes", "not_found"]
+          description: "Наличие условия о страховании"
+        - name: "insurance_obligated_party"
+          type: "string"
+          allowed_values: ["producer", "purchaser", "both", "not_found"]
+          description: "Кто обязан застраховать"
+        - name: "insurance_cost_allocation"
+          type: "string"
+          allowed_values: ["producer", "purchaser", "shared", "not_found"]
+          description: "Кто несёт расходы на страхование"
+      store_payload: true
+
+  - id: perennial_crops_risk_allocation
+    name: "Многолетние культуры: распределение рисков гибели насаждений"
+    description: >
+      Проверяет наличие особых условий для многолетних культур (виноградники, сады,
+      плантации) — распределение рисков гибели насаждений, компенсация затрат.
+    triggers:
+      any: ["perennial_crops"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "многолетние насаждения"
+        - "плодовые деревья"
+        - "виноградник"
+        - "многолетние культуры"
+        - "гибель насаждений"
+        - "компенсация затрат на насаждения"
+        - "восстановление насаждений"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)многолетн.*насажден"
+        - "(?i)гибель.*насажден"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор контрактации с многолетними культурами.
+        Проверь наличие особых условий о распределении рисков гибели многолетних насаждений.
+
+        Ответь строго в JSON:
+        {
+          "perennial_clause_present": "<yes / not_found>",
+          "risk_allocation": "<producer / purchaser / shared / insured / not_found>",
+          "compensation_mechanism": "<described / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 350
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "многолетние насаждения"
+        - "гибель насаждений"
+        - "виноградник"
+        - "плодовые деревья"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "perennial_clause_present"
+          type: "string"
+          allowed_values: ["yes", "not_found"]
+          description: "Наличие условий для многолетних культур"
+        - name: "risk_allocation"
+          type: "string"
+          allowed_values: ["producer", "purchaser", "shared", "insured", "not_found"]
+          description: "Распределение рисков гибели насаждений"
+      store_payload: true
+
+  - id: production_support_obligations_check
+    name: "Обязанности заготовителя по обеспечению производства (ст. 536 ГК РФ)"
+    description: >
+      Проверяет наличие условий об обязанности заготовителя предоставлять семена,
+      удобрения, средства защиты растений, технику, агрономическое сопровождение.
+    triggers:
+      any: ["production_support"]
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "предоставление семян"
+        - "обеспечение удобрениями"
+        - "средства защиты растений"
+        - "предоставление техники"
+        - "агрономическое сопровождение"
+        - "обеспечение производственного процесса"
+        - "семенной материал"
+        - "ГСМ"
+        - "горюче-смазочные материалы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заготовитель.*обязуется.*предоставить"
+        - "(?i)обеспечени(е|я).*производ(ства|ственного)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор контрактации.
+        Проверь наличие обязанностей заготовителя по обеспечению производственного процесса (ст. 536 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "production_support_present": "<yes / not_found>",
+          "support_items": ["<перечень предоставляемых ресурсов>"],
+          "cost_allocation": "<purchaser / producer / offset_against_price / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "предоставление семян"
+        - "обеспечение удобрениями"
+        - "агрономическое сопровождение"
+        - "ст. 536 ГК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "production_support_present"
+          type: "string"
+          allowed_values: ["yes", "not_found"]
+          description: "Наличие обязанностей по обеспечению производства"
+        - name: "cost_allocation"
+          type: "string"
+          allowed_values: ["purchaser", "producer", "offset_against_price", "not_found"]
+          description: "Распределение расходов на ресурсы"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification"
+    name: "Стороны договора: идентификация производителя и заготовителя"
+    description: "Проверяет наличие и достаточность идентификации сторон — производитель (фермер/КФХ/юрлицо) и заготовитель"
+    legal_base: "ст. 432, 535 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "производитель"
+        - "заготовитель"
+        - "именуем"
+        - "в лице"
+        - "действующего на основании"
+        - "КФХ"
+        - "крестьянское фермерское хозяйство"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(производитель|заготовитель).*именуем"
+        - "(?i)\\b(?:ИНН|ОГРН|ОГРНИП)\\s*:?\\s*\\d{10,15}\\b"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "producer_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual_entrepreneur", "kfh", "individual", "unclear"]
+          keyword_hints: ["ООО", "АО", "ИП", "КФХ", "глава КФХ", "гражданин", "фермер"]
+          description: "Тип производителя"
+        - name: "purchaser_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual_entrepreneur", "unclear"]
+          keyword_hints: ["ООО", "ПАО", "АО", "ИП", "заготовитель"]
+          description: "Тип заготовителя"
+      store_payload: true
+
+  - id: "subject_product_specification"
+    name: "Предмет: наименование, вид и количество сельскохозяйственной продукции (ст. 535 ГК РФ)"
+    description: "Проверяет наличие данных для однозначной идентификации предмета контрактации"
+    legal_base: "ст. 535, 455 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "наименование продукции"
+        - "вид продукции"
+        - "количество"
+        - "объём"
+        - "сельскохозяйственная продукция"
+        - "выращенная продукция"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d[\\d\\s,.]*(?:тонн|кг|центнер|литр|л\\b|ц\\b|т\\b)"
+
+  - id: "price_required"
+    name: "Цена сельскохозяйственной продукции (ст. 424, 485 ГК РФ)"
+    description: "Цена — существенное условие. Проверяет наличие цены или механизма её определения."
+    legal_base: "ст. 424, 485 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "цена"
+        - "стоимость"
+        - "цена за единицу"
+        - "цена за тонну"
+        - "цена за килограмм"
+        - "рублей"
+        - "прайс-лист"
+        - "рыночная цена"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цен[аеуой]\\s+.*?\\d"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+        - "(?i)за\\s+(?:тонну|кг|центнер|литр)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "price_amount"
+          type: "number"
+          keyword_hints: ["цена", "стоимость", "рублей", "за тонну", "за кг"]
+          unit: "RUB"
+          description: "Цена продукции"
+        - name: "price_determination_method"
+          type: "string"
+          allowed_values: ["fixed", "market_based", "formula", "negotiable", "not_found"]
+          keyword_hints: ["фиксированная цена", "рыночная цена", "по формуле", "по соглашению сторон"]
+          description: "Способ определения цены"
+        - name: "price_includes_vat"
+          type: "string"
+          allowed_values: ["yes", "no", "not_applicable", "unclear", "not_found"]
+          keyword_hints: ["в том числе НДС", "без НДС", "НДС не облагается", "ЕСХН"]
+          description: "Включает ли цена НДС"
+      store_payload: true
+
+  - id: "delivery_term_required"
+    name: "Срок сдачи (поставки) сельскохозяйственной продукции (ст. 536, 508 ГК РФ)"
+    description: "Срок сдачи — существенное условие контрактации. Проверяет наличие конкретных сроков или графика."
+    legal_base: "ст. 536, 508 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок сдачи"
+        - "срок поставки"
+        - "период сдачи"
+        - "не позднее"
+        - "в течение"
+        - "до"
+        - "график сдачи"
+        - "график поставки"
+        - "по мере созревания"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(не\\s+позднее|в\\s+течение|до)\\s+\\d+"
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+
+  - id: "delivery_schedule_and_periods"
+    name: "График сдачи продукции по периодам (ст. 508, 536 ГК РФ)"
+    description: "Проверяет наличие графика/календарного плана сдачи продукции, в т.ч. сезонных периодов"
+    legal_base: "ст. 508, 536 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["seasonal_delivery"]
+    rules:
+      keywords:
+        - "график сдачи"
+        - "график поставки"
+        - "периоды сдачи"
+        - "сроки сдачи по периодам"
+        - "календарный план поставок"
+        - "по мере созревания"
+        - "уборочная кампания"
+        - "сезон сбора"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)график\\s+(сдач|поставк)"
+        - "(?i)период(ы)?\\s+сдач"
+
+  - id: "acceptance_procedure"
+    name: "Порядок приёмки продукции: место, сроки, документирование"
+    description: "Проверяет наличие детального порядка приёмки продукции заготовителем"
+    legal_base: "ст. 536 ГК РФ, Инструкции П-6/П-7"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "приёмка продукции"
+        - "порядок приёмки"
+        - "место приёмки"
+        - "пункт приёмки"
+        - "акт приёмки"
+        - "весовая"
+        - "лаборатория"
+        - "отбор проб"
+        - "входной контроль"
+        - "накладная"
+        - "товарно-транспортная накладная"
+        - "ТТН"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)порядок\\s+приёмк"
+        - "(?i)акт\\s+приёмк"
+        - "(?i)отбор\\s+проб"
+
+  - id: "transport_and_packaging"
+    name: "Транспортировка, тара и упаковка продукции"
+    description: "Проверяет условия о транспортировке, обеспечении тарой и упаковкой"
+    legal_base: "ст. 536, 517 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "транспортировка"
+        - "перевозка"
+        - "доставка"
+        - "самовывоз"
+        - "тара"
+        - "упаковка"
+        - "контейнер"
+        - "транспортное средство"
+        - "расходы на перевозку"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(транспортировк|перевозк|доставк)"
+        - "(?i)(тар[аеуой]|упаковк)"
+
+  - id: "termination_and_consequences"
+    name: "Расторжение: основания и последствия (ст. 450-451, 523-524 ГК РФ)"
+    description: "Проверяет наличие оснований расторжения и последствий для обеих сторон"
+    legal_base: "ст. 450-451, 523-524 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расторжение"
+        - "отказ от договора"
+        - "односторонний отказ"
+        - "возврат денежных средств"
+        - "возврат аванса"
+        - "существенное нарушение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расторж(ение|ении)"
+        - "(?i)односторонн(ий|ем)\\s+отказ"
+
+  - id: "penalty_for_non_delivery"
+    name: "Неустойка за недопоставку / просрочку сдачи продукции (ст. 330, 521 ГК РФ)"
+    description: "Проверяет наличие договорной неустойки за недопоставку или просрочку сдачи"
+    legal_base: "ст. 330, 521 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "неустойка за недопоставку"
+        - "пеня за просрочку сдачи"
+        - "штраф за нарушение сроков"
+        - "ответственность за недопоставку"
+        - "неустойка"
+        - "пеня"
+        - "штраф"
+        - "0,1% от стоимости"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неустойк.*за.*недопоставк"
+        - "(?i)пен[яиьюей].*за.*просрочк"
+        - "(?i)\\b\\d+[,.]?\\d*\\s*%\\s*(от|за)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "penalty_rate"
+          type: "string"
+          keyword_hints: ["неустойка", "пеня", "%", "процент"]
+          description: "Размер неустойки"
+        - name: "penalty_cap"
+          type: "string"
+          keyword_hints: ["не более", "не может превышать", "максимальный размер"]
+          description: "Ограничение суммы неустойки"
+      store_payload: true
+
+  - id: "advance_payment_terms"
+    name: "Авансирование / предоплата производителя (ст. 536, 487 ГК РФ)"
+    description: "Проверяет наличие условий об авансировании или предоплате производителю"
+    legal_base: "ст. 487 ГК РФ (субсидиарно через ст. 535 ГК РФ)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["advance_financing"]
+    rules:
+      keywords:
+        - "авансирование производителя"
+        - "предварительная оплата"
+        - "авансовый платёж"
+        - "финансирование производства"
+        - "частичная предоплата"
+        - "аванс"
+        - "предоплата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)аванс(ирование|овый|)"
+        - "(?i)предоплат"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "advance_amount"
+          type: "number"
+          keyword_hints: ["аванс в размере", "предоплата в сумме", "авансовый платёж"]
+          unit: "RUB"
+          description: "Сумма аванса"
+        - name: "advance_percentage"
+          type: "string"
+          keyword_hints: ["% от стоимости", "процент", "в размере"]
+          description: "Процент аванса от суммы договора"
+      store_payload: true
+
+  - id: "payment_terms_and_schedule"
+    name: "Порядок расчётов: сроки и условия оплаты"
+    description: "Проверяет наличие чёткого порядка оплаты за поставленную продукцию"
+    legal_base: "ст. 486, 516 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "оплата"
+        - "срок оплаты"
+        - "в течение"
+        - "после приёмки"
+        - "после сдачи"
+        - "банковские реквизиты"
+        - "платёжное поручение"
+        - "расчёт"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)оплат(а|ы).*?(после|в\\s+течение)"
+        - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(календарн|рабоч|банковск)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "payment_deadline_days"
+          type: "number"
+          keyword_hints: ["в течение", "не позднее", "дней после"]
+          description: "Срок оплаты в днях"
+        - name: "payment_method"
+          type: "string"
+          allowed_values: ["bank_transfer", "cash", "offset", "mixed", "not_found"]
+          keyword_hints: ["безналичный расчёт", "платёжное поручение", "наличными", "зачёт"]
+          description: "Способ оплаты"
+      store_payload: true
+
+  - id: "veterinary_phytosanitary_documents"
+    name: "Ветеринарные / фитосанитарные документы"
+    description: "Проверяет наличие требований о предоставлении ветеринарных или фитосанитарных сертификатов"
+    legal_base: "ФЗ «О ветеринарии», ФЗ «О карантине растений»"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["livestock_products", "phytosanitary_control", "export_supply"]
+    rules:
+      keywords:
+        - "ветеринарный сертификат"
+        - "ветеринарное свидетельство"
+        - "ВСД"
+        - "Меркурий"
+        - "фитосанитарный сертификат"
+        - "карантинный сертификат"
+        - "Россельхознадзор"
+        - "декларация соответствия"
+        - "сертификат соответствия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ветеринарн(ый|ое|ого)\\s+(сертификат|свидетельств)"
+        - "(?i)фитосанитарн(ый|ого)\\s+сертификат"
+
+  - id: "non_returnable_goods_reference"
+    name: "Ссылка на перечень товаров, не подлежащих возврату (Пост. № 2463)"
+    description: "Для отдельных видов продукции — ссылка на невозвратные товары"
+    legal_base: "ст. 514, 518 ГК РФ (через ст. 535 ГК РФ)"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "не подлежат возврату"
+        - "скоропортящаяся продукция"
+        - "особые условия хранения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+подлежит.*возврат"
+
+  - id: "quality_dispute_resolution"
+    name: "Порядок разрешения споров о качестве"
+    description: "Проверяет наличие механизма разрешения споров о качестве продукции (экспертиза, арбитраж)"
+    legal_base: "ст. 469-475, 536 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "экспертиза качества"
+        - "независимая экспертиза"
+        - "лабораторный анализ"
+        - "арбитражный образец"
+        - "третейская экспертиза"
+        - "разногласия по качеству"
+        - "рекламация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)экспертиз(а|у|ы)\\s+качеств"
+        - "(?i)рекламац"
+
+  - id: "storage_conditions"
+    name: "Условия хранения продукции до/после приёмки"
+    description: "Проверяет наличие условий о хранении продукции и ответственности за порчу при хранении"
+    legal_base: "ст. 514, 536 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "условия хранения"
+        - "температурный режим"
+        - "склад"
+        - "элеватор"
+        - "зернохранилище"
+        - "холодильник"
+        - "ответственное хранение"
+        - "порча при хранении"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)условия\\s+хранен"
+        - "(?i)температурн(ый|ого)\\s+режим"
+
+  - id: "assignment_restriction"
+    name: "Уступка прав / перевод долга: ограничения"
+    description: "Проверяет наличие ограничений на уступку прав и перевод долга"
+    legal_base: "ст. 382-392 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "уступка"
+        - "переуступка"
+        - "перевод долга"
+        - "без согласия"
+        - "с согласия другой стороны"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уступк(а|и).*без\\s+соглас"
+        - "(?i)перевод\\s+долга"
+
+  - id: "vat_and_tax_allocation"
+    name: "НДС / ЕСХН / налоги: распределение и оговорки"
+    description: "Проверяет наличие налоговых оговорок, в т.ч. применение ЕСХН производителем"
+    legal_base: "НК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "НДС"
+        - "в том числе НДС"
+        - "без НДС"
+        - "ЕСХН"
+        - "единый сельскохозяйственный налог"
+        - "освобождение от НДС"
+        - "налог"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bНДС\\b"
+        - "(?i)\\bЕСХН\\b"
+
+  - id: "confidentiality"
+    name: "Конфиденциальность условий сделки"
+    description: "Проверяет наличие условий о конфиденциальности"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "не раскрывать третьим лицам"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)не\\s+разглаш"
+
+  - id: "dispute_resolution_jurisdiction"
+    name: "Подсудность и порядок разрешения споров"
+    description: "Проверяет наличие условий о подсудности и досудебном порядке"
+    legal_base: "АПК РФ, ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "подсудность"
+        - "арбитражный суд"
+        - "претензионный порядок"
+        - "досудебный порядок"
+        - "медиация"
+        - "место рассмотрения спора"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+        - "(?i)претензионн(ый|ого)\\s+поряд"
+
+  - id: "ecological_and_safety_requirements"
+    name: "Экологические и санитарные требования к продукции"
+    description: "Проверяет наличие экологических и санитарных требований"
+    legal_base: "ФЗ от 02.01.2000 № 29-ФЗ «О качестве и безопасности пищевых продуктов», ТР ТС 021/2011, ТР ТС 015/2011 (зерно), ТР ТС 033/2013 (молоко)"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "экологически чистая"
+        - "пестициды"
+        - "остаточное содержание"
+        - "ПДК"
+        - "предельно допустимая концентрация"
+        - "безопасность продукции"
+        - "санитарные требования"
+        - "технический регламент"
+        - "ТР ТС"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ТР\\s+ТС"
+        - "(?i)\\bПДК\\b"
+        - "(?i)пестицид|гербицид|нитрат"
+
+  - id: "risk_of_crop_loss_allocation"
+    name: "Распределение рисков гибели/повреждения продукции до передачи (ст. 459 ГК РФ)"
+    description: "Проверяет распределение рисков случайной гибели или повреждения продукции"
+    legal_base: "ст. 459, 538 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "риск гибели"
+        - "риск повреждения"
+        - "случайная гибель"
+        - "риск порчи"
+        - "несёт риск"
+        - "момент перехода риска"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)риск\\s+(гибел|поврежден|порч|случайн)"
+        - "(?i)переход\\s+риск"
+
+  - id: "penalty_for_non_acceptance"
+    name: "Ответственность заготовителя за отказ от приёмки"
+    description: "Проверяет наличие неустойки или иной ответственности за необоснованный отказ от приёмки"
+    legal_base: "ст. 536, 330 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "отказ от приёмки"
+        - "необоснованный отказ"
+        - "уклонение от приёмки"
+        - "неустойка за отказ"
+        - "штраф за уклонение"
+        - "компенсация убытков"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)отказ.*от.*приёмк"
+        - "(?i)уклонен.*от.*приёмк"
+      negative_keywords:
+        - "обоснованный отказ"
+        - "мотивированный отказ"
+
+  - id: "late_payment_penalty"
+    name: "Неустойка за просрочку оплаты (ст. 395, 330 ГК РФ)"
+    description: "Проверяет наличие неустойки или процентов за просрочку оплаты заготовителем"
+    legal_base: "ст. 395, 330 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "просрочка оплаты"
+        - "неустойка за просрочку оплаты"
+        - "пеня за просрочку оплаты"
+        - "проценты за пользование"
+        - "ст. 395"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)просрочк(а|и|у)\\s+оплат"
+        - "(?i)\\b\\d+[,.]?\\d*\\s*%\\s*(за|в\\s+день)"
+
+  - id: "producer_fault_based_liability"
+    name: "Ответственность производителя только при наличии вины (ст. 538 ГК РФ)"
+    description: "Ключевая особенность контрактации: производитель несёт ответственность за неисполнение только при наличии вины, в отличие от общего правила безвиновной ответственности предпринимателей (ст. 401 п. 3 ГК). Проверяет, не установлена ли в договоре безвиновная (строгая) ответственность производителя в нарушение его законного права."
+    legal_base: "ст. 538 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ответственность производителя"
+        - "при наличии вины"
+        - "виновное неисполнение"
+        - "освобождается от ответственности"
+        - "доказал отсутствие вины"
+        - "независимо от вины"
+        - "в любом случае"
+        - "безусловная ответственность"
+      keyword_mode: "any"
+      negative_keywords:
+        - "независимо от вины производителя"
+        - "вне зависимости от вины"
+        - "безусловная ответственность производителя"
+      regex_patterns:
+        - "(?i)производитель.*несёт.*ответственность.*при.*наличии.*вин"
+        - "(?i)производитель.*освобождается.*от.*ответственности"
+        - "(?i)независимо\\s+от\\s+вин(ы|ы\\s+производител)"
+
+  - id: "price_adjustment_mechanism"
+    name: "Механизм корректировки цены при изменении рыночной конъюнктуры"
+    description: "В сельскохозяйственном секторе цены подвержены сезонным и рыночным колебаниям. Проверяет наличие механизма пересмотра/индексации цены, привязки к биржевым котировкам, порядка согласования новой цены."
+    legal_base: "ст. 424, 485 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "корректировка цены"
+        - "пересмотр цены"
+        - "индексация"
+        - "изменение цены"
+        - "рыночная конъюнктура"
+        - "биржевая цена"
+        - "биржевые котировки"
+        - "ценовая формула"
+        - "привязка к индексу"
+        - "при изменении тарифа"
+        - "пересмотр по соглашению"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(корректировк|пересмотр|изменени|индексаци)(а|е|и|я)\\s+цен"
+        - "(?i)биржев(ая|ой|ых)\\s+(цен|котировк)"
+        - "(?i)привязк(а|и)\\s+к\\s+(индекс|курс)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "price_adjustment_type"
+          type: "string"
+          allowed_values: ["index_linked", "market_based", "mutual_agreement", "fixed_no_adjustment", "not_found"]
+          keyword_hints: ["индексация", "биржевая цена", "по соглашению сторон", "фиксированная"]
+          description: "Тип механизма корректировки цены"
+        - name: "adjustment_frequency"
+          type: "string"
+          keyword_hints: ["ежемесячно", "ежеквартально", "ежегодно", "при изменении"]
+          description: "Периодичность пересмотра"
+      store_payload: true
+
+  - id: "contract_term_and_duration"
+    name: "Срок действия договора контрактации"
+    description: "Проверяет наличие срока действия, привязки к сельскохозяйственному сезону, условий продления для многолетних контрактов"
+    legal_base: "ст. 425, 535 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок действия"
+        - "срок договора"
+        - "действует до"
+        - "вступает в силу"
+        - "на сезон"
+        - "на урожай"
+        - "на год"
+        - "пролонгация"
+        - "продление договора"
+        - "автоматически продлевается"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)договор.*действует.*до"
+        - "(?i)автоматическ.*продл(евается|ение)"
+        - "(?i)на\\s+(сезон|урожай|\\d+\\s+год)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "contract_term"
+          type: "string"
+          keyword_hints: ["срок действия", "до", "по", "на сезон"]
+          description: "Срок действия договора"
+        - name: "auto_renewal"
+          type: "string"
+          allowed_values: ["yes", "no", "seasonal", "not_found"]
+          keyword_hints: ["пролонгация", "продлевается", "возобновляется"]
+          description: "Автоматическая пролонгация"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_identification:
+    text: >
+      Просим подтвердить полные реквизиты сторон по {doc_names}:
+      для производителя — наименование/ФИО главы КФХ, ИНН, ОГРН/ОГРНИП, адрес;
+      для заготовителя — наименование, ИНН, ОГРН, адрес, полномочия подписанта.
+    addressee: "Обе стороны"
+
+  subject_product_specification:
+    text: >
+      Просим уточнить в {doc_names}: наименование продукции, вид, количество
+      (в тоннах/кг/литрах), стандарт качества (ГОСТ/ТУ), ассортимент (если применимо).
+    addressee: "Обе стороны"
+
+  price_required:
+    text: >
+      Просим подтвердить цену продукции по {doc_names}: (а) цена за единицу;
+      (б) механизм корректировки цены (при изменении рыночной конъюнктуры);
+      (в) включает ли цена НДС (или производитель на ЕСХН с освобождением от НДС).
+    addressee: "Юридический советник"
+
+  delivery_term_required:
+    text: >
+      Просим уточнить в {doc_names}: конкретные сроки сдачи продукции,
+      график поставок по периодам (при сезонной сдаче), последствия пропуска сроков.
+    addressee: "Обе стороны"
+
+  contracting_subject_extraction:
+    text: >
+      Просим предоставить полные данные о предмете контрактации по {doc_names}:
+      наименование продукции, вид, количество, стандарт качества, срок сдачи,
+      место сдачи, порядок определения качества при приёмке.
+    addressee: "Производитель / Юридический советник"
+
+  agricultural_force_majeure_check:
+    text: >
+      В {doc_names} недостаточно детализирована форс-мажорная оговорка для с/х.
+      Просим включить: (а) перечень специфических сельскохозяйственных рисков
+      (засуха, наводнение, заморозки, град, эпизоотия, вредители);
+      (б) порядок уведомления о наступлении форс-мажора;
+      (в) доказательства (справка ТПП, Гидрометцентр, Россельхознадзор);
+      (г) последствия для обязательств сторон.
+    addressee: "Юридический советник"
+
+  purchaser_obligation_to_accept:
+    text: >
+      Просим уточнить в {doc_names}: (а) обязанность заготовителя принять
+      выращенную продукцию; (б) место приёмки (у производителя / на складе заготовителя);
+      (в) обеспечение тарой и транспортом; (г) сроки приёмки.
+    addressee: "Заготовитель / Юридический советник"
+
+  product_quality_standards_check:
+    text: >
+      Просим предоставить по {doc_names}: (а) ссылку на стандарт качества (ГОСТ/ТУ/СТО);
+      (б) конкретные параметры качества (влажность, сорность, жирность и т.д.);
+      (в) порядок определения качества при приёмке; (г) порядок разрешения споров о качестве.
+    addressee: "Обе стороны"
+
+  crop_insurance_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) обязательность страхования урожая;
+      (б) кто несёт расходы на страхование; (в) минимальная страховая сумма;
+      (г) выгодоприобретатель; (д) порядок действий при страховом случае.
+    addressee: "Юридический советник"
+
+  perennial_crops_risk_allocation:
+    text: >
+      Для {doc_names} (многолетние культуры) просим уточнить:
+      (а) распределение рисков гибели насаждений;
+      (б) механизм компенсации затрат на насаждения;
+      (в) условия продления/прекращения обязательств при гибели.
+    addressee: "Юридический советник"
+
+  production_support_obligations_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) перечень ресурсов, предоставляемых заготовителем
+      (семена, удобрения, СЗР, техника); (б) порядок учёта стоимости ресурсов
+      (за счёт заготовителя / зачёт в цену); (в) сроки предоставления.
+    addressee: "Заготовитель"
+
+  delivery_schedule_and_periods:
+    text: >
+      Просим согласовать в {doc_names}: график сдачи продукции по периодам,
+      объёмы по каждому периоду, допустимые отклонения, последствия отклонений.
+    addressee: "Обе стороны"
+
+  acceptance_procedure:
+    text: >
+      Просим уточнить в {doc_names}: место приёмки, порядок отбора проб,
+      лабораторию для определения качества, форму акта приёмки,
+      сроки подписания акта, порядок действий при расхождениях.
+    addressee: "Обе стороны"
+
+  transport_and_packaging:
+    text: >
+      Просим уточнить в {doc_names}: кто обеспечивает транспортировку,
+      требования к таре/упаковке, распределение расходов на перевозку,
+      ответственность за повреждение при транспортировке.
+    addressee: "Обе стороны"
+
+  termination_and_consequences:
+    text: >
+      Просим уточнить в {doc_names}: основания расторжения для каждой стороны,
+      порядок возврата авансов, неустойки при расторжении,
+      судьба произведённой, но непереданной продукции.
+    addressee: "Юридический советник"
+
+  penalty_for_non_delivery:
+    text: >
+      Просим согласовать в {doc_names}: размер неустойки за недопоставку/просрочку,
+      порядок расчёта, ограничение суммы неустойки, соотношение с убытками.
+    addressee: "Юридический советник"
+
+  advance_payment_terms:
+    text: >
+      Просим уточнить в {doc_names}: размер и сроки авансирования,
+      условия возврата аванса при неисполнении, зачёт аванса в оплату.
+    addressee: "Юридический советник"
+
+  payment_terms_and_schedule:
+    text: >
+      Просим уточнить в {doc_names}: срок оплаты после приёмки,
+      способ расчётов, банковские реквизиты, порядок сверки расчётов.
+    addressee: "Обе стороны"
+
+  veterinary_phytosanitary_documents:
+    text: >
+      Просим уточнить в {doc_names}: какие ветеринарные/фитосанитарные документы
+      должен предоставить производитель, порядок оформления ВСД через ФГИС «Меркурий»,
+      последствия отсутствия документов.
+    addressee: "Производитель"
+
+  quality_dispute_resolution:
+    text: >
+      Просим уточнить в {doc_names}: порядок разрешения споров о качестве,
+      назначение и оплата экспертизы, обязательность арбитражного образца,
+      срок предъявления рекламации.
+    addressee: "Обе стороны"
+
+  storage_conditions:
+    text: >
+      Просим уточнить в {doc_names}: условия хранения продукции до передачи,
+      ответственность за порчу, требования к складским помещениям.
+    addressee: "Обе стороны"
+
+  assignment_restriction:
+    text: >
+      Просим добавить в {doc_names} ограничения на уступку прав / перевод долга
+      без согласия другой стороны.
+    addressee: "Юридический советник"
+
+  vat_and_tax_allocation:
+    text: >
+      Просим уточнить в {doc_names}: применяемый налоговый режим производителя
+      (ЕСХН/ОСНО), включает ли цена НДС, порядок выставления счетов-фактур.
+    addressee: "Налоговый консультант / Бухгалтер"
+
+  confidentiality:
+    text: >
+      Просим добавить в {doc_names} условия о конфиденциальности:
+      перечень конфиденциальных сведений, срок действия, исключения.
+    addressee: "Юридический советник"
+
+  dispute_resolution_jurisdiction:
+    text: >
+      Просим уточнить в {doc_names}: подсудность споров, обязательность
+      претензионного порядка, сроки рассмотрения претензий.
+    addressee: "Юридический советник"
+
+  ecological_and_safety_requirements:
+    text: >
+      Просим уточнить в {doc_names}: требования по содержанию пестицидов/нитратов,
+      ссылки на применимые технические регламенты ТС, порядок подтверждения
+      безопасности продукции.
+    addressee: "Производитель / Лаборатория"
+
+  risk_of_crop_loss_allocation:
+    text: >
+      Просим уточнить в {doc_names}: момент перехода рисков гибели/повреждения
+      продукции, порядок действий при частичной гибели, распределение
+      рисков при транспортировке.
+    addressee: "Юридический советник"
+
+  penalty_for_non_acceptance:
+    text: >
+      Просим уточнить в {doc_names}: размер ответственности заготовителя
+      за необоснованный отказ от приёмки, порядок фиксации отказа,
+      право производителя на возмещение убытков (порча продукции).
+    addressee: "Юридический советник"
+
+  late_payment_penalty:
+    text: >
+      Просим уточнить в {doc_names}: размер неустойки/процентов за просрочку
+      оплаты заготовителем, порядок начисления, соотношение с ст. 395 ГК РФ.
+    addressee: "Юридический советник"
+
+  veterinary_certificate_required:
+    text: >
+      Внимание: для продукции животноводства по {doc_names} требуется оформление
+      ветеринарного сопроводительного документа через ФГИС «Меркурий».
+      Просим подтвердить наличие ВСД и право производителя на оформление.
+    addressee: "Производитель / Ветеринарная служба"
+
+  phytosanitary_export_certificate_required:
+    text: >
+      Внимание: для экспорта подкарантинной продукции по {doc_names} требуется
+      фитосанитарный сертификат Россельхознадзора. Просим предоставить
+      документы о карантинном статусе и порядке получения сертификата.
+    addressee: "Производитель / Россельхознадзор"
+
+  organic_certification_required:
+    text: >
+      Внимание: реализация продукции как «органической» по {doc_names}
+      без сертификата по ФЗ-280 запрещена. Просим предоставить сертификат
+      соответствия органической продукции.
+    addressee: "Производитель"
+
+  non_returnable_goods_reference:
+    text: >
+      Просим уточнить в {doc_names}: применяются ли ограничения на возврат
+      для скоропортящейся продукции, порядок действий при возврате.
+    addressee: "Юридический советник"
+
+  producer_fault_based_liability:
+    text: >
+      Просим проверить в {doc_names}: (а) не установлена ли безвиновная (строгая)
+      ответственность производителя, противоречащая ст. 538 ГК РФ;
+      (б) корректно ли отражён принцип виновной ответственности;
+      (в) перечень обстоятельств, освобождающих производителя от ответственности
+      (неблагоприятные погодные условия, эпизоотии, вредители и т.д.).
+    addressee: "Юридический советник производителя"
+
+  price_adjustment_mechanism:
+    text: >
+      Просим согласовать в {doc_names}: (а) механизм корректировки цены
+      при изменении рыночной конъюнктуры (индексация / привязка к бирже /
+      пересмотр по соглашению); (б) периодичность пересмотра;
+      (в) порядок уведомления об изменении цены; (г) право стороны
+      на отказ от договора при существенном изменении цены.
+    addressee: "Обе стороны"
+
+  contract_term_and_duration:
+    text: >
+      Просим уточнить в {doc_names}: срок действия договора,
+      привязку к сельскохозяйственному сезону/урожаю, условия продления
+      (автоматическая пролонгация или заключение нового договора),
+      обязательства сторон, переживающие прекращение договора.
+    addressee: "Юридический советник"
+
+  grain_safety_declaration_required:
+    text: >
+      Внимание: для зерновой продукции по {doc_names} обязательна декларация
+      соответствия ТР ТС 015/2011 «О безопасности зерна». Просим подтвердить
+      наличие декларации и включить в договор обязанность производителя
+      предоставлять декларацию с каждой партией.
+    addressee: "Производитель"
+    
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

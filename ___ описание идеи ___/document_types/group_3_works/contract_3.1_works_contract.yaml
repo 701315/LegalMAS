@@ -1,0 +1,2065 @@
+type: contract_3.1_works_contract
+name: "Договор подряда (общий)"
+
+description: |
+  Базовая конструкция (locatio-conductio operis) для договоров, направленных на создание
+  или изменение вещи (материальный результат). Подрядчик действует своим иждивением,
+  самостоятельно определяя способы выполнения. Заказчик оплачивает принятый результат.
+  Ключевое отличие от услуг: результат овеществлён и передаваем (пошив костюма, ремонт станка,
+  изготовление мебели). Регулируется § 1 Главы 37 ГК РФ (ст. 702–729).
+
+version: 3.0
+parent: class_3_work_performance
+
+metadata:
+  category: contract
+  subcategory: work_performance
+  complexity: medium
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "§ 1 Главы 37 ГК РФ (ст. 702-729)"
+  doc_types_supported:
+    - "договор подряда"
+    - "договор на выполнение работ"
+    - "договор подряда на изготовление"
+    - "договор подряда на переработку (обработку)"
+    - "договор на ремонт оборудования/станка/техники"
+    - "договор подряда с физическим лицом"
+    - "договор подряда с давальческими материалами"
+    - "договор на переработку"
+    - "договор на ремонт"
+    - "договор на капитальный ремонт"
+    - "договор изготовления продукции"
+    - "договор переработки давальческого сырья"
+
+    - "works agreement"
+    - "works contract"
+    - "fabrication contract"
+    - "processing agreement"
+    - "manufacturing agreement"
+    - "toll manufacturing agreement"
+    - "contractor agreement"
+    - "contract for work and materials"
+    - "independent contractor agreement"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  scoring:
+    accept_threshold: 0.76
+    strong_signal_threshold: 0.86
+    ambiguity_margin: 0.16
+    input_quality_weight: 1.0
+
+  rules:
+
+    filename_patterns:
+      - pattern: "(?i)\\bдоговор[\\s_.-]*подряда\\b"
+        kind: generic_form
+        weight: 0.60
+        # Общая юридическая форма подряда; для fallback-типа не должна доминировать над специализированными подвидами
+
+      - pattern: "(?i)\\bподряд\\b"
+        kind: generic_form
+        weight: 0.54
+        # Базовый русский маркер подряда без уточнения вида
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?выполнени[а-я]*[\\s_.-]*работ[а-я]*\\b"
+        kind: generic_form
+        weight: 0.56
+        # Выполнение работ — общая формула, шире чистого подряда
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*подряда[\\s_.-]*(?:на[\\s_.-]*)?изготовлени[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Подряд на изготовление вещи — ключевой subject-маркер общего подряда (locatio-conductio operis)
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*изготовлени[а-я]*[\\s_.-]*(?:продукци[а-я]*|изделий|вещи)?\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Изготовление продукции / изделий — прямой subject-маркер
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*подряда[\\s_.-]*(?:на[\\s_.-]*)?переработк[а-я]*\\b|\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?переработк[а-я]*(?:[\\s_.-]*обработк[а-я]*)?\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Переработка / обработка — из supported types, прямой маркер общего подряда
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*переработк[а-я]*[\\s_.-]*давальческ[а-я]*[\\s_.-]*сырь[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Переработка давальческого сырья — сильный и специфичный маркер
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*подряда[\\s_.-]*с[\\s_.-]*давальческ[а-я]*[\\s_.-]*материал[а-я]*\\b|\\bдавальческ[а-я]*[\\s_.-]*(?:сырьё|материал)[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Давальческие материалы / сырьё — характерный маркер именно общего подряда
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?ремонт[а-я]*[\\s_.-]*(?:оборудовани[а-я]*|станк[а-я]*|техник[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Ремонт оборудования / станка / техники — из supported types; не строительство
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?капитальн[а-я]*[\\s_.-]*ремонт[а-я]*(?![\\s_.-]*(?:здани|объект|строительн|сооружени))\\b"
+        kind: specific_subject
+        weight: 0.80
+        # Капитальный ремонт без признаков строительного объекта — общий подряд
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*подряда[\\s_.-]*с[\\s_.-]*физическ[а-я]*[\\s_.-]*лиц[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.78
+        # Подряд с физическим лицом — из supported types; частый случай общего подряда
+
+      - pattern: "(?i)\\bworks?[\\s_.-]*(?:agreement|contract)\\b"
+        kind: generic_form
+        weight: 0.58
+        # Works agreement / works contract — из supported types, прямая форма, но родовая
+
+      - pattern: "(?i)\\bcontract[\\s_.-]*for[\\s_.-]*work[s]?(?:[\\s_.-]*and[\\s_.-]*materials?)?\\b"
+        kind: generic_form
+        weight: 0.60
+        # Contract for work and materials — из supported types; достаточно специфично, но шире general works
+
+      - pattern: "(?i)\\bfabrication[\\s_.-]*(?:agreement|contract)\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Fabrication contract — прямой маркер изготовления (locatio-conductio operis)
+
+      - pattern: "(?i)\\btoll[\\s_.-]*manufacturing(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Toll manufacturing — точный эквивалент переработки давальческого сырья
+
+      - pattern: "(?i)\\bprocessing[\\s_.-]*(?:agreement|contract)\\b"
+        kind: specific_subject
+        weight: 0.76
+        # Processing agreement — близко к переработке, но шире: конфликт с data processing, payment processing
+
+      - pattern: "(?i)\\bmanufacturing[\\s_.-]*(?:agreement|contract)\\b"
+        kind: generic_form
+        weight: 0.54
+        # Manufacturing agreement конфликтует с production/supply: не всегда чистый works contract
+
+      - pattern: "(?i)\\bindependent[\\s_.-]*contractor[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.44
+        # Independent contractor agreement — в англоязычной практике часто service/consulting, а не works
+
+      - pattern: "(?i)\\bcontractor[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: context
+        weight: 0.24
+        # Contractor без works/work/fabrication qualifier слишком широк
+
+      - pattern: "(?i)\\bремонт\\b"
+        kind: context
+        weight: 0.22
+        # Ремонт без объекта и без договор-квалификатора слишком широк
+
+      - pattern: "(?i)\\bworks?\\b"
+        kind: context
+        weight: 0.18
+        # Works само по себе слишком неоднозначно
+
+
+    folder_patterns:
+      - pattern: "(?i)подряд(?:[_\\s-]*общ[а-я]*|[_\\s-]*general)?(?![_\\s-]*строительн)"
+        kind: specific_subject
+        weight: 0.80
+        # Папка подряда без признаков строительного подряда
+
+      - pattern: "(?i)изготовлени[а-я]*|fabrication"
+        kind: specific_subject
+        weight: 0.78
+        # Папка по изготовлению вещей
+
+      - pattern: "(?i)давальческ[а-я]*[_\\s-]*(?:сырь|материал)|toll[_\\s-]*manufactur"
+        kind: specific_subject
+        weight: 0.82
+        # Давальческое сырьё / toll manufacturing — сильный специфичный folder-marker
+
+      - pattern: "(?i)переработк[а-я]*[_\\s-]*(?:сырь|материал)|processing[_\\s-]*(?:of[_\\s-]*)?(?:materials?|raw)"
+        kind: specific_subject
+        weight: 0.80
+        # Переработка материалов / сырья
+
+      - pattern: "(?i)ремонт[_\\s-]*(?:оборудовани|техник|станк)|equipment[_\\s-]*repair|machinery[_\\s-]*repair"
+        kind: specific_subject
+        weight: 0.78
+        # Ремонт оборудования / техники в taxonomy папок
+
+      - pattern: "(?i)works?[_\\s-]*(?:agreement|contract)|contract[_\\s-]*for[_\\s-]*works?"
+        kind: generic_form
+        weight: 0.52
+        # Works contract taxonomy — полезна, но родовая
+
+      - pattern: "(?i)manufactur(?:ing)?(?![_\\s-]*(?:agreement|supply|goods))"
+        kind: generic_form
+        weight: 0.44
+        # Manufacturing folder без уточнения — возможен конфликт с supply/production
+
+      - pattern: "(?i)contractor[s]?|подрядчик"
+        kind: generic_form
+        weight: 0.38
+        # Contractor folder — полезен, но шире works contract
+
+      - pattern: "(?i)works?|работ[ы]?"
+        kind: context
+        weight: 0.20
+        # Слишком широкий folder-контекст
+
+      - pattern: "(?i)repair|ремонт"
+        kind: context
+        weight: 0.18
+        # Repair без объекта неоднозначен: строительный, бытовой, оборудования
+
+    keywords:
+
+      high:
+        - pattern: "(?i)договор\\s+подряд[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Базовое название договора подряда"
+
+        - pattern: "(?i)договор\\s+на\\s+выполнен[иеия]\\s+работ"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора на выполнение работ"
+
+        - pattern: "(?i)договор\\s+подряд[ауы]\\s+на\\s+изготовлен[иеия]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Подряд на изготовление вещи"
+
+        - pattern: "(?i)договор\\s+подряд[ауы]\\s+на\\s+переработк[уи]\\s*\\(обработк[уи]\\)?"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Подряд на переработку (обработку) материала или вещи"
+
+        - pattern: "(?i)подрядчик"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Ключевая роль исполнителя в договоре подряда"
+
+        - pattern: "(?i)заказчик"
+          weight: 0.75
+          distinctiveness: medium
+          context: any
+          description: "Контрагент подрядчика; общий, но важный маркер work-contract"
+
+        - pattern: "(?i)результат\\s+работ"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Овеществлённый и передаваемый результат работ"
+
+        - pattern: "(?i)сдач[аеи]-?при[её]мк[аеи]"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Процедура сдачи-приёмки результата работ"
+
+        - pattern: "(?i)акт\\s+выполнен[ныхые]\\s+работ"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Ключевой документ подтверждения выполнения и приёмки работ"
+
+        - pattern: "(?i)иждивен[иеия]\\s+подрядчик[ауы]"
+          weight: 0.8
+          distinctiveness: high
+          context: body
+          description: "Подрядчик выполняет работу своим иждивением"
+
+      medium:
+        - pattern: "(?i)выполнени[ея]\\s+работ"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Общая формула выполнения работ"
+
+        - pattern: "(?i)\\bизготовлени[ея]\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Изготовление вещи как типичный предмет подряда"
+
+        - pattern: "(?i)\\bпереработк[аи]\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Переработка как разновидность подрядных работ"
+
+        - pattern: "(?i)\\bобработк[аи]\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Обработка материала или вещи"
+
+        - pattern: "(?i)\\bремонт\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ремонт часто оформляется как подряд, но может пересекаться с сервисом"
+
+        - pattern: "(?i)\\bсмет[аы]\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Смета характерна для подрядных отношений"
+
+        - pattern: "(?i)гарантийн[ыо]й\\s+срок"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Гарантийный срок на результат работ"
+
+        - pattern: "(?i)давальческ[иоя]+\\s+материал[ыо]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Работы с использованием материалов заказчика"
+
+        - pattern: "(?i)этап\\s+работ"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Этапность исполнения подрядных работ"
+
+        - pattern: "(?i)скрыт[ыо]е\\s+работ[ыа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Скрытые работы — подрядный, но не уникальный маркер"
+
+        - pattern: "(?i)при[её]мк[аи]\\s+работ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Приёмка выполненных работ заказчиком"
+
+        - pattern: "(?i)сдач[аи]\\s+результат[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Сдача результата работ заказчику"
+
+      low:
+        - pattern: "(?i)\\bсубподрядчик\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Субподрядчик — дополнительный участник исполнения"
+
+        - pattern: "(?i)генеральн[ыо]й\\s+подрядчик"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Генеральный подрядчик — чаще в строительстве, поэтому низкий вес"
+
+        - pattern: "(?i)акт\\s+сдач[ии]-?при[её]мк[ии]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Общая форма акта сдачи-приёмки"
+
+        - pattern: "(?i)тв[её]рд[а-яё]+\\s+цен[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Твёрдая цена договора"
+
+        - pattern: "(?i)приблизительн[а-яё]+\\s+смет[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Приблизительная смета допускается в подряде"
+
+    exclusions:
+      - pattern: "(?i)возмездн[оа]е\\s+оказани[ея]\\s+услуг"
+        severity: hard
+        weight: -1.0
+        description: "Возмездное оказание услуг — соседний, но иной тип без овеществлённого результата"
+
+      - pattern: "(?i)трудов[оа]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Трудовой договор регулирует процесс труда, а не подрядный результат"
+
+      - pattern: "(?i)бытов[оа]й\\s+подряд"
+        severity: hard
+        weight: -1.0
+        description: "Бытовой подряд — отдельный потребительский режим, не generic B2B/B2C works"
+
+      - pattern: "(?i)долев[оа]е\\s+участи[ея]\\s+в\\s+строительств[ее]"
+        severity: hard
+        weight: -1.0
+        description: "ДДУ — отдельный тип contract_3.6_off_plan_contract"
+
+      - pattern: "(?i)\\bНИОКР\\b"
+        severity: hard
+        weight: -1.0
+        description: "НИОКР — специальный договор на выполнение исследовательских и опытно-конструкторских работ"
+
+      - pattern: "(?i)научно-исследовательск[иие]+\\s+работ[ыа]"
+        severity: hard
+        weight: -1.0
+        description: "НИР/НИОКР относятся к contract_3.5_research_development"
+
+      - pattern: "(?i)проектн[ыо]е\\s+и\\s+изыскательск[иие]+\\s+работ[ыа]"
+        severity: hard
+        weight: -1.0
+        description: "Проектные и изыскательские работы — специальный тип contract_3.4_design_survey"
+
+      - pattern: "(?i)\\bПИР\\b"
+        severity: hard
+        weight: -1.0
+        description: "ПИР — устойчивый маркер проектно-изыскательских работ"
+
+      # ── Soft exclusions
+
+      - pattern: "(?i)\\bконсультаци[ияй]\\b"
+        severity: soft
+        weight: -0.3
+        description: "Консультации тянут договор в сторону услуг"
+
+      - pattern: "(?i)правил[аа]\\s+внутренн[ео]го\\s+распорядк[аа]"
+        severity: soft
+        weight: -0.35
+        description: "Правила внутреннего распорядка указывают на трудовые отношения"
+
+      - pattern: "(?i)авторск[иоя]+\\s+заказ"
+        severity: soft
+        weight: -0.3
+        description: "Авторский заказ может пересекаться с IP/творческими договорами, а не с generic подрядом"
+
+      - pattern: "(?i)для\\s+личн[ыо]х\\s+бытов[ыо]х\\s+нужд"
+        severity: soft
+        weight: -0.3
+        description: "Потребительская цель тянет конструкцию к бытовому подряду"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  consumer_contractor:
+    any_keywords:
+      - "(?i)физическ[оеая]\\s+лиц[оа]"
+      - "(?i)\\bгражданин\\b"
+      - "(?i)\\bпаспорт\\b"
+      - "(?i)дата\\s+рождения"
+      - "(?i)место\\s+рождения"
+      - "(?i)ИНН\\s+физлиц[аа]"
+      - "(?i)\\bсамозанят[ыо]й\\b"
+
+  commercial_parties:
+    any_keywords:
+      - "(?i)\\bООО\\b"
+      - "(?i)\\bАО\\b"
+      - "(?i)\\bЗАО\\b"
+      - "(?i)\\bПАО\\b"
+      - "(?i)\\bобществ[оа]\\b"
+      - "(?i)\\bИНН\\b"
+      - "(?i)\\bОГРН\\b"
+      - "(?i)\\bКПП\\b"
+      - "(?i)\\bв\\s+лице\\b"
+      - "(?i)действующ[еёа-я]+\\s+на\\s+основани[ии]"
+      - "(?i)генеральн[ыо]й\\s+директор"
+
+  customer_supplied_materials:
+    any_keywords:
+      - "(?i)давальческ[оеая]\\b"
+      - "(?i)давальческ[иоя]+\\s+материал[ыо]"
+      - "(?i)материал[ыо]\\s+заказчик[аа]"
+      - "(?i)предоставляет\\s+заказчик"
+      - "(?i)сырь[её]\\s+заказчик[аа]"
+      - "(?i)норм[аы]\\s+расход[аа]"
+
+  subcontracting_involved:
+    any_keywords:
+      - "(?i)\\bсубподрядчик\\b"
+      - "(?i)субподрядн[а-яё]+\\s+организаци[яи]"
+      - "(?i)привлечени[ея]\\s+третьих\\s+лиц"
+      - "(?i)генеральн[ыо]й\\s+подрядчик"
+      - "(?i)привлеч[её]нн[ыо]е\\s+организаци[яи]"
+
+  fixed_price:
+    any_keywords:
+      - "(?i)тв[её]рд[а-яё]+\\s+цен[аа]"
+      - "(?i)тв[её]рд[а-яё]+\\s+смет[аа]"
+      - "(?i)цен[аа]\\s+не\\s+подлежит\\s+изменени[юя]"
+      - "(?i)фиксированн[а-яё]+\\s+стоимост[ьи]"
+      - "(?i)не\\s+изменяетс[яьа]"
+
+  approximate_price:
+    any_keywords:
+      - "(?i)приблизительн[а-яё]+\\s+смет[аа]"
+      - "(?i)приблизительн[а-яё]+\\s+цен[аа]"
+      - "(?i)ориентировочн[а-яё]+\\s+стоимост[ьи]"
+      - "(?i)может\\s+быть\\s+изменен[аоы]"
+      - "(?i)подлежит\\s+уточнени[юя]"
+
+  advance_payment:
+    any_keywords:
+      - "(?i)\\bаванс\\b"
+      - "(?i)\\bпредоплат[аы]\\b"
+      - "(?i)авансов[ыо]й\\s+плат[её]ж"
+      - "(?i)предварительн[а-яё]+\\s+оплат[аа]"
+      - "(?i)выплачиваетс[яьа]\\s+до\\s+начал[аа]\\s+работ"
+
+  warranty_period_set:
+    any_keywords:
+      - "(?i)гарантийн[ыо]й\\s+срок"
+      - "(?i)гаранти[яи]\\s+качеств[аа]"
+      - "(?i)гарантийн[ыо]е\\s+обязательств[аа]"
+      - "(?i)в\\s+течени[еи]\\s+гарантийн[оа]го\\s+срок[аа]"
+      - "(?i)устранени[ея]\\s+недостатк[оа]в"
+
+  equipment_repair:
+    any_keywords:
+      - "(?i)ремонт\\s+оборудовани[яя]"
+      - "(?i)ремонт\\s+станк[аа]"
+      - "(?i)ремонт\\s+техник[ии]"
+      - "(?i)ремонт\\s+механизм[аа]"
+      - "(?i)диагностик[аи]\\s+и\\s+ремонт"
+      - "(?i)техническ[оа]е\\s+обслуживани[ея]\\s+и\\s+ремонт"
+      - "(?i)восстановлени[ея]\\s+работоспособност[ии]"
+      - "(?i)замен[аа]\\s+узл[оа]в"
+      - "(?i)замен[аа]\\s+детал[ее]й"
+
+  manufacturing_order:
+    any_keywords:
+      - "(?i)\\bизготовлени[ея]\\b"
+      - "(?i)изготовит[ья]"
+      - "(?i)производств[оа]\\s+по\\s+заказу"
+      - "(?i)по\\s+техническ[оа]му\\s+задани[юя]"
+      - "(?i)по\\s+чертеж[аам]"
+      - "(?i)по\\s+образц[уу]"
+      - "(?i)сери[яи]\\s+издели[йя]"
+      - "(?i)парти[яи]\\s+издели[йя]"
+      - "(?i)\\bпрототип\\b"
+      - "(?i)опытн[ыо]й\\s+образец"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  date_period: "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(календарн|рабоч|дн)"
+  inn_pattern: "(?i)\\bИНН\\s*:?\\s*\\d{10,12}\\b"
+  percent_pattern: "(?i)\\b\\d+([,.]\\d+)?\\s*%\\s*(в\\s+(день|месяц|год))?"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "labor_requalification_risk"
+    name: "Риск переквалификации в трудовой договор (ст. 15, 19.1 ТК РФ)"
+    description: |
+      При систематическом личном выполнении работ физическим лицом с признаками
+      подчинения работодателю (фиксированный режим, рабочее место у заказчика,
+      регулярная оплата вне зависимости от результата) суд или ГИТ вправе
+      переквалифицировать договор в трудовой (ст. 19.1 ТК РФ).
+      Последствия: доначисление НДФЛ, страховых взносов, предоставление
+      трудовых гарантий, штрафы по ст. 5.27 КоАП РФ.
+    legal_base: "ст. 15, 19.1 ТК РФ; ст. 5.27 КоАП РФ"
+    required_triggers: ["consumer_contractor", "commercial_parties"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "физическое лицо"
+        - "гражданин"
+        - "самозанятый"
+        - "личное выполнение"
+        - "режим работы"
+        - "рабочее место"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "личное выполнение"
+        - "режим работы"
+        - "рабочее место заказчика"
+        - "ежемесячная оплата"
+      rerank: true
+
+  - id: "unlicensed_work_prohibition"
+    name: "Выполнение лицензируемых работ без лицензии/допуска СРО (ФЗ-99, ГрК РФ)"
+    description: |
+      Отдельные виды подрядных работ требуют наличия лицензии или допуска СРО
+      (проектирование, строительство особо опасных объектов, работы на тепловых сетях и т.п.).
+      Выполнение таких работ без разрешения влечёт недействительность договора
+      и административную ответственность.
+    legal_base: "ФЗ от 04.05.2011 № 99-ФЗ; ст. 55.8 ГрК РФ; ст. 14.1 КоАП РФ"
+    required_triggers: ["commercial_parties"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "лицензия"
+        - "допуск СРО"
+        - "свидетельство о допуске"
+        - "саморегулируемая организация"
+        - "особо опасные работы"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "лицензия"
+        - "допуск СРО"
+        - "саморегулируемая организация"
+      rerank: true
+
+  - id: "approximate_estimate_exceeded_without_notice"
+    name: "Превышение приблизительной сметы > 10% без уведомления (ст. 709 п. 5 ГК РФ)"
+    description: |
+      При приблизительной смете подрядчик обязан своевременно предупредить заказчика
+      о необходимости существенного превышения цены (ст. 709 п. 5 ГК РФ).
+      Если превышение > 10% и подрядчик не уведомил — заказчик вправе отказаться
+      от договора, оплатив фактически выполненное. Условия, лишающие заказчика
+      этого права, — ничтожны.
+    legal_base: "ст. 709 п. 5 ГК РФ"
+    required_triggers: ["approximate_price"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "превышение сметы"
+        - "увеличение цены"
+        - "изменение стоимости"
+        - "подрядчик обязан предупредить"
+        - "существенное превышение"
+        - "более 10%"
+        - "уведомление о превышении"
+      keyword_mode: "any"
+      negative_keywords:
+        - "подрядчик обязан немедленно предупредить заказчика"
+        - "право заказчика отказаться при превышении"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "превышение сметы"
+        - "увеличение стоимости"
+        - "уведомление"
+        - "ст. 709"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: subject_and_result_extraction
+    name: "Предмет: содержание работ и овеществлённый результат (ст. 702, 703 ГК РФ)"
+    description: "Извлекает описание работ и конкретного овеществлённого результата. Отсутствие чёткого результата = риск незаключённости"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "подрядчик обязуется"
+        - "выполнить работы"
+        - "результат работ"
+        - "сдать результат"
+        - "техническое задание"
+        - "спецификация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)подряд(чик)?\\s+обязуется\\s+выполнить"
+        - "(?i)результат\\s+работ.*передать\\s+заказчику"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор подряда (§ 1 Главы 37 ГК РФ).
+        Твоя задача — извлечь сведения о предмете договора.
+
+        Ответь строго в JSON:
+        {
+          "work_description": "<описание работ или not_found>",
+          "material_result": "<описание овеществлённого результата или not_found>",
+          "technical_task_referenced": "<yes / no / not_found>",
+          "result_definiteness": "<specific / vague / not_found>"
+        }
+
+        - "material_result": должен быть вещественным (изделие, отремонтированный объект, и т.п.),
+          а не процессом. Если результат — нематериальный (консультация, обучение) — пиши "not_found".
+        - "result_definiteness": "specific" — результат чётко описан; "vague" — описание размытое.
+
+        ВАЖНО: Если значение явно не указано в тексте — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "предмет договора"
+        - "результат работ"
+        - "техническое задание"
+        - "спецификация"
+        - "обязуется выполнить"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "work_description"
+          type: "string"
+          keyword_hints: ["подрядчик обязуется", "выполнить работы", "предмет"]
+          description: "Описание содержания работ"
+        - name: "material_result"
+          type: "string"
+          keyword_hints: ["результат работ", "сдать заказчику", "изготовить", "отремонтировать"]
+          description: "Описание овеществлённого результата"
+        - name: "technical_task_referenced"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Ссылка на ТЗ/спецификацию как приложение"
+        - name: "result_definiteness"
+          type: "string"
+          allowed_values: ["specific", "vague", "not_found"]
+          description: "Конкретность описания результата"
+      store_payload: true
+
+  - id: deadlines_extraction
+    name: "Сроки: начальный и конечный — существенные условия (ст. 708 ГК РФ)"
+    description: "Начальный и конечный сроки — существенные условия договора подряда. Отсутствие хотя бы одного = риск незаключённости для коммерческих сторон"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "начало работ"
+        - "начальный срок"
+        - "конечный срок"
+        - "срок выполнения"
+        - "срок завершения"
+        - "не позднее"
+        - "в течение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+        - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(календарн|рабоч|дн)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор подряда.
+        Найди в тексте сведения о сроках выполнения работ (ст. 708 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "start_date": "<дата начала или not_found>",
+          "end_date": "<дата окончания или not_found>",
+          "intermediate_deadlines": "<yes / no / not_found>",
+          "deadline_snippet": "<цитата из договора или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+        Промежуточные сроки — только если явно перечислены этапы.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "срок выполнения"
+        - "начало работ"
+        - "конечный срок"
+        - "не позднее"
+        - "ст. 708"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "start_date"
+          type: "string"
+          keyword_hints: ["начало работ", "дата начала", "начальный срок"]
+          description: "Начальный срок выполнения работ"
+        - name: "end_date"
+          type: "string"
+          keyword_hints: ["срок завершения", "конечный срок", "не позднее"]
+          description: "Конечный срок выполнения работ"
+        - name: "intermediate_deadlines"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие промежуточных сроков (этапов)"
+      store_payload: true
+
+  - id: price_and_estimate_analysis
+    name: "Цена: твёрдая/приблизительная смета, порядок согласования изменений (ст. 709 ГК РФ)"
+    description: "Определяет тип цены и порядок согласования дополнительных расходов. Для коммерческих сторон — существенное условие"
+    triggers:
+      any: ["commercial_parties", "fixed_price", "approximate_price"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "твёрдая цена"
+        - "твёрдая смета"
+        - "приблизительная смета"
+        - "цена работ"
+        - "стоимость работ"
+        - "смета"
+        - "изменение цены"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цен[аеуой]\\s+.*?\\d"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+        - "(?i)(твёрд(ая|ой)|приблизительн(ая|ой))\\s+цен[аеуой]"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор подряда.
+        Найди сведения о цене работ и порядке изменения сметы (ст. 709 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "price_type": "<fixed / approximate / not_specified / not_found>",
+          "price_amount": "<сумма с валютой или not_found>",
+          "price_change_procedure": "<described / not_described / not_found>",
+          "additional_works_consent": "<required / not_required / not_found>",
+          "price_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "fixed" — цена твёрдая, изменению не подлежит
+        - "approximate" — приблизительная, может быть скорректирована
+        - "not_specified" — цена не указана явно
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "твёрдая цена"
+        - "приблизительная смета"
+        - "стоимость работ"
+        - "изменение цены"
+        - "ст. 709 ГК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "price_type"
+          type: "string"
+          allowed_values: ["fixed", "approximate", "not_specified", "not_found"]
+          description: "Тип цены: твёрдая или приблизительная"
+        - name: "price_amount"
+          type: "string"
+          keyword_hints: ["цена", "стоимость работ", "рублей", "рублях"]
+          description: "Сумма по договору"
+        - name: "additional_works_consent"
+          type: "string"
+          allowed_values: ["required", "not_required", "not_found"]
+          description: "Требуется ли согласие заказчика на доп. работы"
+      store_payload: true
+
+  - id: customer_materials_regime_check
+    name: "Давальческие материалы: отчётность, норма расхода, возврат остатков (ст. 713, 714 ГК РФ)"
+    description: "При работе с материалами заказчика: обязателен отчёт об использовании, норма расхода, возврат остатков и порядок хранения"
+    triggers:
+      any: ["customer_supplied_materials"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "давальческие материалы"
+        - "материалы заказчика"
+        - "норма расхода"
+        - "отчёт об использовании"
+        - "возврат остатков"
+        - "ответственность за сохранность"
+        - "давальческое сырьё"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)материал(ы|ов)?\\s+заказчик"
+        - "(?i)отчёт\\s+об\\s+использовании.*материал"
+        - "(?i)возврат\\s+остатк"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор подряда с давальческими материалами.
+        Проверь условия работы с материалами заказчика (ст. 713, 714 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "materials_reporting": "<required / not_mentioned / not_found>",
+          "consumption_norm": "<specified / not_specified / not_found>",
+          "leftover_return": "<required / not_required / not_found>",
+          "materials_liability": "<specified / not_specified / not_found>",
+          "materials_snippet": "<цитата из договора или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "давальческие материалы"
+        - "материалы заказчика"
+        - "отчёт об использовании"
+        - "возврат остатков"
+        - "норма расхода"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "materials_reporting"
+          type: "string"
+          allowed_values: ["required", "not_mentioned", "not_found"]
+          description: "Обязанность подрядчика отчитываться о расходовании материалов"
+        - name: "leftover_return"
+          type: "string"
+          allowed_values: ["required", "not_required", "not_found"]
+          description: "Обязанность вернуть остатки материалов заказчику"
+      store_payload: true
+
+  - id: customer_unilateral_refusal_check
+    name: "Право заказчика на односторонний отказ (ст. 717 ГК РФ): сохранено или ограничено"
+    description: "Ст. 717 ГК РФ даёт заказчику право отказаться в любое время до сдачи результата. Подрядчики часто вводят запретительные штрафы — проверяем законность ограничений"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "право отказаться от исполнения"
+        - "в любое время до сдачи"
+        - "оплатив фактически выполненное"
+        - "уплатив часть цены"
+        - "запрет на отказ"
+        - "штраф за расторжение"
+        - "неустойка за отказ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заказчик.*вправе.*отказаться.*в\\s+любое\\s+время"
+        - "(?i)ст\\.?\\s*717\\s+ГК\\s+РФ"
+        - "(?i)штраф.*за\\s+(расторжение|отказ).*договор"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор подряда.
+        Проверь, как урегулировано право заказчика на односторонний отказ (ст. 717 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "refusal_right_status": "<preserved / restricted / excluded / not_mentioned / not_found>",
+          "penalty_for_refusal": "<yes / no / not_found>",
+          "penalty_amount": "<сумма/процент или not_found>",
+          "refusal_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "preserved" — право сохранено, заказчик платит только фактически выполненное
+        - "restricted" — право есть, но введены дополнительные штрафы/условия
+        - "excluded" — договор запрещает отказ (условие ничтожно по ст. 422 ГК РФ)
+        - "not_mentioned" — вопрос не урегулирован явно
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "право отказаться"
+        - "ст. 717"
+        - "штраф за расторжение"
+        - "оплатить фактически выполненное"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "refusal_right_status"
+          type: "string"
+          allowed_values: ["preserved", "restricted", "excluded", "not_mentioned", "not_found"]
+          description: "Статус права заказчика на односторонний отказ"
+        - name: "penalty_for_refusal"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие штрафа за отказ"
+      store_payload: true
+
+  - id: quality_standards_and_conformity_check
+    name: "Стандарты качества и критерии соответствия результата (ст. 721 ГК РФ)"
+    description: |
+      Качество работ должно соответствовать условиям договора, а при их отсутствии —
+      обычно предъявляемым требованиям (ст. 721 ГК РФ). Без чётких критериев
+      приёмки и стандартов качества споры о соответствии результата неизбежны.
+      Проверяет наличие ТЗ, ГОСТов, ТУ, образцов, критериев приёмки.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "качество работ"
+        - "требования к качеству"
+        - "стандарт качества"
+        - "ГОСТ"
+        - "ТУ"
+        - "технические условия"
+        - "соответствие образцу"
+        - "критерии приёмки"
+        - "обычно предъявляемые требования"
+        - "профессиональный стандарт"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)качеств(о|у|а)\\s+работ.*соответств"
+        - "(?i)\\bГОСТ\\s+\\d"
+        - "(?i)ст\\.?\\s*721\\s+ГК\\s+РФ"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор подряда (§ 1 Главы 37 ГК РФ).
+        Проверь наличие и полноту стандартов качества (ст. 721 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "quality_standards_referenced": "<yes / no / not_found>",
+          "standards_type": "<gost / tu / contract_specific / sample_based / general / not_found>",
+          "acceptance_criteria_defined": "<yes / no / not_found>",
+          "conformity_assessment_method": "<testing / inspection / certification / not_specified / not_found>",
+          "quality_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "gost" — ссылка на конкретный ГОСТ
+        - "tu" — технические условия
+        - "contract_specific" — критерии описаны в ТЗ/спецификации к договору
+        - "sample_based" — по утверждённому образцу
+        - "general" — общая ссылка на «обычно предъявляемые требования»
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "качество работ"
+        - "стандарт"
+        - "ГОСТ"
+        - "критерии приёмки"
+        - "ст. 721"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "quality_standards_referenced"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие ссылки на стандарты качества"
+        - name: "acceptance_criteria_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Определены ли критерии приёмки"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification"
+    name: "Стороны договора: идентификация подрядчика и заказчика (ст. 432 ГК РФ)"
+    description: "Проверяет наличие достаточной идентификации обеих сторон"
+    legal_base: "ст. 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "подрядчик"
+        - "заказчик"
+        - "именуем"
+        - "в лице"
+        - "действующего на основании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(подрядчик|заказчик).*именуем"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "contractor_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "self_employed", "unclear"]
+          keyword_hints: ["ООО", "АО", "гражданин", "физическое лицо", "ИП", "самозанятый"]
+          description: "Тип подрядчика"
+        - name: "customer_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "unclear"]
+          keyword_hints: ["ООО", "АО", "гражданин", "физическое лицо", "ИП"]
+          description: "Тип заказчика"
+      store_payload: true
+
+  - id: "subject_work_required"
+    name: "Предмет: наличие описания работ и результата (ст. 702, 703 ГК РФ)"
+    description: "Без описания конкретного овеществлённого результата договор может быть переквалифицирован в услуги или признан незаключённым"
+    legal_base: "ст. 702, 703, 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "подрядчик обязуется выполнить"
+        - "результат работ"
+        - "сдать результат"
+        - "техническое задание"
+        - "спецификация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)подрядчик.*обязуется.*выполнить"
+        - "(?i)результат.*работ.*(передать|сдать)"
+
+  - id: "start_and_end_dates_required"
+    name: "Начальный и конечный сроки — существенные условия (ст. 708 ГК РФ)"
+    description: "Оба срока обязательны. Отсутствие влечёт незаключённость для коммерческих договоров"
+    legal_base: "ст. 708, 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "начало работ"
+        - "начальный срок"
+        - "конечный срок"
+        - "срок выполнения"
+        - "срок завершения"
+        - "не позднее"
+        - "в течение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+        - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(календарн|рабоч|дн)"
+
+  - id: "price_or_estimation_method"
+    name: "Цена работ или способ её определения (ст. 709 ГК РФ)"
+    description: "Для коммерческих организаций — существенное условие. Если не указано — считается твёрдой по ст. 424 ГК РФ"
+    legal_base: "ст. 709, 424, 432 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "цена работ"
+        - "стоимость работ"
+        - "смета"
+        - "рублей"
+        - "рублях"
+        - "вознаграждение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цен[аеуой]\\s+.*?\\d"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "price_amount"
+          type: "number"
+          keyword_hints: ["цена работ", "стоимость", "рублей"]
+          unit: "RUB"
+          description: "Цена договора подряда"
+        - name: "price_includes_vat"
+          type: "string"
+          allowed_values: ["yes", "no", "not_applicable", "unclear", "not_found"]
+          keyword_hints: ["в том числе НДС", "без НДС", "НДС не облагается"]
+          description: "Включает ли цена НДС"
+      store_payload: true
+
+  - id: "acceptance_procedure"
+    name: "Порядок сдачи-приёмки работ (ст. 720 ГК РФ)"
+    description: "Процедура приёмки определяет момент перехода рисков и обязанность оплаты. Отсутствие — риск злоупотреблений с обеих сторон"
+    legal_base: "ст. 720 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "акт выполненных работ"
+        - "акт сдачи-приёмки"
+        - "подписание акта"
+        - "порядок приёмки"
+        - "сдача результата"
+        - "приёмка заказчиком"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт\\s+(сдачи|выполненных|приёмки)"
+        - "(?i)(сдать|сдача)\\s+результат"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "review_period_days"
+          type: "number"
+          keyword_hints: ["в течение", "рабочих дней", "календарных дней", "срок приёмки"]
+          unit: "days"
+          description: "Срок для приёмки заказчиком"
+        - name: "auto_acceptance"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["считаются принятыми", "считаются выполненными", "молчание"]
+          description: "Автоматическая приёмка при молчании"
+      store_payload: true
+
+  - id: "unilateral_acceptance_mechanism"
+    name: "Механизм односторонней приёмки при уклонении заказчика (ст. 720 ГК РФ)"
+    description: "При уклонении заказчика от приёмки подрядчик вправе составить односторонний акт. Договорное закрепление снижает судебные риски"
+    legal_base: "ст. 720 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "работы считаются принятыми"
+        - "односторонний акт"
+        - "при отсутствии мотивированного отказа"
+        - "уклонение от приёмки"
+        - "автоматическая приёмка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)если.*заказчик.*не.*направил.*отказ.*в\\s+течение.*\\d+.*дней.*работы.*считаются.*принятыми"
+        - "(?i)при.*уклонении.*от\\s+приёмки.*подрядчик.*вправе.*составить.*акт.*односторонне"
+
+  - id: "suspension_notification_right"
+    name: "Право на приостановку и обязанность уведомления (ст. 716, 719 ГК РФ)"
+    description: |
+      Подрядчик ОБЯЗАН немедленно уведомить заказчика и приостановить работы при: непригодности
+      материалов, неверных указаниях, иных обстоятельствах, угрожающих качеству. Продолжение
+      работ без уведомления лишает права ссылаться на эти обстоятельства в суде.
+    legal_base: "ст. 716, 719 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "право приостановить"
+        - "обязан уведомить"
+        - "немедленно предупредить"
+        - "непригодность материалов"
+        - "неверные указания"
+        - "неисполнение заказчиком"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)подрядчик.*обязан.*немедленно.*(уведомить|предупредить).*заказчика"
+        - "(?i)при.*получении.*неверных.*указаний.*приостановить"
+        - "(?i)в\\s+случае.*неоплаты\\s+аванса.*подрядчик.*вправе.*приостановить"
+
+  - id: "retention_right_before_payment"
+    name: "Право удержания результата работ до оплаты (ст. 712, 359 ГК РФ)"
+    description: "После передачи результата подрядчик теряет рычаг воздействия. Право удержания — ключевой обеспечительный механизм"
+    legal_base: "ст. 712, 359 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "право удержания"
+        - "удерживает результат"
+        - "не передаётся до оплаты"
+        - "до полной оплаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)подрядчик.*вправе.*удерживать.*результат.*до.*оплат"
+        - "(?i)право\\s+удержания.*результат"
+
+  - id: "payment_terms_and_schedule"
+    name: "Порядок и сроки оплаты, аванс, окончательный расчёт (ст. 711 ГК РФ)"
+    description: "Нечёткие сроки оплаты позволяют заказчику затягивать расчёты. Важны: момент возникновения обязанности, срок перечисления, реквизиты"
+    legal_base: "ст. 711, 314 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок оплаты"
+        - "после подписания акта"
+        - "банковских дней"
+        - "рабочих дней"
+        - "банковские реквизиты"
+        - "в течение"
+        - "аванс"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)оплат(а|у).*в\\s+течение.*\\d+.*(дней|рабоч)"
+        - "(?i)после.*подписания.*акта.*в\\s+течение"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "payment_method"
+          type: "string"
+          allowed_values: ["cashless_transfer", "cash", "mixed", "other", "not_found"]
+          keyword_hints: ["безналичный расчёт", "наличными", "банковский перевод"]
+          description: "Способ расчётов"
+        - name: "advance_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["аванс", "предоплата", "авансовый платёж"]
+          description: "Наличие аванса"
+      store_payload: true
+
+  - id: "penalty_for_delay_contractor"
+    name: "Неустойка за просрочку выполнения работ (ст. 330, 708 ГК РФ)"
+    description: "Без договорной неустойки заказчик сможет взыскать только убытки — крайне сложно доказуемые в суде"
+    legal_base: "ст. 330, 708 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "неустойка за просрочку"
+        - "пеня"
+        - "штраф за нарушение сроков"
+        - "процент за каждый день просрочки"
+        - "пени за просрочку"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)за\\s+нарушение\\s+сроков.*подрядчик.*уплачивает.*неустойку"
+        - "(?i)пен[яи]\\s+.*\\d+.*%.*за.*каждый.*день"
+
+  - id: "penalty_for_payment_delay_customer"
+    name: "Неустойка за просрочку оплаты заказчиком (ст. 395 ГК РФ)"
+    description: "Отсутствие договорной неустойки за просрочку оплаты снижает дисциплину расчётов. Применяется ст. 395 ГК РФ как минимум"
+    legal_base: "ст. 395, 314, 711 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "неустойка за просрочку оплаты"
+        - "пени за задержку оплаты"
+        - "проценты по ст. 395"
+        - "штраф за неоплату"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)за\\s+нарушение\\s+сроков.*оплат.*заказчик.*уплачивает"
+        - "(?i)ст\\.?\\s*395\\s+ГК\\s+РФ"
+
+  - id: "warranty_period_and_defect_procedure"
+    name: "Гарантийный срок и порядок предъявления претензий по качеству (ст. 722, 724 ГК РФ)"
+    description: "Без договорного гарантийного срока действует 2 года (ст. 724). Важен порядок предъявления и срок устранения недостатков"
+    legal_base: "ст. 722, 724, 721 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "гарантийный срок"
+        - "гарантия качества"
+        - "устранение недостатков"
+        - "безвозмездное исправление"
+        - "скрытые недостатки"
+        - "претензия по качеству"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)гарантийный\\s+срок\\s+составляет\\s+\\d+"
+        - "(?i)недостатки.*устраняются.*в\\s+течение\\s+\\d+\\s+дней"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "warranty_duration"
+          type: "string"
+          keyword_hints: ["гарантийный срок составляет", "в течение", "месяцев", "лет"]
+          description: "Продолжительность гарантийного срока"
+        - name: "defect_remedy_period"
+          type: "string"
+          keyword_hints: ["устранить недостатки", "в течение", "дней"]
+          description: "Срок для устранения недостатков"
+      store_payload: true
+
+  - id: "risk_allocation_before_acceptance"
+    name: "Распределение рисков случайной гибели материалов и результата (ст. 705 ГК РФ)"
+    description: "По умолчанию риск несёт подрядчик до приёмки. При давальческих материалах — заказчик. Неясность → спор при форс-мажоре"
+    legal_base: "ст. 705 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "риск случайной гибели"
+        - "несёт подрядчик"
+        - "несёт заказчик"
+        - "до момента приёмки"
+        - "страхование рисков"
+        - "случайное повреждение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)риск.*случайной.*гибели.*(результата|материалов).*до.*приёмки"
+        - "(?i)(несёт|несет)\\s+(подрядчик|заказчик)"
+
+  - id: "subcontracting_conditions"
+    name: "Условия привлечения субподрядчиков (ст. 706 ГК РФ)"
+    description: "Без регулирования: подрядчик может привлечь ненадёжного субподрядчика. Для заказчика важно согласование; для подрядчика — операционная гибкость"
+    legal_base: "ст. 706 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "субподрядчик"
+        - "только с согласия заказчика"
+        - "запрещено привлекать"
+        - "ответственность за субподрядчика"
+        - "генеральный подрядчик"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)привлечение\\s+субподрядчик.*только.*письменного.*согласия"
+        - "(?i)подрядчик.*несёт.*ответственность.*за.*субподрядчик"
+
+  - id: "contractor_performance_personally"
+    name: "Личное выполнение работ / запрет передачи третьим лицам (ст. 706 ГК РФ)"
+    description: "Если заказчик нанял подрядчика как специалиста — важно закрепить личное выполнение и запрет на передачу. Критично при работе с физлицами"
+    legal_base: "ст. 706 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["consumer_contractor"]
+    rules:
+      keywords:
+        - "лично выполняет"
+        - "без привлечения третьих лиц"
+        - "личное участие"
+        - "не вправе передавать"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)подрядчик.*обязан.*лично.*выполн"
+        - "(?i)без\\s+привлечения\\s+третьих\\s+лиц"
+
+  - id: "intermediate_inspection_right"
+    name: "Право заказчика проверять ход работ (ст. 715 ГК РФ)"
+    description: "Заказчик вправе проверять ход и качество работ в любое время, не вмешиваясь в деятельность подрядчика. Закрепление — инструмент раннего выявления рисков"
+    legal_base: "ст. 715 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "проверять ход работ"
+        - "контроль качества"
+        - "проверка хода выполнения"
+        - "вправе проверить"
+        - "промежуточная инспекция"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заказчик.*вправе.*провер(ять|ить)\\s+(ход|качество)"
+
+  - id: "hidden_works_documentation"
+    name: "Скрытые работы: фиксация и промежуточная приёмка"
+    description: "Скрытые работы (фундамент, проводка, трубы) должны быть актированы до их закрытия. Отсутствие актов = невозможность доказать объём при споре"
+    legal_base: "ст. 720 ГК РФ; строительные нормы"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "скрытые работы"
+        - "акт на скрытые работы"
+        - "промежуточная приёмка"
+        - "до закрытия"
+        - "освидетельствование"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт.*на\\s+скрытые\\s+работы"
+        - "(?i)промежуточн(ая|ой)\\s+приёмк"
+
+  - id: "termination_grounds_and_consequences"
+    name: "Расторжение: основания, последствия, взаиморасчёты (ст. 453, 715, 717 ГК РФ)"
+    description: "Чёткий порядок расторжения предотвращает споры об объёме фактически выполненного и размере компенсации"
+    legal_base: "ст. 453, 715, 717 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расторжение договора"
+        - "отказ от исполнения"
+        - "возврат аванса"
+        - "оплата фактически выполненного"
+        - "взаиморасчёты"
+        - "последствия расторжения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расторж(ение|ении)\\s+договора"
+        - "(?i)возврат.*аванс"
+        - "(?i)оплат.*фактически\\s+выполненн"
+
+  - id: "assignment_restriction"
+    name: "Уступка прав / перевод долга: ограничения (ГК РФ)"
+    description: "Подрядчик не должен уступать право на оплату третьим лицам без согласия заказчика"
+    legal_base: "ст. 382, 391 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "уступка"
+        - "переуступка"
+        - "перевод долга"
+        - "без согласия"
+        - "с согласия другой стороны"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уступк(а|и).*без\\s+соглас"
+        - "(?i)перевод\\s+долга"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "assignment_restriction"
+          type: "string"
+          allowed_values: ["prohibited", "allowed_with_consent", "allowed", "unclear", "not_found"]
+          keyword_hints: ["запрещается уступка", "без согласия запрещено", "с согласия другой стороны"]
+          description: "Ограничения на уступку прав"
+      store_payload: true
+
+  - id: "confidentiality_clause"
+    name: "Конфиденциальность условий договора и результатов работ"
+    description: "При изготовлении уникальных изделий или переработке важных материалов условие о неразглашении защищает коммерческие интересы"
+    legal_base: "ст. 421, 431.2 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "не раскрывать"
+        - "конфиденциальная информация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)не\\s+разглаш"
+
+  - id: "dispute_resolution_clause"
+    name: "Порядок разрешения споров: досудебный и судебный"
+    description: "Наличие претензионного порядка — обязательное условие для обращения в арбитражный суд (ст. 4 АПК РФ)"
+    legal_base: "ст. 4 АПК РФ; ст. 432 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "претензионный порядок"
+        - "разрешение споров"
+        - "арбитражный суд"
+        - "срок рассмотрения претензии"
+        - "досудебный порядок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)претензионный\\s+порядок"
+        - "(?i)в\\s+арбитражный\\s+суд"
+
+  - id: "vat_and_tax_allocation"
+    name: "НДС и налоговые оговорки"
+    description: "Важно для коммерческих сторон: включена ли цена НДС, кто уплачивает налоги, применяется ли УСН или самозанятость"
+    legal_base: "НК РФ; ФЗ-422 (самозанятые)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "НДС"
+        - "в том числе НДС"
+        - "без НДС"
+        - "налог на профессиональный доход"
+        - "самозанятый"
+        - "УСН"
+        - "не является плательщиком НДС"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bНДС\\b"
+        - "(?i)налог\\s+на\\s+профессиональный\\s+доход"
+
+  - id: "force_majeure_clause"
+    name: "Форс-мажор: определение и последствия (ст. 401 ГК РФ)"
+    description: "Без чёткого определения форс-мажора стороны спорят о приостановке сроков. Важны: уведомление, максимальный период, право расторжения"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "чрезвычайные обстоятельства"
+        - "уведомление о форс-мажоре"
+        - "приостановление сроков"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс.мажор"
+        - "(?i)непреодолимой\\s+силы"
+
+  - id: "intellectual_property_ownership"
+    name: "Принадлежность результата интеллектуальной деятельности (ст. 1296 ГК РФ)"
+    description: "Если результат работ — ПО, дизайн, проект — исключительное право по умолчанию принадлежит подрядчику. Нужно явное отчуждение"
+    legal_base: "ст. 1296, 1297 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "исключительное право"
+        - "права на результат"
+        - "интеллектуальная собственность"
+        - "переходят к заказчику"
+        - "отчуждение прав"
+        - "проект"
+        - "чертёж"
+        - "программный код"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)исключительн(ое|ых)\\s+прав(о|а)"
+        - "(?i)права.*результат.*переход(ят|ит).*заказчик"
+
+  - id: "customer_cooperation_obligations"
+    name: "Обязанности заказчика по содействию (ст. 718 ГК РФ)"
+    description: "Заказчик обязан содействовать подрядчику: предоставить доступ, информацию, документы. Неисполнение — основание для продления сроков и приостановки работ"
+    legal_base: "ст. 718, 719 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "заказчик обязан содействовать"
+        - "предоставить доступ"
+        - "предоставить информацию"
+        - "предоставить документы"
+        - "содействие заказчика"
+        - "контактное лицо"
+        - "непредоставление информации"
+        - "задержка по вине заказчика"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заказчик\\s+обяз(ан|уется)\\s+(содействовать|предоставить)"
+        - "(?i)ст\\.?\\s*718\\s+ГК\\s+РФ"
+
+  - id: "governing_law"
+    name: "Применимое право и подсудность"
+    description: "Проверяет указание применимого законодательства"
+    legal_base: "ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "применимое право"
+        - "регулируется законодательством"
+        - "Российской Федерации"
+        - "арбитражный суд"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)законодательств(о|ом)\\s+Российск"
+
+  - id: "anticorruption_clause"
+    name: "Антикоррупционная оговорка"
+    description: "Проверяет наличие антикоррупционных заверений"
+    legal_base: "ФЗ № 273-ФЗ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "антикоррупционная оговорка"
+        - "противодействие коррупции"
+        - "взятка"
+        - "коммерческий подкуп"
+        - "compliance"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)антикоррупц"
+        - "(?i)противодейств.*коррупц"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_identification:
+    text: >
+      Просим подтвердить полные реквизиты сторон по {doc_names}: наименование/ФИО,
+      ИНН, ОГРН/ОГРНИП, адрес регистрации, документы, подтверждающие полномочия
+      подписантов (устав, доверенность, приказ).
+    addressee: "Обе стороны"
+
+  subject_work_required:
+    text: >
+      В {doc_names} отсутствует или недостаточно конкретно описан предмет договора.
+      Просим предоставить: (а) детальное описание содержания работ; (б) описание
+      конкретного овеществлённого результата; (в) техническое задание или спецификацию
+      как неотъемлемое приложение к договору.
+    addressee: "Заказчик / Подрядчик"
+
+  start_and_end_dates_required:
+    text: >
+      В {doc_names} не определены начальный и/или конечный сроки выполнения работ
+      (ст. 708 ГК РФ). Просим уточнить: (а) дату начала работ; (б) дату завершения
+      (конечный срок); (в) промежуточные этапы и их сроки (если применимо).
+    addressee: "Обе стороны"
+
+  price_or_estimation_method:
+    text: >
+      Просим уточнить в {doc_names}: (а) итоговую цену работ цифрами и прописью;
+      (б) является ли цена твёрдой или приблизительной; (в) включает ли НДС;
+      (г) порядок согласования и оплаты дополнительных работ.
+    addressee: "Обе стороны"
+
+  acceptance_procedure:
+    text: >
+      Просим уточнить в {doc_names} порядок сдачи-приёмки работ: (а) форму акта
+      выполненных работ; (б) сроки приёмки после уведомления подрядчика; (в) основания
+      для мотивированного отказа; (г) порядок устранения выявленных недостатков.
+    addressee: "Обе стороны"
+
+  unilateral_acceptance_mechanism:
+    text: >
+      Просим добавить в {doc_names} условие об автоматической (односторонней) приёмке:
+      если заказчик не направил мотивированный отказ в течение [N] рабочих дней
+      после уведомления о готовности — работы считаются принятыми. Основание: ст. 720 ГК РФ.
+    addressee: "Юридический советник заказчика"
+
+  suspension_notification_right:
+    text: >
+      Просим включить в {doc_names} условие о праве подрядчика приостановить работы
+      и обязанности немедленно уведомить заказчика при: непригодности материалов,
+      неверных указаниях, неоплате аванса. Без уведомления подрядчик теряет право
+      ссылаться на эти обстоятельства (ст. 716, 719 ГК РФ).
+    addressee: "Юридический советник подрядчика"
+
+  retention_right_before_payment:
+    text: >
+      Просим включить в {doc_names} право удержания результата работ до полной
+      оплаты (ст. 712, 359 ГК РФ): подрядчик не передаёт результат до исполнения
+      заказчиком обязательства по оплате.
+    addressee: "Юридический советник подрядчика"
+
+  payment_terms_and_schedule:
+    text: >
+      Просим уточнить в {doc_names}: (а) размер и срок выплаты аванса; (б) момент
+      возникновения обязанности по окончательному расчёту (подписание акта);
+      (в) конкретный срок оплаты в банковских/рабочих днях; (г) банковские реквизиты
+      подрядчика.
+    addressee: "Заказчик / Бухгалтерия"
+
+  penalty_for_delay_contractor:
+    text: >
+      Просим добавить в {doc_names} неустойку за просрочку выполнения работ подрядчиком:
+      пеня в размере [X]% от цены договора (или невыполненного этапа) за каждый
+      календарный день просрочки (ст. 330, 708 ГК РФ).
+    addressee: "Юридический советник заказчика"
+
+  penalty_for_payment_delay_customer:
+    text: >
+      Просим добавить в {doc_names} неустойку за просрочку оплаты заказчиком:
+      пеня в размере [X]% от неоплаченной суммы за каждый день просрочки, но не менее
+      ставки ст. 395 ГК РФ.
+    addressee: "Юридический советник подрядчика"
+
+  warranty_period_and_defect_procedure:
+    text: >
+      Просим уточнить в {doc_names}: (а) продолжительность гарантийного срока;
+      (б) порядок и срок направления претензии по качеству; (в) срок устранения
+      недостатков подрядчиком; (г) последствия неустранения (замена, уменьшение
+      цены, возмещение расходов на устранение).
+    addressee: "Обе стороны"
+
+  risk_allocation_before_acceptance:
+    text: >
+      Просим уточнить в {doc_names} распределение рисков случайной гибели/повреждения
+      результата и материалов до приёмки (ст. 705 ГК РФ). Особо важно при использовании
+      давальческих материалов заказчика.
+    addressee: "Юридический советник"
+
+  customer_materials_regime_check:
+    text: >
+      В {doc_names} предусмотрены давальческие материалы заказчика. Просим уточнить:
+      (а) норму расхода материалов; (б) обязанность подрядчика вести и предоставлять
+      отчёт об использовании; (в) порядок возврата остатков; (г) ответственность
+      за сохранность (ст. 713, 714 ГК РФ).
+    addressee: "Заказчик / Подрядчик"
+
+  subcontracting_conditions:
+    text: >
+      Просим уточнить в {doc_names}: (а) вправе ли подрядчик привлекать субподрядчиков;
+      (б) требуется ли письменное согласие заказчика; (в) порядок ответственности
+      подрядчика за действия субподрядчиков (ст. 706 ГК РФ).
+    addressee: "Обе стороны"
+
+  contractor_performance_personally:
+    text: >
+      В {doc_names} подрядчик — физическое лицо. Просим закрепить обязанность
+      личного выполнения работ без передачи третьим лицам (ст. 706 ГК РФ) во избежание
+      риска привлечения ненадёжных исполнителей.
+    addressee: "Юридический советник заказчика"
+
+  customer_unilateral_refusal_check:
+    text: >
+      Просим подтвердить, что в {doc_names} сохраняется право заказчика на односторонний
+      отказ от договора до сдачи результата с оплатой фактически выполненного
+      (ст. 717 ГК РФ). Если введены штрафные санкции за отказ — просим дать правовое
+      обоснование их соответствия ст. 422 ГК РФ.
+    addressee: "Юридический советник"
+
+  intermediate_inspection_right:
+    text: >
+      Просим закрепить в {doc_names} право заказчика контролировать ход и качество работ
+      в любое время без вмешательства в деятельность подрядчика (ст. 715 ГК РФ),
+      а также порядок фиксации замечаний.
+    addressee: "Юридический советник заказчика"
+
+  hidden_works_documentation:
+    text: >
+      Просим предусмотреть в {doc_names} порядок освидетельствования и актирования
+      скрытых работ до их закрытия. Предоставьте: (а) перечень работ, подлежащих
+      промежуточной приёмке; (б) форму акта на скрытые работы; (в) последствия
+      закрытия работ без актирования.
+    addressee: "Обе стороны"
+
+  termination_grounds_and_consequences:
+    text: >
+      Просим уточнить в {doc_names}: (а) основания расторжения для каждой стороны;
+      (б) порядок уведомления; (в) условия возврата аванса и оплаты фактически
+      выполненного; (г) сроки взаиморасчётов (ст. 453, 715, 717 ГК РФ).
+    addressee: "Юридический советник"
+
+  dispute_resolution_clause:
+    text: >
+      Просим уточнить в {doc_names}: (а) срок рассмотрения претензии (рекомендуется
+      30 календарных дней); (б) подсудность; (в) возможность применения медиации
+      или иных альтернативных способов. Претензионный порядок обязателен для
+      АПК РФ (ст. 4).
+    addressee: "Юридический советник"
+
+  intellectual_property_ownership:
+    text: >
+      Просим уточнить в {doc_names}: кому принадлежат исключительные права
+      на результат работ, содержащий объекты интеллектуальной собственности
+      (проект, ПО, дизайн, чертёж). По умолчанию — подрядчику (ст. 1296 ГК РФ).
+      Для передачи прав заказчику необходимо явное условие об отчуждении.
+    addressee: "Юридический советник"
+
+  vat_and_tax_allocation:
+    text: >
+      Просим уточнить в {doc_names}: (а) включает ли цена НДС; (б) применяет ли
+      подрядчик УСН или является самозанятым (ФЗ-422); (в) кто несёт налоговые
+      последствия, если статус подрядчика изменится в ходе договора.
+    addressee: "Налоговый консультант / Бухгалтерия"
+
+  force_majeure_clause:
+    text: >
+      Просим уточнить в {doc_names}: (а) перечень форс-мажорных обстоятельств;
+      (б) срок уведомления контрагента; (в) максимальный период приостановки
+      обязательств; (г) право расторжения при длительном форс-мажоре (ст. 401 ГК РФ).
+    addressee: "Юридический советник"
+
+  confidentiality_clause:
+    text: >
+      Просим добавить в {doc_names} условие о конфиденциальности: перечень
+      конфиденциальных сведений, срок неразглашения после окончания договора,
+      исключения, ответственность за нарушение.
+    addressee: "Юридический советник"
+
+  labor_requalification_risk:
+    text: >
+      Внимание: в {doc_names} выявлены признаки, указывающие на возможную
+      переквалификацию договора в трудовой (ст. 19.1 ТК РФ). Просим:
+      (а) исключить из договора указание на режим работы, рабочее место у заказчика,
+      регулярность оплаты вне зависимости от результата; (б) закрепить самостоятельное
+      определение подрядчиком способов и условий выполнения; (в) получить правовое
+      заключение по ст. 15, 19.1 ТК РФ.
+    addressee: "Юридический советник / HR"
+
+  unlicensed_work_prohibition:
+    text: >
+      Просим подтвердить по {doc_names}: (а) наличие у подрядчика лицензии или
+      допуска СРО (при необходимости); (б) предоставить копию лицензии/свидетельства;
+      (в) подтвердить, что выполняемые работы не относятся к лицензируемым видам
+      деятельности (ФЗ-99, ст. 55.8 ГрК РФ).
+    addressee: "Подрядчик / Юридический советник"
+
+  subject_and_result_extraction:
+    text: >
+      Просим подтвердить по {doc_names}: (а) описание содержания работ;
+      (б) конкретный овеществлённый результат (ст. 702, 703 ГК РФ);
+      (в) наличие ТЗ/спецификации как приложения; (г) конкретность описания
+      (достаточна ли для однозначной приёмки).
+    addressee: "Обе стороны"
+
+  deadlines_extraction:
+    text: >
+      Просим подтвердить по {doc_names}: (а) начальный и конечный сроки (ст. 708 ГК РФ);
+      (б) промежуточные этапы (если применимо); (в) порядок продления при задержке
+      со стороны заказчика.
+    addressee: "Обе стороны"
+
+  price_and_estimate_analysis:
+    text: >
+      Просим подтвердить по {doc_names}: (а) тип цены — твёрдая или приблизительная
+      (ст. 709 ГК РФ); (б) сумму; (в) порядок согласования изменений; (г) при
+      приблизительной смете — обязанность уведомления о превышении > 10% (ст. 709 п. 5).
+    addressee: "Обе стороны"
+
+  quality_standards_and_conformity_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) какие стандарты качества применяются
+      (ГОСТ, ТУ, ТЗ, образец); (б) критерии приёмки результата; (в) метод
+      оценки соответствия (испытания, осмотр, экспертиза); (г) последствия
+      несоответствия (ст. 721, 723 ГК РФ).
+    addressee: "Обе стороны"
+
+  customer_cooperation_obligations:
+    text: >
+      Просим включить в {doc_names}: конкретные обязанности заказчика по содействию
+      (ст. 718 ГК РФ): предоставление доступа, информации, документов, назначение
+      контактного лица, сроки исполнения, последствия нарушения (продление сроков,
+      право на приостановку по ст. 719 ГК РФ).
+    addressee: "Юридический советник заказчика"
+
+  governing_law:
+    text: >
+      Просим подтвердить в {doc_names} применимое право (законодательство РФ),
+      подсудность, язык договора.
+    addressee: "Юридический советник"
+
+  anticorruption_clause:
+    text: >
+      Просим включить в {doc_names} антикоррупционную оговорку (ФЗ-273):
+      заверения сторон, порядок уведомления, последствия нарушения.
+    addressee: "Юридический советник"
+
+  approximate_estimate_exceeded_without_notice:
+    text: >
+      В {doc_names} предусмотрена приблизительная смета. Просим включить:
+      (а) обязанность подрядчика немедленно уведомить заказчика при необходимости
+      превышения сметы более чем на 10% (ст. 709 п. 5 ГК РФ); (б) право заказчика
+      отказаться от договора при неуведомлении; (в) порядок оформления
+      дополнительных расходов.
+    addressee: "Юридический советник"
+
+  assignment_restriction:
+    text: >
+      Просим уточнить в {doc_names}: допустимость уступки прав / перевода долга,
+      требуется ли согласие другой стороны. Особенно важно: запрет на уступку
+      подрядчиком права на оплату без согласия заказчика.
+    addressee: "Юридический советник"
+    
+   # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"
+    

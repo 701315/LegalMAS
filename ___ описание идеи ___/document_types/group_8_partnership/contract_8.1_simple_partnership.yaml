@@ -1,0 +1,2302 @@
+type: contract_8.1_simple_partnership
+name: "Договор простого товарищества (о совместной деятельности)"
+
+description: |
+  Договор, по которому двое или несколько лиц (товарищей) обязуются соединить свои вклады
+  и совместно действовать БЕЗ ОБРАЗОВАНИЯ ЮРИДИЧЕСКОГО ЛИЦА для извлечения прибыли
+  или достижения иной не противоречащей закону цели.
+  Вклады: деньги, имущество, профессиональные знания, навыки, деловая репутация, связи.
+  Имущество — ОБЩАЯ ДОЛЕВАЯ СОБСТВЕННОСТЬ.
+  При предпринимательской деятельности и участии хотя бы одного ИП/коммерческой организации
+  ВСЕ товарищи несут СОЛИДАРНУЮ ОТВЕТСТВЕННОСТЬ по общим обязательствам ВСЕМ ЛИЧНЫМ ИМУЩЕСТВОМ.
+  Гибкая форма кооперации без госрегистрации, но с высокими рисками личной ответственности.
+  Регулируется ГК РФ Глава 55 (ст. 1041–1054).
+
+version: 4.0
+parent: class_8_partnership
+
+metadata:
+  category: contract
+  subcategory: partnership
+  complexity: high
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "ГК РФ Глава 55 (ст. 1041–1054)"
+  doc_types_supported:
+    - "договор простого товарищества"
+    - "договор о совместной деятельности"
+    - "партнёрское соглашение"
+    - "консорциумное соглашение"
+    - "договор инвестиционного товарищества"
+    - "соглашение о совместном строительстве"
+
+    - "consortium agreement"
+    - "joint venture agreement"
+    - "co-venture agreement"
+    - "strategic alliance agreement"
+    - "teaming agreement"
+    - "cooperation agreement"
+    - "alliance agreement"
+    - "consortium deed"
+    - "joint operating agreement"
+    - "JOA"
+    - "JVA"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
+  rules:
+
+    filename_patterns:
+      # Русский — простое товарищество / совместная деятельность / партнёрские соглашения
+
+      - pattern: "(?i)договор[_\\s-]*прост[огоое][_\\s-]*товариществ[ао]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор простого товарищества
+
+      - pattern: "(?i)договор[_\\s-]*о[_\\s-]*совместн[ойой][_\\s-]*деятельн[остии]"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)соглашени[ея][_\\s-]*о[_\\s-]*совместн[ойой][_\\s-]*деятельн[остии]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)партн[её]рск[оеий][_\\s-]*(соглашени[ея]|договор)"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)консорциумн[оеый][_\\s-]*соглашени[еия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*инвестиционн[огоой][_\\s-]*товариществ[ао]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*о[_\\s-]*совместн[омой][_\\s-]*строительств[еа]"
+        kind: specific_subject
+        weight: 0.95
+
+      # Более общие русские маркеры — как generic/context
+
+      - pattern: "(?i)прост[оеой][_\\s-]*товариществ[оа]"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)совместн[а-яё]*\\s*деятельн"
+        kind: generic_form
+        weight: 0.6
+        # Оставляем как поддерживающий сигнал (могут быть и бизнес‑планы/презентации)
+
+      - pattern: "(?i)товариществ[оа]"
+        kind: context
+        weight: 0.45
+
+      - pattern: "(?i)партн[её]рств[оа]"
+        kind: context
+        weight: 0.4
+
+      # Английский — joint venture / consortium / alliance / teaming / JOA/JVA
+
+      - pattern: "(?i)joint[_\\s-]*venture[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)JV[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)JVA\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)consortium[_\\s-]*(agreement|deed)"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)co[_\\s-]*venture[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)strategic[_\\s-]*alliance[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)alliance[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)teaming[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)cooperation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)joint[_\\s-]*operating[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)JOA\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      # Короткие joint venture/consortium — generic/context
+
+      - pattern: "(?i)joint[\\s_.-]*venture"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)consortium"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)partnership"
+        kind: generic_form
+        weight: 0.55
+        # Partnership может быть и корпоративным (LLP/GP), не всегда простое товарищество
+
+    folder_patterns:
+      - pattern: "(?i)прост[оеой][_\\s-]*товариществ[оа]"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)совместн[аяой][_\\s-]*деятельн"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)partnership"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)joint[_\\s-]*venture"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)consortium"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)alliance"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)JV\\b"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)JOA\\b"
+        kind: specific_subject
+        weight: 0.75
+
+    keywords:
+
+      high:
+        - pattern: "(?i)прост[оеая]\\s+товариществ[оа]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название договора простого товарищества"
+
+        - pattern: "(?i)договор\\s+прост[огоой]\\s+товариществ[аы]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Формула заголовка «Договор простого товарищества»"
+
+        - pattern: "(?i)совместн[аяое]\\s+деятельност[ьи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Совместная деятельность как ключевой элемент товарищества"
+
+        - pattern: "(?i)договор\\s+о\\s+совместн[ойой]\\s+деятельност[иью]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Альтернативное русское название договора"
+
+        - pattern: "(?i)партн[ёе]рск[оеое]\\s+соглашен[иеия]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Партнёрское соглашение как форма простого товарищества"
+
+        - pattern: "(?i)consortium\\s+agreement"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Consortium agreement как англоязычный аналог"
+
+        - pattern: "(?i)joint\\s+venture\\s+agreement"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Joint venture agreement без образования юрлица"
+
+        - pattern: "(?i)соединен[иеия]\\s+вклад[овы]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Соединение вкладов товарищей"
+
+        - pattern: "(?i)общ[аяое]\\s+цел[ььи]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Общая цель как обязательный элемент простого товарищества"
+
+        - pattern: "(?i)без\\s+образован[ияи]\\s+юридическ[огоого\\s]*лиц[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Прямое указание на отсутствие юридического лица"
+
+        - pattern: "(?i)веден[иеия]\\s+общих\\s+дел"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Ведение общих дел товарищей"
+
+        - pattern: "(?i)общ[ееая]\\s+имуществ[оа]\\s+товарищ[еей]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Общее имущество товарищей"
+
+        - pattern: "(?i)солидарн[аяое]\\s+ответственност[ьи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Солидарная ответственность товарищей по общим обязательствам"
+
+        - pattern: "(?i)ст\\.\\s*1041\\s+гк\\s+рф"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на ст. 1041 ГК РФ о простом товариществе"
+
+        - pattern: "(?i)товарищ[иья]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Упоминание сторон как товарищей"
+
+      medium:
+        - pattern: "(?i)вклад\\s+товарищ[аа]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Формула вклада товарища в общее дело"
+
+        - pattern: "(?i)распределени[ея]\\s+прибыл[ии]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Распределение прибыли между товарищами"
+
+        - pattern: "(?i)распределени[ея]\\s+убытк[оо]в"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Распределение убытков между товарищами"
+
+        - pattern: "(?i)долев[а-яё]+\\s+собственност[ьи]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Общая долевая собственность на имущество товарищества"
+
+        - pattern: "(?i)товарищ\\s+ведущ[иаяй]\\s+дел[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Товарищ, ведущий общие дела"
+
+        - pattern: "(?i)выход\\s+из\\s+товариществ[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Выход участника из простого товарищества"
+
+        - pattern: "(?i)негласн[оа]е\\s+товариществ[оо]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Негласное товарищество"
+
+        - pattern: "(?i)общ[иие]\\s+расход[ыо]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Общие расходы товарищей"
+
+        - pattern: "(?i)ст\\.\\s*1042\\s*ГК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на статью о вкладах товарищей"
+
+        - pattern: "(?i)ст\\.\\s*1044\\s*ГК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на статью о ведении общих дел"
+
+        - pattern: "(?i)ст\\.\\s*1047\\s*ГК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на статью о ответственности по обязательствам"
+
+      low:
+        - pattern: "(?i)раздел\\s+имуществ[аа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Раздел общего имущества при прекращении товарищества"
+
+        - pattern: "(?i)внутренн[я-яё]+\\s+отч[её]тност[ьи]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Внутренняя отчетность товарищей"
+
+        - pattern: "(?i)\\bdeadlock\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Deadlock-ситуации в управлении"
+
+        - pattern: "(?i)тупиков[а-яё]+\\s+ситуаци[яя]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Тупиковые ситуации в принятии решений"
+
+        - pattern: "(?i)\\bрегресс\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Регрессные отношения между товарищами"
+
+        - pattern: "(?i)правопреемств[оо]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Правопреемство при смене участников"
+
+    exclusions:
+      - pattern: "(?i)создани[ея]\\s+юридическ[оа]го\\s+лиц[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Создание юрлица (ООО, АО и т.п.) уводит к корпоративным договорам, а не к простому товариществу"
+
+      - pattern: "(?i)\\bООО\\b"
+        severity: hard
+        weight: -1.0
+        description: "Прямой фокус на обществе с ограниченной ответственностью — корпоративный контекст"
+
+      - pattern: "(?i)учредительн[ыо]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Учредительный договор — создание юрлица, а не простое товарищество"
+
+      # ── Soft exclusions
+
+      - pattern: "(?i)трудов[оа]й\\s+договор"
+        severity: soft
+        weight: -0.35
+        description: "Трудовой договор с элементами совместной деятельности не является простым товариществом"
+
+      - pattern: "(?i)агентск[иоя]+\\s+договор"
+        severity: soft
+        weight: -0.3
+        description: "Агентский договор — посредничество, а не объединение вкладов для общей цели"
+
+      - pattern: "(?i)инвестиционн[оа]е\\s+товариществ[оо]"
+        severity: soft
+        weight: -0.4
+        description: "Инвестиционное товарищество — отдельная конструкция главы 55.1 ГК РФ"
+
+      - pattern: "(?i)договор\\s+подряд[аа]"
+        severity: soft
+        weight: -0.3
+        description: "Подряд с распределением рисков не равен простому товариществу без юрлица"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  two_or_more_partners:
+    any_keywords:
+      - "(?i)товарищ\\s*1"
+      - "(?i)товарищ\\s*2"
+      - "(?i)\\bучастник[ии]\\b"
+      - "(?i)\\bсторон[ыа]\\b"
+      - "(?i)двое\\s+или\\s+несколько\\s+лиц"
+
+  common_goal_profit:
+    any_keywords:
+      - "(?i)извлечени[ея]\\s+прибыл[ии]"
+      - "(?i)коммерческ[а-яё]+\\s+деятельност[ьи]"
+      - "(?i)предпринимательск[а-яё]+\\s+деятельност[ьи]"
+      - "(?i)получени[ея]\\s+доход[аа]"
+
+  common_goal_non_profit:
+    any_keywords:
+      - "(?i)ин[а-яё]+\\s+не\\s+противоречащ[а-яё]+\\s+закону\\s+цель"
+      - "(?i)некоммерческ[а-яё]+\\s+цель"
+      - "(?i)благотворительн[а-яё]+\\s+цель"
+      - "(?i)социальн[а-яё]+\\s+цель"
+
+  entrepreneur_present:
+    any_keywords:
+      - "(?i)\\bИП\\b"
+      - "(?i)индивидуальн[ыо]й\\s+предпринимател[ья]"
+      - "(?i)коммерческ[а-яё]+\\s+организаци[яя]"
+      - "(?i)\\bООО\\b"
+      - "(?i)\\bАО\\b"
+      - "(?i)\\bПАО\\b"
+      - "(?i)предпринимательск[а-яё]+\\s+деятельност[ьи]"
+
+  managing_partner_designated:
+    any_keywords:
+      - "(?i)ведущ[иаяй]\\s+дел[аа]"
+      - "(?i)управляющ[иаяй]\\s+товарищ"
+      - "(?i)ведени[ея]\\s+общих\\s+дел\\s+возлагаетс[яьа]\\s+на"
+      - "(?i)уполномоченн[ыо]й\\s+товарищ"
+
+  joint_management:
+    any_keywords:
+      - "(?i)совместн[оа]е\\s+ведени[ея]\\s+дел"
+      - "(?i)все\\s+товарищ[ии]\\s+совместно"
+      - "(?i)решени[яя]\\s+принимаютс[яьа]\\s+всеми"
+
+  non_monetary_contributions:
+    any_keywords:
+      - "(?i)профессиональн[ыо]е\\s+знани[яя]"
+      - "(?i)\\bнавык[ии]\\b"
+      - "(?i)делов[а-яё]+\\s+репутаци[яя]"
+      - "(?i)делов[ыа]е\\s+связ[ии]"
+      - "(?i)неденежн[ыо]й\\s+вклад"
+      - "(?i)нематериальн[ыо]й\\s+вклад"
+
+  common_property_regime:
+    any_keywords:
+      - "(?i)общ[а-яё]+\\s+долев[а-яё]+\\s+собственност[ьи]"
+      - "(?i)общ[ео]е\\s+имуществ[оо]\\s+товарищ[ее]й"
+      - "(?i)имуществ[оо]\\s+товариществ[аа]"
+      - "(?i)долев[а-яё]+\\s+собственност[ьи]"
+
+  profit_distribution_clause:
+    any_keywords:
+      - "(?i)распределени[ея]\\s+прибыл[ии]"
+      - "(?i)прибыл[ььи]\\s+распределяетс[яьа]"
+      - "(?i)дол[яьи]\\s+прибыл[ии]"
+      - "(?i)пропорциональн[оа]\\s+вклад[аа]м"
+
+  withdrawal_rights:
+    any_keywords:
+      - "(?i)выход\\s+из\\s+товариществ[аа]"
+      - "(?i)отказ\\s+от\\s+договор[аа]"
+      - "(?i)выдел\\s+дол[ии]"
+      - "(?i)прав[оо]\\s+на\\s+выход"
+
+  deadlock_risk:
+    any_keywords:
+      - "(?i)\\bdeadlock\\b"
+      - "(?i)тупиков[а-яё]+\\s+ситуаци[яя]"
+      - "(?i)невозможност[ьи]\\s+принять\\s+решени[ея]"
+      - "(?i)равенств[оо]\\s+голос[оо]в"
+
+  death_bankruptcy_consequences:
+    any_keywords:
+      - "(?i)смерт[ьи]\\s+товарищ[аа]"
+      - "(?i)\\bбанкротств[оо]\\b"
+      - "(?i)ликвидаци[яя]\\s+участник[аа]"
+      - "(?i)\\bнаследник[ииов]?\\b"
+      - "(?i)правопреемник[ииов]?"
+
+  tacit_partnership:
+    any_keywords:
+      - "(?i)негласн[оа]е\\s+товариществ[оо]"
+      - "(?i)\\btacit\\s+partnership\\b"
+      - "(?i)не\\s+раскрываетс[яьа]\\s+третьим\\s+лицам"
+
+  tax_coordination_required:
+    any_keywords:
+      - "(?i)налогов[ыо]й\\s+уч[её]т"
+      - "(?i)бухгалтерск[иоя]+\\s+уч[её]т"
+      - "(?i)согласовани[ея]\\s+уч[её]т[аа]"
+      - "(?i)налогов[ыо]е\\s+обязательств[аа]"
+      - "(?i)отч[её]тност[ьи]\\s+товариществ[аа]"
+
+  construction_partnership:
+    any_keywords:
+      - "(?i)строительств[оо]"
+      - "(?i)\\bзастройщик\\b"
+      - "(?i)генеральн[ыо]й\\s+подрядчик"
+      - "(?i)совместн[оа]е\\s+строительств[оо]"
+      - "(?i)объект\\s+строительств[аа]"
+      - "(?i)земельн[ыо]й\\s+участ[оа]к"
+      - "(?i)разрешени[ея]\\s+на\\s+строительств[оо]"
+
+  foreign_partner:
+    any_keywords:
+      - "(?i)иностранн[ыо]й\\s+участник"
+      - "(?i)иностранн[а-яё]+\\s+компани[яя]"
+      - "(?i)\\bнерезидент\\b"
+      - "(?i)иностранн[ыо]й\\s+гражданин"
+      - "(?i)применим[оа]е\\s+прав[оо]"
+      - "(?i)валютн[оа]е\\s+регулировани[ея]"
+
+  ip_contribution:
+    any_keywords:
+      - "(?i)интеллектуальн[а-яё]+\\s+собственност[ьи]"
+      - "(?i)\\bпатент\\b"
+      - "(?i)товарн[ыо]й\\s+знак"
+      - "(?i)\\bлицензи[яяи]\\b"
+      - "(?i)\\bноу-?хау\\b"
+      - "(?i)программн[оа]е\\s+обеспечени[ея]"
+      - "(?i)исключительн[оа]е\\s+прав[оо]"
+
+  real_estate_contribution:
+    any_keywords:
+      - "(?i)недвижим[оа]е?\\s+имуществ[оо]"
+      - "(?i)земельн[ыо]й\\s+участ[оа]к"
+      - "(?i)\\bздани[ея]\\b"
+      - "(?i)\\bпомещени[ея]\\b"
+      - "(?i)кадастров[ыо]й\\s+номер"
+      - "(?i)\\bЕГРН\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  percent_pattern: "(?i)\\b\\d+[.,]?\\d*\\s*%"
+  inn_pattern: "(?i)\\bИНН\\s*\\d{10,12}\\b"
+  ogrn_pattern: "(?i)\\bОГРН\\s*\\d{13,15}\\b"
+  passport_data: "(?i)паспорт\\s+серия\\s+\\d{4}\\s+№?\\s*\\d{6}"
+  article_gk_ref: "(?i)ст\\.?\\s*\\d+\\s*ГК\\s*РФ"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "minimum_two_partners_required"
+    name: "Минимум два товарища (ст. 1041 ГК РФ)"
+    description: |
+      Договор простого товарищества требует участия минимум двух лиц.
+    legal_base: "ст. 1041 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "товарищ 1"
+        - "товарищ 2"
+        - "участник 1"
+        - "участник 2"
+        - "стороны"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 3
+      boost_keywords:
+        - "товарищ"
+        - "участник"
+      rerank: true
+
+  - id: "common_goal_mandatory"
+    name: "Общая цель обязательна (ст. 1041 ГК РФ)"
+    description: |
+      Без указания общей цели совместной деятельности договор может быть
+      признан незаключённым.
+    legal_base: "ст. 1041 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "общая цель"
+        - "цель совместной деятельности"
+        - "для достижения"
+        - "извлечение прибыли"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "цель"
+        - "совместная деятельность"
+      rerank: true
+
+  - id: "contributions_mandatory"
+    name: "Соединение вкладов обязательно (ст. 1042 ГК РФ)"
+    description: |
+      Товарищи обязаны соединить свои вклады. Без вкладов нет товарищества.
+    legal_base: "ст. 1042 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "вклад"
+        - "соединение вкладов"
+        - "вносит вклад"
+        - "размер вклада"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "вклад"
+        - "соединение"
+      rerank: true
+
+  - id: "joint_and_several_liability_warning"
+    name: "Солидарная ответственность при предпринимателе (ст. 1047 ГК РФ)"
+    description: |
+      При наличии ИП или коммерческой организации и предпринимательском характере
+      деятельности ВСЕ товарищи несут СОЛИДАРНУЮ ОТВЕТСТВЕННОСТЬ ВСЕМ ИМУЩЕСТВОМ.
+    legal_base: "ст. 1047 ГК РФ"
+    required_triggers: ["entrepreneur_present"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "солидарная ответственность"
+        - "ИП"
+        - "коммерческая организация"
+        - "предпринимательская деятельность"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "солидарная ответственность"
+        - "ИП"
+      rerank: true
+
+  - id: "prohibition_of_profit_exclusion"
+    name: "Запрет исключения товарища из участия в прибыли (ст. 1048 ГК РФ)"
+    description: |
+      Соглашение об устранении кого-либо из товарищей от участия в прибыли НИЧТОЖНО.
+      Каждый товарищ имеет право на долю прибыли.
+    legal_base: "ст. 1048 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "не участвует в прибыли"
+        - "исключается из распределения прибыли"
+        - "лишается права на прибыль"
+        - "прибыль не распределяется на"
+        - "отказ от прибыли"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "исключение из прибыли"
+        - "ст. 1048 ГК РФ"
+      rerank: true
+
+  - id: "prohibition_of_loss_exemption"
+    name: "Запрет освобождения товарища от покрытия убытков (ст. 1046 ГК РФ)"
+    description: |
+      Соглашение, полностью освобождающее кого-либо из товарищей от участия
+      в покрытии общих расходов или убытков, НИЧТОЖНО.
+    legal_base: "ст. 1046 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "освобождается от убытков"
+        - "не участвует в покрытии убытков"
+        - "не несёт расходов"
+        - "не несет расходов"
+        - "освобождается от расходов"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "освобождение от убытков"
+        - "ст. 1046 ГК РФ"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: common_goal_extraction
+    name: "Общая цель совместной деятельности"
+    description: |
+      Извлекает общую цель: извлечение прибыли, некоммерческая цель, конкретное описание.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "общая цель"
+        - "цель совместной деятельности"
+        - "извлечение прибыли"
+        - "коммерческая деятельность"
+        - "некоммерческая цель"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Определи общую цель совместной деятельности.
+
+        Ответь строго в JSON:
+        {
+          "common_goal": "<описание цели или not_found>",
+          "goal_type": "<profit / non_profit / unclear>",
+          "entrepreneurial_activity": "<yes / no / unclear>"
+        }
+
+        ВАЖНО: Без общей цели договор незаключён (ст. 1041 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "цель"
+        - "совместная деятельность"
+        - "прибыль"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "common_goal"
+          type: "string"
+          keyword_hints: ["цель", "совместная деятельность", "для"]
+          description: "Общая цель"
+        - name: "goal_type"
+          type: "string"
+          allowed_values: ["profit", "non_profit", "unclear"]
+          description: "Тип цели"
+        - name: "entrepreneurial_activity"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Предпринимательская деятельность"
+      store_payload: true
+
+  - id: contributions_extraction
+    name: "Состав и размер вкладов товарищей"
+    description: |
+      Извлекает вклады каждого товарища: денежные, имущественные, неимущественные.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "вклад товарища"
+        - "соединение вкладов"
+        - "размер вклада"
+        - "денежный вклад"
+        - "имущественный вклад"
+        - "профессиональные знания"
+        - "деловая репутация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Определи вклады каждого товарища.
+
+        Ответь строго в JSON:
+        {
+          "contributions": [
+            {
+              "partner": "<имя товарища>",
+              "type": "<money / property / non_monetary / mixed>",
+              "description": "<описание вклада>",
+              "value": "<денежная оценка или not_found>"
+            }
+          ],
+          "non_monetary_contributions_present": "<yes / no>",
+          "total_contributions_valued": "<yes / no / unclear>"
+        }
+
+        ВАЖНО: Без вкладов нет товарищества (ст. 1042 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 700
+    retrieval:
+      context_k: 8
+      max_chunks: 12
+      boost_keywords:
+        - "вклад"
+        - "соединение"
+        - "размер"
+        - "оценка"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "non_monetary_contributions_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          keyword_hints: ["знания", "репутация", "связи", "навыки"]
+          description: "Наличие неденежных вкладов"
+        - name: "total_contributions_valued"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          keyword_hints: ["оценка", "стоимость", "денежная оценка"]
+          description: "Все вклады оценены в денежном выражении"
+      store_payload: true
+
+  - id: contribution_valuation
+    name: "Денежная оценка вкладов (особенно неденежных)"
+    description: |
+      Проверяет наличие денежной оценки всех вкладов.
+      Без оценки — споры о долях (ст. 1042 ГК РФ).
+    triggers:
+      any: ["non_monetary_contributions"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "денежная оценка"
+        - "оценка вклада"
+        - "стоимость вклада"
+        - "вклад оценивается"
+        - "независимая оценка"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь наличие денежной оценки вкладов (особенно неденежных).
+
+        Ответь строго в JSON:
+        {
+          "valuation_present": "<yes / partial / no>",
+          "valuation_method": "<согласование сторон / независимый оценщик / иное / not_found>",
+          "non_monetary_valued": "<yes / no / unclear>"
+        }
+
+        ВАЖНО: Без оценки неденежных вкладов — споры о долях (ст. 1042 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "оценка"
+        - "стоимость"
+        - "денежная"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "valuation_present"
+          type: "string"
+          allowed_values: ["yes", "partial", "no"]
+          keyword_hints: ["оценка", "стоимость", "оценивается"]
+          description: "Наличие денежной оценки"
+      store_payload: true
+
+  - id: management_structure
+    name: "Порядок ведения общих дел товарищества"
+    description: |
+      Кто ведёт дела: совместно / один товарищ / несколько.
+      Пределы полномочий, доверенности.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ведение общих дел"
+        - "ведущий дела"
+        - "управляющий товарищ"
+        - "полномочия"
+        - "доверенность"
+        - "совместное ведение"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Определи порядок ведения общих дел.
+
+        Ответь строго в JSON:
+        {
+          "management_type": "<joint / single_partner / multiple_partners / unclear>",
+          "managing_partner": "<имя товарища или not_found>",
+          "authority_limits": "<описание ограничений или not_found>",
+          "power_of_attorney_required": "<yes / no / unclear>"
+        }
+
+        ВАЖНО: Без чёткого порядка — конфликты и злоупотребления (ст. 1044 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "ведение дел"
+        - "полномочия"
+        - "доверенность"
+        - "управляющий"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "management_type"
+          type: "string"
+          allowed_values: ["joint", "single_partner", "multiple_partners", "unclear"]
+          keyword_hints: ["ведение дел", "совместно", "возлагается на"]
+          description: "Тип управления"
+      store_payload: true
+
+  - id: decision_making_procedure
+    name: "Процедура принятия решений (единогласие / большинство / deadlock)"
+    description: |
+      Порядок принятия решений по ключевым вопросам.
+      Без процедуры — риск тупиковых ситуаций.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "порядок принятия решений"
+        - "единогласное решение"
+        - "квалифицированное большинство"
+        - "большинство голосов"
+        - "deadlock"
+        - "тупиковая ситуация"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь процедуру принятия решений.
+
+        Ответь строго в JSON:
+        {
+          "decision_rule": "<unanimous / qualified_majority / simple_majority / unclear>",
+          "key_issues_unanimous": "<перечень вопросов, требующих единогласия, или not_found>",
+          "deadlock_mechanism": "<есть механизм или not_found>"
+        }
+
+        ВАЖНО: Без процедуры — риск блокировки деятельности (ст. 1044 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "принятие решений"
+        - "единогласие"
+        - "большинство"
+        - "deadlock"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "decision_rule"
+          type: "string"
+          allowed_values: ["unanimous", "qualified_majority", "simple_majority", "unclear"]
+          keyword_hints: ["единогласно", "большинство", "голосов"]
+          description: "Правило принятия решений"
+      store_payload: true
+
+  - id: information_rights
+    name: "Право на информацию и отчётность (ст. 1045 ГК РФ)"
+    description: |
+      Каждый товарищ имеет НЕОТЧУЖДАЕМОЕ право на полную информацию.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "право на информацию"
+        - "отчётность"
+        - "доступ к документации"
+        - "бухгалтерская отчётность"
+        - "ежеквартальный отчёт"
+        - "аудит"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь условия о праве на информацию.
+
+        Ответь строго в JSON:
+        {
+          "information_right_acknowledged": "<yes / no / unclear>",
+          "reporting_frequency": "<периодичность или not_found>",
+          "access_to_documents": "<yes / no / unclear>"
+        }
+
+        ВАЖНО: Право на информацию НЕОТЧУЖДАЕМО (ст. 1045 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "право на информацию"
+        - "отчётность"
+        - "доступ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "information_right_acknowledged"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          keyword_hints: ["право на информацию", "отчётность", "ознакомление"]
+          description: "Признание права на информацию"
+      store_payload: true
+
+  - id: profit_loss_distribution
+    name: "Порядок распределения прибыли и покрытия убытков"
+    description: |
+      По умолчанию — пропорционально вкладам (ст. 1046, 1048 ГК РФ).
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "распределение прибыли"
+        - "распределение убытков"
+        - "пропорционально вкладам"
+        - "доля прибыли"
+        - "покрытие убытков"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d+[.,]?\\d*\\s*%"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Определи порядок распределения прибыли и убытков.
+
+        Ответь строго в JSON:
+        {
+          "profit_distribution": "<пропорционально вкладам / поровну / иное / not_found>",
+          "loss_distribution": "<пропорционально вкладам / поровну / иное / not_found>",
+          "distribution_frequency": "<периодичность или not_found>",
+          "exclusion_from_profit_detected": "<yes / no>"
+        }
+
+        ВАЖНО: Исключение товарища из прибыли НИЧТОЖНО (ст. 1048 ГК РФ).
+        Освобождение от убытков НИЧТОЖНО (ст. 1046 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "распределение"
+        - "прибыль"
+        - "убытки"
+        - "пропорционально"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "profit_distribution"
+          type: "string"
+          keyword_hints: ["распределение прибыли", "пропорционально", "поровну"]
+          description: "Порядок распределения прибыли"
+        - name: "loss_distribution"
+          type: "string"
+          keyword_hints: ["распределение убытков", "покрытие", "расходы"]
+          description: "Порядок распределения убытков"
+      store_payload: true
+
+  - id: liability_and_regress
+    name: "Ответственность товарищей и порядок регрессных требований"
+    description: |
+      Солидарная при предпринимателе! Порядок регресса.
+    triggers:
+      any: ["entrepreneur_present"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "солидарная ответственность"
+        - "регресс"
+        - "возмещение уплаченного"
+        - "распределение ответственности"
+        - "внутренние расчёты"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь условия об ответственности и регрессе.
+
+        Ответь строго в JSON:
+        {
+          "liability_type": "<joint_and_several / proportional / unclear>",
+          "regress_procedure": "<описание или not_found>",
+          "proportional_to_contributions": "<yes / no / unclear>"
+        }
+
+        КРИТИЧНО: При предпринимателе — солидарная ответственность ВСЕМ ИМУЩЕСТВОМ (ст. 1047 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "ответственность"
+        - "солидарная"
+        - "регресс"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "liability_type"
+          type: "string"
+          allowed_values: ["joint_and_several", "proportional", "unclear"]
+          keyword_hints: ["солидарная", "пропорционально", "ответственность"]
+          description: "Тип ответственности"
+      store_payload: true
+
+  - id: managing_partner_limitations
+    name: "Ограничения полномочий ведущего дела и контроль"
+    description: |
+      Лимиты сделок, требование одобрения. Защита от злоупотреблений.
+    triggers:
+      any: ["managing_partner_designated"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ограничение полномочий"
+        - "максимальная сумма сделки"
+        - "требуется согласие"
+        - "сделки, требующие одобрения"
+        - "лимит"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь ограничения полномочий ведущего дела.
+
+        Ответь строго в JSON:
+        {
+          "limitations_present": "<yes / no>",
+          "transaction_limit": "<максимальная сумма или not_found>",
+          "approval_required_for": "<перечень сделок или not_found>"
+        }
+
+        ВАЖНО: Без ограничений — риск злоупотреблений (ст. 1044 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "ограничение"
+        - "лимит"
+        - "согласие"
+        - "одобрение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "limitations_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          keyword_hints: ["ограничение", "лимит", "предел"]
+          description: "Наличие ограничений"
+      store_payload: true
+
+  - id: withdrawal_rights_compensation
+    name: "Право на выход и порядок компенсации доли"
+    description: |
+      Право на выход, срок уведомления, порядок оценки и выплаты доли.
+    triggers:
+      any: ["withdrawal_rights"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "право на выход"
+        - "выход из товарищества"
+        - "уведомление о выходе"
+        - "выдел доли"
+        - "оценка доли при выходе"
+        - "срок выплаты"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь условия о выходе.
+
+        Ответь строго в JSON:
+        {
+          "withdrawal_right": "<yes / no / unclear>",
+          "notice_period_months": "<срок уведомления или not_found>",
+          "valuation_method": "<способ оценки доли или not_found>",
+          "payment_deadline": "<срок выплаты или not_found>"
+        }
+
+        ВАЖНО: Для бессрочного — уведомление за 3 месяца (ст. 1051 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "выход"
+        - "уведомление"
+        - "выдел доли"
+        - "оценка"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "withdrawal_right"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          keyword_hints: ["выход", "право на выход", "отказ от договора"]
+          description: "Право на выход"
+      store_payload: true
+
+  - id: deadlock_resolution
+    name: "Механизм разрешения тупиковых ситуаций (deadlock)"
+    description: |
+      Медиация, «русская рулетка», право выкупа доли.
+    triggers:
+      any: ["deadlock_risk"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "разрешение тупиковых ситуаций"
+        - "deadlock"
+        - "медиация"
+        - "русская рулетка"
+        - "shotgun clause"
+        - "право выкупа доли"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь наличие механизма разрешения deadlock.
+
+        Ответь строго в JSON:
+        {
+          "deadlock_mechanism": "<yes / no>",
+          "mechanism_type": "<mediation / shotgun / arbitration / other / not_found>",
+          "description": "<описание механизма или not_found>"
+        }
+
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "deadlock"
+        - "тупиковая"
+        - "медиация"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "deadlock_mechanism"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие механизма deadlock"
+      store_payload: true
+
+  - id: death_bankruptcy_consequences_check
+    name: "Последствия смерти/банкротства товарища"
+    description: |
+      По умолчанию — прекращение договора (ст. 1050 ГК РФ).
+      Условия о продолжении с наследниками.
+    triggers:
+      any: ["death_bankruptcy_consequences"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "смерть товарища"
+        - "банкротство"
+        - "ликвидация"
+        - "наследники"
+        - "правопреемники"
+        - "продолжение с наследниками"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь последствия смерти/банкротства товарища.
+
+        Ответь строго в JSON:
+        {
+          "default_termination": "<yes / no / unclear>",
+          "continuation_with_heirs": "<yes / no / unclear>",
+          "buyout_right": "<yes / no / unclear>"
+        }
+
+        ВАЖНО: По умолчанию смерть/банкротство ПРЕКРАЩАЮТ договор (ст. 1050 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "смерть"
+        - "банкротство"
+        - "наследники"
+        - "правопреемники"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "continuation_with_heirs"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          keyword_hints: ["наследники", "продолжение", "правопреемники"]
+          description: "Продолжение с наследниками"
+      store_payload: true
+
+  - id: non_compete_conflict_of_interest
+    name: "Запрет конкуренции и урегулирование конфликта интересов"
+    description: |
+      Запрет конкурирующей деятельности, правила раскрытия конфликтов.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "запрет конкуренции"
+        - "non-compete"
+        - "конфликт интересов"
+        - "конкурирующий бизнес"
+        - "лояльность"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь условия о запрете конкуренции.
+
+        Ответь строго в JSON:
+        {
+          "non_compete_clause": "<yes / no>",
+          "scope": "<описание или not_found>",
+          "conflict_of_interest_procedure": "<порядок или not_found>"
+        }
+
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "запрет конкуренции"
+        - "конфликт интересов"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "non_compete_clause"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие запрета конкуренции"
+      store_payload: true
+
+  - id: admission_new_partners
+    name: "Порядок принятия новых товарищей"
+    description: |
+      Процедура принятия новых товарищей, защита существующих.
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "принятие нового товарища"
+        - "требуется единогласное решение"
+        - "оценка вклада нового участника"
+        - "изменение долей"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь порядок принятия новых товарищей.
+
+        Ответь строго в JSON:
+        {
+          "admission_allowed": "<yes / no / unclear>",
+          "unanimous_consent_required": "<yes / no / unclear>",
+          "valuation_of_new_contribution": "<yes / no / unclear>"
+        }
+
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "принятие"
+        - "новый товарищ"
+        - "единогласие"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "admission_allowed"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Возможность принятия новых товарищей"
+      store_payload: true
+
+  - id: tax_accounting_coordination
+    name: "Согласование налогового и бухгалтерского учёта"
+    description: |
+      Каждый товарищ учитывает свою долю на своём балансе.
+      Риск двойного налогообложения при разных режимах.
+    triggers:
+      any: ["tax_coordination_required"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "налоговый учёт"
+        - "бухгалтерский учёт"
+        - "документооборот"
+        - "распределение налоговых обязательств"
+        - "отчётность товарищества"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь условия о налоговом учёте.
+
+        Ответь строго в JSON:
+        {
+          "tax_coordination": "<yes / no>",
+          "unified_accounting_rules": "<yes / no / unclear>",
+          "managing_partner_accounting": "<yes / no / unclear>"
+        }
+
+        ВАЖНО: Риск двойного налогообложения при разных режимах (НК РФ ст. 278).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "налоговый учёт"
+        - "согласование"
+        - "отчётность"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "tax_coordination"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие согласования налогового учёта"
+      store_payload: true
+
+  - id: common_property_regime_check
+    name: "Режим общей долевой собственности (ст. 1043 ГК РФ)"
+    description: |
+      Проверяет порядок формирования общего имущества, определение долей,
+      распоряжение общим имуществом, порядок пользования.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "общая долевая собственность"
+        - "общее имущество"
+        - "доля в общем имуществе"
+        - "распоряжение общим имуществом"
+        - "пользование общим имуществом"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь режим общей собственности.
+
+        Ответь строго в JSON:
+        {
+          "common_property_regime": "<common_share / specified / not_found>",
+          "shares_determination": "<proportional_to_contributions / equal / custom / not_found>",
+          "disposal_procedure": "<unanimous / majority / managing_partner / not_found>",
+          "property_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Имущество товарищества — общая долевая собственность (ст. 1043 ГК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "общее имущество"
+        - "долевая собственность"
+        - "распоряжение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "common_property_regime"
+          type: "string"
+          allowed_values: ["common_share", "specified", "not_found"]
+          keyword_hints: ["общая долевая", "общее имущество"]
+          description: "Режим общей собственности"
+      store_payload: true
+
+  - id: requalification_risk_check
+    name: "Риск переквалификации в создание юридического лица"
+    description: |
+      Проверяет наличие признаков скрытого создания юрлица:
+      постоянный персонал, вывеска, расчётный счёт «товарищества»,
+      общее имущество без раздела по долям.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "штат сотрудников товарищества"
+        - "расчётный счёт товарищества"
+        - "вывеска"
+        - "офис товарищества"
+        - "печать товарищества"
+        - "юридическое лицо"
+      keyword_mode: "any"
+      negative_keywords:
+        - "без образования юридического лица"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор простого товарищества.
+        Проверь наличие признаков скрытого создания юридического лица.
+
+        Ответь строго в JSON:
+        {
+          "requalification_risk_level": "<high / medium / low / none>",
+          "risk_factors": ["<перечень факторов>"],
+          "no_legal_entity_clause": "<yes / no / not_found>"
+        }
+
+        Факторы риска: наличие штата, расчётного счёта «товарищества»,
+        вывески, печати, постоянного офиса, неразделённого имущества.
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "юридическое лицо"
+        - "без образования"
+        - "штат"
+        - "счёт"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "requalification_risk_level"
+          type: "string"
+          allowed_values: ["high", "medium", "low", "none"]
+          description: "Уровень риска переквалификации"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_minimum_two"
+    name: "Стороны: минимум два товарища"
+    description: "Минимум два участника"
+    legal_base: "ст. 1041 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "товарищ 1"
+        - "товарищ 2"
+        - "участник"
+        - "стороны"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "common_goal_clause"
+    name: "Общая цель совместной деятельности"
+    description: "Без цели договор незаключён"
+    legal_base: "ст. 1041 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "общая цель"
+        - "цель совместной деятельности"
+        - "извлечение прибыли"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "contributions_clause"
+    name: "Соединение вкладов"
+    description: "Без вкладов нет товарищества"
+    legal_base: "ст. 1042 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "вклад"
+        - "соединение вкладов"
+        - "вносит вклад"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "contribution_valuation_clause"
+    name: "Денежная оценка вкладов"
+    description: "Без оценки — споры о долях"
+    legal_base: "ст. 1042 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "денежная оценка"
+        - "оценка вклада"
+        - "стоимость вклада"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "management_procedure"
+    name: "Порядок ведения общих дел"
+    description: "Кто ведёт дела, полномочия"
+    legal_base: "ст. 1044 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ведение общих дел"
+        - "ведущий дела"
+        - "полномочия"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "profit_distribution_clause"
+    name: "Порядок распределения прибыли"
+    description: "По умолчанию — пропорционально вкладам"
+    legal_base: "ст. 1048 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "распределение прибыли"
+        - "доля прибыли"
+        - "пропорционально вкладам"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "liability_provisions"
+    name: "Положения об ответственности"
+    description: "Солидарная при предпринимателе"
+    legal_base: "ст. 1047 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ответственность"
+        - "солидарная ответственность"
+        - "регресс"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "information_right_clause"
+    name: "Право на информацию (неотчуждаемое)"
+    description: "Каждый товарищ имеет право на информацию"
+    legal_base: "ст. 1045 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "право на информацию"
+        - "отчётность"
+        - "доступ к документации"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "withdrawal_clause"
+    name: "Порядок выхода из товарищества"
+    description: "Право на выход, уведомление, выдел доли"
+    legal_base: "ст. 1050, 1051 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "право на выход"
+        - "выход из товарищества"
+        - "выдел доли"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "termination_clause"
+    name: "Порядок прекращения и раздела имущества"
+    description: "Ликвидация общего имущества"
+    legal_base: "ст. 1050, 1052, 1053 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "прекращение договора"
+        - "ликвидация общего имущества"
+        - "раздел имущества"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "common_property_regime_clause"
+    name: "Режим общей долевой собственности (ст. 1043 ГК РФ)"
+    description: "Формирование и распоряжение общим имуществом"
+    legal_base: "ст. 1043 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "общая долевая собственность"
+        - "общее имущество"
+        - "доля в общем имуществе"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "dispute_resolution"
+    name: "Досудебный порядок и подсудность"
+    description: "Порядок разрешения споров между товарищами"
+    legal_base: "АПК РФ, ГПК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "досудебный порядок"
+        - "претензионный порядок"
+        - "подсудность"
+        - "арбитражный суд"
+        - "путём переговоров"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "confidentiality_clause"
+    name: "Конфиденциальность"
+    description: "Обязательство о неразглашении условий товарищества"
+    legal_base: "ст. 434.1 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "не подлежит разглашению"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "contract_term"
+    name: "Срок действия договора"
+    description: "Бессрочный или срочный — влияет на порядок выхода"
+    legal_base: "ст. 1050, 1051 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок действия"
+        - "бессрочный"
+        - "на неопределённый срок"
+        - "действует до"
+        - "на срок"
+      keyword_mode: "any"
+      regex_patterns: []
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  common_goal_extraction:
+    text: >
+      Просим чётко определить в {doc_names} общую цель совместной деятельности:
+      (а) извлечение прибыли / некоммерческая цель;
+      (б) конкретное описание;
+      (в) является ли деятельность предпринимательской.
+      Без цели договор незаключён (ст. 1041 ГК РФ).
+    addressee: "Все товарищи"
+
+  contributions_extraction:
+    text: >
+      Просим предоставить по {doc_names}: (а) состав вклада каждого товарища;
+      (б) денежную оценку всех вкладов; (в) сроки внесения.
+      Без вкладов нет товарищества (ст. 1042 ГК РФ).
+    addressee: "Все товарищи"
+
+  contribution_valuation:
+    text: >
+      КРИТИЧЕСКИЙ ЗАПРОС: Просим согласовать в {doc_names} денежную оценку
+      всех вкладов, особенно неденежных (знания, репутация, связи).
+      Без оценки — споры о долях (ст. 1042 ГК РФ).
+    addressee: "Все товарищи / Оценщик"
+
+  management_structure:
+    text: >
+      Просим согласовать для {doc_names}: (а) кто ведёт дела;
+      (б) пределы полномочий; (в) доверенности; (г) контроль.
+      Без порядка — конфликты (ст. 1044 ГК РФ).
+    addressee: "Все товарищи"
+
+  decision_making_procedure:
+    text: >
+      Просим согласовать для {doc_names}: (а) правило голосования;
+      (б) перечень вопросов для единогласия; (в) кворум;
+      (г) механизм разрешения deadlock.
+    addressee: "Все товарищи"
+
+  information_rights:
+    text: >
+      Просим согласовать для {doc_names}: (а) периодичность отчётности;
+      (б) состав отчёта; (в) доступ к первичным документам; (г) право на аудит.
+      Право на информацию НЕОТЧУЖДАЕМО (ст. 1045 ГК РФ).
+    addressee: "Все товарищи"
+
+  profit_loss_distribution:
+    text: >
+      Просим согласовать для {doc_names}: (а) порядок распределения прибыли/убытков;
+      (б) периодичность; (в) порядок покрытия убытков.
+      Исключение из прибыли ничтожно (ст. 1048 ГК РФ).
+    addressee: "Все товарищи"
+
+  liability_and_regress:
+    text: >
+      КРИТИЧЕСКИЙ ЗАПРОС: (а) тип ответственности (солидарная при предпринимателе!);
+      (б) порядок регресса; (в) пропорции возмещения.
+      Кредитор может взыскать весь долг с любого товарища (ст. 1047 ГК РФ)!
+    addressee: "Все товарищи / Юридический отдел"
+
+  managing_partner_limitations:
+    text: >
+      Просим включить в {doc_names} ограничения полномочий ведущего дела:
+      (а) лимит сделки; (б) перечень сделок, требующих одобрения;
+      (в) вторая подпись; (г) запрет на изменение цели.
+    addressee: "Все товарищи"
+
+  withdrawal_rights_compensation:
+    text: >
+      Просим согласовать для {doc_names}: (а) срок уведомления о выходе;
+      (б) оценка доли; (в) срок выплаты; (г) последствия для остальных.
+    addressee: "Все товарищи"
+
+  deadlock_resolution:
+    text: >
+      Просим включить в {doc_names} механизм разрешения deadlock:
+      медиация, «русская рулетка», третейский суд.
+    addressee: "Юридический отдел"
+
+  death_bankruptcy_consequences_check:
+    text: >
+      Просим урегулировать в {doc_names}: (а) прекращается ли договор
+      при смерти/банкротстве; (б) продолжение с наследниками;
+      (в) право выкупа доли.
+    addressee: "Юридический отдел"
+
+  non_compete_conflict_of_interest:
+    text: >
+      Просим включить в {doc_names}: (а) запрет конкуренции;
+      (б) порядок раскрытия конфликта интересов; (в) санкции.
+    addressee: "Юридический отдел"
+
+  admission_new_partners:
+    text: >
+      Просим урегулировать в {doc_names}: (а) единогласие для приёма;
+      (б) оценка вклада нового участника; (в) пересмотр долей.
+    addressee: "Все товарищи"
+
+  tax_accounting_coordination:
+    text: >
+      Просим согласовать для {doc_names}: (а) кто ведёт учёт;
+      (б) единые правила; (в) распределение налогов; (г) документооборот.
+      Риск двойного налогообложения (НК РФ ст. 278).
+    addressee: "Бухгалтерия / Налоговый консультант"
+
+  common_property_regime_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) порядок формирования общего имущества;
+      (б) определение долей; (в) распоряжение общим имуществом;
+      (г) порядок пользования (ст. 1043 ГК РФ).
+    addressee: "Все товарищи"
+
+  requalification_risk_check:
+    text: >
+      Просим проверить {doc_names} на признаки скрытого создания юридического лица:
+      штат, расчётный счёт «товарищества», вывеска, печать.
+      Просим обеспечить чёткую оговорку «без образования юридического лица».
+    addressee: "Юридический отдел"
+
+  parties_minimum_two:
+    text: >
+      Просим подтвердить реквизиты всех товарищей (минимум двух) по {doc_names}.
+    addressee: "Все товарищи"
+
+  common_goal_clause:
+    text: >
+      КРИТИЧНО: В {doc_names} не указана общая цель. Незамедлительно дополнить (ст. 1041 ГК РФ).
+    addressee: "Все товарищи"
+
+  contributions_clause:
+    text: >
+      КРИТИЧНО: В {doc_names} не указаны вклады. Незамедлительно дополнить (ст. 1042 ГК РФ).
+    addressee: "Все товарищи"
+
+  contribution_valuation_clause:
+    text: >
+      Просим согласовать оценку вкладов для {doc_names}.
+    addressee: "Все товарищи"
+
+  management_procedure:
+    text: >
+      Просим согласовать порядок ведения дел для {doc_names}.
+    addressee: "Все товарищи"
+
+  profit_distribution_clause:
+    text: >
+      Просим согласовать распределение прибыли для {doc_names}.
+    addressee: "Все товарищи"
+
+  liability_provisions:
+    text: >
+      Просим урегулировать ответственность для {doc_names}.
+      При предпринимателе — СОЛИДАРНАЯ (ст. 1047 ГК РФ).
+    addressee: "Юридический отдел"
+
+  information_right_clause:
+    text: >
+      Просим согласовать право на информацию для {doc_names}.
+    addressee: "Все товарищи"
+
+  withdrawal_clause:
+    text: >
+      Просим согласовать порядок выхода для {doc_names}.
+    addressee: "Все товарищи"
+
+  termination_clause:
+    text: >
+      Просим согласовать порядок прекращения и раздела имущества для {doc_names}.
+    addressee: "Все товарищи"
+
+  common_property_regime_clause:
+    text: >
+      Просим определить режим общей собственности для {doc_names} (ст. 1043 ГК РФ).
+    addressee: "Все товарищи"
+
+  dispute_resolution:
+    text: >
+      Просим согласовать досудебный порядок и подсудность для {doc_names}.
+    addressee: "Юридический отдел"
+
+  confidentiality_clause:
+    text: >
+      Просим включить в {doc_names} обязательство конфиденциальности.
+    addressee: "Юридический отдел"
+
+  contract_term:
+    text: >
+      Просим указать в {doc_names} срок действия (бессрочный/срочный).
+      Влияет на порядок выхода (ст. 1051 ГК РФ).
+    addressee: "Все товарищи"
+
+  minimum_two_partners_required:
+    text: >
+      Минимум два участника (ст. 1041 ГК РФ). Просим подтвердить для {doc_names}.
+    addressee: "Все товарищи"
+
+  common_goal_mandatory:
+    text: >
+      КРИТИЧНО: Общая цель обязательна (ст. 1041 ГК РФ). Проверьте {doc_names}.
+    addressee: "Все товарищи"
+
+  contributions_mandatory:
+    text: >
+      КРИТИЧНО: Вклады обязательны (ст. 1042 ГК РФ). Проверьте {doc_names}.
+    addressee: "Все товарищи"
+
+  joint_and_several_liability_warning:
+    text: >
+      КРИТИЧЕСКОЕ ПРЕДУПРЕЖДЕНИЕ: В {doc_names} присутствует ИП/коммерческая организация.
+      ВСЕ товарищи несут СОЛИДАРНУЮ ОТВЕТСТВЕННОСТЬ ВСЕМ ИМУЩЕСТВОМ (ст. 1047 ГК РФ).
+    addressee: "Все товарищи / Юридический отдел"
+
+  prohibition_of_profit_exclusion:
+    text: >
+      ВНИМАНИЕ: В {doc_names} выявлено условие об исключении товарища из прибыли.
+      Такое условие НИЧТОЖНО (ст. 1048 ГК РФ). Просим исключить.
+    addressee: "Юридический отдел"
+
+  prohibition_of_loss_exemption:
+    text: >
+      ВНИМАНИЕ: В {doc_names} выявлено условие об освобождении товарища от убытков.
+      Такое условие НИЧТОЖНО (ст. 1046 ГК РФ). Просим исключить.
+    addressee: "Юридический отдел"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический консультант"

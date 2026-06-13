@@ -1,0 +1,3040 @@
+type: contract_4.1_services
+name: "Договор возмездного оказания услуг"
+
+description: |
+  Базовая (родовая) конструкция для всех договоров, где ценность представляет сам процесс деятельности
+  (консультирование, обучение, охрана, связь, IT-обслуживание, маркетинг), а не материальный результат.
+  Услуга потребляется в момент оказания. Исполнитель обязан приложить разумные усилия и проявить
+  профессиональную осмотрительность, но не гарантирует достижение конкретного результата.
+  Регулируется § 1 Главы 39 ГК РФ (ст. 779–783). К отдельным видам услуг применяются специальные законы.
+  Субсидиарно применяются правила о подряде (ст. 783 ГК РФ).
+
+version: 4.0
+parent: class_4_service_provision
+
+metadata:
+  category: contract
+  subcategory: service_provision
+  complexity: medium
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "Глава 39 ГК РФ (ст. 779-783)"
+  doc_types_supported:
+    - "договор возмездного оказания услуг"
+    - "договор оказания услуг"
+    - "договор на обслуживание"
+    - "консалтинговый договор"
+    - "сервисный договор"
+    - "договор аутсорсинга"
+    - "абонентский договор на услуги"
+    - "договор на оказание консультационных услуг"
+    - "договор на оказание юридических услуг"
+    - "договор на оказание маркетинговых услуг"
+    - "договор на оказание IT-услуг"
+    - "договор на оказание аудиторских услуг"
+    - "договор на оказание образовательных услуг"
+    - "договор на оказание охранных услуг"
+    - "договор обслуживания"
+    - "договор аутстаффинга"
+    - "договор консультационных услуг"
+    - "договор юридических услуг" 
+    - "договор маркетинговых услуг"
+    - "договор IT-услуг"
+    - "договор образовательных услуг"
+    - "договор охранных услуг"
+    - "договор клининга"
+    - "абонентский договор"
+    - "договор технической поддержки"
+
+    - "services agreement"
+    - "master services agreement"
+    - "MSA"
+    - "professional services agreement"
+    - "consulting agreement"
+    - "support services agreement"
+    - "maintenance services agreement"
+    - "managed services agreement"
+    - "outsourcing agreement"
+    - "business process outsourcing agreement"
+    - "BPO agreement"
+    - "technical services agreement"
+    - "framework services agreement"
+    - "service level agreement"
+    - "SLA"
+    - "statement of work"
+    - "SOW"
+    - "retainer agreement"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  scoring:
+    accept_threshold: 0.72
+    strong_signal_threshold: 0.84
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
+  rules:
+
+    filename_patterns:
+      - pattern: "(?i)\\bдоговор[\\s_.-]*возмездн[а-я]*[\\s_.-]*оказани[а-я]*[\\s_.-]*услуг\\b"
+        kind: generic_form
+        weight: 0.72
+        # Базовая юридическая форма service contract; для parent-типа это generic, а не subject-specific
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*услуг\\b"
+        kind: generic_form
+        weight: 0.66
+        # Общая форма договора оказания услуг
+
+      - pattern: "(?i)\\bservices?[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.60
+        # Общая англоязычная форма services agreement
+
+      - pattern: "(?i)\\b(?:master|professional|framework)[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)\\b"
+        kind: generic_form
+        weight: 0.64
+        # MSA / PSA / framework services — типовая рамочная форма service contracts
+
+      - pattern: "(?i)(?<![A-Za-z])MSA(?![A-Za-z])"
+        kind: generic_form
+        weight: 0.34
+        # MSA сам по себе слишком неоднозначен и часто требует дополнительных service-markers
+
+      - pattern: "(?i)\\b(?:абонентск[а-я]*[\\s_.-]*договор(?:[\\s_.-]*на[\\s_.-]*услуг[аи])?|retainer[\\s_.-]*agreement)\\b"
+        kind: generic_form
+        weight: 0.58
+        # Абонентская / retainer-модель характерна для услуг, но не уникальна для конкретного service subtype
+
+      - pattern: "(?i)\\b(?:service[\\s_.-]*level[\\s_.-]*agreement|statement[\\s_.-]*of[\\s_.-]*work)\\b"
+        kind: generic_form
+        weight: 0.42
+        # SLA / SOW часто используются в service-family, но нередко являются приложениями/рамочными документами
+
+      - pattern: "(?i)(?<![A-Za-z])SLA(?![A-Za-z])"
+        kind: context
+        weight: 0.16
+        # SLA как аббревиатура слишком коротка и неоднозначна
+
+      - pattern: "(?i)(?<![A-Za-z])SOW(?![A-Za-z])"
+        kind: context
+        weight: 0.14
+        # SOW — полезный, но очень неоднозначный структурный маркер
+
+      - pattern: "(?i)\\b(?:консалтингов(?:ый|ого)?[\\s_.-]*договор|договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*консультационн[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*консультационн[а-я]*[\\s_.-]*услуг|consulting[\\s_.-]*agreement)\\b"
+        kind: specific_subject
+        weight: 0.82
+        # Консультационные / consulting services — предметно service-oriented, но не рамочная форма
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*аутсорсинга|outsourcing[\\s_.-]*agreement|business[\\s_.-]*process[\\s_.-]*outsourcing[\\s_.-]*agreement|BPO[\\s_.-]*agreement)\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Outsourcing / BPO — сильный service-model marker
+
+      - pattern: "(?i)\\b(?:managed[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?|support[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?|maintenance[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?|technical[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.80
+        # Managed/support/maintenance/technical services — хорошие предметные service markers
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?обслуживани[а-я]*|договор[\\s_.-]*обслуживания|сервисн[а-я]*[\\s_.-]*договор|договор[\\s_.-]*техническ[а-я]*[\\s_.-]*поддержк[аи])\\b"
+        kind: specific_subject
+        weight: 0.78
+        # Обслуживание / technical support / сервисный договор — типичные service-subject forms
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*юридическ[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*юридическ[а-я]*[\\s_.-]*услуг|legal[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.78
+        # Юридические услуги — supported subtype внутри service family
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*маркетингов[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*маркетингов[а-я]*[\\s_.-]*услуг|marketing[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.76
+        # Маркетинговые услуги — предметный service marker
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*(?:IT|it|ИТ|ит)[\\s_.-]*услуг|договор[\\s_.-]*(?:IT|it|ИТ|ит)[\\s_.-]*услуг|IT[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?|managed[\\s_.-]*IT[\\s_.-]*services?)\\b"
+        kind: specific_subject
+        weight: 0.78
+        # IT-услуги — частый service subtype, но всё ещё внутри family услуг
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*аудиторск[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*аудиторск[а-я]*[\\s_.-]*услуг|audit(?:ing)?[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.76
+        # Аудиторские услуги — supported service subtype
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*образовательн[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*образовательн[а-я]*[\\s_.-]*услуг|educational[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.76
+        # Образовательные услуги — supported subtype
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*охранн[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*охранн[а-я]*[\\s_.-]*услуг|security[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.78
+        # Охранные услуги — supported subtype
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*клининга|cleaning[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.74
+        # Клининг / cleaning services — явный service subject
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аутстаффинга\\b|\\boutstaffing[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.50
+        # Аутстаффинг поддерживается, но может конкурировать с более специализированными personnel/staffing типами
+
+      - pattern: "(?i)\\bуслуг\\b"
+        kind: context
+        weight: 0.18
+        # Само слово "услуг" слишком общее
+
+      - pattern: "(?i)\\bservice(?:s)?\\b"
+        kind: context
+        weight: 0.16
+        # Service/services без qualifier слишком широки
+
+
+    folder_patterns:
+      - pattern: "(?i)услуг|оказани[ея][_\\s-]*услуг|services?"
+        kind: generic_form
+        weight: 0.54
+        # Общая service taxonomy папок
+
+      - pattern: "(?i)(?:master|professional|framework|managed|support|maintenance|technical)[_\\s-]*services?"
+        kind: generic_form
+        weight: 0.58
+        # Типовые англоязычные service-family папки
+
+      - pattern: "(?i)консалтинг|consulting|консультационн[а-я]*[_\\s-]*услуг"
+        kind: specific_subject
+        weight: 0.76
+        # Consulting taxonomy — предметный service marker
+
+      - pattern: "(?i)аутсорсинг|outsourcing|business[_\\s-]*process[_\\s-]*outsourcing|BPO"
+        kind: specific_subject
+        weight: 0.80
+        # Outsourcing / BPO папки
+
+      - pattern: "(?i)обслуживани[ея]|сервис|техническ[а-я]*[_\\s-]*поддержк|support[_\\s-]*services?|maintenance[_\\s-]*services?"
+        kind: specific_subject
+        weight: 0.74
+        # Service operations / support / maintenance taxonomy
+
+      - pattern: "(?i)юридическ[а-я]*[_\\s-]*услуг|маркетингов[а-я]*[_\\s-]*услуг|аудиторск[а-я]*[_\\s-]*услуг|образовательн[а-я]*[_\\s-]*услуг|охранн[а-я]*[_\\s-]*услуг|(?:IT|it|ИТ|ит)[_\\s-]*услуг|клининг|legal[_\\s-]*services?|marketing[_\\s-]*services?|audit(?:ing)?[_\\s-]*services?|educational[_\\s-]*services?|security[_\\s-]*services?|cleaning[_\\s-]*services?"
+        kind: specific_subject
+        weight: 0.70
+        # Предметные service subtypes из supported doc types
+
+      - pattern: "(?i)retainer|абонентск[а-я]*[_\\s-]*договор"
+        kind: generic_form
+        weight: 0.48
+        # Retainer / subscription-like service folders
+
+      - pattern: "(?i)service[_\\s-]*level[_\\s-]*agreement|statement[_\\s-]*of[_\\s-]*work"
+        kind: generic_form
+        weight: 0.40
+        # SLA / SOW в taxonomy папок полезны, но не самодостаточны
+
+      - pattern: "(?i)(?<![A-Za-z])MSA(?![A-Za-z])|(?<![A-Za-z])SLA(?![A-Za-z])|(?<![A-Za-z])SOW(?![A-Za-z])"
+        kind: context
+        weight: 0.14
+        # Короткие аббревиатуры слишком неоднозначны без дополнительных сигналов
+
+      - pattern: "(?i)service|services"
+        kind: context
+        weight: 0.16
+        # Слишком общий folder-marker
+
+    keywords:
+
+      high:
+        - pattern: "(?i)договор\\s+возмездн[огоой]\\s+оказан[ияия]\\s+услуг"
+          weight: 0.95
+          distinctiveness: medium
+          context: header
+          description: "Полное легальное название базового договора возмездного оказания услуг"
+
+        - pattern: "(?i)договор\\s+оказан[ияия]\\s+услуг"
+          weight: 0.9
+          distinctiveness: medium
+          context: header
+          description: "Сокращённое название договора оказания услуг"
+
+        - pattern: "(?i)договор\\s+на\\s+обслуживан[иеия]"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Типовая формула сервисного/обслуживающего договора"
+
+        - pattern: "(?i)сервисн[ыйое]\\s+договор"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Указание на сервисный характер отношений"
+
+        - pattern: "(?i)договор\\s+аутсорсинг[ауы]"
+          weight: 0.9
+          distinctiveness: medium
+          context: header
+          description: "Аутсорсинговый договор как разновидность услуг"
+
+        - pattern: "(?i)абонентск[ийое]\\s+договор\\s+на\\s+услуг[и]"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Абонентский договор на услуги (подписочная модель)"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+консультационн[ыхые]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Консультационные услуги по базовой конструкции услуг"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+юридическ[ихие]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Юридические услуги (консалтинг/сопровождение)"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+маркетингов[ыхые]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Маркетинговые услуги (реклама/продвижение) в сервисной логике"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+it-?услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "IT‑услуги (поддержка, обслуживание, сопровождение)"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+аудиторск[ихие]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Аудиторские услуги как разновидность услуг"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+образовательн[ыхые]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Образовательные/обучающие услуги"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+охранн[ыхые]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Охранные услуги частных охранных организаций"
+
+        - pattern: "(?i)услуг[аи]"
+          weight: 0.8
+          distinctiveness: low
+          context: any
+          description: "Общее упоминание услуг (широко используется и в других типах)"
+
+        - pattern: "(?i)исполнител[ьяеи]"
+          weight: 0.8
+          distinctiveness: low
+          context: any
+          description: "Роль исполнителя договора услуг"
+
+        - pattern: "(?i)акт\\s+об\\s+оказан[ииии]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: any
+          description: "Типичный акт об оказании услуг"
+
+        - pattern: "(?i)акт\\s+оказанн[ыхые]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: any
+          description: "Формулировка акта оказанных услуг"
+
+        - pattern: "(?i)оказан[иеия]\\s+услуг"
+          weight: 0.8
+          distinctiveness: low
+          context: any
+          description: "Общее упоминание оказания услуг"
+
+        - pattern: "(?i)нематериальн[ыйое]\\s+результат"
+          weight: 0.75
+          distinctiveness: medium
+          context: any
+          description: "Указание на нематериальный характер результата (отличие от подряда)"
+
+        - pattern: "(?i)совершен[иеия]\\s+действ[ийия]"
+          weight: 0.75
+          distinctiveness: low
+          context: any
+          description: "Формулировки о совершении действий вместо достижения материального результата"
+
+        - pattern: "(?i)осуществлен[иеия]\\s+деятельност[иью]"
+          weight: 0.75
+          distinctiveness: low
+          context: any
+          description: "Формула о деятельности исполнителя без гарантии результата"
+
+      medium:
+        - pattern: "(?i)техническ[оа]е\\s+задани[ея]"
+          weight: 0.6
+          distinctiveness: low
+          context: any
+          description: "Техническое задание на услуги (особенно в IT/маркетинге)"
+
+        - pattern: "(?i)отч[её]т\\s+исполнител[яя]"
+          weight: 0.6
+          distinctiveness: low
+          context: any
+          description: "Отчёт исполнителя о выполнении услуг"
+
+        - pattern: "(?i)акт\\s+сдач[ии]-?при[её]мк[ии]\\s+услуг"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Акт сдачи-приёмки услуг"
+
+        - pattern: "(?i)абонентск[а-яё]+\\s+плат[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Абонентская плата как модель оплаты услуг"
+
+        - pattern: "(?i)почасов[а-яё]+\\s+оплат[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Почасовая оплата услуг"
+
+        - pattern: "(?i)консультационн[ыо]е\\s+услуг[ии]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Консультационные услуги (часто консалтинг)"
+
+        - pattern: "(?i)\\bконсалтинг\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Консалтинг как вид услуг"
+
+        - pattern: "(?i)\\bобслуживани[ея]\\b"
+          weight: 0.55
+          distinctiveness: low
+          context: any
+          description: "Обслуживание как общий сервисный контекст"
+
+        - pattern: "(?i)\\bSLA\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Service Level Agreement в контексте услуг"
+
+        - pattern: "(?i)уровень\\s+обслуживани[яя]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Уровень обслуживания (SLA‑метрики)"
+
+        - pattern: "(?i)\\bKPI\\b"
+          weight: 0.55
+          distinctiveness: low
+          context: any
+          description: "KPI как показатель эффективности услуг"
+
+        - pattern: "(?i)ключев[ыо]е\\s+показател[ии]"
+          weight: 0.5
+          distinctiveness: low
+          context: any
+          description: "Ключевые показатели результата/качества услуг"
+
+      low:
+        - pattern: "(?i)\\bконсультаци[яи]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Консультации как отдельный вид услуг"
+
+        - pattern: "(?i)\\bобучени[ея]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Обучение/тренинги как услуги"
+
+        - pattern: "(?i)\\bаудит\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Аудит как услугa (может пересекаться с спец‑типами)"
+
+        - pattern: "(?i)\\bсопровождени[ея]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Сопровождение, сопровождение проектов/клиентов"
+
+        - pattern: "(?i)сервисн[ыо]й\\s+договор"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Упоминание сервисного договора в теле"
+
+        - pattern: "(?i)\\bаутсорсинг\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Общее упоминание аутсорсинга"
+
+        - pattern: "(?i)\\bтренинг\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Тренинги как обучающие услуги"
+
+        - pattern: "(?i)\\bмаркетинг\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Маркетинг — общий контекст, часто в связке с услугами"
+
+        - pattern: "(?i)\\bохран[ааы]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Охрана как вид охранных услуг"
+
+    exclusions:
+      - pattern: "(?i)\\bподряд\\b"
+        severity: hard
+        weight: -1.0
+        description: "Подряд предполагает материальный результат и собственный тип договора"
+
+      - pattern: "(?i)строительно-?монтажн[ыо]е\\s+работ[ыа]"
+        severity: hard
+        weight: -1.0
+        description: "Строительно-монтажные работы связывают с подрядом, а не с услугами"
+
+      - pattern: "(?i)\\bперевозк[ааи]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Договор перевозки — самостоятельный тип (глава 40 ГК РФ)"
+
+      - pattern: "(?i)\\bхранени[ея]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Договор хранения выделен в отдельный институт"
+
+      - pattern: "(?i)\\bстраховани[ея]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Договор страхования имеет специальный режим и не относится к общим услугам"
+
+      - pattern: "(?i)агентировани[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Агентирование — агентский договор, а не договор услуг"
+
+      - pattern: "(?i)\\bпоручени[ея]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Поручение — отдельный тип договора (гл. 49 ГК РФ)"
+
+      - pattern: "(?i)\\bкомисси[яяи]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Комиссия — отдельный посреднический договор"
+
+      - pattern: "(?i)трудов[оа]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Трудовой договор регулируется ТК РФ, а не главой о возмездных услугах"
+
+      - pattern: "(?i)трудов[оа]й\\s+распоряд[оа]к"
+        severity: hard
+        weight: -1.0
+        description: "Прямые маркеры трудовых отношений (режим рабочего времени и т.п.)"
+
+      - pattern: "(?i)лицензионн[ыо]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Лицензионные договоры на объекты ИС имеют собственный режим"
+
+      - pattern: "(?i)коммерческ[а-яё]+\\s+концесси[яяи]"
+        severity: hard
+        weight: -1.0
+        description: "Коммерческая концессия (франчайзинг) — отдельный комплексный договор"
+
+      - pattern: "(?i)\\bфранчайзинг\\b"
+        severity: hard
+        weight: -1.0
+        description: "Франчайзинг/коммерческая концессия, а не базовые услуги"
+
+      - pattern: "(?i)договор\\s+перевозк[иы]\\s+груз[аов]"
+        severity: hard
+        weight: -1.0
+        description: "Прямое указание на договор перевозки груза (глава 40 ГК РФ)"
+
+      - pattern: "(?i)договор\\s+транспортн[ойого\\s]*экспедиц[иии]"
+        severity: hard
+        weight: -1.0
+        description: "Транспортная экспедиция (глава 41 ГК РФ), не базовый договор услуг"
+
+      - pattern: "(?i)договор\\s+транспортно-?экспедиционн[огоого\\s]*обслуживан[ияия]"
+        severity: hard
+        weight: -1.0
+        description: "Договор ТЭО — экспедиционные услуги, не generic‑услуги"
+
+      - pattern: "(?i)логистическ[ийое]\\s+контракт"
+        severity: hard
+        weight: -1.0
+        description: "Логистический/экспедиторский контракт вместо общих услуг"
+
+      - pattern: "(?i)экспедитор[а-я]*"
+        severity: hard
+        weight: -1.0
+        description: "Наличие экспедитора как стороны тянет к транспортной экспедиции"
+
+      - pattern: "(?i)грузоотправител[ьяеи]"
+        severity: hard
+        weight: -1.0
+        description: "Грузоотправитель — маркер договоров перевозки/экспедиции, а не generic‑услуг"
+
+      - pattern: "(?i)грузополучател[ьяеи]"
+        severity: hard
+        weight: -1.0
+        description: "Грузополучатель — маркер логистических договоров, не базовых услуг"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  consulting_services:
+    any_keywords:
+      - "(?i)\\bконсалтинг\\b"
+      - "(?i)консультационн[ыо]е\\s+услуг[ии]"
+      - "(?i)консультировани[ея]"
+      - "(?i)юридическ[иие]+\\s+услуг[ии]"
+      - "(?i)бухгалтерск[иие]+\\s+услуг[ии]"
+      - "(?i)финансов[оа]е\\s+консультировани[ея]"
+      - "(?i)управленческ[иоя]+\\s+консалтинг"
+      - "(?i)стратегическ[оа]е\\s+консультировани[ея]"
+
+  it_services:
+    any_keywords:
+      - "(?i)IT-?услуг[ии]"
+      - "(?i)информационн[ыо]е\\s+технологи[ии]"
+      - "(?i)техническ[а-яё]+\\s+поддержк[аа]"
+      - "(?i)администрировани[ея]"
+      - "(?i)\\bхостинг\\b"
+      - "(?i)облачн[ыо]е\\s+услуг[ии]"
+      - "(?i)\\bSaaS\\b"
+      - "(?i)обслуживани[ея]\\s+ПО"
+      - "(?i)информационн[а-яё]+\\s+систем[аа]"
+      - "(?i)\\bhelp\\s+desk\\b"
+      - "(?i)\\bservice\\s+desk\\b"
+      - "(?i)\\bDevOps\\b"
+      - "(?i)\\bмониторинг\\b"
+
+  marketing_services:
+    any_keywords:
+      - "(?i)\\bмаркетинг\\b"
+      - "(?i)маркетингов[ыо]е\\s+услуг[ии]"
+      - "(?i)\\bреклам[ааы]\\b"
+      - "(?i)рекламн[ыо]е\\s+услуг[ии]"
+      - "(?i)продвижени[ея]"
+      - "(?i)\\bPR\\b"
+      - "(?i)\\bSMM\\b"
+      - "(?i)digital-?маркетинг"
+      - "(?i)\\bSEO\\b"
+      - "(?i)контент-?маркетинг"
+      - "(?i)медиапланировани[ея]"
+
+  audit_services:
+    any_keywords:
+      - "(?i)\\bаудит\\b"
+      - "(?i)аудиторск[иие]+\\s+услуг[ии]"
+      - "(?i)\\bпроверк[ааи]\\b"
+      - "(?i)\\bревизи[яи]\\b"
+      - "(?i)аудиторск[оа]е\\s+заключени[ея]"
+      - "(?i)финансов[ыо]й\\s+аудит"
+      - "(?i)налогов[ыо]й\\s+аудит"
+
+  training_services:
+    any_keywords:
+      - "(?i)\\bобучени[ея]\\b"
+      - "(?i)\\bтренинг\\b"
+      - "(?i)\\bсеминар\\b"
+      - "(?i)\\bкурс[ыаов]?\\b"
+      - "(?i)повышени[ея]\\s+квалификаци[ии]"
+      - "(?i)образовательн[ыо]е\\s+услуг[ии]"
+      - "(?i)\\bлекци[яи]\\b"
+      - "(?i)\\bвебинар\\b"
+      - "(?i)мастер-?класс"
+
+  security_services:
+    any_keywords:
+      - "(?i)\\bохран[ааы]\\b"
+      - "(?i)охранн[ыо]е\\s+услуг[ии]"
+      - "(?i)физическ[а-яё]+\\s+охран[ааы]"
+      - "(?i)пультов[а-яё]+\\s+охран[ааы]"
+      - "(?i)\\bЧОП\\b"
+      - "(?i)частн[а-яё]+\\s+охранн[а-яё]+\\s+организаци[яи]"
+      - "(?i)видеонаблюдени[ея]"
+      - "(?i)контрол[ья]\\s+доступ[аа]"
+      - "(?i)безопасност[ьи]\\s+объект[аа]"
+
+  subscription_model:
+    any_keywords:
+      - "(?i)абонентск[а-яё]+\\s+плат[аа]"
+      - "(?i)абонентск[иоя]+\\s+договор"
+      - "(?i)\\bподписк[ааеиу]\\b"
+      - "(?i)ежемесячн[а-яё]+\\s+плат[аа]"
+      - "(?i)регулярн[ыо]й\\s+плат[её]ж"
+      - "(?i)фиксированн[ыо]й\\s+плат[её]ж"
+      - "(?i)\\bсопровождени[ея]\\b"
+      - "(?i)\\bабонемент\\b"
+      - "(?i)\\btake\\s+or\\s+pay\\b"
+
+  outsourcing:
+    any_keywords:
+      - "(?i)\\bаутсорсинг\\b"
+      - "(?i)\\boutsourcing\\b"
+      - "(?i)передач[аа]\\s+функци[йи]"
+      - "(?i)внешн[еое]\\s+обслуживани[ея]"
+      - "(?i)\\bаутстаффинг\\b"
+      - "(?i)предоставлени[ея]\\s+персонал[аа]"
+
+  legal_entity_party:
+    any_keywords:
+      - "(?i)\\bооо\\b"
+      - "(?i)\\bао\\b"
+      - "(?i)\\bпао\\b"
+      - "(?i)\\bзао\\b"
+      - "(?i)\\bобществ[оа]\\b"
+      - "(?i)\\bинн\\b"
+      - "(?i)\\bогрн\\b"
+      - "(?i)\\bкпп\\b"
+
+  individual_party:
+    any_keywords:
+      - "(?i)\\bпаспорт\\b"
+      - "(?i)\\bгражданин\\b"
+      - "(?i)физическ[оеая]\\s+лиц[оа]"
+      - "(?i)\\bИП\\b"
+      - "(?i)индивидуальн[ыо]й\\s+предпринимател[ья]"
+
+  consumer_party:
+    any_keywords:
+      - "(?i)\\bпотребител[ьяи]\\b"
+      - "(?i)для\\s+личн[ыо]х\\s+нужд"
+      - "(?i)для\\s+семейн[ыо]х\\s+нужд"
+      - "(?i)для\\s+домашн[иие]+\\s+нужд"
+      - "(?i)не\\s+связанн[ыо]х\\s+с\\s+предпринимательск[оа]й"
+      - "(?i)закон\\s+о\\s+защит[ее]\\s+прав\\s+потребител[еей]"
+
+  personal_data_processing:
+    any_keywords:
+      - "(?i)персональн[ыо]е\\s+данн[ыо]е"
+      - "(?i)обработк[аа]\\s+персональн[ыо]х\\s+данн[ыо]х"
+      - "(?i)\\bФЗ-152\\b"
+      - "(?i)оператор\\s+персональн[ыо]х\\s+данн[ыо]х"
+      - "(?i)субъект\\s+персональн[ыо]х\\s+данн[ыо]х"
+      - "(?i)поручени[ея]\\s+на\\s+обработк[уу]"
+      - "(?i)согласи[ея]\\s+на\\s+обработк[уу]"
+
+  ip_creation_services:
+    any_keywords:
+      - "(?i)интеллектуальн[а-яё]+\\s+собственност[ьи]"
+      - "(?i)исключительн[ыо]е\\s+прав[аа]"
+      - "(?i)авторск[иие]+\\s+прав[аа]"
+      - "(?i)результат[ыа]\\s+интеллектуальн[оа]й\\s+деятельност[ии]"
+      - "(?i)\\bдизайн\\b"
+      - "(?i)\\bразработк[аа]\\b"
+      - "(?i)\\bконтент\\b"
+      - "(?i)программн[оа]е\\s+обеспечени[ея]"
+      - "(?i)создани[ея]\\s+произведени[яя]"
+
+  sla_based:
+    any_keywords:
+      - "(?i)\\bSLA\\b"
+      - "(?i)\\bService\\s+Level\\s+Agreement\\b"
+      - "(?i)уровень\\s+обслуживани[яя]"
+      - "(?i)время\\s+реакци[ии]"
+      - "(?i)время\\s+решени[яя]"
+      - "(?i)доступност[ьи]"
+      - "(?i)\\buptime\\b"
+      - "(?i)метрик[аа]\\s+качеств[аа]"
+      - "(?i)\\bKPI\\b"
+
+  hourly_rate:
+    any_keywords:
+      - "(?i)почасов[а-яё]+\\s+оплат[аа]"
+      - "(?i)ставк[аа]\\s+за\\s+час"
+      - "(?i)человеко-?час"
+      - "(?i)тайм-?шит"
+      - "(?i)\\btimesheet\\b"
+      - "(?i)уч[её]т\\s+времени"
+      - "(?i)\\bбиллинг\\b"
+
+  fixed_fee:
+    any_keywords:
+      - "(?i)фиксированн[а-яё]+\\s+стоимост[ьи]"
+      - "(?i)тв[её]рд[а-яё]+\\s+цен[аа]"
+      - "(?i)паушальн[а-яё]+\\s+сумм[аа]"
+      - "(?i)единовременн[а-яё]+\\s+оплат[аа]"
+      - "(?i)\\bfixed\\s+fee\\b"
+
+  subcontracting_involved:
+    any_keywords:
+      - "(?i)\\bсубподрядчик\\b"
+      - "(?i)привлечени[ея]\\s+третьих\\s+лиц"
+      - "(?i)\\bсоисполнител[ьяи]\\b"
+      - "(?i)\\bсубисполнител[ьяи]\\b"
+      - "(?i)с\\s+согласием\\s+заказчик[аа]\\s+привлекать"
+
+  cross_border_services:
+    any_keywords:
+      - "(?i)иностранн[ыо]й\\s+исполнитель"
+      - "(?i)\\bнерезидент\\b"
+      - "(?i)трансграничн[ыо]е\\s+услуг[ии]"
+      - "(?i)международн[ыо]й\\s+договор"
+      - "(?i)валютн[ыо]й\\s+контрол[ья]"
+      - "(?i)мест[оа]\\s+оказани[яя]\\s+услуг"
+
+  licensed_activity:
+    any_keywords:
+      - "(?i)\\bлицензи[яи]\\b"
+      - "(?i)лицензируем[а-яё]+\\s+деятельност[ьи]"
+      - "(?i)\\bдопуск\\b"
+      - "(?i)\\bаккредитаци[яи]\\b"
+      - "(?i)сертификат\\s+соответстви[яя]"
+      - "(?i)аттестат\\s+аудитор[аа]"
+
+  success_fee:
+    any_keywords:
+      - "(?i)гонорар\\s+успех[аа]"
+      - "(?i)\\bsuccess\\s+fee\\b"
+      - "(?i)вознаграждени[ея]\\s+за\\s+результат"
+      - "(?i)преми[яи]\\s+за\\s+достижени[ея]"
+      - "(?i)бонус\\s+за\\s+результат"
+      - "(?i)в\\s+случае\\s+положительн[оа]го\\s+исход[аа]"
+      - "(?i)процент\\s+от\\s+выигранн[оа]й\\s+сумм[ыы]"
+      - "(?i)процент\\s+от\\s+экономи[ии]"
+
+  government_contract:
+    any_keywords:
+      - "(?i)\\b44-ФЗ\\b"
+      - "(?i)\\b223-ФЗ\\b"
+      - "(?i)государственн[ыо]й\\s+контракт"
+      - "(?i)муниципальн[ыо]й\\s+контракт"
+      - "(?i)госзакупк[аи]"
+      - "(?i)един[а-яё]+\\s+информационн[а-яё]+\\s+систем[аа]"
+      - "(?i)\\bЕИС\\b"
+      - "(?i)реестр\\s+контракт[оа]в"
+      - "(?i)начальн[а-яё]+\\s+максимальн[а-яё]+\\s+цен[аа]"
+      - "(?i)\\bНМЦК\\b"
+      - "(?i)обеспечени[ея]\\s+исполнени[яя]\\s+контракт[аа]"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  percentage: "(?i)\\b\\d{1,3}[,.]?\\d{0,2}\\s*%"
+  working_days: "(?i)\\b\\d+\\s*(рабочих|календарных)\\s+дн"
+  hourly_rate_pattern: "(?i)\\b\\d[\\d\\s]*(?:руб|₽).*?(?:час|ч\\.|man[\\s-]?hour)"
+  inn_pattern: "(?i)\\bИНН\\s*\\d{10,12}\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "labor_contract_requalification_risk"
+    name: "Риск переквалификации в трудовой договор (ТК РФ)"
+    description: |
+      Если договор содержит признаки трудовых отношений (подчинение ПВТР,
+      трудовая функция, рабочее место, режим работы), он может быть
+      переквалифицирован судом в трудовой с начислением НДФЛ, страховых взносов
+      и штрафов. Особенно актуально для физлиц-исполнителей и самозанятых.
+    legal_base: "ст. 15, 19.1 ТК РФ, ст. 5.27 КоАП РФ"
+    required_triggers: ["individual_party"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "трудовая функция"
+        - "рабочее место"
+        - "правила внутреннего трудового распорядка"
+        - "подчинение"
+        - "режим работы"
+        - "должностная инструкция"
+        - "табель учёта рабочего времени"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "трудовая функция"
+        - "подчинение"
+        - "режим работы"
+        - "рабочее место"
+      rerank: true
+
+  - id: "personal_data_processing_without_agreement"
+    name: "Обработка ПДн без поручения на обработку (ФЗ-152)"
+    description: |
+      Если исполнитель получает доступ к персональным данным заказчика
+      или его клиентов, необходимо поручение на обработку ПДн (ст. 6 ФЗ-152).
+      Отсутствие поручения — административное правонарушение (ст. 13.11 КоАП).
+    legal_base: "ФЗ от 27.07.2006 № 152-ФЗ «О персональных данных», ст. 6"
+    required_triggers: ["personal_data_processing"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "персональные данные"
+        - "обработка персональных данных"
+        - "поручение на обработку"
+        - "оператор персональных данных"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "персональные данные"
+        - "поручение на обработку"
+        - "ФЗ-152"
+      rerank: true
+
+  - id: "licensed_activity_without_confirmation"
+    name: "Лицензируемая деятельность без подтверждения лицензии"
+    description: |
+      Отдельные виды услуг (аудит, оценка, охранная деятельность, медицинские,
+      образовательные услуги) требуют лицензии или аккредитации. Оказание услуг
+      без лицензии влечёт ничтожность договора и административную/уголовную
+      ответственность.
+    legal_base: "ФЗ от 04.05.2011 № 99-ФЗ «О лицензировании отдельных видов деятельности»"
+    required_triggers: ["licensed_activity"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "лицензия"
+        - "лицензируемая деятельность"
+        - "аккредитация"
+        - "допуск"
+        - "сертификат"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "лицензия"
+        - "аккредитация"
+        - "допуск"
+      rerank: true
+
+  - id: "consumer_punitive_clause_prohibition"
+    name: "Ничтожность условий, ущемляющих права потребителя (ст. 16 ЗоЗПП)"
+    description: |
+      Условия, ограничивающие право потребителя на отказ от услуг, навязывающие
+      штрафы за расторжение или ограничивающие выбор подсудности, являются
+      ничтожными. Штраф в пользу потребителя — 50 % от присуждённой суммы.
+    legal_base: "ст. 16, 28, 29, 32 Закона РФ от 07.02.1992 № 2300-1 «О ЗПП»"
+    required_triggers: ["consumer_party"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "штраф за отказ потребителя"
+        - "ограничение прав потребителя"
+        - "потребитель обязан"
+        - "невозвратный"
+        - "без возврата"
+        - "подсудность по месту нахождения исполнителя"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "потребитель"
+        - "штраф за отказ"
+        - "невозвратный"
+        - "ЗоЗПП"
+      rerank: true
+
+  - id: "illegal_staff_leasing"
+    name: "Незаконный заёмный труд / аутстаффинг без аккредитации (ФЗ-116)"
+    description: |
+      Предоставление персонала допускается только аккредитованными частными
+      агентствами занятости (ФЗ от 05.05.2014 № 116-ФЗ). Фактическое предоставление
+      работников без аккредитации — незаконный заёмный труд (ст. 56.1 ТК РФ).
+    legal_base: "ст. 56.1 ТК РФ, ФЗ от 05.05.2014 № 116-ФЗ"
+    required_triggers: ["outsourcing"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "предоставление персонала"
+        - "аутстаффинг"
+        - "заёмный труд"
+        - "направление работников"
+        - "работники исполнителя на территории заказчика"
+        - "под руководством заказчика"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "предоставление персонала"
+        - "аутстаффинг"
+        - "заёмный труд"
+        - "аккредитация"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: service_subject_extraction
+    name: "Услуги: базовое извлечение предмета договора"
+    description: "Извлекает виды услуг, объём, стандарты качества, ссылку на ТЗ/спецификацию"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "услуги"
+        - "предмет договора"
+        - "оказание услуг"
+        - "перечень услуг"
+        - "объём услуг"
+        - "виды услуг"
+        - "техническое задание"
+        - "спецификация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(возмездн(ое|ого)\\s+оказани(е|я)\\s+услуг)"
+        - "(?i)(исполнитель.*обязуется.*оказа(ть|ывать).*услуг)"
+        - "(?i)(предмет.*договор.*услуг)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Найди в тексте сведения о предмете договора.
+
+        Ответь строго в JSON:
+        {
+          "service_types": ["<перечень видов услуг>"],
+          "service_description_specificity": "<detailed / generic / vague / not_found>",
+          "tz_reference": "<ссылка на ТЗ/спецификацию (номер приложения) или not_found>",
+          "volume_defined": "<yes / no / not_found>",
+          "quality_standards_referenced": "<yes / no / not_found>",
+          "deliverables_listed": "<yes / no / not_found>"
+        }
+
+        - "detailed" — конкретный перечень действий с объёмом
+        - "generic" — общее описание без конкретики
+        - "vague" — формулировка типа «оказать услуги» без расшифровки
+
+        ВАЖНО: Возвращай only_found_in_text. Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "предмет договора"
+        - "услуги"
+        - "перечень услуг"
+        - "техническое задание"
+        - "объём"
+        - "спецификация"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "service_types"
+          type: "list"
+          description: "Виды оказываемых услуг"
+        - name: "service_description_specificity"
+          type: "string"
+          allowed_values: ["detailed", "generic", "vague", "not_found"]
+          description: "Уровень детализации описания предмета"
+        - name: "tz_reference"
+          type: "string"
+          keyword_hints: ["техническое задание", "ТЗ", "приложение", "спецификация"]
+          description: "Ссылка на ТЗ/спецификацию"
+        - name: "deliverables_listed"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Указаны ли конкретные deliverables"
+      store_payload: true
+
+  - id: detailed_service_specification_check
+    name: "Детальная спецификация услуг / ТЗ (ст. 779, 432 ГК РФ)"
+    description: |
+      Проверяет наличие детальной спецификации или ТЗ. Без конкретики невозможно
+      доказать ненадлежащее исполнение. Исполнитель может ограничиться формальными
+      действиями. Особенно критично для консультационных и IT-услуг.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "техническое задание"
+        - "спецификация услуг"
+        - "перечень конкретных действий"
+        - "объём услуг"
+        - "стандарты качества"
+        - "методология оказания"
+        - "ключевые показатели"
+        - "регламент оказания услуг"
+        - "описание услуг"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)перечень.*услуг.*определен.*в.*приложении"
+        - "(?i)услуги.*оказываются.*в.*соответствии.*с.*техническ"
+        - "(?i)техническ(ое|ого)\\s+задани"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Проверь наличие и полноту спецификации услуг (ст. 779, 432 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "specification_present": "<yes / referenced_but_missing / not_found>",
+          "specification_type": "<tz / appendix / in_body / not_found>",
+          "actions_listed": "<yes / no / not_found>",
+          "methodology_described": "<yes / no / not_found>",
+          "success_criteria_present": "<yes / no / not_found>",
+          "risk_of_vagueness": "<high / medium / low / none>",
+          "specification_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "техническое задание"
+        - "спецификация"
+        - "перечень услуг"
+        - "методология"
+        - "стандарты качества"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "specification_present"
+          type: "string"
+          allowed_values: ["yes", "referenced_but_missing", "not_found"]
+          description: "Наличие спецификации"
+        - name: "risk_of_vagueness"
+          type: "string"
+          allowed_values: ["high", "medium", "low", "none"]
+          description: "Риск размытости предмета"
+      store_payload: true
+
+  - id: payment_acceptance_link_check
+    name: "Привязка оплаты к акту/отчёту (ст. 781 ГК РФ)"
+    description: |
+      Проверяет привязку оплаты к подписанию акта об оказании услуг и/или отчёту
+      с детализацией. «Акт на сумму X без расшифровки» — риск снятия расходов
+      налоговой как необоснованных (ст. 252 НК РФ).
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "акт об оказании услуг"
+        - "акт оказанных услуг"
+        - "акт сдачи-приёмки"
+        - "отчёт об оказанных услугах"
+        - "детализация услуг"
+        - "подписание акта"
+        - "мотивированный отказ"
+        - "оплата после подписания"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт.*оказ(ания|анных).*услуг"
+        - "(?i)оплат(а|ы).*после.*подписани.*акт"
+        - "(?i)отчёт.*с.*детализаци"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Проверь порядок приёмки и привязку оплаты к акту/отчёту (ст. 781 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "act_required": "<yes / no / not_found>",
+          "act_detailed": "<yes / no / unclear / not_found>",
+          "report_required": "<yes / no / not_found>",
+          "payment_linked_to_act": "<yes / no / not_found>",
+          "review_period_days": "<число дней или not_found>",
+          "auto_acceptance_clause": "<yes / no / not_found>",
+          "acceptance_snippet": "<цитата или not_found>"
+        }
+
+        - "auto_acceptance_clause" — если акт считается подписанным при отсутствии возражений
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "акт об оказании услуг"
+        - "отчёт"
+        - "детализация"
+        - "приёмка"
+        - "оплата"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "act_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Требуется ли акт"
+        - name: "payment_linked_to_act"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Привязана ли оплата к акту"
+        - name: "auto_acceptance_clause"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Автоматическая приёмка при молчании заказчика"
+      store_payload: true
+
+  - id: unilateral_refusal_terms
+    name: "Односторонний отказ: условия и последствия (ст. 782 ГК РФ)"
+    description: |
+      Проверяет условия одностороннего отказа каждой стороны.
+      Заказчик — при оплате фактических расходов; Исполнитель — при полном
+      возмещении убытков. Штрафы за расторжение («плата за выход») — спорная
+      практика; для потребителей — ничтожны.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "односторонний отказ"
+        - "отказ от исполнения"
+        - "расторжение"
+        - "фактически понесённые расходы"
+        - "прямые затраты"
+        - "штраф за расторжение"
+        - "плата за выход"
+        - "неустойка за расторжение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)односторонн(ий|его)\\s+отказ"
+        - "(?i)отказ(ать|ыва)ся\\s+от\\s+исполнени"
+        - "(?i)фактически\\s+понесённ(ые|ых)\\s+расход"
+      negative_keywords:
+        - "штраф в размере полной стоимости"
+        - "оплата 100% цены"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Проверь условия одностороннего отказа от исполнения (ст. 782 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "client_refusal_right": "<statutory / modified / restricted / not_found>",
+          "client_refusal_cost": "<actual_expenses / penalty / full_price / not_specified / not_found>",
+          "provider_refusal_right": "<statutory / modified / restricted / not_found>",
+          "provider_refusal_cost": "<full_damages / limited / not_specified / not_found>",
+          "exit_fee_present": "<yes / no / not_found>",
+          "exit_fee_amount": "<сумма/описание или not_found>",
+          "refusal_snippet": "<цитата или not_found>"
+        }
+
+        - "statutory" — право по закону без изменений
+        - "modified" — право изменено/ограничено договором
+        - "restricted" — право существенно ограничено
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "односторонний отказ"
+        - "расторжение"
+        - "фактические расходы"
+        - "ст. 782"
+        - "штраф"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "client_refusal_cost"
+          type: "string"
+          allowed_values: ["actual_expenses", "penalty", "full_price", "not_specified", "not_found"]
+          description: "Стоимость отказа для заказчика"
+        - name: "exit_fee_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие платы за выход"
+      store_payload: true
+
+  - id: ip_rights_on_service_results
+    name: "ИП на результаты услуг (ст. 1296, 1297 ГК РФ)"
+    description: |
+      Проверяет условия передачи прав на объекты ИС, созданные при оказании услуг
+      (отчёты, дизайн, ПО, контент, стратегии). Без условия о передаче прав
+      заказчик не сможет использовать результат — права остаются у исполнителя.
+    triggers:
+      any: ["ip_creation_services"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "исключительные права"
+        - "интеллектуальная собственность"
+        - "авторские права"
+        - "передача прав"
+        - "отчуждение прав"
+        - "результаты интеллектуальной деятельности"
+        - "лицензия"
+        - "служебное произведение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)исключительн(ые|ое|ых)\\s+прав"
+        - "(?i)интеллектуальн(ой|ую|ая)\\s+собственност"
+        - "(?i)передач(а|и)\\s+прав.*результат"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Проверь условия передачи прав на интеллектуальную собственность (ст. 1296, 1297 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "ip_clause_present": "<yes / no / not_found>",
+          "ip_transfer_type": "<full_transfer / license / retained_by_provider / not_specified / not_found>",
+          "ip_transfer_moment": "<upon_payment / upon_creation / upon_acceptance / not_specified / not_found>",
+          "ip_objects_listed": "<yes / no / not_found>",
+          "ip_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "исключительные права"
+        - "интеллектуальная собственность"
+        - "передача прав"
+        - "авторские права"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "ip_transfer_type"
+          type: "string"
+          allowed_values: ["full_transfer", "license", "retained_by_provider", "not_specified", "not_found"]
+          description: "Тип передачи прав на ИС"
+        - name: "ip_transfer_moment"
+          type: "string"
+          allowed_values: ["upon_payment", "upon_creation", "upon_acceptance", "not_specified", "not_found"]
+          description: "Момент перехода прав"
+      store_payload: true
+
+  - id: personal_performance_subcontracting
+    name: "Личное исполнение и право привлечения третьих лиц (ст. 780 ГК РФ)"
+    description: |
+      По умолчанию исполнитель обязан оказывать услуги ЛИЧНО (ст. 780 ГК РФ).
+      Для агентств и фирм необходимо явное право привлекать третьих лиц.
+      Без этого привлечение субисполнителей — нарушение договора.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "лично"
+        - "привлечение третьих лиц"
+        - "субподрядчик"
+        - "соисполнитель"
+        - "своими силами"
+        - "без права привлечения"
+        - "вправе привлекать"
+        - "с согласия заказчика"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)исполнитель.*оказывает.*услуги.*лично"
+        - "(?i)вправе.*привлек(ать|ать).*третьих\\s+лиц"
+        - "(?i)без\\s+права\\s+привлечени"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Проверь условия личного исполнения и привлечения третьих лиц (ст. 780 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "personal_performance_required": "<yes / no / not_specified / not_found>",
+          "subcontracting_allowed": "<yes_without_consent / yes_with_consent / prohibited / not_specified / not_found>",
+          "provider_remains_liable": "<yes / no / not_specified / not_found>",
+          "subcontracting_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "лично"
+        - "привлечение третьих лиц"
+        - "субподрядчик"
+        - "ст. 780"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "personal_performance_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_specified", "not_found"]
+          description: "Требование личного исполнения"
+        - name: "subcontracting_allowed"
+          type: "string"
+          allowed_values: ["yes_without_consent", "yes_with_consent", "prohibited", "not_specified", "not_found"]
+          description: "Допустимость привлечения третьих лиц"
+      store_payload: true
+
+  - id: sla_kpi_metrics_check
+    name: "SLA/KPI: метрики качества обслуживания"
+    description: |
+      Проверяет наличие измеримых метрик качества (время реакции, время решения,
+      доступность, uptime, KPI). Без SLA невозможно объективно оценить качество услуг.
+    triggers:
+      any: ["sla_based", "it_services"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "SLA"
+        - "Service Level Agreement"
+        - "уровень обслуживания"
+        - "время реакции"
+        - "время решения"
+        - "доступность"
+        - "uptime"
+        - "KPI"
+        - "ключевые показатели"
+        - "метрика"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bSLA\\b"
+        - "(?i)\\bKPI\\b"
+        - "(?i)время\\s+реакции.*\\d"
+        - "(?i)доступност.*\\d+.*%"
+        - "(?i)uptime.*\\d"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Проверь наличие SLA/KPI — измеримых метрик качества обслуживания.
+
+        Ответь строго в JSON:
+        {
+          "sla_present": "<yes / no / not_found>",
+          "sla_metrics": ["<перечень метрик>"],
+          "penalty_for_sla_breach": "<yes / no / not_found>",
+          "sla_review_period": "<monthly / quarterly / annual / not_specified / not_found>",
+          "sla_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "SLA"
+        - "KPI"
+        - "уровень обслуживания"
+        - "время реакции"
+        - "доступность"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "sla_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие SLA"
+        - name: "penalty_for_sla_breach"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Штраф за нарушение SLA"
+      store_payload: true
+
+  - id: personal_data_processing_terms
+    name: "Персональные данные: поручение на обработку (ФЗ-152)"
+    description: |
+      Проверяет наличие поручения на обработку ПДн, перечня обрабатываемых данных,
+      целей и сроков обработки, обязанностей по защите.
+    triggers:
+      any: ["personal_data_processing"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "персональные данные"
+        - "обработка персональных данных"
+        - "поручение на обработку"
+        - "оператор персональных данных"
+        - "субъект персональных данных"
+        - "ФЗ-152"
+        - "согласие на обработку"
+        - "трансграничная передача"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)персональн(ые|ых)\\s+данн"
+        - "(?i)поручени(е|я)\\s+на\\s+обработк"
+        - "(?i)ФЗ[\\s\\-]*152"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Проверь условия обработки персональных данных (ФЗ-152).
+
+        Ответь строго в JSON:
+        {
+          "pd_processing_mentioned": "<yes / no>",
+          "pd_assignment_present": "<yes / no / not_found>",
+          "pd_categories_listed": "<yes / no / not_found>",
+          "pd_purposes_defined": "<yes / no / not_found>",
+          "pd_security_measures": "<yes / no / not_found>",
+          "pd_cross_border_transfer": "<yes / no / not_found>",
+          "pd_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "персональные данные"
+        - "поручение на обработку"
+        - "ФЗ-152"
+        - "оператор"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "pd_assignment_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие поручения на обработку ПДн"
+        - name: "pd_security_measures"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие мер по защите ПДн"
+      store_payload: true
+
+  - id: subscription_take_or_pay_check
+    name: "Абонентский договор: take-or-pay (ст. 429.4 ГК РФ)"
+    description: |
+      Проверяет наличие условия «take or pay» — оплата производится независимо
+      от фактического объёма потреблённых услуг. Без этого заказчик потребует
+      возврата аванса как неосновательного обогащения.
+    triggers:
+      any: ["subscription_model"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "абонентская плата"
+        - "независимо от фактического объёма"
+        - "фиксированный платёж"
+        - "оплата за доступ"
+        - "подписка"
+        - "take or pay"
+        - "абонентский"
+        - "ст. 429.4"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)абонентск(ая|ой|ую)\\s+плат"
+        - "(?i)независимо\\s+от\\s+фактическ"
+        - "(?i)ст\\.?\\s*429\\.4"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Проверь, является ли договор абонентским (ст. 429.4 ГК РФ) и есть ли условие take-or-pay.
+
+        Ответь строго в JSON:
+        {
+          "subscription_model": "<yes / no / not_found>",
+          "take_or_pay_clause": "<yes / no / not_found>",
+          "fixed_fee_amount": "<сумма или not_found>",
+          "unused_services_refundable": "<yes / no / not_specified / not_found>",
+          "subscription_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "абонентская плата"
+        - "независимо от объёма"
+        - "take or pay"
+        - "ст. 429.4"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "take_or_pay_clause"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие условия take-or-pay"
+        - name: "unused_services_refundable"
+          type: "string"
+          allowed_values: ["yes", "no", "not_specified", "not_found"]
+          description: "Возвращаются ли деньги за неиспользованные услуги"
+      store_payload: true
+
+  - id: labor_requalification_risk_check
+    name: "Признаки трудовых отношений: риск переквалификации (ст. 15, 19.1 ТК РФ)"
+    description: |
+      Проверяет наличие в тексте договора признаков, указывающих на трудовые
+      отношения (подчинение ПВТР, трудовая функция, рабочее место, режим работы,
+      ежемесячная оплата в фиксированную дату). Переквалификация влечёт начисление
+      НДФЛ, страховых взносов и штрафы.
+    triggers:
+      any: ["individual_party"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "трудовая функция"
+        - "рабочее место"
+        - "правила внутреннего трудового распорядка"
+        - "ПВТР"
+        - "подчинение"
+        - "режим работы"
+        - "должностная инструкция"
+        - "табель учёта рабочего времени"
+        - "ежемесячная фиксированная оплата"
+        - "заработная плата"
+      keyword_mode: "any"
+      negative_keywords:
+        - "конкретный результат"
+        - "акт об оказании услуг"
+        - "объём услуг"
+      regex_patterns:
+        - "(?i)трудов(ая|ую|ой)\\s+функци"
+        - "(?i)рабоч(ее|его)\\s+мест"
+        - "(?i)правил(а|ам)\\s+внутреннего\\s+трудового"
+        - "(?i)должностн(ая|ую|ой)\\s+инструкци"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Проверь наличие признаков, указывающих на трудовые отношения (ст. 15, 19.1 ТК РФ).
+
+        Ответь строго в JSON:
+        {
+          "labor_signs_detected": "<yes / no>",
+          "labor_signs_list": ["<перечень обнаруженных признаков>"],
+          "requalification_risk": "<high / medium / low / none>",
+          "labor_snippet": "<цитата или not_found>"
+        }
+
+        Признаки трудовых отношений:
+        - подчинение ПВТР/режиму работы
+        - указание рабочего места
+        - трудовая функция вместо конкретных услуг
+        - ежемесячная оплата в фиксированную дату
+        - должностная инструкция
+        - подчинённость руководителю
+
+        ВАЖНО: Если признаков нет — пиши "no" и пустой список.
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "трудовая функция"
+        - "рабочее место"
+        - "подчинение"
+        - "режим работы"
+        - "ПВТР"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "requalification_risk"
+          type: "string"
+          allowed_values: ["high", "medium", "low", "none"]
+          description: "Уровень риска переквалификации"
+        - name: "labor_signs_detected"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Обнаружены ли признаки трудовых отношений"
+      store_payload: true
+
+  - id: success_fee_validity_check
+    name: "Гонорар успеха / success fee: допустимость и оформление"
+    description: |
+      Проверяет наличие условия о гонораре успеха. Для юридических услуг
+      такое условие оспоримо (Информписьмо ВАС № 48, определение КС РФ
+      № 1-П от 23.01.2007). Для консалтинга, маркетинга, M&A —
+      допустимо, но требует привязки к объективному результату.
+    triggers:
+      any: ["success_fee"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "гонорар успеха"
+        - "success fee"
+        - "вознаграждение за результат"
+        - "премия за достижение"
+        - "процент от выигранной суммы"
+        - "процент от экономии"
+        - "бонус за результат"
+        - "дополнительное вознаграждение в случае"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(гонорар|вознагражден|прем).*успех"
+        - "(?i)success\\s*fee"
+        - "(?i)процент.*от.*(выигр|сэконом|экономи|суммы\\s+иска)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Проверь наличие условия о гонораре успеха (success fee).
+
+        Ответь строго в JSON:
+        {
+          "success_fee_present": "<yes / no / not_found>",
+          "success_fee_trigger": "<описание события, при котором возникает гонорар, или not_found>",
+          "success_fee_amount": "<сумма/процент или not_found>",
+          "service_type_for_fee": "<legal / consulting / marketing / other / not_found>",
+          "validity_risk": "<high / medium / low / none>",
+          "success_fee_snippet": "<цитата или not_found>"
+        }
+
+        Контекст: для юридических услуг гонорар успеха оспорим (ИП ВАС № 48,
+        определение КС РФ № 1-П). Для иных услуг — допустим при привязке к
+        объективным показателям.
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "гонорар успеха"
+        - "success fee"
+        - "вознаграждение за результат"
+        - "дополнительное вознаграждение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "success_fee_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие гонорара успеха"
+        - name: "validity_risk"
+          type: "string"
+          allowed_values: ["high", "medium", "low", "none"]
+          description: "Риск оспаривания"
+      store_payload: true
+
+  - id: impossibility_risk_allocation
+    name: "Невозможность исполнения не по вине сторон (ст. 781 п. 3 ГК РФ)"
+    description: |
+      Проверяет распределение рисков при невозможности оказания услуг
+      по обстоятельствам, за которые ни одна сторона не отвечает.
+      По умолчанию заказчик возмещает фактически понесённые расходы.
+      Договор может изменять это правило.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "невозможность исполнения"
+        - "невозможность оказания услуг"
+        - "обстоятельства, за которые ни одна сторона не отвечает"
+        - "фактически понесённые расходы"
+        - "частичная оплата"
+        - "пропорциональная оплата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)невозможност(ь|и)\\s+(исполнен|оказан)"
+        - "(?i)ни\\s+одна\\s+(из\\s+)?сторон.*не\\s+отвечает"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор возмездного оказания услуг.
+        Проверь распределение рисков при невозможности исполнения (ст. 781 п. 3 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "impossibility_clause_present": "<yes / no / not_found>",
+          "cost_allocation": "<actual_expenses / proportional / full_price / no_payment / not_specified / not_found>",
+          "impossibility_snippet": "<цитата или not_found>"
+        }
+
+        - "actual_expenses" — заказчик оплачивает фактические расходы (закон по умолчанию)
+        - "proportional" — пропорционально оказанному объёму
+        - "full_price" — оплата в полном объёме (невыгодно заказчику)
+        - "no_payment" — расходы не возмещаются (невыгодно исполнителю)
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "невозможность исполнения"
+        - "невозможность оказания"
+        - "фактически понесённые расходы"
+        - "ст. 781"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "impossibility_clause_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие условия о невозможности исполнения"
+        - name: "cost_allocation"
+          type: "string"
+          allowed_values: ["actual_expenses", "proportional", "full_price", "no_payment", "not_specified", "not_found"]
+          description: "Распределение расходов"
+      store_payload: true
+
+  - id: cross_border_vat_place_check
+    name: "Трансграничные услуги: место реализации для НДС (ст. 148 НК РФ)"
+    description: |
+      Проверяет определение места реализации услуг при трансграничном оказании.
+      От правильного определения зависит, возникает ли обязанность по НДС
+      у российской стороны (налоговый агент) или у иностранного исполнителя.
+    triggers:
+      any: ["cross_border_services"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "место реализации"
+        - "место оказания услуг"
+        - "налоговый агент"
+        - "НДС при импорте услуг"
+        - "ст. 148 НК РФ"
+        - "иностранный исполнитель"
+        - "нерезидент"
+        - "валютный контроль"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)мест(о|а)\\s+(реализац|оказани)"
+        - "(?i)налогов(ый|ого)\\s+агент"
+        - "(?i)ст\\.?\\s*148\\s*НК"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор оказания услуг с иностранным элементом.
+        Проверь определение места реализации для НДС (ст. 148 НК РФ).
+
+        Ответь строго в JSON:
+        {
+          "cross_border_detected": "<yes / no>",
+          "place_of_supply_defined": "<yes / no / not_found>",
+          "tax_agent_clause": "<yes / no / not_found>",
+          "vat_risk": "<high / medium / low / none>",
+          "cross_border_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "место реализации"
+        - "налоговый агент"
+        - "НДС"
+        - "иностранный исполнитель"
+        - "ст. 148 НК"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "place_of_supply_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Определено ли место реализации"
+        - name: "tax_agent_clause"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие оговорки о налоговом агенте"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "price_and_payment_terms"
+    name: "Стоимость услуг и порядок расчётов (ст. 781 ГК РФ)"
+    description: "Цена, порядок оплаты (аванс, поэтапная, абонентская, почасовая), сроки платежей"
+    legal_base: "ст. 781 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "цена"
+        - "стоимость"
+        - "вознаграждение"
+        - "оплата"
+        - "рублей"
+        - "аванс"
+        - "абонентская плата"
+        - "почасовая ставка"
+        - "за единицу услуги"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)стоимост(ь|и)\\s+услуг.*\\d"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+        - "(?i)оплат(а|ы).*услуг"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "price_amount"
+          type: "number"
+          keyword_hints: ["стоимость", "цена", "вознаграждение", "рублей"]
+          unit: "RUB"
+          description: "Стоимость услуг"
+        - name: "pricing_model"
+          type: "string"
+          allowed_values: ["fixed", "hourly", "subscription", "per_unit", "mixed", "not_found"]
+          keyword_hints: ["твёрдая цена", "почасовая", "абонентская", "за единицу"]
+          description: "Модель ценообразования"
+        - name: "price_includes_vat"
+          type: "string"
+          allowed_values: ["yes", "no", "not_applicable", "unclear", "not_found"]
+          keyword_hints: ["в том числе НДС", "без НДС", "НДС не облагается"]
+          description: "Включает ли цена НДС"
+      store_payload: true
+
+  - id: "parties_identification"
+    name: "Стороны договора: идентификация заказчика и исполнителя"
+    description: "Проверяет наличие и достаточность идентификации сторон"
+    legal_base: "ст. 432, 779 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "заказчик"
+        - "исполнитель"
+        - "именуем"
+        - "в лице"
+        - "действующего на основании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(заказчик|исполнитель).*именуем"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "client_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "state_entity", "unclear"]
+          keyword_hints: ["ООО", "ПАО", "АО", "гражданин", "ИП"]
+          description: "Тип заказчика"
+        - name: "provider_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "self_employed", "unclear"]
+          keyword_hints: ["ООО", "ПАО", "АО", "гражданин", "ИП", "самозанятый"]
+          description: "Тип исполнителя"
+      store_payload: true
+
+  - id: "subject_services_defined"
+    name: "Предмет договора: конкретный перечень услуг (ст. 779 ГК РФ)"
+    description: "Проверяет наличие конкретного описания видов и объёма услуг"
+    legal_base: "ст. 779, 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "предмет договора"
+        - "перечень услуг"
+        - "виды услуг"
+        - "объём услуг"
+        - "оказать услуги"
+        - "оказывать услуги"
+        - "услуги включают"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)предмет.*договор"
+        - "(?i)исполнитель.*обязуется.*оказа(ть|ывать)"
+
+  - id: "service_period_defined"
+    name: "Срок оказания услуг (ст. 708 ГК РФ по аналогии)"
+    description: "Проверяет наличие сроков оказания услуг"
+    legal_base: "ст. 190, 708 ГК РФ (по аналогии)"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок оказания"
+        - "период оказания"
+        - "дата начала"
+        - "дата окончания"
+        - "в течение"
+        - "с момента"
+        - "до"
+        - "календарный план"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)срок\\s+оказани"
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+        - "(?i)(в\\s+течение|с\\s+момента)\\s+\\d+"
+
+  - id: "acceptance_act_procedure"
+    name: "Порядок приёмки: акт об оказании услуг"
+    description: "Проверяет наличие процедуры подписания акта, сроков рассмотрения, оснований отказа"
+    legal_base: "ст. 720, 783 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "акт об оказании услуг"
+        - "акт оказанных услуг"
+        - "акт сдачи-приёмки"
+        - "подписание акта"
+        - "мотивированный отказ"
+        - "срок рассмотрения"
+        - "считаются принятыми"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт.*оказ(ания|анных).*услуг"
+        - "(?i)мотивированн(ый|ого)\\s+отказ"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "review_period_days"
+          type: "number"
+          keyword_hints: ["в течение", "рабочих дней", "календарных дней", "срок рассмотрения"]
+          unit: "days"
+          description: "Срок рассмотрения акта заказчиком"
+        - name: "auto_acceptance"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["считаются принятыми", "считаются оказанными", "молчание"]
+          description: "Автоматическая приёмка при молчании"
+      store_payload: true
+
+  - id: "reporting_detail_requirements"
+    name: "Отчётность исполнителя: детализация для налогов и приёмки"
+    description: "Проверяет наличие требования к детальному отчёту (для ст. 252 НК РФ)"
+    legal_base: "ст. 252 НК РФ, ст. 9 ФЗ-402"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "отчёт об оказанных услугах"
+        - "детализация услуг"
+        - "акт с расшифровкой"
+        - "почасовой отчёт"
+        - "перечень выполненных действий"
+        - "документальное подтверждение"
+        - "тайм-шит"
+        - "timesheet"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)отчёт.*с.*детализаци"
+        - "(?i)перечень.*выполненн(ых|ых)\\s+действ"
+
+  - id: "termination_and_refusal"
+    name: "Расторжение и односторонний отказ (ст. 782 ГК РФ)"
+    description: "Проверяет условия расторжения и одностороннего отказа"
+    legal_base: "ст. 782 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расторжение"
+        - "односторонний отказ"
+        - "отказ от исполнения"
+        - "фактически понесённые расходы"
+        - "штраф за расторжение"
+        - "плата за выход"
+        - "возмещение убытков"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расторж(ение|ении)"
+        - "(?i)односторонн(ий|его)\\s+отказ"
+
+  - id: "auto_renewal_clause"
+    name: "Автопролонгация и условия продления"
+    description: "Проверяет наличие условия об автоматическом продлении договора"
+    legal_base: "ГК РФ (общие положения)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "автопролонгация"
+        - "автоматическое продление"
+        - "продлевается на тот же срок"
+        - "если ни одна из сторон не уведомит"
+        - "пролонгация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)автоматическ(и|ое)\\s+продлева(ется|ть)"
+        - "(?i)продлева(ется|ть)\\s+на\\s+(тот\\s+же|аналогичн)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "notice_period_days"
+          type: "number"
+          keyword_hints: ["за", "до окончания", "уведомить", "календарных дней"]
+          unit: "days"
+          description: "Срок уведомления о непродлении"
+        - name: "renewal_period"
+          type: "string"
+          keyword_hints: ["на тот же срок", "на один год", "на аналогичный"]
+          description: "Период продления"
+      store_payload: true
+
+  - id: "quality_standards_warranty"
+    name: "Стандарты качества и гарантии исполнения (ст. 721, 723, 783 ГК РФ)"
+    description: "Проверяет наличие стандартов качества, гарантий, порядка устранения недостатков"
+    legal_base: "ст. 721, 723, 783 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "стандарты качества"
+        - "требования к качеству"
+        - "гарантийные обязательства"
+        - "устранение недостатков"
+        - "соразмерное уменьшение цены"
+        - "профессиональный стандарт"
+        - "обычно предъявляемые требования"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)стандарт(ы|ов)\\s+качеств"
+        - "(?i)устранени(е|я)\\s+недостатк"
+
+  - id: "liability_cap"
+    name: "Лимит ответственности исполнителя (ст. 15, 393, 401 ГК РФ)"
+    description: "Проверяет наличие ограничения совокупной ответственности"
+    legal_base: "ст. 15, 393, 401 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ответственность ограничена"
+        - "совокупная ответственность"
+        - "не превышает стоимости"
+        - "в пределах цены договора"
+        - "косвенные убытки"
+        - "упущенная выгода"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ответственност.*ограничен"
+        - "(?i)совокупн.*ответственност.*не.*превыша"
+        - "(?i)не\\s+возмеща(ются|ется).*косвенн"
+
+  - id: "penalty_for_delay"
+    name: "Неустойка за нарушение сроков/качества (ст. 330 ГК РФ)"
+    description: "Проверяет наличие и размер неустойки для обеих сторон"
+    legal_base: "ст. 330 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "неустойка"
+        - "пеня"
+        - "штраф"
+        - "за каждый день просрочки"
+        - "процент за просрочку"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неустойк(а|и|у).*\\d"
+        - "(?i)пен(я|и|ю).*\\d.*%"
+        - "(?i)за\\s+каждый\\s+день\\s+просрочк"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "penalty_rate"
+          type: "string"
+          keyword_hints: ["неустойка", "пеня", "за каждый день"]
+          description: "Размер неустойки"
+      store_payload: true
+
+  - id: "downtime_payment_customer_fault"
+    name: "Оплата простоя по вине заказчика (ст. 781 п. 2 ГК РФ)"
+    description: "Проверяет наличие условия об оплате при неоказании услуг по вине заказчика"
+    legal_base: "ст. 781 п. 2 ГК РФ, ст. 406 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "по вине заказчика"
+        - "подлежат оплате в полном объёме"
+        - "оплата простоя"
+        - "неоказание по вине заказчика"
+        - "компенсация за простой"
+        - "непредоставление информации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)по\\s+вине\\s+заказчик.*подлежат\\s+оплат"
+        - "(?i)оплат(а|е)\\s+простоя"
+
+  - id: "retention_of_results_until_payment"
+    name: "Удержание результатов до оплаты (ст. 712, 359 ГК РФ)"
+    description: "Проверяет наличие права исполнителя удерживать результаты до полной оплаты"
+    legal_base: "ст. 712, 359 ГК РФ (по аналогии)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "право удержания"
+        - "передача результатов после оплаты"
+        - "сохранение прав до оплаты"
+        - "удерживать до полной оплаты"
+        - "не передавать результат"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)удержива(ть|ет).*результат.*до.*оплат"
+        - "(?i)передач(а|и).*после.*полной\\s+оплат"
+
+  - id: "confidentiality_nda"
+    name: "Конфиденциальность и NDA (ФЗ-98, ФЗ-152)"
+    description: "Проверяет наличие условий о конфиденциальности и неразглашении"
+    legal_base: "ФЗ № 98-ФЗ «О коммерческой тайне», ФЗ-152"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальная информация"
+        - "коммерческая тайна"
+        - "неразглашение"
+        - "NDA"
+        - "режим конфиденциальности"
+        - "санкции за разглашение"
+        - "персональные данные"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)не\\s+разглаш"
+        - "(?i)коммерческ(ая|ой)\\s+тайн"
+
+  - id: "insurance_professional_liability"
+    name: "Страхование профессиональной ответственности исполнителя"
+    description: "Проверяет наличие требования о страховании ответственности"
+    legal_base: "ГК РФ (общие положения)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "страхование ответственности"
+        - "страховой полис"
+        - "профессиональная ответственность"
+        - "страховое покрытие"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)страхов(ание|ка).*ответственност"
+
+  - id: "force_majeure"
+    name: "Форс-мажор и обстоятельства непреодолимой силы"
+    description: "Проверяет наличие оговорки о форс-мажоре"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "освобождение от ответственности"
+        - "уведомление о форс-мажоре"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс[\\s\\-]?мажор"
+        - "(?i)непреодолим(ой|ая)\\s+сил"
+
+  - id: "dispute_resolution"
+    name: "Разрешение споров: подсудность и претензионный порядок"
+    description: "Проверяет наличие претензионного порядка и подсудности"
+    legal_base: "АПК РФ, ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "претензионный порядок"
+        - "арбитражный суд"
+        - "подсудность"
+        - "медиация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)претензионн(ый|ого)\\s+порядк"
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+
+  - id: "anticorruption_clause"
+    name: "Антикоррупционная оговорка"
+    description: "Проверяет наличие антикоррупционных заверений"
+    legal_base: "ФЗ № 273-ФЗ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "антикоррупционная оговорка"
+        - "противодействие коррупции"
+        - "взятка"
+        - "коммерческий подкуп"
+        - "compliance"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)антикоррупц"
+        - "(?i)противодейств.*коррупц"
+
+  - id: "vat_and_tax_allocation"
+    name: "НДС/налоги/распределение расходов"
+    description: "Проверяет наличие налоговых оговорок"
+    legal_base: "НК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "НДС"
+        - "в том числе НДС"
+        - "без НДС"
+        - "налог"
+        - "налоговый агент"
+        - "самозанятый"
+        - "налог на профессиональный доход"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bНДС\\b"
+        - "(?i)налог.*на.*профессиональн"
+
+  - id: "governing_law"
+    name: "Применимое право"
+    description: "Проверяет указание применимого законодательства"
+    legal_base: "ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "применимое право"
+        - "регулируется законодательством"
+        - "Российской Федерации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)законодательств(о|ом)\\s+Российск"
+
+  - id: "assignment_restriction"
+    name: "Уступка прав / перевод долга: ограничения"
+    description: "Проверяет ограничения на уступку прав и перевод долга"
+    legal_base: "ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "уступка"
+        - "переуступка"
+        - "перевод долга"
+        - "без согласия"
+        - "с согласия другой стороны"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уступк(а|и).*прав"
+        - "(?i)перевод\\s+долга"
+
+  - id: "consumer_protection_notice"
+    name: "Защита прав потребителей (ЗоЗПП)"
+    description: "Проверяет наличие условий, противоречащих ЗоЗПП (при оказании услуг гражданам)"
+    legal_base: "Закон РФ от 07.02.1992 № 2300-1"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["consumer_party"]
+    rules:
+      keywords:
+        - "потребитель"
+        - "для личных нужд"
+        - "закон о защите прав потребителей"
+        - "право потребителя"
+        - "возврат денежных средств"
+      keyword_mode: "any"
+      negative_keywords:
+        - "штраф за отказ потребителя"
+        - "ограничение прав потребителя"
+      regex_patterns:
+        - "(?i)потребител"
+        - "(?i)для\\s+личн(ых|ого)"
+
+  - id: "license_confirmation"
+    name: "Подтверждение лицензии / аккредитации исполнителя"
+    description: "Проверяет наличие ссылки на лицензию для лицензируемых видов деятельности"
+    legal_base: "ФЗ от 04.05.2011 № 99-ФЗ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["licensed_activity"]
+    rules:
+      keywords:
+        - "лицензия"
+        - "номер лицензии"
+        - "аккредитация"
+        - "аттестат"
+        - "свидетельство"
+        - "допуск"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)лицензи(я|и|ю)\\s+№"
+        - "(?i)аккредитац(ия|ии)"
+
+  - id: "data_security_obligations"
+    name: "Безопасность данных и информационных систем"
+    description: "Проверяет наличие обязательств по защите данных при IT-услугах"
+    legal_base: "ФЗ-149 «Об информации», ФЗ-152"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["it_services"]
+    rules:
+      keywords:
+        - "безопасность данных"
+        - "защита информации"
+        - "резервное копирование"
+        - "бэкап"
+        - "восстановление данных"
+        - "доступ к данным"
+        - "шифрование"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)безопасност(ь|и)\\s+данн"
+        - "(?i)защит(а|ы)\\s+информац"
+
+  - id: "client_cooperation_obligations"
+    name: "Обязанности заказчика по содействию (ст. 718, 783 ГК РФ)"
+    description: "Проверяет наличие обязанностей заказчика: предоставление информации, доступа, документов, контактных лиц"
+    legal_base: "ст. 718, 783 ГК РФ (по аналогии с подрядом)"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "заказчик обязан предоставить"
+        - "содействие заказчика"
+        - "предоставление информации"
+        - "предоставление доступа"
+        - "контактное лицо"
+        - "ответственный представитель"
+        - "непредоставление информации"
+        - "заказчик несёт ответственность за"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заказчик\\s+обяз(ан|уется)\\s+предостав"
+        - "(?i)содействи(е|я)\\s+заказчик"
+
+  - id: "scope_change_management"
+    name: "Порядок изменения ТЗ / объёма услуг (change management)"
+    description: "Проверяет наличие порядка внесения изменений в спецификацию / ТЗ в процессе исполнения"
+    legal_base: "ст. 450, 452 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "изменение ТЗ"
+        - "изменение объёма услуг"
+        - "дополнительное соглашение"
+        - "change request"
+        - "запрос на изменение"
+        - "корректировка перечня услуг"
+        - "изменение спецификации"
+        - "пересмотр стоимости"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)изменени(е|я)\\s+(ТЗ|технического\\s+задания|объём|спецификац)"
+        - "(?i)дополнительн(ое|ого)\\s+соглашени"
+
+  - id: "data_return_on_termination"
+    name: "Возврат данных и материалов при расторжении"
+    description: "Проверяет наличие условий о возврате/удалении данных, документов и материалов заказчика при прекращении договора"
+    legal_base: "ГК РФ (общие положения), ФЗ-152"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "возврат данных"
+        - "возврат документов"
+        - "возврат материалов"
+        - "удаление данных"
+        - "уничтожение информации"
+        - "передача результатов при расторжении"
+        - "миграция данных"
+        - "экспорт данных"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возврат.*(данн|документ|материал)"
+        - "(?i)(удалени|уничтожени).*данн"
+        - "(?i)миграц(ия|ии)\\s+данн"
+
+  - id: "non_solicitation_clause"
+    name: "Запрет переманивания персонала (non-solicitation)"
+    description: "Проверяет наличие условия о запрете переманивания сотрудников другой стороны"
+    legal_base: "ст. 421 ГК РФ (свобода договора)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["outsourcing", "it_services", "consulting_services"]
+    rules:
+      keywords:
+        - "запрет переманивания"
+        - "non-solicitation"
+        - "не привлекать сотрудников"
+        - "не нанимать работников"
+        - "не переманивать"
+        - "запрет найма"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(запрет|не\\s+вправе).*переманива"
+        - "(?i)non[\\s\\-]?solicitation"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  service_subject_extraction:
+    text: >
+      Просим подтвердить по {doc_names}: (а) полный перечень видов услуг;
+      (б) объём/количество услуг; (в) ссылку на ТЗ/спецификацию;
+      (г) конкретные deliverables; (д) стандарты качества.
+    addressee: "Обе стороны"
+
+  detailed_service_specification_check:
+    text: >
+      В {doc_names} предмет услуг описан недостаточно конкретно. Просим предоставить
+      детальную спецификацию / ТЗ (ст. 779, 432 ГК РФ): (а) перечень конкретных действий;
+      (б) методологию оказания; (в) измеримые критерии приёмки;
+      (г) ожидаемые deliverables; (д) стандарты качества.
+    addressee: "Заказчик"
+
+  price_and_payment_terms:
+    text: >
+      Просим подтвердить по {doc_names}: (а) стоимость услуг цифрами и прописью;
+      (б) модель ценообразования (фиксированная / почасовая / абонентская);
+      (в) включает ли цена НДС; (г) порядок оплаты (аванс, этапы, постоплата);
+      (д) реквизиты для перечисления.
+    addressee: "Обе стороны"
+
+  payment_acceptance_link_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) форму акта об оказании услуг;
+      (б) требуется ли детальный отчёт (для ст. 252 НК РФ);
+      (в) срок рассмотрения акта заказчиком; (г) последствия молчания заказчика;
+      (д) порядок мотивированного отказа.
+    addressee: "Обе стороны"
+
+  acceptance_act_procedure:
+    text: >
+      Просим согласовать в {doc_names}: порядок подписания акта, срок рассмотрения,
+      основания для мотивированного отказа, условие автоматической приёмки.
+    addressee: "Обе стороны"
+
+  reporting_detail_requirements:
+    text: >
+      Просим включить в {doc_names} требование к детальному отчёту исполнителя:
+      перечень оказанных услуг, объём, даты, потраченное время (для почасовых).
+      Это необходимо для обоснования расходов (ст. 252 НК РФ).
+    addressee: "Юридический советник заказчика"
+
+  unilateral_refusal_terms:
+    text: >
+      Просим уточнить в {doc_names}: (а) право заказчика на односторонний отказ
+      (ст. 782 ГК РФ); (б) объём компенсации при отказе (фактические расходы);
+      (в) наличие/отсутствие «платы за выход»; (г) право исполнителя на отказ
+      и объём возмещения убытков заказчику; (д) порядок уведомления.
+    addressee: "Юридический советник"
+
+  termination_and_refusal:
+    text: >
+      Просим согласовать в {doc_names}: основания расторжения, порядок возврата
+      авансовых платежей, оплату фактически оказанных услуг, неустойки.
+    addressee: "Юридический советник"
+
+  ip_rights_on_service_results:
+    text: >
+      Просим уточнить в {doc_names}: (а) кому принадлежат исключительные права
+      на результаты услуг (отчёты, дизайн, ПО, контент); (б) момент перехода прав;
+      (в) объём передаваемых прав; (г) сохраняет ли исполнитель право использования
+      в портфолио.
+    addressee: "Юридический советник"
+
+  personal_performance_subcontracting:
+    text: >
+      Просим уточнить в {doc_names}: (а) обязан ли исполнитель оказывать услуги
+      лично (ст. 780 ГК РФ); (б) если нет — допускается ли привлечение третьих лиц
+      и на каких условиях; (в) сохраняет ли исполнитель ответственность за субисполнителей.
+    addressee: "Юридический советник"
+
+  sla_kpi_metrics_check:
+    text: >
+      Просим согласовать в {doc_names}: (а) перечень метрик SLA/KPI;
+      (б) целевые значения; (в) порядок измерения; (г) штрафы за нарушение;
+      (д) период оценки (месяц/квартал).
+    addressee: "Обе стороны"
+
+  personal_data_processing_terms:
+    text: >
+      Исполнитель по {doc_names} получает доступ к персональным данным.
+      Просим предоставить/включить: (а) поручение на обработку ПДн (ст. 6 ФЗ-152);
+      (б) перечень обрабатываемых категорий ПДн; (в) цели и сроки обработки;
+      (г) меры защиты; (д) обязательство по уведомлению об инцидентах.
+    addressee: "Юридический советник / DPO"
+
+  personal_data_processing_without_agreement:
+    text: >
+      ВНИМАНИЕ: в {doc_names} исполнитель обрабатывает персональные данные,
+      но поручение на обработку (ст. 6 ФЗ-152) отсутствует. Просим незамедлительно
+      оформить поручение во избежание штрафов по ст. 13.11 КоАП.
+    addressee: "Юридический советник / DPO"
+
+  subscription_take_or_pay_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) является ли договор абонентским
+      (ст. 429.4 ГК РФ); (б) условие take-or-pay; (в) возвращаются ли деньги
+      за неиспользованные услуги; (г) порядок изменения объёма пакета.
+    addressee: "Юридический советник"
+
+  labor_requalification_risk_check:
+    text: >
+      ВНИМАНИЕ: в {doc_names} обнаружены признаки трудовых отношений
+      (ст. 15, 19.1 ТК РФ). Просим: (а) исключить формулировки о подчинении
+      ПВТР, трудовой функции, рабочем месте; (б) убедиться, что договор
+      описывает конкретные услуги, а не трудовую функцию;
+      (в) предусмотреть приёмку по акту, а не ежемесячную «заработную плату».
+    addressee: "Юридический советник"
+
+  labor_contract_requalification_risk:
+    text: >
+      ВНИМАНИЕ: в {doc_names} с физическим лицом выявлены признаки трудовых отношений.
+      Просим провести ревизию договора на предмет соответствия ст. 15, 19.1 ТК РФ
+      и исключить элементы, указывающие на подчинённость и трудовую функцию.
+    addressee: "HR / Юридический советник"
+
+  license_confirmation:
+    text: >
+      Просим предоставить по {doc_names}: копию действующей лицензии/аккредитации
+      исполнителя, подтверждение её действительности на весь срок оказания услуг.
+    addressee: "Исполнитель"
+
+  licensed_activity_without_confirmation:
+    text: >
+      ВНИМАНИЕ: услуги по {doc_names} являются лицензируемой деятельностью,
+      но лицензия исполнителя не подтверждена. Просим незамедлительно предоставить
+      копию действующей лицензии / аттестата аккредитации.
+    addressee: "Исполнитель"
+
+  parties_identification:
+    text: >
+      Просим подтвердить полные реквизиты сторон по {doc_names}: наименование/ФИО,
+      ИНН, ОГРН, адрес, документы уполномоченных лиц.
+    addressee: "Обе стороны"
+
+  service_period_defined:
+    text: >
+      Просим уточнить в {doc_names}: срок оказания услуг (дата начала/окончания),
+      порядок продления, условия досрочного прекращения.
+    addressee: "Обе стороны"
+
+  quality_standards_warranty:
+    text: >
+      Просим включить в {doc_names}: стандарты качества, критерии надлежащего
+      исполнения, порядок устранения недостатков, гарантийные обязательства.
+    addressee: "Юридический советник"
+
+  liability_cap:
+    text: >
+      Просим согласовать в {doc_names}: лимит совокупной ответственности
+      исполнителя, исключения из лимита (умысел, грубая неосторожность,
+      нарушение конфиденциальности), порядок исчисления убытков.
+    addressee: "Юридический советник"
+
+  penalty_for_delay:
+    text: >
+      Просим согласовать в {doc_names}: размер неустойки за нарушение сроков
+      (для обеих сторон), предельный размер, порядок исчисления.
+    addressee: "Юридический советник"
+
+  downtime_payment_customer_fault:
+    text: >
+      Просим включить в {doc_names} условие: если услуги не оказаны по вине
+      заказчика (ст. 781 п. 2 ГК РФ), они подлежат оплате в полном объёме.
+      Указать конкретные случаи (непредоставление доступа, информации и т.д.).
+    addressee: "Юридический советник исполнителя"
+
+  retention_of_results_until_payment:
+    text: >
+      Просим включить в {doc_names}: право исполнителя удерживать результаты
+      (отчёты, документы, ПО) до полной оплаты (ст. 712, 359 ГК РФ по аналогии).
+    addressee: "Юридический советник исполнителя"
+
+  confidentiality_nda:
+    text: >
+      Просим включить в {doc_names}: перечень конфиденциальных сведений,
+      срок неразглашения, исключения, ответственность за нарушение,
+      порядок возврата/уничтожения информации.
+    addressee: "Юридический советник"
+
+  insurance_professional_liability:
+    text: >
+      Просим подтвердить по {doc_names}: наличие полиса страхования
+      профессиональной ответственности, страховую сумму, срок действия.
+    addressee: "Исполнитель"
+
+  force_majeure:
+    text: >
+      Просим уточнить в {doc_names}: перечень обстоятельств форс-мажора,
+      порядок уведомления, последствия (приостановка / расторжение).
+    addressee: "Юридический советник"
+
+  dispute_resolution:
+    text: >
+      Просим согласовать в {doc_names}: претензионный порядок (срок),
+      подсудность, возможность медиации.
+    addressee: "Юридический советник"
+
+  anticorruption_clause:
+    text: >
+      Просим включить в {doc_names} антикоррупционную оговорку (ФЗ-273).
+    addressee: "Юридический советник"
+
+  vat_and_tax_allocation:
+    text: >
+      Просим уточнить в {doc_names}: режим НДС, налоговый статус исполнителя
+      (плательщик НДС / УСН / самозанятый), порядок документооборота.
+    addressee: "Бухгалтерия / Юридический советник"
+
+  auto_renewal_clause:
+    text: >
+      Просим уточнить в {doc_names}: условия автопролонгации,
+      срок уведомления о непродлении, изменение цены при продлении.
+    addressee: "Юридический советник"
+
+  consumer_protection_notice:
+    text: >
+      Просим проверить {doc_names} на соответствие ЗоЗПП:
+      (а) отсутствие ничтожных условий (ст. 16 ЗоЗПП);
+      (б) право потребителя на отказ; (в) информирование о свойствах услуг.
+    addressee: "Юридический советник"
+
+  data_security_obligations:
+    text: >
+      Просим включить в {doc_names}: обязательства по безопасности данных,
+      резервному копированию, порядку восстановления, уведомлению об инцидентах.
+    addressee: "IT-служба / Юридический советник"
+
+  assignment_restriction:
+    text: >
+      Просим уточнить в {doc_names}: допустимость уступки прав / перевода долга,
+      требуется ли согласие другой стороны.
+    addressee: "Юридический советник"
+
+  subject_services_defined:
+    text: >
+      Просим уточнить в {doc_names}: конкретный перечень действий исполнителя,
+      объём услуг, стандарты качества, ожидаемые deliverables.
+    addressee: "Заказчик"
+
+  success_fee_validity_check:
+    text: >
+      В {doc_names} выявлено условие о гонораре успеха (success fee).
+      Просим уточнить: (а) вид услуг (для юридических — риск оспаривания);
+      (б) объективные критерии «успеха»; (в) соразмерность вознаграждения;
+      (г) порядок определения базы для расчёта.
+    addressee: "Юридический советник"
+
+  impossibility_risk_allocation:
+    text: >
+      Просим уточнить в {doc_names}: (а) порядок распределения расходов
+      при невозможности оказания услуг не по вине сторон (ст. 781 п. 3 ГК РФ);
+      (б) обязанность оплатить фактически оказанную часть;
+      (в) порядок уведомления о невозможности.
+    addressee: "Юридический советник"
+
+  cross_border_vat_place_check:
+    text: >
+      В {doc_names} выявлен трансграничный элемент. Просим предоставить:
+      (а) анализ места реализации услуг (ст. 148 НК РФ);
+      (б) подтверждение статуса налогового агента;
+      (в) порядок удержания и уплаты НДС; (г) валютно-контрольные документы.
+    addressee: "Налоговый консультант / Юридический советник"
+
+  client_cooperation_obligations:
+    text: >
+      Просим включить в {doc_names}: конкретные обязанности заказчика
+      по содействию (предоставление информации, доступа, документов,
+      назначение контактных лиц), сроки исполнения, последствия нарушения.
+    addressee: "Юридический советник заказчика"
+
+  scope_change_management:
+    text: >
+      Просим включить в {doc_names}: порядок изменения ТЗ/спецификации
+      (change request), сроки согласования, влияние на стоимость и сроки,
+      форму дополнительного соглашения.
+    addressee: "Обе стороны"
+
+  data_return_on_termination:
+    text: >
+      Просим включить в {doc_names}: (а) обязанность исполнителя вернуть
+      все данные и материалы заказчика в течение ___ дней после расторжения;
+      (б) формат возврата; (в) подтверждение удаления копий;
+      (г) порядок миграции (для IT-услуг).
+    addressee: "Юридический советник"
+
+  non_solicitation_clause:
+    text: >
+      Просим согласовать в {doc_names}: запрет переманивания персонала
+      другой стороны, срок действия запрета, штраф за нарушение.
+    addressee: "Юридический советник"
+
+  consumer_punitive_clause_prohibition:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлены условия, потенциально ущемляющие
+      права потребителя (ст. 16 ЗоЗПП). Просим исключить: штрафы за отказ
+      потребителя, невозвратные платежи, ограничение подсудности.
+    addressee: "Юридический советник"
+
+  illegal_staff_leasing:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлены признаки предоставления персонала.
+      Просим подтвердить: (а) аккредитацию исполнителя как ЧАЗ (ФЗ-116);
+      (б) отсутствие признаков заёмного труда; (в) если аутстаффинг —
+      соответствие ограничениям ст. 341.2 ТК РФ.
+    addressee: "HR / Юридический советник"
+
+  governing_law:
+    text: >
+      Просим подтвердить в {doc_names}: применимое право (законодательство РФ),
+      язык договора, приоритет версий при расхождении.
+    addressee: "Юридический советник"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

@@ -39,6 +39,7 @@ _ALLOWED_NODE_ORIGINS = {
     "toc_rebuild",
     "appendix_recovery",
     "technical_fallback",
+    "synthetic_preamble",
     "unknown",
 }
 

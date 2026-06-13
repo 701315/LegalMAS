@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from core.logging import get_logger
 from services.structure.hierarchy_state_machine import HierarchyStateMachine
 from services.structure._models._fsm_summary import FSMBuildSummary
+from services.structure._models._identity import make_effective_uid
 from services.structure.models import (
     FrozenHierarchyNode,
     MutableHierarchyNode,
@@ -40,6 +41,8 @@ from ._utils import (
     _normalize_title,
     level_from_uid,
 )
+
+
 
 logger = get_logger(__name__)
 
@@ -894,6 +897,462 @@ def _attach_scope_headings(
             continue
 
 
+_MIN_PREAMBLE_MEANINGFUL_ELEMENTS = 2
+_MIN_PREAMBLE_TEXT_CHARS = 80
+_MAX_PREAMBLE_SOURCE_GAP_WITHIN_RUN = 3
+
+
+
+
+def _normalize_element_text(value: Any) -> str:
+    return str(value or "").strip()
+
+def _looks_like_page_numberish_micro_fragment(text: str) -> bool:
+    """
+    Отсечь короткие неязыковые page-like фрагменты:
+    - "1"
+    - "(15)"
+    - "— 3 —"
+
+    Это НЕ TOC-логика, а generic structural noise guard.
+    Его правильно держать в hierarchy core даже после того,
+    как TOC-policy была вынесена в upstream exclusion flags.
+    """
+    normalized = str(text or "").strip()
+    if not normalized:
+        return False
+
+    if len(normalized) > 8:
+        return False
+
+    return not any(ch.isalpha() for ch in normalized)
+
+
+def _extract_source_elem_i(element: dict[str, Any], fallback: int) -> int:
+    raw = element.get("_source_elem_i")
+    try:
+        return int(raw)
+    except Exception:
+        return fallback
+
+
+def _is_meaningful_leading_element(element: dict[str, Any]) -> bool:
+    """
+    Минимальный hierarchy-level filter.
+
+    Hierarchy core НЕ определяет TOC заново.
+    Он только:
+    - уважает upstream exclusion flag,
+    - отсекает пустой текст,
+    - отсекает generic page-number noise.
+    """
+    if element.get("_excluded_from_preamble_candidate") is True:
+        return False
+
+    text = _normalize_element_text(element.get("text"))
+    if not text:
+        return False
+
+    if _looks_like_page_numberish_micro_fragment(text):
+        return False
+
+    return True
+
+
+def _collect_text_from_positions(
+    elements: list[dict[str, Any]],
+    positions: list[int],
+) -> str:
+    parts: list[str] = []
+    for pos in positions:
+        if pos < 0 or pos >= len(elements):
+            continue
+        text = _normalize_element_text(elements[pos].get("text"))
+        if text:
+            parts.append(text)
+    return "\n".join(parts).strip()
+
+
+def _extract_page_range_from_positions(
+    elements: list[dict[str, Any]],
+    positions: list[int],
+) -> tuple[int, int]:
+    pages: list[int] = []
+
+    for pos in positions:
+        if pos < 0 or pos >= len(elements):
+            continue
+        page = elements[pos].get("page")
+        try:
+            if page is not None:
+                page_int = int(page)
+                if page_int > 0:
+                    pages.append(page_int)
+        except Exception:
+            continue
+
+    if not pages:
+        return 1, 1
+
+    return min(pages), max(pages)
+
+
+def _find_leading_unowned_runs(
+    *,
+    elements: list[dict[str, Any]],
+    element_to_effective_uid: dict[str, str],
+    stable_element_id_resolver: Callable[[dict[str, Any], int], str],
+) -> list[list[int]]:
+    """
+    Найти leading unowned meaningful runs в уже TOC-cleaned body elements.
+
+    Логика:
+    - работаем только по префиксу сегмента до первого owned meaningful element;
+    - split делаем по source index gaps, чтобы не склеивать cover block
+      и post-TOC preamble block.
+    """
+    leading_positions: list[int] = []
+
+    for pos, element in enumerate(elements):
+        # Не-meaningful элементы не попадают в runs и не являются барьером.
+        if not _is_meaningful_leading_element(element):
+            continue
+
+        stable_id = str(stable_element_id_resolver(element, pos) or "").strip()
+        if not stable_id:
+            continue
+
+        # Критично:
+        # owned элемент должен завершать leading scan ТОЛЬКО если он сам
+        # является допустимым body element для structural ownership.
+        #
+        # Если элемент already owned, но исключён из preamble candidate
+        # (например, TOC-rebuild heading inside TOC zone), он НЕ должен
+        # блокировать поиск post-TOC настоящей преамбулы.
+        if stable_id in element_to_effective_uid:
+            logger.info(
+                "STRUCTURE preamble_find_runs_break",
+                extra={
+                    "break_at_pos": pos,
+                    "break_stable_id": stable_id,
+                    "break_element_text": str(element.get("text") or "")[:80].replace("\n", " "),
+                    "break_preamble_zone": element.get("_preamble_zone"),
+                    "leading_positions_so_far": len(leading_positions),
+                    "owned_uid": element_to_effective_uid.get(stable_id),
+                },
+            )
+            if element.get("_excluded_from_preamble_candidate") is True:
+                continue
+            break
+
+        leading_positions.append(pos)
+
+
+    if not leading_positions:
+        return []
+
+    runs: list[list[int]] = []
+    current_run: list[int] = []
+    previous_source_i: int | None = None
+
+    for pos in leading_positions:
+        source_i = _extract_source_elem_i(elements[pos], pos)
+
+        if (
+            current_run
+            and previous_source_i is not None
+            and (source_i - previous_source_i) > _MAX_PREAMBLE_SOURCE_GAP_WITHIN_RUN
+        ):
+            runs.append(current_run)
+            current_run = []
+
+        current_run.append(pos)
+        previous_source_i = source_i
+
+    if current_run:
+        runs.append(current_run)
+
+    return runs
+
+
+def _run_preamble_zones(
+    *,
+    run: list[int],
+    elements: list[dict[str, Any]],
+) -> set[str]:
+    zones: set[str] = set()
+    for pos in run:
+        if pos < 0 or pos >= len(elements):
+            continue
+        zone = str(elements[pos].get("_preamble_zone") or "").strip().lower()
+        if zone:
+            zones.add(zone)
+    return zones
+
+
+def _run_text_chars(
+    *,
+    run: list[int],
+    elements: list[dict[str, Any]],
+) -> int:
+    return len(_collect_text_from_positions(elements, run))
+
+
+def _select_preamble_candidate_run(
+    *,
+    runs: list[list[int]],
+    elements: list[dict[str, Any]],
+) -> list[int]:
+    """
+    Выбрать run для synthetic preamble.
+
+    Финальная production policy:
+    1. Рассматриваем только runs, которые имеют достаточную смысловую массу.
+    2. Если среди них есть runs в зоне post_toc — предпочитаем именно их.
+       Это решает кейсы:
+       cover page -> TOC -> actual legal preamble -> Section 1
+    3. Если post_toc runs нет, fallback:
+       берём последний accepted run как раньше.
+
+    Таким образом:
+    - для документов без TOC поведение остаётся безопасным;
+    - для документов с TOC и повторной преамбулой после TOC
+      выбирается именно post-TOC preamble block.
+    """
+    accepted_runs: list[list[int]] = []
+
+    for run in runs:
+        meaningful_elements_count = len(run)
+        meaningful_text_chars = _run_text_chars(
+            run=run,
+            elements=elements,
+        )
+
+        if (
+            meaningful_elements_count >= _MIN_PREAMBLE_MEANINGFUL_ELEMENTS
+            or meaningful_text_chars >= _MIN_PREAMBLE_TEXT_CHARS
+        ):
+            accepted_runs.append(run)
+
+    logger.info(
+        "STRUCTURE preamble_run_selection",
+        extra={
+            "total_runs": len(runs),
+            "accepted_runs": len(accepted_runs),
+            "post_toc_runs": len([
+                r for r in accepted_runs
+                if "post_toc" in _run_preamble_zones(run=r, elements=elements)
+            ]),
+            "accepted_runs_zones": [
+                list(_run_preamble_zones(run=r, elements=elements))
+                for r in accepted_runs
+            ],
+        },
+    )
+
+    post_toc_runs = [
+        run
+        for run in accepted_runs
+        if "post_toc" in _run_preamble_zones(run=run, elements=elements)
+    ]
+
+    if post_toc_runs:
+        # Выбираем самый содержательный post-TOC run.
+        # Tie-breaker: более поздний run.
+        return max(
+            post_toc_runs,
+            key=lambda run: (
+                _run_text_chars(run=run, elements=elements),
+                max(run) if run else -1,
+            ),
+        )
+
+    # Fallback для документов без TOC или без post-TOC preamble
+    return accepted_runs[-1]
+
+
+def _build_synthetic_preamble_node_from_run(
+    *,
+    run_positions: list[int],
+    elements: list[dict[str, Any]],
+    stable_element_id_resolver: Callable[[dict[str, Any], int], str],
+    scope_name: str,
+) -> MutableHierarchyNode:
+    own_element_ids: list[str] = []
+
+    for pos in run_positions:
+        stable_id = str(stable_element_id_resolver(elements[pos], pos) or "").strip()
+        if stable_id:
+            own_element_ids.append(stable_id)
+
+    own_element_ids = list(dict.fromkeys(own_element_ids))
+    own_text = _collect_text_from_positions(elements, run_positions)
+    start_page, end_page = _extract_page_range_from_positions(elements, run_positions)
+
+    safe_scope = _safe_scope_name(scope_name)
+    raw_uid = "__preamble__"
+    effective_uid = make_effective_uid(safe_scope, raw_uid)
+
+    source_start = min(_extract_source_elem_i(elements[pos], pos) for pos in run_positions)
+    source_end = max(_extract_source_elem_i(elements[pos], pos) for pos in run_positions)
+
+    return MutableHierarchyNode(
+        effective_uid=effective_uid,
+        title="",
+        level=1,
+        raw_uid=raw_uid,
+        scope=safe_scope,
+        node_kind="leaf",
+        node_origin="synthetic_preamble",
+        content_mode="full_text",
+        citability="high",
+        own_element_ids=list(own_element_ids),
+        subtree_element_ids=list(own_element_ids),
+        own_text=own_text,
+        subtree_text=own_text,
+        start_page=start_page,
+        end_page=end_page,
+        children=[],
+        range_end_reason="segment_end",
+        diagnostics={
+            "synthetic_node": True,
+            "synthetic_kind": "preamble",
+            "semantic_node_type": "preamble",
+            "source_mode": "leading_unowned_runs",
+            "materialization_reason": "last_leading_run_after_toc_suppression",
+            "meaningful_elements_count": len(run_positions),
+            "meaningful_text_chars": len(own_text),
+            "source_elem_i_start": source_start,
+            "source_elem_i_end": source_end,
+            "user_facing_semantic": True,
+        },
+    )
+
+
+def _resolve_synthetic_preamble_scope_name(
+    *,
+    headings: list[HeadingCandidate],
+    headings_by_scope: dict[Any, list[HeadingCandidate]],
+) -> str:
+    """
+    Определить scope для synthetic preamble node.
+
+    Политика:
+    1. Если в сегменте ровно один scope — используем его.
+    2. Иначе берём scope первого heading.
+    3. Если headings пусты — fallback в global.
+
+    build_clause_hierarchy вызывается уже на уровне одного сегмента,
+    поэтому в нормальном случае scope здесь один.
+    """
+    unique_scopes: list[str] = []
+
+    for raw_scope in headings_by_scope.keys():
+        scope_name = _safe_scope_name(raw_scope)
+        if scope_name not in unique_scopes:
+            unique_scopes.append(scope_name)
+
+    if len(unique_scopes) == 1:
+        return unique_scopes[0]
+
+    for heading in headings:
+        scope_name = _safe_scope_name(_heading_scope(heading))
+        if scope_name:
+            return scope_name
+
+    return "global"
+
+
+def _attach_synthetic_preamble_if_needed(
+    *,
+    root_nodes: list[MutableHierarchyNode],
+    mutable_nodes: dict[str, MutableHierarchyNode],
+    elements: list[dict[str, Any]],
+    element_to_effective_uid: dict[str, str],
+    stable_element_id_resolver: Callable[[dict[str, Any], int], str],
+    scope_name: str,
+) -> dict[str, Any] | None:
+    runs = _find_leading_unowned_runs(
+        elements=elements,
+        element_to_effective_uid=element_to_effective_uid,
+        stable_element_id_resolver=stable_element_id_resolver,
+    )
+    if not runs:
+        return None
+
+    selected_run = _select_preamble_candidate_run(
+        runs=runs,
+        elements=elements,
+    )
+    if not selected_run:
+        return None
+
+    selected_run_index = -1
+    for idx, candidate_run in enumerate(runs):
+        if candidate_run == selected_run:
+            selected_run_index = idx
+            break
+
+    selected_run_zones = sorted(
+        {
+            str(elements[pos].get("_preamble_zone") or "").strip()
+            for pos in selected_run
+            if 0 <= pos < len(elements)
+        }
+    )
+
+    preamble_node = _build_synthetic_preamble_node_from_run(
+        run_positions=selected_run,
+        elements=elements,
+        stable_element_id_resolver=stable_element_id_resolver,
+        scope_name=scope_name,
+    )
+
+    if preamble_node.effective_uid in mutable_nodes:
+        return None
+
+    root_nodes.insert(0, preamble_node)
+    mutable_nodes[preamble_node.effective_uid] = preamble_node
+
+    for stable_id in preamble_node.own_element_ids:
+        if stable_id not in element_to_effective_uid:
+            element_to_effective_uid[stable_id] = preamble_node.effective_uid
+
+    diagnostics = dict(preamble_node.diagnostics)
+    diagnostics = dict(preamble_node.diagnostics)
+    diagnostics.update({
+        "synthetic_preamble_created": True,
+        "synthetic_preamble_page_start": preamble_node.start_page,
+        "synthetic_preamble_page_end": preamble_node.end_page,
+        "synthetic_preamble_effective_uid": preamble_node.effective_uid,
+        "source_run_count": len(runs),
+        "source_run_index": selected_run_index,
+        "selected_run_zones": selected_run_zones,
+        "selected_run_source_start": elements[selected_run[0]].get("_source_elem_i"),
+        "selected_run_source_end": elements[selected_run[-1]].get("_source_elem_i"),
+        "selector_policy_version": "synthetic_preamble_post_toc_v1",
+    })
+
+    logger.info(
+        "STRUCTURE synthetic_preamble_attached",
+        extra={
+            "synthetic_preamble_effective_uid": preamble_node.effective_uid,
+            "synthetic_preamble_page_start": preamble_node.start_page,
+            "synthetic_preamble_page_end": preamble_node.end_page,
+            "source_run_count": len(runs),
+            "source_run_index": selected_run_index,
+            "selected_run_zones": selected_run_zones,
+            "selected_run_source_start": elements[selected_run[0]].get("_source_elem_i"),
+            "selected_run_source_end": elements[selected_run[-1]].get("_source_elem_i"),
+            "selected_text_preview": preamble_node.own_text[:300] if preamble_node.own_text else "",
+            "selector_policy_version": "synthetic_preamble_post_toc_v1",
+        },
+    )
+
+    return diagnostics
+
+
+
 def _assign_own_ranges_and_elements(
     *,
     headings: list[HeadingCandidate],
@@ -1019,6 +1478,7 @@ def build_clause_hierarchy(
     document_id: str,
     stable_element_id_resolver: Callable[[dict[str, Any], int], str],
     structure_evidence: StructureEvidenceBundle | None = None,
+    enable_synthetic_preamble_repair: bool = False,
 ) -> HierarchyBuildResult:
     """
     Строит immutable hierarchy tree и индексы.
@@ -1036,6 +1496,8 @@ def build_clause_hierarchy(
     element_to_effective_uid: dict[str, str] = {}
 
     evidence_signals = _extract_evidence_signals(structure_evidence)
+
+    synthetic_preamble_diagnostics: dict[str, Any] | None = None
 
     if not headings:
         logger.info(
@@ -1147,6 +1609,23 @@ def build_clause_hierarchy(
         scope_boundaries=scope_boundaries,
         counters=counters,
     )
+
+    if enable_synthetic_preamble_repair:
+        synthetic_preamble_scope_name = _resolve_synthetic_preamble_scope_name(
+            headings=headings,
+            headings_by_scope=headings_by_scope,
+        )
+
+        synthetic_preamble_diagnostics = _attach_synthetic_preamble_if_needed(
+            root_nodes=mutable_root_nodes,
+            mutable_nodes=mutable_nodes,
+            elements=elements,
+            element_to_effective_uid=element_to_effective_uid,
+            stable_element_id_resolver=stable_element_id_resolver,
+            scope_name=synthetic_preamble_scope_name,
+        )
+    else:
+        synthetic_preamble_diagnostics = None
 
     _log_sibling_own_element_overlaps(
         root_nodes=mutable_root_nodes,
@@ -1263,6 +1742,13 @@ def build_clause_hierarchy(
         evidence_signals=evidence_signals,
     )
 
+    if synthetic_preamble_diagnostics:
+        hierarchy_diagnostics["synthetic_preamble"] = dict(synthetic_preamble_diagnostics)
+    else:
+        hierarchy_diagnostics["synthetic_preamble"] = {
+            "synthetic_preamble_created": False,
+        }
+        
     logger.info(
         "STRUCTURE hierarchy_builder_completed",
         extra=hierarchy_diagnostics,

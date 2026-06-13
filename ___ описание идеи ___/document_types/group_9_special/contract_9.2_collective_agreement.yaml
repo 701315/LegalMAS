@@ -1,0 +1,2342 @@
+type: contract_9.2_collective_agreement
+name: "Коллективный договор"
+
+description: |
+  Правовой акт социального партнёрства, регулирующий социально-трудовые отношения в организации
+  или у индивидуального предпринимателя. Заключается между работодателем (в лице уполномоченных
+  представителей) и работниками (в лице их представителей — первичной профсоюзной организации,
+  иного представительного органа или непосредственно избранных представителей) по результатам
+  коллективных переговоров. Устанавливает взаимные обязательства сторон, которые дополняют,
+  конкретизируют и улучшают гарантии, установленные трудовым законодательством, но ни в коем
+  случае не могут их ухудшать. Действует в отношении всех работников организации (филиала,
+  представительства) независимо от членства в профсоюзе. Обладает нормативным характером,
+  является локальным нормативным актом. Заключается на срок не более трёх лет с возможностью
+  продления. Подлежит уведомительной регистрации в органе по труду.
+  Регулируется императивными нормами Раздела II ТК РФ (ст. 40–51).
+
+version: 4.0
+parent: class_9_special_imperative
+
+metadata:
+  category: contract
+  subcategory: collective_labor
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "Трудовой кодекс РФ (Раздел II, ст. 40–51)"
+  doc_types_supported:
+    - "коллективный договор организации"
+    - "коллективный договор филиала"
+    - "коллективный договор представительства"
+    - "коллективный договор обособленного структурного подразделения"
+    - "коллективный договор индивидуального предпринимателя"
+    - "коллективный договор"
+    - "колдоговор"
+    - "коллективное соглашение"
+    - "соглашение между работодателем и работниками"
+    - "соглашение работодателя и профсоюза"
+    - "коллективное трудовое соглашение"
+    - "локальное соглашение о социальном партнерстве"
+    - "соглашение о социально-трудовых отношениях"
+    - "соглашение между работодателем и трудовым коллективом"
+    - "коллективное соглашение работников и работодателя"
+    - "коллективный трудовой договор"
+    - "коллективное соглашение организации"
+    - "коллективное соглашение предприятия"
+    - "коллективный договор предприятия"
+    - "коллективный договор учреждения"
+    - "коллективный договор производственного предприятия"
+    - "соглашение с профсоюзом"
+    - "профсоюзное соглашение"
+    - "соглашение о коллективных условиях труда"
+    - "соглашение о социальном партнерстве"
+    - "соглашение по охране труда"
+    - "соглашение по условиям труда"
+    - "соглашение по оплате труда"
+    - "коллективное соглашение по компенсациям и льготам"
+
+    - "collective bargaining agreement"
+    - "CBA"
+    - "collective labor agreement"
+    - "collective employment agreement"
+    - "labor agreement"
+    - "union agreement"
+    - "trade union agreement"
+    - "enterprise agreement"
+    - "enterprise bargaining agreement"
+    - "workplace agreement"
+    - "industrial agreement"
+    - "industrial relations agreement"
+    - "workforce agreement"
+    - "works council agreement"
+    - "social partnership agreement"
+    - "sectoral collective agreement"
+    - "industry-wide labor agreement"
+    - "company collective agreement"
+    - "framework labor agreement"
+    - "union contract"
+    - "negotiated labor agreement"
+    - "master labor agreement"
+    - "MLA"
+    - "enterprise bargaining agreement"
+    - "EBA"
+    - "labor-management agreement"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.9
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
+  rules:
+
+    filename_patterns:
+      # Русский — явные коллективные договоры / соглашения
+
+      - pattern: "(?i)коллективн[ыйоеая][_\\s-]*договор"
+        kind: specific_subject
+        weight: 1.0
+        # «коллективный договор», «коллективный трудовой договор» и вариации
+
+      - pattern: "(?i)коллективн[ыйоеая][_\\s-]*трудов[ыйое][_\\s-]*договор"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)колдоговор"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)коллективн[оеая][_\\s-]*соглашени[еия]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)коллективн[оеая][_\\s-]*трудов[оеое][_\\s-]*соглашени[еия]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*между[_\\s-]*работодател[еемем][_\\s-]*и[_\\s-]*(работник[амиов]|трудов[ымым][_\\s-]*коллективом)"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*работодател[яея][_\\s-]*и[_\\s-]*профсоюз[аов]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)профсоюзн[оеая][_\\s-]*соглашени[еия]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*о[_\\s-]*социальн[оы][_\\s-]*трудов[ыхые][_\\s-]*отношени[яхях]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*о[_\\s-]*социальн[омом][_\\s-]*партнерств[еа]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)коллективн[оеая][_\\s-]*соглашени[еия][_\\s-]*организаци[ии]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)коллективн[оеая][_\\s-]*соглашени[еия][_\\s-]*предприяти[яия]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)коллективн[ыйое][_\\s-]*договор[_\\s-]*(организац[ииия]|филиал[аы]|представительств[ао]|предприяти[яия]|учреждени[яия])"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*по[_\\s-]*оплат[еы][_\\s-]*труд[ауы]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*по[_\\s-]*услови[ямях][_\\s-]*труд[ауы]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*по[_\\s-]*охран[еы][_\\s-]*труд[ауы]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Русские краткие маркеры
+
+      - pattern: "(?i)коллективн[ыйоеая][_\\s-]*договор"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)коллективн[оеая][_\\s-]*соглашени[еия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)колдоговор"
+        kind: specific_subject
+        weight: 0.98
+
+      # Английский — collective / union / enterprise bargaining
+
+      - pattern: "(?i)collective[_\\s-]*bargaining[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)collective[_\\s-]*labour[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)collective[_\\s-]*labor[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)collective[_\\s-]*employment[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)union[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)trade[_\\s-]*union[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)enterprise[_\\s-]*bargaining[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)\\bEBA\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)enterprise[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)workplace[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)industrial[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)industrial[_\\s-]*relations[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)workforce[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)works[_\\s-]*council[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)social[_\\s-]*partnership[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)sectoral[_\\s-]*collective[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)industry[-_\\s]*wide[_\\s-]*labor[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)company[_\\s-]*collective[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)framework[_\\s-]*labor[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)union[_\\s-]*contract"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)negotiated[_\\s-]*labor[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)master[_\\s-]*labor[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)\\bMLA\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)\\bCBA\\b"
+        kind: specific_subject
+        weight: 0.98
+
+      # Короткие маркеры — generic/context
+
+      - pattern: "(?i)collective[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+        # Может быть и просто коллективное соглашение акционеров; нужен трудовой контекст
+
+      - pattern: "(?i)collective[_\\s-]*bargaining"
+        kind: generic_form
+        weight: 0.7
+
+      - pattern: "(?i)labor[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)collective"
+        kind: context
+        weight: 0.4
+
+    folder_patterns:
+      - pattern: "(?i)коллективн[ыйоеая]"
+        kind: specific_subject
+        weight: 0.8
+        # Папка “коллективные договоры/соглашения”
+
+      - pattern: "(?i)колдоговор"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)социальн[оеая][_\\s-]*партнерств"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)collective[_\\s-]*agreements?"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)collective[_\\s-]*bargaining"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)CBA[s]?"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)union"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)industrial[_\\s-]*relations"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)labor"
+        kind: context
+        weight: 0.4
+
+    keywords:
+
+      high:
+        - pattern: "(?i)коллективн[ыйое]\\s+договор"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Базовое название коллективного договора"
+
+        - pattern: "(?i)коллективн[ыйое]\\s+договор\\s+организац[иии]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Коллективный договор организации"
+
+        - pattern: "(?i)коллективн[ыйое]\\s+договор\\s+филиал[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Коллективный договор, заключённый на уровне филиала"
+
+        - pattern: "(?i)коллективн[ыйое]\\s+договор\\s+представительств[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Коллективный договор представительства"
+
+        - pattern: "(?i)коллективн[ыйое]\\s+договор\\s+обособленн[огоой\\s]*структурн[огоой\\s]*подразделен[ияи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Коллективный договор обособленного структурного подразделения"
+
+        - pattern: "(?i)коллективн[ыйое]\\s+договор\\s+индивидуальн[огоого\\s]*предпринимател[яья]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Коллективный договор у индивидуального предпринимателя"
+
+        - pattern: "(?i)социальн[оеое]\\s+партн[её]рств[оа]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Социальное партнёрство как правовая основа коллективного договора"
+
+        - pattern: "(?i)коллективн[ыеые]\\s+переговор[ыа]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Коллективные переговоры как стадия заключения договора"
+
+        - pattern: "(?i)представител[ияи]\\s+работник[ов]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Представители работников в коллективных переговорах"
+
+        - pattern: "(?i)профсоюзн[аяое]\\s+организац[ияи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Первичная профсоюзная организация как сторона переговоров"
+
+        - pattern: "(?i)уведомительн[аяое]\\s+регистрац[ияи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Уведомительная регистрация коллективного договора"
+
+        - pattern: "(?i)комисс[ияи]\\s+по\\s+регулирован[июию]\\s+социально-?трудов[ыхые]\\s+отношен[ийия]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Комиссия по регулированию социально-трудовых отношений"
+
+      medium:
+        - pattern: "(?i)комисси[яя]\\s+по\\s+переговор[аа]м"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Комиссия по ведению коллективных переговоров"
+
+        - pattern: "(?i)дополнительн[ыо]е\\s+гаранти[ии]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Дополнительные гарантии для работников по коллективному договору"
+
+        - pattern: "(?i)социально-?трудов[ыо]е\\s+отношени[яя]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Социально-трудовые отношения в организации"
+
+        - pattern: "(?i)взаимн[ыо]е\\s+обязательств[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Взаимные обязательства сторон по коллективному договору"
+
+        - pattern: "(?i)локальн[ыо]й\\s+нормативн[ыо]й\\s+акт"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Коллективный договор как локальный нормативный акт"
+
+        - pattern: "(?i)индексаци[яя]\\s+заработн[оа]й\\s+плат[ыы]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Индексация заработной платы на уровне организации"
+
+        - pattern: "(?i)охран[аа]\\s+труда"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Обязательства по охране труда"
+
+        - pattern: "(?i)услови[яя]\\s+труда"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Условия труда работников"
+
+        - pattern: "(?i)ст\\.\\s*40\\s*ТК\\s*РФ"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на ст. 40 ТК РФ о коллективном договоре"
+
+        - pattern: "(?i)ст\\.\\s*41\\s*ТК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на ст. 41 ТК РФ о содержании коллективного договора"
+
+        - pattern: "(?i)ст\\.\\s*43\\s*ТК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на ст. 43 ТК РФ о действии коллективного договора"
+
+        - pattern: "(?i)не\\s+могут\\s+ухудшать\\s+положени[ея]\\s+работник[оо]в"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Запрет ухудшения положения работников по сравнению с ТК РФ"
+
+        - pattern: "(?i)распространяетс[яьа]\\s+на\\s+всех\\s+работник[оо]в"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Действие коллективного договора на всех работников организации"
+
+      low:
+        - pattern: "(?i)контрол[ья]\\s+за\\s+выполнени[еем]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Контроль за выполнением коллективного договора"
+
+        - pattern: "(?i)коллективн[ыо]й\\s+трудов[оа]й\\s+спор"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Коллективный трудовой спор"
+
+        - pattern: "(?i)\\bзабастовк[аа]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Забастовка как крайняя мера разрешения спора"
+
+        - pattern: "(?i)примирительн[ыо]е\\s+процедур[ыа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Примирительные процедуры при коллективных спорах"
+
+        - pattern: "(?i)отраслев[оа]е\\s+соглашени[ея]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Упоминание отраслевых соглашений"
+
+        - pattern: "(?i)гаранти[ии]\\s+занятост[ии]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Гарантии занятости работников"
+
+        - pattern: "(?i)профсоюзн[ыо]е\\s+взнос[ыа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Профсоюзные взносы"
+
+    exclusions:
+      - pattern: "(?i)индивидуальн[ыо]й\\s+трудов[оа]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Индивидуальный трудовой договор — другой тип документа"
+
+      - pattern: "(?i)трудов[оа]й\\s+договор\\s+с\\s+работник[оо]м"
+        severity: hard
+        weight: -1.0
+        description: "Индивидуальный трудовой договор с работником"
+
+      - pattern: "(?i)соглашени[ея]\\s+отраслев[оа]е"
+        severity: hard
+        weight: -1.0
+        description: "Отраслевое соглашение — надуровневый акт, а не коллективный договор конкретного работодателя"
+
+      - pattern: "(?i)соглашени[ея]\\s+межотраслев[оа]е"
+        severity: hard
+        weight: -1.0
+        description: "Межотраслевое соглашение — иной уровень социального партнёрства"
+
+      - pattern: "(?i)соглашени[ея]\\s+региональн[оа]е"
+        severity: hard
+        weight: -1.0
+        description: "Региональное соглашение — акт не уровня работодателя"
+
+      - pattern: "(?i)соглашени[ея]\\s+территориальн[оа]е"
+        severity: hard
+        weight: -1.0
+        description: "Территориальное соглашение — не коллективный договор организации"
+
+      # ── Soft exclusions
+
+      - pattern: "(?i)правил[аа]\\s+внутренн[ео]го\\s+трудов[оа]го\\s+распорядк[аа]"
+        severity: soft
+        weight: -0.35
+        description: "Правила внутреннего трудового распорядка — отдельный локальный акт"
+
+      - pattern: "(?i)гражданско-?правов[оа]й\\s+договор"
+        severity: soft
+        weight: -0.3
+        description: "Гражданско-правовой договор указывает на ГПХ-сферу, а не на коллективное регулирование"
+
+      - pattern: "(?i)договор\\s+подряд[аа]"
+        severity: soft
+        weight: -0.3
+        description: "Договор подряда — ГПХ, а не коллективный договор"
+
+      - pattern: "(?i)договор\\s+возмездн[оа]го\\s+оказани[яя]\\s+услуг"
+        severity: soft
+        weight: -0.3
+        description: "Договор возмездного оказания услуг относится к ГПХ, а не к коллективным договорам"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  union_representative:
+    any_keywords:
+      - "(?i)\\bпрофсоюз\\b"
+      - "(?i)первичн[а-яё]+\\s+профсоюзн[а-яё]+\\s+организаци[яя]"
+      - "(?i)профсоюзн[ыо]й\\s+комитет"
+      - "(?i)\\bпрофком\\b"
+      - "(?i)председател[ья]\\s+профсоюз[аа]"
+      - "(?i)ФЗ\\s+о\\s+профсоюзах"
+
+  elected_representative:
+    any_keywords:
+      - "(?i)избранн[ыо]е\\s+представител[ии]"
+      - "(?i)ин[оа]й\\s+представительн[ыо]й\\s+орган"
+      - "(?i)общее\\s+собрани[ее]\\s+работник[оо]в"
+      - "(?i)конференци[яя]\\s+работник[оо]в"
+      - "(?i)совет\\s+трудов[оа]го\\s+коллектив[аа]"
+
+  commercial_employer:
+    any_keywords:
+      - "(?i)\\bООО\\b"
+      - "(?i)\\bАО\\b"
+      - "(?i)\\bПАО\\b"
+      - "(?i)\\bЗАО\\b"
+      - "(?i)акционерн[оа]е\\s+обществ[оо]"
+      - "(?i)обществ[оо]\\s+с\\s+ограниченн[оа]й\\s+ответственност[ьюи]"
+      - "(?i)коммерческ[а-яё]+\\s+организаци[яя]"
+      - "(?i)предпринимательск[а-яё]+\\s+деятельност[ьи]"
+
+  budget_employer:
+    any_keywords:
+      - "(?i)бюджетн[оа]е\\s+учреждени[ее]"
+      - "(?i)каз[её]нн[оа]е\\s+учреждени[ее]"
+      - "(?i)автономн[оа]е\\s+учреждени[ее]"
+      - "(?i)государственн[оа]е\\s+учреждени[ее]"
+      - "(?i)муниципальн[оа]е\\s+учреждени[ее]"
+      - "(?i)финансировани[ее]\\s+из\\s+бюджет[аа]"
+
+  branch_subdivision:
+    any_keywords:
+      - "(?i)\\bфилиал\\b"
+      - "(?i)\\bпредставительств[оо]\\b"
+      - "(?i)обособленн[оа]е\\s+структурн[оа]е\\s+подразделени[ее]"
+      - "(?i)обособленн[оа]е\\s+подразделени[ее]"
+
+  hazardous_conditions:
+    any_keywords:
+      - "(?i)вредн[ыо]е\\s+услови[яя]\\s+труда"
+      - "(?i)опасн[ыо]е\\s+услови[яя]\\s+труда"
+      - "(?i)класс\\s+услови[йя]\\s+труда\\s*3"
+      - "(?i)класс\\s+услови[йя]\\s+труда\\s*4"
+      - "(?i)\\bСОУТ\\b"
+      - "(?i)специальн[а-яё]+\\s+оценк[аа]\\s+услови[йя]\\s+труда"
+      - "(?i)доплат[аа]\\s+за\\s+вредност[ььи]"
+      - "(?i)молок[оо]\\s+за\\s+вредност[ььи]"
+      - "(?i)дополнительн[ыо]й\\s+отпуск\\s+за\\s+вредност[ььи]"
+
+  reorganization_context:
+    any_keywords:
+      - "(?i)реорганизаци[яя]"
+      - "(?i)слияни[ее]"
+      - "(?i)присоединени[ее]"
+      - "(?i)разделени[ее]"
+      - "(?i)выделени[ее]"
+      - "(?i)преобразовани[ее]"
+      - "(?i)смен[аа]\\s+собственник[аа]"
+      - "(?i)правопреемник"
+      - "(?i)ликвидаци[яя]"
+
+  strike_risk_context:
+    any_keywords:
+      - "(?i)\\bзабастовк[аа]\\b"
+      - "(?i)коллективн[ыо]й\\s+трудов[оа]й\\s+спор"
+      - "(?i)примирительн[а-яё]+\\s+комисси[яя]"
+      - "(?i)трудов[оа]й\\s+арбитраж"
+      - "(?i)\\bпосредник\\b"
+      - "(?i)прав[оо]\\s+на\\s+забастовк[уу]"
+
+  foreign_employer:
+    any_keywords:
+      - "(?i)иностранн[а-яё]+\\s+компани[яя]"
+      - "(?i)представительств[оо]\\s+иностранн[оа]й"
+      - "(?i)филиал\\s+иностранн[оа]й"
+      - "(?i)\\bнерезидент\\b"
+      - "(?i)иностранн[ыо]й\\s+работодатель"
+
+  multiple_unions:
+    any_keywords:
+      - "(?i)несколько\\s+профсоюз[оо]в"
+      - "(?i)бол[её]е\\s+одн[оа]й\\s+профсоюзн[оа]й\\s+организаци[ии]"
+      - "(?i)един[ыо]й\\s+представительн[ыо]й\\s+орган"
+      - "(?i)пропорциональн[оа]е\\s+представительств[оо]"
+      - "(?i)ст\\.\\s*37\\s*ТК\\s*РФ"
+
+  shift_work_context:
+    any_keywords:
+      - "(?i)сменн[а-яё]+\\s+работ[аа]"
+      - "(?i)график\\s+сменност[ии]"
+      - "(?i)суммированн[ыо]й\\s+уч[её]т\\s+рабоч[ео]го\\s+времен[ии]"
+      - "(?i)вахтов[ыо]й\\s+метод"
+      - "(?i)ночн[а-яё]+\\s+смен[аа]"
+        
+  remote_work_context:
+    any_keywords:
+      - "(?i)дистанционн[а-яё]+\\s+работ[аа]"
+      - "(?i)удал[её]нн[а-яё]+\\s+работ[аа]"
+      - "(?i)дистанционн[ыо]й\\s+работник"
+      - "(?i)гибридн[ыо]й\\s+режим"
+      - "(?i)компенсаци[яя]\\s+за\\s+использовани[ее]\\s+личн[оа]го\\s+оборудовани[яя]"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  term_years: "(?i)\\b(?:на\\s+срок|сроком)\\s+(?:на\\s+)?\\d+\\s*(?:год|лет|года)\\b"
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|процент|%)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  article_tk_ref: "(?i)ст\\.?\\s*\\d+\\s*ТК\\s*РФ"
+  inn_pattern: "(?i)\\bИНН\\s*\\d{10,12}\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "worsening_conditions_prohibition"
+    name: "Запрет ухудшения положения работников (ст. 9, 50 ТК РФ)"
+    description: |
+      Условия коллективного договора, ухудшающие положение работников по сравнению с трудовым
+      законодательством, являются недействительными и не подлежат применению.
+      При уведомительной регистрации орган по труду обязан сообщить сторонам о выявленных нарушениях.
+    legal_base: "ст. 9, 50 ТК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "взамен гарантий"
+        - "отказ от права"
+        - "снижение гарантий"
+        - "ниже установленного ТК"
+        - "отменяет действие ТК"
+        - "заменяет нормы ТК"
+        - "отпуск менее 28 календарных дней"
+        - "оплата ниже МРОТ"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "ухудшение положения"
+        - "снижение гарантий"
+        - "отменяет нормы"
+      rerank: true
+
+  - id: "term_exceeds_three_years"
+    name: "Превышение максимального срока 3 года (ст. 43 ТК РФ)"
+    description: |
+      Коллективный договор заключается на срок не более трёх лет. Условие о большем сроке
+      ничтожно. Договор может быть продлён на срок не более трёх лет.
+    legal_base: "ст. 43 ТК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "сроком на 4 года"
+        - "сроком на 5 лет"
+        - "сроком на 6 лет"
+        - "сроком на 7 лет"
+        - "сроком на 10 лет"
+        - "бессрочный"
+        - "на неопределённый срок"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 3
+      boost_keywords:
+        - "срок действия"
+        - "сроком на"
+        - "заключён на"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: parties_and_representatives_extraction
+    name: "Извлечение сторон и их представителей"
+    description: |
+      Извлекает наименование работодателя, представительный орган работников,
+      уполномоченных лиц и документы, подтверждающие полномочия.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "работодатель"
+        - "представители работников"
+        - "профсоюзная организация"
+        - "профком"
+        - "избранные представители"
+        - "общее собрание работников"
+        - "конференция работников"
+        - "в лице"
+        - "действующего на основании"
+        - "уполномоченный представитель"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(работодатель|работники)\\s+в\\s+лице"
+        - "(?i)действующ(его|ей)\\s+на\\s+основании"
+        - "(?i)протокол\\s+(общего\\s+)?собрания"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий коллективный договор.
+        Найди в тексте стороны коллективного договора и их представителей.
+
+        Ответь строго в JSON:
+        {
+          "employer_name": "<наименование работодателя или not_found>",
+          "employer_type": "<legal_entity / individual_entrepreneur / not_found>",
+          "employer_representative": "<ФИО и должность представителя работодателя или not_found>",
+          "employer_authority_doc": "<документ, подтверждающий полномочия представителя работодателя, или not_found>",
+          "employee_representative_body": "<наименование представительного органа работников или not_found>",
+          "employee_representative_type": "<union / elected / council / other / not_found>",
+          "employee_representative_person": "<ФИО и должность представителя работников или not_found>",
+          "employee_authority_doc": "<документ, подтверждающий полномочия представителя работников, или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано в тексте — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "работодатель"
+        - "представители работников"
+        - "профсоюз"
+        - "в лице"
+        - "на основании"
+        - "полномочия"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "employer_name"
+          type: "string"
+          keyword_hints: ["работодатель", "организация", "ООО", "АО", "ИП"]
+          description: "Наименование работодателя"
+        - name: "employer_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual_entrepreneur", "not_found"]
+          description: "Тип работодателя"
+        - name: "employee_representative_body"
+          type: "string"
+          keyword_hints: ["профсоюз", "профком", "совет трудового коллектива", "избранные представители"]
+          description: "Представительный орган работников"
+        - name: "employee_representative_type"
+          type: "string"
+          allowed_values: ["union", "elected", "council", "other", "not_found"]
+          description: "Тип представительного органа работников"
+      store_payload: true
+
+  - id: term_validation
+    name: "Срок действия коллективного договора (≤ 3 года, ст. 43 ТК РФ)"
+    description: |
+      Проверяет указание срока действия и его соответствие ограничению в 3 года.
+      Извлекает даты начала и окончания, проверяет условия продления.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "срок действия"
+        - "вступает в силу"
+        - "действует до"
+        - "заключён на срок"
+        - "продление"
+        - "пролонгация"
+        - "три года"
+        - "3 года"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b(?:на\\s+срок|сроком)\\s+(?:на\\s+)?\\d+\\s*(?:год|лет|года)\\b"
+        - "(?i)действует\\s+до\\s+\\d{1,2}[.]\\d{1,2}[.]\\d{4}"
+        - "(?i)вступает\\s+в\\s+силу\\s+с\\s+\\d{1,2}[.]\\d{1,2}[.]\\d{4}"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий коллективный договор.
+        Проверь срок действия коллективного договора (ст. 43 ТК РФ: не более 3 лет).
+
+        Ответь строго в JSON:
+        {
+          "term_specified": "<yes / no>",
+          "start_date": "<дата начала действия или not_found>",
+          "end_date": "<дата окончания действия или not_found>",
+          "term_duration_years": "<число лет или not_found>",
+          "term_within_limit": "<yes / no / unclear>",
+          "extension_clause": "<present / not_found>",
+          "extension_snippet": "<цитата или not_found>"
+        }
+
+        - "term_within_limit" = "yes" — срок ≤ 3 лет
+        - "term_within_limit" = "no" — срок > 3 лет (нарушение)
+        - "term_within_limit" = "unclear" — невозможно определить
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "срок действия"
+        - "вступает в силу"
+        - "три года"
+        - "продление"
+        - "ст. 43 ТК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "term_specified"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Указан ли срок действия"
+        - name: "term_duration_years"
+          type: "number"
+          keyword_hints: ["на срок", "сроком на", "лет", "года"]
+          description: "Длительность срока в годах"
+        - name: "term_within_limit"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Соответствует ли срок ограничению 3 года"
+        - name: "extension_clause"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Наличие условия о продлении"
+      store_payload: true
+
+  - id: no_worsening_principle_check
+    name: "Принцип недопустимости ухудшения положения работников (ст. 9, 50 ТК РФ)"
+    description: |
+      Проверяет наличие явного указания на то, что условия договора не ухудшают
+      положение работников по сравнению с трудовым законодательством.
+      Выявляет потенциально ухудшающие условия.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "не могут ухудшать"
+        - "не ухудшают положение"
+        - "дополнительные гарантии"
+        - "не ниже установленных ТК"
+        - "улучшение положения работников"
+        - "в дополнение к гарантиям"
+      keyword_mode: "any"
+      negative_keywords:
+        - "взамен гарантий"
+        - "с согласия работника отказаться от"
+        - "снижение гарантий"
+      regex_patterns:
+        - "(?i)условия.*не\\s+(могут|должны)\\s+ухудшать\\s+положение"
+        - "(?i)гарантии.*являются\\s+дополнительными"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий коллективный договор.
+        Проверь наличие принципа недопустимости ухудшения положения работников (ст. 9, 50 ТК РФ).
+
+        Ответь строго в JSON:
+        {
+          "no_worsening_clause_status": "<explicit / implicit / not_found>",
+          "no_worsening_snippet": "<цитата из договора или not_found>",
+          "potential_worsening_detected": "<yes / no / unclear>",
+          "worsening_details": "<описание потенциально ухудшающих условий или not_found>"
+        }
+
+        - "explicit" — в договоре есть прямое указание на недопустимость ухудшения
+        - "implicit" — принцип подразумевается, но прямого указания нет
+        - "not_found" — вопрос не раскрыт
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "ухудшение положения"
+        - "не ухудшать"
+        - "дополнительные гарантии"
+        - "ст. 9 ТК РФ"
+        - "ст. 50 ТК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "no_worsening_clause_status"
+          type: "string"
+          allowed_values: ["explicit", "implicit", "not_found"]
+          description: "Статус принципа недопустимости ухудшения"
+        - name: "potential_worsening_detected"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Выявлены ли потенциально ухудшающие условия"
+      store_payload: true
+
+  - id: wage_indexation_mechanism_check
+    name: "Механизм индексации заработной платы (ст. 134 ТК РФ)"
+    description: |
+      Проверяет наличие конкретного механизма индексации заработной платы в связи
+      с ростом потребительских цен. Для коммерческих организаций — обязательный элемент.
+    triggers:
+      any: ["commercial_employer"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "индексация заработной платы"
+        - "индексация зарплаты"
+        - "рост потребительских цен"
+        - "инфляция"
+        - "индекс потребительских цен"
+        - "ИПЦ"
+        - "повышение оплаты труда"
+        - "пересмотр окладов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)индексаци(я|ю|и)\\s+заработн"
+        - "(?i)повышен(ие|ия)\\s+(оплаты|окладов|тарифн)"
+        - "(?i)\\d+\\s*%\\s*(от\\s+)?индекс"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий коллективный договор.
+        Проверь наличие механизма индексации заработной платы (ст. 134 ТК РФ).
+
+        Ответь строго в JSON:
+        {
+          "indexation_mechanism_status": "<concrete / declarative / not_found>",
+          "indexation_basis": "<CPI / fixed_percentage / profit_linked / other / not_found>",
+          "indexation_frequency": "<annual / semi_annual / quarterly / other / not_found>",
+          "indexation_snippet": "<цитата или not_found>"
+        }
+
+        - "concrete" — указан конкретный механизм (привязка к ИПЦ, фиксированный %, формула)
+        - "declarative" — есть общая декларация без конкретики
+        - "not_found" — вопрос не раскрыт
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "индексация"
+        - "заработная плата"
+        - "потребительские цены"
+        - "ст. 134 ТК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "indexation_mechanism_status"
+          type: "string"
+          allowed_values: ["concrete", "declarative", "not_found"]
+          description: "Статус механизма индексации"
+        - name: "indexation_basis"
+          type: "string"
+          allowed_values: ["CPI", "fixed_percentage", "profit_linked", "other", "not_found"]
+          description: "Основа для индексации"
+        - name: "indexation_frequency"
+          type: "string"
+          allowed_values: ["annual", "semi_annual", "quarterly", "other", "not_found"]
+          description: "Периодичность индексации"
+      store_payload: true
+
+  - id: union_activity_guarantees_check
+    name: "Гарантии профсоюзной деятельности (ст. 374–377 ТК РФ, ФЗ-10)"
+    description: |
+      Проверяет наличие конкретных гарантий для профсоюзной организации:
+      помещение, освобождение от работы, защита от увольнения, перечисление взносов.
+    triggers:
+      any: ["union_representative"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "гарантии профсоюзной деятельности"
+        - "помещение для профсоюза"
+        - "освобождение от основной работы"
+        - "профсоюзные взносы"
+        - "увольнение профсоюзного работника"
+        - "согласие профсоюза на увольнение"
+        - "информация для профсоюза"
+        - "предоставление документации профсоюзу"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)работодатель\\s+обязуется\\s+предоставить\\s+профсоюзу"
+        - "(?i)гарантии\\s+(для\\s+)?выборн(ых|ого)\\s+профсоюзн"
+        - "(?i)перечисл(ение|ять)\\s+профсоюзн(ых|ые)\\s+взнос"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий коллективный договор.
+        Проверь наличие гарантий профсоюзной деятельности (ст. 374–377 ТК РФ).
+
+        Ответь строго в JSON:
+        {
+          "premises_provided": "<yes / no / not_found>",
+          "release_from_work": "<yes / no / not_found>",
+          "dues_transfer": "<yes / no / not_found>",
+          "dismissal_protection": "<yes / no / not_found>",
+          "information_access": "<yes / no / not_found>",
+          "union_guarantees_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "профсоюз"
+        - "гарантии"
+        - "помещение"
+        - "освобождение от работы"
+        - "взносы"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "premises_provided"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Предоставление помещения профсоюзу"
+        - name: "release_from_work"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Освобождение профсоюзных работников от основной работы"
+        - name: "dismissal_protection"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Защита профсоюзных работников от увольнения"
+      store_payload: true
+
+  - id: multiple_unions_representation_check
+    name: "Множественность профсоюзов: единый представительный орган (ст. 37 ТК РФ)"
+    description: |
+      При наличии нескольких профсоюзных организаций проверяет создание единого
+      представительного органа или иной порядок представительства.
+    triggers:
+      any: ["multiple_unions"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "единый представительный орган"
+        - "пропорциональное представительство"
+        - "несколько профсоюзов"
+        - "профсоюзная организация, объединяющая более половины"
+        - "общее собрание для определения представителя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)единый\\s+представительный\\s+орган"
+        - "(?i)пропорциональн(ое|ого)\\s+представительств"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий коллективный договор.
+        Проверь порядок представительства при наличии нескольких профсоюзов (ст. 37 ТК РФ).
+
+        Ответь строго в JSON:
+        {
+          "multiple_unions_detected": "<yes / no / unclear>",
+          "unified_body_created": "<yes / no / not_found>",
+          "representation_method": "<unified_body / majority_union / elected_at_meeting / other / not_found>",
+          "representation_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "единый представительный орган"
+        - "несколько профсоюзов"
+        - "ст. 37 ТК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "unified_body_created"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Создан ли единый представительный орган"
+        - name: "representation_method"
+          type: "string"
+          allowed_values: ["unified_body", "majority_union", "elected_at_meeting", "other", "not_found"]
+          description: "Способ определения представителя работников"
+      store_payload: true
+
+  - id: job_security_and_retraining_check
+    name: "Гарантии занятости и профессиональной переподготовки (ст. 41, 180, 196 ТК РФ)"
+    description: |
+      Проверяет наличие обязательств работодателя по обеспечению занятости,
+      переподготовке при внедрении новых технологий, повышенных гарантий при сокращении.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "гарантии занятости"
+        - "обеспечение занятости"
+        - "переобучение"
+        - "переподготовка"
+        - "повышение квалификации"
+        - "сокращение штата"
+        - "дополнительное выходное пособие"
+        - "трудоустройство при сокращении"
+        - "сохранение рабочих мест"
+        - "внедрение новых технологий"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)при\\s+(внедрении|модернизации|реструктуризации).*переобучени"
+        - "(?i)дополнительн(ое|ого)\\s+выходн(ое|ого)\\s+пособи"
+        - "(?i)повышени(е|я)\\s+квалификаци(и|ю)\\s+за\\s+счёт\\s+работодателя"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий коллективный договор.
+        Проверь наличие гарантий занятости и переподготовки (ст. 41, 180, 196 ТК РФ).
+
+        Ответь строго в JSON:
+        {
+          "job_security_status": "<concrete / declarative / not_found>",
+          "retraining_obligation": "<yes / no / not_found>",
+          "enhanced_severance": "<yes / no / not_found>",
+          "priority_rehiring": "<yes / no / not_found>",
+          "job_security_snippet": "<цитата или not_found>"
+        }
+
+        - "concrete" — указаны конкретные мероприятия и обязательства
+        - "declarative" — общие декларации без конкретики
+        - "not_found" — вопрос не раскрыт
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "гарантии занятости"
+        - "переподготовка"
+        - "сокращение"
+        - "выходное пособие"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "job_security_status"
+          type: "string"
+          allowed_values: ["concrete", "declarative", "not_found"]
+          description: "Статус гарантий занятости"
+        - name: "retraining_obligation"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Обязательство по переподготовке"
+        - name: "enhanced_severance"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Повышенное выходное пособие"
+      store_payload: true
+
+  - id: reorganization_succession_check
+    name: "Действие договора при реорганизации, смене собственника, ликвидации (ст. 43, 75 ТК РФ)"
+    description: |
+      Проверяет наличие положений о судьбе коллективного договора при реорганизации,
+      смене формы собственности и ликвидации организации.
+    triggers:
+      any: ["reorganization_context"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "реорганизация"
+        - "правопреемник"
+        - "слияние"
+        - "присоединение"
+        - "разделение"
+        - "выделение"
+        - "преобразование"
+        - "смена собственника"
+        - "ликвидация"
+        - "сохранение действия договора"
+        - "действие в период реорганизации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)в\\s+случае\\s+реорганизаци"
+        - "(?i)при\\s+смене\\s+собственник"
+        - "(?i)правопреемник.*обязательств"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий коллективный договор.
+        Проверь наличие положений о действии договора при реорганизации (ст. 43, 75 ТК РФ).
+
+        Ответь строго в JSON:
+        {
+          "reorganization_clause_status": "<present / not_found>",
+          "reorganization_action": "<continues / renegotiation / terminates / not_specified / not_found>",
+          "ownership_change_clause": "<present / not_found>",
+          "liquidation_clause": "<present / not_found>",
+          "succession_snippet": "<цитата или not_found>"
+        }
+
+        - "continues" — договор продолжает действие в период реорганизации
+        - "renegotiation" — стороны обязуются начать переговоры по новому договору
+        - "terminates" — договор прекращается (вероятно, ошибка — противоречит ст. 43 ТК)
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "реорганизация"
+        - "правопреемник"
+        - "смена собственника"
+        - "ликвидация"
+        - "ст. 43 ТК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "reorganization_clause_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Наличие положения о реорганизации"
+        - name: "reorganization_action"
+          type: "string"
+          allowed_values: ["continues", "renegotiation", "terminates", "not_specified", "not_found"]
+          description: "Что происходит с договором при реорганизации"
+      store_payload: true
+
+  - id: social_benefits_detail_check
+    name: "Детализация финансовых и социальных льгот (ст. 41 ТК РФ)"
+    description: |
+      Проверяет, содержат ли социальные обязательства работодателя конкретные параметры:
+      размеры выплат, условия, сроки, круг получателей. Декларативные формулировки
+      без конкретики создают риск неисполнения.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "материальная помощь"
+        - "доплата"
+        - "компенсация"
+        - "премия"
+        - "надбавка"
+        - "ДМС"
+        - "добровольное медицинское страхование"
+        - "оздоровление"
+        - "санаторно-курортное лечение"
+        - "питание"
+        - "проезд"
+        - "в размере"
+        - "в сумме"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)в\\s+размере\\s+\\d+"
+        - "(?i)в\\s+сумме\\s+\\d+"
+        - "(?i)\\d+\\s*(руб|рублей|%|процент)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий коллективный договор.
+        Оцени детализацию социальных и финансовых льгот (ст. 41 ТК РФ).
+
+        Ответь строго в JSON:
+        {
+          "benefits_found": ["<список выявленных льгот>"],
+          "benefits_with_amounts": "<yes / partially / no / not_found>",
+          "benefits_with_conditions": "<yes / partially / no / not_found>",
+          "declarative_only_benefits": ["<список льгот без конкретики>"],
+          "benefits_snippet": "<цитата с примером наиболее детализированной льготы или not_found>"
+        }
+
+        - "yes" — у большинства льгот указаны конкретные суммы/условия
+        - "partially" — у части льгот есть конкретика, у части — нет
+        - "no" — все льготы декларативные
+        - "not_found" — льготы не упоминаются
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 700
+    retrieval:
+      context_k: 8
+      max_chunks: 12
+      boost_keywords:
+        - "материальная помощь"
+        - "доплата"
+        - "компенсация"
+        - "премия"
+        - "ДМС"
+        - "оздоровление"
+        - "в размере"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "benefits_with_amounts"
+          type: "string"
+          allowed_values: ["yes", "partially", "no", "not_found"]
+          description: "Указаны ли конкретные суммы льгот"
+        - name: "benefits_with_conditions"
+          type: "string"
+          allowed_values: ["yes", "partially", "no", "not_found"]
+          description: "Указаны ли условия получения льгот"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification"
+    name: "Стороны договора: работодатель и представители работников"
+    description: "Проверяет наличие и достаточность идентификации сторон коллективного договора"
+    legal_base: "ст. 40 ТК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "работодатель"
+        - "работники"
+        - "представители работников"
+        - "профсоюз"
+        - "в лице"
+        - "действующего на основании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(работодатель|работники)\\s+в\\s+лице"
+
+  - id: "subject_matter_concrete_obligations"
+    name: "Предмет: конкретные взаимные обязательства (ст. 41 ТК РФ)"
+    description: "Проверяет наличие конкретных обязательств, а не только отсылок к законодательству"
+    legal_base: "ст. 41 ТК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "работодатель обязуется"
+        - "работники обязуются"
+        - "стороны обязуются"
+        - "взаимные обязательства"
+        - "дополнительные гарантии"
+        - "обязанности работодателя"
+        - "обязанности работников"
+      keyword_mode: "any"
+      negative_keywords:
+        - "в соответствии с действующим законодательством"
+        - "в порядке, установленном ТК РФ"
+      regex_patterns:
+        - "(?i)(работодатель|стороны)\\s+обязу(ются|ется)"
+
+  - id: "term_specified"
+    name: "Срок действия коллективного договора (ст. 43 ТК РФ)"
+    description: "Проверяет указание срока действия коллективного договора"
+    legal_base: "ст. 43 ТК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок действия"
+        - "вступает в силу"
+        - "действует до"
+        - "заключён на срок"
+        - "заключен на срок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b(?:на\\s+срок|сроком)\\s+(?:на\\s+)?\\d+\\s*(?:год|лет|года)\\b"
+        - "(?i)действует\\s+до\\s+\\d{1,2}[.]\\d{1,2}[.]\\d{4}"
+
+  - id: "scope_of_application"
+    name: "Сфера действия: организация, филиал, подразделение (ст. 43 ТК РФ)"
+    description: "Проверяет указание сферы действия договора"
+    legal_base: "ст. 43 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "распространяется на"
+        - "действует в отношении"
+        - "сфера действия"
+        - "организация в целом"
+        - "филиал"
+        - "представительство"
+        - "обособленное структурное подразделение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)распространяется\\s+на\\s+(всех\\s+)?работников"
+        - "(?i)действует\\s+в\\s+отношении"
+
+  - id: "universal_coverage_all_employees"
+    name: "Распространение на всех работников независимо от членства в профсоюзе (ст. 43 ТК РФ)"
+    description: "Проверяет, что договор распространяется на всех работников"
+    legal_base: "ст. 43 ТК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "распространяется на всех работников"
+        - "действует в отношении всех работников"
+        - "независимо от членства в профсоюзе"
+        - "для всех работников организации"
+        - "включая работников, принятых после заключения"
+      keyword_mode: "any"
+      negative_keywords:
+        - "только для членов профсоюза"
+        - "распространяется только на членов"
+      regex_patterns:
+        - "(?i)(распространяется|действует)\\s+(на|в\\s+отношении)\\s+всех\\s+работников"
+
+  - id: "amendment_procedure"
+    name: "Порядок внесения изменений и дополнений (ст. 44 ТК РФ)"
+    description: "Проверяет наличие процедуры внесения изменений в коллективный договор"
+    legal_base: "ст. 44 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "внесение изменений"
+        - "дополнения"
+        - "изменения и дополнения"
+        - "порядок внесения изменений"
+        - "по взаимному согласию"
+        - "в порядке, установленном для заключения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)изменени(я|й)\\s+и\\s+дополнени(я|й)"
+        - "(?i)порядок\\s+внесения\\s+изменений"
+
+  - id: "notification_registration"
+    name: "Уведомительная регистрация в органе по труду (ст. 50 ТК РФ)"
+    description: "Проверяет наличие обязательства по уведомительной регистрации в 7-дневный срок"
+    legal_base: "ст. 50 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "уведомительная регистрация"
+        - "регистрация в органе по труду"
+        - "направить на регистрацию"
+        - "в семидневный срок"
+        - "7 дней"
+        - "7-дневный срок"
+        - "орган по труду"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уведомительн(ая|ой)\\s+регистраци"
+        - "(?i)(семидневн|7[\\s-]?дневн)\\s+срок"
+
+  - id: "joint_control_commission"
+    name: "Совместная контрольная комиссия и отчётность (ст. 51 ТК РФ)"
+    description: "Проверяет создание органа контроля за исполнением и порядок отчётности"
+    legal_base: "ст. 51 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "комиссия по контролю"
+        - "контрольная комиссия"
+        - "контроль за выполнением"
+        - "отчёт о выполнении"
+        - "отчет о выполнении"
+        - "ежеквартальный отчёт"
+        - "полугодовой отчёт"
+        - "право запрашивать документы"
+        - "протоколы заседаний"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)комисси(я|ю|и)\\s+(по\\s+)?контрол"
+        - "(?i)отчёт(а|ы)?\\s+(о|по)\\s+выполнени"
+
+  - id: "occupational_safety_measures"
+    name: "Конкретные мероприятия по охране труда (ст. 41, 212–231 ТК РФ)"
+    description: "Проверяет наличие конкретных обязательств по охране труда и улучшению условий"
+    legal_base: "ст. 41, 212–231 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "мероприятия по охране труда"
+        - "финансирование охраны труда"
+        - "средства индивидуальной защиты"
+        - "специальная оценка условий труда"
+        - "СОУТ"
+        - "оздоровительные мероприятия"
+        - "0,2% от суммы затрат на производство"
+        - "аттестация рабочих мест"
+        - "медицинский осмотр"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)финансировани(е|я)\\s+охран(ы|у)\\s+труда"
+        - "(?i)специальн(ая|ой)\\s+оценк(а|и)\\s+условий\\s+труда"
+
+  - id: "working_time_and_rest"
+    name: "Рабочее время и время отдыха (Раздел IV–V ТК РФ)"
+    description: "Проверяет наличие положений о режиме рабочего времени, отпусках, перерывах"
+    legal_base: "ст. 41, Разделы IV–V ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "рабочее время"
+        - "режим работы"
+        - "ежегодный отпуск"
+        - "дополнительный отпуск"
+        - "перерыв для отдыха"
+        - "выходные дни"
+        - "нерабочие праздничные дни"
+        - "сокращённое рабочее время"
+        - "неполное рабочее время"
+        - "график сменности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ежегодн(ый|ого)\\s+(оплачиваем(ый|ого)|дополнительн(ый|ого))\\s+отпуск"
+        - "(?i)режим\\s+рабочего\\s+времени"
+
+  - id: "hazardous_conditions_additional_guarantees"
+    name: "Дополнительные гарантии за вредные/опасные условия труда"
+    description: "Проверяет наличие дополнительных гарантий для работников с вредными/опасными условиями"
+    legal_base: "ст. 92, 117, 147 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["hazardous_conditions"]
+    rules:
+      keywords:
+        - "доплата за вредность"
+        - "дополнительный отпуск за вредные условия"
+        - "сокращённая рабочая неделя"
+        - "молоко"
+        - "лечебно-профилактическое питание"
+        - "компенсация за вредность"
+        - "класс условий труда"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(доплат|компенсац)(а|ия)\\s+за\\s+(вредн|опасн)"
+        - "(?i)дополнительн(ый|ого)\\s+отпуск(а)?\\s+за\\s+вредн"
+
+  - id: "dms_and_health_benefits"
+    name: "ДМС и медицинские гарантии"
+    description: "Проверяет наличие добровольного медицинского страхования и медицинских гарантий"
+    legal_base: "ст. 41 ТК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "добровольное медицинское страхование"
+        - "ДМС"
+        - "медицинское обслуживание"
+        - "стоматологическая помощь"
+        - "оплата лекарств"
+        - "санаторно-курортное лечение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)добровольн(ое|ого)\\s+медицинск(ое|ого)\\s+страхован"
+        - "(?i)\\bДМС\\b"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "dms_status"
+          type: "string"
+          allowed_values: ["provided", "not_found"]
+          keyword_hints: ["ДМС", "добровольное медицинское страхование"]
+          description: "Наличие ДМС"
+      store_payload: true
+
+  - id: "financial_obligations_conditionality"
+    name: "Ограничение финансовых обязательств и привязка к финансовому состоянию"
+    description: "Проверяет наличие оговорок об условном характере финансовых обязательств"
+    legal_base: "ст. 41 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "при наличии финансовых возможностей"
+        - "с учётом финансово-хозяйственной деятельности"
+        - "с учетом финансово-хозяйственной деятельности"
+        - "в пределах средств"
+        - "лимит расходов"
+        - "при наличии прибыли"
+        - "в пределах бюджета"
+        - "право работодателя пересмотреть"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)при\\s+наличии\\s+финансов(ых|о-экономических)\\s+возможност"
+        - "(?i)в\\s+пределах\\s+(средств|бюджета)"
+
+  - id: "peace_obligation_no_strike"
+    name: "Обязательство социального мира и запрет забастовок по урегулированным вопросам"
+    description: "Проверяет наличие обязательства работников воздерживаться от забастовок при исполнении договора"
+    legal_base: "ст. 41, 409 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "обязательство мира"
+        - "воздержание от забастовок"
+        - "социальный мир"
+        - "не объявлять забастовку"
+        - "мирное урегулирование"
+        - "не прибегать к забастовке"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)воздерж(иваться|ание)\\s+от\\s+забастов"
+        - "(?i)не\\s+объявлять\\s+забастовку"
+
+  - id: "employee_obligations_discipline"
+    name: "Обязательства работников: дисциплина и производительность"
+    description: "Проверяет наличие встречных обязательств работников"
+    legal_base: "ст. 41 ТК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "работники обязуются"
+        - "обязанности работников"
+        - "добросовестное выполнение"
+        - "соблюдение трудовой дисциплины"
+        - "бережное отношение к имуществу"
+        - "повышение производительности"
+        - "соблюдение правил внутреннего трудового распорядка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)работники\\s+обязу(ются|ются)"
+
+  - id: "confidentiality_and_information_limits"
+    name: "Ограничение доступа к информации и конфиденциальность"
+    description: "Проверяет наличие положений о защите коммерческой тайны при предоставлении информации профсоюзу"
+    legal_base: "ст. 53 ТК РФ, ФЗ-98 «О коммерческой тайне»"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальная информация"
+        - "коммерческая тайна"
+        - "порядок предоставления информации"
+        - "объём предоставляемых сведений"
+        - "ответственность за разглашение"
+        - "не подлежит разглашению"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)коммерческ(ая|ой)\\s+тайн"
+        - "(?i)ответственност(ь|и)\\s+за\\s+разглашение"
+
+  - id: "amendment_frequency_limit"
+    name: "Ограничение частоты инициирования изменений"
+    description: "Проверяет установление ограничений на частоту инициирования пересмотра условий"
+    legal_base: "ст. 44 ТК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "не чаще одного раза в год"
+        - "не ранее чем через"
+        - "обоснование экономической целесообразности"
+        - "письменное обоснование"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+чаще\\s+(одного\\s+раза|1\\s+раза)\\s+в\\s+год"
+
+  - id: "dispute_resolution_escalation"
+    name: "Лестница эскалации для разрешения разногласий (ст. 398–418 ТК РФ)"
+    description: "Проверяет наличие поэтапной процедуры разрешения разногласий"
+    legal_base: "ст. 398–418 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "разрешение разногласий"
+        - "примирительная комиссия"
+        - "посредник"
+        - "медиатор"
+        - "трудовой арбитраж"
+        - "переговоры"
+        - "досудебный порядок"
+        - "порядок разрешения споров"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)примирительн(ая|ой)\\s+комисси"
+        - "(?i)трудов(ой|ого)\\s+арбитраж"
+
+  - id: "liability_for_non_compliance"
+    name: "Ответственность сторон за невыполнение обязательств"
+    description: "Проверяет наличие положений об ответственности за нарушение условий договора"
+    legal_base: "ст. 55 ТК РФ, ст. 5.28–5.31 КоАП РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ответственность сторон"
+        - "ответственность за нарушение"
+        - "ответственность за невыполнение"
+        - "штраф"
+        - "неустойка"
+        - "административная ответственность"
+        - "ст. 5.28 КоАП"
+        - "ст. 5.31 КоАП"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ответственност(ь|и)\\s+(сторон|за\\s+(не)?выполнени)"
+        - "(?i)ст\\.?\\s*5\\.(28|29|30|31)\\s+КоАП"
+
+  - id: "koap_administrative_liability_reference"
+    name: "Ссылка на административную ответственность (ст. 5.28–5.31 КоАП РФ)"
+    description: "Проверяет упоминание административной ответственности за нарушения в сфере социального партнёрства"
+    legal_base: "ст. 5.28–5.31 КоАП РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "уклонение от переговоров"
+        - "непредоставление информации"
+        - "нарушение сроков"
+        - "административная ответственность"
+        - "КоАП"
+        - "ст. 5.28"
+        - "ст. 5.29"
+        - "ст. 5.30"
+        - "ст. 5.31"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уклонени(е|я)\\s+от\\s+переговор"
+        - "(?i)ст\\.?\\s*5\\.(28|29|30|31)"
+
+  - id: "successor_clause_reorganization"
+    name: "Правопреемство при реорганизации и смене собственника (ст. 43, 75 ТК РФ)"
+    description: "Проверяет наличие положений о судьбе договора при реорганизации"
+    legal_base: "ст. 43, 75 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "реорганизация"
+        - "правопреемник"
+        - "смена собственника"
+        - "ликвидация"
+        - "сохранение действия"
+        - "переход обязательств"
+        - "три месяца после смены собственника"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(реорганизаци|смен(а|е)\\s+собственник|ликвидаци)"
+        - "(?i)правопреемник.*обязательств"
+
+  - id: "shift_and_vakhta_conditions"
+    name: "Условия сменной работы и вахтового метода"
+    description: "Проверяет наличие специальных условий для сменных работников и вахтовиков"
+    legal_base: "ст. 103, 297–302 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["shift_work_context"]
+    rules:
+      keywords:
+        - "сменная работа"
+        - "график сменности"
+        - "суммированный учёт"
+        - "суммированный учет"
+        - "вахтовый метод"
+        - "ночная смена"
+        - "доплата за работу в ночное время"
+        - "междусменный отдых"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)график(а|и)?\\s+сменности"
+        - "(?i)суммированн(ый|ого)\\s+учёт(а)?"
+
+  - id: "remote_work_conditions"
+    name: "Условия дистанционной (удалённой) работы"
+    description: "Проверяет наличие положений о дистанционной работе и компенсациях"
+    legal_base: "ст. 312.1–312.9 ТК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["remote_work_context"]
+    rules:
+      keywords:
+        - "дистанционная работа"
+        - "удалённая работа"
+        - "удаленная работа"
+        - "гибридный режим"
+        - "компенсация за использование личного оборудования"
+        - "электронный документооборот"
+        - "обмен электронными документами"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)дистанционн(ая|ой)\\s+работ"
+        - "(?i)удалённ(ая|ой)\\s+работ"
+
+  - id: "branch_specific_conditions"
+    name: "Специфика для филиала/подразделения: полномочия и сфера"
+    description: "Проверяет полноту положений при заключении договора в филиале"
+    legal_base: "ст. 40, 43 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["branch_subdivision"]
+    rules:
+      keywords:
+        - "филиал"
+        - "представительство"
+        - "обособленное структурное подразделение"
+        - "руководитель филиала"
+        - "доверенность на заключение"
+        - "полномочия руководителя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(филиал|представительств|обособленн(ое|ого)\\s+подразделени)"
+        - "(?i)доверенност(ь|и).*на\\s+заключение"
+
+  - id: "wage_system_and_tariffs"
+    name: "Система оплаты труда, тарифные ставки, оклады (ст. 135 ТК РФ)"
+    description: "Проверяет наличие положений о системе оплаты труда"
+    legal_base: "ст. 135 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "система оплаты труда"
+        - "тарифная ставка"
+        - "оклад"
+        - "должностной оклад"
+        - "штатное расписание"
+        - "надбавка"
+        - "доплата"
+        - "премирование"
+        - "стимулирующие выплаты"
+        - "компенсационные выплаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)систем(а|ы)\\s+оплат(ы|е)\\s+труда"
+        - "(?i)тарифн(ая|ые|ой)\\s+ставк"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_and_representatives_extraction:
+    text: >
+      Просим предоставить по {doc_names}: (а) полные реквизиты работодателя; (б) наименование
+      представительного органа работников и документы, подтверждающие полномочия (протокол
+      собрания/конференции, доверенность, приказ); (в) ФИО и должности уполномоченных
+      представителей обеих сторон.
+    addressee: "Обе стороны"
+
+  parties_identification:
+    text: >
+      В {doc_names} необходимо чётко идентифицировать стороны коллективного договора:
+      работодателя и представительный орган работников с указанием полномочий.
+    addressee: "Обе стороны"
+
+  subject_matter_concrete_obligations:
+    text: >
+      Просим проверить {doc_names} на предмет наличия конкретных взаимных обязательств
+      сторон (ст. 41 ТК РФ), а не только отсылок к трудовому законодательству.
+      Коллективный договор должен содержать улучшающие условия.
+    addressee: "Юридический советник работодателя"
+
+  term_validation:
+    text: >
+      Просим уточнить в {doc_names}: (а) дату начала и окончания действия; (б) подтверждение,
+      что срок не превышает 3 лет (ст. 43 ТК РФ); (в) условия и порядок продления;
+      (г) последствия истечения срока.
+    addressee: "Обе стороны"
+
+  term_specified:
+    text: >
+      В {doc_names} необходимо указать точный срок действия коллективного договора
+      (не более 3 лет по ст. 43 ТК РФ).
+    addressee: "Обе стороны"
+
+  scope_of_application:
+    text: >
+      Просим уточнить в {doc_names} сферу действия: организация в целом, филиал,
+      представительство или иное обособленное подразделение.
+    addressee: "Работодатель"
+
+  universal_coverage_all_employees:
+    text: >
+      Просим подтвердить в {doc_names}, что коллективный договор распространяется
+      на всех работников организации независимо от членства в профсоюзе (ст. 43 ТК РФ).
+    addressee: "Юридический советник"
+
+  no_worsening_principle_check:
+    text: >
+      Просим проверить {doc_names} на наличие: (а) явного указания на недопустимость ухудшения
+      положения работников (ст. 9, 50 ТК РФ); (б) потенциально ухудшающих условий
+      (снижение гарантий, замена льгот, отказ от прав).
+    addressee: "Юридический советник / Орган по труду"
+
+  wage_indexation_mechanism_check:
+    text: >
+      Просим уточнить в {doc_names}: конкретный механизм индексации заработной платы
+      (ст. 134 ТК РФ) — привязка к ИПЦ, фиксированный процент, периодичность,
+      порядок принятия решения. Общие декларации без конкретики недостаточны.
+    addressee: "Работодатель / Финансовая служба"
+
+  union_activity_guarantees_check:
+    text: >
+      Просим предоставить по {doc_names}: (а) подтверждение предоставления помещения
+      профсоюзу; (б) порядок освобождения профсоюзных работников от основной работы;
+      (в) механизм перечисления профсоюзных взносов; (г) гарантии при увольнении
+      профсоюзных работников (ст. 374–377 ТК РФ).
+    addressee: "Работодатель"
+
+  multiple_unions_representation_check:
+    text: >
+      В {doc_names} выявлено наличие нескольких профсоюзных организаций. Просим предоставить:
+      (а) протокол создания единого представительного органа; (б) подтверждение
+      пропорционального представительства; (в) документы по ст. 37 ТК РФ.
+    addressee: "Представители работников"
+
+  job_security_and_retraining_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) конкретные гарантии занятости при реструктуризации;
+      (б) обязательства по переподготовке; (в) размер дополнительного выходного пособия;
+      (г) приоритеты при повторном трудоустройстве.
+    addressee: "Работодатель"
+
+  reorganization_succession_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) порядок действия договора при реорганизации
+      (ст. 43 ТК РФ); (б) обязательства правопреемника; (в) порядок при смене
+      формы собственности (3 месяца); (г) последствия ликвидации.
+    addressee: "Юридический советник работодателя"
+
+  successor_clause_reorganization:
+    text: >
+      Просим включить в {doc_names} положения о правопреемстве обязательств при
+      реорганизации и смене собственника в соответствии со ст. 43, 75 ТК РФ.
+    addressee: "Юридический советник"
+
+  social_benefits_detail_check:
+    text: >
+      Просим детализировать в {doc_names} социальные обязательства: указать конкретные
+      размеры (суммы в рублях или процентах), условия получения, круг получателей,
+      сроки выплат, источники финансирования.
+    addressee: "Работодатель / Финансовая служба"
+
+  dms_and_health_benefits:
+    text: >
+      Просим уточнить в {doc_names}: (а) наличие ДМС, перечень покрываемых услуг;
+      (б) категории работников, имеющих право на ДМС; (в) страховую компанию
+      и порядок обращения.
+    addressee: "Работодатель / HR-служба"
+
+  amendment_procedure:
+    text: >
+      Просим уточнить в {doc_names} порядок внесения изменений и дополнений:
+      процедура инициирования, сроки рассмотрения, порядок принятия, вступление в силу.
+    addressee: "Обе стороны"
+
+  amendment_frequency_limit:
+    text: >
+      Просим рассмотреть целесообразность установления в {doc_names} ограничения
+      на частоту инициирования пересмотра условий договора.
+    addressee: "Юридический советник работодателя"
+
+  notification_registration:
+    text: >
+      Просим подтвердить по {doc_names}: обязательство направить коллективный договор
+      на уведомительную регистрацию в орган по труду в 7-дневный срок (ст. 50 ТК РФ).
+    addressee: "Работодатель"
+
+  joint_control_commission:
+    text: >
+      Просим согласовать в {doc_names}: (а) создание совместной контрольной комиссии;
+      (б) равный состав представителей; (в) периодичность отчётности;
+      (г) право комиссии запрашивать документы.
+    addressee: "Обе стороны"
+
+  financial_obligations_conditionality:
+    text: >
+      Просим включить в {doc_names} оговорки об условном характере финансовых обязательств:
+      привязка к финансовому состоянию, лимиты расходов, право пересмотра при ухудшении
+      экономической ситуации.
+    addressee: "Юридический советник работодателя"
+
+  peace_obligation_no_strike:
+    text: >
+      Просим рассмотреть включение в {doc_names} обязательства социального мира:
+      работники воздерживаются от забастовок по вопросам, урегулированным договором,
+      при условии добросовестного исполнения работодателем.
+    addressee: "Обе стороны"
+
+  employee_obligations_discipline:
+    text: >
+      Просим обеспечить баланс в {doc_names}: включить встречные обязательства работников
+      по добросовестному труду, соблюдению дисциплины, бережному отношению к имуществу.
+    addressee: "Обе стороны"
+
+  confidentiality_and_information_limits:
+    text: >
+      Просим определить в {doc_names}: порядок и объём предоставления информации профсоюзу,
+      перечень сведений, составляющих коммерческую тайну, ответственность за разглашение.
+    addressee: "Юридический советник работодателя"
+
+  dispute_resolution_escalation:
+    text: >
+      Просим согласовать в {doc_names} поэтапную процедуру разрешения разногласий:
+      переговоры → примирительная комиссия → посредник/медиатор → трудовой арбитраж.
+    addressee: "Обе стороны"
+
+  liability_for_non_compliance:
+    text: >
+      Просим уточнить в {doc_names} ответственность сторон: основания, размеры штрафов,
+      порядок привлечения, ссылки на ст. 5.28–5.31 КоАП РФ.
+    addressee: "Юридический советник"
+
+  koap_administrative_liability_reference:
+    text: >
+      Просим включить в {doc_names} информационную ссылку на административную ответственность
+      за уклонение от переговоров (ст. 5.28 КоАП), непредоставление информации (ст. 5.29),
+      необоснованный отказ от заключения (ст. 5.30), невыполнение обязательств (ст. 5.31).
+    addressee: "Юридический советник"
+
+  occupational_safety_measures:
+    text: >
+      Просим детализировать в {doc_names}: перечень мероприятий по охране труда,
+      объём финансирования (не менее 0,2% от затрат на производство), ответственных лиц,
+      сроки проведения СОУТ, порядок обеспечения СИЗ, график медосмотров.
+    addressee: "Работодатель / Служба охраны труда"
+
+  working_time_and_rest:
+    text: >
+      Просим уточнить в {doc_names}: режимы рабочего времени, продолжительность
+      ежегодного и дополнительных отпусков, порядок утверждения графиков, перерывы.
+    addressee: "Обе стороны"
+
+  hazardous_conditions_additional_guarantees:
+    text: >
+      Просим предоставить по {doc_names}: результаты СОУТ, перечень рабочих мест
+      с вредными/опасными условиями, размеры доплат и дополнительных отпусков,
+      порядок обеспечения молоком/ЛПП.
+    addressee: "Работодатель / Служба охраны труда"
+
+  shift_and_vakhta_conditions:
+    text: >
+      Просим уточнить в {doc_names}: графики сменности, порядок суммированного учёта,
+      условия вахтового метода, компенсации за работу в ночное время.
+    addressee: "Работодатель"
+
+  remote_work_conditions:
+    text: >
+      Просим уточнить в {doc_names}: порядок перехода на дистанционную работу,
+      компенсации за использование личного оборудования, правила электронного
+      документооборота, условия гибридного режима.
+    addressee: "Работодатель / HR-служба"
+
+  branch_specific_conditions:
+    text: >
+      Для {doc_names} (коллективный договор филиала/подразделения) просим предоставить:
+      (а) доверенность руководителя филиала на заключение; (б) подтверждение
+      полномочий представителей работников в филиале; (в) подтверждение сферы действия.
+    addressee: "Работодатель / Руководитель филиала"
+
+  wage_system_and_tariffs:
+    text: >
+      Просим представить по {doc_names}: действующую систему оплаты труда,
+      тарифную сетку / штатное расписание, порядок премирования,
+      перечень надбавок и доплат с указанием размеров и условий.
+    addressee: "Работодатель / Финансовая служба"
+
+  worsening_conditions_prohibition:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлены условия, потенциально ухудшающие положение работников
+      по сравнению с трудовым законодательством (ст. 9, 50 ТК РФ). Такие условия
+      недействительны. Просим предоставить правовое обоснование или исключить.
+    addressee: "Юридический советник работодателя / Орган по труду"
+
+  term_exceeds_three_years:
+    text: >
+      ВНИМАНИЕ: в {doc_names} срок действия превышает 3 года, что нарушает ст. 43 ТК РФ.
+      Просим привести срок в соответствие с законом (не более 3 лет).
+    addressee: "Обе стороны"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

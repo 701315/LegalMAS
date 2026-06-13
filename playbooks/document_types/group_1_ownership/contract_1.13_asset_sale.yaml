@@ -13,7 +13,7 @@ description: |
   Договор продажи предприятия необходимо отличать от продажи долей/акций (share deal)
   и от продажи отдельных активов вне режима имущественного комплекса (asset-by-asset sale).
 
-version: 4.1
+version: 5.0
 parent: class_1_transfer_of_ownership
 
 metadata:
@@ -31,30 +31,21 @@ metadata:
     - "продажа имущественного комплекса"
     - "договор передачи имущественного комплекса"
     - "договор продажи бизнес-активов"
-    - "договор продажи предприятия с торгов"  
-
+    - "договор продажи предприятия с торгов"
     - "sale of enterprise"
     - "asset purchase agreement"
     - "enterprise transfer agreement"
-    - "asset purchase agreement"
     - "APA"
     - "sale of business agreement"
     - "business transfer agreement"
     - "business acquisition agreement"
-    - "transfer of assets agreement"  
+    - "transfer of assets agreement"
     - "acquisition of assets agreement"
     - "going concern sale agreement"
     - "transfer of going concern"
     - "TOGC"
     - "bulk sale agreement"
     - "carve-out transaction agreement"
-
-engine_expectations:
-  evidence_required: true
-  evidence_style: "pinpoint"
-  allow_not_found: true
-  output_style: "dd_grid"
-  prefer_structured_outputs: true
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
@@ -75,22 +66,18 @@ classification_runtime_v1:
       - pattern: "(?i)договор[_\\s-]*продажи[_\\s-]*предприяти[яея]"
         kind: specific_subject
         weight: 1.0
-        # Базовое имя: договор продажи предприятия
 
       - pattern: "(?i)договор[_\\s-]*купл[яи]_?продаж[аи][_\\s-]*предприяти[яея]"
         kind: specific_subject
         weight: 1.0
-        # Договор купли-продажи предприятия
 
       - pattern: "(?i)продаж[аи].*предприяти[яея]"
         kind: specific_subject
         weight: 0.95
-        # Продажа предприятия как имущественного комплекса (более свободная форма)
 
       - pattern: "(?i)предприяти[ея].*имущественн[ыйого]\\s*комплекс"
         kind: specific_subject
         weight: 0.95
-        # Предприятие как имущественный комплекс
 
       - pattern: "(?i)имущественн[ыйого]\\s*комплекс.*предприяти[яея]"
         kind: specific_subject
@@ -99,22 +86,18 @@ classification_runtime_v1:
       - pattern: "(?i)договор[_\\s-]*передачи[_\\s-]*имущественн[огоый]\\s*комплекс[аа]"
         kind: specific_subject
         weight: 0.9
-        # Договор передачи имущественного комплекса
 
       - pattern: "(?i)договор[_\\s-]*продажи[_\\s-]*бизнес[-_\\s]*активов"
         kind: specific_subject
         weight: 0.9
-        # Прямое указание на продажу бизнес-активов в контексте предприятия
 
       - pattern: "(?i)договор[_\\s-]*продажи[_\\s-]*предприяти[яея][_\\s-]*с[_\\s-]*торгов"
         kind: specific_subject
         weight: 0.9
-        # Продажа предприятия с торгов
 
       - pattern: "(?i)sale[\\s_.-]*of[\\s_.-]*enterprise"
         kind: specific_subject
         weight: 1.0
-        # Sale of enterprise
 
       - pattern: "(?i)enterprise[\\s_.-]*sale"
         kind: specific_subject
@@ -123,17 +106,14 @@ classification_runtime_v1:
       - pattern: "(?i)enterprise[\\s_.-]*transfer[\\s_.-]*agreement"
         kind: specific_subject
         weight: 0.95
-        # Enterprise transfer agreement
 
       - pattern: "(?i)asset[\\s_.-]*purchase[\\s_.-]*agreement.*enterprise"
         kind: specific_subject
         weight: 0.95
-        # APA явно привязан к enterprise
 
       - pattern: "(?i)sale[\\s_.-]*of[\\s_.-]*business"
         kind: specific_subject
         weight: 0.9
-        # Sale of business (в данном типе трактуем как продажу предприятия в целом)
 
       - pattern: "(?i)business[_\\s-]*sale[_\\s-]*agreement"
         kind: specific_subject
@@ -146,17 +126,14 @@ classification_runtime_v1:
       - pattern: "(?i)business[_\\s-]*acquisition[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.85
-        # Acquisition of business — ближе к enterprise-типу, но немного слабее
 
       - pattern: "(?i)asset[_\\s-]*purchase[_\\s-]*agreement"
         kind: generic_form
         weight: 0.6
-        # APA без уточнения enterprise/business — общая asset deal-форма
 
       - pattern: "(?i)transfer[_\\s-]*of[_\\s-]*assets[_\\s-]*agreement"
         kind: generic_form
         weight: 0.6
-        # Transfer of assets agreement — может быть enterprise, а может просто asset sale
 
       - pattern: "(?i)acquisition[_\\s-]*of[_\\s-]*assets[_\\s-]*agreement"
         kind: generic_form
@@ -165,48 +142,39 @@ classification_runtime_v1:
       - pattern: "(?i)going[_\\s-]*concern[_\\s-]*sale[_\\s-]*agreement"
         kind: specific_subject
         weight: 0.95
-        # Sale of business as a going concern — близкий аналог продажи предприятия
 
       - pattern: "(?i)transfer[_\\s-]*of[_\\s-]*going[_\\s-]*concern"
         kind: specific_subject
         weight: 0.95
-        # TOGC
 
       - pattern: "(?i)\\bTOGC\\b"
         kind: context
         weight: 0.4
-        # Аббревиатура TOGC сама по себе — контекстный сигнал
 
       - pattern: "(?i)bulk[_\\s-]*sale[_\\s-]*agreement"
         kind: generic_form
         weight: 0.55
-        # Bulk sale — не всегда именно enterprise sale (может быть и inventory sale)
 
       - pattern: "(?i)carve[-_\\s]*out[_\\s-]*transaction[_\\s-]*agreement"
         kind: generic_form
         weight: 0.55
-        # Carve-out transaction — общий M&A/asset-deal контекст
 
     folder_patterns:
       - pattern: "(?i)enterprise"
         kind: specific_subject
         weight: 0.8
-        # Папка enterprise — сильный сигнал бизнес/предприятие как объект
 
       - pattern: "(?i)имущественн[ыйого].*комплекс"
         kind: specific_subject
         weight: 0.8
-        # Папка для имущественного комплекса
 
       - pattern: "(?i)business[_\\s-]*sale"
         kind: specific_subject
         weight: 0.8
-        # Папка бизнес-продаж, ближе к продажам предприятия/бизнеса целиком
 
       - pattern: "(?i)asset[_\\s-]*deal"
         kind: generic_form
         weight: 0.5
-        # Asset deal как общий контекст (может включать и simple asset sales)
 
       - pattern: "(?i)asset[_\\s-]*sale"
         kind: generic_form
@@ -215,12 +183,10 @@ classification_runtime_v1:
       - pattern: "(?i)business[_\\s-]*transfer"
         kind: specific_subject
         weight: 0.75
-        # Папка business transfer — ближе к enterprise sale
 
       - pattern: "(?i)going[_\\s-]*concern"
         kind: specific_subject
         weight: 0.75
-        # Папка TOGC / going concern продаваемого бизнеса
 
     keywords:
 
@@ -229,79 +195,79 @@ classification_runtime_v1:
           weight: 1.0
           distinctiveness: high
           context: header
-          description: "Основное название договора продажи предприятия, § 8 Гл. 30 ГК РФ"
+          description: "Основное название договора продажи предприятия"
 
         - pattern: "(?i)\\bдоговор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+предприяти[яием]\\b"
           weight: 1.0
           distinctiveness: high
           context: header
-          description: "Альтернативное название с формулой купли-продажи предприятия"
+          description: "Договор купли-продажи предприятия"
 
         - pattern: "(?i)\\bsale\\s+of\\s+enterprise\\b"
           weight: 1.0
           distinctiveness: high
           context: header
-          description: "English title form — продажа предприятия"
+          description: "Sale of enterprise"
 
         - pattern: "(?i)\\benterprise\\s+transfer\\s+agreement\\b"
           weight: 0.95
           distinctiveness: high
           context: header
-          description: "English title form — договор передачи предприятия"
+          description: "Enterprise transfer agreement"
 
         - pattern: "(?i)предприяти[ея]\\s+как\\s+имущественн[ыйого]\\s+комплекс"
           weight: 1.0
           distinctiveness: high
           context: any
-          description: "Формула ст. 132 и § 8 Гл. 30 ГК — предприятие как имущественный комплекс"
+          description: "Предприятие как имущественный комплекс — ст. 132, § 8 Гл. 30 ГК"
 
         - pattern: "(?i)имущественн[ыйого]\\s+комплекс\\s+предприяти[яия]"
           weight: 0.95
           distinctiveness: high
           context: any
-          description: "Инвертированная формула имущественного комплекса предприятия"
+          description: "Имущественный комплекс предприятия"
 
         - pattern: "(?i)продаж[аы]\\s+предприяти[яием]\\s+как\\s+имущественн[огоый]\\s+комплекс[а]?"
           weight: 1.0
           distinctiveness: high
           context: any
-          description: "Полная формула предмета — продажа предприятия как имущественного комплекса"
+          description: "Продажа предприятия как имущественного комплекса"
 
         - pattern: "(?i)состав\\s+предприяти[яия]"
           weight: 0.85
           distinctiveness: high
           context: any
-          description: "Состав предприятия — обязательный реквизит договора (ст. 561 ГК)"
+          description: "Состав предприятия — обязательный реквизит (ст. 561 ГК)"
 
         - pattern: "(?i)акт\\s+инвентаризац[иии]\\s+предприяти[яия]"
           weight: 0.90
           distinctiveness: high
           context: any
-          description: "Акт инвентаризации предприятия — обязательный документ (ст. 561 ГК)"
+          description: "Акт инвентаризации — обязательный документ (ст. 561 ГК)"
 
         - pattern: "(?i)передаточн[ыйого]\\s+акт\\s+предприяти[яия]"
           weight: 0.90
           distinctiveness: high
           context: any
-          description: "Передаточный акт предприятия — специальный документ передачи (ст. 563 ГК)"
+          description: "Передаточный акт предприятия (ст. 563 ГК)"
 
         - pattern: "(?i)уведомлени[ея]\\s+кредитор[аов]\\s+о\\s+продаж[еи]\\s+предприяти[яия]"
           weight: 0.90
           distinctiveness: high
           context: any
-          description: "Уведомление кредиторов — обязательная процедура (ст. 562 ГК)"
+          description: "Уведомление кредиторов (ст. 562 ГК)"
 
         - pattern: "(?i)§\\s*8\\s+глав[ыы]\\s*30\\s+ГК\\s*РФ"
           weight: 0.90
           distinctiveness: high
           context: any
-          description: "Прямая ссылка на параграф ГК о продаже предприятия"
+          description: "Ссылка на § 8 Гл. 30 ГК"
 
         - pattern: "(?i)ст\\.?\\s*559\\s+ГК\\s*РФ"
           weight: 0.95
           distinctiveness: high
           context: any
-          description: "Ст. 559 ГК РФ — основная норма о договоре продажи предприятия"
+          description: "Ст. 559 ГК РФ — договор продажи предприятия"
 
         - pattern: "(?i)ст\\.?\\s*560\\s+ГК\\s*РФ"
           weight: 0.88
@@ -313,19 +279,19 @@ classification_runtime_v1:
           weight: 0.88
           distinctiveness: high
           context: any
-          description: "Ст. 561 ГК РФ — состав предприятия и обязательные документы"
+          description: "Ст. 561 ГК РФ — состав и документы"
 
         - pattern: "(?i)ст\\.?\\s*562\\s+ГК\\s*РФ"
           weight: 0.88
           distinctiveness: high
           context: any
-          description: "Ст. 562 ГК РФ — ответственность по долгам и уведомление кредиторов"
+          description: "Ст. 562 ГК РФ — кредиторы и долги"
 
         - pattern: "(?i)ст\\.?\\s*563\\s+ГК\\s*РФ"
           weight: 0.88
           distinctiveness: high
           context: any
-          description: "Ст. 563 ГК РФ — передаточный акт и переход предприятия"
+          description: "Ст. 563 ГК РФ — передаточный акт"
 
         - pattern: "(?i)ст\\.?\\s*132\\s+ГК\\s*РФ"
           weight: 0.86
@@ -333,213 +299,160 @@ classification_runtime_v1:
           context: any
           description: "Ст. 132 ГК РФ — предприятие как имущественный комплекс"
 
-        - pattern: "(?i)asset\\s+purchase\\s+agreement\\s*\\(enterprise\\)"
-          weight: 0.95
-          distinctiveness: high
-          context: header
-          description: "English: asset purchase agreement (enterprise) — заголовок договора продажи предприятия"
-
         - pattern: "(?i)государственн[аяое]\\s+регистрац[ияи]\\s+договора\\s+продаж[ьи]\\s+предприяти[яия]"
           weight: 0.90
           distinctiveness: high
           context: any
-          description: "Госрегистрация договора продажи предприятия — специальное требование § 8 Гл. 30"
-
-        - pattern: "(?i)государственн[аяое]\\s+регистрац[ияи]\\s+переход[аа]\\s+права\\s+собственност[иьи]\\s+на\\s+предприяти[еия]"
-          weight: 0.90
-          distinctiveness: high
-          context: any
-          description: "Госрегистрация перехода права собственности на предприятие"
+          description: "Госрегистрация договора"
 
         - pattern: "(?i)солидарн[аяое]\\s+ответственност[ььи]\\s+по\\s+долгам\\s+предприяти[яия]"
           weight: 0.88
           distinctiveness: high
           context: any
-          description: "Солидарная ответственность по долгам предприятия — специфика ст. 562 ГК РФ"
+          description: "Солидарная ответственность по долгам (ст. 562 ГК)"
 
       medium:
         - pattern: "(?i)бухгалтерск[ийое]\\s+баланс\\s+предприяти[яия]"
           weight: 0.65
           distinctiveness: medium
           context: any
-          description: "Баланс предприятия — обязательный документ к договору (ст. 561 ГК)"
+          description: "Баланс предприятия (ст. 561 ГК)"
 
         - pattern: "(?i)заключен[иеия]\\s+независим[огоый]\\s+аудитор[аа]"
           weight: 0.60
           distinctiveness: medium
           context: any
-          description: "Аудиторское заключение — один из обязательных документов (ст. 561 ГК)"
+          description: "Аудиторское заключение (ст. 561 ГК)"
 
         - pattern: "(?i)перечен[ьяи]\\s+долг[ов\\s]+предприяти[яия]"
           weight: 0.65
           distinctiveness: medium
           context: any
-          description: "Перечень долгов — обязательный документ (ст. 561 ГК)"
-
-        - pattern: "(?i)права\\s+требован[ияи]\\s+в\\s+состав[еу]\\s+предприяти[яия]"
-          weight: 0.60
-          distinctiveness: medium
-          context: any
-          description: "Права требования в составе предприятия — элемент имущественного комплекса"
+          description: "Перечень долгов (ст. 561 ГК)"
 
         - pattern: "(?i)переход\\s+к\\s+покупател[юю]\\s+прав\\s+и\\s+обязанност[ейи]\\s+предприяти[яия]"
           weight: 0.65
           distinctiveness: medium
           context: any
-          description: "Переход прав и обязанностей — сущностная характеристика продажи предприятия"
-
-        - pattern: "(?i)перевод\\s+долг[ов\\s]+в\\s+состав[еу]\\s+предприяти[яия]"
-          weight: 0.60
-          distinctiveness: medium
-          context: any
-          description: "Перевод долгов — обязательная процедура при продаже предприятия (ст. 562 ГК)"
+          description: "Переход прав и обязанностей"
 
         - pattern: "(?i)\\basset\\s+deal\\b"
           weight: 0.55
           distinctiveness: medium
           context: any
-          description: "Asset deal — M&A-термин; встречается в нескольких типах, не только в продаже предприятия"
+          description: "Asset deal"
 
         - pattern: "(?i)исключительн[ыеые]\\s+прав[ао]\\s+в\\s+состав[еу]\\s+предприяти[яия]"
           weight: 0.60
           distinctiveness: medium
           context: any
-          description: "Исключительные права в составе — ИС как элемент имущественного комплекса"
-
-        - pattern: "(?i)средств[ао]\\s+индивидуализац[иии]\\s+в\\s+состав[еу]\\s+предприяти[яия]"
-          weight: 0.60
-          distinctiveness: medium
-          context: any
-          description: "Средства индивидуализации: товарные знаки, фирменное наименование и т.п."
+          description: "Исключительные права в составе"
 
         - pattern: "(?i)реестр\\s+кредитор[о\\w]*"
           weight: 0.50
           distinctiveness: medium
           context: any
-          description: "Реестр кредиторов — характерен для продажи предприятия и процедур банкротства"
+          description: "Реестр кредиторов"
 
       low:
         - pattern: "(?i)\\bgoodwill\\b"
           weight: 0.30
           distinctiveness: low
           context: any
-          description: "Goodwill — деловая репутация; встречается в любых M&A-сделках"
+          description: "Goodwill"
 
         - pattern: "(?i)\\bdue\\s+diligence\\b"
           weight: 0.20
           distinctiveness: low
           context: any
-          description: "Due diligence без привязки к предприятию — общий M&A-термин"
+          description: "Due diligence"
 
         - pattern: "(?i)переход\\s+работник[ов\\w]*"
           weight: 0.25
           distinctiveness: low
           context: any
-          description: "Переход работников — следствие продажи предприятия (ст. 75 ТК РФ), но не уникальный признак"
-
-        - pattern: "(?i)трудов[ыеые]\\s+отношен[ияия]"
-          weight: 0.20
-          distinctiveness: low
-          context: any
-          description: "Трудовые отношения — очень широкий маркер"
+          description: "Переход работников"
 
     exclusions:
       - pattern: "(?i)продаж[аи]\\s+дол[иьи]\\s+в\\s+ООО"
         severity: hard
         weight: -1.0
-        description: "Продажа доли в ООО — share deal, contract_1.11_shares_sale"
+        description: "Продажа доли в ООО — share deal"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+дол[иьи]\\s+в\\s+ООО"
         severity: hard
         weight: -1.0
-        description: "Договор купли-продажи доли в ООО — явный share deal"
+        description: "Договор КП доли в ООО"
 
       - pattern: "(?i)продаж[аи]\\s+акц[ийи]"
         severity: hard
         weight: -1.0
-        description: "Продажа акций — share deal, contract_1.11_shares_sale"
+        description: "Продажа акций — share deal"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+акц[ийи]"
         severity: hard
         weight: -1.0
-        description: "Договор купли-продажи акций — явный share deal"
+        description: "Договор КП акций"
 
       - pattern: "(?i)выход\\s+участник[аов]\\s+из\\s+общества"
         severity: hard
         weight: -1.0
-        description: "Выход участника — корпоративная процедура, не продажа предприятия"
+        description: "Выход участника"
 
       - pattern: "(?i)договор[\\s\\n\\r]+аренд[ыа]\\s+предприяти[яия]"
         severity: hard
         weight: -1.0
-        description: "Аренда предприятия — § 5 гл. 34 ГК, без перехода права собственности"
+        description: "Аренда предприятия (§ 5 гл. 34 ГК)"
 
       - pattern: "(?i)аренд[аы]\\s+предприяти[яия]"
         severity: hard
         weight: -1.0
-        description: "Аренда предприятия без указания на договор — тот же тип"
+        description: "Аренда предприятия"
 
       - pattern: "(?i)договор[\\s\\n\\r]+управлен[ияи]\\s+предприяти[емем]"
         severity: hard
         weight: -1.0
-        description: "Управление предприятием — доверительное управление, не продажа"
+        description: "Управление предприятием"
 
       - pattern: "(?i)договор[\\s\\n\\r]+продаж[ьи]\\s+отдельн[огоых]\\s+актив[аов]"
         severity: hard
         weight: -1.0
-        description: "Продажа отдельных активов — asset-by-asset sale"
+        description: "Продажа отдельных активов"
 
       - pattern: "(?i)продаж[аи]\\s+отдельн[огоых]\\s+объект[аов]\\s+недвижимост[иьи]"
         severity: hard
         weight: -1.0
-        description: "Продажа отдельных объектов недвижимости — contract_1.6_real_estate"
+        description: "Продажа отдельных объектов недвижимости"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+квартир"
         severity: hard
         weight: -1.0
-        description: "КП квартиры — contract_1.6_real_estate"
+        description: "КП квартиры"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+жил[а-я\\s]*дом"
         severity: hard
         weight: -1.0
-        description: "КП жилого дома — contract_1.6_real_estate"
+        description: "КП жилого дома"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+земельн[а-я\\s]*участ"
         severity: hard
         weight: -1.0
-        description: "КП земельного участка — contract_1.6_real_estate"
+        description: "КП земельного участка"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+дол[иьи]\\s+в\\s+прав[еа]\\s+собственн[оа]ст[иьи]\\s+на\\s+недвижимост"
-        severity: hard
-        weight: -1.0
-        description: "КП доли в праве на недвижимость — contract_1.6_real_estate"
-
-      # ── Soft exclusions
-      
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+недвижимост[иьи]"
         severity: soft
         weight: -0.40
-        description: "Общий КП недвижимости — вероятно real_estate, но недвижимость может входить в комплекс"
-
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+объект[овы]\\s+недвижимост[иьи]"
-        severity: soft
-        weight: -0.35
-        description: "КП объекта недвижимости — скорее real_estate, но объект может быть частью комплекса"
+        description: "КП недвижимости (возможно, частью комплекса)"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+нежил[а-я\\s]*помещен"
         severity: soft
         weight: -0.35
-        description: "КП нежилого помещения — чаще отдельный объект, но может быть в составе предприятия"
+        description: "КП нежилого помещения"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+здани[яия]"
         severity: soft
         weight: -0.30
-        description: "КП здания — сильный сигнал real_estate, но здание может быть частью комплекса"
-
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+сооружен[ияи]"
-        severity: soft
-        weight: -0.30
-        description: "КП сооружения — аналогично зданию"
+        description: "КП здания"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
@@ -640,7 +553,6 @@ trigger_definitions:
       - "(?i)медицинск[а-яё]+\\s+деятельност[ьи]"
 
   non_compete_context:
-    description: "Ограничение конкуренции / non-compete"
     any_keywords:
       - "(?i)ограничени[ея]\\s+конкуренци[ии]"
       - "(?i)\\bнеконкуренци[яи]\\b"
@@ -652,7 +564,6 @@ trigger_definitions:
       - "(?i)\\bnon-?solicitation\\b"
 
   payment_escrow_context:
-    description: "Механика оплаты: escrow, рассрочка, условия для платежа"
     any_keywords:
       - "(?i)\\bэскроу\\b"
       - "(?i)\\bаккредитив\\b"
@@ -670,7 +581,6 @@ trigger_definitions:
 # ════════════════════════════════════════════════════════════════════════════
 
 shared_patterns:
-
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|usd|eur)"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
   cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
@@ -681,109 +591,157 @@ shared_patterns:
   balance_reference: "(?i)(бухгалтерск(ий|ого)\\s+баланс)"
   audit_reference: "(?i)(заключени(е|я)\\s+независим(ого|ым)\\s+аудитор)"
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 4: COMPLIANCE RULES
-#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
-# ════════════════════════════════════════════════════════════════════════════
-
-compliance_rules:
-
-  - id: "creditor_notification_compliance"
-    name: "Кредиторы должны быть письменно уведомлены о продаже предприятия"
-    description: >
-      Кредиторы по обязательствам, включаемым в состав предприятия, должны быть письменно
-      уведомлены о продаже. Нарушение этого требования влечёт существенные риски оспаривания
-      и солидарной ответственности.
-    legal_base: "ст. 562 ГК РФ"
-    required_triggers: ["creditor_notification_required"]
-    severity: "critical"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "уведомление кредиторов"
-        - "письменное уведомление"
-        - "согласие кредитора"
-        - "реестр кредиторов"
-        - "перевод долга"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 6
-      boost_keywords:
-        - "уведомление кредиторов"
-        - "согласие кредитора"
-        - "перевод долга"
-      rerank: true
-
-  - id: "antitrust_clearance_required"
-    name: "Проверка необходимости согласования с ФАС"
-    description: >
-      Сделка по приобретению предприятия может подпадать под контроль экономической концентрации
-      и требовать согласования/уведомления в ФАС России.
-    legal_base: "ФЗ-135 «О защите конкуренции»"
-    required_triggers: ["antitrust_risk"]
-    severity: "critical"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "ФАС"
-        - "антимонопольное согласование"
-        - "экономическая концентрация"
-        - "предварительное согласие"
-        - "уведомление ФАС"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "ФАС"
-        - "антимонопольное согласование"
-        - "экономическая концентрация"
-      rerank: true
-
-  - id: "bankruptcy_challenge_risk"
-    name: "Банкротный риск оспаривания сделки продажи предприятия"
-    description: >
-      Продажа предприятия в предбанкротный период может быть оспорена как подозрительная
-      сделка или сделка с предпочтением; особенно опасны undervalue, аффилированность и вывод активов.
-    legal_base: "ст. 61.2, 61.3 ФЗ-127"
-    required_triggers: []
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "банкротство"
-        - "несостоятельность"
-        - "подозрительная сделка"
-        - "предпочтение"
-        - "кредиторы"
-        - "конкурсная масса"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "банкротство"
-        - "подозрительная сделка"
-        - "предпочтение"
-      rerank: true
+compliance_rules: []
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  БЛОК 4: CHECKS_V8 — единственный рабочий слой юридического анализа
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
 
-  - id: enterprise_subject_extraction
-    name: "Продажа предприятия: извлечение состава имущественного комплекса"
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 1: СТОРОНЫ / ПОЛНОМОЧИЯ 
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: parties_and_authority
+    name: "Стороны сделки: продавец, покупатель, полномочия (ст. 432 ГК РФ, ФЗ-14, ФЗ-208)"
     description: >
-      Извлекает сведения о составе предприятия: активы, долги, IP, работники,
-      недвижимость, лицензии и ключевые параметры сделки.
+      Проверяет идентификацию продавца и покупателя, полномочия подписантов,
+      корпоративные одобрения (если сделка является крупной или с заинтересованностью).
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "продавец"
+        - "покупатель"
+        - "в лице"
+        - "действующего на основании"
+        - "коммерческая организация"
+        - "индивидуальный предприниматель"
+        - "ИНН"
+        - "ОГРН"
+        - "крупная сделка"
+        - "сделка с заинтересованностью"
+        - "одобрение общего собрания"
+        - "решение единственного участника"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(продавец|покупатель).*именуем"
+        - "{{ inn_ogrn }}"
+        - "(?i)крупн(ая|ой)\\s+сделк"
+        - "(?i)одобрен(ие|а)"
+
+    llm:
+      prompt_template: |
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
+
+        Проверь блок: идентификация сторон, полномочия подписантов, корпоративное одобрение.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 432 ГК РФ: стороны должны быть идентифицированы
+           — ст. 559 ГК РФ: продавец — собственник предприятия или уполномоченное лицо
+           — ФЗ-14 ст. 45-46, ФЗ-208 ст. 78-84: крупная сделка / сделка с заинтересованностью
+           — Предприятие как имущественный комплекс требует проверки правоспособности
+             продавца в отношении каждого из включённых объектов
+
+        2. ПРАКТИКА:
+           — DD-стандарт: полные реквизиты продавца и покупателя; проверка полномочий
+             подписантов (устав, доверенность, протокол); корпоративные решения об одобрении;
+             для физлица-предпринимателя — ОГРНИП, паспорт
+
+        Верни строго JSON:
+        {
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "seller_identification": "ok | partial | missing",
+            "seller_type": "legal_entity | individual_entrepreneur | individual | unclear",
+            "seller_authority": "ok | partial | missing | not_found",
+            "buyer_identification": "ok | partial | missing",
+            "buyer_type": "legal_entity | individual_entrepreneur | individual | unclear",
+            "corporate_approval_required": "yes | no | not_assessable",
+            "corporate_approval_present": "yes | no | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
+        }
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — not_assessable: невозможно оценить без дополнительных документов
+        — Не додумывай реквизиты и полномочия
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "продавец"
+        - "покупатель"
+        - "именуем"
+        - "ИНН"
+        - "ОГРН"
+        - "крупная сделка"
+        - "одобрение"
+      rerank: true
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "definitions"
+        - "boilerplate"
+      confidence_bonus_on_match: 0.08
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "seller_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual_entrepreneur", "individual", "unclear"]
+          keyword_hints: ["ООО", "АО", "ИП", "гражданин"]
+          description: "Тип продавца"
+        - name: "buyer_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual_entrepreneur", "individual", "unclear"]
+          keyword_hints: ["ООО", "АО", "ИП", "гражданин"]
+          description: "Тип покупателя"
+        - name: "corporate_approval_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие корпоративного одобрения"
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 2: ПРЕДМЕТ / СОСТАВ ПРЕДПРИЯТИЯ
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: enterprise_subject_extraction
+    name: "Предмет договора: предприятие как имущественный комплекс и его состав (ст. 132, 559, 561 ГК РФ)"
+    description: >
+      Проверяет, что предметом является именно предприятие в целом как имущественный
+      комплекс, извлекает состав предприятия: активы, долги, IP, работники, недвижимость,
+      лицензии, права требования.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
         - "предприятие как имущественный комплекс"
@@ -794,33 +752,68 @@ checks_v8:
         - "права требования"
         - "исключительные права"
         - "работники"
+        - "предприятие в целом"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)акт\\s+инвентаризац"
+        - "{{ inventory_reference }}"
         - "(?i)переч(ень|ня)\\s+долг"
         - "(?i)товарн(ый|ого)\\s+знак|коммерческ(ое|ого)\\s+обозначени"
-        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+        - "{{ cadastral_number }}"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор продажи предприятия.
-        Извлеки ключевые параметры состава предприятия.
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
 
-        Ответь строго в JSON:
+        Проверь блок: предмет договора — предприятие как имущественный комплекс.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 132 ГК РФ: предприятие — имущественный комплекс, включая недвижимость,
+             оборудование, запасы, долги, права требования, исключительные права;
+             предприятие признаётся недвижимостью
+           — ст. 559 ГК РФ: продавец обязуется передать предприятие в целом;
+             предмет — обязательное существенное условие
+           — ст. 561 ГК РФ: состав предприятия должен быть подтверждён обязательными
+             документами
+
+        2. ПРАКТИКА:
+           — DD-стандарт: чёткое определение предмета (именно имущественный комплекс, не
+             набор отдельных активов); исчерпывающий состав с разбивкой по группам;
+             выявление исключений из состава (excluded assets)
+
+        Верни строго JSON:
         {
-          "includes_real_estate": "<yes / no / not_found>",
-          "includes_movable_assets": "<yes / no / not_found>",
-          "includes_claims": "<yes / no / not_found>",
-          "includes_debts": "<yes / no / not_found>",
-          "includes_ip": "<yes / no / not_found>",
-          "includes_employees_context": "<yes / no / not_found>",
-          "composition_basis_docs": ["<документ1>", "<документ2>"]
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "enterprise_as_complex_stated": "yes | implied | not_found",
+            "includes_real_estate": "yes | no | not_found",
+            "includes_movable_assets": "yes | no | not_found",
+            "includes_claims": "yes | no | not_found",
+            "includes_debts": "yes | no | not_found",
+            "includes_ip": "yes | no | not_found",
+            "includes_employees_context": "yes | no | not_found",
+            "excluded_assets_defined": "yes | no | not_found",
+            "composition_basis_docs": ["<документ1>", "..."]
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
         }
 
-        ВАЖНО: Возвращай only_found_in_text.
-      prompt_file: null
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — implied: следует из контекста, но не назван явно
+        — Не додумывай состав предприятия
       context_k: 7
       temperature: 0.0
-      max_tokens: 500
+      max_tokens: 700
+
     retrieval:
       context_k: 7
       max_chunks: 9
@@ -829,16 +822,28 @@ checks_v8:
         - "акт инвентаризации"
         - "перечень долгов"
         - "исключительные права"
+        - "имущественный комплекс"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+
     evidence:
       required: true
       min_snippet_length: 50
       max_snippet_length: 700
+
     extraction:
       enabled: true
       mode: "hybrid"
       fields:
+        - name: "enterprise_as_complex_stated"
+          type: "string"
+          allowed_values: ["yes", "implied", "not_found"]
+          description: "Явно ли указан имущественный комплекс"
         - name: "includes_real_estate"
           type: "string"
           allowed_values: ["yes", "no", "not_found"]
@@ -851,21 +856,24 @@ checks_v8:
           type: "string"
           allowed_values: ["yes", "no", "not_found"]
           description: "Включены ли IP/средства индивидуализации"
-        - name: "composition_basis_docs"
-          type: "array"
-          description: "Документы, на основе которых определён состав предприятия"
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 3: ОБЯЗАТЕЛЬНЫЕ ПРИЛОЖЕНИЯ
+  # ──────────────────────────────────────────────────────────────────────────
   - id: mandatory_attachments_check
-    name: "Обязательные приложения к договору продажи предприятия"
+    name: "Обязательные приложения к договору продажи предприятия (ст. 561 ГК РФ)"
     description: >
-      Проверяет наличие акта инвентаризации, баланса, заключения аудитора
-      и перечня долгов с указанием кредиторов.
+      Проверяет наличие всех четырёх обязательных документов, которые должны быть
+      приложены к договору: акт инвентаризации, бухгалтерский баланс,
+      заключение независимого аудитора, перечень долгов с указанием кредиторов.
+      Без этих документов договор может быть признан незаключённым.
     triggers:
       any: ["enterprise_sale"]
     severity: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "акт инвентаризации"
@@ -875,28 +883,63 @@ checks_v8:
         - "кредиторы"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)акт\\s+инвентаризац"
-        - "(?i)бухгалтерск(ий|ого)\\s+баланс"
-        - "(?i)заключени(е|я)\\s+независим(ого|ым)\\s+аудитор"
+        - "{{ inventory_reference }}"
+        - "{{ balance_reference }}"
+        - "{{ audit_reference }}"
         - "(?i)переч(ень|ня)\\s+долг"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор продажи предприятия.
-        Проверь наличие обязательных приложений по ст. 561 ГК РФ.
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
 
-        Ответь строго в JSON:
+        Проверь блок: обязательные приложения по ст. 561 ГК РФ.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 561 ГК РФ: к договору продажи предприятия ОБЯЗАТЕЛЬНО прилагаются:
+             (1) акт инвентаризации предприятия;
+             (2) бухгалтерский баланс;
+             (3) заключение независимого аудитора о составе и стоимости предприятия;
+             (4) перечень всех долгов, включаемых в состав предприятия,
+             с указанием кредиторов, характера, размера и сроков требований
+           — Без этих документов состав предприятия не может считаться согласованным
+
+        2. ПРАКТИКА:
+           — DD-стандарт: все четыре документа получены и актуальны; дата инвентаризации
+             максимально близка к дате подписания; аудитор независим и имеет надлежащие
+             полномочия; перечень долгов исчерпывающий; документы подписаны и датированы
+
+        Верни строго JSON:
         {
-          "inventory_act": "<present / not_found>",
-          "balance_sheet": "<present / not_found>",
-          "auditor_report": "<present / not_found>",
-          "debt_list": "<present / not_found>",
-          "overall_status": "<complete / incomplete / not_found>",
-          "snippet": "<цитата из договора или not_found>"
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "inventory_act": "present | not_found",
+            "balance_sheet": "present | not_found",
+            "auditor_report": "present | not_found",
+            "debt_list": "present | not_found",
+            "overall_status": "complete | incomplete | not_found",
+            "documents_currency": "recent | outdated | not_assessable"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
         }
-      prompt_file: null
+
+        Правила интерпретации:
+        — present: документ явно упомянут как приложение
+        — not_found: документ не упомянут
+        — recent: дата близка к дате договора
+        — Не додумывай наличие документов
       context_k: 6
       temperature: 0.0
-      max_tokens: 420
+      max_tokens: 600
+
     retrieval:
       context_k: 6
       max_chunks: 8
@@ -905,12 +948,20 @@ checks_v8:
         - "бухгалтерский баланс"
         - "заключение аудитора"
         - "перечень долгов"
+        - "ст. 561 ГК"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "procedures"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
@@ -937,16 +988,154 @@ checks_v8:
           description: "Полнота обязательных приложений"
       store_payload: true
 
-  - id: creditor_notification_and_debt_transfer_check
-    name: "Уведомление кредиторов и перевод долгов"
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 4: ЦЕНА И МЕХАНИКА ОПЛАТЫ
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: price_and_payment_mechanics
+    name: "Цена предприятия и структура расчётов (ст. 555, 559 ГК РФ)"
     description: >
-      Проверяет порядок уведомления кредиторов, согласия на перевод долга,
-      последствия неуведомления и солидарную ответственность сторон.
+      Проверяет наличие и размер цены предприятия, порядок расчётов,
+      структуру платежей (upfront / escrow / holdback / earn-out),
+      распределение цены по группам активов для налоговых целей.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "цена"
+        - "стоимость предприятия"
+        - "покупная цена"
+        - "рублей"
+        - "балансовая стоимость"
+        - "порядок оплаты"
+        - "этапы оплаты"
+        - "эскроу"
+        - "аккредитив"
+        - "рассрочка"
+        - "holdback"
+        - "earn-out"
+        - "escrow"
+      keyword_mode: "any"
+      regex_patterns:
+        - "{{ money_amount }}"
+        - "(?i)цен[аеуой]\\s+.*?\\d"
+        - "(?i)эскроу|escrow"
+        - "(?i)аккредитив"
+        - "(?i)рассрочк"
+        - "(?i)holdback|earn[- ]?out"
+
+    llm:
+      prompt_template: |
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
+
+        Проверь блок: цена предприятия и структура расчётов.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 555 ГК РФ: цена — обязательное существенное условие; при её отсутствии
+             договор продажи предприятия незаключён (в отличие от общего правила)
+           — ст. 560 ГК РФ: форма и государственная регистрация договора
+           — НДС при продаже предприятия как комплекса — ст. 158 НК РФ:
+             особый порядок налогообложения, распределение по группам активов
+
+        2. ПРАКТИКА:
+           — DD-стандарт: цена определена в рублях и/или иностранной валюте;
+             структура платежей раскрыта; условия escrow/holdback/earn-out описаны;
+             механизм корректировки цены (WC, price adjustment); налоговое распределение
+             по группам активов (ст. 158 НК РФ)
+
+        Верни строго JSON:
+        {
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "price_defined": "yes | no | not_found",
+            "price_amount": "<сумма или not_found>",
+            "price_currency": "RUB | USD | EUR | other | not_found",
+            "payment_structure": "upfront | deferred | escrow | earn_out | mixed | not_found",
+            "price_adjustment_mechanism": "yes | no | not_found",
+            "tax_allocation_by_asset_groups": "yes | no | not_found",
+            "escrow_release_conditions": "described | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
+        }
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — Не додумывай суммы и структуру платежей
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "цена предприятия"
+        - "покупная цена"
+        - "escrow"
+        - "эскроу"
+        - "earn-out"
+        - "рассрочка"
+        - "ст. 555 ГК"
+      rerank: true
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "price_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Определена ли цена"
+        - name: "price_amount"
+          type: "string"
+          description: "Размер цены"
+        - name: "payment_structure"
+          type: "string"
+          allowed_values: ["upfront", "deferred", "escrow", "earn_out", "mixed", "not_found"]
+          description: "Структура платежей"
+        - name: "tax_allocation_by_asset_groups"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Распределение цены по группам активов для НДС"
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 5: УВЕДОМЛЕНИЕ КРЕДИТОРОВ / ПЕРЕВОД ДОЛГОВ
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: creditor_notification_and_debt_transfer_check
+    name: "Уведомление кредиторов, перевод долгов и солидарная ответственность (ст. 562 ГК РФ)"
+    description: >
+      Проверяет порядок письменного уведомления кредиторов, получение согласий
+      на перевод долга, перечень долгов, последствия неуведомления и солидарную
+      ответственность продавца и покупателя по не переведённым долгам.
     triggers:
       any: ["creditor_notification_required", "debt_transfer_included"]
     severity: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "уведомление кредиторов"
@@ -956,29 +1145,67 @@ checks_v8:
         - "солидарная ответственность"
         - "трехмесячный срок"
         - "реестр кредиторов"
+        - "не переведенные долги"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)уведомлени(е|я)\\s+кредитор"
         - "(?i)согласие\\s+кредитор"
         - "(?i)солидарн(ая|ой)\\s+ответственност"
+        - "(?i)перевод\\s+долг"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор продажи предприятия.
-        Проверь, как урегулированы кредиторы и долги.
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
 
-        Ответь строго в JSON:
+        Проверь блок: уведомление кредиторов, перевод долгов, солидарная ответственность.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 562 ч. 1 ГК РФ: кредиторы по обязательствам, включаемым в состав
+             предприятия, должны быть до передачи предприятия письменно уведомлены
+             о его продаже
+           — ст. 562 ч. 2 ГК РФ: кредитор, получивший уведомление, вправе в течение
+             3 месяцев: потребовать прекращения или досрочного исполнения обязательства
+             либо возмещения убытков от продавца
+           — ст. 562 ч. 3 ГК РФ: не уведомлённый кредитор вправе требовать в течение
+             1 года признания договора продажи недействительным
+           — ст. 562 ч. 4 ГК РФ: после передачи предприятия продавец и покупатель несут
+             солидарную ответственность по включённым долгам, переданным без согласия кредитора
+
+        2. ПРАКТИКА:
+           — DD-стандарт: реестр кредиторов и статус уведомлений; полученные согласия;
+             долги, по которым согласие не получено (список + риск-оценка); механизм
+             солидарной ответственности; защитные оговорки в договоре
+
+        Верни строго JSON:
         {
-          "creditor_notification": "<described / not_found>",
-          "debt_list_quality": "<detailed / general / not_found>",
-          "creditor_consents": "<described / not_found>",
-          "solidary_liability_clause": "<yes / no / not_found>",
-          "notification_deadline": "<specified / not_found>",
-          "snippet": "<цитата из договора или not_found>"
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "creditor_notification": "described | not_found",
+            "notification_deadline": "specified | not_found",
+            "debt_list_quality": "detailed | general | not_found",
+            "creditor_consents": "described | not_found",
+            "solidary_liability_clause": "yes | no | not_found",
+            "unsettled_creditors_risk": "addressed | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
         }
-      prompt_file: null
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — Не додумывай список кредиторов и долгов
       context_k: 7
       temperature: 0.0
-      max_tokens: 500
+      max_tokens: 700
+
     retrieval:
       context_k: 7
       max_chunks: 9
@@ -987,12 +1214,20 @@ checks_v8:
         - "согласие кредитора"
         - "перевод долга"
         - "солидарная ответственность"
+        - "ст. 562 ГК"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.10
+
     evidence:
       required: true
       min_snippet_length: 50
       max_snippet_length: 700
+
     extraction:
       enabled: true
       mode: "hybrid"
@@ -1011,16 +1246,21 @@ checks_v8:
           description: "Есть ли условие о солидарной ответственности"
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 6: ГОСРЕГИСТРАЦИЯ ДОГОВОРА И ПЕРЕХОДА ПРАВА
+  # ──────────────────────────────────────────────────────────────────────────
   - id: state_registration_and_transfer_check
-    name: "Госрегистрация договора и перехода прав"
+    name: "Госрегистрация договора продажи предприятия и перехода права собственности (ст. 560, 563 ГК РФ, ФЗ-218)"
     description: >
-      Проверяет регистрацию договора продажи предприятия и перехода прав
-      по входящим объектам/комплексу.
+      Проверяет наличие условий о государственной регистрации договора (без которой
+      договор не считается заключённым), регистрации перехода права на предприятие
+      и порядок регистрации входящих объектов недвижимости.
     triggers:
       any: ["enterprise_sale", "real_estate_in_complex"]
     severity: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "государственная регистрация договора"
@@ -1029,28 +1269,60 @@ checks_v8:
         - "договор считается заключенным с момента регистрации"
         - "переход права собственности"
         - "регистрация перехода"
+        - "расходы на регистрацию"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)государственн(ая|ой)\\s+регистрац"
         - "(?i)договор.*считаетс[я].*заключенн.*с\\s+момента\\s+регистрац"
-        - "(?i)ЕГРН|Росреестр"
+        - "{{ egrn_reference }}"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор продажи предприятия.
-        Проверь блок государственной регистрации.
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
 
-        Ответь строго в JSON:
+        Проверь блок: государственная регистрация договора и перехода права.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 560 ч. 3 ГК РФ: договор продажи предприятия ПОДЛЕЖИТ государственной
+             регистрации и считается заключённым с момента такой регистрации
+           — ст. 563 ч. 2 ГК РФ: право собственности на предприятие переходит к покупателю
+             с момента государственной регистрации этого права
+           — ФЗ-218: порядок регистрации; предприятие — недвижимость, регистрируется в ЕГРН
+
+        2. ПРАКТИКА:
+           — DD-стандарт: явная ссылка на ст. 560 ГК РФ и момент заключения договора;
+             план регистрационных действий; ответственный за подачу документов;
+             распределение расходов на регистрацию; последствия отказа в регистрации
+
+        Верни строго JSON:
         {
-          "contract_registration_clause": "<present / not_found>",
-          "transfer_registration_mechanics": "<described / partial / not_found>",
-          "registration_cost_allocation": "<described / not_found>",
-          "risk_if_registration_refused": "<described / not_found>",
-          "snippet": "<цитата из договора или not_found>"
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "contract_registration_clause": "present | not_found",
+            "conclusion_moment_stated": "yes | not_found",
+            "transfer_registration_mechanics": "described | partial | not_found",
+            "registration_cost_allocation": "described | not_found",
+            "registration_refusal_consequences": "described | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
         }
-      prompt_file: null
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — Не додумывай регистрационные реквизиты
       context_k: 6
       temperature: 0.0
-      max_tokens: 420
+      max_tokens: 600
+
     retrieval:
       context_k: 6
       max_chunks: 8
@@ -1059,12 +1331,20 @@ checks_v8:
         - "Росреестр"
         - "ЕГРН"
         - "регистрация договора"
+        - "ст. 560 ГК"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "procedures"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
@@ -1077,238 +1357,26 @@ checks_v8:
           type: "string"
           allowed_values: ["described", "partial", "not_found"]
           description: "Описана ли регистрационная механика"
-      store_payload: true
-
-  - id: ip_and_intangibles_transfer_check
-    name: "Переход исключительных прав и средств индивидуализации"
-    description: >
-      Проверяет, включены ли в сделку товарные знаки, коммерческие обозначения,
-      домены, ноу-хау, лицензии и иные нематериальные активы.
-    triggers:
-      any: ["ip_in_complex"]
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "товарный знак"
-        - "коммерческое обозначение"
-        - "исключительные права"
-        - "средства индивидуализации"
-        - "ноу-хау"
-        - "доменное имя"
-        - "секрет производства"
-        - "лицензионный договор"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)товарн(ый|ого)\\s+знак"
-        - "(?i)коммерческ(ое|ого)\\s+обозначени"
-        - "(?i)исключительн(ые|ого)\\s+прав"
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий договор продажи предприятия.
-        Проверь блок нематериальных активов и IP.
-
-        Ответь строго в JSON:
-        {
-          "ip_included": "<yes / no / partial>",
-          "trademark_transfer": "<yes / no / not_found>",
-          "commercial_designation_transfer": "<yes / no / not_found>",
-          "know_how_transfer": "<yes / no / not_found>",
-          "licenses_and_consents": "<described / not_found>",
-          "snippet": "<цитата из договора или not_found>"
-        }
-      prompt_file: null
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 450
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "товарный знак"
-        - "исключительные права"
-        - "коммерческое обозначение"
-        - "ноу-хау"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 650
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "ip_included"
-          type: "string"
-          allowed_values: ["yes", "no", "partial"]
-          description: "Включен ли IP-блок"
-        - name: "trademark_transfer"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Есть ли переход товарных знаков"
-        - name: "licenses_and_consents"
+        - name: "registration_cost_allocation"
           type: "string"
           allowed_values: ["described", "not_found"]
-          description: "Описаны ли лицензии и согласования"
+          description: "Распределены ли расходы на регистрацию"
       store_payload: true
 
-  - id: labor_transition_check
-    name: "Трудовые отношения при продаже предприятия"
-    description: >
-      Проверяет, как урегулирован переход работодателя, судьба работников,
-      кадровых документов и трудовых рисков.
-    triggers:
-      any: ["employee_transfer_context"]
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "ст. 75 ТК РФ"
-        - "трудовые отношения"
-        - "права и обязанности работодателя"
-        - "работники предприятия"
-        - "кадровые документы"
-        - "коллективный договор"
-        - "реестр работников"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)ст\\.\\s*75\\s*ТК\\s*РФ"
-        - "(?i)трудов(ые|ых)\\s+отношен"
-        - "(?i)работник(и|ов)\\s+предприяти"
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий договор продажи предприятия.
-        Проверь трудовой блок сделки.
-
-        Ответь строго в JSON:
-        {
-          "employee_transition_clause": "<yes / no / partial>",
-          "employer_rights_transfer": "<yes / no / not_found>",
-          "employee_registry_transfer": "<yes / no / not_found>",
-          "labor_risk_allocation": "<described / not_found>",
-          "snippet": "<цитата из договора или not_found>"
-        }
-      prompt_file: null
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 420
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "ст. 75 ТК РФ"
-        - "трудовые отношения"
-        - "работники предприятия"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 650
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "employee_transition_clause"
-          type: "string"
-          allowed_values: ["yes", "no", "partial"]
-          description: "Есть ли трудовой блок"
-        - name: "labor_risk_allocation"
-          type: "string"
-          allowed_values: ["described", "not_found"]
-          description: "Распределены ли трудовые риски"
-      store_payload: true
-
-  - id: due_diligence_and_reps_check
-    name: "Due Diligence, раскрытие информации и заверения продавца"
-    description: >
-      Проверяет наличие DD-процедуры, data room, заверений о состоянии предприятия,
-      отсутствии скрытых обязательств, споров и regulatory issues.
-    triggers:
-      any: ["due_diligence_context", "tax_sensitive_enterprise_sale", "regulated_assets_context"]
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "due diligence"
-        - "проверка предприятия"
-        - "раскрытие информации"
-        - "виртуальная комната данных"
-        - "заверения об обстоятельствах"
-        - "отсутствие скрытых обязательств"
-        - "судебные споры"
-        - "экологические обязательства"
-        - "разрешительная документация"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)due\\s+diligence"
-        - "(?i)виртуальн(ая|ой)\\s+комнат"
-        - "(?i)заверени(я|е)\\s+об\\s+обстоятельств"
-    llm:
-      prompt_template: |
-        Ты — юридический ассистент, анализирующий договор продажи предприятия.
-        Проверь DD и блок заверений продавца.
-
-        Ответь строго в JSON:
-        {
-          "dd_process": "<yes / no / partial>",
-          "document_disclosure": "<yes / no / partial>",
-          "hidden_liabilities_rep": "<yes / no / not_found>",
-          "litigation_rep": "<yes / no / not_found>",
-          "regulatory_rep": "<yes / no / not_found>",
-          "tax_rep": "<yes / no / not_found>",
-          "snippet": "<цитата из договора или not_found>"
-        }
-      prompt_file: null
-      context_k: 7
-      temperature: 0.0
-      max_tokens: 520
-    retrieval:
-      context_k: 7
-      max_chunks: 9
-      boost_keywords:
-        - "due diligence"
-        - "заверения об обстоятельствах"
-        - "скрытые обязательства"
-        - "судебные споры"
-      rerank: true
-      filters: {}
-    evidence:
-      required: true
-      min_snippet_length: 50
-      max_snippet_length: 700
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "dd_process"
-          type: "string"
-          allowed_values: ["yes", "no", "partial"]
-          description: "Есть ли DD-процедура"
-        - name: "hidden_liabilities_rep"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Есть ли заверение об отсутствии скрытых обязательств"
-        - name: "tax_rep"
-          type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Есть ли налоговые заверения"
-      store_payload: true
-
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 7: CLOSING / ПЕРЕДАТОЧНЫЙ АКТ
+  # ──────────────────────────────────────────────────────────────────────────
   - id: closing_and_transfer_act_check
-    name: "Closing и передаточный акт предприятия"
+    name: "Closing и передаточный акт предприятия (ст. 563 ГК РФ)"
     description: >
       Проверяет процедуру закрытия сделки, условия готовности к передаче,
-      передаточный акт и распределение рисков по моменту передачи.
+      передаточный акт предприятия, перечень deliverables и момент перехода рисков.
     triggers:
       any: ["enterprise_sale"]
     severity: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "передаточный акт"
@@ -1316,31 +1384,63 @@ checks_v8:
         - "дата закрытия"
         - "условия precedent"
         - "передача документации"
-        - "передача ключей"
-        - "доступ к предприятию"
         - "момент передачи"
+        - "closing"
+        - "deliverables"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)передаточн(ый|ого)\\s+акт"
         - "(?i)closing|условия\\s+precedent"
         - "(?i)дата\\s+закрыти"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор продажи предприятия.
-        Проверь closing mechanics и передаточный акт.
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
 
-        Ответь строго в JSON:
+        Проверь блок: closing mechanics и передаточный акт предприятия.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 563 ч. 1 ГК РФ: передача предприятия осуществляется по передаточному акту,
+             который содержит данные о составе предприятия и уведомлении кредиторов
+           — ст. 563 ч. 2 ГК РФ: право собственности переходит с момента государственной
+             регистрации; до регистрации покупатель вправе пользоваться предприятием
+           — ст. 563 ч. 3 ГК РФ: уклонение от подписания акта — нарушение договора
+
+        2. ПРАКТИКА:
+           — DD-стандарт: форма и содержание передаточного акта; closing agenda;
+             перечень deliverables (документы, ключи, IT-доступы, реестры, кадровые дела);
+             дата закрытия или условия её определения; распределение рисков до и после передачи
+
+        Верни строго JSON:
         {
-          "transfer_act_required": "<yes / no / not_found>",
-          "closing_procedure": "<described / partial / not_found>",
-          "deliverables_list": "<yes / no / not_found>",
-          "risk_transfer_moment": "<described / not_found>",
-          "snippet": "<цитата из договора или not_found>"
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "transfer_act_required": "yes | no | not_found",
+            "transfer_act_content_described": "yes | partial | not_found",
+            "closing_procedure": "described | partial | not_found",
+            "deliverables_list": "yes | no | not_found",
+            "risk_transfer_moment": "described | not_found",
+            "interim_period_access": "described | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
         }
-      prompt_file: null
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — Не додумывай состав deliverables
       context_k: 6
       temperature: 0.0
-      max_tokens: 420
+      max_tokens: 600
+
     retrieval:
       context_k: 6
       max_chunks: 8
@@ -1349,12 +1449,20 @@ checks_v8:
         - "closing"
         - "дата закрытия"
         - "передача документации"
+        - "ст. 563 ГК"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "procedures"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
@@ -1367,21 +1475,27 @@ checks_v8:
           type: "string"
           allowed_values: ["described", "partial", "not_found"]
           description: "Описан ли closing"
+        - name: "deliverables_list"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли перечень deliverables"
       store_payload: true
 
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 8: НЕСООТВЕТСТВИЕ СОСТАВА / СРЕДСТВА ЗАЩИТЫ ПОКУПАТЕЛЯ
+  # ──────────────────────────────────────────────────────────────────────────
   - id: enterprise_defects_and_buyer_remedies
     name: "Несоответствие состава предприятия и средства защиты покупателя (ст. 565 ГК РФ)"
     description: >
-      Ключевая защита покупателя: если состав переданного предприятия не соответствует
-      договору (недостающие активы, скрытые долги, несоответствие качества), покупатель
-      вправе требовать уменьшения цены, восполнения состава или расторжения.
-      Продавец вправе заменить ненадлежащие активы. Практически это главный механизм
-      пост-closing споров при продаже предприятия.
+      Ключевая защита покупателя: при несоответствии состава переданного предприятия
+      договору покупатель вправе требовать уменьшения цены, восполнения состава
+      или расторжения. Защита от скрытых долгов, не указанных в договоре.
     triggers:
       any: ["enterprise_sale"]
     severity: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "несоответствие состава"
@@ -1400,34 +1514,61 @@ checks_v8:
         - "(?i)недостат(ки|ков)\\s+предприяти"
         - "(?i)уменьшени(е|я)\\s+покупн(ой|ую)\\s+цен"
         - "(?i)ст\\.\\s*565"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор продажи предприятия.
-        Проверь, как урегулированы последствия несоответствия состава предприятия.
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
 
-        По ст. 565 ГК РФ:
-        - Если состав не соответствует договору — покупатель вправе требовать уменьшения цены
-        - Если переданы долги, не указанные в договоре — покупатель вправе требовать
-          уменьшения цены, если не докажет, что знал о них при заключении/передаче
-        - Продавец вправе заменить ненадлежащие активы
-        - При существенном нарушении — право на расторжение
-        - Эти правила применяются, если иное не вытекает из договора
+        Проверь блок: несоответствие состава предприятия и средства защиты покупателя.
 
-        Ответь строго в JSON:
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 565 ГК РФ: при передаче предприятия с недостатками или
+             несоответствующего договору составом применяются правила о КП (ст. 460-462, 466,
+             469, 475, 479 ГК РФ), если иное не вытекает из существа и последствий нарушения
+           — ст. 565 ч. 3 ГК РФ: если долги, не указанные в договоре, переведены на покупателя
+             без согласия кредиторов — покупатель вправе требовать уменьшения цены,
+             если не докажет, что знал о них при заключении/передаче
+           — Расторжение допускается только при существенном нарушении (ст. 565 ч. 4 ГК РФ):
+             покупатель вправе требовать возврата переданного, но продавец не возвращает
+             то, чем уже воспользовался покупатель
+
+        2. ПРАКТИКА:
+           — DD-стандарт: перечень допустимых средств защиты при несоответствии состава;
+             механизм price reduction; процедура supplementary transfer; conditions for
+             rescission; protection against hidden/undisclosed liabilities; claim time bar
+
+        Верни строго JSON:
         {
-          "defects_remedy_clause": "<described / partial / not_found>",
-          "price_reduction_right": "<yes / no / not_found>",
-          "supplementary_transfer_right": "<yes / no / not_found>",
-          "rescission_right_for_material_breach": "<yes / no / not_found>",
-          "hidden_debt_protection": "<yes / no / not_found>",
-          "seller_replacement_right": "<yes / no / not_found>",
-          "time_limit_for_claims": "<specified / not_found>",
-          "snippet": "<цитата из договора или not_found>"
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "defects_remedy_clause": "described | partial | not_found",
+            "price_reduction_right": "yes | no | not_found",
+            "supplementary_transfer_right": "yes | no | not_found",
+            "rescission_right_for_material_breach": "yes | no | not_found",
+            "hidden_debt_protection": "yes | no | not_found",
+            "seller_replacement_right": "yes | no | not_found",
+            "time_limit_for_claims": "specified | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
         }
-      prompt_file: null
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — partial: упомянуто, но без достаточной детализации
+        — Не додумывай сроки и средства защиты
       context_k: 7
       temperature: 0.0
-      max_tokens: 500
+      max_tokens: 700
+
     retrieval:
       context_k: 7
       max_chunks: 9
@@ -1439,11 +1580,18 @@ checks_v8:
         - "скрытые обязательства"
         - "ст. 565"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "remedies"
+        - "limitations"
+      confidence_bonus_on_match: 0.10
+
     evidence:
       required: true
       min_snippet_length: 50
       max_snippet_length: 700
+
     extraction:
       enabled: true
       mode: "hybrid"
@@ -1451,7 +1599,7 @@ checks_v8:
         - name: "defects_remedy_clause"
           type: "string"
           allowed_values: ["described", "partial", "not_found"]
-          description: "Описаны ли средства защиты при несоответствии состава"
+          description: "Описаны ли средства защиты"
         - name: "price_reduction_right"
           type: "string"
           allowed_values: ["yes", "no", "not_found"]
@@ -1462,185 +1610,21 @@ checks_v8:
           description: "Есть ли защита от скрытых долгов"
       store_payload: true
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
-#  Читается: DocTypeCheckConverter
-# ════════════════════════════════════════════════════════════════════════════
-
-doc_type_checks:
-
-  - id: "parties_identification"
-    name: "Стороны сделки: продавец и покупатель предприятия"
-    description: "Проверяет идентификацию сторон и их реквизитов"
-    legal_base: "ст. 432 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "продавец"
-        - "покупатель"
-        - "в лице"
-        - "действующего на основании"
-        - "коммерческая организация"
-        - "индивидуальный предприниматель"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(продавец|покупатель).*именуем"
-        - "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"
-
-  - id: "enterprise_subject_required"
-    name: "Предмет: предприятие как имущественный комплекс"
-    description: "Проверяет, что предмет сделки определён именно как предприятие в целом, а не набор отдельных активов"
-    legal_base: "ст. 559 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "предприятие как имущественный комплекс"
-        - "предприятие в целом"
-        - "состав предприятия"
-        - "имущественный комплекс"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)предприяти(е|я).*как.*имущественн.*комплекс"
-        - "(?i)имущественн.*комплекс"
-
-  - id: "price_required"
-    name: "Цена предприятия"
-    description: "Цена предприятия является существенным условием"
-    legal_base: "ст. 555, 559 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "цена"
-        - "стоимость предприятия"
-        - "покупная цена"
-        - "рублей"
-        - "балансовая стоимость"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)цен[аеуой]\\s+.*?\\d"
-        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|usd|eur)"
-
-  - id: "mandatory_attachments_required"
-    name: "Обязательные приложения: инвентаризация, баланс, аудит, перечень долгов"
-    description: "Проверяет наличие обязательных приложений по ст. 561 ГК РФ"
-    legal_base: "ст. 561 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["enterprise_sale"]
-    rules:
-      keywords:
-        - "акт инвентаризации"
-        - "бухгалтерский баланс"
-        - "заключение независимого аудитора"
-        - "перечень долгов"
-        - "кредиторы"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)акт\\s+инвентаризац"
-        - "(?i)бухгалтерск(ий|ого)\\s+баланс"
-        - "(?i)заключени(е|я)\\s+независим(ого|ым)\\s+аудитор"
-        - "(?i)переч(ень|ня)\\s+долг"
-
-  - id: "creditor_notification_procedure"
-    name: "Уведомление кредиторов и порядок перевода долгов"
-    description: "Проверяет письменное уведомление кредиторов и механизм работы с долгами"
-    legal_base: "ст. 562 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["creditor_notification_required", "debt_transfer_included"]
-    rules:
-      keywords:
-        - "уведомление кредиторов"
-        - "письменное уведомление"
-        - "согласие кредитора"
-        - "перевод долгов"
-        - "трехмесячный срок"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)уведомлени(е|я)\\s+кредитор"
-        - "(?i)согласие\\s+кредитор"
-        - "(?i)перевод\\s+долг"
-
-  - id: "solidary_liability_clause"
-    name: "Солидарная ответственность по не переведённым долгам"
-    description: "Проверяет наличие отражения солидарной ответственности продавца и покупателя"
-    legal_base: "ст. 562 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "солидарная ответственность"
-        - "не переведенные долги"
-        - "ответственность перед кредиторами"
-        - "по обязательствам, не переведенным"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)солидарн(ая|ой)\\s+ответственност"
-        - "(?i)не\\s+переведенн(ым|ые)\\s+долг"
-
-  - id: "state_registration_clause"
-    name: "Государственная регистрация договора"
-    description: "Проверяет наличие условия о госрегистрации договора продажи предприятия"
-    legal_base: "ст. 560 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["enterprise_sale"]
-    rules:
-      keywords:
-        - "государственная регистрация договора"
-        - "договор считается заключенным с момента регистрации"
-        - "Росреестр"
-        - "ЕГРН"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)государственн(ая|ой)\\s+регистрац"
-        - "(?i)договор.*считаетс[я].*заключенн.*с\\s+момента\\s+регистрац"
-
-  - id: "transfer_act_required"
-    name: "Передаточный акт предприятия"
-    description: "Проверяет наличие условия о передаточном акте"
-    legal_base: "ст. 563 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "передаточный акт"
-        - "акт приема-передачи предприятия"
-        - "передача предприятия"
-        - "подписываемый сторонами"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)передаточн(ый|ого)\\s+акт"
-        - "(?i)акт\\s+приема[- ]передачи\\s+предприяти"
-
-  - id: "ip_transfer_clause"
-    name: "Переход исключительных прав и средств индивидуализации"
-    description: "Проверяет включение IP и средств индивидуализации в состав предприятия"
-    legal_base: "ст. 559 ГК РФ, часть IV ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 9: IP И НЕМАТЕРИАЛЬНЫЕ АКТИВЫ
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: ip_and_intangibles_transfer_check
+    name: "Переход исключительных прав, средств индивидуализации и нематериальных активов (ст. 559, часть IV ГК РФ)"
+    description: >
+      Проверяет включение в сделку товарных знаков, коммерческих обозначений,
+      доменных имён, ноу-хау, лицензий и иных нематериальных активов,
+      а также порядок их перехода/переоформления.
     triggers:
       any: ["ip_in_complex"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
         - "товарный знак"
@@ -1649,42 +1633,481 @@ doc_type_checks:
         - "средства индивидуализации"
         - "ноу-хау"
         - "доменное имя"
+        - "секрет производства"
+        - "лицензионный договор"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)товарн(ый|ого)\\s+знак"
         - "(?i)коммерческ(ое|ого)\\s+обозначени"
         - "(?i)исключительн(ые|ого)\\s+прав"
 
-  - id: "labor_relations_transition"
-    name: "Трудовые отношения и переход функций работодателя"
-    description: "Проверяет наличие трудового блока по ст. 75 ТК РФ"
-    legal_base: "ст. 75 ТК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+    llm:
+      prompt_template: |
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
+
+        Проверь блок: исключительные права и средства индивидуализации в составе предприятия.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 559 ГК РФ: в состав предприятия входят права на средства
+             индивидуализации (товарные знаки, коммерческое обозначение и т.д.)
+             и иные исключительные права, если иное не предусмотрено договором
+           — Часть IV ГК РФ: переход исключительных прав в ряде случаев требует
+             дополнительных документов (уведомление Роспатента, регистрация)
+           — Ноу-хау (ст. 1465 ГК РФ): переходит как часть комплекса, но нужна
+             конкретизация и режим конфиденциальности
+
+        2. ПРАКТИКА:
+           — DD-стандарт: реестр товарных знаков, лицензий; статус каждого IP-актива;
+             третьи лица на IP-права; порядок переоформления в Роспатенте;
+             лицензионные соглашения (in/out) — их судьба
+
+        Верни строго JSON:
+        {
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "ip_included": "yes | no | partial",
+            "trademark_transfer": "yes | no | not_found",
+            "commercial_designation_transfer": "yes | no | not_found",
+            "know_how_transfer": "yes | no | not_found",
+            "rospatent_registration": "required_and_addressed | not_required | not_found",
+            "licenses_and_consents": "described | not_found",
+            "third_party_ip_risks": "addressed | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
+        }
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — partial: частично включён
+        — Не додумывай реестр IP-активов
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "товарный знак"
+        - "исключительные права"
+        - "коммерческое обозначение"
+        - "ноу-хау"
+        - "Роспатент"
+        - "лицензия"
+      rerank: true
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "representations"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "ip_included"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Включён ли IP-блок"
+        - name: "trademark_transfer"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Переход товарных знаков"
+        - name: "licenses_and_consents"
+          type: "string"
+          allowed_values: ["described", "not_found"]
+          description: "Описаны ли лицензии и согласования"
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 10: ТРУДОВЫЕ ОТНОШЕНИЯ
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: labor_transition_check
+    name: "Трудовые отношения при продаже предприятия: переход работодателя (ст. 75 ТК РФ)"
+    description: >
+      Проверяет, как урегулирован переход работодателя по ст. 75 ТК РФ,
+      судьба работников, кадровых документов, коллективного договора
+      и трудовых рисков.
     triggers:
       any: ["employee_transfer_context"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
-        - "трудовые отношения"
         - "ст. 75 ТК РФ"
-        - "работники предприятия"
+        - "трудовые отношения"
         - "права и обязанности работодателя"
+        - "работники предприятия"
+        - "кадровые документы"
+        - "коллективный договор"
         - "реестр работников"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)ст\\.\\s*75\\s*ТК\\s*РФ"
         - "(?i)трудов(ые|ых)\\s+отношен"
+        - "(?i)работник(и|ов)\\s+предприяти"
 
-  - id: "tax_implications_and_liabilities"
-    name: "Налоговые последствия и распределение налоговых рисков"
-    description: "Проверяет налоговые оговорки по НДС, прибыли и pre-closing налогам"
-    legal_base: "НК РФ"
+    llm:
+      prompt_template: |
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
+
+        Проверь блок: трудовые отношения при продаже предприятия.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 75 ТК РФ: при смене собственника имущества организации трудовые
+             отношения с работниками продолжаются; новый собственник вправе расторгнуть
+             трудовые договоры с руководителем, заместителями, главным бухгалтером
+             в течение 3 месяцев; остальные работники могут отказаться от продолжения работы
+           — Коллективный договор действует в течение срока, на который заключён
+
+        2. ПРАКТИКА:
+           — DD-стандарт: реестр работников с должностями/окладами; кадровый DD;
+             незавершённые трудовые споры; задолженность по зарплате; коллективный договор;
+             распределение pre-closing / post-closing трудовых рисков
+
+        Верни строго JSON:
+        {
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "employee_transition_clause": "yes | no | partial",
+            "employer_rights_transfer": "yes | no | not_found",
+            "employee_registry_transfer": "yes | no | not_found",
+            "labor_risk_allocation": "described | not_found",
+            "wage_arrears_addressed": "yes | no | not_found",
+            "collective_agreement_status": "described | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
+        }
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — Не додумывай состав работников
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "ст. 75 ТК РФ"
+        - "трудовые отношения"
+        - "работники предприятия"
+        - "кадровые документы"
+        - "коллективный договор"
+      rerank: true
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "employee_transition_clause"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Есть ли трудовой блок"
+        - name: "labor_risk_allocation"
+          type: "string"
+          allowed_values: ["described", "not_found"]
+          description: "Распределены ли трудовые риски"
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 11: DUE DILIGENCE / ЗАВЕРЕНИЯ
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: due_diligence_and_reps_check
+    name: "Due Diligence, раскрытие информации и заверения продавца (ст. 431.2 ГК РФ)"
+    description: >
+      Проверяет наличие DD-процедуры, data room, disclosure schedule, заверений о состоянии
+      предприятия: отсутствие скрытых обязательств, споров, налоговых и regulatory issues.
+    triggers:
+      any: ["due_diligence_context", "tax_sensitive_enterprise_sale", "regulated_assets_context"]
     severity: "critical"
     origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "due diligence"
+        - "проверка предприятия"
+        - "раскрытие информации"
+        - "виртуальная комната данных"
+        - "заверения об обстоятельствах"
+        - "отсутствие скрытых обязательств"
+        - "судебные споры"
+        - "экологические обязательства"
+        - "разрешительная документация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)due\\s+diligence"
+        - "(?i)виртуальн(ая|ой)\\s+комнат"
+        - "(?i)заверени(я|е)\\s+об\\s+обстоятельств"
+
+    llm:
+      prompt_template: |
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
+
+        Проверь блок: Due Diligence и заверения продавца.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 431.2 ГК РФ: заверения об обстоятельствах; при недостоверности —
+             право требовать убытки / неустойку / отказаться от договора
+           — ст. 559 ГК РФ: продавец передаёт предприятие в надлежащем состоянии;
+             скрытые долги могут быть причиной снижения цены (ст. 565 ГК РФ)
+
+        2. ПРАКТИКА:
+           — DD-стандарт: DD-process (data room, legal/financial/tax/HR DD);
+             disclosure letter; широкий пакет заверений (финансовые, налоговые,
+             судебные, регуляторные, трудовые, экологические, IP);
+             взаимосвязь заверений со средствами защиты
+
+        Верни строго JSON:
+        {
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "dd_process": "yes | no | partial",
+            "document_disclosure": "yes | no | partial",
+            "financial_rep": "yes | no | not_found",
+            "hidden_liabilities_rep": "yes | no | not_found",
+            "litigation_rep": "yes | no | not_found",
+            "regulatory_rep": "yes | no | not_found",
+            "tax_rep": "yes | no | not_found",
+            "environmental_rep": "yes | no | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
+        }
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — Не додумывай содержание data room
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 700
+
+    retrieval:
+      context_k: 7
+      max_chunks: 9
+      boost_keywords:
+        - "due diligence"
+        - "заверения об обстоятельствах"
+        - "скрытые обязательства"
+        - "судебные споры"
+        - "виртуальная комната"
+      rerank: true
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "representations"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "dd_process"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Есть ли DD-процедура"
+        - name: "hidden_liabilities_rep"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Заверение об отсутствии скрытых обязательств"
+        - name: "tax_rep"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Налоговые заверения"
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 12: РЕГУЛЯТОРНЫЙ БЛОК: ФАС + ЛИЦЕНЗИИ
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: corporate_regulatory_compliance_check
+    name: "Антимонопольное согласование и регулируемые активы в составе предприятия (ФЗ-135, специальное законодательство)"
+    description: >
+      Проверяет наличие антимонопольного анализа / согласования с ФАС,
+      а также судьбу лицензий, разрешений и регулируемых активов при переходе предприятия.
+    triggers:
+      any: ["antitrust_risk", "regulated_assets_context"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "ФАС"
+        - "антимонопольное согласование"
+        - "предварительное согласие"
+        - "экономическая концентрация"
+        - "уведомление ФАС"
+        - "лицензия"
+        - "разрешительная документация"
+        - "переоформление лицензии"
+        - "регулируемый актив"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ФАС"
+        - "(?i)антимонопольн(ое|ого)\\s+соглас"
+        - "(?i)лиценз"
+        - "(?i)разрешител(ьн|ьная)\\s+документац"
+
+    llm:
+      prompt_template: |
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
+
+        Проверь блок: антимонопольное согласование и регулируемые активы.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ФЗ-135 «О защите конкуренции»: сделки по приобретению имущественного
+             комплекса (предприятия) могут требовать предварительного согласия ФАС
+             при превышении пороговых значений выручки/активов групп лиц
+           — Лицензии: большинство лицензий непередаваемы и требуют переоформления
+             на нового собственника (ФЗ-99 «О лицензировании»)
+           — Опасные производственные объекты: регистрация в Ростехнадзоре
+
+        2. ПРАКТИКА:
+           — DD-стандарт: антимонопольный анализ + заключение; перечень лицензий
+             и разрешений с анализом передаваемости; план переоформления;
+             последствия для closing при необходимости получения согласий/переоформлений
+
+        Верни строго JSON:
+        {
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "fas_analysis": "described | not_required_stated | not_found",
+            "fas_filing_required": "yes | no | not_assessable",
+            "fas_filing_planned": "yes | not_found",
+            "licenses_inventory": "described | not_found",
+            "licenses_transferability": "assessed | not_found",
+            "licenses_reregistration_plan": "described | not_found",
+            "closing_condition_for_licenses": "yes | no | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
+        }
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — not_required_stated: явно указано, что согласование не требуется
+        — Не додумывай список лицензий
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "ФАС"
+        - "антимонопольное согласование"
+        - "лицензия"
+        - "разрешительная документация"
+        - "переоформление"
+      rerank: true
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "procedures"
+        - "boilerplate"
+      confidence_bonus_on_match: 0.08
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "fas_analysis"
+          type: "string"
+          allowed_values: ["described", "not_required_stated", "not_found"]
+          description: "Антимонопольный анализ"
+        - name: "fas_filing_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_assessable"]
+          description: "Требуется ли согласование ФАС"
+        - name: "licenses_reregistration_plan"
+          type: "string"
+          allowed_values: ["described", "not_found"]
+          description: "Есть ли план переоформления лицензий"
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 13: НАЛОГИ / INDEMNITY
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: tax_and_indemnity_check
+    name: "Налоговые последствия продажи предприятия и механизм indemnity (ст. 158 НК РФ, ст. 406.1 ГК РФ)"
+    description: >
+      Проверяет налоговые оговорки: НДС по ст. 158 НК РФ (особый порядок при продаже
+      предприятия), налог на прибыль, распределение pre-closing налоговых рисков,
+      налоговый due diligence, а также механизм возмещения потерь (indemnity),
+      cap, basket, de minimis.
     triggers:
       any: ["tax_sensitive_enterprise_sale"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
         - "НДС"
@@ -1693,197 +2116,134 @@ doc_type_checks:
         - "налоговые проверки"
         - "восстановление НДС"
         - "налоговый due diligence"
+        - "возмещение потерь"
+        - "индемнити"
+        - "indemnification"
+        - "indemnity"
+        - "ст. 406.1"
+        - "cap on liability"
+        - "basket"
+        - "de minimis"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)\\bНДС\\b"
-        - "(?i)налогов(ые|ых|ой)\\s+последств"
-        - "(?i)налогов(ые|ых|ой)\\s+риск"
+        - "(?i)налогов(ые|ых|ой)\\s+(последств|риск)"
+        - "(?i)индемнити|indemnit"
+        - "(?i)возмещени(е|я)\\s+потерь"
+        - "(?i)ст\\.\\s*406\\.1"
 
-  - id: "due_diligence_and_representations"
-    name: "Due Diligence и заверения продавца"
-    description: "Проверяет наличие DD, disclosure и reps по активам, долгам, спорам, лицензиям"
-    legal_base: "ст. 431.2 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["due_diligence_context"]
-    rules:
-      keywords:
-        - "due diligence"
-        - "раскрытие информации"
-        - "виртуальная комната данных"
-        - "заверения об обстоятельствах"
-        - "скрытые обязательства"
-        - "судебные споры"
-        - "разрешительная документация"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)due\\s+diligence"
-        - "(?i)заверени(я|е)\\s+об\\s+обстоятельств"
-        - "(?i)виртуальн(ая|ой)\\s+комнат"
+    llm:
+      prompt_template: |
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
 
-  - id: "antimonopoly_clearance_requirements"
-    name: "Антимонопольное согласование / уведомление ФАС"
-    description: "Проверяет наличие блока по ФАС и economic concentration"
-    legal_base: "ФЗ-135"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["antitrust_risk"]
-    rules:
-      keywords:
-        - "ФАС"
-        - "антимонопольное согласование"
-        - "предварительное согласие"
-        - "экономическая концентрация"
-        - "уведомление ФАС"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)ФАС"
-        - "(?i)антимонопольн(ое|ого)\\s+соглас"
+        Проверь блок: налоговые последствия и механизм indemnity.
 
-  - id: "regulated_assets_and_licenses"
-    name: "Лицензии и регулируемые активы в составе предприятия"
-    description: "Проверяет судьбу лицензий, permits и regulatory-asset issues"
-    legal_base: "специальное отраслевое регулирование"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["regulated_assets_context"]
-    rules:
-      keywords:
-        - "лицензия"
-        - "разрешительная документация"
-        - "переоформление лицензии"
-        - "регулируемый актив"
-        - "разрешение"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)лиценз"
-        - "(?i)разрешител(ьн|ьная)\\s+документац"
+        Оцени по двум стандартам:
 
-  - id: "closing_and_transfer_act_procedures"
-    name: "Closing, передаточный акт и deliverables"
-    description: "Проверяет механизмы закрытия сделки и комплект передаваемых документов"
-    legal_base: "ст. 563 ГК РФ, свобода договора"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "передаточный акт"
-        - "дата закрытия"
-        - "условия precedent"
-        - "передача документации"
-        - "передача ключей"
-        - "closing"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)передаточн(ый|ого)\\s+акт"
-        - "(?i)closing|условия\\s+precedent"
+        1. ЗАКОН:
+           — ст. 158 НК РФ: при продаже предприятия как имущественного комплекса
+             применяется специальный порядок НДС: налоговая база определяется отдельно
+             по каждой группе активов; поправочный коэффициент на балансовую стоимость
+           — Налог на прибыль: продавец — доход от реализации предприятия как амортизируемого
+             имущества; покупатель — балансовая стоимость
+           — ст. 406.1 ГК РФ: соглашение о возмещении потерь — законный механизм indemnity;
+             потери — это не убытки в смысле ст. 15 ГК РФ
 
-  - id: "confidentiality"
-    name: "Конфиденциальность"
-    description: "Проверяет наличие NDA-like положений"
-    legal_base: "ст. 421 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "конфиденциальность"
-        - "неразглашение"
-        - "коммерческая тайна"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)конфиденциал"
-        - "(?i)не\\s+разглаш"
+        2. ПРАКТИКА:
+           — DD-стандарт: tax DD + налоговое заключение; распределение pre-closing /
+             post-closing налоговых рисков; НДС — кто платит, как оформляется счёт-фактура;
+             tax indemnity; cap, basket, de minimis, time bar
 
-  - id: "dispute_resolution_jurisdiction"
-    name: "Подсудность и порядок разрешения споров"
-    description: "Проверяет forum, court/arbitration и претензионный порядок"
-    legal_base: "АПК РФ, ГПК РФ, Закон об арбитраже"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "арбитражный суд"
-        - "третейский суд"
-        - "подсудность"
-        - "претензионный порядок"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)арбитражн(ый|ого)\\s+суд"
-        - "(?i)третейск(ий|ого)\\s+суд"
-        - "(?i)претензионн(ый|ого)\\s+поряд"
+        Верни строго JSON:
+        {
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "vat_clause_art158": "yes | partial | not_found",
+            "pre_closing_tax_liability": "seller | buyer | shared | not_found",
+            "tax_indemnity": "yes | no | not_found",
+            "indemnification_clause": "yes | no | not_found",
+            "cap": "yes | no | not_found",
+            "basket_de_minimis": "yes | no | not_found",
+            "time_bar": "specified | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
+        }
 
-  - id: "enterprise_defects_remedies"
-    name: "Средства защиты покупателя при несоответствии состава (ст. 565 ГК РФ)"
-    description: "Проверяет наличие условий о последствиях несоответствия состава предприятия"
-    legal_base: "ст. 565 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "несоответствие состава"
-        - "недостатки предприятия"
-        - "уменьшение покупной цены"
-        - "восполнение состава"
-        - "расторжение при существенном нарушении"
-        - "скрытые обязательства"
-        - "ст. 565"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)несоответстви(е|я)\\s+состав"
-        - "(?i)уменьшени(е|я)\\s+покупн(ой|ую)\\s+цен"
-        - "(?i)ст\\.\\s*565"
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — Не додумывай суммы cap и ставки налогов
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
 
-  - id: "payment_mechanics"
-    name: "Механика оплаты: escrow, этапы, условия для платежа"
-    description: "Проверяет порядок расчётов — для сделок с предприятиями критически важно"
-    legal_base: "ГК РФ (общие положения)"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["payment_escrow_context"]
-    rules:
-      keywords:
-        - "порядок оплаты"
-        - "этапы оплаты"
-        - "эскроу"
-        - "аккредитив"
-        - "рассрочка"
-        - "условие для платежа"
-        - "удержание части цены"
-        - "holdback"
-        - "earn-out"
-        - "escrow"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)эскроу|escrow"
-        - "(?i)аккредитив"
-        - "(?i)рассрочк"
-        - "(?i)holdback|earn[- ]?out"
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "НДС"
+        - "налоговые риски"
+        - "ст. 158 НК РФ"
+        - "indemnity"
+        - "возмещение потерь"
+        - "ст. 406.1 ГК"
+        - "cap"
+        - "basket"
+      rerank: true
 
-  - id: "non_compete_non_solicitation"
-    name: "Ограничение конкуренции и non-solicitation"
-    description: "Проверяет наличие non-compete и non-solicitation ковенантов — стандарт M&A-практики"
-    legal_base: "ст. 421 ГК РФ, свобода договора"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+    enrichment_hints:
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "vat_clause_art158"
+          type: "string"
+          allowed_values: ["yes", "partial", "not_found"]
+          description: "НДС-оговорка по ст. 158 НК РФ"
+        - name: "pre_closing_tax_liability"
+          type: "string"
+          allowed_values: ["seller", "buyer", "shared", "not_found"]
+          description: "Кто несёт pre-closing налоговые риски"
+        - name: "indemnification_clause"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли indemnity clause"
+        - name: "cap"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли cap ответственности"
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 14: POST-CLOSING: НЕКОНКУРЕНЦИЯ
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: post_closing_obligations_check
+    name: "Post-closing ограничения: неконкуренция и non-solicitation (ст. 421 ГК РФ)"
+    description: >
+      Проверяет наличие post-closing ограничений на конкуренцию (non-compete)
+      и переманивание работников/клиентов (non-solicitation) со стороны продавца.
     triggers:
       any: ["non_compete_context"]
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
         - "ограничение конкуренции"
@@ -1891,9 +2251,9 @@ doc_type_checks:
         - "non-compete"
         - "не конкурировать"
         - "воздержаться от деятельности"
+        - "запрет конкурирующей деятельности"
         - "переманивание работников"
         - "non-solicitation"
-        - "запрет конкурирующей деятельности"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)non[- ]?compete"
@@ -1901,221 +2261,360 @@ doc_type_checks:
         - "(?i)ограничени(е|я)\\s+конкуренц"
         - "(?i)воздерж(аться|ивается)\\s+от.*деятельност"
 
-  - id: "indemnification_clause"
-    name: "Возмещение потерь / индемнити (ст. 406.1 ГК РФ)"
-    description: "Проверяет наличие indemnification clause — критично для M&A-конструкций"
-    legal_base: "ст. 406.1 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
+    llm:
+      prompt_template: |
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
+
+        Проверь блок: post-closing ограничения — неконкуренция и non-solicitation.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — ст. 421 ГК РФ: свобода договора — non-compete является законным условием;
+             но слишком широкие ограничения могут быть признаны нарушающими ст. 10 ГК РФ
+           — ФЗ-135: non-compete не должен создавать антиконкурентных последствий
+
+        2. ПРАКТИКА:
+           — DD-стандарт: non-compete (территория, срок обычно 2-5 лет, виды деятельности,
+             санкции за нарушение); non-solicitation (ключевые работники и клиенты,
+             срок, санкции); carve-outs (пассивные инвестиции, публичные компании и т.д.)
+
+        Верни строго JSON:
+        {
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "non_compete_clause": "yes | no | not_found",
+            "non_compete_duration": "<срок или not_found>",
+            "non_compete_territory": "<территория или not_found>",
+            "non_compete_scope": "<виды деятельности или not_found>",
+            "non_solicitation_clause": "yes | no | not_found",
+            "penalty_for_breach": "described | not_found",
+            "carve_outs": "yes | no | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
+        }
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — Не додумывай сроки и территорию
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 600
+
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "неконкуренция"
+        - "non-compete"
+        - "non-solicitation"
+        - "переманивание"
+        - "ограничение деятельности"
+      rerank: true
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "limitations"
+        - "obligations"
+      confidence_bonus_on_match: 0.06
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "non_compete_clause"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли non-compete"
+        - name: "non_compete_duration"
+          type: "string"
+          description: "Срок неконкуренции"
+        - name: "non_solicitation_clause"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли non-solicitation"
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  CHECK 15: КОНФИДЕНЦИАЛЬНОСТЬ / СПОРЫ / ПРАВО
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: termination_and_disputes_check
+    name: "Конфиденциальность, подсудность и применимое право (ст. 421, 1210 ГК РФ)"
+    description: >
+      Проверяет условия конфиденциальности, порядок разрешения споров (подсудность,
+      претензионный порядок, арбитраж), применимое право.
     triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
-        - "возмещение потерь"
-        - "индемнити"
-        - "indemnification"
-        - "indemnity"
-        - "ст. 406.1"
-        - "обязуется возместить потери"
-        - "cap on liability"
-        - "basket"
-        - "de minimis"
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "арбитражный суд"
+        - "третейский суд"
+        - "подсудность"
+        - "претензионный порядок"
+        - "применимое право"
+        - "governing law"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)индемнити|indemnit"
-        - "(?i)возмещени(е|я)\\s+потерь"
-        - "(?i)ст\\.\\s*406\\.1"
+        - "(?i)конфиденциал"
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+        - "(?i)третейск(ий|ого)\\s+суд"
+        - "(?i)претензионн(ый|ого)\\s+поряд"
+        - "(?i)применим(ое|ого)\\s+прав"
+
+    llm:
+      prompt_template: |
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор продажи предприятия (§ 8 Гл. 30 ГК РФ, ст. 559-566).
+
+        Проверь блок: конфиденциальность, споры, применимое право.
+
+        Оцени по двум стандартам:
+
+        1. ЗАКОН:
+           — АПК РФ / ГПК РФ: подведомственность (юрлица → арбитражный суд)
+           — ст. 1210-1211 ГК РФ: применимое право
+           — Коммерческая тайна: Федеральный закон № 98-ФЗ
+
+        2. ПРАКТИКА:
+           — DD-стандарт: подсудность явно указана; претензионный порядок с конкретным
+             сроком; конфиденциальность с исключениями (банки, регуляторы, советники);
+             применимое право — РФ или иное
+
+        Верни строго JSON:
+        {
+          "law_compliance": "compliant | partial | non_compliant | not_assessable",
+          "law_gaps": ["..."],
+          "practice_quality": "good | acceptable | weak | not_assessable",
+          "practice_gaps": ["..."],
+          "missing_elements": {
+            "confidentiality_clause": "yes | partial | not_found",
+            "confidentiality_duration": "<срок или not_found>",
+            "pre_trial_claim_procedure": "yes | not_found",
+            "claim_response_deadline": "<срок или not_found>",
+            "jurisdiction": "<суд или not_found>",
+            "governing_law": "RU | foreign | not_specified | not_found"
+          },
+          "risk_summary": "...",
+          "evidence": [
+            {"clause_ref": "...", "quote": "..."}
+          ]
+        }
+
+        Правила интерпретации:
+        — not_found: условие явно отсутствует
+        — Не додумывай сроки и суды
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 550
+
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "конфиденциальность"
+        - "арбитражный суд"
+        - "претензионный порядок"
+        - "применимое право"
+        - "подсудность"
+      rerank: true
+
+    enrichment_hints:
+      preferred_clause_functions:
+        - "boilerplate"
+        - "procedures"
+      confidence_bonus_on_match: 0.06
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 550
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "confidentiality_clause"
+          type: "string"
+          allowed_values: ["yes", "partial", "not_found"]
+          description: "Наличие конфиденциальности"
+        - name: "pre_trial_claim_procedure"
+          type: "string"
+          allowed_values: ["yes", "not_found"]
+          description: "Претензионный порядок"
+        - name: "jurisdiction"
+          type: "string"
+          keyword_hints: ["арбитражный суд", "третейский суд", "МКАС"]
+          description: "Подсудность"
+        - name: "governing_law"
+          type: "string"
+          allowed_values: ["RU", "foreign", "not_specified", "not_found"]
+          description: "Применимое право"
+      store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 7: DD_REQUEST_TEMPLATES
-#  Читается: DDRequestTemplateLoader
-#  Ключи = check_id из checks_v8 и doc_type_checks выше.
-#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# БЛОК 5: DD_REQUEST_TEMPLATES
+# Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
 
 dd_request_templates:
 
-  parties_identification:
+  parties_and_authority:
     text: >
-      Просим подтвердить по {doc_names}: реквизиты продавца и покупателя,
-      включая ИНН/ОГРН, адреса, бенефициаров и полномочия подписантов.
-    addressee: "Обе стороны"
+      Просим подтвердить по {doc_names}:
+      (а) полные реквизиты продавца и покупателя (наименование/ФИО, ИНН/ОГРН, адрес);
+      (б) полномочия подписантов (устав, доверенность, протокол);
+      (в) корпоративные решения об одобрении сделки (если применимо) либо
+      заключение о ненужности одобрения.
+    addressee: "Обе стороны / Юридический советник"
 
   enterprise_subject_extraction:
     text: >
-      Просим предоставить по {doc_names}: детальное описание состава предприятия,
-      включая активы, долги, IP, недвижимость, работников, лицензии и иные
-      элементы имущественного комплекса.
+      Просим предоставить по {doc_names}: детальное описание состава предприятия
+      с разбивкой по группам активов — недвижимость, движимое имущество, права
+      требования, долги, IP, работники, лицензии; перечень исключённых активов
+      (excluded assets).
     addressee: "Продавец / Юридический советник"
 
-  enterprise_subject_required:
+  price_and_payment_mechanics:
     text: >
-      Просим уточнить в {doc_names}, что предметом является именно предприятие
-      как имущественный комплекс в целом, а не набор отдельных активов.
-    addressee: "Юридический советник"
-
-  price_required:
-    text: >
-      Просим подтвердить цену предприятия по {doc_names}, валюту цены,
-      порядок оплаты и, при необходимости, распределение цены по группам активов
-      для налоговых и accounting-целей.
+      Просим подтвердить по {doc_names}:
+      (а) цену предприятия и валюту;
+      (б) структуру платежей (upfront / retention / escrow / earn-out);
+      (в) механизм корректировки цены (working capital, price adjustment);
+      (г) распределение цены по группам активов для целей ст. 158 НК РФ.
     addressee: "Обе стороны / Налоговый консультант"
 
   mandatory_attachments_check:
     text: >
-      Просим предоставить по {doc_names}: акт инвентаризации, бухгалтерский баланс,
-      заключение независимого аудитора и перечень долгов с указанием кредиторов.
+      Просим предоставить по {doc_names} обязательные приложения по ст. 561 ГК РФ:
+      (а) акт инвентаризации предприятия;
+      (б) бухгалтерский баланс;
+      (в) заключение независимого аудитора о составе и стоимости;
+      (г) перечень всех долгов с указанием кредиторов, размера и сроков требований.
     addressee: "Продавец / Финансовый советник"
-
-  mandatory_attachments_required:
-    text: >
-      Просим приложить к {doc_names} полный комплект обязательных документов по ст. 561 ГК РФ:
-      инвентаризацию, баланс, аудиторское заключение и перечень долгов.
-    addressee: "Юридический советник продавца"
 
   creditor_notification_and_debt_transfer_check:
     text: >
-      Просим предоставить по {doc_names}: порядок уведомления кредиторов,
-      реестр кредиторов, согласия на перевод долга (если требуются),
-      а также описание последствий неуведомления.
+      Просим предоставить по {doc_names}:
+      (а) реестр кредиторов и статус письменных уведомлений каждого;
+      (б) полученные согласия на перевод долга;
+      (в) перечень долгов, по которым согласие не получено (risk assessment);
+      (г) механизм солидарной ответственности при необходимости.
     addressee: "Продавец / Корпоративный юрист"
-
-  creditor_notification_procedure:
-    text: >
-      Просим уточнить в {doc_names}: когда, как и кем уведомляются кредиторы,
-      какие обязательства включаются в перевод долгов, и какие согласия кредиторов
-      уже получены / подлежат получению.
-    addressee: "Юридический советник"
-
-  solidary_liability_clause:
-    text: >
-      Просим уточнить в {doc_names}: как отражена солидарная ответственность
-      продавца и покупателя по долгам, не переведённым на покупателя.
-    addressee: "Юридический советник"
 
   state_registration_and_transfer_check:
     text: >
-      Просим предоставить по {doc_names}: регистрационную механику сделки,
-      порядок подачи документов в Росреестр, распределение расходов и действия
-      сторон при приостановке/отказе в регистрации.
+      Просим предоставить по {doc_names}:
+      (а) план регистрационных действий в Росреестре;
+      (б) распределение расходов на государственную регистрацию;
+      (в) последствия и план действий при отказе/приостановке регистрации.
     addressee: "Юридический советник / Росреестр"
 
-  state_registration_clause:
+  closing_and_transfer_act_check:
     text: >
-      Просим уточнить в {doc_names}: условие о государственной регистрации договора
-      продажи предприятия и момент, с которого договор считается заключённым.
-    addressee: "Юридический советник"
+      Просим уточнить по {doc_names}:
+      (а) форму и содержание передаточного акта предприятия;
+      (б) closing agenda — последовательность действий сторон;
+      (в) перечень deliverables (документы, ключи, IT-доступы, реестры, кадровые дела);
+      (г) момент перехода рисков и распределение ответственности до/после регистрации.
+    addressee: "Обе стороны / Юридический советник"
 
-  transfer_act_required:
+  enterprise_defects_and_buyer_remedies:
     text: >
-      Просим согласовать по {doc_names}: форму передаточного акта предприятия,
-      дату подписания, состав передаваемой документации, ключей, реестров и иных deliverables.
-    addressee: "Обе стороны"
+      Просим уточнить по {doc_names}: средства защиты покупателя при несоответствии
+      состава предприятия (ст. 565 ГК РФ):
+      (а) право на уменьшение покупной цены;
+      (б) право требовать восполнения состава;
+      (в) право на расторжение при существенном нарушении;
+      (г) защита от скрытых долгов (undisclosed liabilities);
+      (д) time bar для предъявления требований.
+    addressee: "Юридический советник покупателя"
 
   ip_and_intangibles_transfer_check:
     text: >
-      Просим предоставить по {doc_names}: перечень товарных знаков, коммерческих обозначений,
-      доменных имён, ноу-хау, лицензий и иных нематериальных активов,
-      а также порядок их перехода/переоформления.
-    addressee: "Продавец / IP-консультант"
-
-  ip_transfer_clause:
-    text: >
-      Просим уточнить в {doc_names}: какие исключительные права и средства индивидуализации
-      входят в состав предприятия и как оформляется их переход к покупателю.
+      Просим предоставить по {doc_names}:
+      (а) реестр товарных знаков, коммерческих обозначений, доменных имён, ноу-хау;
+      (б) статус прав третьих лиц на IP-активы;
+      (в) порядок переоформления в Роспатенте;
+      (г) перечень входящих/исходящих лицензионных соглашений и их судьбу.
     addressee: "IP-консультант / Юридический советник"
 
   labor_transition_check:
     text: >
-      Просим предоставить по {doc_names}: реестр работников, кадровый due diligence,
-      информацию о коллективном договоре, незавершённых трудовых спорах и порядке
-      перехода функций работодателя.
+      Просим предоставить по {doc_names}:
+      (а) реестр работников с должностями и окладами;
+      (б) результаты кадрового due diligence;
+      (в) незавершённые трудовые споры и задолженность по зарплате;
+      (г) коллективный договор (при наличии);
+      (д) распределение pre-closing / post-closing трудовых рисков.
     addressee: "HR / Трудовой консультант"
-
-  labor_relations_transition:
-    text: >
-      Просим уточнить в {doc_names}: порядок применения ст. 75 ТК РФ,
-      переход трудовых отношений, кадровой документации и распределение
-      pre-closing / post-closing трудовых рисков.
-    addressee: "Трудовой консультант / Юридический советник"
-
-  tax_implications_and_liabilities:
-    text: >
-      Просим предоставить по {doc_names}: налоговый анализ сделки, НДС-последствия,
-      распределение pre-closing / post-closing налоговых рисков, результаты tax DD
-      и проект tax indemnity.
-    addressee: "Налоговый консультант"
 
   due_diligence_and_reps_check:
     text: >
-      Просим предоставить по {doc_names}: DD-report, data room index,
-      disclosure schedule/letter, пакет заверений продавца по долгам, спорам,
+      Просим предоставить по {doc_names}:
+      (а) DD-отчёт (юридический, финансовый, налоговый, кадровый, экологический);
+      (б) disclosure schedule/letter;
+      (в) пакет заверений продавца по финансовому состоянию, долгам, спорам,
       лицензиям, IP, налогам, экологии и работникам.
     addressee: "Продавец / DD-координатор"
 
-  due_diligence_and_representations:
+  corporate_regulatory_compliance_check:
     text: >
-      Просим включить/уточнить в {doc_names}: DD-процедуру, раскрытие информации
-      и заверения продавца об отсутствии скрытых обязательств, споров, regulatory issues
-      и иных material adverse matters.
+      Просим предоставить по {doc_names}:
+      (а) антимонопольное заключение о необходимости согласования с ФАС либо
+      подтверждение отсутствия необходимости;
+      (б) перечень лицензий и разрешений с анализом их передаваемости;
+      (в) план переоформления лицензий и влияние на closing.
+    addressee: "Антимонопольный консультант / Regulatory counsel"
+
+  tax_and_indemnity_check:
+    text: >
+      Просим предоставить по {doc_names}:
+      (а) налоговое заключение по ст. 158 НК РФ (НДС при продаже предприятия);
+      (б) распределение pre-closing / post-closing налоговых рисков;
+      (в) механизм tax indemnity и общее indemnification clause
+      (cap, basket, de minimis, time bar).
+    addressee: "Налоговый консультант / Юридический советник"
+
+  post_closing_obligations_check:
+    text: >
+      Просим уточнить в {doc_names}:
+      (а) non-compete: территория, срок, виды деятельности, санкции, carve-outs;
+      (б) non-solicitation: работники и клиенты, срок, санкции.
     addressee: "Юридический советник"
 
-  antimonopoly_clearance_requirements:
+  termination_and_disputes_check:
     text: >
-      Просим предоставить по {doc_names}: антимонопольный анализ,
-      заключение о необходимости согласования с ФАС, проект/копию ходатайства
-      или подтверждение отсутствия такой необходимости.
-    addressee: "Антимонопольный консультант"
-
-  regulated_assets_and_licenses:
-    text: >
-      Просим предоставить по {doc_names}: перечень лицензий и разрешительной документации,
-      анализ их перехода/переоформления и влияние на closing.
-    addressee: "Regulatory counsel / Юридический советник"
-
-  closing_and_transfer_act_check:
-    text: >
-      Просим уточнить в {doc_names}: closing agenda, перечень closing deliverables,
-      форму передаточного акта, дату закрытия сделки, момент перехода рисков
-      и порядок передачи доступа к предприятию.
-    addressee: "Юридический советник / Обе стороны"
-
-  closing_and_transfer_act_procedures:
-    text: >
-      Просим согласовать по {doc_names}: closing steps, передаточный акт,
-      перечень документов, имущества, ключей, IT-доступов и иных deliverables.
+      Просим уточнить в {doc_names}:
+      (а) условия конфиденциальности (перечень сведений, исключения, срок);
+      (б) подсудность (арбитражный суд / МКАС / иной форум);
+      (в) претензионный порядок с конкретным сроком;
+      (г) применимое право.
     addressee: "Юридический советник"
 
-  confidentiality:
+  creditor_notification_compliance:
     text: >
-      Просим уточнить в {doc_names}: условия конфиденциальности,
-      commercial secrecy regime и permitted disclosures.
-    addressee: "Юридический советник"
-
-  dispute_resolution_jurisdiction:
-    text: >
-      Просим уточнить в {doc_names}: подсудность, претензионный порядок,
-      арбитражную оговорку (если есть) и применимое право.
-    addressee: "Юридический советник"
-
-  state_registration_required_for_enterprise_sale:
-    text: >
-      Внимание: для {doc_names} обязательна государственная регистрация договора
-      продажи предприятия. Просим подготовить регистрационный пакет и план действий
-      по подаче документов.
-    addressee: "Юридический советник / Росреестр"
-
-  mandatory_enterprise_attachments_required:
-    text: >
-      Внимание: {doc_names} без обязательных приложений по ст. 561 ГК РФ
-      несёт риск незаключённости. Просим предоставить инвентаризацию, баланс,
-      аудиторское заключение и перечень долгов.
-    addressee: "Продавец / Юридический советник"
-
-  creditor_notification_required:
-    text: >
-      Внимание: по {doc_names} требуется подтверждение письменного уведомления кредиторов.
-      Просим предоставить реестр уведомлений, доказательства отправки и статус согласий кредиторов.
+      Внимание: по {doc_names} требуется подтверждение письменного уведомления
+      кредиторов (ст. 562 ГК РФ). Просим предоставить реестр уведомлений,
+      доказательства отправки и статус согласий кредиторов.
     addressee: "Продавец / Корпоративный юрист"
 
   antitrust_clearance_required:
@@ -2127,46 +2626,10 @@ dd_request_templates:
 
   bankruptcy_challenge_risk:
     text: >
-      Внимание: {doc_names} содержит риск банкротного оспаривания.
-      Просим предоставить insolvency analysis, fair value support,
-      сведения об аффилированности и кредиторском контуре продавца.
+      Внимание: {doc_names} содержит риск банкротного оспаривания (ст. 61.2-61.3 ФЗ-127).
+      Просим предоставить: анализ платежеспособности продавца, подтверждение
+      рыночной стоимости предприятия и правовое заключение по риску оспаривания.
     addressee: "Юридический советник / Финансовый консультант"
-
-  enterprise_defects_and_buyer_remedies:
-    text: >
-      Просим уточнить в {doc_names}: какие средства защиты имеет покупатель
-      при несоответствии состава предприятия (ст. 565 ГК РФ): право на уменьшение
-      цены, требование восполнения состава, расторжение при существенном нарушении,
-      защита от скрытых долгов, сроки предъявления требований.
-    addressee: "Юридический советник покупателя"
-
-  enterprise_defects_remedies:
-    text: >
-      Просим включить в {doc_names}: блок последствий несоответствия состава
-      предприятия (ст. 565 ГК РФ) — уменьшение цены, восполнение, расторжение,
-      защита от undisclosed liabilities, time bar для требований.
-    addressee: "Юридический советник"
-
-  payment_mechanics:
-    text: >
-      Просим уточнить в {doc_names}: механику расчётов — этапы оплаты,
-      условия для каждого платежа, использование escrow/аккредитива,
-      holdback, earn-out (если применимо), распределение расходов на escrow.
-    addressee: "Обе стороны / Финансовый советник"
-
-  non_compete_non_solicitation:
-    text: >
-      Просим уточнить в {doc_names}: наличие и параметры non-compete
-      (территория, срок, виды деятельности, санкции) и non-solicitation
-      (запрет переманивания работников/клиентов, срок, санкции).
-    addressee: "Юридический советник"
-
-  indemnification_clause:
-    text: >
-      Просим уточнить в {doc_names}: наличие indemnification clause
-      (ст. 406.1 ГК РФ) — перечень indemnified events, cap, basket,
-      de minimis, time bar, порядок уведомления и взыскания.
-    addressee: "Юридический советник"
 
   # Generic fallback
   _default:
@@ -2174,3 +2637,5 @@ dd_request_templates:
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
+
+

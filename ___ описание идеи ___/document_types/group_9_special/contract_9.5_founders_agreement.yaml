@@ -1,0 +1,1877 @@
+type: contract_9.5_founders_agreement
+name: "Договор об учреждении общества (Учредительный договор)"
+
+description: |
+  Соглашение между учредителями (будущими участниками/акционерами) о совместной деятельности
+  по созданию хозяйственного общества (ООО или АО). Определяет порядок учреждения, размер
+  уставного капитала, размер, номинальную стоимость и порядок оплаты долей (акций),
+  распределение расходов на создание. Учредители несут солидарную ответственность по всем
+  обязательствам, возникшим до государственной регистрации общества.
+  Не является учредительным документом. Для ООО после регистрации внутренние отношения
+  регулируются уставом; условия договора, ему противоречащие, не применяются.
+  Для АО договор утрачивает силу после регистрации.
+  Регулируется ст. 89.1 ГК РФ, ст. 11, 14–16 ФЗ-14 «Об ООО», ст. 9, 25, 34 ФЗ-208 «Об АО».
+
+version: 4.0
+parent: class_9_special_imperative
+
+metadata:
+  category: contract
+  subcategory: corporate_law
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "ст. 89.1 ГК РФ; ст. 11, 14–16 ФЗ-14 «Об ООО»; ст. 9, 25, 34 ФЗ-208 «Об АO»"
+  doc_types_supported:
+    - "учредительный договор"
+    - "договор об учреждении ООО"
+    - "договор об учреждении общества с ограниченной ответственностью"
+    - "договор о создании АО"
+    - "договор о создании акционерного общества"
+    - "договор об учреждении хозяйственного общества"
+    - "договор учредителей"
+    - "договор о распределении долей"
+    - "учредительное соглашение"
+    - "соглашение об учреждении ООО"
+    - "соглашение об учреждении общества с ограниченной ответственностью"
+    - "соглашение о создании АO"
+    - "соглашение о создании акционерного общества"
+    - "договор об учреждении хозяйственного общества"
+    - "соглашение о создании общества"
+    - "договор учредителей"
+    - "договор о распределении долей"
+    
+    - "founders agreement"
+    - "incorporation agreement"
+    - "incorporators agreement"
+    - "memorandum of association"
+    - "subscription agreement"
+    - "subscription and shareholders agreement"
+    - "initial shareholders agreement"
+    - "corporate formation agreement"
+    - "constitutional agreement"
+    - "shareholders agreement"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.9
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
+  rules:
+
+    filename_patterns:
+      # Русский — договор об учреждении / учредительный договор / соглашения о создании
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*учреждени[ея][_\\s-]*общества"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: «договор об учреждении общества»
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*учреждени[ея][_\\s-]*(ООО|общества[_\\s-]*с[_\\s-]*ограниченн[ойыми][_\\s-]*ответственность[юи])"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*учреждени[ея][_\\s-]*(АО|акционерн[огоое][_\\s-]*общества)"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)учредительн[ыйое][_\\s-]*(договор|соглашени[еия])"
+        kind: specific_subject
+        weight: 0.98
+        # «учредительный договор» / «учредительное соглашение»
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*учреждени[ея][_\\s-]*хозяйственн[огоого][_\\s-]*общества"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*учреждени[еи][_\\s-]*(ООО|общества[_\\s-]*с[_\\s-]*ограниченн[ойыми][_\\s-]*ответственность[юи])"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*учреждени[еи][_\\s-]*(АО|акционерн[огоое][_\\s-]*общества)"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*о[_\\s-]*создани[еи][_\\s-]*(ООО|АО|акционерн[огоое][_\\s-]*общества|общества)"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*о[_\\s-]*создани[еи][_\\s-]*(ООО|АО|акционерн[огоое][_\\s-]*общества|общества)"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*учредител[ейя]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*учредител[ейя]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*о[_\\s-]*распределени[еи][_\\s-]*дол[еий]"
+        kind: specific_subject
+        weight: 0.9
+        # В док‑типах у тебя именно такой договор завязан на учредителей
+
+      # Более общие русские маркеры создания общества — как generic/context
+
+      - pattern: "(?i)договор\\s+об\\s+учреждени"
+        kind: generic_form
+        weight: 0.7
+        # Любой «договор об учреждении …» без слова «общества» может быть и про учреждение иного юрлица
+
+      - pattern: "(?i)создани[яеи][_\\s-]*(ООО|АО|общества)"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)учредительн[а-яё]*\\s*(договор|соглашени[еия])"
+        kind: generic_form
+        weight: 0.7
+        # Оставил твой паттерн как generic_form, потому что может быть и «учредительный договор фонда» и т.п.
+
+      # Английский — founders / incorporation / MOA / начальные shareholders agreement
+
+      - pattern: "(?i)founder(s)?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)incorporation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)incorporator(s)?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)memorandum[_\\s-]*of[_\\s-]*association"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)corporate[_\\s-]*formation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)constitutional[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)initial[_\\s-]*shareholders[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)subscription[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # В контексте учреждения часто является частью пакета учредительных договорённостей
+
+      - pattern: "(?i)subscription[_\\s-]*and[_\\s-]*shareholders[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)founders?[_\\s-]*charter"
+        kind: specific_subject
+        weight: 0.9
+
+      # Общий shareholders agreement — возможный конфликт с корпоративным договором,
+      # поэтому даём ему только generic_form
+
+      - pattern: "(?i)shareholders?[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+
+      # Общие 영어‑маркеры — generic/context
+
+      - pattern: "(?i)incorporation"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)formation[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+
+    folder_patterns:
+      - pattern: "(?i)учредител"
+        kind: specific_subject
+        weight: 0.8
+        # Папка «учредители/учреждение»
+
+      - pattern: "(?i)создани[ея][_\\s-]*ООО"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)создани[ея][_\\s-]*АО"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)incorporation"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)founder(s)?"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)corporate[_\\s-]*formation"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)корпоративн[оеая]"
+        kind: context
+        weight: 0.4
+        # Слишком широкий корпоративный контекст, полезный, но не решающий
+
+    keywords:
+
+      high:
+        - pattern: "(?i)договор\\s+об\\s+учрежден[ииие]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Базовая формула «договор об учреждении» в заголовке"
+
+        - pattern: "(?i)учредительн[ыйое]\\s+договор"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Учредительный договор как название документа"
+
+        - pattern: "(?i)договор\\s+об\\s+учрежден[ииие]\\s+хозяйственн[огоое]\\s+общества"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Прямое указание на учреждение хозяйственного общества"
+
+        - pattern: "(?i)договор\\s+об\\s+учрежден[ииие]\\s+ооо"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Учреждение ООО по договору"
+
+        - pattern: "(?i)договор\\s+о\\s+создан[ииие]\\s+ао"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Договор о создании акционерного общества"
+
+        - pattern: "(?i)создан[иеия]\\s+ооо"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Создание ООО как цель договора"
+
+        - pattern: "(?i)создан[иеия]\\s+ао"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Создание АО как цель договора"
+
+        - pattern: "(?i)учредител[ьией]\\s+общества"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Участники договора именуются учредителями общества"
+
+        - pattern: "(?i)дополнительн[оеое]\\s+соглашен[иеия]\\s+к\\s+договор[уа]\\s+об\\s+учрежден[ииие]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Дополнительное соглашение к договору об учреждении"
+
+        - pattern: "(?i)уставн[ыйое]\\s+капитал"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Указание на размер уставного капитала создаваемого общества"
+
+        - pattern: "(?i)дол[яи]\\s+в\\s+уставн[омом]\\s+капитал[еае]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Распределение долей в уставном капитале между учредителями"
+
+        - pattern: "(?i)солидарн[аяое]\\s+ответственност[ьи]\\s+учредител[ейей]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Солидарная ответственность по обязательствам до регистрации"
+
+        - pattern: "(?i)ст\\.?\\s*11\\s+фз-?14"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Ссылка на ст. 11 ФЗ-14 «Об ООО» о договоре об учреждении"
+
+        - pattern: "(?i)ст\\.?\\s*89\\.1\\s+гк\\s+рф"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Ссылка на ст. 89.1 ГК РФ о договоре об учреждении"
+
+      medium:
+        - pattern: "(?i)номинальн[а-яё]+\\s+стоимост[ьи]\\s+дол[ии]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Номинальная стоимость доли в уставном капитале"
+
+        - pattern: "(?i)поряд[оа]к\\s+оплат[ыы]\\s+дол[ии]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Порядок оплаты долей учредителями"
+
+        - pattern: "(?i)совместн[а-яё]+\\s+деятельност[ьи]\\s+по\\s+создани[юю]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Совместная деятельность учредителей по созданию общества"
+
+        - pattern: "(?i)расход[ыо]\\s+на\\s+учреждени[ея]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Распределение расходов на учреждение общества"
+
+        - pattern: "(?i)неденежн[ыо]й\\s+вклад"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Неденежный вклад в уставный капитал"
+
+        - pattern: "(?i)оценк[аа]\\s+имуществ[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Оценка имущества, вносимого в качестве вклада"
+
+        - pattern: "(?i)государственн[а-яё]+\\s+регистраци[яя]\\s+юридическ[оа]го\\s+лиц[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Государственная регистрация создаваемого юридического лица"
+
+        - pattern: "(?i)минимальн[ыо]й\\s+уставн[ыо]й\\s+капитал"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Указание на минимальный размер уставного капитала"
+
+        - pattern: "(?i)акци[ии]\\s+при\\s+учреждени[ии]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Размещение акций при учреждении АО"
+
+        - pattern: "(?i)ст\\.\\s*14\\s*ФЗ-14"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на порядок оплаты долей при учреждении ООО"
+
+        - pattern: "(?i)ст\\.\\s*15\\s*ФЗ-14"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на особенности оплаты долей и вкладов"
+
+        - pattern: "(?i)солидарн[аяое]\\s+ответственност[ьи]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Солидарная ответственность — широкий маркер, подтверждающий"
+
+      low:
+        - pattern: "(?i)единогласн[оа]е\\s+решени[ея]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Единогласные решения учредителей"
+
+        - pattern: "(?i)распределени[ея]\\s+расход[оо]в"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Распределение расходов между учредителями"
+
+        - pattern: "(?i)избрани[ея]\\s+директор[аа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Избрание директора создаваемого общества"
+
+        - pattern: "(?i)предрегистрационн[ыо]е\\s+договор[ыа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Предрегистрационные договоры, связанные с созданием общества"
+
+        - pattern: "(?i)выход\\s+учредител[яя]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Выход учредителя до регистрации общества"
+
+        - pattern: "(?i)корпоративн[ыо]й\\s+договор"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Упоминание корпоративного договора как отдельного инструмента"
+
+        - pattern: "(?i)организационно-?правов[а-яё]+\\s+форм[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Указание организационно-правовой формы создаваемого общества"
+
+    exclusions:
+      - pattern: "(?i)устав\\s+обществ[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Устав общества — учредительный документ, а не договор об учреждении"
+
+      - pattern: "(?i)устав\\s+ООО"
+        severity: hard
+        weight: -1.0
+        description: "Устав ООО как отдельный тип документа"
+
+      - pattern: "(?i)договор\\s+прост[оа]го\\s+товариществ[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Договор простого товарищества — иной корпоративный/обязательственный тип"
+
+      - pattern: "(?i)договор\\s+о\\s+совместн[оа]й\\s+деятельност[ии]"
+        severity: hard
+        weight: -1.0
+        description: "Договор о совместной деятельности (простое товарищество)"
+
+      - pattern: "(?i)корпоративн[ыо]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Корпоративный договор (SHA) — не договор об учреждении"
+
+      - pattern: "(?i)решени[ея]\\s+единственн[оа]го\\s+учредител[яя]"
+        severity: hard
+        weight: -1.0
+        description: "Решение единственного учредителя вместо многостороннего договора"
+
+      - pattern: "(?i)протокол\\s+общего\\s+собрани[яя]\\s+участник[оо]в"
+        severity: hard
+        weight: -1.0
+        description: "Протокол общего собрания участников — иной корпоративный документ"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  ooo_formation:
+    any_keywords:
+      - "(?i)обществ[оо]\\s+с\\s+ограниченн[оа]й\\s+ответственност[ьюи]"
+      - "(?i)\\bООО\\b"
+      - "(?i)\\bФЗ-14\\b"
+      - "(?i)ст\\.\\s*11\\s*ФЗ-14"
+      - "(?i)ст\\.\\s*14\\s*ФЗ-14"
+      - "(?i)дол[яьи]\\s+в\\s+уставн[оа]м\\s+капитал[ее]"
+
+  ao_formation:
+    any_keywords:
+      - "(?i)акционерн[оа]е\\s+обществ[оо]"
+      - "(?i)\\bАО\\b"
+      - "(?i)\\bПАО\\b"
+      - "(?i)\\bФЗ-208\\b"
+      - "(?i)ст\\.\\s*9\\s*ФЗ-208"
+      - "(?i)\\bакци[ии]\\b"
+      - "(?i)размещени[ея]\\s+акци[ий]"
+      - "(?i)эмисси[яя]"
+
+  non_monetary_contribution:
+    any_keywords:
+      - "(?i)неденежн[ыо]й\\s+вклад"
+      - "(?i)вклад\\s+имуществ[оо]м"
+      - "(?i)вклад\\s+правами"
+      - "(?i)оценк[аа]\\s+вклад[аа]"
+      - "(?i)независим[ыо]й\\s+оценщик"
+      - "(?i)имущественн[ыо]й\\s+вклад"
+      - "(?i)интеллектуальн[а-яё]+\\s+собственност[ьи]\\s+в\\s+качеств[ее]\\s+вклад[аа]"
+      - "(?i)ст\\.\\s*15\\s*ФЗ-14"
+
+  multiple_founders:
+    any_keywords:
+      - "(?i)учредител[ии]"
+      - "(?i)между\\s+учредител[яями]"
+      - "(?i)два\\s+учредител[яя]"
+      - "(?i)три\\s+учредител[яя]"
+      - "(?i)кажд[ыо]й\\s+учредител[ьь]"
+      - "(?i)все\\s+учредител[ии]"
+
+  foreign_founder:
+    any_keywords:
+      - "(?i)иностранн[ыо]й\\s+учредител[ьь]"
+      - "(?i)иностранн[оа]е\\s+юридическ[оа]е\\s+лиц[оо]"
+      - "(?i)иностранн[ыо]й\\s+гражданин"
+      - "(?i)\\bнерезидент\\b"
+      - "(?i)иностранн[а-яё]+\\s+компани[яя]"
+      - "(?i)\\bапостиль\\b"
+      - "(?i)легализаци[яя]\\s+документ[оо]в"
+
+  ip_contribution:
+    any_keywords:
+      - "(?i)интеллектуальн[а-яё]+\\s+собственност[ьи]"
+      - "(?i)\\bпатент\\b"
+      - "(?i)товарн[ыо]й\\s+знак"
+      - "(?i)\\bлицензи[яяи]\\b"
+      - "(?i)\\bноу-?хау\\b"
+      - "(?i)программн[оа]е\\s+обеспечени[ея]"
+      - "(?i)исключительн[оа]е\\s+прав[оо]"
+
+  real_estate_contribution:
+    any_keywords:
+      - "(?i)недвижим[оа]е?\\s+имуществ[оо]"
+      - "(?i)земельн[ыо]й\\s+участ[оа]к"
+      - "(?i)\\bздани[ея]\\b"
+      - "(?i)\\bпомещени[ея]\\b"
+      - "(?i)кадастров[ыо]й\\s+номер"
+      - "(?i)регистраци[яя]\\s+переход[аа]\\s+прав[аа]"
+
+  single_organizer:
+    any_keywords:
+      - "(?i)ответственн[ыо]й\\s+за\\s+регистраци[юю]"
+      - "(?i)учредитель-?организатор"
+      - "(?i)осуществляет\\s+регистрационн[ыо]е\\s+действи[яя]"
+      - "(?i)от\\s+имени\\s+учредител[ее]й"
+      - "(?i)доверенност[ьи]\\s+на\\s+регистраци[юю]"
+
+  large_charter_capital:
+    any_keywords:
+      - "(?i)уставн[ыо]й\\s+капитал\\s+свыше"
+      - "(?i)значительн[ыо]й\\s+уставн[ыо]й\\s+капитал"
+      - "(?i)миллион\\s+рубл[ее]й"
+      - "(?i)млн\\s+рубл[ее]й"
+
+  pre_incorporation_contracts_context:
+    any_keywords:
+      - "(?i)договор[ыа]\\s+до\\s+регистраци[ии]"
+      - "(?i)предрегистрационн[ыо]е\\s+договор[ыа]"
+      - "(?i)от\\s+имени\\s+создаваем[оа]го\\s+обществ[аа]"
+      - "(?i)предварительн[оа]е\\s+одобрени[ея]"
+      - "(?i)ратификаци[яя]"
+      - "(?i)аренд[аа]\\s+до\\s+регистраци[ии]"
+        
+  corporate_agreement_planned:
+    any_keywords:
+      - "(?i)корпоративн[ыо]й\\s+договор"
+      - "(?i)акционерн[оа]е\\s+соглашени[ея]"
+      - "(?i)соглашени[ея]\\s+об\\s+осуществлени[ии]\\s+прав\\s+участник[оо]в"
+      - "(?i)\\bdrag-?along\\b"
+      - "(?i)\\btag-?along\\b"
+      - "(?i)прав[оо]\\s+первого\\s+отказ[аа]"
+      - "(?i)\\bопцион\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  percentage_pattern: "(?i)\\b\\d+[,.]?\\d*\\s*(%|процент)"
+  inn_pattern: "(?i)\\bИНН\\s*\\d{10,12}\\b"
+  ogrn_pattern: "(?i)\\bОГРН\\s*\\d{13,15}\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "minimum_charter_capital_ooo"
+    name: "Минимальный уставный капитал ООО — 10 000 рублей (ст. 14 ФЗ-14)"
+    description: |
+      Уставный капитал ООО не может быть менее 10 000 рублей.
+      Минимальная часть (10 000 руб.) должна быть оплачена деньгами.
+    legal_base: "ст. 14 ФЗ-14"
+    required_triggers: ["ooo_formation"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "уставный капитал 5000"
+        - "уставный капитал 1000"
+        - "уставный капитал 100"
+        - "менее 10 000"
+        - "менее десяти тысяч"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 3
+      boost_keywords:
+        - "уставный капитал"
+        - "размер уставного капитала"
+        - "ст. 14 ФЗ-14"
+      rerank: true
+
+  - id: "mandatory_valuation_non_monetary_contribution"
+    name: "Обязательная оценка неденежного вклада свыше 20 000 руб. (ст. 15 ФЗ-14)"
+    description: |
+      При оплате доли неденежным вкладом стоимостью свыше 20 000 рублей обязательна
+      независимая оценка. За завышение стоимости учредители и оценщик несут
+      субсидиарную ответственность в течение 3 лет.
+    legal_base: "ст. 15 ФЗ-14"
+    required_triggers: ["non_monetary_contribution"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "без оценки"
+        - "оценка не проводилась"
+        - "самостоятельно определили стоимость"
+        - "оценка не требуется"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "неденежный вклад"
+        - "оценка"
+        - "независимый оценщик"
+        - "ст. 15 ФЗ-14"
+      rerank: true
+
+  - id: "single_participant_ooo_as_sole_founder_prohibition"
+    name: "Запрет учреждения ООО другим ООО с единственным участником (ст. 7 ФЗ-14)"
+    description: |
+      ООО не может иметь в качестве единственного учредителя другое хозяйственное
+      общество, состоящее из одного лица.
+    legal_base: "ст. 7 ФЗ-14"
+    required_triggers: ["ooo_formation"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "единственный учредитель"
+        - "общество с единственным участником"
+        - "состоящее из одного лица"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 3
+      boost_keywords:
+        - "единственный учредитель"
+        - "ст. 7 ФЗ-14"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: founders_and_company_extraction
+    name: "Извлечение учредителей и данных создаваемого общества"
+    description: |
+      Извлекает перечень учредителей (ФИО/наименование, ИНН, адрес),
+      наименование и ОПФ создаваемого общества, место нахождения.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "учредитель"
+        - "создать общество"
+        - "наименование общества"
+        - "организационно-правовая форма"
+        - "место нахождения"
+        - "ООО"
+        - "АО"
+        - "ПАО"
+        - "ИНН"
+        - "ОГРН"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)учредител(ь|и|ей)\\s*([-—:]|обязу)"
+        - "(?i)(ООО|АО|ПАО)\\s+[«\"]"
+        - "(?i)\\bИНН\\s*\\d{10,12}\\b"
+        - "(?i)\\bОГРН\\s*\\d{13,15}\\b"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор об учреждении общества.
+        Найди в тексте учредителей и данные создаваемого общества.
+
+        Ответь строго в JSON:
+        {
+          "founders": [
+            {
+              "name": "<ФИО или наименование>",
+              "type": "<individual / legal_entity>",
+              "inn": "<ИНН или not_found>",
+              "share_percent": "<% доли или not_found>"
+            }
+          ],
+          "company_name": "<полное наименование создаваемого общества или not_found>",
+          "company_form": "<ooo / ao / pao / not_found>",
+          "company_location": "<место нахождения или not_found>",
+          "number_of_founders": "<число учредителей или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 700
+    retrieval:
+      context_k: 8
+      max_chunks: 12
+      boost_keywords:
+        - "учредитель"
+        - "общество"
+        - "наименование"
+        - "ИНН"
+        - "ОГРН"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 1000
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "company_name"
+          type: "string"
+          keyword_hints: ["наименование", "ООО", "АО"]
+          description: "Наименование создаваемого общества"
+        - name: "company_form"
+          type: "string"
+          allowed_values: ["ooo", "ao", "pao", "not_found"]
+          description: "Организационно-правовая форма"
+        - name: "number_of_founders"
+          type: "number"
+          description: "Количество учредителей"
+      store_payload: true
+
+  - id: charter_capital_and_shares_check
+    name: "Уставный капитал: размер, доли, номинальная стоимость (ст. 11, 14 ФЗ-14)"
+    description: |
+      Извлекает размер уставного капитала, размер и номинальную стоимость доли
+      каждого учредителя, проверяет соответствие минимуму (10 000 руб. для ООО).
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "уставный капитал"
+        - "размер уставного капитала"
+        - "доля учредителя"
+        - "номинальная стоимость"
+        - "процент"
+        - "рублей"
+        - "10 000"
+        - "десять тысяч"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уставн(ый|ого)\\s+капитал(а)?\\s+(составляет|равен|в\\s+размере)"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽)"
+        - "(?i)\\b\\d+[,.]?\\d*\\s*(%|процент)"
+        - "(?i)номинальн(ая|ой)\\s+стоимост"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор об учреждении общества.
+        Извлеки данные об уставном капитале и долях учредителей.
+
+        Ответь строго в JSON:
+        {
+          "charter_capital_amount": "<сумма или not_found>",
+          "charter_capital_currency": "<RUB / other / not_found>",
+          "minimum_compliance": "<compliant / below_minimum / not_applicable / not_found>",
+          "shares": [
+            {
+              "founder_name": "<имя учредителя>",
+              "share_percent": "<% или not_found>",
+              "nominal_value": "<номинальная стоимость или not_found>"
+            }
+          ],
+          "shares_total_100": "<yes / no / unclear / not_found>",
+          "capital_snippet": "<цитата или not_found>"
+        }
+
+        - "compliant" — уставный капитал ≥ 10 000 руб. (для ООО)
+        - "below_minimum" — ниже минимума (НАРУШЕНИЕ для ООО)
+        - "not_applicable" — для АО минимум иной
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "уставный капитал"
+        - "номинальная стоимость"
+        - "доля"
+        - "процент"
+        - "10 000"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "charter_capital_amount"
+          type: "number"
+          keyword_hints: ["уставный капитал", "в размере", "составляет"]
+          unit: "RUB"
+          description: "Размер уставного капитала"
+        - name: "minimum_compliance"
+          type: "string"
+          allowed_values: ["compliant", "below_minimum", "not_applicable", "not_found"]
+          description: "Соответствие минимуму"
+        - name: "shares_total_100"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          description: "Сумма долей = 100%"
+      store_payload: true
+
+  - id: share_payment_procedure_check
+    name: "Порядок, сроки и способ оплаты долей (ст. 11, 16 ФЗ-14)"
+    description: |
+      Проверяет наличие конкретного порядка, сроков и способов оплаты доли
+      каждым учредителем. Срок не может превышать 4 месяцев с даты регистрации.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "оплата доли"
+        - "оплатить долю"
+        - "порядок оплаты"
+        - "срок оплаты"
+        - "способ оплаты"
+        - "денежными средствами"
+        - "имуществом"
+        - "правами"
+        - "4 месяца"
+        - "четыре месяца"
+        - "не позднее"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)оплат(а|ить)\\s+(свою\\s+)?дол(ю|и)"
+        - "(?i)не\\s+позднее\\s+\\d+\\s*(месяц|дн)"
+        - "(?i)(четыре|4)\\s+месяц"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор об учреждении общества.
+        Проверь порядок, сроки и способ оплаты долей (ст. 11, 16 ФЗ-14).
+
+        Ответь строго в JSON:
+        {
+          "payment_deadline_specified": "<yes / no>",
+          "payment_deadline_value": "<конкретный срок или not_found>",
+          "within_4_months": "<yes / no / unclear / not_found>",
+          "payment_method": "<money / property / rights / mixed / not_specified / not_found>",
+          "payment_for_each_founder": "<yes / no / not_found>",
+          "payment_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "оплата доли"
+        - "срок оплаты"
+        - "ст. 16 ФЗ-14"
+        - "4 месяца"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "payment_deadline_specified"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Указан ли срок оплаты"
+        - name: "within_4_months"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          description: "Срок ≤ 4 месяцев с регистрации"
+        - name: "payment_method"
+          type: "string"
+          allowed_values: ["money", "property", "rights", "mixed", "not_specified", "not_found"]
+          description: "Способ оплаты"
+      store_payload: true
+
+  - id: non_monetary_contribution_valuation_check
+    name: "Оценка неденежного вклада и субсидиарная ответственность (ст. 15 ФЗ-14)"
+    description: |
+      Проверяет наличие процедуры оценки неденежного вклада независимым оценщиком,
+      утверждения стоимости единогласным решением, указания на субсидиарную
+      ответственность за завышение стоимости.
+    triggers:
+      any: ["non_monetary_contribution"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "независимый оценщик"
+        - "независимая оценка"
+        - "отчёт об оценке"
+        - "отчет об оценке"
+        - "утверждение оценки"
+        - "единогласное решение"
+        - "стоимость не может превышать"
+        - "субсидиарная ответственность"
+        - "3 года"
+        - "три года"
+        - "ст. 15 ФЗ-14"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)независим(ый|ого|ым)\\s+оценщик"
+        - "(?i)субсидиарн(ая|ой)\\s+ответственност"
+        - "(?i)стоимость.*не\\s+(может|должна)\\s+превышать"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор об учреждении общества.
+        Проверь процедуру оценки неденежного вклада (ст. 15 ФЗ-14).
+
+        Ответь строго в JSON:
+        {
+          "non_monetary_contribution_present": "<yes / no>",
+          "contribution_description": "<описание вклада или not_found>",
+          "independent_valuation_required": "<yes / no / not_found>",
+          "valuation_approval_procedure": "<unanimous / majority / not_specified / not_found>",
+          "subsidiary_liability_mentioned": "<yes / no / not_found>",
+          "valuation_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "неденежный вклад"
+        - "оценщик"
+        - "субсидиарная ответственность"
+        - "ст. 15 ФЗ-14"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "independent_valuation_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Требуется ли независимая оценка"
+        - name: "subsidiary_liability_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Упомянута ли субсидиарная ответственность"
+      store_payload: true
+
+  - id: solidary_liability_check
+    name: "Солидарная ответственность учредителей до регистрации (ст. 11 ФЗ-14)"
+    description: |
+      Проверяет наличие прямого указания на солидарную ответственность
+      учредителей по обязательствам, возникшим до регистрации общества.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "солидарная ответственность"
+        - "солидарно отвечают"
+        - "обязательства до регистрации"
+        - "обязательства, связанные с созданием"
+        - "до государственной регистрации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)солидарн(ая|ой|ую)\\s+ответственност"
+        - "(?i)обязательств(а|ам).*до\\s+(государственной\\s+)?регистраци"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор об учреждении общества.
+        Проверь наличие положений о солидарной ответственности (ст. 11 ФЗ-14).
+
+        Ответь строго в JSON:
+        {
+          "solidary_liability_clause": "<present / not_found>",
+          "scope_of_liability": "<all_pre_registration / limited / not_specified / not_found>",
+          "post_registration_approval": "<mentioned / not_found>",
+          "liability_snippet": "<цитата или not_found>"
+        }
+
+        - "all_pre_registration" — ответственность по всем обязательствам до регистрации
+        - "limited" — ответственность ограничена определённым кругом обязательств
+        - "post_registration_approval" — упомянуто одобрение обществом после регистрации
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "солидарная ответственность"
+        - "до регистрации"
+        - "обязательства учредителей"
+        - "ст. 11 ФЗ-14"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "solidary_liability_clause"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Наличие положения о солидарной ответственности"
+      store_payload: true
+
+  - id: pre_incorporation_contracts_check
+    name: "Одобрение договоров, заключённых до регистрации (pre-incorporation contracts)"
+    description: |
+      Проверяет наличие механизма предварительного одобрения учредителями договоров,
+      заключаемых от имени создаваемого общества, и порядок ратификации обществом.
+    triggers:
+      any: ["pre_incorporation_contracts_context"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "договоры до регистрации"
+        - "предварительное одобрение"
+        - "от имени создаваемого общества"
+        - "ратификация"
+        - "одобрение обществом после регистрации"
+        - "предел суммы"
+        - "лимит полномочий"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)договор(ы|ов)\\s+до\\s+регистраци"
+        - "(?i)предварительн(ое|ого)\\s+одобрени"
+        - "(?i)ратификаци(я|ю|и)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор об учреждении общества.
+        Проверь наличие механизма одобрения pre-incorporation contracts.
+
+        Ответь строго в JSON:
+        {
+          "pre_incorporation_clause": "<present / not_found>",
+          "approval_mechanism": "<unanimous / majority / authorized_person / not_specified / not_found>",
+          "amount_limit": "<сумма лимита или not_found>",
+          "post_registration_ratification": "<mentioned / not_found>",
+          "pre_inc_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "договоры до регистрации"
+        - "одобрение"
+        - "от имени создаваемого"
+        - "ратификация"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "pre_incorporation_clause"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Наличие механизма одобрения"
+        - name: "approval_mechanism"
+          type: "string"
+          allowed_values: ["unanimous", "majority", "authorized_person", "not_specified", "not_found"]
+          description: "Тип одобрения"
+      store_payload: true
+
+  - id: corporate_agreement_obligation_check
+    name: "Обязательство заключить корпоративный договор после регистрации (ст. 67.2 ГК РФ)"
+    description: |
+      Проверяет наличие предварительных условий или обязательства учредителей
+      заключить корпоративный договор после государственной регистрации общества.
+    triggers:
+      any: ["corporate_agreement_planned"]
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "корпоративный договор"
+        - "акционерное соглашение"
+        - "обязательство заключить"
+        - "предварительные условия"
+        - "drag-along"
+        - "tag-along"
+        - "право первого отказа"
+        - "опцион"
+        - "call-опцион"
+        - "put-опцион"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)корпоративн(ый|ого)\\s+договор"
+        - "(?i)обязу(ются|ется)\\s+заключить"
+        - "(?i)(drag|tag)[-\\s]?along"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор об учреждении общества.
+        Проверь наличие обязательства заключить корпоративный договор (ст. 67.2 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "corporate_agreement_obligation": "<present / not_found>",
+          "key_terms_previewed": ["<перечень предварительно согласованных условий>"],
+          "deadline_for_conclusion": "<срок или not_found>",
+          "corp_agreement_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "корпоративный договор"
+        - "обязательство заключить"
+        - "ст. 67.2 ГК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "corporate_agreement_obligation"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Наличие обязательства заключить корпоративный договор"
+      store_payload: true
+
+  - id: founder_withdrawal_check
+    name: "Порядок выхода учредителя из процесса учреждения"
+    description: |
+      Проверяет наличие процедуры выхода учредителя до регистрации:
+      уведомление, сроки, распределение доли, возмещение расходов.
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "выход учредителя"
+        - "отказ от участия"
+        - "выход из договора"
+        - "письменное уведомление"
+        - "распределение доли"
+        - "возмещение расходов"
+        - "последствия выхода"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)выход\\s+учредител"
+        - "(?i)отказ\\s+(от\\s+)?участи(я|е)\\s+(в\\s+)?учреждени"
+        - "(?i)уведомив\\s+друг(их|ого)\\s+учредител"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор об учреждении общества.
+        Проверь наличие процедуры выхода учредителя.
+
+        Ответь строго в JSON:
+        {
+          "withdrawal_clause": "<present / not_found>",
+          "notification_period": "<срок уведомления или not_found>",
+          "share_redistribution": "<described / not_described / not_found>",
+          "expense_reimbursement": "<described / not_described / not_found>",
+          "withdrawal_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "выход учредителя"
+        - "отказ от участия"
+        - "уведомление"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "withdrawal_clause"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Наличие процедуры выхода"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "founders_identification"
+    name: "Идентификация учредителей"
+    description: "Проверяет наличие полных данных о каждом учредителе"
+    legal_base: "ст. 89.1 ГК РФ, ст. 11 ФЗ-14"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "учредитель"
+        - "ФИО"
+        - "наименование"
+        - "ИНН"
+        - "ОГРН"
+        - "паспорт"
+        - "адрес"
+        - "зарегистрирован"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)учредител(ь|и)"
+        - "(?i)\\bИНН\\s*\\d{10,12}\\b"
+
+  - id: "company_name_and_form"
+    name: "Наименование и ОПФ создаваемого общества"
+    description: "Проверяет указание полного наименования и организационно-правовой формы"
+    legal_base: "ст. 89.1 ГК РФ, ст. 11 ФЗ-14"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "наименование общества"
+        - "полное наименование"
+        - "сокращённое наименование"
+        - "ООО"
+        - "АО"
+        - "ПАО"
+        - "общество с ограниченной ответственностью"
+        - "акционерное общество"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(ООО|АО|ПАО)\\s+[«\"]"
+
+  - id: "charter_capital_amount"
+    name: "Размер уставного капитала (ст. 14 ФЗ-14)"
+    description: "Проверяет указание размера уставного капитала"
+    legal_base: "ст. 14 ФЗ-14"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "уставный капитал"
+        - "размер уставного капитала"
+        - "капитал составляет"
+        - "рублей"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уставн(ый|ого)\\s+капитал"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "charter_capital"
+          type: "number"
+          keyword_hints: ["уставный капитал", "составляет", "в размере"]
+          unit: "RUB"
+          description: "Размер уставного капитала"
+      store_payload: true
+
+  - id: "shares_distribution"
+    name: "Размер и номинальная стоимость доли каждого учредителя"
+    description: "Проверяет указание размера и номинальной стоимости доли каждого"
+    legal_base: "ст. 11 ФЗ-14"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "доля учредителя"
+        - "размер доли"
+        - "номинальная стоимость"
+        - "процент"
+        - "составляет"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)дол(я|ю|и)\\s+учредител"
+        - "(?i)\\b\\d+[,.]?\\d*\\s*(%|процент)"
+        - "(?i)номинальн(ая|ой)\\s+стоимост"
+
+  - id: "payment_deadline_and_method"
+    name: "Порядок и сроки оплаты долей (ст. 16 ФЗ-14)"
+    description: "Проверяет конкретный порядок и срок оплаты"
+    legal_base: "ст. 11, 16 ФЗ-14"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "оплата доли"
+        - "оплатить долю"
+        - "срок оплаты"
+        - "не позднее"
+        - "4 месяца"
+        - "четыре месяца"
+        - "денежными средствами"
+        - "имуществом"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)оплат(а|ить)\\s+(свою\\s+)?дол"
+        - "(?i)не\\s+позднее"
+
+  - id: "solidary_liability_explicit"
+    name: "Солидарная ответственность учредителей (ст. 11 ФЗ-14)"
+    description: "Проверяет явное указание на солидарную ответственность"
+    legal_base: "ст. 11 ФЗ-14"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "солидарная ответственность"
+        - "солидарно отвечают"
+        - "обязательства до регистрации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)солидарн(ая|ой)\\s+ответственност"
+
+  - id: "joint_activity_procedure"
+    name: "Порядок совместной деятельности по созданию"
+    description: "Проверяет описание порядка совместных действий учредителей"
+    legal_base: "ст. 11 ФЗ-14"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "совместная деятельность"
+        - "порядок создания"
+        - "подготовка документов"
+        - "подача на регистрацию"
+        - "утверждение устава"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)совместн(ая|ой)\\s+деятельност"
+        - "(?i)порядок\\s+(создания|учреждения)"
+
+  - id: "expenses_distribution"
+    name: "Распределение расходов на учреждение"
+    description: "Проверяет наличие порядка распределения расходов между учредителями"
+    legal_base: "Договорная практика"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расходы на учреждение"
+        - "распределение расходов"
+        - "пропорционально долям"
+        - "поровну"
+        - "госпошлина"
+        - "нотариальные расходы"
+        - "юридические услуги"
+        - "смета расходов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расход(ы|ов)\\s+(на\\s+)?учреждени"
+        - "(?i)пропорциональн(о|ого)\\s+(размеру\\s+)?дол"
+
+  - id: "director_election"
+    name: "Порядок избрания директора и его полномочия до регистрации"
+    description: "Проверяет определение кандидатуры и полномочий директора"
+    legal_base: "ст. 40 ФЗ-14"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "директор"
+        - "генеральный директор"
+        - "единоличный исполнительный орган"
+        - "избрание"
+        - "назначение"
+        - "полномочия"
+        - "кандидатура"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(директор|единоличн(ый|ого)\\s+исполнительн)"
+        - "(?i)избран(ие|ия)\\s+(директор|генеральн)"
+
+  - id: "unanimous_decision_requirement"
+    name: "Единогласное принятие решений по ключевым вопросам"
+    description: "Проверяет требование единогласия при принятии решений"
+    legal_base: "ст. 89.1 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "единогласно"
+        - "единогласное решение"
+        - "решение всех учредителей"
+        - "согласие всех учредителей"
+        - "право вето"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)единогласн(о|ое|ого|ым)"
+        - "(?i)решени(е|я)\\s+всех\\s+учредител"
+
+  - id: "pre_incorporation_contracts_mechanism"
+    name: "Механизм одобрения pre-incorporation contracts"
+    description: "Проверяет порядок одобрения договоров, заключаемых до регистрации"
+    legal_base: "ст. 11 ФЗ-14"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "предварительное одобрение"
+        - "договоры до регистрации"
+        - "от имени создаваемого"
+        - "ратификация обществом"
+        - "лимит полномочий"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)предварительн(ое|ого)\\s+одобрени"
+        - "(?i)ратификаци"
+
+  - id: "founder_withdrawal_procedure"
+    name: "Порядок выхода учредителя из процесса учреждения"
+    description: "Проверяет наличие процедуры выхода учредителя"
+    legal_base: "Договорная практика, ст. 450.1 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "выход учредителя"
+        - "отказ от участия"
+        - "расторжение договора учредителем"
+        - "уведомление о выходе"
+        - "возмещение расходов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)выход\\s+учредител"
+
+  - id: "organizer_reimbursement"
+    name: "Возмещение расходов учредителю-организатору"
+    description: "Проверяет право на компенсацию учредителю, ведущему организационную работу"
+    legal_base: "Договорная практика"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["single_organizer"]
+    rules:
+      keywords:
+        - "возмещение расходов организатора"
+        - "организаторское вознаграждение"
+        - "ответственный за регистрацию"
+        - "компенсация временных затрат"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ответственн(ый|ого)\\s+за\\s+регистраци"
+
+  - id: "confidentiality"
+    name: "Конфиденциальность переговоров и условий (ст. 434.1 ГК РФ)"
+    description: "Проверяет наличие обязательства конфиденциальности"
+    legal_base: "ст. 434.1 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "не подлежит разглашению"
+        - "информация об учреждении"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциальност"
+
+  - id: "dispute_resolution"
+    name: "Досудебный порядок и подсудность"
+    description: "Проверяет наличие порядка разрешения споров"
+    legal_base: "АПК РФ, ГПК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "досудебный порядок"
+        - "претензионный порядок"
+        - "подсудность"
+        - "арбитражный суд"
+        - "путём переговоров"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)спор(ы|ов)\\s+(разрешаются|подлежат)"
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+
+  - id: "post_registration_provisions"
+    name: "Положения, сохраняющие силу после регистрации"
+    description: "Проверяет наличие условий, автономных от устава"
+    legal_base: "ст. 422, 431.2 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "сохраняют силу после регистрации"
+        - "действуют после регистрации"
+        - "автономность условий"
+        - "независимость положений"
+        - "наряду с уставом"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(сохран|действ)(яют|уют)\\s+(силу\\s+)?после\\s+регистраци"
+
+  - id: "contract_term"
+    name: "Срок действия договора"
+    description: "Проверяет указание на срок действия (до регистрации)"
+    legal_base: "ст. 11 ФЗ-14"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок действия"
+        - "действует до регистрации"
+        - "до момента государственной регистрации"
+        - "утрачивает силу после регистрации"
+        - "прекращает действие"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)действует\\s+до\\s+(момента\\s+)?регистраци"
+        - "(?i)утрачивает\\s+силу\\s+после"
+
+  - id: "foreign_founder_requirements"
+    name: "Специальные требования для иностранного учредителя"
+    description: "Проверяет соблюдение требований при наличии иностранного учредителя"
+    legal_base: "ФЗ-129, МЧП"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["foreign_founder"]
+    rules:
+      keywords:
+        - "апостиль"
+        - "легализация"
+        - "нотариальный перевод"
+        - "консульская легализация"
+        - "иностранное юридическое лицо"
+        - "выписка из торгового реестра"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(апостиль|легализаци|нотариальн(ый|ого)\\s+перевод)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  founders_and_company_extraction:
+    text: >
+      Просим предоставить по {doc_names}: (а) полные данные каждого учредителя
+      (ФИО/наименование, ИНН, ОГРН, адрес, паспортные данные для физ. лиц);
+      (б) полное и сокращённое наименование создаваемого общества;
+      (в) организационно-правовую форму; (г) место нахождения.
+    addressee: "Все учредители"
+
+  founders_identification:
+    text: >
+      В {doc_names} необходимо указать полные данные каждого учредителя.
+    addressee: "Все учредители"
+
+  company_name_and_form:
+    text: >
+      В {doc_names} необходимо указать полное наименование и ОПФ общества.
+    addressee: "Все учредители"
+
+  charter_capital_and_shares_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) общий размер уставного капитала
+      (для ООО — не менее 10 000 руб.); (б) размер и номинальную стоимость доли
+      каждого учредителя; (в) подтверждение, что сумма долей = 100%;
+      (г) валюту оплаты.
+    addressee: "Все учредители / Юридический советник"
+
+  charter_capital_amount:
+    text: >
+      В {doc_names} необходимо указать конкретный размер уставного капитала.
+    addressee: "Все учредители"
+
+  shares_distribution:
+    text: >
+      В {doc_names} необходимо указать размер и номинальную стоимость доли
+      каждого учредителя.
+    addressee: "Все учредители"
+
+  share_payment_procedure_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) конкретный срок оплаты каждым учредителем
+      (не позднее 4 мес. с даты регистрации); (б) способ оплаты (деньги/имущество/
+      права); (в) реквизиты для оплаты; (г) последствия неоплаты.
+    addressee: "Все учредители / Юридический советник"
+
+  payment_deadline_and_method:
+    text: >
+      В {doc_names} необходимо указать порядок и сроки оплаты долей (ст. 16 ФЗ-14).
+    addressee: "Все учредители"
+
+  non_monetary_contribution_valuation_check:
+    text: >
+      Просим предоставить по {doc_names}: (а) описание неденежного вклада;
+      (б) отчёт независимого оценщика (для вкладов свыше 20 000 руб.);
+      (в) протокол утверждения стоимости единогласным решением;
+      (г) подтверждение информированности о субсидиарной ответственности (ст. 15 ФЗ-14).
+    addressee: "Учредитель, вносящий неденежный вклад / Оценщик"
+
+  solidary_liability_check:
+    text: >
+      Просим подтвердить в {doc_names}: (а) наличие положения о солидарной
+      ответственности учредителей (ст. 11 ФЗ-14); (б) порядок одобрения обществом
+      обязательств после регистрации; (в) лимиты обязательств до регистрации.
+    addressee: "Юридический советник"
+
+  solidary_liability_explicit:
+    text: >
+      В {doc_names} необходимо явно указать на солидарную ответственность
+      учредителей по обязательствам до регистрации (ст. 11 ФЗ-14).
+    addressee: "Юридический советник"
+
+  pre_incorporation_contracts_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) механизм одобрения договоров,
+      заключаемых до регистрации; (б) лимиты полномочий уполномоченного лица;
+      (в) порядок ратификации обществом после регистрации;
+      (г) распределение ответственности при отказе от ратификации.
+    addressee: "Юридический советник"
+
+  pre_incorporation_contracts_mechanism:
+    text: >
+      Просим включить в {doc_names} механизм одобрения pre-incorporation contracts.
+    addressee: "Юридический советник"
+
+  joint_activity_procedure:
+    text: >
+      Просим описать в {doc_names}: порядок совместных действий учредителей
+      (подготовка устава, формирование пакета документов, подача на регистрацию).
+    addressee: "Все учредители"
+
+  expenses_distribution:
+    text: >
+      Просим уточнить в {doc_names}: (а) перечень расходов на учреждение;
+      (б) порядок их распределения (пропорционально/поровну);
+      (в) смету расходов; (г) порядок авансирования и отчётности.
+    addressee: "Все учредители"
+
+  director_election:
+    text: >
+      Просим согласовать в {doc_names}: (а) кандидатуру директора;
+      (б) порядок избрания; (в) пределы полномочий до регистрации;
+      (г) условия трудового договора.
+    addressee: "Все учредители"
+
+  unanimous_decision_requirement:
+    text: >
+      Просим определить в {doc_names} перечень вопросов, требующих
+      единогласного решения всех учредителей.
+    addressee: "Юридический советник"
+
+  corporate_agreement_obligation_check:
+    text: >
+      Просим согласовать в {doc_names}: (а) обязательство заключить
+      корпоративный договор после регистрации; (б) ключевые условия
+      (drag-along, tag-along, опционы, порядок голосования);
+      (в) срок заключения; (г) санкции за незаключение.
+    addressee: "Юридический советник"
+
+  founder_withdrawal_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) процедуру выхода учредителя
+      (уведомление, срок); (б) последствия для доли и расходов;
+      (в) порядок компенсации фактически понесённых расходов.
+    addressee: "Юридический советник"
+
+  founder_withdrawal_procedure:
+    text: >
+      Просим включить в {doc_names} процедуру выхода учредителя
+      из процесса учреждения.
+    addressee: "Юридический советник"
+
+  organizer_reimbursement:
+    text: >
+      Просим согласовать в {doc_names} право учредителя-организатора
+      на компенсацию расходов и вознаграждение за организационную работу.
+    addressee: "Все учредители"
+
+  confidentiality:
+    text: >
+      Просим включить в {doc_names} обязательство конфиденциальности
+      в отношении условий договора и бизнес-плана (ст. 434.1 ГК РФ).
+    addressee: "Юридический советник"
+
+  dispute_resolution:
+    text: >
+      Просим согласовать в {doc_names}: досудебный порядок (претензии,
+      переговоры), подсудность, арбитражную оговорку (при наличии).
+    addressee: "Юридический советник"
+
+  post_registration_provisions:
+    text: >
+      Просим определить в {doc_names}: какие положения сохраняют силу
+      после регистрации общества (конфиденциальность, споры, ответственность),
+      и указать их автономность от устава.
+    addressee: "Юридический советник"
+
+  contract_term:
+    text: >
+      Просим уточнить в {doc_names} срок действия: до регистрации
+      или до наступления иного события.
+    addressee: "Юридический советник"
+
+  foreign_founder_requirements:
+    text: >
+      Для {doc_names} при участии иностранного учредителя просим предоставить:
+      (а) апостилированные/легализованные документы; (б) нотариальный перевод;
+      (в) выписку из торгового реестра; (г) подтверждение правоспособности.
+    addressee: "Иностранный учредитель / Юридический советник"
+
+  minimum_charter_capital_ooo:
+    text: >
+      ВНИМАНИЕ: в {doc_names} размер уставного капитала ООО ниже минимума
+      10 000 рублей (ст. 14 ФЗ-14). Просим привести в соответствие с законом.
+    addressee: "Все учредители"
+
+  mandatory_valuation_non_monetary_contribution:
+    text: >
+      ВНИМАНИЕ: в {doc_names} неденежный вклад стоимостью свыше 20 000 руб.
+      не оценён независимым оценщиком (ст. 15 ФЗ-14). Просим обеспечить оценку
+      и учитывать субсидиарную ответственность за завышение стоимости.
+    addressee: "Учредители / Оценщик"
+
+  single_participant_ooo_as_sole_founder_prohibition:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлен учредитель — ООО с единственным участником.
+      Такое ООО не может быть единственным учредителем другого ООО (ст. 7 ФЗ-14).
+    addressee: "Юридический советник"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

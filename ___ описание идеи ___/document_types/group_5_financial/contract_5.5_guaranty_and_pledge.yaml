@@ -1,0 +1,2469 @@
+type: contract_5.5_guaranty_and_pledge
+name: "Договор поручительства / Договор залога"
+
+description: |
+  Комплексный обеспечительный тип документа, охватывающий две акцессорные конструкции:
+  1) поручительство — обязательство поручителя отвечать перед кредитором должника
+  за исполнение последним его обязательства полностью или в части;
+  2) залог — право кредитора (залогодержателя) получить удовлетворение из стоимости
+  заложенного имущества преимущественно перед другими кредиторами залогодателя.
+  Регулируется Главой 23 ГК РФ, а для ипотеки — также Федеральным законом об ипотеке.
+  Ключевыми вопросами практики являются корректная привязка к основному обязательству,
+  пределы ответственности поручителя, сроки и основания прекращения поручительства,
+  индивидуализация и оценка предмета залога, приоритет залога, регистрация ипотеки,
+  порядок обращения взыскания и банкротные риски оспаривания обеспечительной сделки.
+
+version: 4.0
+parent: class_5_financial_security
+
+metadata:
+  category: contract
+  subcategory: financial_security
+  complexity: high
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "§ 5 Главы 23 ГК РФ (ст. 361-367) — поручительство; § 3 Главы 23 ГК РФ (ст. 334-358.18) — залог"
+  doc_types_supported:
+    - "договор обеспечения"
+    - "договор поручительства"
+    - "договор залога"
+    - "договор ипотеки"
+    - "договор залога движимого имущества"
+    - "договор залога прав требования"
+    - "договор залога доли"
+    - "договор последующего залога"
+    - "договор поручительства по кредиту"
+    - "договор поручительства по договору поставки"
+    - "договор залога товаров в обороте"
+    - "независимая гарантия"
+    - "договор залога товарного знака"
+
+    - "guarantee agreement"
+    - "suretyship agreement"
+    - "deed of guarantee"
+    - "security agreement"
+    - "security package agreement"
+    - "deed of charge"
+    - "debenture"
+    - "mortgage deed"
+    - "floating charge"
+    - "fixed charge"
+    - "pledge agreement"
+    - "hypothecation agreement"
+    - "pledge over bank account"
+    - "standby letter of credit"
+    - "SBLC"
+    - "collateral management agreement"
+    - "indemnity agreement"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  scoring:
+    accept_threshold: 0.81
+    strong_signal_threshold: 0.89
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
+  rules:
+
+    filename_patterns:
+      # Русский — поручительство
+
+      - pattern: "(?i)договор[_\\s-]*поручительств[аы]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор поручительства
+
+      - pattern: "(?i)договор[_\\s-]*поручительств[аы][_\\s-]*по[_\\s-]*кредит[ууа]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*поручительств[аы][_\\s-]*по[_\\s-]*договор[ууа][_\\s-]*поставк[ии]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*поручител[яей]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)поручительств[оа][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)поручительств[оа]"
+        kind: generic_form
+        weight: 0.6
+        # “Поручительство” без слова “договор” — поддерживающий сигнал (могут быть и иски/письма)
+
+      # Русский — залог / ипотека
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор залога
+
+      - pattern: "(?i)договор[_\\s-]*ипотек[ии]"
+        kind: specific_subject
+        weight: 1.0
+        # Договор ипотеки
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*движим[огоой][_\\s-]*имуществ[ао]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*прав[_\\s-]*требовани[яия]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*дол[иьи]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*последующ[егоий][_\\s-]*залог[ауы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*товар[овы][_\\s-]*в[_\\s-]*оборот[ееи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*товарн[огоой][_\\s-]*знак[аа]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*акци[ийй]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*облигац[ийй]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)залог[ауы][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)ипотек[аы][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)залог[ауы]"
+        kind: generic_form
+        weight: 0.6
+        # “Залог” без “договор” – могут быть и судебные акты/уведомления, оставляем как generic
+
+      - pattern: "(?i)ипотек[аы]"
+        kind: generic_form
+        weight: 0.6
+
+      # Русский — обеспечительный/security/коллатеральный пакет
+
+      - pattern: "(?i)договор[_\\s-]*обеспечен[ияи][_\\s-]*исполнен[ияи]"
+        kind: specific_subject
+        weight: 0.9
+        # Общий “договор обеспечения” из doc_types_supported
+
+      - pattern: "(?i)договор[_\\s-]*обеспечен[ияи][_\\s-]*обязательств[ао]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Английский — guarantee / surety / pledge / security / charge / mortgage
+
+      - pattern: "(?i)guarantee[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)surety(ship)?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)deed[_\\s-]*of[_\\s-]*guarantee"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)pledge[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)security[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)security[_\\s-]*package[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)deed[_\\s-]*of[_\\s-]*charge"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)mortgage[_\\s-]*deed"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)debenture"
+        kind: specific_subject
+        weight: 0.95
+        # В английском праве debenture обычно включает fixed/floating charge
+
+      - pattern: "(?i)floating[_\\s-]*charge"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)fixed[_\\s-]*charge"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)hypothecation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)pledge[_\\s-]*over[_\\s-]*bank[_\\s-]*account"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)collateral[_\\s-]*management[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)indemnity[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # В банковском/финансовом контексте часто часть security package
+
+      # Банковские гарантии / standby LC как обеспечительные
+
+      - pattern: "(?i)standby[_\\s-]*letter[_\\s-]*of[_\\s-]*credit"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)\\bSBLC\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)independent[_\\s-]*guarantee"
+        kind: specific_subject
+        weight: 0.9
+
+      # Общие guarantee/pledge/security/collateral – generic/context
+
+      - pattern: "(?i)guarant(ee|y)"
+        kind: generic_form
+        weight: 0.6
+        # Без слова agreement/deed — поддерживающий сигнал
+
+      - pattern: "(?i)pledge"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)security"
+        kind: generic_form
+        weight: 0.55
+
+      - pattern: "(?i)collateral"
+        kind: generic_form
+        weight: 0.55
+
+    folder_patterns:
+      - pattern: "(?i)поручительств"
+        kind: specific_subject
+        weight: 0.8
+        # Папка с поручительствами
+
+      - pattern: "(?i)залог"
+        kind: specific_subject
+        weight: 0.8
+        # Папка залоговых договоров
+
+      - pattern: "(?i)ипотек"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)security"
+        kind: specific_subject
+        weight: 0.8
+        # Папка security / security package
+
+      - pattern: "(?i)collateral"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)pledge"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)guarantee"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)debenture"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)mortgage"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)SBLC"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)charge"
+        kind: specific_subject
+        weight: 0.75
+
+    keywords:
+
+      high:
+        - pattern: "(?i)поручительств[оа]"
+          weight: 1.0
+          distinctiveness: high
+          context: any
+          description: "Базовый маркер поручительства"
+
+        - pattern: "(?i)поручител[ьяеи]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Поручитель как сторона обеспечительного обязательства"
+
+        - pattern: "(?i)договор\\s+поручительств[ауы]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора поручительства"
+
+        - pattern: "(?i)договор\\s+поручительств[ауы]\\s+по\\s+кредит[уы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Поручительство в обеспечение кредитного обязательства"
+
+        - pattern: "(?i)договор\\s+поручительств[ауы]\\s+по\\s+договор[уые]\\s+поставк[иуы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Поручительство в обеспечение поставки"
+
+        - pattern: "(?i)залог[ауы]?"
+          weight: 1.0
+          distinctiveness: high
+          context: any
+          description: "Базовый маркер залога"
+
+        - pattern: "(?i)ипотек[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Ипотека как залог недвижимости"
+
+        - pattern: "(?i)договор\\s+залога"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора залога"
+
+        - pattern: "(?i)договор\\s+ипотек[иыу]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора ипотеки"
+
+        - pattern: "(?i)договор\\s+залога\\s+движим[огоой\\s]*имуществ[ао]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Залог движимого имущества"
+
+        - pattern: "(?i)договор\\s+залога\\s+прав[ао]\\s+требован[ияи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Залог прав требования"
+
+        - pattern: "(?i)договор\\s+залога\\s+дол[иьи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Залог доли"
+
+        - pattern: "(?i)договор\\s+последующ[егоой]\\s+залога"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Последующий залог"
+
+        - pattern: "(?i)договор\\s+залога\\s+товар[ова]\\s+в\\s+оборот[ееи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Залог товаров в обороте"
+
+        - pattern: "(?i)залогодател[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Залогодатель как сторона договора залога"
+
+        - pattern: "(?i)залогодержател[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Залогодержатель как обеспеченный кредитор"
+
+        - pattern: "(?i)обеспечен[иеия]\\s+обязательств[аы]"
+          weight: 0.75
+          distinctiveness: medium
+          context: any
+          description: "Общая обеспечительная функция договора"
+
+        - pattern: "(?i)основн[оеое]\\s+обязательств[оа]"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Акцессорная привязка к основному обязательству"
+
+        - pattern: "(?i)предмет\\s+залога"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Индивидуализация предмета залога"
+
+        - pattern: "(?i)обращен[иеия]\\s+взыскан[ияи]\\s+на\\s+предмет\\s+залога"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Обращение взыскания на предмет залога"
+
+      medium:
+        - pattern: "(?i)солидарн[а-яё]+\\s+ответственност[ьи]"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Солидарная ответственность поручителя"
+
+        - pattern: "(?i)субсидиарн[а-яё]+\\s+ответственност[ьи]"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Субсидиарная ответственность поручителя"
+
+        - pattern: "(?i)регрессн[оа]е\\s+требовани[ея]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Регресс поручителя после исполнения обязательства"
+
+        - pattern: "(?i)\\bзакладн[а-яё]+\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Закладная в ипотечной конструкции"
+
+        - pattern: "(?i)оценк[аа]\\s+залог[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Оценка предмета залога"
+
+        - pattern: "(?i)последующ[иоя]+\\s+залог"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Последующий залог"
+
+        - pattern: "(?i)страховани[ея]\\s+предмет[аа]\\s+залог[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Страхование предмета залога"
+
+        - pattern: "(?i)внесудебн[ыо]й\\s+поряд[оа]к"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Внесудебный порядок обращения взыскания"
+
+        - pattern: "(?i)срок\\s+поручительств[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Срок действия поручительства"
+
+        - pattern: "(?i)реестр\\s+уведомлени[йя]\\s+о\\s+залог[ее]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Реестр уведомлений о залоге движимого имущества"
+
+      low:
+        - pattern: "(?i)имущественн[оа]е\\s+обеспечени[ея]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Общий термин имущественного обеспечения"
+
+        - pattern: "(?i)\\bобременени[ея]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Обременение имущества"
+
+        - pattern: "(?i)\\bсозалогодержател[ья]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Созалогодержатель в сложной залоговой структуре"
+
+        - pattern: "(?i)залог\\s+прав"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Краткая формула залога прав"
+
+        - pattern: "(?i)товар[ыа]\\s+в\\s+оборот[ее]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Товары в обороте как возможный предмет залога"
+
+        - pattern: "(?i)\\bбанкротств[ооа]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Банкротный контекст обеспечительной сделки"
+
+        - pattern: "(?i)\\bпредпочтени[ея]\\b"
+          weight: 0.2
+          distinctiveness: low
+          context: any
+          description: "Оспаривание обеспечения как сделки с предпочтением"
+
+    exclusions:
+      - pattern: "(?i)независим[а-яё]+\\s+гаранти[яи]"
+        severity: hard
+        weight: -1.0
+        description: "Независимая гарантия — самостоятельное, неакцессорное обязательство, отличное от поручительства"
+
+      - pattern: "(?i)банковск[а-яё]+\\s+гаранти[яи]"
+        severity: hard
+        weight: -1.0
+        description: "Банковская гарантия/независимая гарантия — отдельный тип обеспечения"
+
+      - pattern: "(?i)купл[яи]-?продаж[ааи]"
+        severity: hard
+        weight: -1.0
+        description: "Купля-продажа — основной договор, а не обеспечительный"
+
+      - pattern: "(?i)\\bдарени[ея]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Дарение не относится к поручительству или залогу"
+
+      # ── Soft exclusions
+
+      - pattern: "(?i)\\bстраховани[ея]\\b"
+        severity: soft
+        weight: -0.3
+        description: "Общий страховой контекст снижает уверенность, но не исключает залог, где страхование предмета возможно"
+
+      - pattern: "(?i)кредитн[ыо]й\\s+договор"
+        severity: soft
+        weight: -0.3
+        description: "Кредитный договор часто является основным обязательством, а не самим обеспечительным договором"
+
+      - pattern: "(?i)договор\\s+за[йеё]м[аа]"
+        severity: soft
+        weight: -0.3
+        description: "Заем может быть обеспечиваемым обязательством, но не тождественен поручительству или залогу"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  guaranty_contract:
+    any_keywords:
+      - "(?i)\\bпоручительств[ооа]\\b"
+      - "(?i)\\bпоручител[ьяи]\\b"
+      - "(?i)отвечать\\s+за\\s+должник[аа]"
+      - "(?i)солидарн[а-яё]+\\s+ответственност[ьи]"
+      - "(?i)субсидиарн[а-яё]+\\s+ответственност[ьи]"
+
+  pledge_contract:
+    any_keywords:
+      - "(?i)\\bзалог\\b"
+      - "(?i)\\bзалогодатель\\b"
+      - "(?i)\\bзалогодержател[ья]\\b"
+      - "(?i)предмет\\s+залог[аа]"
+      - "(?i)обращени[ея]\\s+взыскани[яя]"
+
+  mortgage_pledge:
+    any_keywords:
+      - "(?i)\\bипотек[ааы]\\b"
+      - "(?i)залог\\s+недвижимост[ии]"
+      - "(?i)\\bзакладн[а-яё]+\\b"
+      - "(?i)\\bегрн\\b"
+      - "(?i)государственн[а-яё]+\\s+регистраци[яи]\\s+ипотек[ии]"
+
+  movable_pledge:
+    any_keywords:
+      - "(?i)движим[оа]е?\\s+имуществ[оо]"
+      - "(?i)транспортн[оеая]\\s+средств[оо]"
+      - "(?i)\\bоборудовани[ея]\\b"
+      - "(?i)товар[ыа]\\s+в\\s+оборот[ее]"
+      - "(?i)реестр\\s+уведомлени[йя]\\s+о\\s+залог[ее]"
+
+  rights_pledge:
+    any_keywords:
+      - "(?i)залог\\s+прав"
+      - "(?i)прав[оа]\\s+требовани[яя]"
+      - "(?i)залог\\s+имущественн[ыо]х\\s+прав"
+      - "(?i)дебиторск[а-яё]+\\s+задолженност[ьи]"
+
+  third_party_pledgor:
+    any_keywords:
+      - "(?i)треть[её]е\\s+лиц[оо]"
+      - "(?i)залогодатель\\s+не\\s+являетс[яьа]\\s+должник[оо]м"
+      - "(?i)обеспечивает\\s+обязательств[аа]\\s+должник[аа]"
+      - "(?i)имуществ[оо]\\s+третьего\\s+лиц[аа]"
+
+  subsidiary_guaranty:
+    any_keywords:
+      - "(?i)субсидиарн[а-яё]+\\s+ответственност[ьи]"
+      - "(?i)после\\s+предъявлени[яя]\\s+требовани[йя]\\s+к\\s+должник[уу]"
+      - "(?i)сначала\\s+к\\s+должник[уу]"
+
+  out_of_court_enforcement:
+    any_keywords:
+      - "(?i)внесудебн[ыо]й\\s+поряд[оа]к"
+      - "(?i)внесудебн[оа]е\\s+обращени[ея]\\s+взыскани[яя]"
+      - "(?i)без\\s+обращени[яя]\\s+в\\s+суд"
+      - "(?i)соглашени[ея]\\s+о\\s+внесудебн[оа]м\\s+порядк[ее]"
+
+  subsequent_pledge:
+    any_keywords:
+      - "(?i)последующ[иоя]+\\s+залог"
+      - "(?i)повторн[ыо]й\\s+залог"
+      - "(?i)следующ[иоя]+\\s+залогодержател[ья]"
+
+  secured_real_estate:
+    any_keywords:
+      - "(?i)\\bквартир[аеиу]\\b"
+      - "(?i)\\bздани[ея]\\b"
+      - "(?i)\\bпомещени[ея]\\b"
+      - "(?i)земельн[а-яё]+\\s+участ[оа]к"
+      - "(?i)объект\\s+недвижимост[ии]"
+
+  share_pledge:
+    any_keywords:
+      - "(?i)залог\\s+дол[ии]"
+      - "(?i)дол[яьи]\\s+в\\s+уставн[оа]м\\s+капитал[ее]"
+      - "(?i)залог\\s+дол[ии]\\s+в\\s+ООО"
+      - "(?i)нотариальн[а-яё]+\\s+удостоверени[ея]\\s+залог[аа]\\s+дол[ии]"
+      - "(?i)\\bЕГРЮЛ\\b"
+
+  consumer_guaranty_pledge:
+    any_keywords:
+      - "(?i)физическ[оеая]\\s+лиц[оо]"
+      - "(?i)\\bгражданин\\b"
+      - "(?i)единственн[оа]е\\s+жиль[ёе]"
+      - "(?i)ипотечн[ыо]й\\s+кредит"
+      - "(?i)потребительск[иоя]+\\s+кредит"
+      - "(?i)\\bпаспорт\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)"
+  percentage_pattern: "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+  registration_number: "(?i)(?:№|N|No\\.)\\s*[A-ZА-Я0-9\\-\\/]+"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "no_secured_obligation_reference"
+    name: "Отсутствует ссылка на основное обязательство"
+    description: "Поручительство и залог как акцессорные конструкции требуют идентификации обеспечиваемого обязательства"
+    legal_base: "ст. 329, 339, 361, 432 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      negative_keywords:
+        - "основное обязательство"
+        - "кредитный договор"
+        - "договор займа"
+        - "договор поставки"
+        - "обеспечиваемое обязательство"
+        - "номер договора"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "основное обязательство"
+        - "обеспечиваемое обязательство"
+        - "договор №"
+      rerank: true
+
+  - id: "mortgage_without_registration_logic"
+    name: "Ипотека без механизма государственной регистрации"
+    description: "Без государственной регистрации ипотека не возникает как вещное обременение"
+    legal_base: "ст. 339.1 ГК РФ, ФЗ № 102-ФЗ"
+    required_triggers: ["mortgage_pledge"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      negative_keywords:
+        - "государственная регистрация ипотеки"
+        - "егрн"
+        - "росреестр"
+        - "закладная"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "регистрация ипотеки"
+        - "егрн"
+        - "росреестр"
+      rerank: true
+
+  - id: "out_of_court_enforcement_without_procedure"
+    name: "Внесудебное обращение взыскания без достаточной процедуры"
+    description: "Если договор допускает внесудебное взыскание, процедура должна быть описана достаточно определенно"
+    legal_base: "ст. 349, 350.1 ГК РФ"
+    required_triggers: ["out_of_court_enforcement"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "внесудебный порядок"
+        - "внесудебное обращение взыскания"
+      negative_keywords:
+        - "способ реализации"
+        - "оценка"
+        - "уведомление"
+        - "срок"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "внесудебное обращение взыскания"
+        - "реализация предмета залога"
+        - "уведомление"
+      rerank: true
+
+  - id: "blanket_guarantor_consent_risk"
+    name: "Чрезмерно широкое согласие поручителя на любые будущие изменения долга"
+    description: "Бланкетное согласие поручителя на любые изменения основного обязательства создает повышенный риск злоупотреблений и споров о прекращении поручительства"
+    legal_base: "ст. 367 ГК РФ, практика ВС РФ"
+    required_triggers: ["guaranty_contract"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "поручитель заранее дает согласие на любые изменения"
+        - "на любые изменения основного обязательства"
+        - "безусловное согласие поручителя"
+        - "любое изменение обязательства не требует согласия поручителя"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "согласие поручителя"
+        - "любые изменения"
+        - "основное обязательство"
+      rerank: true
+
+  - id: "guaranty_term_expiry_risk"
+    name: "Срок поручительства не указан → прекращение через 1 год (ст. 367 п. 6 ГК РФ)"
+    description: |
+      Если срок поручительства не установлен, оно прекращается через 1 год
+      с момента наступления срока исполнения основного обязательства.
+      Частая ошибка: кредитор рассчитывает на бессрочное поручительство,
+      а оно уже прекратилось.
+    legal_base: "ст. 367 п. 6 ГК РФ"
+    required_triggers: ["guaranty_contract"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      negative_keywords:
+        - "срок поручительства"
+        - "поручительство действует до"
+        - "до полного исполнения"
+        - "до момента исполнения"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "срок поручительства"
+        - "действует до"
+        - "прекращение поручительства"
+      rerank: true
+
+  - id: "pledge_registration_movable_required"
+    name: "Уведомление о залоге движимого имущества (ст. 339.1 п. 4 ГК РФ)"
+    description: |
+      Залог движимого имущества может быть учтён путём регистрации уведомления
+      в реестре нотариата. Без уведомления залог не может быть противопоставлен
+      третьим лицам, заявившим свои права на предмет залога.
+    legal_base: "ст. 339.1 п. 4 ГК РФ"
+    required_triggers: ["movable_pledge"]
+    severity: "high"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "реестр уведомлений о залоге"
+        - "нотариус"
+        - "уведомление о залоге"
+        - "реестр залогов"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "реестр уведомлений"
+        - "нотариус"
+        - "залог движимого"
+      rerank: true
+
+  - id: "consumer_pledge_sole_dwelling"
+    name: "Залог единственного жилья — ограничения (ст. 446 ГПК РФ, ФЗ-102)"
+    description: |
+      На единственное жильё нельзя обратить взыскание, КРОМЕ случая ипотеки
+      (ФЗ-102). Если залог не является ипотекой по ФЗ-102, обращение взыскания
+      на единственное жильё невозможно → залог бесполезен.
+    legal_base: "ст. 446 ГПК РФ, ст. 50, 78 ФЗ-102"
+    required_triggers: ["consumer_guaranty_pledge", "secured_real_estate"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "единственное жильё"
+        - "исполнительский иммунитет"
+        - "ст. 446 ГПК"
+        - "обращение взыскания на жилое помещение"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "единственное жильё"
+        - "обращение взыскания"
+        - "жилое помещение"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: security_subject_extraction
+    name: "Базовое извлечение параметров поручительства/залога"
+    description: "Извлекает тип обеспечительного договора, стороны, обеспечиваемое обязательство, объем ответственности или предмет залога"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "поручительство"
+        - "поручитель"
+        - "залог"
+        - "залогодатель"
+        - "залогодержатель"
+        - "основное обязательство"
+        - "предмет залога"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(поручительств|поручитель|залогодатель|залогодержатель|предмет\\s+залога)"
+        - "(?i)(обеспечиваем(ое|ого)\\s+обязательств|основн(ое|ого)\\s+обязательств)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор поручительства или залога.
+        Извлеки ключевые параметры договора строго по тексту.
+
+        Ответь строго в JSON:
+        {
+          "security_type": "<guaranty / pledge / mortgage / mixed / unclear / not_found>",
+          "creditor": "<кредитор/залогодержатель или not_found>",
+          "principal_debtor": "<должник по основному обязательству или not_found>",
+          "guarantor_or_pledgor": "<поручитель/залогодатель или not_found>",
+          "secured_obligation_reference": "<основное обязательство или not_found>",
+          "secured_amount": "<сумма обеспечиваемого обязательства или not_found>",
+          "liability_or_collateral_scope": "<объем ответственности или предмет залога или not_found>"
+        }
+
+        Используй только сведения из текста.
+        Если данных нет — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 700
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "основное обязательство"
+        - "поручитель"
+        - "предмет залога"
+        - "обеспечение обязательства"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "security_type"
+          type: "string"
+          allowed_values: ["guaranty", "pledge", "mortgage", "mixed", "unclear", "not_found"]
+          description: "Тип обеспечительного договора"
+        - name: "creditor"
+          type: "string"
+          keyword_hints: ["кредитор", "залогодержатель"]
+          description: "Кредитор/залогодержатель"
+        - name: "principal_debtor"
+          type: "string"
+          keyword_hints: ["должник", "заемщик"]
+          description: "Должник по основному обязательству"
+        - name: "guarantor_or_pledgor"
+          type: "string"
+          keyword_hints: ["поручитель", "залогодатель"]
+          description: "Поручитель/залогодатель"
+        - name: "secured_obligation_reference"
+          type: "string"
+          keyword_hints: ["основное обязательство", "кредитный договор", "договор займа", "договор поставки"]
+          description: "Ссылка на основное обязательство"
+        - name: "secured_amount"
+          type: "string"
+          keyword_hints: ["сумма обязательства", "размер обязательства", "сумма долга"]
+          description: "Размер обеспечиваемого обязательства"
+        - name: "liability_or_collateral_scope"
+          type: "string"
+          keyword_hints: ["предмет залога", "объем ответственности", "в пределах суммы"]
+          description: "Объем ответственности или предмет залога"
+      store_payload: true
+
+  - id: guaranty_liability_scope_check
+    name: "Поручительство: объем, вид ответственности и лимит"
+    description: "Проверяет солидарный/субсидиарный характер ответственности, лимит суммы и охват процентов/неустойки"
+    triggers:
+      any: ["guaranty_contract"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "солидарная ответственность"
+        - "субсидиарная ответственность"
+        - "в пределах суммы"
+        - "максимальная сумма поручительства"
+        - "проценты"
+        - "неустойка"
+        - "судебные расходы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)солидарн(ая|ой)\\s+ответственност|субсидиарн(ая|ой)\\s+ответственност"
+        - "(?i)максимальн(ая|ой)\\s+сумм[аы]\\s+поручительств"
+        - "(?i)в\\s+пределах\\s+суммы"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор поручительства.
+        Проверь объем и вид ответственности поручителя.
+
+        Ответь строго в JSON:
+        {
+          "liability_type": "<solidary / subsidiary / unclear / not_found>",
+          "liability_cap_status": "<present / not_found>",
+          "coverage_scope": "<principal_only / principal_plus_accessories / unclear / not_found>",
+          "liability_clause_clarity": "<clear / unclear / not_found>"
+        }
+
+        Используй только текст договора.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 380
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "солидарная ответственность"
+        - "субсидиарная ответственность"
+        - "максимальная сумма поручительства"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "liability_type"
+          type: "string"
+          allowed_values: ["solidary", "subsidiary", "unclear", "not_found"]
+          description: "Вид ответственности поручителя"
+        - name: "liability_cap_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли лимит ответственности"
+        - name: "coverage_scope"
+          type: "string"
+          allowed_values: ["principal_only", "principal_plus_accessories", "unclear", "not_found"]
+          description: "Объем ответственности по составу требований"
+        - name: "liability_clause_clarity"
+          type: "string"
+          allowed_values: ["clear", "unclear", "not_found"]
+          description: "Понятность оговорки об ответственности"
+      store_payload: true
+
+  - id: guaranty_change_and_termination_check
+    name: "Поручительство: изменения основного обязательства и прекращение"
+    description: "Проверяет правила изменения основного обязательства, уведомления поручителя и основания прекращения поручительства"
+    triggers:
+      any: ["guaranty_contract"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "согласие поручителя"
+        - "изменение основного обязательства"
+        - "прекращение поручительства"
+        - "срок поручительства"
+        - "безусловное согласие"
+        - "любые изменения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)изменени[ея]\\s+основн(ого|ого)\\s+обязательств"
+        - "(?i)прекращени[ея]\\s+поручительств"
+        - "(?i)срок\\s+поручительств"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор поручительства.
+        Проверь условия об изменении основного обязательства и прекращении поручительства.
+
+        Ответь строго в JSON:
+        {
+          "guarantor_consent_model": "<specific_consent / blanket_consent / not_found>",
+          "termination_clause_status": "<present / not_found>",
+          "guaranty_term_status": "<present / not_found>",
+          "risk_of_overbroad_consent": "<high / medium / low / not_found>"
+        }
+
+        Используй только текст договора.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 380
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "согласие поручителя"
+        - "прекращение поручительства"
+        - "срок поручительства"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "guarantor_consent_model"
+          type: "string"
+          allowed_values: ["specific_consent", "blanket_consent", "not_found"]
+          description: "Модель согласия поручителя на изменения"
+        - name: "termination_clause_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли условия о прекращении поручительства"
+        - name: "guaranty_term_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли срок поручительства"
+        - name: "risk_of_overbroad_consent"
+          type: "string"
+          allowed_values: ["high", "medium", "low", "not_found"]
+          description: "Риск чрезмерно широкого согласия поручителя"
+      store_payload: true
+
+  - id: pledge_subject_and_valuation_check
+    name: "Залог: предмет, индивидуализация и оценка"
+    description: "Проверяет идентификацию предмета залога, оценку и указание, у кого находится имущество"
+    triggers:
+      any: ["pledge_contract"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "предмет залога"
+        - "оценка предмета залога"
+        - "рыночная стоимость"
+        - "независимая оценка"
+        - "находится у залогодателя"
+        - "находится у залогодержателя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)предмет\\s+залог"
+        - "(?i)оценк[аи]\\s+предмета\\s+залога|рыночн(ая|ой)\\s+стоим"
+        - "(?i)находитс[яь]\\s+у\\s+(залогодателя|залогодержателя)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор залога.
+        Проверь индивидуализацию предмета залога и оценку.
+
+        Ответь строго в JSON:
+        {
+          "collateral_identification_status": "<clear / partial / not_found>",
+          "valuation_status": "<present / not_found>",
+          "possession_status": "<pledgor / pledgee / unclear / not_found>",
+          "independent_valuation_reference": "<present / not_found>"
+        }
+
+        Используй только текст договора.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 360
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "предмет залога"
+        - "оценка предмета залога"
+        - "находится у залогодателя"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "collateral_identification_status"
+          type: "string"
+          allowed_values: ["clear", "partial", "not_found"]
+          description: "Статус индивидуализации предмета залога"
+        - name: "valuation_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли оценка предмета залога"
+        - name: "possession_status"
+          type: "string"
+          allowed_values: ["pledgor", "pledgee", "unclear", "not_found"]
+          description: "У кого находится предмет залога"
+        - name: "independent_valuation_reference"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли ссылка на независимую оценку"
+      store_payload: true
+
+  - id: pledge_enforcement_check
+    name: "Залог: порядок обращения взыскания и реализации"
+    description: "Проверяет судебный/внесудебный порядок, уведомления, способ реализации и защиту залогодателя"
+    triggers:
+      any: ["pledge_contract"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "обращение взыскания"
+        - "внесудебный порядок"
+        - "только в судебном порядке"
+        - "реализация предмета залога"
+        - "уведомление залогодателя"
+        - "публичные торги"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)обращени[ея]\\s+взыскан"
+        - "(?i)внесудебн(ый|ого)\\s+поряд"
+        - "(?i)реализац[ияии]\\s+предмета\\s+залога"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор залога.
+        Проверь порядок обращения взыскания.
+
+        Ответь строго в JSON:
+        {
+          "enforcement_mode": "<judicial_only / out_of_court / mixed / unclear / not_found>",
+          "sale_method_status": "<present / not_found>",
+          "notice_to_pledgor_status": "<present / not_found>",
+          "enforcement_clause_risk": "<high / medium / low / not_found>"
+        }
+
+        Используй только текст договора.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 380
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "обращение взыскания"
+        - "внесудебный порядок"
+        - "реализация предмета залога"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "enforcement_mode"
+          type: "string"
+          allowed_values: ["judicial_only", "out_of_court", "mixed", "unclear", "not_found"]
+          description: "Режим обращения взыскания"
+        - name: "sale_method_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли способ реализации"
+        - name: "notice_to_pledgor_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли уведомление залогодателя"
+        - name: "enforcement_clause_risk"
+          type: "string"
+          allowed_values: ["high", "medium", "low", "not_found"]
+          description: "Риск оговорки об обращении взыскания"
+      store_payload: true
+
+  - id: mortgage_registration_check
+    name: "Ипотека: государственная регистрация и регистрационная механика"
+    description: "Проверяет наличие регистрационного механизма ипотеки и распределение обязанностей по регистрации"
+    triggers:
+      any: ["mortgage_pledge"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "государственная регистрация ипотеки"
+        - "егрн"
+        - "росреестр"
+        - "закладная"
+        - "обременение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)государственн(ая|ой)\\s+регистрац"
+        - "(?i)ЕГРН|Росреестр|закладн"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ипотеки/залога недвижимости.
+        Проверь регистрационную механику.
+
+        Ответь строго в JSON:
+        {
+          "registration_clause_status": "<present / not_found>",
+          "registration_body": "<rosreestr / other / not_found>",
+          "filing_party": "<pledgor / pledgee / both / not_found>",
+          "registration_costs_allocated": "<yes / no / not_found>"
+        }
+
+        Используй только текст договора.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 340
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "регистрация ипотеки"
+        - "егрн"
+        - "росреестр"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "registration_clause_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли регистрационная оговорка"
+        - name: "registration_body"
+          type: "string"
+          allowed_values: ["rosreestr", "other", "not_found"]
+          description: "Орган регистрации"
+        - name: "filing_party"
+          type: "string"
+          allowed_values: ["pledgor", "pledgee", "both", "not_found"]
+          description: "Кто подает документы"
+        - name: "registration_costs_allocated"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Распределены ли расходы на регистрацию"
+      store_payload: true
+
+  - id: guarantor_default_notice_and_subrogation_check
+    name: "Поручитель: уведомление о дефолте и суброгация"
+    description: "Проверяет обязанность кредитора уведомлять поручителя о дефолте и закрепление регрессных прав поручителя"
+    triggers:
+      any: ["guaranty_contract"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "уведомление поручителя о неисполнении"
+        - "кредитор обязан уведомить поручителя"
+        - "регрессное требование поручителя"
+        - "права кредитора переходят к поручителю"
+        - "суброгация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уведомит.*поручител"
+        - "(?i)права\\s+кредитора\\s+переходят\\s+к\\s+поручителю"
+        - "(?i)суброгац|регрессн(ое|ого)\\s+требован"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор поручительства.
+        Проверь условия уведомления поручителя о дефолте и его права после исполнения обязательства.
+
+        Ответь строго в JSON:
+        {
+          "default_notice_status": "<present / not_found>",
+          "subrogation_status": "<present / not_found>",
+          "document_transfer_to_guarantor": "<present / not_found>",
+          "guarantor_post_payment_protection": "<strong / partial / weak / not_found>"
+        }
+
+        Используй только текст договора.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 360
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "уведомление поручителя"
+        - "суброгация"
+        - "права кредитора переходят"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "default_notice_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли обязанность уведомления поручителя"
+        - name: "subrogation_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли условия о суброгации/регрессе"
+        - name: "document_transfer_to_guarantor"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли обязанность передать документы поручителю после исполнения"
+        - name: "guarantor_post_payment_protection"
+          type: "string"
+          allowed_values: ["strong", "partial", "weak", "not_found"]
+          description: "Сила защиты поручителя после исполнения"
+      store_payload: true
+
+  - id: pledge_insurance_and_bankruptcy_check
+    name: "Залог: страхование предмета и банкротные риски"
+    description: "Проверяет страхование предмета залога, выгодоприобретателя и заверения о банкротных рисках"
+    triggers:
+      any: ["pledge_contract"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "страхование предмета залога"
+        - "выгодоприобретатель — залогодержатель"
+        - "обязан застраховать"
+        - "отсутствие признаков банкротства"
+        - "сделка с предпочтением"
+        - "риски оспаривания"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)страховани[ея]\\s+предмета\\s+залога"
+        - "(?i)выгодоприобретател.{0,20}залогодержател"
+        - "(?i)признак(ов)?\\s+банкротств|сделк[аи]\\s+с\\s+предпочтени"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор залога.
+        Проверь страхование предмета залога и банкротные заверения.
+
+        Ответь строго в JSON:
+        {
+          "insurance_obligation_status": "<present / not_found>",
+          "pledgee_as_beneficiary": "<present / not_found>",
+          "bankruptcy_representation_status": "<present / not_found>",
+          "claw_back_risk_mitigation": "<strong / partial / weak / not_found>"
+        }
+
+        Используй только текст договора.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 360
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "страхование предмета залога"
+        - "выгодоприобретатель"
+        - "банкротство"
+        - "сделка с предпочтением"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "insurance_obligation_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли обязанность страхования"
+        - name: "pledgee_as_beneficiary"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Назначен ли залогодержатель выгодоприобретателем"
+        - name: "bankruptcy_representation_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли банкротные заверения"
+        - name: "claw_back_risk_mitigation"
+          type: "string"
+          allowed_values: ["strong", "partial", "weak", "not_found"]
+          description: "Сила смягчения риска оспаривания"
+      store_payload: true
+
+  - id: pledge_priority_and_ranking
+    name: "Залог: приоритет и очерёдность (старшинство залогов)"
+    description: |
+      При наличии нескольких залогов критично определить старшинство.
+      Старший залогодержатель удовлетворяется первым (ст. 342.1 ГК РФ).
+      Без чёткого определения приоритета — риск для нового залогодержателя.
+    triggers:
+      any: ["pledge_contract", "subsequent_pledge"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "приоритет залога"
+        - "старшинство залога"
+        - "очерёдность удовлетворения"
+        - "предшествующий залог"
+        - "первоочередной залогодержатель"
+        - "созалогодержатель"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)приоритет\\s+залог|старшинств\\w+\\s+залог"
+        - "(?i)очерёдност\\w+\\s+удовлетворени"
+    llm:
+      prompt_template: |
+        Проанализируй договор залога. Проверь вопросы приоритета/старшинства.
+
+        Ответь в JSON:
+        {
+          "priority_addressed": "<yes / no / not_found>",
+          "rank_position": "<senior / junior / pari_passu / not_specified>",
+          "prior_encumbrances_disclosed": "<yes / no / not_found>",
+          "intercreditor_agreement_referenced": "<yes / no / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "приоритет"
+        - "старшинство"
+        - "очерёдность"
+        - "предшествующий залог"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "priority_addressed"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Раскрыт ли вопрос приоритета"
+        - name: "rank_position"
+          type: "string"
+          allowed_values: ["senior", "junior", "pari_passu", "not_specified"]
+          description: "Позиция залога в очерёдности"
+      store_payload: true
+
+  - id: guarantor_financial_capacity
+    name: "Финансовая состоятельность поручителя"
+    description: |
+      Поручительство имеет ценность только если поручитель платёжеспособен.
+      Критично: заверения о финансовом состоянии, обязательство предоставлять
+      отчётность, ковенанты о минимальных финансовых показателях.
+    triggers:
+      any: ["guaranty_contract"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "финансовое состояние поручителя"
+        - "платёжеспособность"
+        - "бухгалтерская отчётность"
+        - "чистые активы"
+        - "долговая нагрузка"
+        - "кредитоспособность"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)финансов(ое|ого)\\s+состояни"
+        - "(?i)чист(ые|ых)\\s+актив"
+    llm:
+      prompt_template: |
+        Проанализируй договор поручительства.
+        Проверь наличие условий о финансовой состоятельности поручителя.
+
+        Ответь в JSON:
+        {
+          "financial_representations_present": "<yes / no / not_found>",
+          "reporting_obligation": "<yes / no / not_found>",
+          "financial_covenants": "<yes / no / not_found>",
+          "replacement_right_if_insolvent": "<yes / no / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "финансовое состояние"
+        - "платёжеспособность"
+        - "отчётность поручителя"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "financial_representations_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Заверения о финансовом состоянии"
+      store_payload: true
+
+  - id: pledge_covenants_check
+    name: "Залог: ковенанты залогодателя"
+    description: |
+      Ограничения на распоряжение предметом залога, обязанность допускать
+      к осмотру, запрет ухудшения, обязанность уведомлять о рисках.
+    triggers:
+      any: ["pledge_contract"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "не вправе распоряжаться"
+        - "без согласия залогодержателя"
+        - "обязан допустить к осмотру"
+        - "запрет отчуждения"
+        - "запрет обременения"
+        - "уведомить о рисках"
+        - "содержание предмета залога"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)без\\s+согласия\\s+залогодержател"
+        - "(?i)запрет\\s+(отчуждения|обременения)"
+    llm:
+      prompt_template: |
+        Проанализируй договор залога. Проверь ковенанты залогодателя.
+
+        Ответь в JSON:
+        {
+          "disposal_restriction": "<yes / no / not_found>",
+          "inspection_right": "<yes / no / not_found>",
+          "deterioration_prohibition": "<yes / no / not_found>",
+          "notification_obligations": "<yes / no / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "без согласия залогодержателя"
+        - "содержание предмета залога"
+        - "запрет отчуждения"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "disposal_restriction"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Ограничение на распоряжение"
+        - name: "inspection_right"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Право залогодержателя на осмотр"
+      store_payload: true
+
+  - id: cross_default_acceleration
+    name: "Кросс-дефолт и досрочное востребование"
+    description: |
+      Условие о том, что дефолт по одному обязательству является дефолтом
+      по обеспечительному договору (и наоборот). Критично для портфельных кредиторов.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "кросс-дефолт"
+        - "cross-default"
+        - "досрочное востребование"
+        - "досрочное исполнение"
+        - "ускорение обязательства"
+        - "немедленное погашение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)кросс[- ]?дефолт|cross[- ]?default"
+        - "(?i)досрочн(ое|ого)\\s+(востребован|исполнен)"
+    llm:
+      prompt_template: |
+        Проанализируй обеспечительный договор.
+        Проверь наличие кросс-дефолта и досрочного востребования.
+
+        Ответь в JSON:
+        {
+          "cross_default_present": "<yes / no / not_found>",
+          "acceleration_clause_present": "<yes / no / not_found>",
+          "acceleration_triggers": "<описание или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "кросс-дефолт"
+        - "досрочное востребование"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "cross_default_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие кросс-дефолта"
+      store_payload: true
+
+  - id: dispute_resolution_security
+    name: "Порядок разрешения споров"
+    description: "Подсудность, арбитраж, претензионный порядок"
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "арбитражный суд"
+        - "подсудность"
+        - "претензионный порядок"
+        - "медиация"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Проанализируй обеспечительный договор. Проверь порядок разрешения споров.
+
+        Ответь в JSON:
+        {
+          "dispute_resolution_method": "<court / arbitration / mediation / mixed / not_found>",
+          "pretrial_procedure": "<yes / no / not_found>",
+          "governing_law": "<RU / other / not_specified>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 200
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "разрешение споров"
+        - "арбитражный суд"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "dispute_resolution_method"
+          type: "string"
+          allowed_values: ["court", "arbitration", "mediation", "mixed", "not_found"]
+          description: "Способ разрешения споров"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "secured_obligation_reference"
+    name: "Ссылка на обеспечиваемое обязательство"
+    description: "Проверяет наличие идентификации основного обязательства: стороны, дата, номер, сумма, срок"
+    legal_base: "ст. 329, 339, 361, 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "основное обязательство"
+        - "обеспечиваемое обязательство"
+        - "кредитный договор"
+        - "договор займа"
+        - "договор поставки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)основн(ое|ого)\\s+обязательств|обеспечиваем(ое|ого)\\s+обязательств"
+        - "(?i)договор\\s*№?\\s*[A-ZА-Я0-9\\-\\/]+"
+
+  - id: "guarantor_liability_scope"
+    name: "Поручительство: объем ответственности"
+    description: "Проверяет объем ответственности поручителя и наличие лимита"
+    legal_base: "ст. 361, 363 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["guaranty_contract"]
+    rules:
+      keywords:
+        - "ответственность поручителя"
+        - "солидарная ответственность"
+        - "субсидиарная ответственность"
+        - "в пределах суммы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ответственност[ьи].{0,30}поручител"
+        - "(?i)солидарн(ая|ой)|субсидиарн(ая|ой)"
+        - "(?i)в\\s+пределах\\s+суммы"
+
+  - id: "guaranty_term_and_termination"
+    name: "Поручительство: срок и прекращение"
+    description: "Проверяет срок поручительства и условия его прекращения"
+    legal_base: "ст. 367 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["guaranty_contract"]
+    rules:
+      keywords:
+        - "срок поручительства"
+        - "прекращение поручительства"
+        - "до полного исполнения"
+        - "в течение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)срок\\s+поручительств"
+        - "(?i)прекращени[ея]\\s+поручительств"
+
+  - id: "guarantor_consent_to_changes"
+    name: "Поручительство: согласие на изменения основного обязательства"
+    description: "Проверяет режим согласия поручителя при изменении основного обязательства"
+    legal_base: "ст. 367 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["guaranty_contract"]
+    rules:
+      keywords:
+        - "согласие поручителя"
+        - "изменение основного обязательства"
+        - "без согласия поручителя"
+        - "любые изменения"
+      keyword_mode: "any"
+      negative_keywords:
+        - "поручитель заранее дает согласие на любые изменения"
+        - "безусловное согласие"
+      regex_patterns:
+        - "(?i)согласие\\s+поручител"
+        - "(?i)изменени[ея]\\s+основн(ого|ого)\\s+обязательств"
+
+  - id: "guarantor_subrogation_rights"
+    name: "Поручитель: суброгация и регресс"
+    description: "Проверяет наличие прав поручителя после исполнения обязательства"
+    legal_base: "ст. 365 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["guaranty_contract"]
+    rules:
+      keywords:
+        - "права кредитора переходят к поручителю"
+        - "регрессное требование поручителя"
+        - "суброгация"
+        - "возмещение поручителю"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)права\\s+кредитора\\s+переходят\\s+к\\s+поручителю"
+        - "(?i)суброгац|регрессн(ое|ого)\\s+требован"
+
+  - id: "guarantor_notification_of_default"
+    name: "Поручитель: уведомление о неисполнении должником"
+    description: "Проверяет обязанность кредитора уведомлять поручителя о дефолте"
+    legal_base: "ст. 366 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["guaranty_contract"]
+    rules:
+      keywords:
+        - "уведомление поручителя"
+        - "кредитор обязан уведомить"
+        - "просрочка должника"
+        - "неисполнение должником"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уведомит.*поручител"
+        - "(?i)неисполнени[ея]\\s+должник"
+
+  - id: "pledged_property_description"
+    name: "Залог: описание предмета залога"
+    description: "Проверяет достаточную индивидуализацию предмета залога"
+    legal_base: "ст. 339 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["pledge_contract"]
+    rules:
+      keywords:
+        - "предмет залога"
+        - "заложенное имущество"
+        - "кадастровый номер"
+        - "серийный номер"
+        - "идентификационный номер"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)предмет\\s+залог|заложенн(ое|ого)\\s+имуществ"
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+
+  - id: "pledge_valuation"
+    name: "Залог: оценка предмета залога"
+    description: "Проверяет наличие оценки предмета залога"
+    legal_base: "ст. 340 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["pledge_contract"]
+    rules:
+      keywords:
+        - "оценка предмета залога"
+        - "стоимость предмета залога"
+        - "рыночная стоимость"
+        - "независимая оценка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)оценк[аи]\\s+предмета\\s+залога"
+        - "(?i)стоимост[ьи].{0,30}предмета\\s+залога"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+
+  - id: "pledge_subject_location"
+    name: "Залог: у кого находится предмет залога"
+    description: "Проверяет указание, у какой стороны находится заложенное имущество"
+    legal_base: "ст. 338 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["pledge_contract"]
+    rules:
+      keywords:
+        - "находится у залогодателя"
+        - "находится у залогодержателя"
+        - "передается во владение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)находитс[яь]\\s+у\\s+(залогодателя|залогодержателя)"
+        - "(?i)передаетс[яь].{0,20}во\\s+владен"
+
+  - id: "judicial_enforcement_requirement"
+    name: "Залог: судебный/внесудебный порядок обращения взыскания"
+    description: "Проверяет режим обращения взыскания и наличие процедурных гарантий"
+    legal_base: "ст. 349-350.2 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["pledge_contract"]
+    rules:
+      keywords:
+        - "обращение взыскания"
+        - "внесудебный порядок"
+        - "по решению суда"
+        - "реализация предмета залога"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)обращени[ея]\\s+взыскан"
+        - "(?i)внесудебн(ый|ого)\\s+поряд"
+        - "(?i)по\\s+решению\\s+суда"
+
+  - id: "pledge_no_encumbrances"
+    name: "Залог: отсутствие иных обременений"
+    description: "Проверяет заверения об отсутствии иных обременений и прав третьих лиц"
+    legal_base: "ст. 342, 345 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["pledge_contract"]
+    rules:
+      keywords:
+        - "отсутствие обременений"
+        - "не находится в залоге"
+        - "свободно от прав третьих лиц"
+        - "не обременено"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+обременен|свободн(о|а)\\s+от\\s+прав\\s+третьих\\s+лиц"
+        - "(?i)не\\s+находитс[яь]\\s+в\\s+залог"
+
+  - id: "subsequent_pledge_control"
+    name: "Залог: последующий залог"
+    description: "Проверяет запрет или режим последующего залога"
+    legal_base: "ст. 342 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["pledge_contract", "subsequent_pledge"]
+    rules:
+      keywords:
+        - "последующий залог"
+        - "запрет последующего залога"
+        - "с согласия залогодержателя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)последующ(ий|его)\\s+залог"
+        - "(?i)запрет\\s+последующего\\s+залога"
+
+  - id: "pledge_insurance_obligation"
+    name: "Залог: страхование предмета залога"
+    description: "Проверяет обязанность страхования и указание выгодоприобретателя"
+    legal_base: "ст. 343 ГК РФ, ст. 31 ФЗ-102"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["pledge_contract"]
+    rules:
+      keywords:
+        - "страхование предмета залога"
+        - "обязан застраховать"
+        - "выгодоприобретатель — залогодержатель"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)страховани[ея]\\s+предмета\\s+залога"
+        - "(?i)выгодоприобретател.{0,20}залогодержател"
+
+  - id: "mortgage_registration_obligation"
+    name: "Ипотека: регистрация в ЕГРН"
+    description: "Проверяет условия государственной регистрации ипотеки"
+    legal_base: "ст. 339.1 ГК РФ, ФЗ-102"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["mortgage_pledge"]
+    rules:
+      keywords:
+        - "государственная регистрация ипотеки"
+        - "егрн"
+        - "росреестр"
+        - "закладная"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)государственн(ая|ой)\\s+регистрац"
+        - "(?i)ЕГРН|Росреестр|закладн"
+
+  - id: "pledgor_right_to_use_property"
+    name: "Залог: право залогодателя пользоваться имуществом"
+    description: "Проверяет, сохранено ли право пользования предметом залога"
+    legal_base: "ст. 346 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["pledge_contract"]
+    rules:
+      keywords:
+        - "право пользования предметом залога"
+        - "залогодатель сохраняет право владения и пользования"
+        - "вправе пользоваться"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)вправе\\s+пользоваться\\s+предметом\\s+залога"
+        - "(?i)сохраняет\\s+право\\s+владения\\s+и\\s+пользования"
+
+  - id: "bankruptcy_risks_awareness"
+    name: "Обеспечительная сделка: банкротные риски"
+    description: "Проверяет наличие заверений/оговорок о рисках оспаривания в банкротстве"
+    legal_base: "ст. 61.2, 61.3 ФЗ-127"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "риски оспаривания в банкротстве"
+        - "сделка с предпочтением"
+        - "подозрительный период"
+        - "отсутствие признаков банкротства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)сделк[аи]\\s+с\\s+предпочтени"
+        - "(?i)признак(ов)?\\s+банкротств|подозрительн(ый|ого)\\s+период"
+
+  - id: "force_majeure_security"
+    name: "Форс-мажор"
+    description: "Обстоятельства непреодолимой силы"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "непредвиденные обстоятельства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс[- ]?мажор"
+
+  - id: "governing_law_security"
+    name: "Применимое право"
+    description: "Выбор применимого права (для трансграничных обеспечений)"
+    legal_base: "ст. 1210 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "применимое право"
+        - "регулируется законодательством"
+        - "governing law"
+      keyword_mode: "any"
+
+  - id: "confidentiality_security"
+    name: "Конфиденциальность"
+    description: "Неразглашение условий обеспечительной сделки"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+      keyword_mode: "any"
+
+  - id: "notary_requirement"
+    name: "Нотариальная форма (для залога доли в ООО и отдельных ипотечных сделок)"
+    description: "Залог доли в ООО требует нотариального удостоверения"
+    legal_base: "ст. 22 ФЗ-14, ст. 339 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["share_pledge"]
+    rules:
+      keywords:
+        - "нотариальное удостоверение"
+        - "нотариус"
+        - "нотариальная форма"
+        - "удостоверено нотариусом"
+      keyword_mode: "any"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  security_subject_extraction:
+    text: >
+      Просим предоставить по {doc_names}: базовую структуру обеспечительной сделки —
+      тип обеспечения (поручительство/залог/ипотека), стороны,
+      основное обеспечиваемое обязательство, объем ответственности или предмет залога,
+      сумму обеспечиваемого обязательства и порядок обращения взыскания.
+    addressee: "Кредитор / Юридический советник"
+
+  secured_obligation_reference:
+    text: >
+      Просим уточнить по {doc_names}: какое именно обязательство обеспечивается,
+      указать номер, дату, стороны, сумму, срок исполнения и приложить основной договор.
+    addressee: "Кредитор / Должник"
+
+  no_secured_obligation_reference:
+    text: >
+      В {doc_names} не выявлена достаточная ссылка на основное обязательство.
+      Просим срочно конкретизировать обеспечиваемое обязательство,
+      иначе обеспечительная конструкция находится под риском недействительности/неопределенности.
+    addressee: "Юридический советник"
+
+  guaranty_liability_scope_check:
+    text: >
+      Просим предоставить по {doc_names}: точное описание объема ответственности поручителя,
+      указать, является ли она солидарной или субсидиарной,
+      есть ли лимит суммы и включает ли ответственность проценты, неустойку и судебные расходы.
+    addressee: "Кредитор / Поручитель"
+
+  guarantor_liability_scope:
+    text: >
+      Просим уточнить в {doc_names}: пределы ответственности поручителя,
+      ее вид (солидарная/субсидиарная) и максимальную сумму поручительства.
+    addressee: "Юридический советник"
+
+  guaranty_change_and_termination_check:
+    text: >
+      Просим предоставить по {doc_names}: условия изменения основного обязательства,
+      порядок получения согласия поручителя, срок поручительства,
+      основания его прекращения и правовые последствия изменения долга без согласия поручителя.
+    addressee: "Кредитор / Поручитель"
+
+  guarantor_consent_to_changes:
+    text: >
+      Просим уточнить в {doc_names}: требуется ли отдельное согласие поручителя
+      на изменение основного обязательства, и исключить чрезмерно широкие формулы
+      о согласии на любые будущие изменения.
+    addressee: "Юридический советник"
+
+  blanket_guarantor_consent_risk:
+    text: >
+      В {doc_names} выявлен риск бланкетного согласия поручителя на любые будущие изменения долга.
+      Просим скорректировать договор, ограничив согласие конкретными параметрами
+      либо введя обязанность отдельного письменного согласования.
+    addressee: "Юридический советник / Поручитель"
+
+  guarantor_default_notice_and_subrogation_check:
+    text: >
+      Просим уточнить по {doc_names}: обязан ли кредитор уведомлять поручителя о дефолте должника,
+      какие документы передаются поручителю после исполнения обязательства,
+      и как реализуются регрессные/суброгационные права поручителя.
+    addressee: "Кредитор / Поручитель"
+
+  guarantor_notification_of_default:
+    text: >
+      Просим включить/уточнить в {doc_names}: обязанность кредитора уведомлять поручителя
+      о просрочке/неисполнении должником обязательства и срок такого уведомления.
+    addressee: "Юридический советник"
+
+  guarantor_subrogation_rights:
+    text: >
+      Просим уточнить в {doc_names}: порядок перехода к поручителю прав кредитора
+      после исполнения обязательства, включая передачу документов, обеспечений и доказательств задолженности.
+    addressee: "Кредитор / Юридический советник"
+
+  pledge_subject_and_valuation_check:
+    text: >
+      Просим предоставить по {doc_names}: точное описание предмета залога,
+      документы, индивидуализирующие имущество, оценку предмета залога
+      и указание, у какой стороны находится имущество.
+    addressee: "Залогодатель / Залогодержатель"
+
+  pledged_property_description:
+    text: >
+      Просим уточнить в {doc_names}: предмет залога, его идентификационные признаки,
+      правоустанавливающие документы, а для недвижимости — кадастровые данные и выписку ЕГРН.
+    addressee: "Залогодатель"
+
+  pledge_valuation:
+    text: >
+      Просим предоставить по {doc_names}: оценку предмета залога,
+      отчет оценщика (если есть), методику определения стоимости
+      и дату, на которую определена оценка.
+    addressee: "Залогодатель / Залогодержатель"
+
+  pledge_subject_location:
+    text: >
+      Просим уточнить в {doc_names}: у какой стороны находится предмет залога,
+      кто несет расходы на его содержание и кто отвечает за риск случайной гибели/повреждения.
+    addressee: "Обе стороны"
+
+  pledge_enforcement_check:
+    text: >
+      Просим уточнить по {doc_names}: применяется ли судебный или внесудебный порядок обращения взыскания,
+      каков способ реализации предмета залога, как и в какие сроки уведомляется залогодатель,
+      и как определяется начальная цена реализации.
+    addressee: "Залогодержатель / Юридический советник"
+
+  judicial_enforcement_requirement:
+    text: >
+      Просим уточнить в {doc_names}: порядок обращения взыскания на предмет залога
+      и правовое основание для внесудебной реализации, если она предусмотрена.
+    addressee: "Юридический советник"
+
+  out_of_court_enforcement_without_procedure:
+    text: >
+      В {doc_names} выявлен риск внесудебного обращения взыскания без достаточной процедуры.
+      Просим детализировать уведомления, оценку, способ реализации,
+      сроки и порядок распределения выручки.
+    addressee: "Юридический советник / Залогодержатель"
+
+  mortgage_registration_check:
+    text: >
+      По {doc_names} (ипотека/залог недвижимости) просим предоставить:
+      порядок государственной регистрации, комплект документов для Росреестра,
+      распределение расходов и сведения о закладной, если она оформляется.
+    addressee: "Залогодержатель / Залогодатель"
+
+  mortgage_registration_obligation:
+    text: >
+      Просим включить/уточнить в {doc_names}: механизм государственной регистрации ипотеки,
+      сторону, ответственную за подачу документов, и последствия уклонения от регистрации.
+    addressee: "Юридический советник"
+
+  mortgage_without_registration_logic:
+    text: >
+      В {doc_names} выявлено отсутствие достаточного механизма регистрации ипотеки.
+      Просим срочно уточнить порядок регистрации в ЕГРН и комплект регистрационных документов.
+    addressee: "Юридический советник / Залогодержатель"
+
+  pledge_no_encumbrances:
+    text: >
+      Просим предоставить по {doc_names}: заверения об отсутствии иных обременений,
+      подтверждение отсутствия предыдущих залогов и прав третьих лиц,
+      а для недвижимости — актуальную выписку ЕГРН.
+    addressee: "Залогодатель"
+
+  subsequent_pledge_control:
+    text: >
+      Просим уточнить в {doc_names}: допускается ли последующий залог,
+      требуется ли согласие текущего залогодержателя и каков порядок раскрытия информации
+      о уже существующих обременениях.
+    addressee: "Залогодержатель / Юридический советник"
+
+  pledge_insurance_and_bankruptcy_check:
+    text: >
+      Просим предоставить по {doc_names}: условия страхования предмета залога,
+      назначение выгодоприобретателя, страховую сумму, а также заверения сторон
+      об отсутствии признаков банкротства и иных оснований для оспаривания сделки.
+    addressee: "Залогодатель / Залогодержатель"
+
+  pledge_insurance_obligation:
+    text: >
+      Просим уточнить в {doc_names}: обязанность страхования предмета залога,
+      кто оплачивает страховку, кто назначается выгодоприобретателем
+      и как используется страховое возмещение.
+    addressee: "Залогодатель / Юридический советник"
+
+  pledgor_right_to_use_property:
+    text: >
+      Просим уточнить по {doc_names}: сохраняет ли залогодатель право владения и пользования
+      предметом залога, вправе ли извлекать из него доходы и какие ограничения при этом действуют.
+    addressee: "Залогодатель / Юридический советник"
+
+  bankruptcy_risks_awareness:
+    text: >
+      Просим предоставить по {doc_names}: заверения об отсутствии признаков банкротства,
+      сведения о финансовом состоянии должника/залогодателя/поручителя,
+      а также правовое заключение о рисках оспаривания обеспечительной сделки.
+    addressee: "Юридический советник / Финансовый консультант"
+
+  guaranty_term_expiry_risk:
+    text: >
+      ВНИМАНИЕ: в {doc_names} не указан срок поручительства.
+      По ст. 367 п. 6 ГК РФ поручительство прекращается через 1 год
+      с момента наступления срока исполнения основного обязательства.
+      Просим явно установить срок поручительства.
+    addressee: "Кредитор / Юридический советник"
+
+  pledge_registration_movable_required:
+    text: >
+      По {doc_names} (залог движимого имущества) просим обеспечить
+      регистрацию уведомления о залоге в реестре нотариата (ст. 339.1 п. 4 ГК РФ).
+      Без уведомления залог не противопоставим третьим лицам.
+    addressee: "Залогодержатель / Нотариус"
+
+  consumer_pledge_sole_dwelling:
+    text: >
+      По {doc_names} — залог жилого помещения. Просим подтвердить:
+      (а) не является ли жильё единственным для залогодателя;
+      (б) если является — оформлена ли ипотека по ФЗ-102
+      (без неё обращение взыскания невозможно по ст. 446 ГПК РФ).
+    addressee: "Залогодатель / Юридический советник"
+
+  pledge_priority_and_ranking:
+    text: >
+      По {doc_names} просим уточнить: (а) старшинство залога;
+      (б) наличие предшествующих залогов; (в) ссылку на межкредиторское соглашение.
+    addressee: "Залогодержатель / Юридический советник"
+
+  guarantor_financial_capacity:
+    text: >
+      По {doc_names} просим предоставить: (а) заверения о финансовом состоянии поручителя;
+      (б) обязательство предоставлять отчётность; (в) финансовые ковенанты.
+    addressee: "Поручитель / Кредитор"
+
+  pledge_covenants_check:
+    text: >
+      По {doc_names} просим согласовать ковенанты залогодателя:
+      (а) запрет отчуждения/обременения; (б) право залогодержателя на осмотр;
+      (в) обязанность содержания и уведомления о рисках.
+    addressee: "Залогодатель / Залогодержатель"
+
+  cross_default_acceleration:
+    text: >
+      По {doc_names} просим согласовать: (а) кросс-дефолт;
+      (б) условия досрочного востребования; (в) порядок уведомления.
+    addressee: "Юридический советник"
+
+  dispute_resolution_security:
+    text: >
+      Просим согласовать по {doc_names} порядок разрешения споров:
+      претензионный порядок, подсудность, арбитраж.
+    addressee: "Юридический советник"
+
+  force_majeure_security:
+    text: >
+      Просим уточнить для {doc_names} условия о форс-мажоре.
+    addressee: "Юридический советник"
+
+  governing_law_security:
+    text: >
+      Просим указать применимое право для {doc_names}.
+    addressee: "Юридический советник"
+
+  confidentiality_security:
+    text: >
+      Просим согласовать для {doc_names} условия конфиденциальности.
+    addressee: "Юридический советник"
+
+  notary_requirement:
+    text: >
+      По {doc_names} (залог доли в ООО) — требуется нотариальное удостоверение.
+      Просим согласовать нотариуса, дату, комплект документов.
+    addressee: "Обе стороны / Нотариус"
+
+  guaranty_term_and_termination:
+    text: >
+      Просим уточнить в {doc_names}: срок поручительства и основания прекращения.
+    addressee: "Юридический советник"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

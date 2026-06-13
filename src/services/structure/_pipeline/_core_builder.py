@@ -26,7 +26,13 @@ from services.structure.crossrefs import (
     build_cross_reference_graph_with_audit,
     CrossRefExtractionResult,
 )
-from services.structure.element_classifier import annotate_elements_with_guard
+from services.structure.element_classifier import (
+    annotate_elements_with_guard,
+    ELEMENT_TYPE_PAGE_ARTIFACT,
+    ELEMENT_TYPE_POSSIBLE_TOC,
+    ELEMENT_TYPE_TOC_HEADER,
+    ELEMENT_TYPE_TOC_LINE,
+)
 from services.structure.heading_builder import (
     build_heading_candidates,
     build_structure_evidence_bundle,
@@ -1023,6 +1029,112 @@ def _emit_structure_built_telemetry(
         )
 
 
+_PREAMBLE_EXCLUDED_ELEMENT_TYPES = {
+    ELEMENT_TYPE_TOC_HEADER,
+    ELEMENT_TYPE_TOC_LINE,
+    ELEMENT_TYPE_POSSIBLE_TOC,
+    ELEMENT_TYPE_PAGE_ARTIFACT,
+}
+
+
+def _is_excluded_from_preamble_candidate(element: dict[str, Any]) -> bool:
+    """
+    Определить, должен ли элемент быть исключён из synthetic preamble candidate.
+
+    Ключевой контракт:
+    - toc_in_parsed_block=True имеет абсолютный приоритет для preamble selection.
+      Даже если guard пометил элемент как false positive (fp_guard=True),
+      он всё равно исключается из preamble.
+
+    Почему fp_guard НЕ защищает от preamble exclusion:
+    - guard.false_positive_indexes служит одной цели: сохранить строки как
+      body heading candidates в основном pipeline, даже если они внутри TOC block.
+    - preamble selection имеет другую цель: не брать ничего из TOC block,
+      независимо от semantic nature строки.
+    - Это две разные downstream задачи с разными требованиями.
+
+    Universal: не зависит от языка, типа документа, конкретного TOC формата.
+    """
+    meta = dict(element.get("metadata") or {})
+
+    # toc_in_parsed_block — абсолютный приоритет для preamble exclusion.
+    # Элемент внутри TOC block никогда не должен стать частью preamble,
+    # независимо от его semantic classification.
+    if bool(meta.get("toc_in_parsed_block", False)):
+        return True
+
+    element_type = str(element.get("element_type") or "").strip().lower()
+    if element_type in _PREAMBLE_EXCLUDED_ELEMENT_TYPES:
+        return True
+
+    if bool(meta.get("body_recovered_from_toc", False)):
+        return True
+
+    return False
+
+
+def _resolve_preamble_zone_for_element_index(
+    *,
+    element_index: int,
+    toc_start_index: int | None,
+    toc_end_index: int | None,
+) -> str:
+    """
+    Определить относительную позицию элемента относительно TOC block.
+
+    Возвращает:
+    - "no_toc"   — если TOC block не детектирован
+    - "pre_toc"  — элемент до TOC block
+    - "in_toc"   — элемент внутри TOC block
+    - "post_toc" — элемент после TOC block
+    """
+    if toc_start_index is None or toc_end_index is None:
+        return "no_toc"
+
+    if element_index < toc_start_index:
+        return "pre_toc"
+
+    if toc_start_index <= element_index < toc_end_index:
+        return "in_toc"
+
+    return "post_toc"
+
+
+def _should_enable_synthetic_preamble_repair(
+    *,
+    segment_type: str | None,
+    is_primary_segment: bool,
+    scope_name: str | None,
+) -> bool:
+    """
+    Определить, имеет ли смысл synthetic preamble repair для сегмента.
+
+    Production policy:
+    - synthetic preamble — это repair для основного документа,
+      а не для appendix-like secondary segments;
+    - применяем только к primary contract-like segment.
+
+    Universal rule:
+    - не зависит от языка или конкретного шаблона договора;
+    - опирается на already-available segment semantics.
+    """
+    normalized_segment_type = str(segment_type or "").strip().lower()
+    normalized_scope = str(scope_name or "").strip().lower()
+
+    if not is_primary_segment:
+        return False
+
+    if normalized_segment_type != "contract":
+        return False
+
+    # main_contract preferred, but not strictly required if segment_type=contract and primary
+    if normalized_scope and normalized_scope != "main_contract":
+        # defensive: primary contract segment should normally be main_contract
+        return False
+
+    return True
+
+
 def build_single_segment_tree(
     document_id: str,
     elements: list[dict],
@@ -1104,10 +1216,25 @@ def build_single_segment_tree(
         analysis=analysis,
     )
 
-    body_elements = [
-        el for idx, el in enumerate(annotated_elements)
-        if idx not in suppressed_indexes
-    ]
+    toc_start_index = getattr(analysis.toc_block, "start_index", None)
+    toc_end_index = getattr(analysis.toc_block, "end_index", None)
+
+    body_elements: list[dict[str, Any]] = []
+    for idx, el in enumerate(annotated_elements):
+        if idx in suppressed_indexes:
+            continue
+
+        prepared_el = dict(el)
+        prepared_el["_source_elem_i"] = idx
+        prepared_el["_excluded_from_preamble_candidate"] = _is_excluded_from_preamble_candidate(
+            prepared_el
+        )
+        prepared_el["_preamble_zone"] = _resolve_preamble_zone_for_element_index(
+            element_index=idx,
+            toc_start_index=toc_start_index,
+            toc_end_index=toc_end_index,
+        )
+        body_elements.append(prepared_el)
 
     # Phase 2: единственный scoring pass — возвращает оба артефакта.
     # Раньше здесь было два отдельных вызова (build_heading_candidates +
@@ -1146,12 +1273,19 @@ def build_single_segment_tree(
     )
 
     # Phase 3-4: typed HierarchyBuildResult вместо tuple.
+    enable_synthetic_preamble_repair = _should_enable_synthetic_preamble_repair(
+        segment_type=segment_type,
+        is_primary_segment=is_primary_segment,
+        scope_name=normalized_scope_name,
+    )
+
     hierarchy_result = build_clause_hierarchy(
         headings=headings,
         elements=body_elements,
         document_id=document_id,
         stable_element_id_resolver=stable_element_id,
         structure_evidence=evidence_bundle,
+        enable_synthetic_preamble_repair=enable_synthetic_preamble_repair,
     )
 
     # Распаковываем для backward-compatibility с downstream кодом этой функции.
