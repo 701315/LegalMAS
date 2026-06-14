@@ -272,6 +272,32 @@ def _compute_own_range(
 
     candidates: list[tuple[int, str]] = []
 
+    # ── TOC boundary barrier ────────────────────────────────────────────────
+    # Heading, physically located before or inside TOC, must NOT own content
+    # from post-TOC zone. Otherwise TOC-derived headings (e.g. 7.1 from contents)
+    # swallow the actual legal preamble that starts after TOC.
+    #
+    # Universal rule:
+    # - no language assumptions
+    # - no document-type assumptions
+    # - purely structural/layout-based barrier
+    if 0 <= heading_elem_i < len(elements):
+        heading_zone = str(elements[heading_elem_i].get("_preamble_zone") or "").strip().lower()
+
+        if heading_zone in {"pre_toc", "in_toc"}:
+            for barrier_i in range(heading_elem_i + 1, len(elements)):
+                barrier_zone = str(elements[barrier_i].get("_preamble_zone") or "").strip().lower()
+
+                # pre_toc heading cannot cross TOC boundary at all
+                if heading_zone == "pre_toc" and barrier_zone in {"in_toc", "post_toc"}:
+                    candidates.append((barrier_i, "segment_end"))
+                    break
+
+                # in_toc heading cannot own post_toc body
+                if heading_zone == "in_toc" and barrier_zone == "post_toc":
+                    candidates.append((barrier_i, "segment_end"))
+                    break
+
     first_child_elem_i: int | None = None
     for child in node.children:
         c_uid = _normalize_uid(child.raw_uid)

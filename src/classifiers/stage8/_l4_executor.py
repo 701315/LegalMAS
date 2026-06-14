@@ -93,7 +93,7 @@ class L4Executor:
         filename: str,
         folder: str,
         header_text: str | None,
-        snippet_text: str | None,
+        body_text: str | None,
         final_conf_after_voting: float,
         details: dict,
         candidates: list[dict],
@@ -105,10 +105,10 @@ class L4Executor:
         L4: LLM-fallback для документа.
 
         final_conf_after_voting — voted decision confidence (из apply_voting).
-        Используется gating'ом для оценки нужности L4.
+        Использует header + body как source text для LLM.
         Возвращает готовый dict-результат или None.
         """
-        llm_source_text = build_llm_source_text(header_text, snippet_text)
+        llm_source_text = build_llm_source_text(header_text, body_text)
         allowed_types, allowed_types_source = build_llm_allowed_types(
             self._registry,
             candidates,

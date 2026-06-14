@@ -437,7 +437,7 @@ classification_runtime_v1:
       - pattern: "(?i)публичн[а-я\\s]+оферт"
         severity: soft
         weight: -0.25
-      - pattern: "(?i)(?:здани[ея]|сооружени[ея])"
+      - pattern: "(?i)\\b(?:здани[ея]|сооружени[ея])\\b"
         severity: soft
         weight: -0.25
 

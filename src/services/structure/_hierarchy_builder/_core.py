@@ -1319,7 +1319,6 @@ def _attach_synthetic_preamble_if_needed(
             element_to_effective_uid[stable_id] = preamble_node.effective_uid
 
     diagnostics = dict(preamble_node.diagnostics)
-    diagnostics = dict(preamble_node.diagnostics)
     diagnostics.update({
         "synthetic_preamble_created": True,
         "synthetic_preamble_page_start": preamble_node.start_page,

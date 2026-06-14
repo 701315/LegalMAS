@@ -214,17 +214,28 @@ class HybridClassifier:
         )
 
         # ── Content fetch ─────────────────────────────────────────────
-        header_text, snippet_text = await self._fetcher.fetch(doc.id)
+        content = await self._fetcher.fetch(doc.id)
+        header_text = content.header_text
+        body_text = content.body_text
+
+        details["classification_content"] = content.diagnostics
+
         logger.debug(
             "Hybrid content fetched",
             extra={
                 "doc_id": doc_id,
                 "has_header": bool(header_text),
-                "has_snippet": bool(snippet_text),
+                "has_body": bool(body_text),
                 "header_len": len(header_text or ""),
-                "snippet_len": len(snippet_text or ""),
+                "body_len": len(body_text or ""),
                 "header_preview": repr((header_text or "")[:200]),
-                "snippet_preview": repr((snippet_text or "")[:200]),
+                "body_preview": repr((body_text or "")[:200]),
+                "classification_header_source": content.header_source,
+                "classification_body_source": content.body_source,
+                "classification_header_refs": content.header_refs[:5],
+                "classification_body_refs": content.body_refs[:15],
+                "classification_body_levels": content.body_levels,
+                "classification_body_scopes": content.body_scopes,
             },
         )
 
@@ -232,7 +243,7 @@ class HybridClassifier:
         top_l2, candidates, details = await self._cascade.run_l2(
             doc_id=doc_id,
             header_text=header_text,
-            snippet_text=snippet_text,
+            body_text=body_text,
             filename=filename,
             folder=folder,
             candidates=candidates,
@@ -249,7 +260,7 @@ class HybridClassifier:
             applicable_triggers,
         ) = await self._cascade.run_l3(
             doc_id=doc_id,
-            snippet_text=snippet_text,
+            body_text=body_text,
             filename=filename,
             folder=folder,
             candidates=candidates,
@@ -289,7 +300,7 @@ class HybridClassifier:
             jurisdiction=jurisdiction,
             applicable_triggers=applicable_triggers,
             header_text=header_text,
-            snippet_text=snippet_text,
+            body_text=body_text,
             segment_id=None,
             segment_text=None,
         )
@@ -342,7 +353,7 @@ class HybridClassifier:
             applicable_triggers,
         ) = await self._cascade.run_l3(
             doc_id=f"segment:{segment_id}",
-            snippet_text=text,
+            body_text=text,
             filename=filename,
             folder=folder_path or "",
             candidates=candidates,
@@ -383,7 +394,7 @@ class HybridClassifier:
             jurisdiction=jurisdiction,
             applicable_triggers=applicable_triggers,
             header_text=None,
-            snippet_text=None,
+            body_text=None,
             segment_id=segment_id,
             segment_text=text,
         )
@@ -409,7 +420,7 @@ class HybridClassifier:
         jurisdiction: str | None,
         applicable_triggers: list[str],
         header_text: str | None,
-        snippet_text: str | None,
+        body_text: str | None,
         segment_id: str | None,
         segment_text: str | None,
     ) -> dict:
@@ -566,7 +577,7 @@ class HybridClassifier:
                 filename=filename,
                 folder=folder,
                 header_text=header_text,
-                snippet_text=snippet_text,
+                body_text=body_text,
                 final_conf_after_voting=final_conf,
                 details=details,
                 candidates=candidates,

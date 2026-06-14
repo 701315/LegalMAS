@@ -492,10 +492,10 @@ def best_pre_l4_signal(
 
 def build_llm_source_text(
     header_text: str | None,
-    snippet_text: str | None,
+    body_text: str | None,
 ) -> str:
     """
-    Собирает текст для передачи в LLM из header и snippet.
+    Собирает текст для передачи в LLM из header и body.
 
     Правила:
       - пустые строки игнорируются;
@@ -506,8 +506,8 @@ def build_llm_source_text(
     parts: list[str] = []
     if header_text:
         parts.append(header_text.strip())
-    if snippet_text:
-        parts.append(snippet_text.strip())
+    if body_text:
+        parts.append(body_text.strip())
     return "\n\n".join(p for p in parts if p).strip()
 
 

@@ -144,37 +144,3 @@ def extract_snippet_from_layout(
     return snippet or None, total_pages, effective_skip_pages
 
 
-def build_legacy_snippet_from_leaf_chunks(
-    leaf_chunks_all: list[dict[str, Any]],
-    *,
-    max_snippet_len: int = 1500,
-    max_leaf_clauses: int = 3,
-) -> str | None:
-    """
-    Собрать legacy snippet из первых leaf chunks clause tree.
-    """
-    if not leaf_chunks_all:
-        return None
-
-    min_clause_len = 80
-    extra_clauses = 5
-
-    first_two_len = sum(len(ch.get("text") or "") for ch in leaf_chunks_all[:2])
-    if first_two_len < min_clause_len:
-        leaf_chunks = leaf_chunks_all[:extra_clauses]
-    else:
-        leaf_chunks = leaf_chunks_all[:max_leaf_clauses]
-
-    texts_for_snippet: list[str] = []
-    for ch in leaf_chunks:
-        text = (ch.get("text") or "").strip()
-        if text:
-            texts_for_snippet.append(text)
-
-    snippet_text = "\n\n".join(texts_for_snippet).strip()
-
-    if snippet_text and len(snippet_text) > max_snippet_len:
-        snippet_text = snippet_text[:max_snippet_len]
-        snippet_text = snippet_text.rsplit(" ", 1)[0].strip()
-
-    return snippet_text or None

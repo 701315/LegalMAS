@@ -630,3 +630,199 @@ def test_owned_excluded_toc_elements_do_not_break_post_toc_preamble_scan():
     assert "Настоящий Договор купли-продажи имущества заключен" in selected_text
     assert "ООО «ПРОДАВЕЦ»" in selected_text
     
+
+
+def test_in_toc_zone_force_exclusion_overrides_metadata_based_detection():
+    """
+    Regression:
+    элемент 'ПРИЛОЖЕНИ' (page_artifact / body_text OCR-split fragment)
+    физически находится в in_toc зоне (внутри TOC block range),
+    но metadata-based classifier не распознал его как toc_line/toc_header.
+
+    Production rule:
+    preamble_zone='in_toc' принудительно выставляет excluded=True
+    независимо от результата _is_excluded_from_preamble_candidate().
+    """
+    from services.structure._hierarchy_builder._core import (
+        _find_leading_unowned_runs,
+        _select_preamble_candidate_run,
+        _collect_text_from_positions,
+    )
+
+    elements = [
+        # pre-TOC cover
+        {
+            "element_id": "e1",
+            "text": "ДОГОВОР КУПЛИ-ПРОДАЖИ ИМУЩЕСТВА",
+            "_source_elem_i": 0,
+            "_preamble_zone": "pre_toc",
+            "_excluded_from_preamble_candidate": False,
+        },
+        {
+            "element_id": "e2",
+            "text": "Между",
+            "_source_elem_i": 1,
+            "_preamble_zone": "pre_toc",
+            "_excluded_from_preamble_candidate": False,
+        },
+
+        # OCR-split TOC fragment: metadata='body_text', not classified as toc_line/header,
+        # but physically inside TOC block range => zone='in_toc'
+        {
+            "element_id": "e3",
+            "text": "ПРИЛОЖЕНИ",
+            "_source_elem_i": 38,
+            "_preamble_zone": "in_toc",
+            "_excluded_from_preamble_candidate": True,  # forced by in_toc zone rule
+        },
+        {
+            "element_id": "e4",
+            "text": "Я",
+            "_source_elem_i": 39,
+            "_preamble_zone": "in_toc",
+            "_excluded_from_preamble_candidate": True,
+        },
+
+        # actual post-TOC preamble
+        {
+            "element_id": "e5",
+            "text": "Настоящий Договор купли-продажи имущества заключен между:",
+            "_source_elem_i": 46,
+            "_preamble_zone": "post_toc",
+            "_excluded_from_preamble_candidate": False,
+        },
+        {
+            "element_id": "e6",
+            "text": "(1) ООО «ПРОДАВЕЦ», ОГРН 1, ИНН 2, именуемое «Продавец»",
+            "_source_elem_i": 47,
+            "_preamble_zone": "post_toc",
+            "_excluded_from_preamble_candidate": False,
+        },
+    ]
+
+    # 'ПРИЛОЖЕНИ' owned (by toc_rebuild node), post-TOC preamble not owned
+    element_to_effective_uid = {
+        "e3": "main_contract:7.1",
+        "e4": "main_contract:7.1",
+    }
+
+    def stable_id_resolver(el: dict, pos: int) -> str:
+        return el.get("element_id", "")
+
+    runs = _find_leading_unowned_runs(
+        elements=elements,
+        element_to_effective_uid=element_to_effective_uid,
+        stable_element_id_resolver=stable_id_resolver,
+    )
+
+    selected = _select_preamble_candidate_run(
+        runs=runs,
+        elements=elements,
+    )
+
+    selected_text = _collect_text_from_positions(elements, selected)
+
+    assert "Настоящий Договор купли-продажи имущества заключен" in selected_text
+    assert "ООО «ПРОДАВЕЦ»" in selected_text
+    assert "ПРИЛОЖЕНИ" not in selected_text
+
+def test_toc_heading_cannot_swallow_post_toc_preamble():
+    """
+    Regression:
+    TOC-derived heading inside in_toc zone must not own post_toc content.
+    Otherwise it swallows the real legal preamble and prevents synthetic
+    preamble materialization.
+    """
+    from services.structure._hierarchy_builder._range_logic import _compute_own_range
+    from services.structure._models._nodes import MutableHierarchyNode
+
+    node = MutableHierarchyNode(
+        effective_uid="main_contract:7.1",
+        raw_uid="7.1",
+        scope="main_contract",
+        title="Законодательство и разрешение споров",
+        level=2,
+        node_kind="leaf",
+        node_origin="semantic_heading",
+        content_mode="full_text",
+        citability="high",
+        own_element_ids=[],
+        subtree_element_ids=[],
+        own_text=None,
+        subtree_text=None,
+        start_page=2,
+        end_page=2,
+        children=[],
+        range_end_reason="segment_end",
+        diagnostics={"source_elem_i": 0},
+    )
+
+    elements = [
+        {"text": "7.1 Законодательство и разрешение", "_preamble_zone": "in_toc"},
+        {"text": "споров................................5", "_preamble_zone": "in_toc"},
+        {"text": "ПРИЛОЖЕНИ", "_preamble_zone": "in_toc"},
+        {"text": "Я", "_preamble_zone": "in_toc"},
+        {"text": "ИМУЩЕСТВА", "_preamble_zone": "post_toc"},
+        {"text": "Настоящий Договор купли-продажи имущества заключен между:", "_preamble_zone": "post_toc"},
+    ]
+
+    # source_elem_i points to first TOC heading element, so key_to_elem_i must match
+    key_to_elem_i = {("main_contract", "7.1"): 0}
+    key_to_heading_index = {("main_contract", "7.1"): 0}
+
+    class H:
+        def __init__(self, raw_uid, scope, elem_i):
+            self.raw_uid = raw_uid
+            self.scope = scope
+            self.elem_i = elem_i
+
+    headings = [H("7.1", "main_contract", 0)]
+
+    result = _compute_own_range(
+        raw_uid="7.1",
+        node=node,
+        headings=headings,
+        elements=elements,
+        key_to_elem_i=key_to_elem_i,
+        key_to_heading_index=key_to_heading_index,
+        scope="main_contract",
+        scope_boundaries={},
+    )
+
+    # in_toc heading must stop before first post_toc element (index 4)
+    assert result.end_elem_i == 4
+
+def test_filter_toc_zone_headings_when_non_toc_headings_exist():
+    from services.structure._pipeline._core_builder import (
+        _filter_toc_zone_headings_when_body_headings_exist,
+    )
+
+    class H:
+        def __init__(self, elem_i, raw_uid):
+            self.elem_i = elem_i
+            self.raw_uid = raw_uid
+
+    body_elements = [
+        {"_preamble_zone": "in_toc"},    # elem_i=0
+        {"_preamble_zone": "in_toc"},    # elem_i=1
+        {"_preamble_zone": "post_toc"},  # elem_i=2
+    ]
+
+    headings = [
+        H(0, "7.1"),   # TOC-derived
+        H(1, "7.2"),   # TOC-derived
+        H(2, "1"),     # real body heading
+    ]
+
+    filtered, diag = _filter_toc_zone_headings_when_body_headings_exist(
+        headings=headings,
+        body_elements=body_elements,
+    )
+
+    assert [h.raw_uid for h in filtered] == ["1"]
+    assert diag["filtered_count"] == 2
+    assert diag["kept_count"] == 1
+    assert diag["non_toc_headings_present"] is True
+
+
+    

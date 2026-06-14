@@ -116,7 +116,7 @@ class CascadeSteps:
         self,
         doc_id: str,
         header_text: str | None,
-        snippet_text: str | None,
+        body_text: str | None,
         filename: str,
         folder: str,
         candidates: list[dict],
@@ -136,21 +136,21 @@ class CascadeSteps:
         """
         top_l2: Any | None = None
 
-        if not header_text and not snippet_text:
+        if not header_text and not body_text:
             details["levels_tried"].append("L2")
             details["L2"] = {
                 "type": "UNKNOWN",
                 "confidence": 0.0,
                 "method": "header_pattern",
                 "evidence": None,
-                "note": "no_header_or_snippet_text",
+                "note": "no_header_or_body_text",
             }
 
             logger.debug(
                 "Hybrid L2 skipped",
                 extra={
                     "doc_id": doc_id,
-                    "reason": "no_header_or_snippet_text",
+                    "reason": "no_header_or_body_text",
                 },
             )
 
@@ -162,7 +162,7 @@ class CascadeSteps:
             folder_path=folder,
             text_sanitized=None,
             metadata={
-                "snippet_text": snippet_text or "",
+                "body_text": body_text or "",
             },
         )
         details["levels_tried"].append("L2")
@@ -250,7 +250,7 @@ class CascadeSteps:
     async def run_l3(
         self,
         doc_id: str,
-        snippet_text: str | None,
+        body_text: str | None,
         filename: str,
         folder: str,
         candidates: list[dict],
@@ -273,9 +273,9 @@ class CascadeSteps:
         """
         top_l3: Any | None = None
 
-        if not snippet_text or not settings.RUNNER_EMBEDDINGS_ENABLED:
+        if not body_text or not settings.RUNNER_EMBEDDINGS_ENABLED:
             details["levels_tried"].append("L3")
-            note = "empty_text" if not snippet_text else "embeddings_disabled_or_no_snippet"
+            note = "empty_text" if not body_text else "embeddings_disabled_or_no_body"
             details["L3"] = {
                 "type": "UNKNOWN",
                 "confidence": 0.0,
@@ -299,7 +299,7 @@ class CascadeSteps:
             )
 
         l3_result = await self._l3.classify(
-            text=snippet_text,
+            text=body_text,
             filename=filename,
             folder_path=folder,
             text_sanitized=None,

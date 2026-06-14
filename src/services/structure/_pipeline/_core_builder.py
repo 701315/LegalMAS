@@ -1135,6 +1135,63 @@ def _should_enable_synthetic_preamble_repair(
     return True
 
 
+def _filter_toc_zone_headings_when_body_headings_exist(
+    headings: list[Any],
+    body_elements: list[dict[str, Any]],
+) -> tuple[list[Any], dict[str, Any]]:
+    """
+    Убрать accepted headings, источник которых лежит в in_toc зоне,
+    если в сегменте есть хотя бы один heading вне TOC.
+
+    Это предотвращает materialization TOC-derived semantic headings
+    вроде main_contract:7.1, которые загрязняют final semantic tree
+    и retrieval corpus.
+
+    Fallback policy:
+    - если все headings находятся только в TOC зоне, не фильтруем их,
+      чтобы не терять полностью структуру при тяжёлом OCR / сложных документах.
+    """
+    if not headings:
+        return headings, {
+            "filtered_count": 0,
+            "kept_count": 0,
+            "non_toc_headings_present": False,
+        }
+
+    def _heading_source_zone(heading: Any) -> str:
+        try:
+            elem_i = int(getattr(heading, "elem_i", -1))
+        except Exception:
+            return ""
+        if elem_i < 0 or elem_i >= len(body_elements):
+            return ""
+        return str(body_elements[elem_i].get("_preamble_zone") or "").strip().lower()
+
+    non_toc_present = any(
+        _heading_source_zone(h) != "in_toc"
+        for h in headings
+    )
+
+    if not non_toc_present:
+        return headings, {
+            "filtered_count": 0,
+            "kept_count": len(headings),
+            "non_toc_headings_present": False,
+        }
+
+    filtered = [
+        h for h in headings
+        if _heading_source_zone(h) != "in_toc"
+    ]
+
+    return filtered, {
+        "filtered_count": len(headings) - len(filtered),
+        "kept_count": len(filtered),
+        "non_toc_headings_present": True,
+    }
+
+
+
 def build_single_segment_tree(
     document_id: str,
     elements: list[dict],
@@ -1226,14 +1283,25 @@ def build_single_segment_tree(
 
         prepared_el = dict(el)
         prepared_el["_source_elem_i"] = idx
-        prepared_el["_excluded_from_preamble_candidate"] = _is_excluded_from_preamble_candidate(
-            prepared_el
-        )
-        prepared_el["_preamble_zone"] = _resolve_preamble_zone_for_element_index(
+
+        preamble_zone = _resolve_preamble_zone_for_element_index(
             element_index=idx,
             toc_start_index=toc_start_index,
             toc_end_index=toc_end_index,
         )
+        prepared_el["_preamble_zone"] = preamble_zone
+
+        excluded_from_preamble = _is_excluded_from_preamble_candidate(prepared_el)
+
+        # Production rule:
+        # любой элемент физически внутри TOC block исключается из synthetic preamble,
+        # даже если metadata-based classifier не распознал его как TOC.
+        # Это покрывает OCR-split TOC fragments и прочие partial-TOC cases,
+        # где toc_in_parsed_block=False, но zone=in_toc.
+        if preamble_zone == "in_toc":
+            excluded_from_preamble = True
+
+        prepared_el["_excluded_from_preamble_candidate"] = excluded_from_preamble
         body_elements.append(prepared_el)
 
     # Phase 2: единственный scoring pass — возвращает оба артефакта.
@@ -1247,6 +1315,22 @@ def build_single_segment_tree(
     )
     headings = phase2_result.accepted_headings
     raw_evidence_bundle = phase2_result.evidence_bundle
+
+    headings, toc_heading_filter_diag = _filter_toc_zone_headings_when_body_headings_exist(
+        headings=headings,
+        body_elements=body_elements,
+    )
+
+    logger.info(
+        "STRUCTURE toc_zone_heading_filter_applied",
+        extra={
+            "document_id": document_id,
+            "segment_id": segment_id,
+            "filtered_count": toc_heading_filter_diag.get("filtered_count", 0),
+            "kept_count": toc_heading_filter_diag.get("kept_count", 0),
+            "non_toc_headings_present": toc_heading_filter_diag.get("non_toc_headings_present", False),
+        },
+    )
 
     # Phase 2 enrichment: добавляем TOC-сигналы в bundle.
     # Создаём НОВЫЙ immutable bundle — исходный raw_evidence_bundle не мутируется.
@@ -1315,6 +1399,7 @@ def build_single_segment_tree(
 
     diagnostics: dict[str, Any] = {
         "record_heading_recovery": record_heading_recovery_diag,
+        "toc_heading_filter": toc_heading_filter_diag,
     }
 
     diagnostics = embed_toc_diagnostics(diagnostics, toc_diag_obj)

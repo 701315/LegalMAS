@@ -3,51 +3,21 @@
 """
 DocumentContentService v3: фасад над chunk corpus, legal units и legacy layout helpers.
 
-- Для retrieval/checks читаем готовые snapshot'ы чанков (CHUNKS v2).
-- После P8.8d retrieval truth переключён на exact legal units:
-  primary retrieval corpus = legal_unit + section.
-- Clause tree + layout используем только как legacy-путь / для вспомогательных задач
-  (header/snippet, on-the-fly materialization для старых вспомогательных функций).
-
-Простыми словами:
-
-- В MinIO есть несколько связанных артефактов:
-  1) layout (text layout) — список маленьких текстовых кусочков (elements);
-  2) clause tree — структура документа (пункты, подпункты, их иерархия);
-  3) chunks v2 snapshot — materialized chunk corpus по сегментам;
-  4) legal_units snapshot — exact semantic/legal units по сегментам.
-
 - Этот сервис:
-  - читает clause tree и layout по ссылкам из последней DocumentVersion;
+  - читает layout по ссылкам из последней DocumentVersion;
   - читает CHUNKS v2 snapshot'ы через ChunkCorpusReaderV2;
   - читает legal units через segment_meta["legal_units_ref"];
   - использует чистые helper'ы:
-      * ClauseTreeBuilder — только для legacy header/snippet path;
       * chunking.* — summary и legacy sized split;
       * chunk_ids.* — canonical chunk id generation;
+      * _document_content_classification — canonical classification content builder;
   - отдаёт:
       * canonical clause chunks,
       * canonical legacy subclause chunks,
       * hierarchical chunk view,
       * retrieval corpus для checks,
-      * header + snippet для классификаторов,
+      * classification content bundle для document-level classifier,
       * legal units и evidence bundles.
-
-Canonical contract (Sprint 3):
-- canonical identity чанка / узла = effective_uid;
-- raw_uid остаётся только display/reference field;
-- scope обязателен как часть identity space;
-- broken chunks без effective_uid не маскируются fallback id generation;
-- retrieval adapters кладут effective_uid в legacy поле RetrievalChunk.clause_uid,
-  чтобы downstream не терял canonical identity.
-
-P8.8d — Retrieval Truth Migration:
-- retrieval truth больше не основан на blind sized split (`subclause`);
-- основной retrieval substrate = `legal_unit` chunks, построенные из exact legal units;
-- context должен приходить через parent-prefix / retrieval_text, а не через
-  sibling spill;
-- `subclause` остаётся как технический / canonical artifact CHUNKS stage,
-  но больше не считается retrieval truth.
 """
 
 from __future__ import annotations
@@ -72,13 +42,14 @@ from engine.content._document_content_chunks import (
     build_retrieval_chunk_meta as build_retrieval_chunk_meta_impl,
 )
 from engine.content._document_content_layout import (
-    build_legacy_snippet_from_leaf_chunks,
-)
-from engine.content._document_content_layout import (
-    extract_snippet_from_layout as extract_snippet_from_layout_impl,
-)
-from engine.content._document_content_layout import (
     extract_title_and_preamble_from_layout as extract_title_and_preamble_from_layout_impl,
+)
+from engine.content._document_content_classification import (
+    ClassificationContentBundle,
+    get_chunk_ref,
+    select_body_chunks,
+    select_header_chunk,
+    truncate_text,
 )
 from engine.content._document_content_semantic import (
     build_no_legal_units_result,
@@ -89,7 +60,6 @@ from engine.content._document_content_semantic import (
 )
 from engine.content.chunk_canonicalization import add_summary, build_sized_chunks_from_leaf
 from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
-from engine.content.clause_tree_builder import ClauseTreeBuilder
 from engine.retrieval.models import RetrievalChunk
 from storage.artifact_store import ArtifactStore
 from services.structure.chunk_planner import (
@@ -184,7 +154,9 @@ class DocumentContentService:
         * AsyncSession (через DocumentVersionRepository),
         * ArtifactStore (через ClauseTreeStorageClient и LayoutStorageClient).
     - Вся сложная логика вынесена в отдельные модули:
-        * ClauseTreeBuilder — legacy helper для clause tree + layout;
+        * ChunkCorpusReaderV2 — чтение snapshot corpus v2;
+        * chunking.* — summary и sized split;
+        * _document_content_classification — canonical classification content.
         * ChunkCorpusReaderV2 — чтение snapshot corpus v2;
         * chunking.* — summary и sized split.
     - Никаких глобальных синглтонов и кэшей здесь нет.
@@ -259,18 +231,6 @@ class DocumentContentService:
         Если версий нет, вернёт None.
         """
         return await self.versions.get_latest(doc_id)
-
-    async def _load_clause_tree(self, version: DocumentVersion) -> dict[str, Any] | None:
-        """
-        Legacy-путь для clause tree.
-
-        Используется только для:
-        - старых документов без CHUNKS v2 snapshot'ов;
-        - вспомогательных задач (header/snippet, debug).
-        """
-        if not version.clause_tree_ref:
-            return None
-        return await self.storage.load_json(version.clause_tree_ref)
 
     async def _load_layout(self, version: DocumentVersion) -> dict[str, Any] | None:
         """
@@ -368,64 +328,133 @@ class DocumentContentService:
             max_length=max_length,
         )
 
-    async def get_snippet_from_layout(
+
+
+
+    async def get_classification_content(
         self,
         doc_id: uuid.UUID,
-        skip_pages: int = 2,
-        max_length: int = 1500,
-        min_element_len: int = 40,
-    ) -> str | None:
+        *,
+        max_header_chars: int = 1500,
+        max_body_chars: int = 1500,
+        body_levels: list[str] | None = None,
+        filter_unsafe_chunks: bool = True,
+    ) -> ClassificationContentBundle:
         """
-        Извлечь сниппет тела документа напрямую из layout (v2-артефакт).
+        Построить canonical source bundle для document-level classification.
 
-        Простыми словами:
-        - Берём layout последней версии документа.
-        - Для коротких документов (<= 4 страниц) пропускаем 1 страницу.
-        - Для более длинных документов пропускаем 3 страницы.
-        - Собираем текст следующих страниц, отбрасывая слишком короткие элементы
-          (колонтитулы, номера страниц и т.п.).
-        - Возвращаем один текстовый блок для L3 (эмбеддинги) и L4 (LLM).
+        Источники:
+        - header_text:
+            1) canonical preamble/header chunk из semantic retrieval corpus
+            2) fallback на layout title+preamble
+        - body_text:
+            1) legal_unit chunks из main contract semantic scope
+            2) section chunks из main contract semantic scope
+            3) retrieval-safe semantic fallback
+
+        ВАЖНО:
+        - метод НЕ использует clause-tree leaf snippet;
+        - метод НЕ использует layout body snippet;
+        - method предназначен именно для document-level classification;
+        - segment-level classification использует отдельный path через get_segment_text().
         """
-        version = await self._get_latest_version(doc_id)
-        if not version:
-            logger.warning(
-                "get_snippet_from_layout: no latest version",
-                extra={"doc_id": str(doc_id)},
-            )
-            return None
+        if body_levels is None:
+            body_levels = ["legal_unit", "section"]
 
-        layout = await self._load_layout(version)
-        if not layout:
-            logger.warning(
-                "get_snippet_from_layout: layout not available "
-                "(layout_primary_sanitized_ref and layout_primary_ref are both empty)",
-                extra={"doc_id": str(doc_id)},
-            )
-            return None
-
-        elements = layout.get("elements") or []
-        if not elements:
-            return None
-
-        snippet, total_pages, effective_skip_pages = extract_snippet_from_layout_impl(
-            layout,
-            skip_pages=skip_pages,
-            max_length=max_length,
-            min_element_len=min_element_len,
+        retrieval_chunks = await self.get_retrieval_chunks_for_checks(
+            doc_id,
+            levels=body_levels,
+            filter_unsafe_chunks=filter_unsafe_chunks,
         )
 
-        if not snippet:
-            logger.info(
-                "get_snippet_from_layout: no body elements found after effective_skip_pages",
-                extra={
-                    "doc_id": str(doc_id),
-                    "effective_skip_pages": effective_skip_pages,
-                    "total_pages": total_pages,
-                },
-            )
-            return None
+        # ── Header ──────────────────────────────────────────────────────
+        header_chunk = select_header_chunk(retrieval_chunks)
+        header_refs: list[str] = []
+        header_source = "empty"
+        header_text: str | None = None
 
-        return snippet or None
+        if header_chunk is not None:
+            header_text = truncate_text(
+                (header_chunk.get("text") or "").strip(),
+                max_header_chars,
+            )
+            if header_text:
+                header_source = "semantic_preamble_chunk"
+                header_ref = get_chunk_ref(header_chunk)
+                if header_ref:
+                    header_refs = [header_ref]
+
+        if not header_text:
+            header_text = await self.get_title_and_preamble(
+                doc_id,
+                max_length=max_header_chars,
+            )
+            header_text = truncate_text(header_text, max_header_chars)
+            if header_text:
+                header_source = "layout_title_preamble_fallback"
+
+        # ── Body ────────────────────────────────────────────────────────
+        selected_body_chunks, body_diag = select_body_chunks(
+            retrieval_chunks,
+            max_chars=max_body_chars,
+        )
+
+        body_text: str | None = None
+        body_source = "empty"
+        body_refs: list[str] = []
+        body_levels_used: list[str] = []
+        body_scopes_used: list[str] = []
+
+        if selected_body_chunks:
+            body_text = join_chunk_texts(selected_body_chunks, max_body_chars)
+            body_text = truncate_text(body_text, max_body_chars)
+
+            body_source = str(body_diag.get("body_selection_mode") or "semantic_body")
+            body_refs = list(body_diag.get("body_refs") or [])
+            body_levels_used = list(body_diag.get("body_levels") or [])
+            body_scopes_used = list(body_diag.get("body_scopes") or [])
+
+        diagnostics = {
+            "header_source": header_source,
+            "body_source": body_source,
+            "header_refs": header_refs,
+            "body_refs": body_refs,
+            "body_levels": body_levels_used,
+            "body_scopes": body_scopes_used,
+            "header_len": len(header_text or ""),
+            "body_len": len(body_text or ""),
+            "retrieval_chunk_count": len(retrieval_chunks),
+            "filter_unsafe_chunks": filter_unsafe_chunks,
+            **body_diag,
+        }
+
+        logger.info(
+            "DocumentContentService.get_classification_content built bundle",
+            extra={
+                "doc_id": str(doc_id),
+                "header_source": header_source,
+                "body_source": body_source,
+                "header_len": len(header_text or ""),
+                "body_len": len(body_text or ""),
+                "header_refs": header_refs[:3],
+                "body_refs": body_refs[:10],
+                "body_levels": body_levels_used,
+                "body_scopes": body_scopes_used,
+                "retrieval_chunk_count": len(retrieval_chunks),
+            },
+        )
+
+        return ClassificationContentBundle(
+            header_text=header_text,
+            body_text=body_text,
+            header_source=header_source,
+            body_source=body_source,
+            header_refs=header_refs,
+            body_refs=body_refs,
+            body_levels=body_levels_used,
+            body_scopes=body_scopes_used,
+            diagnostics=diagnostics,
+        )
 
     async def get_chunks(
         self,
@@ -512,75 +541,6 @@ class DocumentContentService:
             )
 
         return canonical_chunks
-
-    async def get_header_and_snippet(
-        self,
-        doc_id: uuid.UUID,
-        max_snippet_len: int = 1500,
-        max_leaf_clauses: int = 3,
-    ) -> tuple[str | None, str | None]:
-        """
-        Вернуть:
-        - header_text: заголовки верхнего уровня / шапка документа —
-          для L2 классификатора;
-        - snippet_text: текст первых нескольких листовых клауз —
-          для L3 (эмбеддинги) и L4 (LLM).
-
-        ВАЖНО:
-        - Для v2-документов без clause_tree_ref: читаем header/snippet
-          напрямую из layout.
-        - Для legacy v1 документов: snippet собирается по clause tree + layout.
-        """
-        version = await self._get_latest_version(doc_id)
-        if not version:
-            return None, None
-
-        tree = await self._load_clause_tree(version)
-        layout = await self._load_layout(version)
-
-        if not layout:
-            logger.warning(
-                "get_header_and_snippet: layout is not available, returning empty header/snippet",
-                extra={
-                    "doc_id": str(doc_id),
-                    "version_id": str(version.id),
-                    "clause_tree_ref": getattr(version, "clause_tree_ref", None),
-                    "layout_primary_ref": getattr(version, "layout_primary_ref", None),
-                    "layout_primary_sanitized_ref": getattr(
-                        version, "layout_primary_sanitized_ref", None
-                    ),
-                },
-            )
-            return None, None
-
-        if not tree:
-            logger.info(
-                "get_header_and_snippet: using layout-only path",
-                extra={"doc_id": str(doc_id)},
-            )
-            header_text = await self.get_title_and_preamble(doc_id)
-            snippet_text = await self.get_snippet_from_layout(doc_id)
-            return header_text, snippet_text
-
-        header_text = await self.get_title_and_preamble(doc_id)
-
-        leaf_result = ClauseTreeBuilder.build_leaf_chunks(
-            doc_id=doc_id,
-            tree=tree,
-            layout=layout,
-        )
-        leaf_chunks_all = leaf_result.chunks
-
-        if not leaf_chunks_all:
-            return header_text, None
-
-        snippet_text = build_legacy_snippet_from_leaf_chunks(
-            leaf_chunks_all,
-            max_snippet_len=max_snippet_len,
-            max_leaf_clauses=max_leaf_clauses,
-        )
-
-        return header_text, (snippet_text or None)
 
     async def _get_clause_chunks_as_retrieval(
         self,

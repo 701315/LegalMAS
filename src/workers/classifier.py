@@ -73,7 +73,7 @@ def _bind_classifier_runtime(
     - нельзя держать в singleton'е DocumentContentService с первой попавшейся
       AsyncSession, потому что эта сессия будет закрыта после завершения UoW;
     - поэтому на каждый вызов создаём fresh DocumentContentService на текущей
-      session и, если возможно, подменяем classifier.uow / classifier.content_service.
+      session и перепривязываем fetcher/content path к новому service instance.
     """
     content_service = DocumentContentService(
         session=uow.session,
@@ -83,8 +83,20 @@ def _bind_classifier_runtime(
     if hasattr(classifier, "uow"):
         classifier.uow = uow
 
+    # Legacy/optional direct attribute rebind, if such attribute appears later.
     if hasattr(classifier, "content_service"):
         classifier.content_service = content_service
+
+    # Critical audited rebind:
+    # HybridClassifier stores content service inside self._fetcher, not as
+    # top-level classifier.content_service attribute.
+    if hasattr(classifier, "_fetcher"):
+        try:
+            classifier._fetcher.content_service = content_service
+        except Exception:
+            logger.exception(
+                "classifier: failed to rebind content_service on classifier fetcher"
+            )
 
     return classifier
 

@@ -119,7 +119,7 @@ def _iter_context_texts(
     *,
     context: str,
     header_text: str,
-    snippet_text: str,
+    body_text: str,
 ) -> list[tuple[str, str]]:
     """
     Возвращает список текстовых областей, в которых надо искать паттерн.
@@ -135,8 +135,8 @@ def _iter_context_texts(
     if context == "header":
         return [("header", header_text)]
     if context == "body":
-        return [("body", snippet_text)]
-    return [("header", header_text), ("body", snippet_text)]
+        return [("body", body_text)]
+    return [("header", header_text), ("body", body_text)]
 
 
 def _search_pattern_in_context(
@@ -144,7 +144,7 @@ def _search_pattern_in_context(
     pattern: Any,
     context: str,
     header_text: str,
-    snippet_text: str,
+    body_text: str,
 ) -> tuple[bool, str | None]:
     """
     Ищет regex-паттерн в нужной текстовой области с учётом context.
@@ -159,7 +159,7 @@ def _search_pattern_in_context(
     for area_name, area_text in _iter_context_texts(
         context=context,
         header_text=header_text,
-        snippet_text=snippet_text,
+        body_text=body_text,
     ):
         if not area_text:
             continue
@@ -200,7 +200,7 @@ class L2HeaderClassifier(BaseClassifier):
 
         Параметры:
         - text: header_text, то есть текст заголовка документа.
-        - metadata: опциональный словарь. Если в нём есть `snippet_text`,
+        - metadata: опциональный словарь. Если в нём есть `body_text`,
           то паттерны с context="body" будут искать совпадения именно там.
 
         Возвращает:
@@ -209,7 +209,7 @@ class L2HeaderClassifier(BaseClassifier):
         """
         header_text = (text or "").strip()
         metadata = metadata or {}
-        snippet_text = str(metadata.get("snippet_text") or "").strip()
+        body_text = str(metadata.get("body_text") or "").strip()
         input_quality = _estimate_input_quality(header_text)
 
         logger.info(
@@ -218,14 +218,14 @@ class L2HeaderClassifier(BaseClassifier):
                 "filename": filename,
                 "folder_path": folder_path,
                 "header_len": len(header_text),
-                "snippet_len": len(snippet_text),
+                "body_len": len(body_text),
                 "header_preview": repr(header_text[:400]),
-                "snippet_preview": repr(snippet_text[:400]),
+                "body_preview": repr(body_text[:400]),
                 "input_quality": input_quality,
             },
         )
 
-        if not header_text and not snippet_text:
+        if not header_text and not body_text:
             logger.info(
                 "L2 final result",
                 extra={
@@ -262,7 +262,7 @@ class L2HeaderClassifier(BaseClassifier):
                 result = self._classify_with_extended_format(
                     cfg=cfg,
                     header_text=header_text,
-                    snippet_text=snippet_text,
+                    body_text=body_text,
                     input_quality=input_quality,
                     global_accept=global_accept,
                     global_ambiguity_margin=global_ambiguity_margin,
@@ -341,7 +341,7 @@ class L2HeaderClassifier(BaseClassifier):
         self,
         cfg: DocumentTypeConfig,
         header_text: str,
-        snippet_text: str,
+        body_text: str,
         input_quality: float,
         global_accept: float,
         global_ambiguity_margin: float,
@@ -382,7 +382,7 @@ class L2HeaderClassifier(BaseClassifier):
                     pattern=pattern,
                     context=context,
                     header_text=header_text,
-                    snippet_text=snippet_text,
+                    body_text=body_text,
                 )
                 if matched:
                     pattern_str = _safe_pattern_str(pattern)
@@ -448,7 +448,7 @@ class L2HeaderClassifier(BaseClassifier):
                         pattern=pattern,
                         context=context,
                         header_text=header_text,
-                        snippet_text=snippet_text,
+                        body_text=body_text,
                     )
                     if matched:
                         pattern_str = _safe_pattern_str(pattern)
@@ -511,7 +511,7 @@ class L2HeaderClassifier(BaseClassifier):
                     pattern=pattern,
                     context=context,
                     header_text=header_text,
-                    snippet_text=snippet_text,
+                    body_text=body_text,
                 )
                 if matched:
                     penalty_weight = abs(
