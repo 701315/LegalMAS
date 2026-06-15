@@ -45,6 +45,7 @@ from ..detectors.models import RetrievedChunk
 from ..playbook.models import CheckDefinition
 from ..retrieval.engine import RetrievalEngine
 from .extraction import ExtractionExecutor
+from .result_semantics import _NOT_FOUND_VALUES, _RESERVED_METADATA_FIELDS
 
 logger = get_logger(__name__)
 
@@ -294,6 +295,70 @@ class CheckExecutor:
             "llm_degraded": llm_error_present,
         }
 
+    @staticmethod
+    def _is_field_extraction_check(check: CheckDefinition | None) -> bool:
+        """
+        Determine whether check should run in extraction-only mode.
+
+        Rules:
+        1. explicit ui_mode == "field_extraction" -> True
+        2. any other explicit non-empty ui_mode   -> False
+        3. missing/blank ui_mode                  -> fallback to extraction.enabled
+        """
+        if check is None:
+            return False
+
+        raw_ui_mode = getattr(check, "ui_mode", None)
+        ui_mode = str(raw_ui_mode).strip().lower() if raw_ui_mode is not None else ""
+
+        if ui_mode == "field_extraction":
+            return True
+
+        if ui_mode:
+            return False
+
+        extraction = getattr(check, "extraction", None)
+        if extraction is None:
+            return False
+
+        return bool(getattr(extraction, "enabled", False))
+
+    @staticmethod
+    def _has_meaningful_extraction(
+        structured_data: dict | None,
+        check: CheckDefinition | None = None,
+    ) -> bool:
+        """
+        Return True when structured_data contains at least one meaningful
+        factual value.
+
+        Reserved metadata fields and explicit not-found markers do not count.
+        """
+        _ = check  # reserved for future field-level semantics
+
+        if not isinstance(structured_data, dict) or not structured_data:
+            return False
+
+        for field_name, field_payload in structured_data.items():
+            if field_name in _RESERVED_METADATA_FIELDS:
+                continue
+
+            value = (
+                field_payload.get("value")
+                if isinstance(field_payload, dict) and "value" in field_payload
+                else field_payload
+            )
+
+            if value is None:
+                continue
+
+            if isinstance(value, str) and value.strip().lower() in _NOT_FOUND_VALUES:
+                continue
+
+            return True
+
+        return False
+
     # ------------------------------------------------------------------
     # Main entry point
     # ------------------------------------------------------------------
@@ -315,6 +380,13 @@ class CheckExecutor:
         Возвращает словарь, пригодный для записи в CheckResult.
         Никогда не выбрасывает исключение: при любых внутренних ошибках
         возвращает result="unclear" с диагностикой в raw.
+
+        Field-extraction invariant:
+        - checks with ui_mode="field_extraction" skip generic presence detection;
+        - checks without explicit ui_mode, but with extraction.enabled=True,
+          also use extraction-only mode by convention;
+        - business result for such checks is derived from structured extraction,
+          not from presence confidence.
         """
         start_time = time.time()
 
@@ -567,35 +639,67 @@ class CheckExecutor:
             if _struct_block:
                 joined_text = _struct_block + "\n\n" + joined_text
 
-        try:
-            detection = self.detector.run(
-                text=joined_text,
-                chunks=retrieved_chunks,
-                check=check,
-                doc_type=doc_type,
-                classification_confidence=classification_confidence,
-            )
-        except Exception as e:
-            logger.exception(
-                "CheckExecutor: HybridDetector failed with unexpected exception",
+        # Field-extraction checks do not need generic presence detection.
+        # We skip the presence phase entirely and let structured extraction
+        # drive both factual output and business result.
+        is_field_extraction = self._is_field_extraction_check(check)
+
+        if is_field_extraction:
+            logger.debug(
+                "CheckExecutor: skipping presence detection for field_extraction check",
                 extra={
                     "doc_id": str(getattr(doc, "id", None)),
                     "check_id": getattr(check, "id", None),
+                    "ui_mode": getattr(check, "ui_mode", None),
+                    "extraction_enabled": bool(
+                        getattr(getattr(check, "extraction", None), "enabled", False)
+                    ),
                 },
             )
             detection = {
-                "found": False,
+                "found": True,
                 "evidence": "",
-                "confidence": 0.0,
-                "method": "rules",
-                "reason": "hybrid_detector_error",
+                "confidence": 1.0,
+                "method": "extraction_only",
+                "reason": "field_extraction_skip_presence",
                 "sources": [],
                 "location": None,
                 "raw": {
-                    "source": "hybrid_detector_exception",
-                    "error_message": str(e),
+                    "source": "field_extraction_mode",
+                    "llm_invoked": False,
+                    "rules_llm_decision": "skip_presence_for_extraction",
                 },
             }
+        else:
+            try:
+                detection = self.detector.run(
+                    text=joined_text,
+                    chunks=retrieved_chunks,
+                    check=check,
+                    doc_type=doc_type,
+                    classification_confidence=classification_confidence,
+                )
+            except Exception as e:
+                logger.exception(
+                    "CheckExecutor: HybridDetector failed with unexpected exception",
+                    extra={
+                        "doc_id": str(getattr(doc, "id", None)),
+                        "check_id": getattr(check, "id", None),
+                    },
+                )
+                detection = {
+                    "found": False,
+                    "evidence": "",
+                    "confidence": 0.0,
+                    "method": "rules",
+                    "reason": "hybrid_detector_error",
+                    "sources": [],
+                    "location": None,
+                    "raw": {
+                        "source": "hybrid_detector_exception",
+                        "error_message": str(e),
+                    },
+                }
 
         found = bool(detection.get("found", False))
         confidence = float(detection.get("confidence", 0.0) or 0.0)
@@ -679,7 +783,31 @@ class CheckExecutor:
             and raw_details.get("source") in _PRESENCE_NOT_FOUND_SOURCES
         )
 
-        if found:
+        if is_field_extraction:
+            has_meaningful_extraction = self._has_meaningful_extraction(
+                structured_data,
+                check,
+            )
+
+            if has_meaningful_extraction:
+                result = "pass"
+                severity = check.severity_if_pass or "pass"
+            else:
+                result = "unclear"
+                severity = check.severity_if_unclear or check.severity
+                raw_details["extraction_empty"] = True
+
+            logger.debug(
+                "CheckExecutor: field_extraction business result mapped from structured_data",
+                extra={
+                    "doc_id": str(getattr(doc, "id", None)),
+                    "check_id": getattr(check, "id", None),
+                    "has_meaningful_extraction": has_meaningful_extraction,
+                    "result": result,
+                    "severity": severity,
+                },
+            )
+        elif found:
             result = "fail"
             severity = check.severity_if_fail or check.severity
         elif is_presence_not_found:
@@ -698,7 +826,7 @@ class CheckExecutor:
                 raw_details.setdefault("low_confidence_flag", True)
 
         # Variant B: LLM был обязателен, но упал → не выдавать честный pass/fail
-        if llm_flags["llm_required"] and llm_flags["llm_error_type"]:
+        if not is_field_extraction and llm_flags["llm_required"] and llm_flags["llm_error_type"]:
             result = "unclear"
             severity = check.severity_if_unclear or check.severity
 

@@ -113,7 +113,7 @@ async def test_extended_context_header_and_body(monkeypatch):
         filename="test.docx",
         folder_path="/",
         text_sanitized=None,
-        metadata={"snippet_text": snippet_text},
+        metadata={"body_text": snippet_text},
     )
 
     assert result.doctype == "extended_type"
@@ -152,7 +152,7 @@ async def test_extended_hard_exclusion_suppresses_type(monkeypatch):
         filename="test.docx",
         folder_path="/",
         text_sanitized=None,
-        metadata={"snippet_text": snippet_text},
+        metadata={"body_text": snippet_text},
     )
 
     # hard exclusion должен приводить к UNKNOWN на уровне L2

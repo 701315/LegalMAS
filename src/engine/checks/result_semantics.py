@@ -43,12 +43,26 @@ logger = get_logger(__name__)
 _NOT_FOUND_VALUES = frozenset({
     "not_found",
     "notfound",
+    "not_defined",
     "missing",
     "absent",
     "not present",
-    "не найдено",
-    "отсутствует",
+    "none",
+    "null",
     "",
+    "n/a",
+    "—",
+    "не найдено",
+    "не определено",
+    "отсутствует",
+    "данные не определены",
+})
+
+_RESERVED_METADATA_FIELDS = frozenset({
+    "reason",
+    "evidence",
+    "explanation",
+    "notes",
 })
 
 _TECHNICAL_FAILURE_STATUSES = frozenset({
@@ -192,6 +206,18 @@ def _extract_ui_mode(check: Any | None) -> str | None:
     return normalized if normalized else None
 
 
+def _has_any_extraction(check: Any | None) -> bool:
+    """Return True if check has extraction enabled."""
+    if check is None:
+        return False
+
+    extraction = getattr(check, "extraction", None)
+    if extraction is None:
+        return False
+
+    return bool(getattr(extraction, "enabled", False))
+
+
 def _resolve_check_name(
     check: Any | None,
     explicit_name: str | None,
@@ -275,17 +301,9 @@ def _extract_scalar_value(field_payload: Any) -> Any:
 def _has_factual_extraction(structured_data: dict[str, Any] | None) -> bool:
     """
     Return True if structured_data contains at least one meaningful
-    (non-empty, non-not-found) extracted value.
+    factual extracted value.
     """
-    if not structured_data:
-        return False
-
-    for field_payload in structured_data.values():
-        value = _extract_scalar_value(field_payload)
-        if not _is_not_found_value(value):
-            return True
-
-    return False
+    return bool(_iter_factual_fields(structured_data))
 
 
 def _iter_factual_fields(
@@ -294,7 +312,10 @@ def _iter_factual_fields(
     """
     Return list of (field_name, scalar_value) for meaningful extracted fields.
 
-    Skips fields where value is None, empty, or a not-found marker.
+    Skips:
+    - reserved metadata fields (reason/evidence/explanation/notes),
+    - None / empty / explicit not-found markers.
+
     Preserves dict iteration order (insertion order in Python 3.7+).
     """
     if not structured_data:
@@ -302,6 +323,9 @@ def _iter_factual_fields(
 
     result: list[tuple[str, Any]] = []
     for field_name, field_payload in structured_data.items():
+        if field_name in _RESERVED_METADATA_FIELDS:
+            continue
+
         value = _extract_scalar_value(field_payload)
         if not _is_not_found_value(value):
             result.append((field_name, value))
@@ -406,14 +430,27 @@ def _select_primary_factual_field(
     """
     Select the most important factual field for display_text.
 
-    Uses extraction config field order as canonical priority.
+    Priority:
+    1. *_display fields
+    2. *_details fields
+    3. everything else
+
+    Inside each group, extraction config field order remains canonical priority.
     Returns (field_name, scalar_value) or None.
     """
     factual = _iter_factual_fields(structured_data)
     if not factual:
         return None
 
-    factual.sort(key=lambda pair: _get_field_priority(check, pair[0]))
+    def field_priority(pair: tuple[str, Any]) -> tuple[int, int]:
+        field_name = pair[0]
+        if field_name.endswith("_display"):
+            return (0, _get_field_priority(check, field_name))
+        if field_name.endswith("_details"):
+            return (1, _get_field_priority(check, field_name))
+        return (2, _get_field_priority(check, field_name))
+
+    factual.sort(key=field_priority)
     return factual[0]
 
 
@@ -511,7 +548,42 @@ def _build_factual_display_text(
     if ui_mode == "clause_presence":
         return "Положение обнаружено"
 
-    # For all other ui_modes: show primary field as "Label: Value"
+    is_field_extraction_mode = (
+        ui_mode == "field_extraction"
+        or (ui_mode is None and _has_any_extraction(check))
+    )
+
+    if is_field_extraction_mode:
+        # Step 1: canonical direct UI field
+        for field_name, field_payload in structured_data.items():
+            if field_name in _RESERVED_METADATA_FIELDS:
+                continue
+            if not field_name.endswith("_display"):
+                continue
+
+            value = _extract_scalar_value(field_payload)
+            if not _is_not_found_value(value):
+                return str(value).strip()
+
+        # Step 2: fallback to best factual field
+        primary = _select_primary_factual_field(check, structured_data)
+        if primary is None:
+            return None
+
+        field_name, raw_value = primary
+        logger.debug(
+            "result_semantics: field_extraction display_text fallback to primary factual field",
+            extra={
+                "field_name": field_name,
+                "ui_mode": ui_mode,
+            },
+        )
+        label = _get_field_label(check, field_name)
+        unit = _get_field_unit(check, field_name)
+        value_str = _format_display_value(raw_value, unit)
+        return f"{label}: {value_str}"
+
+    # Existing logic for non-field-extraction modes
     primary = _select_primary_factual_field(check, structured_data)
     if primary is None:
         return None

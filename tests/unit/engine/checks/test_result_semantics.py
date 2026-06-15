@@ -16,6 +16,7 @@ from engine.checks.result_semantics import (
     build_canonical_result_semantics,
     _is_machine_code,
     _is_not_found_value,
+    _has_any_extraction,
     _has_factual_extraction,
     _extract_scalar_value,
     _humanize_field_name,
@@ -148,6 +149,23 @@ class TestIsNotFoundValue:
 
     def test_boolean_is_not_not_found(self):
         assert _is_not_found_value(True) is False
+    def test_null_string(self):
+        assert _is_not_found_value("null") is True
+
+    def test_none_string(self):
+        assert _is_not_found_value("none") is True
+
+    def test_na_string(self):
+        assert _is_not_found_value("n/a") is True
+
+    def test_em_dash_string(self):
+        assert _is_not_found_value("—") is True
+
+    def test_russian_not_defined(self):
+        assert _is_not_found_value("Не определено") is True
+
+    def test_russian_data_not_defined(self):
+        assert _is_not_found_value("Данные не определены") is True
 
 
 # ─── Tests: _has_factual_extraction ───────────────────────────────────────────
@@ -177,7 +195,39 @@ class TestHasFactualExtraction:
             "governing_law": {"value": "РФ"},
             "forum": {"value": "not_found"},
         }
+
+    def test_metadata_only_is_not_factual(self):
+        sd = {
+            "reason": {"value": "not enough context"},
+            "evidence": {"value": "some snippet"},
+        }
+        assert _has_factual_extraction(sd) is False
+
+    def test_metadata_and_fact_is_factual(self):
+        sd = {
+            "reason": {"value": "partial"},
+            "governing_law": {"value": "РФ"},
+        }
         assert _has_factual_extraction(sd) is True
+
+
+class TestHasAnyExtraction:
+    def test_enabled_extraction(self):
+        check = _make_check(
+            extraction_fields=[
+                {"name": "governing_law", "description": "Применимое право"},
+            ],
+        )
+        assert _has_any_extraction(check) is True
+
+    def test_disabled_extraction(self):
+        check = _make_check()
+        assert _has_any_extraction(check) is False
+
+    def test_none_check(self):
+        assert _has_any_extraction(None) is False
+
+
 
 
 # ─── Tests: _extract_scalar_value ─────────────────────────────────────────────
@@ -371,6 +421,101 @@ class TestFieldExtraction:
         )
 
         assert sem.display_text == "Governing law: РФ"
+
+
+class TestFieldExtractionDisplayPriority:
+    def test_display_field_has_priority(self):
+        check = _make_check(
+            ui_mode="field_extraction",
+            extraction_fields=[
+                {"name": "security_status", "description": "Статус обеспечения"},
+                {"name": "security_display", "description": "Вывод по обеспечению"},
+            ],
+        )
+        exec_result = _make_exec_result(result="pass")
+        sd = {
+            "security_status": {"value": "yes"},
+            "security_display": {"value": "Есть залог имущества и корпоративная гарантия"},
+        }
+
+        sem = build_canonical_result_semantics(
+            check=check,
+            exec_result=exec_result,
+            execution_status=CheckExecutionStatus.SUCCESS.value,
+            structured_data=sd,
+        )
+
+        assert sem.display_text == "Есть залог имущества и корпоративная гарантия"
+
+    def test_details_field_beats_status_field(self):
+        check = _make_check(
+            ui_mode="field_extraction",
+            extraction_fields=[
+                {"name": "price_status", "description": "Статус цены"},
+                {"name": "price_details", "description": "Цена"},
+            ],
+        )
+        exec_result = _make_exec_result(result="pass")
+        sd = {
+            "price_status": {"value": "present"},
+            "price_details": {"value": "3 500 рублей, включая НДС"},
+        }
+
+        sem = build_canonical_result_semantics(
+            check=check,
+            exec_result=exec_result,
+            execution_status=CheckExecutionStatus.SUCCESS.value,
+            structured_data=sd,
+        )
+
+        assert sem.display_text == "Цена: 3 500 рублей, включая НДС"
+
+    def test_ui_mode_none_with_extraction_uses_display_convention(self):
+        check = _make_check(
+            ui_mode=None,
+            extraction_fields=[
+                {"name": "forum_display", "description": "Форум"},
+            ],
+        )
+        exec_result = _make_exec_result(result="pass")
+        sd = {
+            "forum_display": {"value": "Применимое право: РФ; Форум: АС г. Москвы"},
+        }
+
+        sem = build_canonical_result_semantics(
+            check=check,
+            exec_result=exec_result,
+            execution_status=CheckExecutionStatus.SUCCESS.value,
+            structured_data=sd,
+        )
+
+        assert sem.display_text == "Применимое право: РФ; Форум: АС г. Москвы"
+
+    def test_metadata_only_does_not_build_display_text(self):
+        check = _make_check(
+            ui_mode="field_extraction",
+            extraction_fields=[
+                {"name": "governing_law", "description": "Применимое право"},
+            ],
+        )
+        exec_result = _make_exec_result(result="unclear")
+        sd = {
+            "reason": {"value": "not enough context"},
+            "evidence": {"value": "short snippet"},
+        }
+
+        sem = build_canonical_result_semantics(
+            check=check,
+            exec_result=exec_result,
+            execution_status=CheckExecutionStatus.SUCCESS.value,
+            structured_data=sd,
+        )
+
+        assert sem.display_text is None
+
+
+
+
 
 
 # ─── Tests: clause_presence ui_mode ───────────────────────────────────────────
