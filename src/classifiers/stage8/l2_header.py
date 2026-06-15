@@ -80,6 +80,55 @@ def _safe_pattern_str(pattern: Any) -> str:
         return pattern.pattern
     return str(pattern)
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _candidate_ranking_key(result: dict[str, Any]) -> tuple[float, float, int, int]:
+    """
+    Ranking key for L2 candidates.
+
+    Priority:
+    1. final clamped confidence
+    2. raw confidence before clamp
+    3. distinctive hits
+    4. fewer exclusion hits
+    """
+    extra = result.get("extra") if isinstance(result.get("extra"), dict) else {}
+
+    confidence = _safe_float(result.get("confidence"), 0.0)
+    raw_confidence = _safe_float(extra.get("raw_confidence", confidence), confidence)
+
+    distinctive_hits = (
+        _safe_int(extra.get("high_distinctive_hits", 0), 0)
+        + _safe_int(extra.get("medium_distinctive_hits", 0), 0)
+        + _safe_int(extra.get("distinctive_high_hits", 0), 0)
+        + _safe_int(extra.get("distinctive_medium_hits", 0), 0)
+    )
+
+    exclusion_hits = (
+        _safe_int(extra.get("hard_exclusion_hits", 0), 0)
+        + _safe_int(extra.get("soft_exclusion_hits", 0), 0)
+    )
+
+    return (
+        confidence,
+        raw_confidence,
+        distinctive_hits,
+        -exclusion_hits,
+    )
+
+
 
 def _estimate_input_quality(header_text: str) -> float:
     """
@@ -248,6 +297,7 @@ class L2HeaderClassifier(BaseClassifier):
         best_conf: float = 0.0
         best_evidence: str | None = None
         best_extra: dict[str, Any] = {}
+        best_key: tuple[float, float, int, int] = (-1.0, -1.0, -1, 0)
 
         scored_candidates: list[dict[str, Any]] = []
 
@@ -280,18 +330,23 @@ class L2HeaderClassifier(BaseClassifier):
 
             scored_candidates.append(result)
 
-            if float(result["confidence"]) > best_conf:
+            result_key = _candidate_ranking_key(result)
+            if result_key > best_key:
+                best_key = result_key
                 best_conf = float(result["confidence"])
                 best_type = str(result["type_code"])
                 best_evidence = result["evidence"]
                 best_extra = dict(result["extra"])
 
-        scored_candidates.sort(key=lambda x: float(x["confidence"]), reverse=True)
+        scored_candidates.sort(key=_candidate_ranking_key, reverse=True)
 
         ambiguity_penalty = 0.0
         if len(scored_candidates) >= 2 and best_type != "UNKNOWN":
-            top1_conf = float(scored_candidates[0]["confidence"])
-            top2_conf = float(scored_candidates[1]["confidence"])
+            top1 = scored_candidates[0]
+            top2 = scored_candidates[1]
+
+            top1_conf = _safe_float(top1.get("confidence"), 0.0)
+            top2_conf = _safe_float(top2.get("confidence"), 0.0)
             margin = top1_conf - top2_conf
 
             winner_cfg = self._registry.get_config(best_type)
@@ -305,18 +360,25 @@ class L2HeaderClassifier(BaseClassifier):
                 ambiguity_penalty = _LEGACY_MAX_AMBIGUITY_PENALTY * (
                     1.0 - margin / ambiguity_margin
                 )
+                ambiguity_penalty = _clamp(
+                    ambiguity_penalty,
+                    0.0,
+                    _LEGACY_MAX_AMBIGUITY_PENALTY,
+                )
+                best_conf = _clamp(best_conf - ambiguity_penalty, 0.0, 1.0)
 
             if best_extra:
-                best_extra["ambiguity_penalty"] = round(
-                    _clamp(ambiguity_penalty, 0.0, _LEGACY_MAX_AMBIGUITY_PENALTY),
-                    3,
-                )
+                best_extra["ambiguity_penalty"] = round(ambiguity_penalty, 3)
                 best_extra["top2_margin"] = round(margin, 4)
-                best_extra["runner_up_type"] = scored_candidates[1]["type_code"]
+                best_extra["runner_up_type"] = top2["type_code"]
                 best_extra["runner_up_confidence"] = round(top2_conf, 4)
+                best_extra["confidence_before_ambiguity"] = round(top1_conf, 4)
+                best_extra["confidence_after_ambiguity"] = round(best_conf, 4)
         elif best_extra:
             best_extra["ambiguity_penalty"] = 0.0
             best_extra["top2_margin"] = 1.0
+            best_extra["confidence_before_ambiguity"] = round(best_conf, 4)
+            best_extra["confidence_after_ambiguity"] = round(best_conf, 4)
 
         logger.info(
             "L2 final result",
@@ -523,14 +585,15 @@ class L2HeaderClassifier(BaseClassifier):
                     )
                     soft_excl_penalty += penalty_weight
 
-        conf = positive_score * signal_quality - soft_excl_penalty
-        conf = conf * (input_quality**input_quality_weight)
-        conf = _clamp(conf, 0.0, 1.0)
+        raw_confidence = positive_score * signal_quality - soft_excl_penalty
+        raw_confidence = raw_confidence * (input_quality**input_quality_weight)
+        conf = _clamp(raw_confidence, 0.0, 1.0)
 
         current_extra: dict[str, Any] = {
             "positive_score": round(positive_score, 3),
             "signal_quality": round(signal_quality, 3),
             "soft_excl_penalty": round(soft_excl_penalty, 3),
+            "raw_confidence": round(raw_confidence, 4),
             "input_quality": input_quality,
             "input_quality_weight": input_quality_weight,
             "high_distinctive_hits": signal_counts["high_distinctive"],
@@ -750,6 +813,7 @@ class L2HeaderClassifier(BaseClassifier):
             "generic_medium_hits": generic_medium_hits,
             "low_hits": low_hits,
             "signal_quality": round(signal_quality, 3),
+            "raw_confidence": round(conf, 4),            
             "soft_exclusion_hits": soft_exclusion_hits,
             "hard_exclusion_hits": hard_exclusion_hits,
             "has_exclusion_hit": soft_exclusion_hits > 0,
@@ -791,6 +855,7 @@ class L2HeaderClassifier(BaseClassifier):
             "positive_score": 0.0,
             "signal_quality": 0.0,
             "soft_excl_penalty": 0.0,
+            "raw_confidence": 0.0,            
             "input_quality": input_quality,
             "high_distinctive_hits": 0,
             "high_generic_hits": 0,

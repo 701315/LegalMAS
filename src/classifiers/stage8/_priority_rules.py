@@ -128,6 +128,7 @@ class PriorityRulesEvaluator:
             return None
 
         global_strong_l2: float = settings.CLASSIFICATION_L2_STRONG
+        global_l2_ambiguity_margin: float = settings.CLASSIFICATION_L2_AMBIGUITY_MARGIN
         l1_consensus_min: float = settings.CLASSIFICATION_L1_CONSENSUS_MIN
         l3_consensus_min_raw: float = settings.CLASSIFICATION_L3_CONSENSUS_RAW_MIN
         l3_strong_conflict_raw: float = settings.CLASSIFICATION_L3_STRONG_CONFLICT_RAW
@@ -154,16 +155,50 @@ class PriorityRulesEvaluator:
 
         winner_cfg = self._registry.get_config(l2_type)
         strong_l2 = global_strong_l2
+        l2_ambiguity_margin = global_l2_ambiguity_margin
         if winner_cfg is not None:
             scoring = getattr(winner_cfg, "scoring", {}) or {}
             strong_l2 = float(scoring.get("strong_signal_threshold", global_strong_l2))
+            l2_ambiguity_margin = float(
+                scoring.get("ambiguity_margin", global_l2_ambiguity_margin)
+            )
 
         if l2_conf < strong_l2:
             return None
 
         l2_extra = getattr(top_l2, "extra", {}) or {}
+        l2_top2_margin = float(l2_extra.get("top2_margin", 1.0))
+
+        if l2_ambiguity_margin > 0.0 and l2_top2_margin < l2_ambiguity_margin:
+            details["l2_strong_suppressed"] = {
+                "reason": "L2_TOP2_AMBIGUITY",
+                "l2_type": l2_type,
+                "l2_conf": l2_conf,
+                "l2_strong_threshold": strong_l2,
+                "l2_top2_margin": l2_top2_margin,
+                "l2_ambiguity_margin": l2_ambiguity_margin,
+                "runner_up_type": l2_extra.get("runner_up_type"),
+                "runner_up_confidence": l2_extra.get("runner_up_confidence"),
+                "decision": "continue_to_voting",
+            }
+            logger.info(
+                "Hybrid decision L2_STRONG_SUPPRESSED by L2 top2 ambiguity",
+                extra={
+                    "doc_id": doc_id,
+                    "l2_type": l2_type,
+                    "l2_conf": l2_conf,
+                    "l2_strong_threshold": strong_l2,
+                    "l2_top2_margin": l2_top2_margin,
+                    "l2_ambiguity_margin": l2_ambiguity_margin,
+                    "runner_up_type": l2_extra.get("runner_up_type"),
+                    "runner_up_confidence": l2_extra.get("runner_up_confidence"),
+                },
+            )
+            return None
+
         l2_high_hits = int(l2_extra.get("high_hits", 0))
         l2_medium_hits = int(l2_extra.get("medium_hits", 0))
+        
         distinctive_high = int(l2_extra.get("distinctive_high_hits", l2_high_hits))
         distinctive_medium = int(l2_extra.get("distinctive_medium_hits", l2_medium_hits // 2))
         generic_high = int(l2_extra.get("generic_high_hits", 0))
