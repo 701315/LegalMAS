@@ -1,5 +1,6 @@
 id: "termination_consequences"
 name: "Последствия расторжения"
+group: "Terms"
 description: >
   Анализирует последствия расторжения: судьба авансов и минимальных
   платежей (возврат / невозвратимые / early termination fee),
@@ -110,6 +111,12 @@ evidence:
 retrieval:
   context_k: 5
   max_chunks: 10
+  
+  retrieval_query: >
+    последствия расторжения consequences of termination post-termination возврат аванса 
+    non-refundable early termination fee переходный период transition period wind-down 
+    судьба данных data export лицензия бессрочная
+
   boost_keywords:
     - "upon termination"
     - "при расторжении"
@@ -133,6 +140,32 @@ retrieval:
     - "license termination"
     - "perpetual license"
     - "wind-down"
+
+  negative_keywords:
+    - "гарантийный срок"
+    - "форс-мажор"
+    - "порядок приемки"
+    - "качество товаров"
+
+  preferred_unit_types:
+    - "term_and_termination"
+    - "general_provision"
+
+  excluded_unit_types:
+    - "technical_fragment"
+    - "appendix_reference"
+    - "structural_anchor"
+
+  preferred_clause_functions:
+    - "termination"
+    - "confidentiality"
+    - "intellectual_property"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -159,7 +192,7 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 440
+  llm_max_tokens: 420
   llm_prompt_extraction: |
     <role>
     Ты — юрист по коммерческим договорам.
@@ -169,6 +202,8 @@ extraction:
     3) переходный период и возврат данных;
     4) судьба IP / лицензий;
     5) конфиденциальность после расторжения.
+
+    Не придумывай данные если их нет в тексте.
     </role>
 
     <context>
@@ -187,180 +222,149 @@ extraction:
     - data_handling_after_termination
     - ip_license_survival
     - confidentiality_survival
-    - red_flags
     - reason
 
     Важно:
-    - не придумывай данные если их нет в тексте;
-    - пиши user-facing значения коротко и по-русски.
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
-    Шаг 1 — СУДЬБА АВАНСОВ И МИНИМАЛЬНЫХ ПЛАТЕЖЕЙ
+    Шаг 1 — СУДЬБА АВАНСОВ И ПЛАТЕЖЕЙ
 
-    Заполни поле "payments_treatment".
+    Заполни "payments_treatment".
 
     Значения:
     - "favorable" — возврат неиспользованной части или
-      pro-rata refund при расторжении.
-    - "unfavorable" — non-refundable, удержание как penalty,
-      крупные невозвратимые суммы.
-    - "neutral" — дифференцированный подход: зависит от причины
-      расторжения (виновное / безвиновное).
-    - "not_addressed" — вопрос не урегулирован.
+      pro-rata refund.
+    - "unfavorable" — non-refundable, удержание как penalty.
+    - "neutral" — зависит от причины расторжения.
+    - "not_addressed" — не урегулировано.
     - "unclear" — неясно.
 
     Шаг 2 — EARLY TERMINATION FEE
 
-    Заполни поле "has_early_termination_fee".
+    Заполни "has_early_termination_fee".
 
     Значения:
-    - "yes" — прямо предусмотрена отдельная плата.
-    - "no" — не предусмотрена.
-    - "unclear" — неясно.
+    - "yes" / "no" / "unclear"
 
     Шаг 3 — ПЕРЕХОДНЫЙ ПЕРИОД
 
-    Заполни поля "has_transition_period"
-    и "transition_period_value".
+    Заполни "has_transition_period" и "transition_period_value".
 
     Значения для has_transition_period:
-    - "yes" — transition services / wind-down / migration period.
-    - "no" — не предусмотрен.
-    - "unclear" — неясно.
+    - "yes" / "no" / "unclear"
 
     Для transition_period_value:
     - Если есть: "30 дней", "90 дней", "до миграции данных"
-    - Если нет: "Не применимо"
-    - Если неясно: "Не удалось определить"
+    - Нет: "Не применимо"
+    - Неясно: "Не удалось определить"
 
-    Шаг 4 — ВОЗВРАТ ДАННЫХ ПОСЛЕ РАСТОРЖЕНИЯ
+    Шаг 4 — ВОЗВРАТ ДАННЫХ
 
-    Заполни поле "data_handling_after_termination".
+    Заполни "data_handling_after_termination".
 
     Значения:
-    - "export_provided" — явно предусмотрен экспорт /
-      возврат данных клиенту.
-    - "deletion_only" — данные удаляются без возможности
-      экспорта.
-    - "both" — и экспорт, и удаление предусмотрены.
+    - "export_provided" — явно предусмотрен экспорт / возврат.
+    - "deletion_only" — только удаление без экспорта.
+    - "both" — и экспорт, и удаление.
     - "not_addressed" — не урегулировано.
     - "unclear" — неясно.
 
     Шаг 5 — СУДЬБА IP / ЛИЦЕНЗИЙ
 
-    Заполни поле "ip_license_survival".
+    Заполни "ip_license_survival".
 
     Значения:
-    - "terminated_immediately" — лицензии / IP прекращаются
-      немедленно при расторжении.
-    - "terminated_with_transition" — прекращаются, но после
-      разумного transition period.
-    - "perpetual" — лицензии сохраняются бессрочно.
+    - "terminated_immediately" — прекращаются немедленно.
+    - "terminated_with_transition" — прекращаются после
+      transition period.
+    - "perpetual" — сохраняются бессрочно.
     - "not_addressed" — не урегулировано.
     - "unclear" — неясно.
 
     Шаг 6 — КОНФИДЕНЦИАЛЬНОСТЬ ПОСЛЕ РАСТОРЖЕНИЯ
 
-    Заполни поле "confidentiality_survival".
+    Заполни "confidentiality_survival".
 
     Значения:
-    - "none" — survival нет.
+    - "none" — нет.
     - "short" — до 1 года.
     - "standard" — 1–3 года.
     - "long" — более 3 лет или бессрочно.
     - "unclear" — неясно.
 
-    Шаг 7 — RED FLAGS
+    Шаг 7 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "red_flags".
+    Заполни "termination_consequences_display".
 
-    Используй:
-    - "NONE" — сбалансированные условия расторжения.
-    - "UNCLEAR" — данных недостаточно.
-    - Коды через запятую:
-      * TERM5 — невозвратимые крупные авансы / early
-        termination fee при досрочном расторжении.
-      * TERM6 — прекращение ключевых лицензий / IP без
-        разумного переходного периода (ip_license_survival =
-        "terminated_immediately" + has_transition_period = "no").
-      * TERM7 — чрезмерно широкий перечень survival-обязательств,
-        создающий долгосрочные ограничения для Target.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 8 — USER-FACING SUMMARY
+    Базовый случай:
+    - все поля = "not_addressed" / "unclear":
+      "Последствия расторжения не урегулированы"
 
-    Заполни поле "termination_consequences_display".
+    Если данные есть — комбинируй через ";":
+    - payments_treatment (кратко)
+    - has_transition_period + transition_period_value
+    - data_handling (если значимо)
+    - ip_license_survival (если критично)
 
     Примеры:
-    - "Авансы не возвращаются; нет transition; лицензии
-       прекращаются немедленно"
-    - "Авансы pro-rata; transition 30 дней; данные экспортируются;
-       конфиденциальность 3 года"
+    - "Авансы не возвращаются; нет transition; лицензии прекращаются немедленно"
+    - "Авансы pro-rata; transition 30 дней; данные экспортируются; конф. 3 года"
     - "Early termination fee; нет transition; лицензии бессрочные"
     - "Последствия расторжения не урегулированы"
+    - "Не удалось определить последствия расторжения"
 
-    Правила:
-    - Отрази максимум 3–4 ключевых факта через ";".
-    - Если не урегулировано: "Последствия расторжения не урегулированы"
-    - Если всё unclear: "Не удалось определить последствия расторжения"
+    Ограничение: не более 4 фактов через ";".
 
-    Шаг 9 — ОБОСНОВАНИЕ
+    Шаг 8 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
-    - Укажи: платежи, переходный период, IP, конфиденциальность,
-      почему red_flags.
-    - Приведи короткую цитату в кавычках.
-    - Если NONE — почему условия сбалансированы.
+    - Укажи: платежи, transition, IP, конфиденциальность.
+    - Приведи цитату в кавычках.
     </instructions>
 
     <edge_cases>
-    - Non-refundable авансы + нет transition:
+    - Non-refundable + нет transition:
       * payments_treatment = "unfavorable"
       * has_transition_period = "no"
-      * red_flags включает "TERM5"
 
-    - Лицензии прекращаются немедленно, нет transition (SaaS):
+    - Лицензии прекращаются немедленно, нет transition:
       * ip_license_survival = "terminated_immediately"
       * has_transition_period = "no"
-      * red_flags включает "TERM6"
 
-    - Transition 30 дней + export данных предусмотрен:
+    - Transition 30 дней + export предусмотрен:
       * has_transition_period = "yes"
       * data_handling_after_termination = "export_provided"
-      * red_flags не включает "TERM6"
-
-    - Non-refundable только при виновном расторжении:
-      * payments_treatment = "neutral"
-      * в reason: дифференцированный подход
-
-    - Стандартный survival (конфиденциальность 3 года, liability
-      cap, юрисдикция):
-      * red_flags = "NONE"
 
     - Не урегулировано:
       * payments_treatment = "not_addressed"
-      * has_transition_period = "unclear"
       * termination_consequences_display =
         "Последствия расторжения не урегулированы"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "termination_consequences_display"
       type: "string"
-      description: "Последствия расторжения: краткий вывод"
+      presentation: "fact"
+      label: "Последствия расторжения"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "payments_treatment"
       type: "string"
-      description: "Судьба авансов и минимальных платежей"
+      presentation: "signal"
+      description: "Судьба авансов и платежей"
       allowed_values:
         - "favorable"
         - "unfavorable"
@@ -370,6 +374,7 @@ extraction:
 
     - name: "has_early_termination_fee"
       type: "string"
+      presentation: "signal"
       description: "Early termination fee"
       allowed_values:
         - "yes"
@@ -378,6 +383,7 @@ extraction:
 
     - name: "has_transition_period"
       type: "string"
+      presentation: "signal"
       description: "Переходный период"
       allowed_values:
         - "yes"
@@ -386,10 +392,13 @@ extraction:
 
     - name: "transition_period_value"
       type: "string"
+      presentation: "fact"
+      label: "Длительность переходного периода"
       description: "Длительность переходного периода"
 
     - name: "data_handling_after_termination"
       type: "string"
+      presentation: "signal"
       description: "Обращение с данными после расторжения"
       allowed_values:
         - "export_provided"
@@ -400,7 +409,8 @@ extraction:
 
     - name: "ip_license_survival"
       type: "string"
-      description: "Судьба IP / лицензий после расторжения"
+      presentation: "signal"
+      description: "Судьба IP / лицензий"
       allowed_values:
         - "terminated_immediately"
         - "terminated_with_transition"
@@ -410,6 +420,7 @@ extraction:
 
     - name: "confidentiality_survival"
       type: "string"
+      presentation: "signal"
       description: "Конфиденциальность после расторжения"
       allowed_values:
         - "none"
@@ -418,14 +429,12 @@ extraction:
         - "long"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true
+
 
   

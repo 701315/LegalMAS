@@ -872,17 +872,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "энергоснабжающая организация сбытовая компания сетевая организация гарантирующий поставщик абонент потребитель ИНН ОГРН именуем в лице действующего на основании устава доверенности реквизиты подписант лицензия"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - boilerplate
+      negative_keywords:
+        - "точка поставки"
+        - "граница балансовой принадлежности"
+        - "тариф"
+        - "оплата"
+        - "прибор учёта"
+        - "счётчик"
+        - "качество энергии"
+        - "ограничение подачи"
+        - "субабонент"
+        - "бездоговорное"
+        - "безучётное"
+        - "ОДН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.25
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "энергоснабжающая организация"
-        - "гарантирующий поставщик"
-        - "абонент"
-        - "ИНН"
-        - "ОГРН"
-        - "именуем"
-        - "действующий на основании"
-        - "лицензия"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -896,41 +917,94 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        данные об энергоснабжающей организации и абоненте: реквизиты, тип стороны,
+        подписанта и основание полномочий.
+        Не анализируй предмет договора, тариф, точку поставки, качество энергии
+        или порядок расчётов.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. eso_details_status — "defined" или "not_defined".
+        2. eso_details — наименование и реквизиты ЭСО.
+        3. eso_type — guaranteeing_supplier / sales_company / network_org / unclear / not_defined.
+        4. eso_signatory — подписант ЭСО.
+        5. eso_signatory_basis — charter / poa / order / other / not_defined.
+        6. subscriber_details_status — "defined" или "not_defined".
+        7. subscriber_details — наименование и реквизиты абонента.
+        8. subscriber_type — legal_entity / individual / ip / tszh / uk / not_defined.
+        9. subscriber_signatory — подписант абонента.
+        10. subscriber_signatory_basis — charter / poa / order / other / not_defined.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не делай предположений о типе стороны без прямого текста.
+        - Если из текста видно только, что это ЭСО, но не видно её точный тип, используй "unclear".
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "eso_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ЭСО прямо определена с реквизитами. Иначе 'not_defined'."
+          description: "Статус определения реквизитов энергоснабжающей организации."
         - name: "eso_details"
           type: "string"
-          description: "Реквизиты ЭСО. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Энергоснабжающая организация"
+          description: "Наименование и реквизиты энергоснабжающей организации."
         - name: "eso_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["guaranteeing_supplier", "sales_company", "network_org", "unclear", "not_defined"]
           description: "Тип энергоснабжающей организации."
         - name: "eso_signatory"
           type: "string"
-          description: "Подписант от ЭСО. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Подписант ЭСО"
+          description: "Подписант от энергоснабжающей организации."
         - name: "eso_signatory_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта ЭСО."
         - name: "subscriber_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если абонент прямо определён с реквизитами. Иначе 'not_defined'."
+          description: "Статус определения реквизитов абонента."
         - name: "subscriber_details"
           type: "string"
-          description: "Реквизиты абонента. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Абонент"
+          description: "Наименование и реквизиты абонента."
         - name: "subscriber_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["legal_entity", "individual", "ip", "tszh", "uk", "not_defined"]
           description: "Тип абонента."
         - name: "subscriber_signatory"
           type: "string"
-          description: "Подписант от абонента. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Подписант абонента"
+          description: "Подписант от абонента."
         - name: "subscriber_signatory_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта абонента."
       store_payload: true
@@ -1096,16 +1170,44 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "электрическая энергия тепловая энергия природный газ вид энергии подача энергии точка поставки граница балансовой принадлежности граница эксплуатационной ответственности граница раздела вводное устройство количество энергии объём потребления плановое потребление лимит потребления максимальная мощность присоединённая мощность договорной объём сверхдоговорное потребление превышение лимита энергопринимающее устройство через присоединённую сеть"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "тариф"
+        - "оплата"
+        - "срок оплаты"
+        - "пени"
+        - "прибор учёта"
+        - "счётчик"
+        - "показания"
+        - "поверка"
+        - "пломба"
+        - "субабонент"
+        - "ограничение подачи"
+        - "отключение"
+        - "качество энергии"
+        - "напряжение"
+        - "частота"
+        - "бездоговорное"
+        - "безучётное"
+        - "ОДН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.05, 0.50]
+        boost: 0.15
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "вид энергии"
-        - "точка поставки"
-        - "граница балансовой принадлежности"
-        - "количество энергии"
-        - "максимальная мощность"
-        - "энергопринимающее устройство"
-        - "присоединённая сеть"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1119,44 +1221,108 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 540
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        предмет договора: вид энергии, точку поставки, ссылку на акт разграничения
+        балансовой принадлежности, согласованный объём, максимальную мощность и
+        последствия превышения объёма или мощности.
+        Не анализируй тариф, учёт потребления, качество энергии или порядок отключения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. energy_type_status — "defined" или "not_defined".
+        2. energy_type — electricity / heat / gas / water / other / not_defined.
+        3. delivery_point_status — "defined" или "not_defined".
+        4. delivery_point_details — адрес или технический узел точки поставки.
+        5. boundary_act_status — "defined" или "not_defined".
+        6. boundary_act_details — ссылка на акт разграничения балансовой принадлежности.
+        7. agreed_volume_status — "defined" или "not_defined".
+        8. agreed_volume — согласованный объём потребления с единицей измерения.
+        9. max_capacity_status — "defined" или "not_defined".
+        10. max_capacity — максимальная мощность с единицей измерения.
+        11. excess_consumption_status — "defined" или "not_defined".
+        12. excess_consumption_details — последствия превышения объёма или мощности.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не подставляй технические нормы.
+        - Если вид энергии назван прямо, но остальные параметры отсутствуют, заполняй только найденные поля.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "energy_type_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если вид энергии прямо определён. Иначе 'not_defined'."
+          description: "Статус определения вида энергии."
         - name: "energy_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["electricity", "heat", "gas", "water", "other", "not_defined"]
           description: "Вид энергии."
         - name: "delivery_point_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если точка поставки прямо определена. Иначе 'not_defined'."
+          description: "Статус определения точки поставки."
         - name: "delivery_point_details"
           type: "string"
-          description: "Точка поставки. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Точка поставки"
+          description: "Конкретная точка поставки энергии."
         - name: "boundary_act_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если акт разграничения упомянут. Иначе 'not_defined'."
+          description: "Статус упоминания акта разграничения балансовой принадлежности."
+        - name: "boundary_act_details"
+          type: "string"
+          presentation: "fact"
+          label: "Акт разграничения"
+          description: "Ссылка на акт разграничения балансовой принадлежности."
         - name: "agreed_volume_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если объём прямо определён. Иначе 'not_defined'."
+          description: "Статус определения согласованного объёма."
         - name: "agreed_volume"
           type: "string"
-          description: "Объём с единицей. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Согласованный объём"
+          description: "Согласованный объём потребления с единицей измерения."
         - name: "max_capacity_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если мощность прямо определена. Иначе 'not_defined'."
+          description: "Статус определения максимальной мощности."
         - name: "max_capacity"
           type: "string"
-          description: "Максимальная мощность. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Максимальная мощность"
+          description: "Максимальная или присоединённая мощность."
         - name: "excess_consumption_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если последствия превышения прямо определены. Иначе 'not_defined'."
+          description: "Статус определения последствий превышения объёма или мощности."
+        - name: "excess_consumption_details"
+          type: "string"
+          presentation: "fact"
+          label: "Последствия превышения лимита"
+          description: "Последствия превышения согласованного объёма или мощности."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1301,17 +1467,44 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "тариф цена стоимость рублей за киловатт кВт гигакалория Гкал кубометр одноставочный тариф двухставочный тариф плата за мощность обязанность оплачивать срок оплаты ежемесячная оплата расчётный период пени за просрочку неустойка за неоплату энергосбытовая надбавка"
+      preferred_unit_types:
+        - payment_term
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "точка поставки"
+        - "граница балансовой принадлежности"
+        - "прибор учёта"
+        - "показания"
+        - "поверка"
+        - "пломба"
+        - "процедура ограничения подачи"
+        - "порядок ограничения"
+        - "предварительное уведомление об отключении"
+        - "поэтапное ограничение"
+        - "ответственность за перерывы"
+        - "реальный ущерб"
+        - "упущенная выгода"
+        - "субабонент"
+        - "бездоговорное"
+        - "безучётное"
+        - "ОДН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.65]
+        boost: 0.15
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "тариф"
-        - "цена"
-        - "оплата"
-        - "срок оплаты"
-        - "пени"
-        - "расчётный период"
-        - "энергосбытовая надбавка"
-        - "плата за мощность"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1325,44 +1518,102 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        условия о тарифе, типе тарифа, сроке оплаты, пенях за просрочку и праве
+        на ограничение или отключение при неоплате.
+        Не анализируй техническую процедуру отключения, качество энергии, учёт
+        потребления или предмет договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. tariff_status — "defined" или "not_defined".
+        2. tariff_type — fixed_amount / regulatory_reference / not_defined.
+        3. tariff_details — тариф или ссылка на регулирующий орган.
+        4. tariff_rate_type_status — "defined" или "not_defined".
+        5. tariff_rate_type — single_rate / two_rate / three_rate / not_defined.
+        6. payment_deadline_status — "defined" или "not_defined".
+        7. payment_deadline_details — срок оплаты.
+        8. penalty_status — "defined" или "not_defined".
+        9. penalty_details — ставка пени за просрочку оплаты.
+        10. disconnection_on_non_payment_status — "defined" или "not_defined".
+        11. disconnection_on_non_payment_details — условие ограничения или отключения при неоплате.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Если тариф дан через ссылку на регулятора, не пытайся вычислить конкретную цену.
+        - Не смешивай общее право ограничения при неоплате с полной процедурой ограничения — здесь извлекай только сам факт и условие.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "tariff_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если тариф или ссылка на регулятора прямо определены. Иначе 'not_defined'."
+          description: "Статус определения тарифа."
         - name: "tariff_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["fixed_amount", "regulatory_reference", "not_defined"]
           description: "Тип указания тарифа."
         - name: "tariff_details"
           type: "string"
-          description: "Тариф или ссылка. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Тариф"
+          description: "Тариф или ссылка на регулирующий орган."
         - name: "tariff_rate_type_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если тип тарифа (одно/двухставочный) прямо определён. Иначе 'not_defined'."
+          description: "Статус определения тарифной структуры."
         - name: "tariff_rate_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["single_rate", "two_rate", "three_rate", "not_defined"]
           description: "Тип тарифной структуры."
         - name: "payment_deadline_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок оплаты прямо определён. Иначе 'not_defined'."
+          description: "Статус определения срока оплаты."
         - name: "payment_deadline_details"
           type: "string"
-          description: "Срок оплаты. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок оплаты"
+          description: "Срок оплаты потреблённой энергии."
         - name: "penalty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если пени за просрочку прямо определены. Иначе 'not_defined'."
+          description: "Статус определения пени за просрочку оплаты."
         - name: "penalty_details"
           type: "string"
-          description: "Ставка пени. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Пени за просрочку"
+          description: "Ставка пени за просрочку оплаты."
         - name: "disconnection_on_non_payment_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право отключения при неоплате прямо определено. Иначе 'not_defined'."
+          description: "Статус определения права ограничения или отключения при неоплате."
+        - name: "disconnection_on_non_payment_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ограничение при неоплате"
+          description: "Условие ограничения или отключения при неоплате."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1504,16 +1755,40 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "прибор учёта счётчик учёт потребления показания прибора поверка пломба расчёт по нормативу содержание приборов учёта поверка счётчиков исправность приборов учёта обеспечение доступа к счётчикам замена приборов учёта АСКУЭ передача показаний дата поверки следующая поверка"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "бездоговорное потребление"
+        - "безучётное потребление"
+        - "несанкционированное подключение"
+        - "хищение энергии"
+        - "санкции за нарушение учёта"
+        - "немедленное отключение при безучётном"
+        - "акт о нарушении"
+        - "тариф"
+        - "срок оплаты"
+        - "пени"
+        - "граница балансовой принадлежности"
+        - "точка поставки"
+        - "ограничение подачи"
+        - "ОДН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.70]
+        boost: 0.15
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "прибор учета"
-        - "счётчик"
-        - "показания"
-        - "поверка"
-        - "пломба"
-        - "расчет по нормативу"
-        - "АСКУЭ"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1527,38 +1802,98 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        условия об учёте потребления: порядок учёта, реквизиты прибора, передачу
+        показаний, расчёт при отсутствии или неисправности прибора, поверку и
+        последствия повреждения пломбы.
+        Не анализируй безучётное потребление как нарушение, тариф, качество энергии
+        или порядок отключения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. metering_procedure_status — "defined" или "not_defined".
+        2. meter_details_status — "defined" или "not_defined".
+        3. meter_details — тип, номер, дата поверки и иные реквизиты прибора учёта.
+        4. reading_submission_status — "defined" или "not_defined".
+        5. reading_submission_details — срок или порядок передачи показаний.
+        6. calculation_without_meter_status — "defined" или "not_defined".
+        7. calculation_without_meter — normative / calculated / not_defined.
+        8. verification_obligation_status — "defined" или "not_defined".
+        9. seal_tampering_status — "defined" или "not_defined".
+        10. seal_tampering_details — последствия повреждения пломбы или вмешательства.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не подставляй правила коммерческого учёта, если их нет в тексте.
+        - normative = расчёт по нормативу.
+        - calculated = расчётным способом по формуле, мощности, среднему потреблению и т.п.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "metering_procedure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок учёта прямо определён. Иначе 'not_defined'."
+          description: "Статус определения порядка учёта потребления."
         - name: "meter_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если реквизиты прибора прямо указаны. Иначе 'not_defined'."
+          description: "Статус указания реквизитов прибора учёта."
         - name: "meter_details"
           type: "string"
-          description: "Реквизиты прибора. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Прибор учёта"
+          description: "Тип, номер и иные реквизиты прибора учёта."
         - name: "reading_submission_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок передачи показаний прямо определён. Иначе 'not_defined'."
+          description: "Статус определения порядка передачи показаний."
+        - name: "reading_submission_details"
+          type: "string"
+          presentation: "fact"
+          label: "Передача показаний"
+          description: "Срок или порядок передачи показаний прибора учёта."
         - name: "calculation_without_meter_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если расчёт без прибора прямо определён. Иначе 'not_defined'."
+          description: "Статус определения расчёта при отсутствии или неисправности прибора."
         - name: "calculation_without_meter"
           type: "string"
+          presentation: "signal"
           allowed_values: ["normative", "calculated", "not_defined"]
-          description: "Метод расчёта при отсутствии/неисправности прибора."
+          description: "Метод расчёта при отсутствии или неисправности прибора учёта."
         - name: "verification_obligation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если обязанность по поверке прямо определена. Иначе 'not_defined'."
+          description: "Статус обязанности по поверке прибора учёта."
         - name: "seal_tampering_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если последствия повреждения пломбы прямо определены. Иначе 'not_defined'."
+          description: "Статус определения последствий повреждения пломбы."
+        - name: "seal_tampering_details"
+          type: "string"
+          presentation: "fact"
+          label: "Последствия повреждения пломбы"
+          description: "Последствия повреждения пломбы или несанкционированного вмешательства."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1648,15 +1983,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "надлежащее техническое состояние энергопринимающее оборудование энергопринимающие устройства соблюдение режима потребления немедленно сообщить уведомить об аварии неисправность оборудования авария содержание внутренних сетей субабонент передача энергии третьим лицам подключение третьих лиц с согласия энергоснабжающей транзит энергии запрещается передача энергии"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "ограничение подачи"
+        - "прекращение подачи"
+        - "порядок отключения"
+        - "предварительное уведомление об отключении"
+        - "возобновление подачи"
+        - "тариф"
+        - "оплата"
+        - "пени"
+        - "прибор учёта"
+        - "поверка"
+        - "бездоговорное"
+        - "безучётное"
+        - "ОДН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.75]
+        boost: 0.12
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "надлежащее техническое состояние"
-        - "энергопринимающее оборудование"
-        - "немедленно сообщить"
-        - "авария"
-        - "субабонент"
-        - "передача энергии третьим лицам"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1670,30 +2029,90 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        обязанности абонента по содержанию оборудования и внутренних сетей,
+        уведомлению об авариях, праву ЭСО на проверку, а также условия о субабоненте.
+        Не анализируй учёт потребления, тариф, качество энергии или общие условия расторжения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. network_maintenance_status — "defined" или "not_defined".
+        2. network_maintenance_details — обязанности по содержанию сетей и оборудования.
+        3. accident_notification_status — "defined" или "not_defined".
+        4. accident_notification_deadline — срок уведомления об аварии.
+        5. eso_inspection_right_status — "defined" или "not_defined".
+        6. sub_subscriber_status — "defined" или "not_defined".
+        7. sub_subscriber_regime — prohibited / permitted_with_consent / not_defined.
+        8. sub_subscriber_penalty_status — "defined" или "not_defined".
+        9. sub_subscriber_penalty_details — последствия несогласованного субабонентского подключения.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - "Допускается с согласия ЭСО" = permitted_with_consent.
+        - "Запрещается", "не допускается" = prohibited.
+        - Не анализируй последствия ограничения подачи — только последствия несогласованного подключения третьих лиц.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "network_maintenance_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если обязанность содержать сети прямо определена. Иначе 'not_defined'."
+          description: "Статус обязанности абонента содержать сети и оборудование."
+        - name: "network_maintenance_details"
+          type: "string"
+          presentation: "fact"
+          label: "Содержание сетей и оборудования"
+          description: "Обязанности абонента по содержанию энергопринимающего оборудования и внутренних сетей."
         - name: "accident_notification_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок уведомления об авариях прямо определён. Иначе 'not_defined'."
+          description: "Статус определения срока уведомления об аварии."
         - name: "accident_notification_deadline"
           type: "string"
-          description: "Срок уведомления. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок уведомления об аварии"
+          description: "Срок или порядок уведомления ЭСО об аварии."
         - name: "eso_inspection_right_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право ЭСО на проверку прямо определено. Иначе 'not_defined'."
+          description: "Статус права ЭСО на проверку оборудования абонента."
         - name: "sub_subscriber_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие о субабоненте прямо определено. Иначе 'not_defined'."
+          description: "Статус условия о субабоненте."
         - name: "sub_subscriber_regime"
           type: "string"
+          presentation: "signal"
           allowed_values: ["prohibited", "permitted_with_consent", "not_defined"]
           description: "Режим субабонентского подключения."
+        - name: "sub_subscriber_penalty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения последствий несогласованного субабонентского подключения."
+        - name: "sub_subscriber_penalty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Последствия несогласованного субабонента"
+          description: "Последствия передачи энергии третьим лицам без согласия ЭСО."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1704,7 +2123,7 @@ checks_v8:
     description: >
       Фактографическая проверка наличия срока действия, автоматической пролонгации,
       условий расторжения (с учётом асимметрии прав гражданина и юрлица), форс-мажора,
-      претензионного порядка, подсудности и конфиденциальности.
+      претензионного порядка.
     triggers: {}
     severity: "high"
     origin: "DOCUMENT_TYPE"
@@ -1728,15 +2147,7 @@ checks_v8:
         - "непреодолимая сила"
         - "авария в сетях"
         - "внеплановый ремонт"
-        - "арбитражный суд"
-        - "подведомственность"
-        - "подсудность"
-        - "досудебный порядок"
-        - "претензионный порядок"
-        - "конфиденциальность"
-        - "коммерческая тайна"
-        - "персональные данные"
-        - "неразглашение"
+
       keyword_mode: "any"
       regex_patterns:
         - "(?i)договор.*действует.*до"
@@ -1746,10 +2157,7 @@ checks_v8:
         - "(?i)одностороннем\\s+порядке"
         - "(?i)форс.*мажор.*энергоснабжен"
         - "(?i)освобождение.*от.*ответственности.*при.*аварии"
-        - "(?i)арбитражн.*суд"
-        - "(?i)претензионн.*порядок"
-        - "(?i)конфиденциал"
-        - "(?i)персональные.*данные"
+
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -1764,9 +2172,6 @@ checks_v8:
         3. Право абонента на расторжение (одностороннее / с согласия ЭСО / по суду).
         4. Право ЭСО на расторжение (при неоплате / с уведомлением / по суду).
         5. Наличие форс-мажорной оговорки (с указанием специфики энергоснабжения).
-        6. Претензионный порядок (срок претензии, срок ответа).
-        7. Подсудность (конкретный суд).
-        8. Условие о конфиденциальности.
 
         [ПРАВИЛА]
         1. Только текст документа.
@@ -1797,11 +2202,6 @@ checks_v8:
           "eso_termination_details": "с согласия или по решению суда",
           "force_majeure_status": "not_defined",
           "force_majeure_details": "Данные не определены",
-          "pretrial_status": "defined",
-          "pretrial_details": "претензионный срок 30 дней",
-          "jurisdiction_status": "defined",
-          "jurisdiction_details": "Арбитражный суд г. Москвы",
-          "confidentiality_status": "not_defined",
           "evidence": [
             {
               "clause_ref": "п. 8.1",
@@ -1815,8 +2215,6 @@ checks_v8:
         2. Указано ли автопродление с конкретным сроком уведомления?
         3. Разграничены ли права гражданина и юрлица на расторжение?
         4. Есть ли форс-мажор с упоминанием специфики энергетики (аварии в сетях)?
-        5. Указаны ли конкретные сроки претензионного порядка?
-        6. Назван ли конкретный суд?
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -1832,29 +2230,47 @@ checks_v8:
           "eso_termination_details": "<условия или 'Данные не определены'>",
           "force_majeure_status": "<defined / not_defined>",
           "force_majeure_details": "<текст или 'Данные не определены'>",
-          "pretrial_status": "<defined / not_defined>",
-          "pretrial_details": "<сроки или 'Данные не определены'>",
-          "jurisdiction_status": "<defined / not_defined>",
-          "jurisdiction_details": "<суд или 'Данные не определены'>",
-          "confidentiality_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 8
       temperature: 0.0
       max_tokens: 800
     retrieval:
+      retrieval_query: "срок действия договора пролонгация автоматически продлевается возобновляется на тот же срок на неопределённый срок расторжение договора односторонний отказ право на отказ прекращение договора досрочное расторжение уведомление о расторжении форс-мажор непреодолимая сила авария в сетях внеплановый ремонт освобождение от ответственности"
+      preferred_unit_types:
+        - termination_provision
+        - general_provision
+        - liability_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - procedures
+        - remedies
+      negative_keywords:
+        - "тариф"
+        - "оплата"
+        - "пени"
+        - "прибор учёта"
+        - "ограничение подачи"
+        - "процедура отключения"
+        - "ответственность за перерывы"
+        - "реальный ущерб"
+        - "упущенная выгода"
+        - "бездоговорное"
+        - "безучётное"
+        - "субабонент"
+        - "ОДН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.55, 1.0]
+        boost: 0.20
+        scope: segment
       context_k: 8
       max_chunks: 12
-      boost_keywords:
-        - "срок действия"
-        - "пролонгация"
-        - "расторжение"
-        - "односторонний отказ"
-        - "форс-мажор"
-        - "авария в сетях"
-        - "претензионный порядок"
-        - "арбитражный суд"
-        - "конфиденциальность"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1869,45 +2285,98 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        только энергоспецифичные общие условия: срок действия договора, автоматическую
+        пролонгацию, право абонента на расторжение, право ЭСО на расторжение и
+        форс-мажорную оговорку.
+        Не анализируй подсудность, претензионный порядок или конфиденциальность —
+        эти темы проверяются отдельно глобальными проверками.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. contract_term_status — "defined" или "not_defined".
+        2. contract_term_details — срок действия договора или указание на неопределённый срок.
+        3. auto_renewal_status — "defined" или "not_defined".
+        4. auto_renewal_notice_period — срок уведомления о непролонгации.
+        5. subscriber_termination_status — "defined" или "not_defined".
+        6. subscriber_termination_regime — unilateral / mutual_consent / court_only / unilateral_for_individual_court_for_legal / not_defined.
+        7. eso_termination_status — "defined" или "not_defined".
+        8. eso_termination_details — условия расторжения со стороны ЭСО.
+        9. force_majeure_status — "defined" или "not_defined".
+        10. force_majeure_details — текст форс-мажорной оговорки.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Если права расторжения различаются для гражданина и юрлица, используй
+          unilateral_for_individual_court_for_legal.
+        - Не подставляй нормы ГК без прямого текста договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "contract_term_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок действия договора прямо определён. Иначе 'not_defined'."
+          description: "Статус определения срока действия договора."
         - name: "contract_term_details"
           type: "string"
-          description: "Срок договора. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок действия договора"
+          description: "Срок действия договора или указание на неопределённый срок."
         - name: "auto_renewal_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если автоматическая пролонгация прямо определена. Иначе 'not_defined'."
+          description: "Статус определения автоматической пролонгации."
         - name: "auto_renewal_notice_period"
           type: "string"
-          description: "Срок уведомления о непролонгации. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок уведомления о непролонгации"
+          description: "Срок уведомления о непролонгации договора."
         - name: "subscriber_termination_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право абонента на расторжение прямо определено. Иначе 'not_defined'."
+          description: "Статус определения права абонента на расторжение."
         - name: "subscriber_termination_regime"
           type: "string"
+          presentation: "signal"
           allowed_values: ["unilateral", "mutual_consent", "court_only", "unilateral_for_individual_court_for_legal", "not_defined"]
-          description: "Режим расторжения для абонента."
+          description: "Режим расторжения договора для абонента."
+        - name: "eso_termination_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения права ЭСО на расторжение."
+        - name: "eso_termination_details"
+          type: "string"
+          presentation: "fact"
+          label: "Расторжение со стороны ЭСО"
+          description: "Условия расторжения договора со стороны энергоснабжающей организации."
         - name: "force_majeure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если форс-мажорная оговорка прямо определена. Иначе 'not_defined'."
-        - name: "pretrial_status"
+          description: "Статус наличия форс-мажорной оговорки."
+        - name: "force_majeure_details"
           type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если претензионный порядок прямо определён. Иначе 'not_defined'."
-        - name: "jurisdiction_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если подсудность прямо определена. Иначе 'not_defined'."
-        - name: "confidentiality_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие о конфиденциальности прямо определено. Иначе 'not_defined'."
+          presentation: "fact"
+          label: "Форс-мажор"
+          description: "Текст форс-мажорной оговорки."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1987,14 +2456,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "качество энергии параметры качества соответствие ГОСТ напряжение частота температура давление технические условия ГОСТ 32144 ГОСТ 30491 надлежащее качество энергии ответственность за нарушение качества перепады напряжения отклонение частоты"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "тариф"
+        - "оплата"
+        - "прибор учёта"
+        - "учёт потребления"
+        - "ограничение подачи"
+        - "отключение"
+        - "субабонент"
+        - "бездоговорное"
+        - "безучётное"
+        - "ОДН"
+        - "точка поставки"
+        - "граница балансовой принадлежности"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.80]
+        boost: 0.10
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "качество энергии"
-        - "параметры качества"
-        - "ГОСТ"
-        - "напряжение"
-        - "температура"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2008,38 +2502,91 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 480
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        требования к качеству подаваемой энергии: уровень детализации, конкретные
+        технические параметры, ссылку на ГОСТ или иной нормативный документ, а также
+        наличие ответственности за нарушение качества.
+        Не анализируй тариф, отключение, учёт потребления или общие условия договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. quality_requirements_status — "defined" или "not_defined".
+        2. quality_requirements_level — detailed / basic / not_defined.
+        3. voltage_status — "defined" или "not_defined".
+        4. frequency_status — "defined" или "not_defined".
+        5. temperature_status — "defined" или "not_defined".
+        6. pressure_status — "defined" или "not_defined".
+        7. gost_reference_status — "defined" или "not_defined".
+        8. gost_reference_details — ГОСТ или иной нормативный документ.
+        9. liability_for_poor_quality_status — "defined" или "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - basic = есть только общее указание на надлежащее качество.
+        - detailed = есть хотя бы один конкретный параметр или нормативная ссылка.
+        - Не подставляй ГОСТ или технические требования из внешних норм.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "quality_requirements_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если требования к качеству прямо определены. Иначе 'not_defined'."
+          description: "Статус наличия требований к качеству энергии."
         - name: "quality_requirements_level"
           type: "string"
+          presentation: "signal"
           allowed_values: ["detailed", "basic", "not_defined"]
-          description: "Уровень детализации: detailed (числа) / basic (общие слова) / не определено."
+          description: "Уровень детализации требований к качеству энергии."
         - name: "voltage_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если напряжение прямо указано. Иначе 'not_defined'."
+          description: "Статус указания напряжения."
         - name: "frequency_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если частота прямо указана. Иначе 'not_defined'."
+          description: "Статус указания частоты."
         - name: "temperature_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если температура прямо указана. Иначе 'not_defined'."
+          description: "Статус указания температуры."
+        - name: "pressure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания давления."
         - name: "gost_reference_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ГОСТ прямо указан. Иначе 'not_defined'."
+          description: "Статус ссылки на ГОСТ или иной нормативный документ."
         - name: "gost_reference_details"
           type: "string"
-          description: "ГОСТ. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Норматив по качеству энергии"
+          description: "ГОСТ или иной нормативный документ, указанный в договоре."
         - name: "liability_for_poor_quality_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ответственность за некачественную энергию прямо определена. Иначе 'not_defined'."
+          description: "Статус условия об ответственности за нарушение качества энергии."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2117,13 +2664,40 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "ограничение подачи прекращение подачи отключение энергии предварительное уведомление срок для устранения нарушений при неоплате порядок отключения возобновление подачи поэтапное ограничение частичное ограничение полное прекращение расходы на возобновление основания ограничения"
+      preferred_unit_types:
+        - liability_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - remedies
+        - limitations
+      negative_keywords:
+        - "тариф"
+        - "пени за просрочку оплаты"
+        - "ответственность за перерывы в подаче"
+        - "реальный ущерб"
+        - "упущенная выгода"
+        - "форс-мажор"
+        - "авария в сетях как исключение из ответственности"
+        - "прибор учёта"
+        - "субабонент"
+        - "бездоговорное"
+        - "безучётное"
+        - "ОДН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.35, 0.90]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "ограничение подачи"
-        - "отключение энергии"
-        - "предварительное уведомление"
-        - "возобновление подачи"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2138,34 +2712,92 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        процедуру ограничения и прекращения подачи энергии: основания, срок уведомления,
+        поэтапность ограничения, порядок возобновления подачи и распределение расходов.
+        Не анализируй обычные расчётные санкции за неоплату, качество энергии,
+        безучётное потребление или общую ответственность за перерывы.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. limitation_procedure_status — "defined" или "not_defined".
+        2. limitation_procedure_level — detailed / basic / not_defined.
+        3. grounds_status — "defined" или "not_defined".
+        4. grounds_details — основания ограничения или отключения.
+        5. notice_period_status — "defined" или "not_defined".
+        6. notice_period_days — срок уведомления.
+        7. phased_limitation_status — "defined" или "not_defined".
+        8. restoration_procedure_status — "defined" или "not_defined".
+        9. restoration_cost_allocation — subscriber / supplier / not_defined.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - basic = есть только общее право ограничить или прекратить подачу.
+        - detailed = есть основания и хотя бы один процедурный элемент
+          (срок уведомления / поэтапность / порядок восстановления).
+        - Если срок уведомления не указан числом или периодом, не считай его defined.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "limitation_procedure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если процедура ограничения прямо определена. Иначе 'not_defined'."
+          description: "Статус наличия процедуры ограничения или прекращения подачи."
         - name: "limitation_procedure_level"
           type: "string"
+          presentation: "signal"
           allowed_values: ["detailed", "basic", "not_defined"]
-          description: "Уровень детализации процедуры."
+          description: "Уровень детализации процедуры ограничения или прекращения подачи."
+        - name: "grounds_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения оснований ограничения или отключения."
+        - name: "grounds_details"
+          type: "string"
+          presentation: "fact"
+          label: "Основания ограничения/отключения"
+          description: "Основания для ограничения или прекращения подачи энергии."
         - name: "notice_period_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок уведомления прямо определён. Иначе 'not_defined'."
+          description: "Статус определения срока предварительного уведомления."
         - name: "notice_period_days"
           type: "string"
-          description: "Срок уведомления. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок уведомления об ограничении"
+          description: "Срок предварительного уведомления перед ограничением или отключением."
         - name: "phased_limitation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если поэтапность прямо определена. Иначе 'not_defined'."
+          description: "Статус определения поэтапности ограничения подачи."
         - name: "restoration_procedure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок возобновления прямо определён. Иначе 'not_defined'."
+          description: "Статус определения порядка возобновления подачи энергии."
         - name: "restoration_cost_allocation"
           type: "string"
+          presentation: "signal"
           allowed_values: ["subscriber", "supplier", "not_defined"]
-          description: "Кто несёт расходы на возобновление."
+          description: "Кто несёт расходы на возобновление подачи энергии."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2238,13 +2870,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "ответственность за перерывы в подаче возмещение ущерба простой оборудования несанкционированное отключение компенсация убытков прерывание подачи неподача энергии реальный ущерб упущенная выгода исключение упущенной выгоды авария в сетях фиксация перерыва акт о перерыве"
+      preferred_unit_types:
+        - liability_provision
+        - indemnification
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - limitations
+      negative_keywords:
+        - "ограничение подачи при неоплате"
+        - "отключение за долги"
+        - "пени за просрочку оплаты"
+        - "процедура отключения"
+        - "предварительное уведомление об отключении"
+        - "поэтапное ограничение"
+        - "форс-мажор как основание расторжения"
+        - "прибор учёта"
+        - "бездоговорное"
+        - "безучётное"
+        - "ОДН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.35, 0.90]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 6
-      boost_keywords:
-        - "ответственность за перерывы"
-        - "возмещение ущерба"
-        - "реальный ущерб"
-        - "компенсация убытков"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2258,23 +2915,91 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        условия об ответственности за перерывы в подаче энергии: наличие ответственности,
+        её вид, вопрос упущенной выгоды, исключения и порядок фиксации перерыва.
+        Не анализируй порядок ограничения подачи за неоплату, качество энергии,
+        форс-мажор в общем виде или санкции за безучётное потребление.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. liability_status — "defined" или "not_defined".
+        2. liability_type_status — "defined" или "not_defined".
+        3. liability_type — real_damage / penalty / both / not_defined.
+        4. lost_profit_excluded_status — "defined" или "not_defined".
+        5. lost_profit_excluded — yes / no / not_defined.
+        6. exclusions_status — "defined" или "not_defined".
+        7. force_majeure_exclusion_status — "defined" или "not_defined".
+        8. grid_accident_exclusion_status — "defined" или "not_defined".
+        9. interruption_fixation_status — "defined" или "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - enum-поле = "not_defined"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - yes для lost_profit_excluded — только если упущенная выгода прямо исключена.
+        - no — только если упущенная выгода прямо допускается.
+        - Если сказано просто "возмещаются убытки", не делай автоматический вывод об исключении упущенной выгоды.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "liability_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ответственность за перерывы прямо определена. Иначе 'not_defined'."
+          description: "Статус наличия условия об ответственности за перерывы."
+        - name: "liability_type_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения вида ответственности за перерывы."
         - name: "liability_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["real_damage", "penalty", "both", "not_defined"]
-          description: "Вид ответственности."
+          description: "Вид ответственности за перерывы в подаче энергии."
+        - name: "lost_profit_excluded_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус прямого условия об упущенной выгоде."
         - name: "lost_profit_excluded"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Верни 'yes', если упущенная выгода явно исключена (правильно по ст. 547 ГК). Иначе 'no' или 'not_defined'."
+          description: "Исключена ли упущенная выгода."
+        - name: "exclusions_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия исключений из ответственности за перерывы."
         - name: "force_majeure_exclusion_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если форс-мажор как исключение прямо указан. Иначе 'not_defined'."
+          description: "Статус указания форс-мажора как исключения."
+        - name: "grid_accident_exclusion_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания аварии в сетях как исключения."
+        - name: "interruption_fixation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения порядка фиксации перерыва в подаче."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2351,13 +3076,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "бездоговорное потребление безучётное потребление несанкционированное подключение хищение энергии взыскание ущерба расчёт объёма потребления неучтённое потребление методика расчёта при нарушении санкции за нарушение учёта немедленное отключение акт о нарушении безучётного потребления"
+      preferred_unit_types:
+        - liability_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - remedies
+        - procedures
+      negative_keywords:
+        - "прибор учёта в норме"
+        - "передача показаний"
+        - "поверка счётчика"
+        - "расчёт по нормативу при неисправности"
+        - "пломба при штатном использовании"
+        - "тариф"
+        - "срок оплаты"
+        - "пени за просрочку"
+        - "ограничение подачи при неоплате"
+        - "субабонент"
+        - "ОДН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "бездоговорное потребление"
-        - "безучетное потребление"
-        - "несанкционированное подключение"
-        - "хищение энергии"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2372,26 +3123,91 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        условия о бездоговорном и безучётном потреблении: наличие определений,
+        методику расчёта, санкции, право немедленного отключения и порядок оформления акта.
+        Не анализируй обычный порядок учёта, стандартную процедуру ограничения подачи
+        или ответственность за обычную просрочку оплаты.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. unauthorized_clause_status — "defined" или "not_defined".
+        2. unauthorized_clause_level — detailed / basic / not_defined.
+        3. non_contracted_defined_status — "defined" или "not_defined".
+        4. unmetered_defined_status — "defined" или "not_defined".
+        5. calculation_method_status — "defined" или "not_defined".
+        6. calculation_method_details — методика расчёта.
+        7. penalty_status — "defined" или "not_defined".
+        8. immediate_disconnection_status — "defined" или "not_defined".
+        9. act_procedure_status — "defined" или "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - basic = есть только общее упоминание о запрете или ответственности.
+        - detailed = есть определения и хотя бы один процедурный или расчётный элемент.
+        - Не подставляй методику из внешнего регулирования.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "unauthorized_clause_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие о неразрешённом потреблении прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия условия о бездоговорном или безучётном потреблении."
         - name: "unauthorized_clause_level"
           type: "string"
+          presentation: "signal"
           allowed_values: ["detailed", "basic", "not_defined"]
-          description: "Уровень детализации."
+          description: "Уровень детализации условий о несанкционированном потреблении."
+        - name: "non_contracted_defined_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия определения бездоговорного потребления."
+        - name: "unmetered_defined_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия определения безучётного потребления."
         - name: "calculation_method_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если методика расчёта прямо определена. Иначе 'not_defined'."
+          description: "Статус определения методики расчёта при выявлении нарушения."
         - name: "calculation_method_details"
           type: "string"
-          description: "Метод расчёта. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Методика расчёта нарушения"
+          description: "Методика расчёта объёма или начислений при нарушении."
+        - name: "penalty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения санкций за нарушение."
         - name: "immediate_disconnection_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право немедленного отключения прямо определено. Иначе 'not_defined'."
+          description: "Статус права немедленного отключения."
+        - name: "act_procedure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения порядка оформления акта о нарушении."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2469,14 +3285,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "промышленный потребитель надёжность энергоснабжения бесперебойная подача резервные источники питания убытки от простоя первая категория надёжности вторая категория надёжности особый режим потребления приоритетное восстановление резервное энергоснабжение запрет полного отключения критическая инфраструктура объекты жизнеобеспечения"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - liability_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - remedies
+        - limitations
+      negative_keywords:
+        - "стандартный абонент"
+        - "тариф"
+        - "срок оплаты"
+        - "прибор учёта"
+        - "бездоговорное"
+        - "безучётное"
+        - "субабонент"
+        - "ОДН"
+        - "МКД"
+        - "внутридомовые сети"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 5
       max_chunks: 6
-      boost_keywords:
-        - "промышленный потребитель"
-        - "категория надежности"
-        - "резервное питание"
-        - "убытки от простоя"
-        - "приоритетное восстановление"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2491,27 +3331,87 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 460
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        специальные условия для промышленных потребителей и объектов критической
+        инфраструктуры: категорию надёжности, резервное питание, приоритетное
+        восстановление подачи, компенсацию убытков от простоя и запрет полного отключения.
+        Не анализируй стандартные условия обычного абонента, тариф, качество энергии
+        или общую процедуру ограничения подачи.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. reliability_category_status — "defined" или "not_defined".
+        2. reliability_category — первая / вторая / третья / not_defined.
+        3. backup_power_status — "defined" или "not_defined".
+        4. backup_power_details — требования к резервному питанию.
+        5. priority_restoration_status — "defined" или "not_defined".
+        6. downtime_compensation_status — "defined" или "not_defined".
+        7. downtime_compensation_details — условия компенсации убытков от простоя.
+        8. disconnection_prohibition_status — "defined" или "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не выводи категорию надёжности из характера объекта без прямого указания.
+        - Учитывай только специальные условия для промышленных потребителей,
+          объектов первой/второй/третьей категории, критической инфраструктуры
+          или объектов жизнеобеспечения.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "reliability_category_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если категория надёжности прямо определена. Иначе 'not_defined'."
+          description: "Статус определения категории надёжности."
         - name: "reliability_category"
           type: "string"
+          presentation: "signal"
           allowed_values: ["первая", "вторая", "третья", "not_defined"]
-          description: "Категория надёжности."
+          description: "Категория надёжности энергоснабжения."
         - name: "backup_power_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если требование резервного питания прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия требований к резервному питанию."
+        - name: "backup_power_details"
+          type: "string"
+          presentation: "fact"
+          label: "Резервное питание"
+          description: "Требования к резервному источнику или резервному энергоснабжению."
         - name: "priority_restoration_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если приоритетное восстановление прямо определено. Иначе 'not_defined'."
+          description: "Статус условия о приоритетном восстановлении подачи."
         - name: "downtime_compensation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если компенсация убытков от простоя прямо определена. Иначе 'not_defined'."
+          description: "Статус определения компенсации убытков от простоя."
+        - name: "downtime_compensation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Компенсация убытков от простоя"
+          description: "Условия компенсации убытков от простоя из-за перерыва энергоснабжения."
+        - name: "disconnection_prohibition_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус запрета полного отключения для специальных объектов."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2583,14 +3483,36 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "многоквартирный дом внутридомовые сети общедомовые нужды ОДН обслуживание общедомового имущества граница балансовой принадлежности МКД граница эксплуатационной ответственности МКД общедомовой прибор учёта ОДПУ ТСЖ управляющая компания расчёт ОДН ответственность за внутридомовые сети"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "граница балансовой принадлежности в точке поставки"
+        - "точка поставки промышленного потребителя"
+        - "тариф"
+        - "срок оплаты"
+        - "прибор учёта индивидуальный"
+        - "бездоговорное"
+        - "безучётное"
+        - "субабонент"
+        - "категория надёжности"
+        - "промышленный потребитель"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 5
       max_chunks: 6
-      boost_keywords:
-        - "многоквартирный дом"
-        - "внутридомовые сети"
-        - "ОДН"
-        - "граница балансовой принадлежности"
-        - "общедомовой прибор учёта"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2604,34 +3526,80 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 460
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
+        специальные условия для многоквартирного дома: границу балансовой принадлежности,
+        коллективный прибор учёта, порядок расчёта ОДН и ответственность УК/ТСЖ
+        за внутридомовые сети.
+        Не анализируй общие условия обычного абонента, тариф, качество энергии,
+        промышленные категории надёжности или общий порядок ограничения подачи.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. mcd_clause_status — "defined" или "not_defined".
+        2. boundary_status — "defined" или "not_defined".
+        3. boundary_details — описание границы балансовой принадлежности.
+        4. collective_meter_status — "defined" или "not_defined".
+        5. odn_calculation_status — "defined" или "not_defined".
+        6. maintenance_responsibility_status — "defined" или "not_defined".
+        7. maintenance_responsibility — eso / tszh_uk / not_defined.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Учитывай только прямые специальные условия для МКД, ТСЖ, ЖСК, управляющей компании
+          или общедомового имущества.
+        - Не делай вывод о применимости к МКД без прямого текста.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "mcd_clause_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условия для МКД прямо определены. Иначе 'not_defined'."
+          description: "Статус наличия специальных условий для многоквартирного дома."
         - name: "boundary_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если граница балансовой принадлежности прямо определена. Иначе 'not_defined'."
+          description: "Статус определения границы балансовой принадлежности."
         - name: "boundary_details"
           type: "string"
-          description: "Описание границы. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Граница балансовой принадлежности"
+          description: "Описание границы балансовой принадлежности или эксплуатационной ответственности."
         - name: "collective_meter_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если коллективный прибор учёта прямо упомянут. Иначе 'not_defined'."
+          description: "Статус упоминания коллективного (общедомового) прибора учёта."
         - name: "odn_calculation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок расчёта ОДН прямо определён. Иначе 'not_defined'."
+          description: "Статус определения порядка расчёта ОДН."
         - name: "maintenance_responsibility_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ответственный за внутридомовые сети прямо определён. Иначе 'not_defined'."
+          description: "Статус определения ответственного за внутридомовые сети."
         - name: "maintenance_responsibility"
           type: "string"
+          presentation: "signal"
           allowed_values: ["eso", "tszh_uk", "not_defined"]
-          description: "Ответственный за внутридомовые сети."
+          description: "Кто отвечает за внутридомовые сети."
       store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -663,18 +663,32 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "продавец наименование ОГРН ОГРНИП ИНН адрес юридический адрес индивидуальный предприниматель наименование товара предмет договора предмет оферты описание товара артикул комплектация"
+      preferred_unit_types:
+        - general_provision
+        - obligation
+      excluded_unit_types:
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - definitions
+      negative_keywords:
+        - "цена"
+        - "стоимость"
+        - "оплата"
+        - "доставка"
+        - "возврат"
+        - "гарантия"
+        - "недостаток"
+        - "персональные данные"
+        - "маркетплейс"
+      position_bias:
+        preferred_range: [0.0, 0.25]
+        boost: 0.20
+        scope: segment
       context_k: 6
       max_chunks: 10
-      boost_keywords:
-        - "продавец"
-        - "ОГРН"
-        - "ОГРНИП"
-        - "ИНН"
-        - "адрес"
-        - "наименование"
-        - "товар"
-        - "предмет"
-        - "артикул"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -688,42 +702,96 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из текста публичной оферты
+        сведения о продавце и предмете договора.
+        Анализируй только эти элементы.
+        Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. seller_name_status — "defined" если прямо указано наименование продавца, иначе "not_defined".
+        2. seller_name — полное наименование продавца.
+        3. seller_ogrn_status — "defined" если указан ОГРН или ОГРНИП, иначе "not_defined".
+        4. seller_ogrn — числовой ОГРН/ОГРНИП.
+        5. seller_inn_status — "defined" если указан ИНН, иначе "not_defined".
+        6. seller_inn — числовой ИНН.
+        7. seller_address_status — "defined" если прямо указан адрес продавца, иначе "not_defined".
+        8. seller_address — адрес продавца.
+        9. subject_status — "defined" если конкретный товар прямо определён, иначе "not_defined".
+        10. subject_details — наименование и описание товара.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст документа.
+        - Не подставляй нормы закона.
+        - Не делай предположений.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "seller_name_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указано наименование продавца. Иначе 'not_defined'."
+          description: "Статус указания наименования продавца."
         - name: "seller_name"
           type: "string"
-          description: "Наименование продавца. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Наименование продавца"
+          description: "Полное наименование продавца."
         - name: "seller_ogrn_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан ОГРН или ОГРНИП продавца. Иначе 'not_defined'."
+          description: "Статус указания ОГРН/ОГРНИП."
         - name: "seller_ogrn"
           type: "string"
-          description: "ОГРН/ОГРНИП продавца. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "ОГРН / ОГРНИП"
+          description: "Числовой ОГРН или ОГРНИП продавца."
         - name: "seller_inn_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан ИНН продавца. Иначе 'not_defined'."
+          description: "Статус указания ИНН."
         - name: "seller_inn"
           type: "string"
-          description: "ИНН продавца. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "ИНН"
+          description: "ИНН продавца."
         - name: "seller_address_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан адрес продавца. Иначе 'not_defined'."
+          description: "Статус указания адреса продавца."
         - name: "seller_address"
           type: "string"
-          description: "Адрес продавца. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Адрес продавца"
+          description: "Адрес продавца."
         - name: "subject_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо определён предмет (товар). Иначе 'not_defined'."
+          description: "Статус определения предмета договора."
         - name: "subject_details"
           type: "string"
-          description: "Наименование и описание товара. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Предмет (товар)"
+          description: "Наименование и описание товара."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -877,17 +945,35 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "цена товара стоимость рублей оплата способ оплаты банковская карта наличный расчёт безналичный расчёт электронный кошелёк онлайн-оплата предоплата аванс полная оплата частичная оплата возврат предоплаты предварительная оплата итого"
+      preferred_unit_types:
+        - payment_term
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "наименование продавца"
+        - "ОГРН"
+        - "ИНН"
+        - "доставка"
+        - "срок доставки"
+        - "возврат товара"
+        - "обмен"
+        - "гарантийный срок"
+        - "недостаток"
+        - "персональные данные"
+        - "маркетплейс"
+      position_bias:
+        preferred_range: [0.0, 0.55]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 10
-      boost_keywords:
-        - "цена"
-        - "стоимость"
-        - "оплата"
-        - "способ оплаты"
-        - "предоплата"
-        - "аванс"
-        - "возврат предоплаты"
-        - "банковская карта"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -901,39 +987,90 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 550
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из текста публичной оферты
+        сведения о цене товара и порядке расчетов.
+        Анализируй только эту тему.
+        Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. price_status — "defined" если цена прямо указана, иначе "not_defined".
+        2. price_details — конкретная цена товара (с указанием НДС, если есть).
+        3. payment_methods_status — "defined" если способы оплаты перечислены, иначе "not_defined".
+        4. payment_methods_details — способы оплаты (карта, наличные и т.п.).
+        5. prepayment_status — "defined" если прямо предусмотрена предоплата, иначе "not_defined".
+        6. prepayment_details — условия предоплаты (полная/частичная, размер).
+        7. prepayment_refund_status — "defined" если прямо указан порядок возврата предоплаты, иначе "not_defined".
+        8. prepayment_refund_details — порядок возврата предоплаты.
+        9. late_payment_consequences_status — "defined" если прямо указаны последствия просрочки оплаты, иначе "not_defined".
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст документа.
+        - Не подставляй нормы закона.
+        - Не делай предположений.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "price_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указана цена товара. Иначе 'not_defined'."
+          description: "Статус указания цены товара."
         - name: "price_details"
           type: "string"
-          description: "Цена товара. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Цена товара"
+          description: "Конкретная цена товара."
         - name: "payment_methods_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указаны способы оплаты. Иначе 'not_defined'."
+          description: "Статус указания способов оплаты."
         - name: "payment_methods_details"
           type: "string"
-          description: "Способы оплаты. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Способы оплаты"
+          description: "Перечень способов оплаты."
         - name: "prepayment_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо предусмотрена предоплата. Иначе 'not_defined'."
+          description: "Статус указания предоплаты."
         - name: "prepayment_details"
           type: "string"
-          description: "Условия предоплаты. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Предоплата"
+          description: "Условия предоплаты."
         - name: "prepayment_refund_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан порядок возврата предоплаты. Иначе 'not_defined'."
+          description: "Статус указания порядка возврата предоплаты."
         - name: "prepayment_refund_details"
           type: "string"
-          description: "Порядок возврата предоплаты. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Возврат предоплаты"
+          description: "Порядок возврата предоплаты."
         - name: "late_payment_consequences_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указаны последствия просрочки оплаты. Иначе 'not_defined'."
+          description: "Статус указания последствий просрочки оплаты."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1097,17 +1234,37 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "момент заключения договора акцепт оферты оформление заказа подтверждение заказа выдача чека конклюдентные действия доставка срок доставки способ доставки курьер самовывоз пункт выдачи стоимость доставки бесплатная доставка отмена заказа отказ от заказа расходы на возврат обратная пересылка"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "цена товара"
+        - "стоимость товара"
+        - "способ оплаты"
+        - "предоплата"
+        - "возврат денег"
+        - "возврат товара надлежащего качества"
+        - "гарантийный срок"
+        - "недостаток"
+        - "14 дней"
+        - "7 дней"
+        - "персональные данные"
+        - "ОГРН"
+        - "ИНН"
+      position_bias:
+        preferred_range: [0.15, 0.70]
+        boost: 0.15
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "заключение договора"
-        - "акцепт"
-        - "подтверждение заказа"
-        - "доставка"
-        - "срок доставки"
-        - "самовывоз"
-        - "отмена заказа"
-        - "расходы на доставку"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1121,43 +1278,94 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из текста публичной оферты сведения о моменте заключения договора, условиях доставки и порядке отмены заказа.
+        Анализируй строго только эти темы. Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. contract_formation_status — "defined" если момент заключения договора прямо определён, иначе "not_defined".
+        2. contract_formation_details — формулировка о моменте заключения (акцепт, подтверждение, выдача чека).
+        3. delivery_term_status — "defined" если прямо указан срок доставки, иначе "not_defined".
+        4. delivery_term_details — конкретный срок доставки.
+        5. delivery_cost_status — "defined" если прямо указана стоимость доставки, иначе "not_defined".
+        6. delivery_cost_details — стоимость доставки (сумма или "бесплатно").
+        7. delivery_mode — delivery / pickup / carrier / not_defined.
+        8. cancellation_status — "defined" если прямо определён порядок отмены заказа до передачи, иначе "not_defined".
+        9. cancellation_details — условия отмены заказа.
+        10. return_delivery_cost_retention_status — "defined" если указано право удержать расходы на обратную доставку при возврате, иначе "not_defined".
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст документа.
+        - Не подставляй нормы закона.
+        - Срок доставки извлекай только если он указан в днях или датах.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "contract_formation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо определён момент заключения договора. Иначе 'not_defined'."
+          description: "Статус определения момента заключения договора."
         - name: "contract_formation_details"
           type: "string"
-          description: "Момент заключения договора. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Момент заключения договора"
+          description: "Условие о моменте заключения договора."
         - name: "delivery_term_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо определён срок доставки. Иначе 'not_defined'."
+          description: "Статус определения срока доставки."
         - name: "delivery_term_details"
           type: "string"
-          description: "Срок доставки. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок доставки"
+          description: "Конкретный срок доставки."
         - name: "delivery_cost_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо определена стоимость доставки. Иначе 'not_defined'."
+          description: "Статус определения стоимости доставки."
         - name: "delivery_cost_details"
           type: "string"
-          description: "Стоимость доставки. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Стоимость доставки"
+          description: "Указание на стоимость доставки."
         - name: "delivery_mode"
           type: "string"
+          presentation: "signal"
           allowed_values: ["delivery", "pickup", "carrier", "not_defined"]
-          description: "Способ передачи товара. Если не указан — 'not_defined'."
+          description: "Способ передачи товара."
         - name: "cancellation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо определён порядок отмены заказа. Иначе 'not_defined'."
+          description: "Статус определения порядка отмены заказа."
         - name: "cancellation_details"
           type: "string"
-          description: "Условия отмены заказа. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Отмена заказа"
+          description: "Порядок отмены заказа до передачи."
         - name: "return_delivery_cost_retention_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указано право продавца удержать расходы на обратную доставку. Иначе 'not_defined'."
+          description: "Право удержать расходы на обратную доставку."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1310,17 +1518,40 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "возврат товара надлежащего качества обмен товара 14 дней 7 дней право на отказ товарный вид потребительские свойства Перечень 2463 не подлежат обмену не подлежат возврату невозвратные товары возврат денег срок возврата денег дистанционная продажа"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+        - limitations
+      negative_keywords:
+        - "гарантийный срок"
+        - "недостаток товара"
+        - "существенный недостаток"
+        - "безвозмездное устранение"
+        - "ремонт"
+        - "замена товара при браке"
+        - "гарантийное обслуживание"
+        - "технически сложный"
+        - "Постановление 924"
+        - "персональные данные"
+        - "маркетплейс"
+        - "ОГРН"
+        - "ИНН"
+        - "доставка"
+        - "срок доставки"
+      position_bias:
+        preferred_range: [0.20, 0.85]
+        boost: 0.12
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "возврат"
-        - "обмен"
-        - "14 дней"
-        - "7 дней"
-        - "надлежащее качество"
-        - "товарный вид"
-        - "невозвратный"
-        - "Постановление 2463"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1335,42 +1566,94 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 550
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из текста публичной оферты условия о праве потребителя на возврат и обмен товара надлежащего качества.
+        Не анализируй брак или недостатки товара. Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. return_14_days_status — "defined" если указано право на обмен/возврат в течение 14 дней (ст. 25 ЗоЗПП), иначе "not_defined".
+        2. return_14_days_details — условия 14-дневного обмена/возврата.
+        3. return_7_days_status — "defined" если указано право на возврат в течение 7 дней (ст. 26.1 ЗоЗПП, дистанционная продажа), иначе "not_defined".
+        4. return_7_days_details — условия 7-дневного возврата.
+        5. return_conditions_status — "defined" если описаны требования к товару при возврате (товарный вид, чеки), иначе "not_defined".
+        6. return_conditions_details — конкретные требования к состоянию товара при возврате.
+        7. refund_procedure_status — "defined" если указан срок и способ возврата денег, иначе "not_defined".
+        8. refund_procedure_details — срок и способ возврата денежных средств.
+        9. non_returnable_goods_status — "defined" если есть перечень товаров, не подлежащих возврату, иначе "not_defined".
+        10. non_returnable_goods_details — список невозвратных товаров или ссылка на Перечень № 2463.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст документа.
+        - Не подставляй нормы закона.
+        - Общая ссылка на "действующее законодательство" без указания сроков — это "not_defined".
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "return_14_days_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан 14-дневный срок возврата/обмена. Иначе 'not_defined'."
+          description: "Статус указания права на возврат в течение 14 дней."
         - name: "return_14_days_details"
           type: "string"
-          description: "Условия 14-дневного возврата. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Возврат/обмен (14 дней)"
+          description: "Условия обмена/возврата в течение 14 дней."
         - name: "return_7_days_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан 7-дневный срок возврата при дистанционной продаже. Иначе 'not_defined'."
+          description: "Статус указания права на возврат в течение 7 дней."
         - name: "return_7_days_details"
           type: "string"
-          description: "Условия 7-дневного возврата. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Возврат (дистанционно, 7 дней)"
+          description: "Условия возврата при дистанционной продаже."
         - name: "return_conditions_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо определены условия возврата (состояние товара, документы). Иначе 'not_defined'."
+          description: "Статус указания условий сохранности товара."
         - name: "return_conditions_details"
           type: "string"
-          description: "Условия возврата. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Условия возврата товара"
+          description: "Требования к товарному виду и документам при возврате."
         - name: "refund_procedure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо определён порядок и срок возврата денег. Иначе 'not_defined'."
+          description: "Статус указания порядка возврата денег."
         - name: "refund_procedure_details"
           type: "string"
-          description: "Порядок возврата денег. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Порядок возврата денег"
+          description: "Сроки и способы возврата денежных средств."
         - name: "non_returnable_goods_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе упомянуты невозвратные товары или ссылка на Постановление № 2463. Иначе 'not_defined'."
+          description: "Статус указания перечня невозвратных товаров."
         - name: "non_returnable_goods_details"
           type: "string"
-          description: "Категории невозвратных товаров. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Невозвратные товары"
+          description: "Перечень категорий товаров, не подлежащих возврату."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1533,16 +1816,34 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "возврат невозможен обмену не подлежит только ремонт претензии не принимаются гарантия не предоставляется ответственность ограничена экспертиза за счёт покупателя обязательный арбитраж третейский суд товар по акции обмену не подлежит обязательная страховка только в комплекте дополнительные услуги обязательны"
+      preferred_unit_types:
+        - liability_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - limitations
+        - remedies
+        - obligations
+      negative_keywords:
+        - "вправе по своему выбору"
+        - "по желанию покупателя"
+        - "дополнительно по выбору"
+        - "опционально"
+        - "в соответствии с законодательством"
+        - "в соответствии с законом"
+        - "ОГРН"
+        - "ИНН"
+        - "персональные данные"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 8
       max_chunks: 12
-      boost_keywords:
-        - "возврат невозможен"
-        - "не подлежит"
-        - "только ремонт"
-        - "обязательный"
-        - "третейский"
-        - "подсудность"
-        - "за счёт покупателя"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1557,38 +1858,80 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 580
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — найти в тексте оферты конкретные формулировки, которые ущемляют права потребителя.
+        Не оценивай степень нарушения. Твоя цель — только зафиксировать факт наличия запрещённых фраз.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. illegal_restrictions_found — "yes", если найдена хотя бы одна фраза из списка ниже, иначе "no".
+        2. restriction_return_found — "yes" при запрете на возврат/обмен исправного товара.
+        3. restriction_repair_only_found — "yes", если право выбора покупателя ограничено фразой "только ремонт".
+        4. restriction_expertise_found — "yes", если экспертиза навязана за счёт покупателя.
+        5. restriction_jurisdiction_found — "yes", если навязана подсудность только по месту продавца.
+        6. restriction_arbitration_found — "yes", если навязан третейский суд.
+        7. restriction_tying_found — "yes", если покупка товара обусловлена покупкой других услуг/страховок.
+        8. found_phrases — список (массив строк) найденных запрещённых цитат. Если ничего не найдено — пустой список [].
+
+        Если нарушений нет — везде ставь "no", а в список фраз [].
+        </task>
+
+        <rules>
+        - Используй только текст документа.
+        - Фиксируй только прямые формулировки. Не интерпретируй общие фразы как нарушения.
+        - Если фраза звучит как "возврат невозможен" или "обмену не подлежит" — это нарушение.
+        - Если указано "в соответствии с законом" — это НЕ нарушение.
+        - Ответ верни только в JSON.
+        </rules>
       fields:
         - name: "illegal_restrictions_found"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no"]
-          description: "Верни 'yes', если найдена хотя бы одна ущемляющая формулировка. Иначе 'no'."
+          description: "Общий признак наличия ущемляющих условий."
         - name: "restriction_return_found"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no"]
-          description: "Найден ли запрет на возврат/обмен товара надлежащего качества."
+          description: "Запрет возврата надлежащего качества."
         - name: "restriction_repair_only_found"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no"]
-          description: "Найдено ли ограничение 'только ремонт' без права выбора."
+          description: "Ограничение выбора только ремонтом."
         - name: "restriction_expertise_found"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no"]
-          description: "Найдено ли условие об обязательной экспертизе за счёт покупателя."
+          description: "Экспертиза за счёт покупателя."
         - name: "restriction_jurisdiction_found"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no"]
-          description: "Найдено ли навязывание подсудности по месту продавца."
+          description: "Навязанная подсудность."
         - name: "restriction_arbitration_found"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no"]
-          description: "Найден ли обязательный третейский суд или арбитраж."
+          description: "Обязательный третейский суд."
         - name: "restriction_tying_found"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no"]
-          description: "Найдено ли навязывание доп. товаров/услуг как условия покупки."
+          description: "Навязанные доп. услуги/товары."
         - name: "found_phrases"
-          type: "array"
-          description: "Список найденных запрещённых формулировок. Если ничего нет — пустой массив []."
+          type: "string"
+          presentation: "fact"
+          label: "Найденные нарушения"
+          description: "Найденные фразы или формулировки, указывающие на нарушение. Если найдено несколько формулировок, перечисли их в одной строке через '; '."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1726,18 +2069,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "гарантийный срок гарантия недостаток товара безвозмездное устранение замена товара возврат уплаченной суммы соразмерное уменьшение ремонт гарантийное обслуживание гарантийный талон сервисный центр срок службы расширенная гарантия дополнительная гарантия в течение 2 лет"
+      preferred_unit_types:
+        - warranty
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - remedies
+        - obligations
+      negative_keywords:
+        - "возврат товара надлежащего качества"
+        - "обмен товара надлежащего качества"
+        - "14 дней"
+        - "7 дней"
+        - "товарный вид"
+        - "потребительские свойства"
+        - "Перечень 2463"
+        - "невозвратные товары"
+        - "персональные данные"
+        - "маркетплейс"
+        - "ОГРН"
+        - "ИНН"
+        - "доставка"
+      position_bias:
+        preferred_range: [0.30, 0.90]
+        boost: 0.15
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "гарантия"
-        - "гарантийный срок"
-        - "недостаток"
-        - "ремонт"
-        - "замена"
-        - "возврат"
-        - "уменьшение цены"
-        - "расширенная гарантия"
-        - "2 года"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1752,29 +2115,70 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения о гарантийном сроке и правах покупателя при обнаружении недостатков (брака).
+        Не анализируй возврат товара надлежащего качества. Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. warranty_status — "defined", если срок гарантии прямо указан, иначе "not_defined".
+        2. warranty_details — конкретный срок гарантии (например, "12 месяцев").
+        3. remedies_listed_status — "defined", если перечислены права при браке (ремонт, замена, возврат денег), иначе "not_defined".
+        4. remedies_details — перечень прав потребителя при обнаружении недостатков.
+        5. extended_warranty_status — "defined", если упомянута дополнительная или расширенная гарантия.
+        6. two_year_term_status — "defined", если прямо упомянуто право заявлять претензии в течение 2 лет.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст документа.
+        - Не подставляй нормы закона.
+        - Ссылки на "законодательство РФ" без конкретики — это "not_defined".
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "warranty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан гарантийный срок. Иначе 'not_defined'."
+          description: "Статус указания гарантийного срока."
         - name: "warranty_details"
           type: "string"
-          description: "Гарантийный срок. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Гарантийный срок"
+          description: "Срок гарантии на товар."
         - name: "remedies_listed_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо перечислены права потребителя при недостатках. Иначе 'not_defined'."
+          description: "Статус перечисления прав при браке."
         - name: "remedies_details"
           type: "string"
-          description: "Перечень прав при недостатках. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Права при недостатках"
+          description: "Перечень прав покупателя при обнаружении брака."
         - name: "extended_warranty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе упомянута расширенная гарантия. Иначе 'not_defined'."
+          description: "Наличие расширенной гарантии."
         - name: "two_year_term_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо упомянут 2-летний срок требований. Иначе 'not_defined'."
+          description: "Упоминание 2-летнего срока по ЗоЗПП."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1898,15 +2302,33 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "персональные данные согласие на обработку обработка персональных данных политика конфиденциальности ФЗ-152 оператор персональных данных цели обработки отзыв согласия cookie нажимая кнопку"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - obligations
+      negative_keywords:
+        - "цена"
+        - "доставка"
+        - "возврат товара"
+        - "гарантийный срок"
+        - "недостаток"
+        - "ущемляющие условия"
+        - "маркетплейс"
+        - "ОГРН"
+        - "ИНН"
+      position_bias:
+        preferred_range: [0.60, 1.0]
+        boost: 0.20
+        scope: segment
       context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "персональные данные"
-        - "согласие"
-        - "обработка"
-        - "цели"
-        - "отзыв"
-        - "ФЗ-152"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1920,32 +2342,73 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 480
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения о порядке обработки персональных данных и способах получения согласия.
+        Не оценивай риски нарушения ФЗ-152.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. consent_status — "defined", если описан конкретный механизм получения согласия (кнопка, галочка), иначе "not_defined".
+        2. consent_details — описание механизма согласия (например, "нажатие кнопки Оформить заказ").
+        3. purposes_status — "defined", если указаны конкретные цели обработки, иначе "not_defined".
+        4. purposes_details — перечень целей обработки ПД.
+        5. withdrawal_status — "defined", если указан конкретный порядок отзыва согласия, иначе "not_defined".
+        6. withdrawal_details — способ отзыва согласия (email, почтовый адрес).
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст документа.
+        - Ссылка на "в соответствии с ФЗ-152" без описания механизма — это "not_defined".
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "consent_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан механизм получения согласия. Иначе 'not_defined'."
+          description: "Статус определения механизма согласия."
         - name: "consent_details"
           type: "string"
-          description: "Механизм согласия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Получение согласия"
+          description: "Способ получения согласия на обработку ПД."
         - name: "purposes_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указаны цели обработки ПД. Иначе 'not_defined'."
+          description: "Статус указания целей обработки."
         - name: "purposes_details"
           type: "string"
-          description: "Цели обработки ПД. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Цели обработки ПД"
+          description: "Для чего собираются данные."
         - name: "withdrawal_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан порядок отзыва согласия. Иначе 'not_defined'."
+          description: "Статус указания порядка отзыва."
         - name: "withdrawal_details"
           type: "string"
-          description: "Порядок отзыва согласия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Отзыв согласия"
+          description: "Как покупатель может отозвать согласие."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # TRIGGERED CHECK: Дистанционная продажа (ст. 26.1 ЗоЗПП)
+  # CHECK 8: Дистанционная продажа (ст. 26.1 ЗоЗПП)
   # ──────────────────────────────────────────────────────────────────────────
   - id: distance_selling_compliance_check
     name: "Комплаенс дистанционной продажи (ст. 26.1 ЗоЗПП)"
@@ -2073,16 +2536,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "дистанционный способ продажи интернет-магазин право на отказ 7 дней с момента получения отказаться до передачи товара 3 месяца ненадлежащее информирование возврат денег 10 дней момент передачи товара информация до заключения договора онлайн-заказ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+        - representations
+      negative_keywords:
+        - "14 дней"
+        - "возврат надлежащего качества"
+        - "обмен надлежащего качества"
+        - "товарный вид"
+        - "Перечень 2463"
+        - "гарантийный срок"
+        - "недостаток"
+        - "существенный недостаток"
+        - "технически сложный"
+        - "персональные данные"
+        - "маркетплейс"
+        - "ОГРН"
+        - "ИНН"
+      position_bias:
+        preferred_range: [0.20, 0.85]
+        boost: 0.12
+        scope: segment
       context_k: 8
       max_chunks: 12
-      boost_keywords:
-        - "дистанционный"
-        - "7 дней"
-        - "право на отказ"
-        - "до передачи"
-        - "3 месяца"
-        - "10 дней"
-        - "возврат денег"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2097,36 +2582,81 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения о правилах дистанционной продажи (ст. 26.1 ЗоЗПП).
+        Анализируй только дистанционную торговлю.
+        Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. return_7_days_from_receipt_status — "defined" если прямо указан 7-дневный срок возврата с момента получения, иначе "not_defined".
+        2. return_7_days_details — формулировка о 7-дневном сроке.
+        3. pre_delivery_refusal_status — "defined" если прямо указано право отказаться до передачи товара, иначе "not_defined".
+        4. pre_delivery_refusal_details — формулировка о праве отказа до передачи.
+        5. three_month_term_status — "defined" если упомянут 3-месячный срок при ненадлежащем информировании, иначе "not_defined".
+        6. refund_10_days_status — "defined" если прямо указан 10-дневный срок возврата денег, иначе "not_defined".
+        7. refund_10_days_details — формулировка о сроке возврата денег.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст документа.
+        - "В соответствии с законом" без конкретных сроков — это "not_defined".
+        - Срок возврата денег должен быть числовым (например, 10 дней).
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "return_7_days_from_receipt_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан 7-дневный срок возврата при дистанционной продаже. Иначе 'not_defined'."
+          description: "Статус указания 7-дневного срока возврата."
         - name: "return_7_days_details"
           type: "string"
-          description: "Условия 7-дневного возврата. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Возврат (7 дней)"
+          description: "Формулировка о 7-дневном сроке возврата."
         - name: "pre_delivery_refusal_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указано право отказаться до передачи. Иначе 'not_defined'."
+          description: "Статус указания права отказаться до передачи."
         - name: "pre_delivery_refusal_details"
           type: "string"
-          description: "Условие отказа до передачи. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Отказ до передачи"
+          description: "Формулировка о праве отказа до передачи товара."
         - name: "three_month_term_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо упомянут 3-месячный срок при ненадлежащем информировании. Иначе 'not_defined'."
+          description: "Статус указания 3-месячного срока."
         - name: "refund_10_days_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан срок возврата денег (10 дней). Иначе 'not_defined'."
+          description: "Статус указания 10-дневного срока возврата денег."
         - name: "refund_10_days_details"
           type: "string"
-          description: "Срок возврата денег. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок возврата денег"
+          description: "Формулировка о сроке возврата денег."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # TRIGGERED CHECK: ТСТ (технически сложные товары)
+  # CHECK 9: технически сложные товары
   # ──────────────────────────────────────────────────────────────────────────
   - id: technical_goods_return_rules_check
     name: "Правила возврата технически сложных товаров (ст. 18 ЗоЗПП)"
@@ -2231,13 +2761,36 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_query: "технически сложный товар в течение 15 дней существенный недостаток Перечень технически сложных Постановление 924 ремонт 45 дней срок устранения недостатка неоднократность недостатков возврат технически сложного"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+      negative_keywords:
+        - "14 дней"
+        - "7 дней"
+        - "возврат надлежащего качества"
+        - "обмен надлежащего качества"
+        - "Перечень 2463"
+        - "гарантийный срок общий"
+        - "персональные данные"
+        - "маркетплейс"
+        - "ОГРН"
+        - "ИНН"
+        - "доставка"
+      position_bias:
+        preferred_range: [0.20, 0.90]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "технически сложный"
-        - "15 дней"
-        - "существенный недостаток"
-        - "Постановление 924"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2251,26 +2804,63 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 480
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из текста оферты сведения о специальном режиме возврата технически сложных товаров (ТСТ).
+        Анализируй только условия, связанные с ТСТ.
+        Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. tst_15_days_status — "defined" если прямо указан 15-дневный срок возврата ТСТ, иначе "not_defined".
+        2. tst_15_days_details — формулировка о 15-дневном сроке.
+        3. tst_regulation_924_status — "defined" если упомянуто Постановление № 924 или "Перечень технически сложных товаров", иначе "not_defined".
+        4. tst_substantial_defect_status — "defined" если после 15 дней упоминается условие о существенном недостатке, иначе "not_defined".
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст документа.
+        - Если ТСТ вообще не упоминается — все поля = "not_defined".
+        - Ссылка на "законодательство РФ" без конкретных сроков — это "not_defined".
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "tst_15_days_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указан 15-дневный срок для ТСТ. Иначе 'not_defined'."
+          description: "Статус указания 15-дневного срока возврата ТСТ."
         - name: "tst_15_days_details"
           type: "string"
-          description: "Условие о 15 днях. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "ТСТ — 15 дней"
+          description: "Формулировка о 15-дневном сроке возврата."
         - name: "tst_regulation_924_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе упомянуто Постановление № 924 или Перечень ТСТ. Иначе 'not_defined'."
+          description: "Статус упоминания Постановления № 924."
         - name: "tst_substantial_defect_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указано условие о существенном недостатке после 15 дней. Иначе 'not_defined'."
+          description: "Статус условия о существенном недостатке после 15 дней."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # TRIGGERED CHECK: Маркетплейс — данные продавца и ответственность
+  # CHECK 10: Маркетплейс — данные продавца и ответственность
   # ──────────────────────────────────────────────────────────────────────────
   - id: marketplace_liability_allocation_check
     name: "Маркетплейс: данные о продавце и распределение ответственности"
@@ -2385,15 +2975,36 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "маркетплейс агрегатор владелец агрегатора информационный посредник ответственность маркетплейса ответственность продавца солидарная ответственность информация о продавце реквизиты продавца ОГРН продавца адрес продавца"
+      preferred_unit_types:
+        - liability_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - limitations
+        - obligations
+        - procedures
+      negative_keywords:
+        - "возврат товара"
+        - "обмен товара"
+        - "гарантийный срок"
+        - "недостаток"
+        - "технически сложный"
+        - "14 дней"
+        - "7 дней"
+        - "персональные данные"
+        - "доставка"
+        - "цена"
+      position_bias:
+        preferred_range: [0.0, 0.30]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 10
-      boost_keywords:
-        - "маркетплейс"
-        - "агрегатор"
-        - "ответственность"
-        - "продавец"
-        - "реквизиты"
-        - "солидарная"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2408,28 +3019,71 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из текста оферты маркетплейса сведения о раскрытии данных продавца и распределении ответственности.
+        Анализируй только отношения маркетплейса и продавца.
+        Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. seller_info_disclosure_status — "defined" если прямо указано, где и как раскрывается информация о продавце (карточка товара, реквизиты), иначе "not_defined".
+        2. seller_info_disclosure_details — формулировка о раскрытии данных продавца.
+        3. marketplace_role_status — "defined" если прямо указана роль маркетплейса (агрегатор / продавец / информационный посредник), иначе "not_defined".
+        4. marketplace_role_details — формулировка о роли маркетплейса.
+        5. liability_allocation_status — "defined" если прямо указано распределение ответственности между маркетплейсом и продавцом, иначе "not_defined".
+        6. liability_allocation_details — формулировка об ответственности.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст документа.
+        - Если маркетплейс не упоминается — все поля = "not_defined".
+        - Не делай выводов о юридической квалификации — извлекай только текст.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "seller_info_disclosure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо указано где и как раскрыта информация о продавце. Иначе 'not_defined'."
+          description: "Статус раскрытия данных продавца."
         - name: "seller_info_disclosure_details"
           type: "string"
-          description: "Порядок раскрытия данных о продавце. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Раскрытие данных продавца"
+          description: "Как раскрываются данные продавца."
         - name: "marketplace_role_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо определена роль маркетплейса. Иначе 'not_defined'."
+          description: "Статус указания роли маркетплейса."
         - name: "marketplace_role_details"
           type: "string"
-          description: "Роль маркетплейса. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Роль маркетплейса"
+          description: "Роль маркетплейса (агрегатор, продавец и т.п.)."
         - name: "liability_allocation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в документе прямо определено распределение ответственности. Иначе 'not_defined'."
+          description: "Статус распределения ответственности."
         - name: "liability_allocation_details"
           type: "string"
-          description: "Условие об ответственности. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Распределение ответственности"
+          description: "Формулировка о распределении ответственности."
       store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -52,7 +52,16 @@ class RetrievalEngine:
       чтобы не ломать старый код.
     """
 
-    def __init__(self, chunks: Iterable[Any], important_terms: Iterable[str] | None = None):
+    def __init__(
+        self,
+        chunks: Iterable[Any],
+        important_terms: Iterable[str] | None = None,
+        negative_keywords: Iterable[str] | None = None,
+        preferred_unit_types: Iterable[str] | None = None,
+        excluded_unit_types: Iterable[str] | None = None,
+        preferred_clause_functions: Iterable[str] | None = None,
+        position_bias: Any | None = None,
+    ):
         """
         chunks: список чанков одного из форматов:
           - dict: {"id": "...", "text": "...", "metadata": {...}}
@@ -123,20 +132,45 @@ class RetrievalEngine:
                 )
                 texts_for_index.append(indexed_text)
 
-        # Нормализуем список важных терминов для metadata-boost.
-        # Это слова/фразы, релевантные КОНКРЕТНОЙ проверке (check),
-        # которые приходят сверху (из плейбука через CheckDefinition).
-        if important_terms is None:
-            self.important_terms_lower: list[str] = []
-        else:
-            norm_terms: list[str] = []
-            for t in important_terms:
-                if not isinstance(t, str):
+        # Нормализуем retrieval signals для metadata-aware scoring.
+        def _normalize_terms(raw: Iterable[str] | None) -> list[str]:
+            if raw is None:
+                return []
+
+            out: list[str] = []
+            for item in raw:
+                if not isinstance(item, str):
                     continue
-                s = t.strip().lower()
-                if s:
-                    norm_terms.append(s)
-            self.important_terms_lower = norm_terms
+                normalized = " ".join(item.strip().lower().split())
+                if normalized:
+                    out.append(normalized)
+            return out
+
+        def _normalize_labels(raw: Iterable[str] | None) -> list[str]:
+            if raw is None:
+                return []
+
+            out: list[str] = []
+            for item in raw:
+                if not isinstance(item, str):
+                    continue
+                normalized = item.strip().lower()
+                if not normalized:
+                    continue
+                normalized = normalized.replace("-", "_").replace(" ", "_")
+                while "__" in normalized:
+                    normalized = normalized.replace("__", "_")
+                normalized = normalized.strip("_")
+                if normalized:
+                    out.append(normalized)
+            return out
+
+        self.important_terms_lower = _normalize_terms(important_terms)
+        self.negative_keywords_lower = _normalize_terms(negative_keywords)
+        self.preferred_unit_types_lower = _normalize_labels(preferred_unit_types)
+        self.excluded_unit_types_lower = _normalize_labels(excluded_unit_types)
+        self.preferred_clause_functions_lower = _normalize_labels(preferred_clause_functions)
+        self.position_bias = position_bias
 
         # Если чанков нет — деградирующий режим (поиск ничего не вернёт).
         if not self.chunks:
@@ -253,29 +287,34 @@ class RetrievalEngine:
             i_int = int(i)
             chunk = self.chunks[i_int].copy()
             chunk["score"] = float(scores[i_int])
+            chunk["score_breakdown"] = {
+                "bm25_raw": float(bm25_scores[i_int]),
+                "bm25_norm": float(bm25_norm[i_int]),
+                "dense_raw": float(dense_scores[i_int]),
+                "dense_norm": float(dense_norm[i_int]),
+                "metadata_raw": float(metadata_scores[i_int]),
+                "metadata_norm": float(meta_norm[i_int]),
+                "weighted_sparse": float(settings.RUNNER_SPARSE_WEIGHT * bm25_norm[i_int]),
+                "weighted_dense": float(settings.RUNNER_DENSE_WEIGHT * dense_norm[i_int]),
+                "weighted_metadata": float(settings.RUNNER_METADATA_WEIGHT * meta_norm[i_int]),
+                "combined_score": float(scores[i_int]),
+            }
             result.append(chunk)
 
         return result
 
     def _compute_metadata_scores(self) -> np.ndarray:
         """
-        Простая, но полезная реализация metadata-boost.
+        Metadata-aware scoring for retrieval.
 
-        Сейчас используем несколько эвристик:
-
-        0) kind: лёгкий bias в пользу subclause и против section.
-        1) section_title: если содержит важные слова для текущей проверки
-           (check), повышаем score.
-        2) position_ratio: если есть и находится в разумном диапазоне
-           (например, середина документа), даём небольшой бонус.
-        3) path_titles: если в пути заголовков встречаются важные слова,
-           даём дополнительный бонус.
-        4) summary: если краткое summary содержит важные слова, даём небольшой
-           бонус (summary обычно более компактно отражает суть чанка).
-
-        Важные слова задаются извне (через important_terms в конструкторе)
-        и зависят от конкретной проверки (check). Если important_terms
-        не задан, работает только позиционная эвристика и bias по kind.
+        Combines:
+        0) chunk kind prior
+        1) positive lexical hints in section_title / path_titles / summary
+        2) semantic unit_type boost / penalty
+        3) clause_function boost
+        4) anti-boost by negative_keywords
+        5) citability-aware scoring
+        6) generic position prior + optional check-specific position_bias
         """
         n = len(self.chunks)
         scores = np.zeros(n, dtype=np.float32)
@@ -283,65 +322,198 @@ class RetrievalEngine:
         if n == 0:
             return scores
 
-        # Важные слова/фразы для текущей проверки (check),
-        # приведённые к нижнему регистру в __init__.
         important_terms = getattr(self, "important_terms_lower", []) or []
+        negative_keywords = getattr(self, "negative_keywords_lower", []) or []
+        preferred_unit_types = getattr(self, "preferred_unit_types_lower", []) or []
+        excluded_unit_types = getattr(self, "excluded_unit_types_lower", []) or []
+        preferred_clause_functions = getattr(self, "preferred_clause_functions_lower", []) or []
+        position_bias_cfg = getattr(self, "position_bias", None)
 
-        # Читаем конфигurable веса из settings (с дефолтами, как было хардкожено).
-        kind_bonus_subclause = float(getattr(settings, "RUNNER_METADATA_KIND_BONUS_SUBCLAUSE", 0.3))
-        kind_penalty_section = float(getattr(settings, "RUNNER_METADATA_KIND_PENALTY_SECTION", 0.1))
-        section_title_boost = float(getattr(settings, "RUNNER_METADATA_SECTION_TITLE_BOOST", 1.0))
-        position_mid_boost = float(getattr(settings, "RUNNER_METADATA_POSITION_MID_BOOST", 0.3))
-        path_titles_boost = float(getattr(settings, "RUNNER_METADATA_PATH_TITLES_BOOST", 0.5))
-        summary_boost = float(getattr(settings, "RUNNER_METADATA_SUMMARY_BOOST", 0.2))
+        kind_bonus_subclause = float(
+            getattr(settings, "RUNNER_METADATA_KIND_BONUS_SUBCLAUSE", 0.3)
+        )
+        kind_penalty_section = float(
+            getattr(settings, "RUNNER_METADATA_KIND_PENALTY_SECTION", 0.1)
+        )
+        section_title_boost = float(
+            getattr(settings, "RUNNER_METADATA_SECTION_TITLE_BOOST", 1.0)
+        )
+        position_mid_boost = float(
+            getattr(settings, "RUNNER_METADATA_POSITION_MID_BOOST", 0.3)
+        )
+        path_titles_boost = float(
+            getattr(settings, "RUNNER_METADATA_PATH_TITLES_BOOST", 0.5)
+        )
+        summary_boost = float(
+            getattr(settings, "RUNNER_METADATA_SUMMARY_BOOST", 0.2)
+        )
+
+        unit_type_boost = float(
+            getattr(settings, "RUNNER_METADATA_UNIT_TYPE_BOOST", 0.9)
+        )
+        unit_type_penalty = float(
+            getattr(settings, "RUNNER_METADATA_UNIT_TYPE_PENALTY", 0.7)
+        )
+        clause_function_boost = float(
+            getattr(settings, "RUNNER_METADATA_CLAUSE_FUNCTION_BOOST", 0.8)
+        )
+        negative_keyword_penalty = float(
+            getattr(settings, "RUNNER_METADATA_NEGATIVE_KEYWORD_PENALTY", 0.8)
+        )
+        citability_high_boost = float(
+            getattr(settings, "RUNNER_METADATA_CITABILITY_HIGH_BOOST", 0.25)
+        )
+        citability_medium_boost = float(
+            getattr(settings, "RUNNER_METADATA_CITABILITY_MEDIUM_BOOST", 0.12)
+        )
+        citability_low_penalty = float(
+            getattr(settings, "RUNNER_METADATA_CITABILITY_LOW_PENALTY", 0.08)
+        )
+        citability_score_weight = float(
+            getattr(settings, "RUNNER_METADATA_CITABILITY_SCORE_WEIGHT", 0.25)
+        )
+
+        def _cfg_get(obj: Any, key: str, default: Any = None) -> Any:
+            if obj is None:
+                return default
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return getattr(obj, key, default)
+
+        position_scope = str(_cfg_get(position_bias_cfg, "scope", "auto") or "auto").strip().lower()
+        position_boost = _cfg_get(position_bias_cfg, "boost", 0.0)
+
+        raw_range = _cfg_get(position_bias_cfg, "preferred_range", None)
+        if raw_range is None:
+            raw_range = _cfg_get(position_bias_cfg, "range", None)
+
+        position_range: tuple[float, float] | None = None
+        if isinstance(raw_range, (list, tuple)) and len(raw_range) == 2:
+            try:
+                lo = float(raw_range[0])
+                hi = float(raw_range[1])
+                if 0.0 <= lo <= 1.0 and 0.0 <= hi <= 1.0 and hi >= lo:
+                    position_range = (lo, hi)
+            except (TypeError, ValueError):
+                position_range = None
 
         for idx, ch in enumerate(self.chunks):
             meta = ch.get("metadata", {}) or {}
+            text = str(ch.get("text", "") or "").lower()
 
-            # 0) Лёгкий bias по типу чанка (kind / chunk_kind).
-            #
-            # P8.8d: legal_unit — новый primary retrieval substrate,
-            # получает тот же бонус, что раньше subclause.
-            # chunk_kind используется в snapshot chunks, kind — в legacy path.
             kind = str(meta.get("chunk_kind") or meta.get("kind") or "").lower()
             if kind in ("legal_unit", "subclause"):
                 scores[idx] += kind_bonus_subclause
             elif kind == "section":
                 scores[idx] -= kind_penalty_section
-            # "clause" и всё остальное — без смещения
 
-            # 1) Boost по section_title: если заголовок содержит важные слова
             title = str(meta.get("section_title", "") or "").lower()
-            if title and important_terms and any(key in title for key in important_terms):
+            if title and important_terms and any(term in title for term in important_terms):
                 scores[idx] += section_title_boost
 
-            # 2) Boost по позиции (если есть position_ratio в [0,1])
-            pos = meta.get("position_ratio")
+            pos = (
+                meta.get("position_ratio_within_segment")
+                if meta.get("position_ratio_within_segment") is not None
+                else meta.get("position_ratio_within_file")
+                if meta.get("position_ratio_within_file") is not None
+                else meta.get("position_ratio")
+            )
             try:
                 if pos is not None:
                     pos_f = float(pos)
-                    # Например, clauses в "центре" документа для некоторых checks
-                    # считаем чуть более значимыми (но очень мягко).
                     if 0.2 <= pos_f <= 0.8:
                         scores[idx] += position_mid_boost
             except (TypeError, ValueError):
-                # Некорректное значение позиции — игнорируем
                 pass
 
-            # 3) Boost по path_titles: ищем важные слова в "хлебных крошках"
-            if important_terms:
-                path_titles = meta.get("path_titles") or []
-                try:
-                    titles_joined = " ".join(str(t) for t in path_titles).lower()
-                except Exception:
-                    titles_joined = ""
-                if titles_joined and any(key in titles_joined for key in important_terms):
-                    scores[idx] += path_titles_boost
+            path_titles = meta.get("path_titles") or []
+            try:
+                titles_joined = " ".join(str(t) for t in path_titles).lower()
+            except Exception:
+                titles_joined = ""
 
-            # 4) Boost по summary: если краткое summary содержит важные слова
-            if important_terms:
-                summary = str(meta.get("summary", "") or "").lower()
-                if summary and any(key in summary for key in important_terms):
-                    scores[idx] += summary_boost
+            if important_terms and titles_joined and any(term in titles_joined for term in important_terms):
+                scores[idx] += path_titles_boost
+
+            summary = str(meta.get("summary", "") or "").lower()
+            if important_terms and summary and any(term in summary for term in important_terms):
+                scores[idx] += summary_boost
+
+            unit_type = str(meta.get("unit_type") or "").strip().lower()
+            if unit_type:
+                unit_type = unit_type.replace("-", "_").replace(" ", "_")
+                if unit_type in preferred_unit_types:
+                    scores[idx] += unit_type_boost
+                if unit_type in excluded_unit_types:
+                    scores[idx] -= unit_type_penalty
+
+            clause_function = str(meta.get("clause_function") or "").strip().lower()
+            if clause_function:
+                clause_function = clause_function.replace("-", "_").replace(" ", "_")
+                if clause_function in preferred_clause_functions:
+                    scores[idx] += clause_function_boost
+
+            citability_band = str(
+                meta.get("citability_band")
+                or meta.get("citability")
+                or ""
+            ).strip().lower()
+            if citability_band == "high":
+                scores[idx] += citability_high_boost
+            elif citability_band == "medium":
+                scores[idx] += citability_medium_boost
+            elif citability_band == "low":
+                scores[idx] -= citability_low_penalty
+
+            citability_score_raw = meta.get("citability_score")
+            try:
+                if citability_score_raw is not None:
+                    citability_score = float(citability_score_raw)
+                    citability_score = max(0.0, min(citability_score, 1.0))
+                    scores[idx] += citability_score * citability_score_weight
+            except (TypeError, ValueError):
+                pass
+
+            if negative_keywords:
+                negative_hit = False
+                if title and any(term in title for term in negative_keywords):
+                    negative_hit = True
+                elif titles_joined and any(term in titles_joined for term in negative_keywords):
+                    negative_hit = True
+                elif summary and any(term in summary for term in negative_keywords):
+                    negative_hit = True
+                elif text and any(term in text for term in negative_keywords):
+                    negative_hit = True
+
+                if negative_hit:
+                    scores[idx] -= negative_keyword_penalty
+
+            if position_range is not None and position_boost:
+                pos_candidate = None
+
+                if position_scope == "segment":
+                    pos_candidate = meta.get("position_ratio_within_segment")
+                elif position_scope == "file":
+                    pos_candidate = meta.get("position_ratio_within_file")
+                    if pos_candidate is None:
+                        pos_candidate = meta.get("position_ratio")
+                else:
+                    pos_candidate = meta.get("position_ratio_within_segment")
+                    if pos_candidate is None:
+                        pos_candidate = meta.get("position_ratio_within_file")
+                    if pos_candidate is None:
+                        pos_candidate = meta.get("position_ratio")
+
+                try:
+                    if pos_candidate is not None:
+                        pos_candidate_f = float(pos_candidate)
+                        if position_range[0] <= pos_candidate_f <= position_range[1]:
+                            scores[idx] += float(position_boost)
+                except (TypeError, ValueError):
+                    pass
 
         return scores
+    
+
+
+    

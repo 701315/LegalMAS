@@ -189,6 +189,15 @@ class CheckResult(Base):
         ),
     )
 
+    context_trace: Mapped[list[dict] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Compact retrieval/extraction provenance trace. "
+            "List of the top-ranked contexts/chunks used to build LLM context."
+        ),
+    )
+
     playbook_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("playbook_versions.id", ondelete="SET NULL"),

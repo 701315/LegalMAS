@@ -1,0 +1,372 @@
+id: "assignment_transfer_consent"
+name: "Условия согласия при уступке / переводе долга"
+group: "ASSIGNMENT_TRANSFER"
+description: >
+  Анализирует механику получения согласия контрагента при уступке
+  прав / переводе долга / передаче обязательств: требуется ли
+  согласие, в какой форме, установлен ли срок ответа, предусмотрен
+  ли deemed consent (молчание = согласие), ограничен ли отказ
+  стандартом разумности или возможен по sole discretion.
+
+  Check не анализирует:
+  - наличие / тип базового режима (prohibited / consent_required /
+    freely_permitted) — это задача assignment_transfer_regime;
+  - смену контроля (CoC) — это задача coc_consent_terms;
+  - substantive consequences отказа;
+  - carve-out и исключения;
+  - кто именно даёт согласие.
+
+doc_types: []
+
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+ui_mode: "field_extraction"
+
+rules:
+  keyword_mode: any
+
+  keywords:
+    high:
+      - "(?i)consent\\s+to\\s+(assignment|transfer)"
+      - "(?i)согласи[ея]\\s+на\\s+(уступк|перевод|передач)"
+      - "(?i)without\\s+(the\\s+)?(prior\\s+)?(written\\s+)?consent[\\s\\S]{0,40}(assign|transfer)"
+      - "(?i)без\\s+(предварительного\\s+)?(письменного\\s+)?согласи[яи][\\s\\S]{0,40}(уступ|перевод|передач)"
+      - "(?i)not\\s+(to\\s+be\\s+)?unreasonably\\s+(withheld|delayed|conditioned)"
+      - "(?i)sole\\s+(and\\s+absolute\\s+)?discretion"
+      - "(?i)deemed\\s+(to\\s+be\\s+)?(given|granted|obtained)"
+      - "(?i)считается\\s+(данным|полученным|предоставленным)"
+      - "(?i)молчани[ея][\\s\\S]{0,40}(означает|считается)"
+
+    medium:
+      - "(?i)prior\\s+written\\s+consent"
+      - "(?i)предварительн[а-я]+\\s+письменн[а-я]+\\s+согласи[ея]"
+      - "(?i)within\\s+\\d+\\s+(business\\s+|working\\s+)?days?"
+      - "(?i)в\\s+течение\\s+\\d+\\s+(рабочих\\s+)?(дней|календарных)"
+      - "(?i)срок\\s+рассмотрени[яи]"
+      - "(?i)response\\s+(period|time)"
+      - "(?i)не\\s+может\\s+быть\\s+необоснованно"
+      - "(?i)по\\s+(своему\\s+)?(исключительному\\s+)?усмотрению"
+
+    low:
+      - "(?i)уступк[аи]"
+      - "(?i)перевод\\s+долга"
+      - "(?i)assignment"
+      - "(?i)deemed\\s+consent"
+
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 420
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 6
+  max_chunks: 12
+
+  retrieval_query: >
+    уступка прав перевод долга согласие на уступку consent
+    предварительное письменное согласие prior written consent
+    deemed consent молчание считается согласием
+    sole discretion unreasonably withheld срок ответа
+
+  boost_keywords:
+    - "consent to assignment"
+    - "consent to transfer"
+    - "согласие на уступку"
+    - "согласие на перевод долга"
+    - "prior written consent"
+    - "предварительное письменное согласие"
+    - "deemed consent"
+    - "считается данным"
+    - "not unreasonably withheld"
+    - "не может быть необоснованно"
+    - "sole discretion"
+    - "по своему усмотрению"
+    - "срок рассмотрения"
+    - "response period"
+
+  negative_keywords:
+    - "change of control"
+    - "смена контроля"
+    - "означает"
+    - "в целях настоящего"
+    - "споры"
+    - "подсудность"
+    - "применимое право"
+
+  preferred_unit_types:
+    - "obligation"
+    - "general_provision"
+
+  excluded_unit_types:
+    - "definition"
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "limitations"
+    - "procedures"
+    - "rights"
+    - "obligations"
+
+  position_bias:
+    preferred_range: [0.60, 1.00]
+    boost: 0.30
+    scope: "segment"
+
+  rerank: true
+  filters: {}
+
+conditional: null
+
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 320
+  llm_prompt_extraction: |
+    <role>
+    Ты — юрист по коммерческим договорам.
+    Твоя задача — точно извлечь механику получения согласия
+    контрагента при уступке прав / переводе долга / передаче
+    обязательств.
+
+    Не анализируй смену контроля (CoC).
+    Не анализируй базовый режим (запрет / consent_required / free) —
+    это задача другого check.
+    Не анализируй последствия отказа.
+    Не анализируй carve-out.
+    Не анализируй, кто именно даёт согласие.
+    Не оценивай риск.
+    </role>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
+
+    <task>
+    Заполни только следующие поля:
+    - at_consent_display
+    - at_consent_required
+    - at_consent_form
+    - at_response_period
+    - at_deemed_consent
+    - at_reasonableness_standard
+    - reason
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - пиши коротко и по-русски.
+    </task>
+
+    <instructions>
+    Шаг 1 — ТРЕБОВАНИЕ СОГЛАСИЯ
+
+    Заполни "at_consent_required".
+
+    Значения:
+    - "yes" — согласие прямо требуется при уступке / переводе долга.
+    - "no" — согласие прямо не требуется.
+    - "not_specified" — тема не урегулирована.
+    - "unclear" — вывод сделать нельзя.
+
+    Шаг 2 — ФОРМА СОГЛАСИЯ
+
+    Заполни "at_consent_form".
+
+    Значения:
+    - "prior_written" — предварительное письменное согласие.
+    - "written" — письменное без требования предварительности.
+    - "any_form" — форма не ограничена.
+    - "not_specified" — форма не установлена.
+    - "not_applicable" — согласие не требуется.
+    - "unclear" — нельзя определить.
+
+    Шаг 3 — СРОК ОТВЕТА
+
+    Заполни "at_response_period".
+
+    Правила:
+    - Если срок установлен: извлеки как есть
+      ("10 рабочих дней", "30 календарных дней").
+    - Если не установлен: "Не установлен".
+    - Если согласие не требуется: "Не применимо".
+    - Если нельзя определить: "Не удалось определить".
+
+    Шаг 4 — DEEMED CONSENT
+
+    Заполни "at_deemed_consent".
+
+    Значения:
+    - "yes" — молчание / отсутствие ответа считается согласием.
+    - "no" — прямо требуется явное согласие.
+    - "not_specified" — тема не урегулирована.
+    - "not_applicable" — согласие не требуется.
+    - "unclear" — нельзя определить.
+
+    Шаг 5 — СТАНДАРТ ОТКАЗА
+
+    Заполни "at_reasonableness_standard".
+
+    Значения:
+    - "not_unreasonably_withheld" — отказ не может быть необоснованным.
+    - "sole_discretion" — отказ по усмотрению.
+    - "not_specified" — стандарт не установлен.
+    - "not_applicable" — согласие не требуется.
+    - "unclear" — нельзя определить.
+
+    Шаг 6 — DISPLAY ДЛЯ DD GRID
+
+    Заполни "at_consent_display".
+
+    Примеры:
+    - "Для уступки требуется предварительное письменное согласие;
+      срок ответа не установлен"
+    - "Для уступки требуется согласие; 30 дней;
+      молчание считается согласием"
+    - "Для уступки требуется согласие; отказ по sole discretion"
+    - "Для уступки согласие не требуется"
+    - "Условия согласия при уступке не установлены"
+    - "Не удалось определить условия согласия при уступке"
+
+    Шаг 7 — ОБОСНОВАНИЕ
+
+    Заполни "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Приведи короткую цитату в кавычках.
+    </instructions>
+
+    <edge_cases>
+    - "Assignment requires prior written consent":
+      * at_consent_required = "yes"
+      * at_consent_form = "prior_written"
+      * at_response_period = "Не установлен"
+      * at_deemed_consent = "not_specified"
+      * at_reasonableness_standard = "not_specified"
+      * at_consent_display =
+        "Для уступки требуется предварительное письменное согласие;
+        срок ответа не установлен"
+
+    - "Consent shall not be unreasonably withheld":
+      * at_reasonableness_standard = "not_unreasonably_withheld"
+
+    - "In its sole discretion":
+      * at_reasonableness_standard = "sole_discretion"
+
+    - Согласие не требуется:
+      * at_consent_required = "no"
+      * at_consent_form = "not_applicable"
+      * at_response_period = "Не применимо"
+      * at_deemed_consent = "not_applicable"
+      * at_reasonableness_standard = "not_applicable"
+      * at_consent_display = "Для уступки согласие не требуется"
+
+    - Нет релевантных фрагментов:
+      * at_consent_required = "not_specified"
+      * at_consent_display =
+        "Условия согласия при уступке не установлены"
+
+    - Фрагменты есть, но вывод нельзя:
+      * at_consent_required = "unclear"
+      * at_consent_display =
+        "Не удалось определить условия согласия при уступке"
+    </edge_cases>
+
+    <output_expectations>
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    </output_expectations>
+
+  fields:
+    - name: "at_consent_display"
+      type: "string"
+      presentation: "fact"
+      label: "Согласие при уступке"
+      description: "Нормализованный user-facing вывод для DD Grid"
+
+    - name: "at_consent_required"
+      type: "string"
+      presentation: "signal"
+      description: "Требуется ли согласие при уступке"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "not_specified"
+        - "unclear"
+
+    - name: "at_consent_form"
+      type: "string"
+      presentation: "signal"
+      description: "Форма согласия"
+      allowed_values:
+        - "prior_written"
+        - "written"
+        - "any_form"
+        - "not_specified"
+        - "not_applicable"
+        - "unclear"
+
+    - name: "at_response_period"
+      type: "string"
+      presentation: "fact"
+      label: "Срок ответа"
+      description: "Срок рассмотрения запроса о согласии при уступке"
+
+    - name: "at_deemed_consent"
+      type: "string"
+      presentation: "signal"
+      description: "Deemed consent при уступке"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "not_specified"
+        - "not_applicable"
+        - "unclear"
+
+    - name: "at_reasonableness_standard"
+      type: "string"
+      presentation: "signal"
+      description: "Стандарт отказа при уступке"
+      allowed_values:
+        - "not_unreasonably_withheld"
+        - "sole_discretion"
+        - "not_specified"
+        - "not_applicable"
+        - "unclear"
+
+    - name: "reason"
+      type: "string"
+      presentation: "diagnostic"
+      description: "Краткое обоснование"
+
+  store_payload: true
+
+
+  

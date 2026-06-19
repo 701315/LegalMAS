@@ -1,5 +1,6 @@
 id: "liability_and_indemnity_scope"
 name: "Общий объём ответственности и indemnity"
+group: "Liability"
 description: >
   Анализирует общий объём ответственности сторон и формулировки
   indemnity: наличие и уровень caps (ограничений по сумме),
@@ -111,6 +112,11 @@ evidence:
 retrieval:
   context_k: 5
   max_chunks: 10
+
+  retrieval_query: >
+    неограниченная ответственность возмещение убытков indemnity ограничение 
+    ответственности лимит штрафы упущенная выгода liquidated damages
+
   boost_keywords:
     - "unlimited liability"
     - "неограниченная ответственность"
@@ -130,6 +136,34 @@ retrieval:
     - "упущенная выгода"
     - "liquidated damages"
     - "заранее оценённые убытки"
+
+  negative_keywords:
+    - "интеллектуальная собственность"
+    - "персональные данные"
+    - "конфиденциальная информация"
+    - "форс-мажор"
+    - "подсудность"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "obligation"
+
+  excluded_unit_types:
+    - "technical_fragment"
+    - "appendix_reference"
+    - "structural_anchor"
+
+  preferred_clause_functions:
+    - "liability"
+    - "indemnification"
+    - "limitation_of_liability"
+    - "remedies"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -146,29 +180,25 @@ enrichment_hints:
     - "invoice"
     - "act"
     - "schedule"
-  preferred_clause_functions:
-    - "liability"
-    - "indemnification"
-    - "limitation_of_liability"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 420
+  llm_max_tokens: 400
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по контрактному праву и управлению рисками.
+    Ты — юрист по контрактному праву.
     Твоя задача — точно извлечь из текста:
-    1) ограничена ли ответственность Target (limited / unlimited);
+    1) ограничена ли ответственность Target;
     2) каков объём и характер indemnity;
     3) есть ли значимые штрафы / liquidated damages.
 
     Детальный анализ caps / basket / de minimis / carve-out
-    выполняется отдельным чеком liability_caps_and_baskets.
+    выполняется чеком liability_caps_and_baskets.
     Детальный анализ исключений видов убытков выполняется
-    отдельным чеком liability_exclusions.
+    чеком liability_exclusions.
     </role>
 
     <context>
@@ -184,152 +214,124 @@ extraction:
     - indemnity_scope
     - indemnity_beneficiary
     - has_significant_penalties
-    - red_flags
     - reason
 
     Важно:
-    - не анализируй детально caps / basket / de minimis —
-      это задача чека liability_caps_and_baskets;
-    - не анализируй детально исключения видов убытков —
-      это задача чека liability_exclusions;
-    - пиши user-facing значения коротко и по-русски.
+    - не анализируй caps / basket / de minimis;
+    - не анализируй исключения видов убытков;
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
     Шаг 1 — ОБЩИЙ ХАРАКТЕР ОТВЕТСТВЕННОСТИ
 
-    Заполни поле "liability_general".
+    Заполни "liability_general".
 
     Значения:
     - "limited" — есть явные ограничения: caps, исключения
       косвенных убытков, иные чётко прописанные ограничения.
     - "unlimited" — прямые формулировки о неограниченной
-      ответственности, или любые убытки без видимых caps /
-      exclusions.
+      ответственности, или любые убытки без видимых caps.
     - "unclear" — невозможно надёжно определить.
 
     Шаг 2 — МАСШТАБ INDEMNITY
 
-    Заполни поле "indemnity_scope".
+    Заполни "indemnity_scope".
 
     Значения:
     - "none" — indemnity-обязательства отсутствуют.
-    - "narrow" — indemnity ограничено конкретными рисками:
-      нарушение IP, налоговые претензии, regulatory claims.
+    - "narrow" — ограничено конкретными рисками: IP, налоги,
+      regulatory claims.
     - "broad" — "any and all losses, damages, fines, penalties,
       costs and expenses" без существенных carve-out.
     - "unclear" — неясно.
 
     Шаг 3 — В ЧЬЮ ПОЛЬЗУ INDEMNITY
 
-    Заполни поле "indemnity_beneficiary".
+    Заполни "indemnity_beneficiary".
 
     Значения:
-    - "mutual" — обязательства симметричны для обеих сторон.
-    - "counterparty" — преимущественно в пользу контрагента
-      (Target обязана indemnify контрагента).
+    - "mutual" — симметрично.
+    - "counterparty" — преимущественно в пользу контрагента.
     - "target" — преимущественно в пользу Target.
     - "not_applicable" — indemnity нет.
     - "unclear" — неясно.
 
     Шаг 4 — ЗНАЧИМЫЕ ШТРАФЫ / LIQUIDATED DAMAGES
 
-    Заполни поле "has_significant_penalties".
+    Заполни "has_significant_penalties".
 
     Значения:
-    - "yes" — есть: крупные liquidated damages, высокая дневная
+    - "yes" — крупные liquidated damages, высокая дневная
       ставка без cap, кумулятивные штрафы без ограничения.
     - "no" — штрафы умеренные или отсутствуют.
     - "unclear" — невозможно оценить.
 
-    Шаг 5 — RED FLAGS
+    Шаг 5 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "red_flags".
+    Заполни "liability_display".
 
-    Используй:
-    - "NONE" — если ответственность ограничена разумным cap,
-      indemnity узкое или симметричное, штрафы умеренные.
-    - "UNCLEAR" — если данных недостаточно.
-    - Коды через запятую:
-      * LIAB1 — неограниченная или непропорциональная
-        ответственность Target при ограниченной ответственности
-        контрагента.
-      * LIAB2 — очень широкая indemnity в пользу контрагента
-        (any and all losses, включая косвенные убытки и штрафы)
-        без существенных carve-out или caps.
-      * LIAB3 — значительные liquidated damages или штрафные
-        неустойки без разумного cap, несоразмерные характеру
-        нарушения.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 6 — USER-FACING SUMMARY
+    Базовый случай:
+    - все поля unclear:
+      "Не удалось определить объём ответственности"
 
-    Заполни поле "liability_display".
+    Если данные есть — комбинируй через ";":
+    - liability_general (limited / unlimited)
+    - indemnity_scope + indemnity_beneficiary (если проблема)
+    - has_significant_penalties (если "yes")
 
     Примеры:
-    - "Ответственность ограничена; indemnity широкая в пользу
-       контрагента; значимые штрафы"
+    - "Ответственность ограничена; indemnity широкая в пользу контрагента; значимые штрафы"
     - "Ответственность неограниченная; hold harmless без cap"
     - "Ответственность ограничена; indemnity узкое; штрафы умеренные"
     - "Не удалось определить объём ответственности"
 
-    Правила:
-    - Отрази максимум 3 ключевых факта через ";".
-    - Если всё unclear:
-      "Не удалось определить объём ответственности"
+    Ограничение: не более 3 фактов через ";".
 
-    Шаг 7 — ОБОСНОВАНИЕ
+    Шаг 6 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
-    - Укажи: тип ответственности, характер indemnity, штрафы,
-      почему выставлены red_flags.
-    - Приведи короткую цитату в кавычках.
-    - Если NONE — почему конструкция ответственности приемлема.
+    - Укажи: тип ответственности, indemnity, штрафы.
+    - Приведи цитату в кавычках.
     </instructions>
 
     <edge_cases>
     - "Unlimited liability" или "any and all losses" без caps:
       * liability_general = "unlimited"
-      * red_flags включает "LIAB1"
 
-    - Cap на уровне стоимости договора + исключение косвенных:
-      * liability_general = "limited"
-      * в reason: разумное ограничение
-
-    - "Any and all losses" в indemnity без carve-out:
+    - "Any and all losses" в indemnity в пользу контрагента:
       * indemnity_scope = "broad"
-      * если в пользу контрагента: red_flags включает "LIAB2"
+      * indemnity_beneficiary = "counterparty"
 
     - Кумулятивные штрафы без cap:
       * has_significant_penalties = "yes"
-      * red_flags включает "LIAB3"
-
-    - Ответственность ограничена, indemnity узкое, штрафы 0.1%/день
-      с cap 10%:
-      * red_flags = "NONE"
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
-      * red_flags = "UNCLEAR"
-      * liability_display =
-        "Не удалось определить объём ответственности"
+      * liability_display = "Не удалось определить объём ответственности"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "liability_display"
       type: "string"
-      description: "Ответственность и indemnity: краткий вывод"
+      presentation: "fact"
+      label: "Ответственность и indemnity"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "liability_general"
       type: "string"
+      presentation: "signal"
       description: "Общий характер ответственности"
       allowed_values:
         - "limited"
@@ -338,6 +340,7 @@ extraction:
 
     - name: "indemnity_scope"
       type: "string"
+      presentation: "signal"
       description: "Масштаб indemnity"
       allowed_values:
         - "none"
@@ -347,6 +350,7 @@ extraction:
 
     - name: "indemnity_beneficiary"
       type: "string"
+      presentation: "signal"
       description: "В чью пользу работает indemnity"
       allowed_values:
         - "mutual"
@@ -357,20 +361,19 @@ extraction:
 
     - name: "has_significant_penalties"
       type: "string"
+      presentation: "signal"
       description: "Значимые штрафы / liquidated damages"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true
 
-      
+
+  

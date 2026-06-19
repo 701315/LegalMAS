@@ -1,5 +1,6 @@
 id: "payment_terms_and_structures"
 name: "Платежные условия и схемы"
+group: "Financial"
 description: >
   Анализирует основные платежные условия и схемы расчётов: валюту
   платежа и курсовые риски, структуру и сроки оплаты (авансы,
@@ -121,8 +122,13 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
-  context_k: 5
-  max_chunks: 10
+  context_k: 6
+  max_chunks: 12
+  
+  retrieval_query: >
+    условия оплаты порядок расчетов валюта платежа аванс предоплата 
+    штрафы за просрочку неустойка аккредитив эскроу взаимозачет индексация цен
+
   boost_keywords:
     - "payment terms"
     - "условия оплаты"
@@ -146,6 +152,41 @@ retrieval:
     - "price escalation"
     - "индексация цен"
     - "milestone payment"
+    
+  negative_keywords:
+    - "financial covenant"
+    - "финансовые ковенанты"
+    - "take-or-pay"
+    - "minimum volume"
+    - "минимальный объем"
+    - "означает"
+    - "в целях настоящего"
+    - "споры"
+    - "подсудность"
+    - "применимое право"
+    
+  preferred_unit_types:
+    - "payment_term"
+    - "obligation"
+    - "liability_provision"
+    - "general_provision"
+
+  excluded_unit_types:
+    - "definition"
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "obligations"
+    - "rights"
+    - "remedies"
+
+  position_bias:
+    preferred_range: [0.05, 0.60]
+    boost: 0.20
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -161,28 +202,21 @@ enrichment_hints:
     - "technical_specification"
     - "invoice"
     - "act"
-  preferred_clause_functions:
-    - "payment_terms"
-    - "penalties"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 480
+  llm_max_tokens: 460
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по коммерческим и финансовым договорам.
-    Твоя задача — точно извлечь из текста платежные условия:
-    валюту и курсовые риски, структуру платежей, штрафы за
-    просрочку, предоплаты / аккредитивы / escrow, set-off rights,
-    индексацию цен.
+    Ты — юрист по коммерческим договорам.
+    Твоя задача — точно извлечь платежные условия из текста:
+    валюту, структуру платежей, штрафы за просрочку, предоплаты /
+    аккредитивы / escrow, set-off rights, индексацию цен.
 
-    Не анализируй take-or-pay и минимальные объёмы детально —
-    это задача чека sticky_long_term_obligations.
-    Не анализируй финансовые ковенанты — это задача чека
-    financial_covenants.
+    Не анализируй take-or-pay, минимальные объёмы и финансовые ковенанты.
     </role>
 
     <context>
@@ -198,46 +232,41 @@ extraction:
     - payment_schedule_type
     - has_late_payment_penalties
     - has_advance_lc_escrow
-    - has_minimum_volume_commitment
     - set_off_rights
     - has_price_indexation
-    - red_flags
     - reason
 
     Важно:
-    - не анализируй детально take-or-pay и минимальные объёмы —
-      только фиксируй их наличие как routing-сигнал;
-    - не анализируй финансовые ковенанты;
-    - пиши user-facing значения коротко и по-русски.
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
     Шаг 1 — ВАЛЮТА ПЛАТЕЖА
 
-    Заполни поле "payment_currency".
+    Заполни "payment_currency".
 
     Правила:
-    - Укажи конкретную валюту: "RUB", "USD", "EUR",
-      "multiple: USD + EUR", "not_specified".
-    - Если валюта иностранная и нет хеджирования / фиксации
-      курса — отметь это в reason.
+    - Конкретная валюта: "RUB", "USD", "EUR",
+      "multiple: USD + EUR".
+    - Если не указана: "not_specified".
+    - Если иностранная и нет хеджирования — отметь в reason.
 
     Шаг 2 — СТРУКТУРА ПЛАТЕЖЕЙ
 
-    Заполни поле "payment_schedule_type".
+    Заполни "payment_schedule_type".
 
     Значения:
     - "advance_only" — только предоплата.
-    - "postpayment" — только постоплата (Net 30, Net 60 и т.п.).
+    - "postpayment" — только постоплата.
     - "milestone" — milestone-платежи.
     - "mixed" — аванс + постоплата или другая комбинация.
-    - "periodic" — периодические (ежемесячные, квартальные).
+    - "periodic" — периодические платежи.
     - "not_specified" — структура не определена.
     - "unclear" — нельзя определить.
 
-    Шаг 3 — ПРОЦЕНТЫ И ШТРАФЫ ЗА ПРОСРОЧКУ
+    Шаг 3 — ШТРАФЫ ЗА ПРОСРОЧКУ
 
-    Заполни поле "has_late_payment_penalties".
+    Заполни "has_late_payment_penalties".
 
     Значения:
     - "yes_market_rate" — есть, ставка рыночная.
@@ -249,45 +278,31 @@ extraction:
 
     Шаг 4 — ПРЕДОПЛАТЫ, АККРЕДИТИВЫ, ESCROW
 
-    Заполни поле "has_advance_lc_escrow".
+    Заполни "has_advance_lc_escrow".
 
     Значения:
     - "yes" — есть авансы / L/C / escrow.
     - "no" — нет.
     - "unclear" — неясно.
 
-    Если "yes" — в reason кратко опиши:
-    - объём аванса (% или сумма если указана);
-    - условия возврата (есть ли advance payment guarantee);
-    - условия высвобождения escrow.
+    Если "yes" — в reason кратко опиши объём аванса
+    и условия возврата / высвобождения escrow.
 
-    Шаг 5 — МИНИМАЛЬНЫЕ ОБЪЁМЫ / TAKE-OR-PAY
+    Шаг 5 — SET-OFF / NETTING
 
-    Заполни поле "has_minimum_volume_commitment".
-
-    Это routing-поле. Детальный анализ — в чеке
-    sticky_long_term_obligations.
+    Заполни "set_off_rights".
 
     Значения:
-    - "yes" — есть минимальные объёмы / take-or-pay.
-    - "no" — нет.
-    - "unclear" — неясно.
-
-    Шаг 6 — SET-OFF / NETTING RIGHTS
-
-    Заполни поле "set_off_rights".
-
-    Значения:
-    - "counterparty_unilateral" — контрагент может
-      зачитывать суммы без согласия Target.
+    - "counterparty_unilateral" — контрагент может зачитывать
+      суммы без согласия Target.
     - "mutual" — взаимный зачёт.
     - "prohibited" — зачёт запрещён.
     - "not_addressed" — не урегулировано.
     - "unclear" — неясно.
 
-    Шаг 7 — ИНДЕКСАЦИЯ ЦЕН
+    Шаг 6 — ИНДЕКСАЦИЯ ЦЕН
 
-    Заполни поле "has_price_indexation".
+    Заполни "has_price_indexation".
 
     Значения:
     - "yes_uncapped" — индексация без cap.
@@ -295,105 +310,87 @@ extraction:
     - "no" — нет.
     - "unclear" — неясно.
 
-    Шаг 8 — RED FLAGS
+    Шаг 7 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "red_flags".
+    Заполни "payment_display".
 
-    Используй:
-    - "NONE" — если существенных риск-факторов нет.
-    - "UNCLEAR" — если данных недостаточно.
-    - Коды через запятую:
-      * PAY1 — крупная предоплата (> 30%) с жёсткими
-        условиями возврата или без гарантии возврата.
-      * PAY2 — минимальные объёмы / take-or-pay
-        (routing: детальный анализ в sticky_long_term).
-      * PAY3 — иностранная валюта без хеджирования.
-      * PAY4 — чрезмерно высокие штрафные проценты.
-      * PAY5 — длительная блокировка escrow (> 12 мес.)
-        без чётких условий высвобождения.
-      * PAY6 — односторонний set-off контрагента
-        без согласия Target.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 9 — USER-FACING SUMMARY
+    Базовый случай:
+    - все поля unclear / not_specified:
+      "Не удалось определить платежные условия"
 
-    Заполни поле "payment_display".
-
-    Строй display как краткий factual вывод:
+    Если данные есть — комбинируй через ";":
+    - начни с payment_currency
+    - добавь payment_schedule_type (кратко)
+    - добавь has_late_payment_penalties (если значимо)
+    - добавь has_advance_lc_escrow (если есть)
+    - добавь set_off_rights (если counterparty_unilateral)
 
     Примеры:
     - "RUB; постоплата Net 30; штрафные проценты рыночные"
-    - "USD; 30% аванс + milestone; штрафные проценты не указаны;
-       есть escrow"
+    - "USD; 30% аванс + milestone; escrow; штрафные проценты не указаны"
     - "EUR без хеджирования; предоплата 50%; set-off контрагента"
     - "Не удалось определить платежные условия"
 
-    Правила:
-    - Отрази максимум 3–4 ключевых факта через ";".
-    - Если все параметры unclear:
-      "Не удалось определить платежные условия"
+    Ограничение: не более 4 фактов через ";".
 
-    Шаг 10 — ОБОСНОВАНИЕ
+    Шаг 8 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
-    - Укажи: валюту, структуру платежей, ключевые риски
-      (аванс, escrow, штрафы, set-off), почему выставлены
-      red_flags.
+    - Укажи: валюту, структуру, ключевые риски.
     - Приведи короткую цитату в кавычках.
-    - Если NONE — почему условия приемлемы.
     </instructions>
 
     <edge_cases>
     - Стандартная постоплата Net 30, рыночные проценты:
       * has_late_payment_penalties = "yes_market_rate"
-      * red_flags = "NONE"
 
     - Аванс > 50% без advance payment guarantee:
       * has_advance_lc_escrow = "yes"
-      * red_flags включает "PAY1"
 
-    - USD для российской компании без хеджирования:
+    - USD без хеджирования:
       * payment_currency = "USD"
-      * red_flags включает "PAY3"
 
     - 0.5% в день штрафные проценты:
       * has_late_payment_penalties = "yes_excessive"
-      * red_flags включает "PAY4"
 
     - Escrow 24 месяца без trigger events:
       * has_advance_lc_escrow = "yes"
-      * red_flags включает "PAY5"
 
-    - Контрагент может зачитывать суммы без согласия:
+    - Контрагент зачитывает суммы без согласия:
       * set_off_rights = "counterparty_unilateral"
-      * red_flags включает "PAY6"
 
     - Нет релевантных фрагментов:
-      * все поля = "unclear" или "not_specified"
-      * red_flags = "UNCLEAR"
-      * payment_display =
-        "Не удалось определить платежные условия"
+      * все поля = "unclear" / "not_specified"
+      * payment_display = "Не удалось определить платежные условия"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "payment_display"
       type: "string"
-      description: "Платежные условия: краткий вывод"
+      presentation: "fact"
+      label: "Платежные условия"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "payment_currency"
       type: "string"
+      presentation: "fact"
+      label: "Валюта платежа"
       description: "Валюта платежа"
 
     - name: "payment_schedule_type"
       type: "string"
+      presentation: "signal"
       description: "Структура платежей"
       allowed_values:
         - "advance_only"
@@ -406,6 +403,7 @@ extraction:
 
     - name: "has_late_payment_penalties"
       type: "string"
+      presentation: "signal"
       description: "Штрафы за просрочку"
       allowed_values:
         - "yes_market_rate"
@@ -416,15 +414,8 @@ extraction:
 
     - name: "has_advance_lc_escrow"
       type: "string"
+      presentation: "signal"
       description: "Предоплата / аккредитив / escrow"
-      allowed_values:
-        - "yes"
-        - "no"
-        - "unclear"
-
-    - name: "has_minimum_volume_commitment"
-      type: "string"
-      description: "Минимальные объёмы / take-or-pay (routing)"
       allowed_values:
         - "yes"
         - "no"
@@ -432,6 +423,7 @@ extraction:
 
     - name: "set_off_rights"
       type: "string"
+      presentation: "signal"
       description: "Set-off / зачёт"
       allowed_values:
         - "counterparty_unilateral"
@@ -442,6 +434,7 @@ extraction:
 
     - name: "has_price_indexation"
       type: "string"
+      presentation: "signal"
       description: "Индексация цен"
       allowed_values:
         - "yes_uncapped"
@@ -449,16 +442,10 @@ extraction:
         - "no"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true
-
-
   
-        

@@ -1,0 +1,356 @@
+id: "assignment_transfer_regime"
+name: "Уступка прав и перевод долга"
+group: "ASSIGNMENT_TRANSFER"
+description: >
+  Анализирует, регулирует ли договор уступку прав, перевод долга,
+  передачу обязательств или передачу договора в целом, и определяет
+  общий режим: запрет, только с согласия, свободное разрешение
+  или смешанный режим.
+
+  Check не анализирует:
+  - смену контроля (Change of Control, CoC);
+  - асимметрию между сторонами;
+  - carve-out и исключения;
+  - детальную механику согласия (форма, сроки, deemed consent,
+    reasonableness standard);
+  - последствия нарушения режима уступки / перевода долга.
+
+  Эти вопросы должны покрываться отдельными checks.
+
+doc_types: []
+
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+ui_mode: "field_extraction"
+
+rules:
+  keyword_mode: any
+
+  keywords:
+    high:
+      - "(?i)assignment\\s+of\\s+(rights?|this\\s+agreement|the\\s+contract)"
+      - "(?i)assign\\s+(this\\s+agreement|any\\s+rights?|its?\\s+rights?)"
+      - "(?i)shall\\s+not\\s+assign"
+      - "(?i)without\\s+(the\\s+)?(prior\\s+)?(written\\s+)?consent[\\s\\S]{0,40}(assign|transfer|delegate)"
+      - "(?i)уступк[аи]\\s+(прав|требовани[яий])"
+      - "(?i)уступить\\s+(прав[аы]|требовани[яие])"
+      - "(?i)перевод\\s+долга"
+      - "(?i)перевод\\s+обязательств"
+      - "(?i)передач[аи]\\s+прав\\s+и\\s+обязанностей"
+      - "(?i)передач[аи]\\s+договора"
+      - "(?i)не\\s+вправе\\s+уступ(ить|ать)"
+      - "(?i)без\\s+(предварительного\\s+)?(письменного\\s+)?согласи[яи][\\s\\S]{0,40}(уступ|перевод|передач)"
+
+    medium:
+      - "(?i)\\bassignment\\b"
+      - "(?i)\\bassign(?:ment|ed|ee|s)?\\b"
+      - "(?i)transfer\\s+of\\s+(obligations?|duties)"
+      - "(?i)delegation\\s+of\\s+(duties|obligations)"
+      - "(?i)consent\\s+to\\s+(assignment|transfer)"
+      - "(?i)согласи[ея]\\s+на\\s+(уступк|перевод|передач)"
+      - "(?i)prior\\s+written\\s+consent"
+      - "(?i)предварительн[а-я]+\\s+письменн[а-я]+\\s+согласи"
+      - "(?i)successors?\\s+and\\s+assigns?"
+      - "(?i)правопреемник"
+      - "(?i)security\\s+assignment"
+      - "(?i)залог\\s+(прав|требовани)"
+
+    low:
+      - "(?i)уступк[аи]"
+      - "(?i)assignment\\s+clause"
+      - "(?i)перевод\\s+долга"
+
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 420
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 6
+  max_chunks: 12
+
+  retrieval_query: >
+    уступка прав перевод долга передача прав и обязанностей
+    передача договора согласие на уступку assignment of rights
+    transfer of obligations delegation of duties
+
+  boost_keywords:
+    - "уступка прав"
+    - "assignment of rights"
+    - "assignment of this agreement"
+    - "перевод долга"
+    - "перевод обязательств"
+    - "transfer of obligations"
+    - "delegation of duties"
+    - "передача прав и обязанностей"
+    - "передача договора"
+    - "без предварительного письменного согласия"
+    - "without prior written consent"
+    - "shall not assign"
+
+  negative_keywords:
+    - "change of control"
+    - "смена контроля"
+    - "означает"
+    - "в целях настоящего"
+    - "термин"
+    - "споры"
+    - "подсудность"
+    - "применимое право"
+    - "конфиденциальность"
+
+  preferred_unit_types:
+    - "obligation"
+    - "general_provision"
+
+  excluded_unit_types:
+    - "definition"
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "rights"
+    - "limitations"
+    - "obligations"
+    - "boilerplate"
+
+  position_bias:
+    preferred_range: [0.60, 1.00]
+    boost: 0.30
+    scope: "segment"
+
+  rerank: true
+  filters: {}
+
+conditional: null
+
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 320
+  llm_prompt_extraction: |
+    <role>
+    Ты — юрист по коммерческим договорам.
+    Твоя задача — точно извлечь из текста только общий режим
+    уступки прав и перевода долга / передачи обязательств.
+
+    Не оценивай риск.
+    Не анализируй смену контроля (CoC).
+    Не анализируй асимметрию между сторонами.
+    Не анализируй carve-out и исключения.
+    Не анализируй механику согласия, сроки ответа, deemed consent,
+    reasonableness standard или последствия нарушения.
+    </role>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
+
+    <task>
+    Заполни только следующие поля:
+    - assignment_transfer_display
+    - assignment_transfer_status
+    - assignment_transfer_regime_type
+    - assignment_transfer_coverage
+    - reason
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - не придумывай distinctions, которых нет в тексте;
+    - пиши коротко и по-русски.
+    </task>
+
+    <instructions>
+    Шаг 1 — НАЛИЧИЕ ПОЛОЖЕНИЙ
+
+    Заполни "assignment_transfer_status".
+
+    Значения:
+    - "present" — если договор прямо регулирует assignment,
+      уступку прав / требований, перевод долга, передачу обязательств
+      или передачу договора в целом.
+    - "missing" — если таких положений нет.
+    - "unclear" — если формулировки есть, но режим надёжно определить нельзя.
+
+    Шаг 2 — ТИП РЕЖИМА
+
+    Заполни "assignment_transfer_regime_type".
+
+    Значения:
+    - "prohibited" — уступка / перевод долга прямо запрещены.
+    - "consent_required" — допустимы только с согласия другой стороны.
+    - "freely_permitted" — прямо разрешены без согласия.
+    - "mixed" — режим различается между уступкой прав и переводом долга
+      либо текст не даёт один единый режим.
+    - "not_specified" — если assignment_transfer_status = "missing".
+    - "unclear" — режим нельзя определить надёжно.
+
+    Шаг 3 — ПОКРЫТИЕ
+
+    Заполни "assignment_transfer_coverage".
+
+    Значения:
+    - "assignment_only" — регулируется только уступка прав / требований.
+    - "transfer_only" — регулируется только перевод долга /
+      передача обязательств.
+    - "both" — регулируются и уступка прав, и перевод долга /
+      передача обязательств.
+    - "not_specified" — если assignment_transfer_status = "missing".
+    - "unclear" — покрытие нельзя определить надёжно.
+
+    Шаг 4 — DISPLAY ДЛЯ DD GRID
+
+    Заполни "assignment_transfer_display".
+
+    Базовые шаблоны:
+    - status = "missing":
+      "Положения об уступке прав и переводе долга не установлены"
+    - status = "unclear":
+      "Не удалось определить режим уступки прав / перевода долга"
+
+    Если status = "present":
+    - regime = "prohibited", coverage = "both":
+      "Уступка прав и перевод долга запрещены"
+    - regime = "prohibited", coverage = "assignment_only":
+      "Уступка прав запрещена"
+    - regime = "prohibited", coverage = "transfer_only":
+      "Перевод долга запрещён"
+
+    - regime = "consent_required", coverage = "both":
+      "Уступка прав и перевод долга — только с письменного согласия"
+    - regime = "consent_required", coverage = "assignment_only":
+      "Уступка прав — только с письменного согласия"
+    - regime = "consent_required", coverage = "transfer_only":
+      "Перевод долга — только с письменного согласия"
+
+    - regime = "freely_permitted", coverage = "both":
+      "Уступка прав и перевод долга разрешены свободно"
+    - regime = "freely_permitted", coverage = "assignment_only":
+      "Уступка прав разрешена свободно"
+    - regime = "freely_permitted", coverage = "transfer_only":
+      "Перевод долга разрешён свободно"
+
+    - regime = "mixed":
+      "Режим уступки прав и перевода долга смешанный"
+
+    Шаг 5 — КРАТКОЕ ОБОСНОВАНИЕ
+
+    Заполни "reason".
+
+    Правила:
+    - 1 короткое предложение, максимум 2.
+    - Укажи общий вывод по режиму и покрытию.
+    - Приведи короткую цитату в кавычках.
+    - Не анализируй риск и не делай правовых выводов сверх текста.
+    </instructions>
+
+    <edge_cases>
+    - "Neither party may assign this Agreement without prior written consent":
+      * assignment_transfer_status = "present"
+      * assignment_transfer_regime_type = "consent_required"
+      * assignment_transfer_coverage = "assignment_only"
+      * assignment_transfer_display =
+        "Уступка прав — только с письменного согласия"
+
+    - Явный запрет и assignment, и transfer of obligations:
+      * assignment_transfer_regime_type = "prohibited"
+      * assignment_transfer_coverage = "both"
+      * assignment_transfer_display =
+        "Уступка прав и перевод долга запрещены"
+
+    - Нет релевантных фрагментов:
+      * assignment_transfer_status = "missing"
+      * assignment_transfer_regime_type = "not_specified"
+      * assignment_transfer_coverage = "not_specified"
+      * assignment_transfer_display =
+        "Положения об уступке прав и переводе долга не установлены"
+
+    - Фрагменты есть, но вывод сделать нельзя:
+      * assignment_transfer_status = "unclear"
+      * assignment_transfer_regime_type = "unclear"
+      * assignment_transfer_coverage = "unclear"
+      * assignment_transfer_display =
+        "Не удалось определить режим уступки прав / перевода долга"
+    </edge_cases>
+
+    <output_expectations>
+    Все значения должны быть короткими, точными и пригодными
+    для отображения в DD Grid.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    </output_expectations>
+
+  fields:
+    - name: "assignment_transfer_display"
+      type: "string"
+      presentation: "fact"
+      label: "Уступка прав / перевод долга"
+      description: "Нормализованный user-facing вывод для DD Grid"
+
+    - name: "assignment_transfer_status"
+      type: "string"
+      presentation: "signal"
+      description: "Наличие положений"
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
+    - name: "assignment_transfer_regime_type"
+      type: "string"
+      presentation: "signal"
+      description: "Тип режима"
+      allowed_values:
+        - "prohibited"
+        - "consent_required"
+        - "freely_permitted"
+        - "mixed"
+        - "not_specified"
+        - "unclear"
+
+    - name: "assignment_transfer_coverage"
+      type: "string"
+      presentation: "signal"
+      description: "Покрытие"
+      allowed_values:
+        - "assignment_only"
+        - "transfer_only"
+        - "both"
+        - "not_specified"
+        - "unclear"
+
+    - name: "reason"
+      type: "string"
+      presentation: "diagnostic"
+      description: "Краткое обоснование"
+
+  store_payload: true
+
+  

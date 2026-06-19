@@ -14,11 +14,16 @@
 //
 // Production notes:
 // - rowId is stable and suitable for AG Grid getRowId.
+//   Format: `${matrixRowId}::${checkId}`
+// - matrixRowId preserves linkage to the original matrix row.
 // - sourceRow/sourceColumn/source cell provenance is preserved
 //   so the list view can open the same details drawer as matrix view.
-// - includePass allows the caller to choose between:
-//   * full audit list
-//   * findings-only list (recommended default for review UX)
+// - Default behaviour: all findings are included (pass, unclear, fail).
+// - allowedCellKeys: when provided, only findings whose rowId is in the
+//   set are included. This is the primary filtering mechanism so that
+//   list mode respects the same quick-filters as matrix mode.
+// - includePass: secondary gate, applied after allowedCellKeys.
+//   Defaults to true.
 // =============================================================
 
 import type {
@@ -29,10 +34,24 @@ import type { FindingListRow } from "./reviewListGrid.types";
 
 export interface BuildReviewListRowsOptions {
   /**
+   * When provided, only flat rows whose rowId is present in this set
+   * will be included. The set should contain keys in the format
+   * `${matrixRowId}::${checkId}` — matching FindingListRow.rowId.
+   *
+   * Use this to apply the same finding-level filters as matrix mode,
+   * so that quick filters (critical, unclear, etc.) work correctly
+   * in list mode.
+   *
+   * When omitted, all cells from the provided rows are included
+   * (subject to includePass).
+   */
+  allowedCellKeys?: ReadonlySet<string>;
+
+  /**
    * Whether rows with result === "pass" should be included.
    * Default: true.
    *
-   * Use includePass: false for a cleaner findings-focused review list.
+   * Set to false to show only non-pass findings.
    */
   includePass?: boolean;
 }
@@ -45,19 +64,19 @@ export interface BuildReviewListRowsOptions {
  * - columns: normalized review check metadata
  *
  * Output:
- * - one flat row per existing review cell
+ * - one flat row per visible review cell
  *
- * Behavior:
- * - skips empty cells
- * - skips cells whose check metadata is missing
- * - optionally skips pass results
+ * Filtering order:
+ * 1. Skip cells with missing check metadata
+ * 2. Skip cells not in allowedCellKeys (when provided)
+ * 3. Skip pass cells when includePass === false
  */
 export function buildReviewListRows(
   rows: ReviewGridRow[],
   columns: ReviewCheckColumn[],
   options: BuildReviewListRowsOptions = {},
 ): FindingListRow[] {
-  const { includePass = true } = options;
+  const { includePass = true, allowedCellKeys } = options;
 
   const columnById = new Map<string, ReviewCheckColumn>(
     columns.map((col) => [col.checkId, col]),
@@ -69,18 +88,26 @@ export function buildReviewListRows(
         return [];
       }
 
-      if (!includePass && cell.result === "pass") {
-        return [];
-      }
-
       const meta = columnById.get(checkId);
       if (!meta) {
         return [];
       }
 
+      const flatRowId = `${row.rowId}::${checkId}`;
+
+      // Gate 1: exact finding filter (applied by GridTabPage via filteredReviewFindings)
+      if (allowedCellKeys !== undefined && !allowedCellKeys.has(flatRowId)) {
+        return [];
+      }
+
+      // Gate 2: pass visibility toggle
+      if (!includePass && cell.result === "pass") {
+        return [];
+      }
+
       return [
         {
-          rowId: `${row.rowId}::${checkId}`,
+          rowId: flatRowId,
           matrixRowId: row.rowId,
 
           documentId: row.documentId,

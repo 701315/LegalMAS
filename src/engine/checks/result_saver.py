@@ -146,6 +146,9 @@ async def save_check_result(
             segment_title=normalized.get("segment_title"),
             segment_order=normalized.get("segment_order"),
             is_primary_segment=normalized.get("is_primary_segment"),
+            chunk_id=normalized.get("chunk_id"),
+            chunk_index=normalized.get("chunk_index"),
+            context_trace=normalized.get("context_trace"),
             execution_status=execution_status,
             error_details=error_details,
             # ── Spec v2: canonical display semantics ──────────────────────────
@@ -269,6 +272,9 @@ async def save_not_applicable_result(
             segment_title=normalized.get("segment_title"),
             segment_order=normalized.get("segment_order"),
             is_primary_segment=normalized.get("is_primary_segment"),
+            chunk_id=normalized.get("chunk_id"),
+            chunk_index=normalized.get("chunk_index"),
+            context_trace=normalized.get("context_trace"),
             execution_status=execution_status,
             error_details={
                 "type": "check_not_applicable",

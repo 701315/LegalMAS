@@ -148,7 +148,28 @@ export interface ReviewFilterState {
  * поэтому здесь используется rowId, а не findingId.
  */
 export interface ReviewSelectionItem {
+  /**
+   * Stable row identifier for AG Grid.
+   *
+   * Matrix mode:  rowId === matrixRowId  (segment-level row key)
+   * List mode:    rowId === `${matrixRowId}::${checkId}` (flat finding key)
+   *
+   * Do not parse this string — use matrixRowId and checkId fields instead.
+   */
   rowId: string;
+
+  /**
+   * Original matrix row id (segment-level).
+   * Populated in list mode; undefined in matrix mode.
+   */
+  matrixRowId?: string | null;
+
+  /**
+   * Exact check id this selection item refers to.
+   * Populated in list mode; undefined in matrix mode.
+   * When present, QC helpers match by (matrixRowId + checkId) instead of rowId.
+   */
+  checkId?: string | null;
 }
 
 /**

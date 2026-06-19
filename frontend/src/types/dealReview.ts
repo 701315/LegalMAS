@@ -50,6 +50,7 @@ export type ReviewFieldFormat = "money" | "date" | "entity_name" | "text";
 export type ReviewUiMode =
   | "clause_presence"
   | "extraction"
+  | "field_extraction"
   | "risk_flag"
   | "comparison"
   | "summary";

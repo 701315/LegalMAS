@@ -32,6 +32,7 @@ CheckExecutor: запуск одной проверки (check) для одно�
 """
 
 import time
+from typing import Any
 
 from core.config import settings
 from core.logging import get_logger
@@ -54,6 +55,31 @@ _PRESENCE_NOT_FOUND_SOURCES = {
     "rules_clean_negative",
     "both_not_found_llm_preferred",
 }
+
+def _get_field_presentation_from_check(
+    check: "CheckDefinition | None",
+    field_name: str,
+) -> str:
+    """
+    Get presentation role for a field from check.extraction.fields.
+
+    Returns 'fact' as default when check or field config is not available.
+    """
+    if check is None:
+        return "fact"
+    extraction = getattr(check, "extraction", None)
+    if extraction is None:
+        return "fact"
+    fields = getattr(extraction, "fields", None)
+    if not isinstance(fields, list):
+        return "fact"
+    for field_cfg in fields:
+        if getattr(field_cfg, "name", None) == field_name:
+            presentation = getattr(field_cfg, "presentation", None)
+            if presentation and str(presentation).strip():
+                return str(presentation).strip()
+            return "fact"
+    return "fact"
 
 
 class CheckExecutor:
@@ -104,6 +130,217 @@ class CheckExecutor:
         header = f"[{', '.join(header_parts)}]" if header_parts else ""
         text = c.get("text") or ""
         return f"{header}\n{text}".strip() if header else text
+
+    @staticmethod
+    def _empty_provenance() -> dict[str, Any]:
+        return {
+            "page": None,
+            "clause_uid": None,
+            "element_id": None,
+            "bbox": None,
+            "segment_id": None,
+            "segment_type": None,
+            "segment_title": None,
+            "segment_order": None,
+            "is_primary_segment": None,
+            "chunk_id": None,
+            "chunk_index": None,
+        }
+
+    @classmethod
+    def _extract_detector_provenance(
+        cls,
+        location: dict | None,
+        sources: list | None,
+    ) -> dict[str, Any]:
+        """
+        Извлечь provenance из detector output (location/sources).
+        Это primary source, если detector реально заполнил anchors.
+        """
+        prov = cls._empty_provenance()
+
+        if isinstance(location, dict):
+            prov["page"] = location.get("page")
+            prov["clause_uid"] = location.get("clause_uid")
+            prov["element_id"] = location.get("element_id")
+            prov["bbox"] = location.get("bbox")
+            prov["segment_id"] = location.get("segment_id")
+            prov["segment_type"] = location.get("segment_type")
+            prov["segment_title"] = location.get("segment_title")
+            prov["segment_order"] = location.get("segment_order")
+            prov["is_primary_segment"] = location.get("is_primary_segment")
+            prov["chunk_id"] = location.get("chunk_id")
+            prov["chunk_index"] = location.get("chunk_index")
+
+        if isinstance(sources, list) and sources:
+            first_src = sources[0]
+            if isinstance(first_src, dict):
+                if prov["bbox"] is None:
+                    prov["bbox"] = first_src.get("bbox")
+                if prov["page"] is None:
+                    prov["page"] = first_src.get("page")
+                if prov["clause_uid"] is None:
+                    prov["clause_uid"] = first_src.get("effective_uid") or first_src.get("clause_uid")
+                if prov["element_id"] is None:
+                    prov["element_id"] = first_src.get("element_id")
+
+                if prov["segment_id"] is None:
+                    prov["segment_id"] = first_src.get("segment_id")
+                if prov["segment_type"] is None:
+                    prov["segment_type"] = first_src.get("segment_type")
+                if prov["segment_title"] is None:
+                    prov["segment_title"] = first_src.get("segment_title")
+                if prov["segment_order"] is None:
+                    prov["segment_order"] = first_src.get("segment_order")
+                if prov["is_primary_segment"] is None:
+                    prov["is_primary_segment"] = first_src.get("is_primary_segment")
+
+                if prov["chunk_id"] is None:
+                    prov["chunk_id"] = first_src.get("chunk_id")
+                if prov["chunk_index"] is None:
+                    prov["chunk_index"] = first_src.get("chunk_index")
+
+        return prov
+
+    @classmethod
+    def _extract_primary_context_provenance(
+        cls,
+        contexts: list[dict],
+        retrieved_chunks: list[RetrievedChunk],
+    ) -> dict[str, Any]:
+        """
+        Fallback provenance для extraction-only path.
+        Если detector не дал anchors, берём provenance из top-ranked retrieval chunk.
+        """
+        prov = cls._empty_provenance()
+
+        if not contexts or not retrieved_chunks:
+            return prov
+
+        c = contexts[0] or {}
+        rc = retrieved_chunks[0]
+        meta = c.get("metadata", {}) or {}
+
+        prov["page"] = (
+            meta.get("page")
+            or meta.get("start_page")
+            or getattr(rc, "page", None)
+            or getattr(rc, "start_page", None)
+        )
+        prov["clause_uid"] = (
+            meta.get("effective_uid")
+            or meta.get("clause_uid")
+            or getattr(rc, "clause_uid", None)
+        )
+        prov["element_id"] = (
+            c.get("id")
+            or meta.get("element_id")
+            or getattr(rc, "element_id", None)
+        )
+        prov["segment_id"] = (
+            meta.get("segment_id")
+            or getattr(rc, "segment_id", None)
+        )
+        prov["segment_type"] = (
+            meta.get("segment_type")
+            or getattr(rc, "segment_type", None)
+        )
+        prov["segment_title"] = (
+            meta.get("segment_title")
+            or getattr(rc, "segment_title", None)
+        )
+
+        seg_order = meta.get("segment_order")
+        if seg_order is None:
+            seg_order = getattr(rc, "segment_order", None)
+        prov["segment_order"] = seg_order
+
+        is_primary = meta.get("is_primary_segment")
+        if is_primary is None:
+            is_primary = getattr(rc, "is_primary_segment", None)
+        prov["is_primary_segment"] = is_primary
+
+        prov["chunk_id"] = (
+            meta.get("chunk_id")
+            or getattr(rc, "chunk_id", None)
+            or prov["element_id"]
+        )
+
+        chunk_index = meta.get("chunk_index")
+        if chunk_index is None:
+            chunk_index = getattr(rc, "chunk_index", None)
+        prov["chunk_index"] = chunk_index
+
+        return prov
+
+    @classmethod
+    def _merge_provenance(
+        cls,
+        primary: dict[str, Any] | None,
+        fallback: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """
+        Merge provenance with 'primary wins' policy.
+        """
+        out = cls._empty_provenance()
+        primary = primary or {}
+        fallback = fallback or {}
+
+        for key in out.keys():
+            out[key] = (
+                primary.get(key)
+                if primary.get(key) is not None
+                else fallback.get(key)
+            )
+        return out
+
+    @staticmethod
+    def _build_context_provenance_trace(
+        contexts: list[dict],
+        retrieved_chunks: list[RetrievedChunk],
+        max_items: int = 5,
+    ) -> list[dict[str, Any]]:
+        """
+        Compact trace of retrieval contexts used to build LLM prompt context.
+        Stores metadata only, not full text.
+        """
+        out: list[dict[str, Any]] = []
+
+        for idx, (c, rc) in enumerate(zip(contexts, retrieved_chunks)):
+            if idx >= max_items:
+                break
+
+            meta = (c or {}).get("metadata", {}) or {}
+            out.append(
+                {
+                    "rank": idx,
+                    "element_id": c.get("id"),
+                    "chunk_id": meta.get("chunk_id") or getattr(rc, "chunk_id", None) or c.get("id"),
+                    "chunk_index": (
+                        meta.get("chunk_index")
+                        if meta.get("chunk_index") is not None
+                        else getattr(rc, "chunk_index", None)
+                    ),
+                    "page": (
+                        meta.get("page")
+                        or meta.get("start_page")
+                        or getattr(rc, "page", None)
+                        or getattr(rc, "start_page", None)
+                    ),
+                    "clause_uid": (
+                        meta.get("effective_uid")
+                        or meta.get("clause_uid")
+                        or getattr(rc, "clause_uid", None)
+                    ),
+                    "segment_id": meta.get("segment_id") or getattr(rc, "segment_id", None),
+                    "segment_type": meta.get("segment_type") or getattr(rc, "segment_type", None),
+                    "segment_title": meta.get("segment_title") or getattr(rc, "segment_title", None),
+                    "score": getattr(rc, "combined_score", None),
+                    "score_breakdown": (c or {}).get("score_breakdown"),
+                }
+            )
+
+        return out
 
     def _build_limited_context(
         self,
@@ -332,15 +569,20 @@ class CheckExecutor:
         Return True when structured_data contains at least one meaningful
         factual value.
 
-        Reserved metadata fields and explicit not-found markers do not count.
+        Reserved metadata fields, explicit not-found markers, and fields
+        with presentation='signal' or 'diagnostic' do not count.
         """
-        _ = check  # reserved for future field-level semantics
-
         if not isinstance(structured_data, dict) or not structured_data:
             return False
 
         for field_name, field_payload in structured_data.items():
             if field_name in _RESERVED_METADATA_FIELDS:
+                continue
+
+            # Skip signal/diagnostic fields — they are machine routing,
+            # not factual extraction for DD Grid display.
+            presentation = _get_field_presentation_from_check(check, field_name)
+            if presentation in ("signal", "diagnostic"):
                 continue
 
             value = (
@@ -390,25 +632,61 @@ class CheckExecutor:
         """
         start_time = time.time()
 
-        raw_boost_keywords = getattr(check.retrieval, "boost_keywords", []) or []
+        retr_cfg = getattr(check, "retrieval", None)
+
+        raw_boost_keywords = getattr(retr_cfg, "boost_keywords", []) or []
+        raw_negative_keywords = getattr(retr_cfg, "negative_keywords", []) or []
+        raw_preferred_unit_types = getattr(retr_cfg, "preferred_unit_types", []) or []
+        raw_excluded_unit_types = getattr(retr_cfg, "excluded_unit_types", []) or []
+        raw_preferred_clause_functions = (
+            getattr(retr_cfg, "preferred_clause_functions", []) or []
+        )
+        raw_retrieval_query = getattr(retr_cfg, "retrieval_query", None)
+        raw_position_bias = getattr(retr_cfg, "position_bias", None)
+
+        def _normalize_retrieval_phrase(value: Any) -> str:
+            if not isinstance(value, str):
+                return ""
+            cleaned = value.replace("_", " ").replace("-", " ")
+            cleaned = " ".join(cleaned.split())
+            return cleaned.strip()
+
         important_terms: list[str] = []
 
-        if isinstance(check.name, str) and check.name.strip():
-            important_terms.append(check.name.strip())
+        normalized_check_name = _normalize_retrieval_phrase(check.name)
+        if normalized_check_name:
+            important_terms.append(normalized_check_name)
 
         for kw in raw_boost_keywords:
-            if isinstance(kw, str) and kw.strip():
-                important_terms.append(kw.strip())
+            normalized_kw = _normalize_retrieval_phrase(kw)
+            if normalized_kw and normalized_kw not in important_terms:
+                important_terms.append(normalized_kw)
 
-        retriever = RetrievalEngine(chunks, important_terms=important_terms)
+        explicit_retrieval_query = _normalize_retrieval_phrase(raw_retrieval_query)
 
-        boost_keywords = raw_boost_keywords
-        query = (
-            f"{check.name} {' '.join(boost_keywords[:3])}".strip() if boost_keywords else check.name
+        if explicit_retrieval_query:
+            query = explicit_retrieval_query
+        else:
+            fallback_query_parts: list[str] = []
+            if normalized_check_name:
+                fallback_query_parts.append(normalized_check_name)
+            for term in important_terms:
+                if term and term not in fallback_query_parts:
+                    fallback_query_parts.append(term)
+            query = " ".join(fallback_query_parts).strip()
+
+        retriever = RetrievalEngine(
+            chunks,
+            important_terms=important_terms,
+            negative_keywords=raw_negative_keywords,
+            preferred_unit_types=raw_preferred_unit_types,
+            excluded_unit_types=raw_excluded_unit_types,
+            preferred_clause_functions=raw_preferred_clause_functions,
+            position_bias=raw_position_bias,
         )
 
-        retr_cfg = getattr(check, "retrieval", None)
         context_k = getattr(retr_cfg, "context_k", 5)
+
         max_chunks = getattr(retr_cfg, "max_chunks", None) or context_k
 
         contexts = retriever.search(query, top_k=max_chunks)
@@ -455,8 +733,21 @@ class CheckExecutor:
         id_to_text: dict[str, str] = {}
         for c in contexts:
             cid = str(c.get("id") or "")
-            id_to_meta[cid] = c.get("metadata", {}) or {}
-            id_to_text[cid] = c.get("text") or ""
+            meta = c.get("metadata", {}) or {}
+            text = c.get("text") or ""
+
+            # Primary index by chunk id
+            id_to_meta[cid] = meta
+            id_to_text[cid] = text
+
+            # Secondary index by element_ids
+            # RetrievedChunk.element_id часто равен первому element_id чанка,
+            # а не самому chunk id. Без этого rerank lookup теряет metadata/text.
+            for eid in meta.get("element_ids") or []:
+                eid_str = str(eid).strip()
+                if eid_str and eid_str not in id_to_meta:
+                    id_to_meta[eid_str] = meta
+                    id_to_text[eid_str] = text
 
         def _simple_rerank(chunks_rc: list[RetrievedChunk]) -> list[RetrievedChunk]:
             important_lower = [s.lower() for s in important_terms if isinstance(s, str)]
@@ -596,7 +887,12 @@ class CheckExecutor:
             fallback: list[RetrievedChunk] = []
             for rc in retrieved_chunks:
                 cid = str(rc.element_id or "")
-                kind = str(id_to_meta.get(cid, {}).get("kind") or "").lower()
+                meta_for_kind = id_to_meta.get(cid) or {}
+                kind = str(
+                    meta_for_kind.get("chunk_kind")
+                    or meta_for_kind.get("kind")
+                    or ""
+                ).lower()
                 (primary if kind == required_kind_lower else fallback).append(rc)
             if primary:
                 retrieved_chunks = primary + fallback
@@ -740,20 +1036,35 @@ class CheckExecutor:
                     "id": rc.element_id,
                     "text": rc.text or "",
                     "metadata": {
-                        # clause_uid содержит effective_uid после нашей правки выше.
-                        # Дублируем под обоими ключами чтобы extraction.py
-                        # мог находить по любому из них без изменения своей логики.
                         "clause_uid": rc.clause_uid,
                         "effective_uid": rc.clause_uid,
+
                         "page": rc.page,
                         "start_page": rc.start_page,
                         "end_page": rc.end_page,
+
                         "path_titles": rc.path_titles,
                         "element_ids": rc.element_ids,
+
+                        # canonical retrieval provenance
+                        "chunk_id": getattr(rc, "chunk_id", None) or rc.element_id,
+                        "chunk_index": getattr(rc, "chunk_index", None),
+
+                        "segment_id": getattr(rc, "segment_id", None),
+                        "segment_type": getattr(rc, "segment_type", None),
+                        "segment_title": getattr(rc, "segment_title", None),
+                        "segment_order": getattr(rc, "segment_order", None),
+                        "is_primary_segment": getattr(rc, "is_primary_segment", None),
                     },
                 }
                 for rc in retrieved_chunks
             ]
+
+            context_trace = self._build_context_provenance_trace(
+                extraction_contexts,
+                retrieved_chunks,
+                max_items=5,
+            )
             structured_data = self.extractor.run(
                 doc=doc,
                 check=check,
@@ -831,28 +1142,29 @@ class CheckExecutor:
             severity = check.severity_if_unclear or check.severity
 
         # ------------------------------------------------------------------
-        # Location extraction
+        # Provenance extraction
         # ------------------------------------------------------------------
-        page = None
-        clause_uid = None
-        element_id = None
-        bbox = None
+        detector_provenance = self._extract_detector_provenance(location, sources)
+        retrieval_provenance = self._extract_primary_context_provenance(
+            extraction_contexts if "extraction_contexts" in locals() else [],
+            retrieved_chunks,
+        )
+        provenance = self._merge_provenance(
+            detector_provenance,
+            retrieval_provenance,
+        )
 
-        if isinstance(location, dict):
-            page = location.get("page")
-            clause_uid = location.get("clause_uid")
-            element_id = location.get("element_id")
-            bbox = location.get("bbox")
-
-        if bbox is None and isinstance(sources, list) and sources:
-            first_src = sources[0]
-            if isinstance(first_src, dict):
-                bbox = first_src.get("bbox")
-                if page is None:
-                    page = first_src.get("page")
-                if clause_uid is None:
-                    # effective_uid (canonical Sprint 3) или clause_uid (legacy)
-                    clause_uid = first_src.get("effective_uid") or first_src.get("clause_uid")
+        page = provenance["page"]
+        clause_uid = provenance["clause_uid"]
+        element_id = provenance["element_id"]
+        bbox = provenance["bbox"]
+        segment_id = provenance["segment_id"]
+        segment_type = provenance["segment_type"]
+        segment_title = provenance["segment_title"]
+        segment_order = provenance["segment_order"]
+        is_primary_segment = provenance["is_primary_segment"]
+        chunk_id = provenance["chunk_id"]
+        chunk_index = provenance["chunk_index"]
 
         # ------------------------------------------------------------------
         # Metrics
@@ -893,6 +1205,15 @@ class CheckExecutor:
             "clause_uid": clause_uid,
             "element_id": element_id,
             "bbox": bbox,
+            "segment_id": segment_id,
+            "segment_type": segment_type,
+            "segment_title": segment_title,
+            "segment_order": segment_order,
+            "is_primary_segment": is_primary_segment,
+            "chunk_id": chunk_id,
+            "chunk_index": chunk_index,
+            "provenance": provenance,
+            "context_trace": context_trace if "context_trace" in locals() else [],
             "llm_error_type": llm_flags["llm_error_type"],
             "llm_error_message": llm_flags["llm_error_message"],
             "llm_attempts": llm_flags["llm_attempts"],

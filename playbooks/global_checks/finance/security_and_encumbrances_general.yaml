@@ -1,5 +1,6 @@
 id: "security_and_encumbrances_general"
 name: "Обеспечение и обременения (общий уровень)"
+group: "Financial"
 description: >
   Анализирует обеспечительные конструкции и обременения в договоре:
   залоги активов и прав (pledge, mortgage), поручительства и
@@ -129,8 +130,14 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
-  context_k: 5
-  max_chunks: 10
+  context_k: 6
+  max_chunks: 12
+
+  retrieval_query: >
+    залог pledge mortgage ипотека security interest поручительство 
+    corporate guarantee negative pledge запрет обременения 
+    restriction on asset disposal permitted liens release of pledge
+
   boost_keywords:
     - "залог"
     - "pledge"
@@ -158,6 +165,41 @@ retrieval:
     - "release of pledge"
     - "снятие залога"
     - "intercreditor agreement"
+
+  negative_keywords:
+    - "financial covenant"
+    - "финансовые ковенанты"
+    - "leverage ratio"
+    - "означает"
+    - "в целях настоящего"
+    - "споры"
+    - "подсудность"
+    - "применимое право"
+    - "персональные данные"
+    - "конфиденциальность"
+
+  preferred_unit_types:
+    - "obligation"
+    - "liability_provision"
+    - "general_provision"
+
+  excluded_unit_types:
+    - "definition"
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "obligations"
+    - "limitations"
+    - "remedies"
+    - "representations"
+
+  position_bias:
+    preferred_range: [0.10, 0.90]
+    boost: 0.20
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -173,28 +215,24 @@ enrichment_hints:
     - "price_list"
     - "invoice"
     - "act"
-  preferred_clause_functions:
-    - "liability"
-    - "assignment"
-    - "termination"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 500
+  llm_max_tokens: 480
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по финансированию и обеспечительным конструкциям.
+    Ты — юрист по обеспечительным конструкциям.
     Твоя задача — точно извлечь из текста залоги, гарантии,
     поручительства, negative pledge, ограничения на отчуждение
-    активов, upstream/cross-stream обеспечение, приоритет залогов
-    и условия снятия обременений.
+    активов, upstream/cross-stream обеспечение, приоритет
+    залогов и условия снятия обременений.
 
     Не анализируй финансовые ковенанты (leverage ratio, DSCR,
-    ограничения на дивиденды / новый долг) — это задача чека
-    financial_covenants.
+    ограничения на дивиденды / новый долг) —
+    это задача чека financial_covenants.
     </role>
 
     <context>
@@ -215,18 +253,17 @@ extraction:
     - has_permitted_liens
     - has_release_conditions
     - appears_overencumbered
-    - red_flags
     - reason
 
     Важно:
     - не анализируй финансовые ковенанты;
-    - пиши user-facing значения коротко и по-русски.
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
-    Шаг 1 — ВИДЫ ОБЕСПЕЧЕНИЯ
+    Шаг 1 — НАЛИЧИЕ ОБЕСПЕЧЕНИЯ
 
-    Заполни поле "has_security_interests".
+    Заполни "has_security_interests".
 
     Значения:
     - "yes" — есть обеспечение.
@@ -235,18 +272,18 @@ extraction:
 
     Шаг 2 — ТИПЫ ОБЕСПЕЧЕНИЯ
 
-    Заполни поле "security_types_summary".
+    Заполни "security_types_summary".
 
     Правила:
-    - Кратко перечисли типы через ";":
-      * "залог движимого имущества; корпоративная гарантия"
-      * "ипотека; залог акций; поручительство материнской компании"
+    - Кратко через ";":
+      "залог движимого имущества; корпоративная гарантия"
+      "ипотека; залог акций; поручительство"
     - Если нет: "Не применимо"
     - Если неясно: "Не удалось определить"
 
     Шаг 3 — ПРИОРИТЕТ ЗАЛОГОВ
 
-    Заполни поле "security_priority".
+    Заполни "security_priority".
 
     Значения:
     - "first_lien" — первоочередной залог.
@@ -259,18 +296,18 @@ extraction:
 
     Шаг 4 — ОБЕСПЕЧЕНИЕ ЗА ТРЕТЬИХ ЛИЦ
 
-    Заполни поле "has_third_party_security".
+    Заполни "has_third_party_security".
 
     Значения:
     - "yes" — Target предоставляет обеспечение за третьих лиц:
-      upstream guarantee (дочерняя → материнская),
-      cross-stream, гарантии/поручительства за аффилиатов.
+      upstream guarantee, cross-stream guarantee,
+      гарантии/поручительства за аффилиатов.
     - "no" — нет.
     - "unclear" — неясно.
 
     Шаг 5 — NEGATIVE PLEDGE
 
-    Заполни поле "has_negative_pledge".
+    Заполни "has_negative_pledge".
 
     Значения:
     - "yes" — есть запрет создавать залоги / обременения
@@ -280,7 +317,7 @@ extraction:
 
     Шаг 6 — ОГРАНИЧЕНИЯ НА ОТЧУЖДЕНИЕ АКТИВОВ
 
-    Заполни поле "has_asset_disposal_restrictions".
+    Заполни "has_asset_disposal_restrictions".
 
     Значения:
     - "yes" — есть ограничения на продажу / отчуждение
@@ -290,7 +327,7 @@ extraction:
 
     Шаг 7 — PERMITTED LIENS / CARVE-OUT
 
-    Заполни поле "has_permitted_liens".
+    Заполни "has_permitted_liens".
 
     Значения:
     - "yes" — есть исключения из negative pledge:
@@ -301,134 +338,110 @@ extraction:
 
     Шаг 8 — УСЛОВИЯ СНЯТИЯ ОБРЕМЕНЕНИЯ
 
-    Заполни поле "has_release_conditions".
+    Заполни "has_release_conditions".
 
     Значения:
-    - "yes" — прописаны: автоматическое release при погашении,
-      процедура снятия залога, сроки.
+    - "yes" — прописаны: release при погашении,
+      процедура снятия, сроки.
     - "no" — не прописаны.
     - "not_applicable" — обеспечения нет.
     - "unclear" — неясно.
 
-    Шаг 9 — ПЕРЕОБРЕМЕНЁННОСТЬ АКТИВОВ
+    Шаг 9 — ПРИЗНАКИ ПЕРЕОБРЕМЕНЁННОСТИ
 
-    Заполни поле "appears_overencumbered".
+    Заполни "appears_overencumbered".
 
     Значения:
-    - "yes" — признаки переобременённости:
-      множественные залоги, значительные гарантии за третьих лиц,
-      залоги покрывают большую часть активов,
+    - "yes" — структурные признаки переобременённости из текста:
+      множественные залоги на одни активы,
+      значительные гарантии за третьих лиц,
       negative pledge без permitted liens блокирует финансирование.
-    - "no" — нет.
+    - "no" — признаков нет.
     - "unclear" — недостаточно данных.
 
-    Шаг 10 — RED FLAGS
+    Шаг 10 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "red_flags".
+    Заполни "security_display".
 
-    Используй:
-    - "NONE" — если существенных риск-факторов нет.
-    - "UNCLEAR" — если данных недостаточно.
-    - Коды через запятую:
-      * SEC1 — переобременённость: залоги на существенной
-        части активов, ограничена маневренность.
-      * SEC2 — negative pledge без разумных permitted liens —
-        блокирует рефинансирование.
-      * SEC3 — Target предоставляет upstream / cross-stream
-        обеспечение за обязательства третьих лиц.
-      * SEC4 — нет чётких условий снятия обременения
-        после погашения обязательств.
-      * SEC5 — залог ключевых операционных активов или IP,
-        потеря которых парализует бизнес.
-      * SEC6 — множественные залоги на одни активы
-        (second lien / subordinated pledge).
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 11 — USER-FACING SUMMARY
+    Базовые случаи:
+    - has_security_interests = "no":
+      "Обеспечения не обнаружено"
+    - все поля unclear:
+      "Не удалось определить обеспечительные конструкции"
 
-    Заполни поле "security_display".
+    Если обеспечение есть — комбинируй через ";":
+    - начни с security_types_summary (кратко)
+    - добавь security_priority (если не "not_specified")
+    - добавь has_negative_pledge (если есть)
+    - добавь has_third_party_security (если есть)
+    - добавь has_release_conditions (если "no")
 
     Примеры:
-    - "Залог акций + корпоративная гарантия; first lien;
-       negative pledge с permitted liens"
-    - "Ипотека + upstream guarantee; second lien;
-       release conditions не прописаны"
+    - "Залог акций + корпоративная гарантия; first lien; negative pledge с permitted liens"
+    - "Ипотека + upstream guarantee; second lien; release conditions не прописаны"
     - "Negative pledge без исключений; ограничения на активы"
     - "Обеспечения не обнаружено"
     - "Не удалось определить обеспечительные конструкции"
 
-    Правила:
-    - Отрази максимум 3–4 ключевых факта через ";".
-    - Если нет обеспечения:
-      "Обеспечения не обнаружено"
-    - Если всё unclear:
-      "Не удалось определить обеспечительные конструкции"
+    Ограничение: не более 4 фактов через ";".
 
-    Шаг 12 — ОБОСНОВАНИЕ
+    Шаг 11 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
     - Укажи: виды обеспечения, приоритет, negative pledge,
-      upstream/cross-stream, release conditions, почему
-      выставлены red_flags.
-    - Приведи короткую цитату в кавычках.
-    - Если NONE — почему обременения не создают риска.
+      upstream/cross-stream, release conditions.
+    - Приведи цитату в кавычках.
     </instructions>
 
     <edge_cases>
-    - Стандартный залог одного актива по кредиту,
-      release conditions прописаны:
+    - Стандартный залог одного актива, release conditions прописаны:
       * appears_overencumbered = "no"
-      * red_flags = "NONE"
 
     - Negative pledge без permitted liens:
       * has_negative_pledge = "yes"
       * has_permitted_liens = "no"
-      * red_flags включает "SEC2"
 
-    - Upstream guarantee (дочерняя за материнскую):
+    - Upstream guarantee:
       * has_third_party_security = "yes"
-      * red_flags включает "SEC3"
 
-    - First lien + second lien на одни активы:
-      * security_priority = "mixed" или "second_lien"
+    - First + second lien на одни активы:
+      * security_priority = "mixed"
       * appears_overencumbered = "yes"
-      * red_flags включает "SEC6"
-
-    - Залог IP / ключевого оборудования:
-      * red_flags включает "SEC5"
 
     - Release conditions не прописаны:
       * has_release_conditions = "no"
-      * red_flags включает "SEC4"
 
-    - Нет залогов/гарантий:
+    - Нет обеспечения:
       * has_security_interests = "no"
       * security_priority = "not_applicable"
-      * red_flags = "NONE"
       * security_display = "Обеспечения не обнаружено"
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
-      * red_flags = "UNCLEAR"
-      * security_display =
-        "Не удалось определить обеспечительные конструкции"
+      * security_display = "Не удалось определить обеспечительные конструкции"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "security_display"
       type: "string"
-      description: "Обеспечение и обременения: краткий вывод"
+      presentation: "fact"
+      label: "Обеспечение и обременения"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "has_security_interests"
       type: "string"
+      presentation: "signal"
       description: "Наличие обеспечения"
       allowed_values:
         - "yes"
@@ -437,10 +450,13 @@ extraction:
 
     - name: "security_types_summary"
       type: "string"
-      description: "Виды обеспечения"
+      presentation: "fact"
+      label: "Виды обеспечения"
+      description: "Краткий перечень видов обеспечения"
 
     - name: "security_priority"
       type: "string"
+      presentation: "signal"
       description: "Приоритет залогов"
       allowed_values:
         - "first_lien"
@@ -453,6 +469,7 @@ extraction:
 
     - name: "has_third_party_security"
       type: "string"
+      presentation: "signal"
       description: "Обеспечение за третьих лиц"
       allowed_values:
         - "yes"
@@ -461,6 +478,7 @@ extraction:
 
     - name: "has_negative_pledge"
       type: "string"
+      presentation: "signal"
       description: "Negative pledge"
       allowed_values:
         - "yes"
@@ -469,6 +487,7 @@ extraction:
 
     - name: "has_asset_disposal_restrictions"
       type: "string"
+      presentation: "signal"
       description: "Ограничения на отчуждение активов"
       allowed_values:
         - "yes"
@@ -477,6 +496,7 @@ extraction:
 
     - name: "has_permitted_liens"
       type: "string"
+      presentation: "signal"
       description: "Permitted liens / carve-out"
       allowed_values:
         - "yes"
@@ -486,6 +506,7 @@ extraction:
 
     - name: "has_release_conditions"
       type: "string"
+      presentation: "signal"
       description: "Условия снятия обременения"
       allowed_values:
         - "yes"
@@ -495,20 +516,19 @@ extraction:
 
     - name: "appears_overencumbered"
       type: "string"
-      description: "Признаки переобременённости"
+      presentation: "signal"
+      description: "Структурные признаки переобременённости"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true
+
 
   

@@ -171,6 +171,7 @@ def build_canonical_result_semantics(
         execution_status=execution_status,
         structured_data=structured_data,
         exec_result=exec_result,
+        check=check,
     )
 
     # ── F. Review message ─────────────────────────────────────────────────────
@@ -298,22 +299,28 @@ def _extract_scalar_value(field_payload: Any) -> Any:
     return field_payload
 
 
-def _has_factual_extraction(structured_data: dict[str, Any] | None) -> bool:
+def _has_factual_extraction(
+    structured_data: dict[str, Any] | None,
+    check: Any | None = None,
+) -> bool:
     """
     Return True if structured_data contains at least one meaningful
-    factual extracted value.
+    factual extracted value eligible for primary display.
     """
-    return bool(_iter_factual_fields(structured_data))
+    return bool(_iter_factual_fields(structured_data, check=check))
 
 
 def _iter_factual_fields(
     structured_data: dict[str, Any] | None,
+    check: Any | None = None,
 ) -> list[tuple[str, Any]]:
     """
-    Return list of (field_name, scalar_value) for meaningful extracted fields.
+    Return list of (field_name, scalar_value) for meaningful extracted fields
+    eligible for primary display.
 
     Skips:
-    - reserved metadata fields (reason/evidence/explanation/notes),
+    - reserved metadata fields (reason / evidence / explanation / notes),
+    - fields with presentation = 'signal' or 'diagnostic',
     - None / empty / explicit not-found markers.
 
     Preserves dict iteration order (insertion order in Python 3.7+).
@@ -324,6 +331,10 @@ def _iter_factual_fields(
     result: list[tuple[str, Any]] = []
     for field_name, field_payload in structured_data.items():
         if field_name in _RESERVED_METADATA_FIELDS:
+            continue
+
+        presentation = _get_field_presentation(check, field_name)
+        if presentation in ("signal", "diagnostic"):
             continue
 
         value = _extract_scalar_value(field_payload)
@@ -376,16 +387,35 @@ def _get_field_label(check: Any | None, field_name: str) -> str:
     Get human-readable label for an extraction field.
 
     Priority:
-    1. ExtractionFieldConfig.description (if non-empty).
-    2. Humanized field_name as fallback.
+    1. ExtractionFieldConfig.label  — explicit UI label from YAML (always wins).
+    2. humanize(field_name)         — deterministic fallback.
+
+    Note: ExtractionFieldConfig.description is an extraction instruction,
+    never a UI label. It is intentionally excluded from this resolution.
     """
     field_cfg = _find_extraction_field_config(check, field_name)
     if field_cfg is not None:
-        description = getattr(field_cfg, "description", None)
-        if description and str(description).strip():
-            return str(description).strip()
+        label = getattr(field_cfg, "label", None)
+        if label and str(label).strip():
+            return str(label).strip()
 
     return _humanize_field_name(field_name)
+
+
+def _get_field_presentation(check: Any | None, field_name: str) -> str:
+    """
+    Get presentation role for an extraction field.
+
+    Returns one of: summary, fact, signal, diagnostic.
+    Default is 'fact' when not specified (backward compatible).
+    """
+    field_cfg = _find_extraction_field_config(check, field_name)
+    if field_cfg is not None:
+        presentation = getattr(field_cfg, "presentation", None)
+        if presentation and str(presentation).strip():
+            return str(presentation).strip()
+    return "fact"
+
 
 
 def _get_field_unit(check: Any | None, field_name: str) -> str | None:
@@ -438,7 +468,7 @@ def _select_primary_factual_field(
     Inside each group, extraction config field order remains canonical priority.
     Returns (field_name, scalar_value) or None.
     """
-    factual = _iter_factual_fields(structured_data)
+    factual = _iter_factual_fields(structured_data, check=check)
     if not factual:
         return None
 
@@ -537,62 +567,62 @@ def _build_factual_display_text(
     structured_data: dict[str, Any] | None,
 ) -> str | None:
     """
-    Build factual display text from structured_data based on ui_mode.
+    Build factual display text from structured_data.
 
-    Returns None if no factual extraction is available.
+    Priority:
+    1. First field with presentation='summary' — ready-made cell text.
+    2. First field ending with '_display' (backward compat convention).
+    3. First field with presentation='fact' — formatted as 'Label: Value'.
+
+    Fields with presentation='signal' or 'diagnostic' are never used
+    as primary display text.
+
+    Returns None if no displayable extraction is available.
     """
-    if not _has_factual_extraction(structured_data):
+    if not structured_data:
         return None
 
     # clause_presence with factual data → simple confirmation
     if ui_mode == "clause_presence":
-        return "Положение обнаружено"
+        if _has_factual_extraction(structured_data, check):
+            return "Положение обнаружено"
+        return None
 
-    is_field_extraction_mode = (
-        ui_mode == "field_extraction"
-        or (ui_mode is None and _has_any_extraction(check))
-    )
+    # Priority 1: summary field
+    for field_name, field_payload in structured_data.items():
+        if field_name in _RESERVED_METADATA_FIELDS:
+            continue
+        if _get_field_presentation(check, field_name) != "summary":
+            continue
+        value = _extract_scalar_value(field_payload)
+        if not _is_not_found_value(value):
+            return str(value).strip()
 
-    if is_field_extraction_mode:
-        # Step 1: canonical direct UI field
-        for field_name, field_payload in structured_data.items():
-            if field_name in _RESERVED_METADATA_FIELDS:
-                continue
-            if not field_name.endswith("_display"):
-                continue
+    # Priority 2: *_display convention (backward compat)
+    for field_name, field_payload in structured_data.items():
+        if field_name in _RESERVED_METADATA_FIELDS:
+            continue
+        if not field_name.endswith("_display"):
+            continue
+        if _get_field_presentation(check, field_name) in ("signal", "diagnostic"):
+            continue
+        value = _extract_scalar_value(field_payload)
+        if not _is_not_found_value(value):
+            return str(value).strip()
 
-            value = _extract_scalar_value(field_payload)
-            if not _is_not_found_value(value):
-                return str(value).strip()
-
-        # Step 2: fallback to best factual field
-        primary = _select_primary_factual_field(check, structured_data)
-        if primary is None:
-            return None
-
-        field_name, raw_value = primary
-        logger.debug(
-            "result_semantics: field_extraction display_text fallback to primary factual field",
-            extra={
-                "field_name": field_name,
-                "ui_mode": ui_mode,
-            },
-        )
-        label = _get_field_label(check, field_name)
-        unit = _get_field_unit(check, field_name)
-        value_str = _format_display_value(raw_value, unit)
-        return f"{label}: {value_str}"
-
-    # Existing logic for non-field-extraction modes
+    # Priority 3: fact field fallback
     primary = _select_primary_factual_field(check, structured_data)
     if primary is None:
         return None
 
     field_name, raw_value = primary
+    logger.debug(
+        "result_semantics: display_text fallback to primary fact field",
+        extra={"field_name": field_name, "ui_mode": ui_mode},
+    )
     label = _get_field_label(check, field_name)
     unit = _get_field_unit(check, field_name)
     value_str = _format_display_value(raw_value, unit)
-
     return f"{label}: {value_str}"
 
 
@@ -720,6 +750,7 @@ def _derive_needs_manual_review(
     execution_status: str,
     structured_data: dict[str, Any] | None,
     exec_result: dict,
+    check: Any | None = None,
 ) -> bool:
     """
     Determine if the check result needs manual lawyer review.
@@ -747,7 +778,7 @@ def _derive_needs_manual_review(
 
     # Fail → depends on whether we have supporting data
     if result == "fail":
-        has_fact = _has_factual_extraction(structured_data)
+        has_fact = _has_factual_extraction(structured_data, check=check)
         has_evidence = _extract_meaningful_evidence(exec_result) is not None
 
         if has_fact or has_evidence:

@@ -413,6 +413,9 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     React.useState(false);
   const [isExportPanelOpen, setIsExportPanelOpen] = React.useState(false);
   const [gridMode, setGridMode] = React.useState<GridMode>("matrix");
+  const [showPassInList, setShowPassInList] = React.useState<boolean>(true);
+  const [gridSelectionResetToken, setGridSelectionResetToken] =
+    React.useState<number>(0);
   const [viewerState, setViewerState] = React.useState<ViewerState>(null);
   const [isViewerLoading, setIsViewerLoading] = React.useState(false);
   const [viewerError, setViewerError] = React.useState<string | null>(null);
@@ -448,6 +451,20 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     [reviewDerived.rows, filteredReviewFindings],
   );
 
+  // Keys of exact findings that survive all active filters.
+  // Format: `${matrixRowId}::${checkId}` — matches FindingListRow.rowId.
+  // Passed to DDReviewListGrid so list mode filters by exact findings,
+  // not by surviving matrix rows (which would include sibling cells).
+  const visibleListCellKeys = React.useMemo(
+    () =>
+      new Set(
+        filteredReviewFindings.map(
+          (finding) => `${finding.rowId}::${finding.checkId}`,
+        ),
+      ),
+    [filteredReviewFindings],
+  );
+
   const reviewSummary = React.useMemo(
     () => reviewDerived.stats,
     [reviewDerived.stats],
@@ -480,17 +497,37 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       ? "Фильтры"
       : "Фильтры применены";
 
-  const handleResetReviewFilters = React.useCallback(() => {
-    setReviewFilterState(DEFAULT_REVIEW_FILTER_STATE);
+  const resetReviewSelection = React.useCallback(() => {
+    setReviewSelection([]);
+    setGridSelectionResetToken((prev) => prev + 1);
   }, []);
 
-  const handleReviewSelectionChange = React.useCallback((rowIds: string[]) => {
-    setReviewSelection(rowIds.map((rowId) => ({ rowId })));
-  }, []);
+  const handleResetReviewFilters = React.useCallback(() => {
+    setReviewFilterState(DEFAULT_REVIEW_FILTER_STATE);
+    resetReviewSelection();
+  }, [resetReviewSelection]);
+
+  const handleReviewSelectionChange = React.useCallback(
+    (selection: ReviewSelectionItem[]) => {
+      setReviewSelection(selection);
+    },
+    [],
+  );
 
   const handleCloseViewer = React.useCallback(() => {
     setViewerState(null);
   }, []);
+
+  const didInitGridModeResetRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!didInitGridModeResetRef.current) {
+      didInitGridModeResetRef.current = true;
+      return;
+    }
+
+    resetReviewSelection();
+  }, [gridMode, resetReviewSelection]);
 
   const handleToggleFilters = React.useCallback(() => {
     setIsReviewFiltersPanelOpen((prev) => !prev);
@@ -657,6 +694,22 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               </Button>
 
               <ModeToggle value={gridMode} onChange={setGridMode} />
+
+              {gridMode === "list" && (
+                <button
+                  type="button"
+                  onClick={() => setShowPassInList((prev) => !prev)}
+                  className={[
+                    "inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                    showPassInList
+                      ? "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-card-hover)]"
+                      : "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-inverse)] shadow-sm",
+                  ].join(" ")}
+                  title={showPassInList ? "Скрыть pass результаты" : "Показать pass результаты"}
+                >
+                  {showPassInList ? "Скрыть pass" : "Показать pass"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -708,12 +761,16 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               columns={reviewDerived.columns}
               onOpenAtLocation={openViewerAt}
               onSelectionChange={handleReviewSelectionChange}
+              clearSelectionToken={gridSelectionResetToken}
             />
           ) : (
             <DDReviewListGrid
+              key={`review-list:${gridSelectionResetToken}`}
               runId={runId}
-              rows={filteredReviewRows}
+              rows={reviewDerived.rows}
               columns={reviewDerived.columns}
+              allowedCellKeys={visibleListCellKeys}
+              includePassResults={showPassInList}
               onOpenAtLocation={openViewerAt}
               onSelectionChange={handleReviewSelectionChange}
             />

@@ -42,6 +42,7 @@ import DDMatrixCellDetails, {
 import type {
   ReviewGridRow,
   ReviewCheckColumn,
+  ReviewSelectionItem,
 } from "../../pages/tabs/grid/reviewGrid.types";
 import type { FindingListRow } from "./reviewListGrid.types";
 
@@ -67,6 +68,18 @@ export interface DDReviewListGridProps {
   runId: string;
   rows: ReviewGridRow[];
   columns: ReviewCheckColumn[];
+  /**
+   * When provided, only flat rows whose rowId is in this set are shown.
+   * Keys must be in format `${matrixRowId}::${checkId}`.
+   * This is the primary mechanism for applying finding-level filters
+   * (quick filters, search, etc.) in list mode.
+   */
+  allowedCellKeys?: ReadonlySet<string>;
+  /**
+   * Whether pass results are shown. Default: true.
+   * Users can toggle this via the list-mode pass toggle in the toolbar.
+   */
+  includePassResults?: boolean;
   onOpenAtLocation?: OpenViewerAtFn;
   onOpenDocument?: (params: {
     documentId: string;
@@ -79,7 +92,8 @@ export interface DDReviewListGridProps {
     checkName?: string | null;
     cell: MatrixCellDetailsCell;
   }) => void;
-  onSelectionChange?: (rowIds: string[]) => void;
+  /** Typed selection items emitted on AG Grid selection change. */
+  onSelectionChange?: (selection: ReviewSelectionItem[]) => void;
 }
 
 interface SelectedCellState {
@@ -91,13 +105,22 @@ interface SelectedCellState {
   cell: MatrixCellDetailsCell | null;
 }
 
-function getSelectedRowIds(
+function buildSelectionItems(
   event: SelectionChangedEvent<FindingListRow>,
-): string[] {
+): ReviewSelectionItem[] {
   return event.api
     .getSelectedNodes()
-    .map((node) => node.data?.rowId)
-    .filter((value): value is string => Boolean(value));
+    .flatMap((node) => {
+      const data = node.data;
+      if (!data) return [];
+      return [
+        {
+          rowId: data.rowId,
+          matrixRowId: data.matrixRowId,
+          checkId: data.checkId,
+        },
+      ];
+    });
 }
 
 function formatPercent(value: number | null | undefined): string {
@@ -192,6 +215,8 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
   runId,
   rows,
   columns,
+  allowedCellKeys,
+  includePassResults = true,
   onOpenAtLocation,
   onOpenDocument,
   onOpenCell,
@@ -211,8 +236,12 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
   });
 
   const rowData = useMemo(
-    () => buildReviewListRows(rows, columns, { includePass: false }),
-    [rows, columns],
+    () =>
+      buildReviewListRows(rows, columns, {
+        allowedCellKeys,
+        includePass: includePassResults,
+      }),
+    [rows, columns, allowedCellKeys, includePassResults],
   );
 
   const isSelectedCellValid =
@@ -531,7 +560,7 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
   const handleSelectionChanged = useCallback(
     (event: SelectionChangedEvent<FindingListRow>) => {
       if (!onSelectionChange) return;
-      onSelectionChange(getSelectedRowIds(event));
+      onSelectionChange(buildSelectionItems(event));
     },
     [onSelectionChange],
   );

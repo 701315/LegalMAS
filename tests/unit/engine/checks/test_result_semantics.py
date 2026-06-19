@@ -10,6 +10,7 @@ needs_manual_review decision table from Spec v2.
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from engine.checks.result_semantics import (
     ResultSemantics,
@@ -44,19 +45,36 @@ def _make_check(
     ui_mode: str | None = None,
     severity: str = "medium",
     extraction_fields: list[dict] | None = None,
+    auto_label_facts: bool = True,
 ) -> CheckDefinition:
     """Build a minimal CheckDefinition for testing."""
     extraction = None
     if extraction_fields is not None:
-        fields = [
-            ExtractionFieldConfig(
-                name=f["name"],
-                type=ExtractionFieldType(f.get("type", "string")),
-                description=f.get("description", ""),
-                unit=f.get("unit"),
+        fields: list[ExtractionFieldConfig] = []
+
+        for f in extraction_fields:
+            field_name = f["name"]
+            presentation = f.get("presentation", "fact")
+            label = f.get("label")
+
+            # Test helper convenience:
+            # valid field_extraction checks now require explicit labels
+            # for fact/summary fields. Unless a test explicitly wants to
+            # verify validator failure, synthesize a deterministic label.
+            if auto_label_facts and not label and presentation in ("fact", "summary"):
+                label = _humanize_field_name(field_name)
+
+            fields.append(
+                ExtractionFieldConfig(
+                    name=field_name,
+                    type=ExtractionFieldType(f.get("type", "string")),
+                    label=label,
+                    presentation=presentation,
+                    description=f.get("description", ""),
+                    unit=f.get("unit"),
+                )
             )
-            for f in extraction_fields
-        ]
+
         extraction = ExtractionConfig(enabled=True, fields=fields)
 
     return CheckDefinition(
@@ -215,7 +233,7 @@ class TestHasAnyExtraction:
     def test_enabled_extraction(self):
         check = _make_check(
             extraction_fields=[
-                {"name": "governing_law", "description": "Применимое право"},
+                {"name": "governing_law", "label": "Применимое право", "description": "Применимое право"},
             ],
         )
         assert _has_any_extraction(check) is True
@@ -323,7 +341,11 @@ class TestFieldExtraction:
         check = _make_check(
             ui_mode="field_extraction",
             extraction_fields=[
-                {"name": "governing_law", "description": "Применимое право"},
+                {
+                    "name": "governing_law",
+                    "label": "Применимое право",
+                    "description": "Извлеки применимое право",
+                },
             ],
         )
         exec_result = _make_exec_result(result="pass")
@@ -344,7 +366,12 @@ class TestFieldExtraction:
         check = _make_check(
             ui_mode="field_extraction",
             extraction_fields=[
-                {"name": "contract_amount", "description": "Сумма договора", "unit": "RUB"},
+                {
+                    "name": "contract_amount",
+                    "label": "Сумма договора",
+                    "description": "Извлеки сумму договора",
+                    "unit": "RUB",
+                },
             ],
         )
         exec_result = _make_exec_result(result="pass")
@@ -383,8 +410,8 @@ class TestFieldExtraction:
         check = _make_check(
             ui_mode="field_extraction",
             extraction_fields=[
-                {"name": "governing_law", "description": "Применимое право"},
-                {"name": "forum", "description": "Арбитражный форум"},
+                {"name": "governing_law", "label": "Применимое право"},
+                {"name": "forum", "label": "Форум"},
             ],
         )
         exec_result = _make_exec_result(result="pass")
@@ -428,8 +455,8 @@ class TestFieldExtractionDisplayPriority:
         check = _make_check(
             ui_mode="field_extraction",
             extraction_fields=[
-                {"name": "security_status", "description": "Статус обеспечения"},
-                {"name": "security_display", "description": "Вывод по обеспечению"},
+                {"name": "security_status", "presentation": "signal", "description": "Статус обеспечения"},
+                {"name": "security_display", "presentation": "summary", "description": "Вывод по обеспечению"},
             ],
         )
         exec_result = _make_exec_result(result="pass")
@@ -451,8 +478,17 @@ class TestFieldExtractionDisplayPriority:
         check = _make_check(
             ui_mode="field_extraction",
             extraction_fields=[
-                {"name": "price_status", "description": "Статус цены"},
-                {"name": "price_details", "description": "Цена"},
+                {
+                    "name": "price_status",
+                    "presentation": "signal",
+                    "description": "Статус цены",
+                },
+                {
+                    "name": "price_details",
+                    "label": "Цена",
+                    "presentation": "fact",
+                    "description": "Извлеки цену",
+                },
             ],
         )
         exec_result = _make_exec_result(result="pass")
@@ -474,7 +510,7 @@ class TestFieldExtractionDisplayPriority:
         check = _make_check(
             ui_mode=None,
             extraction_fields=[
-                {"name": "forum_display", "description": "Форум"},
+                {"name": "forum_display", "presentation": "summary", "description": "Форум"},
             ],
         )
         exec_result = _make_exec_result(result="pass")
@@ -581,7 +617,7 @@ class TestRiskDetection:
         check = _make_check(
             ui_mode="risk_detection",
             extraction_fields=[
-                {"name": "risk_clause", "description": "Рискованная оговорка"},
+                {"name": "risk_clause", "label": "Рискованная оговорка", "description": "Рискованная оговорка"},
             ],
         )
         exec_result = _make_exec_result(result="fail", severity="high")
@@ -619,7 +655,7 @@ class TestUnclearWithExtraction:
         check = _make_check(
             ui_mode="field_extraction",
             extraction_fields=[
-                {"name": "governing_law", "description": "Применимое право"},
+                {"name": "governing_law", "label": "Применимое право", "description": "Применимое право"},
             ],
         )
         exec_result = _make_exec_result(result="unclear")
@@ -979,4 +1015,249 @@ class TestResultSemanticsImmutable:
             sem.display_text = "changed"  # type: ignore[misc]
 
 
+class TestPresentationRoles:
+    def test_signal_field_not_used_as_display(self):
+        """Signal fields must never appear as primary display text."""
+        check = _make_check(
+            ui_mode="field_extraction",
+            extraction_fields=[
+                {
+                    "name": "seller_details_status",
+                    "presentation": "signal",
+                    "description": "Статус продавца",
+                },
+                {
+                    "name": "seller_details",
+                    "label": "Продавец",
+                    "presentation": "fact",
+                    "description": "Реквизиты продавца",
+                },
+            ],
+        )
+        exec_result = _make_exec_result(result="pass")
+        sd = {
+            "seller_details_status": {"value": "defined"},
+            "seller_details": {"value": "ООО «Альфа», ИНН 7700000000"},
+        }
 
+        sem = build_canonical_result_semantics(
+            check=check,
+            exec_result=exec_result,
+            execution_status=CheckExecutionStatus.SUCCESS.value,
+            structured_data=sd,
+        )
+
+        assert sem.display_text == "Продавец: ООО «Альфа», ИНН 7700000000"
+        assert "defined" not in (sem.display_text or "")
+
+    def test_diagnostic_field_not_used_as_display(self):
+        """Diagnostic fields (reason, red_flags) must never appear as display."""
+        check = _make_check(
+            ui_mode="field_extraction",
+            extraction_fields=[
+                {
+                    "name": "red_flags",
+                    "presentation": "diagnostic",
+                    "description": "Коды рисков",
+                },
+                {
+                    "name": "applicable_regimes",
+                    "label": "Применимые режимы",
+                    "presentation": "fact",
+                    "description": "Режимы экспортного контроля",
+                },
+            ],
+        )
+        exec_result = _make_exec_result(result="pass")
+        sd = {
+            "red_flags": {"value": "EXP1, EXP2"},
+            "applicable_regimes": {"value": "ITAR; EAR"},
+        }
+
+        sem = build_canonical_result_semantics(
+            check=check,
+            exec_result=exec_result,
+            execution_status=CheckExecutionStatus.SUCCESS.value,
+            structured_data=sd,
+        )
+
+        assert sem.display_text == "Применимые режимы: ITAR; EAR"
+        assert "EXP1" not in (sem.display_text or "")
+
+    def test_summary_field_has_highest_priority(self):
+        """Summary field wins over all other fields."""
+        check = _make_check(
+            ui_mode="field_extraction",
+            extraction_fields=[
+                {
+                    "name": "covenants_display",
+                    "presentation": "summary",
+                    "description": "Краткий вывод",
+                },
+                {
+                    "name": "covenant_thresholds_summary",
+                    "label": "Пороговые значения",
+                    "presentation": "fact",
+                    "description": "Пороги",
+                },
+            ],
+        )
+        exec_result = _make_exec_result(result="pass")
+        sd = {
+            "covenants_display": {
+                "value": "Maintenance ковенанты: Net Debt/EBITDA ≤ 3.5x"
+            },
+            "covenant_thresholds_summary": {
+                "value": "Net Debt/EBITDA ≤ 3.5x"
+            },
+        }
+
+        sem = build_canonical_result_semantics(
+            check=check,
+            exec_result=exec_result,
+            execution_status=CheckExecutionStatus.SUCCESS.value,
+            structured_data=sd,
+        )
+
+        assert sem.display_text == "Maintenance ковенанты: Net Debt/EBITDA ≤ 3.5x"
+
+    def test_label_beats_description_for_fact_field(self):
+        """Label is used as display label, description is ignored."""
+        check = _make_check(
+            ui_mode="field_extraction",
+            extraction_fields=[
+                {
+                    "name": "seller_details",
+                    "label": "Продавец",
+                    "presentation": "fact",
+                    "description": "Укажи Продавца и его реквизиты. Если данных нет, верни строго: 'Данные не определены'.",
+                },
+            ],
+        )
+        exec_result = _make_exec_result(result="pass")
+        sd = {"seller_details": {"value": "ООО «Ромашка»"}}
+
+        sem = build_canonical_result_semantics(
+            check=check,
+            exec_result=exec_result,
+            execution_status=CheckExecutionStatus.SUCCESS.value,
+            structured_data=sd,
+        )
+
+        assert sem.display_text == "Продавец: ООО «Ромашка»"
+        assert "Укажи" not in (sem.display_text or "")
+
+    def test_no_label_on_fact_falls_back_to_humanized_name(self):
+        """Fact field without label uses humanized field_name."""
+        check = _make_check(
+            ui_mode="field_extraction",
+            extraction_fields=[
+                {
+                    "name": "buyer_details",
+                    "presentation": "fact",
+                    "description": "Реквизиты покупателя",
+                },
+            ],
+        )
+        exec_result = _make_exec_result(result="pass")
+        sd = {"buyer_details": {"value": "ООО «Вектор»"}}
+
+        sem = build_canonical_result_semantics(
+            check=check,
+            exec_result=exec_result,
+            execution_status=CheckExecutionStatus.SUCCESS.value,
+            structured_data=sd,
+        )
+
+        assert sem.display_text == "Buyer details: ООО «Вектор»"
+
+
+class TestModelValidation:
+    def test_field_extraction_without_summary_and_without_labels_fails(self):
+        """CheckDefinition must reject field_extraction checks with no display contract."""
+        with pytest.raises(ValidationError) as exc_info:
+            CheckDefinition(
+                id="bad_check",
+                name="Bad Check",
+                ui_mode="field_extraction",
+                detector_type=DetectorType.RULES,
+                extraction=ExtractionConfig(
+                    enabled=True,
+                    fields=[
+                        ExtractionFieldConfig(
+                            name="seller_details",
+                            description="Укажи продавца",
+                        ),
+                    ],
+                ),
+            )
+        assert "missing explicit `label`" in str(exc_info.value)
+
+    def test_field_extraction_with_summary_is_valid(self):
+        check = CheckDefinition(
+            id="good_check_1",
+            name="Good Check",
+            ui_mode="field_extraction",
+            detector_type=DetectorType.RULES,
+            extraction=ExtractionConfig(
+                enabled=True,
+                fields=[
+                    ExtractionFieldConfig(
+                        name="covenants_display",
+                        presentation="summary",
+                        description="Краткий вывод",
+                    ),
+                    ExtractionFieldConfig(
+                        name="has_cross_default",
+                        presentation="signal",
+                        description="Cross-default",
+                    ),
+                ],
+            ),
+        )
+        assert check.extraction is not None
+
+    def test_field_extraction_with_labeled_facts_is_valid(self):
+        check = CheckDefinition(
+            id="good_check_2",
+            name="Good Check 2",
+            ui_mode="field_extraction",
+            detector_type=DetectorType.RULES,
+            extraction=ExtractionConfig(
+                enabled=True,
+                fields=[
+                    ExtractionFieldConfig(
+                        name="seller_details",
+                        label="Продавец",
+                        presentation="fact",
+                        description="Реквизиты продавца",
+                    ),
+                    ExtractionFieldConfig(
+                        name="seller_details_status",
+                        presentation="signal",
+                        description="Статус продавца",
+                    ),
+                ],
+            ),
+        )
+        assert check.extraction is not None
+
+    def test_non_field_extraction_does_not_require_labels(self):
+        check = CheckDefinition(
+            id="risk_check",
+            name="Risk Check",
+            ui_mode="risk_detection",
+            detector_type=DetectorType.RULES,
+            extraction=ExtractionConfig(
+                enabled=True,
+                fields=[
+                    ExtractionFieldConfig(
+                        name="risk_clause",
+                        description="Рискованная оговорка",
+                    ),
+                ],
+            ),
+        )
+        assert check.extraction is not None
+
+        

@@ -1,12 +1,13 @@
 id: "sanctions_clauses"
 name: "Санкционные оговорки"
+group: "Compliance"
 description: >
   Анализирует наличие и содержание санкционных оговорок: заверения
   об отсутствии санкций, охват (UBO, аффилированные лица), соблюдение
   режимов (OFAC, ЕС, UK, ООН, локальные), обязанности уведомлять о
   санкционных событиях, последствия (приостановка, расторжение, отказ
   в платеже), триггер последствий (risk-based vs. actual designation),
-  наличие механизмов смягчения.
+  налиличие механизмов смягчения.
 
   Формирует краткий user-facing вывод и оценивает распределение
   санкционного риска между сторонами.
@@ -126,6 +127,11 @@ evidence:
 retrieval:
   context_k: 5
   max_chunks: 10
+  
+  retrieval_query: >
+    санкции санкционная оговорка sanctions OFAC SDN compliance restrictive measures 
+    санкционный список embargo риск санкций illegality
+
   boost_keywords:
     - "sanctions"
     - "санкции"
@@ -151,6 +157,32 @@ retrieval:
     - "risk of sanctions"
     - "риск санкций"
     - "illegality"
+
+  negative_keywords:
+    - "интеллектуальная собственность"
+    - "коммерческая тайна"
+    - "персональные данные"
+    - "гарантийный срок"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "obligation"
+
+  excluded_unit_types:
+    - "technical_fragment"
+    - "appendix_reference"
+    - "structural_anchor"
+
+  preferred_clause_functions:
+    - "compliance"
+    - "representations"
+    - "termination"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -177,16 +209,18 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 480
+  llm_max_tokens: 460
   llm_prompt_extraction: |
     <role>
     Ты — юрист по международным санкциям.
     Твоя задача — точно извлечь из текста:
-    1) санкционные заверения и их охват (UBO, аффилированные лица);
+    1) санкционные заверения и их охват;
     2) покрываемые санкционные режимы;
     3) обязательства по соблюдению и уведомлению;
     4) последствия санкционного события и их триггер;
-    5) наличие механизмов смягчения.
+    5) механизмы смягчения.
+
+    Не придумывай режимы если они не упоминаются.
     </role>
 
     <context>
@@ -206,198 +240,168 @@ extraction:
     - event_consequences
     - consequences_trigger
     - has_mitigation_mechanisms
-    - red_flags
     - reason
 
     Важно:
-    - не придумывай режимы если они не упоминаются;
-    - пиши user-facing значения коротко и по-русски.
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
     Шаг 1 — САНКЦИОННЫЕ ЗАВЕРЕНИЯ
 
-    Заполни поле "has_sanctions_reps".
+    Заполни "has_sanctions_reps".
 
     Значения:
     - "yes" — явные заверения об отсутствии санкций.
     - "no" — заверения отсутствуют.
     - "unclear" — неясно.
 
-    Шаг 2 — ОХВАТ САНКЦИОННЫХ ЗАВЕРЕНИЙ
+    Шаг 2 — ОХВАТ ЗАВЕРЕНИЙ
 
-    Заполни поле "sanctions_reps_coverage".
+    Заполни "sanctions_reps_coverage".
 
     Значения:
     - "full" — охватывает сторону + UBO + аффилированных лиц
       + конкретные списки (SDN, EU consolidated, HM Treasury).
-    - "partial" — только сама сторона без UBO / аффилированных лиц.
+    - "partial" — только сама сторона без UBO / аффилированных.
     - "not_applicable" — заверений нет.
     - "unclear" — неясно.
 
     Шаг 3 — ПОКРЫВАЕМЫЕ РЕЖИМЫ
 
-    Заполни поле "covered_regimes".
+    Заполни "covered_regimes".
 
     Правила:
-    - Перечисли через ";":
-      * "OFAC; EU sanctions; UK sanctions"
-      * "OFAC; UN sanctions"
-    - Если конкретные режимы не указаны: "Не указаны"
-    - Если нет санкционных положений: "Не применимо"
+    - Конкретные режимы через ";":
+      "OFAC; EU sanctions; UK sanctions"
+    - Если не указаны: "Не указаны"
+    - Нет санкционных положений: "Не применимо"
 
     Шаг 4 — ОБЯЗАТЕЛЬСТВА ПО СОБЛЮДЕНИЮ
 
-    Заполни поле "has_compliance_obligations".
+    Заполни "has_compliance_obligations".
 
     Значения:
-    - "yes" — прямые обязательства соблюдать санкционные
-      режимы, не совершать сделки с sanctioned persons,
-      проводить screening.
-    - "no" — нет.
-    - "unclear" — неясно.
+    - "yes" — прямые обязательства: не совершать сделки с
+      sanctioned persons, проводить screening.
+    - "no" / "unclear"
 
-    Шаг 5 — ОБЯЗАННОСТЬ УВЕДОМЛЯТЬ
+    Шаг 5 — УВЕДОМЛЕНИЕ О САНКЦИОННЫХ СОБЫТИЯХ
 
-    Заполни поле "requires_notification".
+    Заполни "requires_notification".
 
     Значения:
-    - "yes" — обязанность уведомить о санкционных событиях
-      (включение в список, блокировка счёта и т.д.).
-    - "no" — нет.
-    - "unclear" — неясно.
+    - "yes" — обязанность уведомить о санкционных событиях.
+    - "no" / "unclear"
 
     Шаг 6 — ПОСЛЕДСТВИЯ САНКЦИОННОГО СОБЫТИЯ
 
-    Заполни поле "event_consequences".
+    Заполни "event_consequences".
 
     Значения:
-    - "none" — специальных последствий нет.
+    - "none" — нет специальных последствий.
     - "suspension" — приостановление исполнения.
     - "termination" — право расторгнуть.
-    - "payment_refusal" — право отказать в платеже /
-      заблокировать средства.
+    - "payment_refusal" — право отказать в платеже.
     - "mixed" — комбинация мер.
     - "unclear" — неясно.
 
     Шаг 7 — ТРИГГЕР ПОСЛЕДСТВИЙ
 
-    Заполни поле "consequences_trigger".
+    Заполни "consequences_trigger".
 
     Значения:
     - "actual_designation" — только при фактическом включении
-      в санкционный список — объективный, более предсказуемый.
+      в санкционный список — объективный.
     - "risk_based" — при "риске нарушения санкций" или
-      "reasonable opinion" контрагента — субъективный,
-      высокий операционный риск для Target.
+      "reasonable opinion" контрагента — субъективный.
     - "not_applicable" — нет последствий.
     - "unclear" — неясно.
 
     Шаг 8 — МЕХАНИЗМЫ СМЯГЧЕНИЯ
 
-    Заполни поле "has_mitigation_mechanisms".
+    Заполни "has_mitigation_mechanisms".
 
     Значения:
     - "yes" — есть: альтернативные банки / валюты, разумный
       срок для поиска решений, сотрудничество сторон.
-    - "no" — нет.
-    - "unclear" — неясно.
+    - "no" / "unclear"
 
-    Шаг 9 — RED FLAGS
+    Шаг 9 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "red_flags".
+    Заполни "sanctions_display".
 
-    Используй:
-    - "NONE" — заверения развёрнутые (full coverage), конкретные
-      режимы, actual designation trigger, механизмы смягчения.
-    - "UNCLEAR" — данных недостаточно.
-    - Коды через запятую:
-      * SAN1 — нет санкционных положений при международном /
-        банковском контексте.
-      * SAN2 — risk-based trigger: контрагент может расторгнуть
-        / отказать в платеже по субъективной оценке без
-        фактического включения в санкционный список.
-      * SAN3 — санкционные заверения не покрывают UBO и
-        аффилированных лиц при сложной корпоративной структуре.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 10 — USER-FACING SUMMARY
+    Базовые случаи:
+    - has_sanctions_reps = "no" и has_compliance_obligations = "no":
+      "Нет санкционных заверений; нет compliance обязательств"
+    - все поля unclear:
+      "Не удалось определить санкционные оговорки"
 
-    Заполни поле "sanctions_display".
+    Если есть — комбинируй через ";":
+    - sanctions_reps_coverage (full / partial)
+    - covered_regimes (кратко)
+    - consequences_trigger (если "risk_based": предупредить)
+    - has_mitigation_mechanisms (если "yes": смягчение)
 
     Примеры:
-    - "Заверения есть (full: UBO + аффилированные); OFAC + EU +
-       UK; уведомление; actual designation trigger; есть смягчение"
-    - "Заверения есть (только сторона); OFAC; risk-based
-       trigger; нет смягчения"
+    - "Заверения (full: UBO + аффилированные); OFAC + EU + UK; actual designation; смягчение"
+    - "Заверения (только сторона); OFAC; risk-based trigger; нет смягчения"
     - "Нет санкционных заверений; нет compliance обязательств"
     - "Не удалось определить санкционные оговорки"
 
-    Правила:
-    - Отрази максимум 4–5 ключевых факта через ";".
-    - Если нет санкционных оговорок:
-      "Нет санкционных заверений; нет compliance обязательств"
-    - Если всё unclear:
-      "Не удалось определить санкционные оговорки"
+    Ограничение: не более 4–5 фактов через ";".
 
-    Шаг 11 — ОБОСНОВАНИЕ
+    Шаг 10 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
-    - Укажи: заверения и их охват, режимы, последствия и триггер,
-      механизмы смягчения, почему red_flags.
-    - Приведи короткую цитату в кавычках.
-    - Если NONE — почему оговорки сбалансированы.
+    - Укажи: заверения и охват, режимы, последствия и триггер,
+      смягчение.
+    - Приведи цитату в кавычках.
     </instructions>
 
     <edge_cases>
-    - Risk-based trigger ("reasonable opinion" контрагента):
+    - Risk-based trigger ("reasonable opinion"):
       * consequences_trigger = "risk_based"
-      * red_flags включает "SAN2"
 
-    - Нет санкционных заверений при международных платежах:
+    - Нет заверений при международных платежах:
       * has_sanctions_reps = "no"
-      * red_flags включает "SAN1"
 
-    - Заверения только для самой стороны без UBO:
+    - Заверения только для стороны без UBO:
       * sanctions_reps_coverage = "partial"
-      * red_flags может включать "SAN3"
 
     - Actual designation + уведомление + альтернативные банки:
       * consequences_trigger = "actual_designation"
       * has_mitigation_mechanisms = "yes"
-      * red_flags = "NONE"
 
-    - Illegality / force majeure при реальном запрете +
-      разумный срок для поиска решений:
-      * has_mitigation_mechanisms = "yes"
-      * в reason: снижает риск
-
-    - Чисто внутрироссийский договор без международного элемента:
+    - Внутрироссийский договор без международного элемента:
       * has_sanctions_reps = "no"
-      * red_flags = "NONE" (если контекст не требует)
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
-      * red_flags = "UNCLEAR"
-      * sanctions_display =
-        "Не удалось определить санкционные оговорки"
+      * sanctions_display = "Не удалось определить санкционные оговорки"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "sanctions_display"
       type: "string"
-      description: "Санкционные оговорки: краткий вывод"
+      presentation: "fact"
+      label: "Санкционные оговорки"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "has_sanctions_reps"
       type: "string"
+      presentation: "signal"
       description: "Санкционные заверения"
       allowed_values:
         - "yes"
@@ -406,6 +410,7 @@ extraction:
 
     - name: "sanctions_reps_coverage"
       type: "string"
+      presentation: "signal"
       description: "Охват санкционных заверений"
       allowed_values:
         - "full"
@@ -415,10 +420,13 @@ extraction:
 
     - name: "covered_regimes"
       type: "string"
+      presentation: "fact"
+      label: "Покрываемые режимы"
       description: "Покрываемые санкционные режимы"
 
     - name: "has_compliance_obligations"
       type: "string"
+      presentation: "signal"
       description: "Обязательства по соблюдению санкций"
       allowed_values:
         - "yes"
@@ -427,6 +435,7 @@ extraction:
 
     - name: "requires_notification"
       type: "string"
+      presentation: "signal"
       description: "Обязанность уведомлять о санкционных событиях"
       allowed_values:
         - "yes"
@@ -435,6 +444,7 @@ extraction:
 
     - name: "event_consequences"
       type: "string"
+      presentation: "signal"
       description: "Последствия санкционного события"
       allowed_values:
         - "none"
@@ -446,6 +456,7 @@ extraction:
 
     - name: "consequences_trigger"
       type: "string"
+      presentation: "signal"
       description: "Триггер последствий"
       allowed_values:
         - "actual_designation"
@@ -455,18 +466,16 @@ extraction:
 
     - name: "has_mitigation_mechanisms"
       type: "string"
-      description: "Механизмы смягчения санкционных последствий"
+      presentation: "signal"
+      description: "Механизмы смягчения"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true

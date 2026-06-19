@@ -212,6 +212,7 @@ class RunnerRepository:
                     "is_primary_segment": r.is_primary_segment,
                     "chunk_id": r.chunk_id,
                     "chunk_index": r.chunk_index,
+                    "context_trace": r.context_trace,
                     # ── Spec v2: canonical display semantics ──────────────────
                     "ui_mode": r.ui_mode,
                     "display_text": r.display_text,

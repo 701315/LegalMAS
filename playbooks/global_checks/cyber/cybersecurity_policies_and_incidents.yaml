@@ -1,5 +1,6 @@
 id: "cybersecurity_policies_and_incidents"
 name: "Кибербезопасность, ИБ и инциденты"
+group: "Cybersecurity"
 description: >
   Анализирует договорное оформление требований информационной
   безопасности: наличие формализованных политик ИБ и сертификаций
@@ -26,7 +27,6 @@ rules:
 
   keywords:
     high:
-      # Политики ИБ — конкретные маркеры
       - "(?i)security\\s+policy"
       - "(?i)политик[аи]\\s+(информационн[а-я]+\\s+)?безопасност[ьи]"
       - "(?i)\\bISMS\\b"
@@ -37,8 +37,6 @@ rules:
       - "(?i)\\bPCI[-\\s]?DSS\\b"
       - "(?i)\\bNIST\\b"
       - "(?i)\\bCIS\\s+Controls\\b"
-
-      # Инциденты и утечки — конкретные формулировки
       - "(?i)security\\s+incident"
       - "(?i)security\\s+breach"
       - "(?i)data\\s+breach"
@@ -49,8 +47,6 @@ rules:
       - "(?i)несанкционированн[а-я]+\\s+доступ"
       - "(?i)unauthorized\\s+access"
       - "(?i)compromise[d]?\\s+(of\\s+)?(data|system|security)"
-
-      # Incident response
       - "(?i)incident\\s+response"
       - "(?i)реагировани[ея]\\s+на\\s+инцидент"
       - "(?i)incident\\s+management"
@@ -61,7 +57,6 @@ rules:
       - "(?i)уведомлени[ея]\\s+о[б]?\\s+(утечк|инцидент|нарушени)[аи]"
 
     medium:
-      # Технические и организационные меры
       - "(?i)security\\s+measures?"
       - "(?i)мер[аы]\\s+(информационн[а-я]+\\s+)?безопасност[ьи]"
       - "(?i)техническ[а-я]+\\s+и\\s+организационн[а-я]+\\s+мер"
@@ -75,8 +70,6 @@ rules:
       - "(?i)\\bMFA\\b"
       - "(?i)multi[-\\s]?factor\\s+authentication"
       - "(?i)двухфакторн[а-я]+\\s+аутентификаци"
-
-      # Мониторинг и логирование
       - "(?i)\\bSIEM\\b"
       - "(?i)\\bDLP\\b"
       - "(?i)data\\s+loss\\s+prevention"
@@ -84,8 +77,6 @@ rules:
       - "(?i)audit\\s+trail"
       - "(?i)журнал\\s+аудит[а]"
       - "(?i)мониторинг\\s+(безопасност|инцидент|доступ)"
-
-      # Тестирование и резервирование
       - "(?i)penetration\\s+test(ing)?"
       - "(?i)тест(ировани[ея])?\\s+на\\s+(проникновени[ея]|уязвимост)"
       - "(?i)vulnerability\\s+(assessment|scan(ning)?)"
@@ -123,40 +114,64 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
-  context_k: 5
+  context_k: 6
   max_chunks: 10
+
+  retrieval_query: >
+    информационная безопасность политика ИБ кибербезопасность
+    ISO 27001 SOC 2 incident response реагирование на инциденты
+    утечка данных breach notification уведомление об инциденте
+    технические меры защиты шифрование контроль доступа
+
   boost_keywords:
-    - "security policy"
     - "политика информационной безопасности"
-    - "ISMS"
+    - "security policy"
     - "ISO 27001"
     - "SOC 2"
     - "PCI DSS"
-    - "NIST"
-    - "cybersecurity"
-    - "кибербезопасность"
-    - "information security"
-    - "информационная безопасность"
-    - "security incident"
-    - "security breach"
-    - "data breach"
-    - "утечка данных"
-    - "киберинцидент"
     - "incident response"
     - "реагирование на инциденты"
-    - "incident management"
-    - "incident log"
-    - "журнал инцидентов"
+    - "утечка данных"
+    - "data breach"
     - "breach notification"
     - "уведомление об утечке"
-    - "security measures"
     - "технические и организационные меры"
-    - "encryption"
+    - "technical and organizational measures"
     - "шифрование"
-    - "access control"
+    - "encryption"
     - "контроль доступа"
-    - "penetration testing"
-    - "vulnerability assessment"
+
+  negative_keywords:
+    - "персональные данные"
+    - "personal data"
+    - "конфиденциальная информация"
+    - "коммерческая тайна"
+    - "означает"
+    - "в целях настоящего"
+    - "споры"
+    - "подсудность"
+    - "применимое право"
+
+  preferred_unit_types:
+    - "obligation"
+    - "general_provision"
+
+  excluded_unit_types:
+    - "definition"
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "obligations"
+    - "procedures"
+    - "representations"
+
+  position_bias:
+    preferred_range: [0.30, 1.00]
+    boost: 0.20
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -172,25 +187,25 @@ enrichment_hints:
     - "price_list"
     - "invoice"
     - "act"
-  preferred_clause_functions:
-    - "data_protection"
-    - "confidentiality"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 480
+  llm_max_tokens: 460
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по информационной безопасности и кибербезопасности.
+    Ты — юрист по информационной безопасности.
     Твоя задача — точно извлечь из текста договора:
-    1) есть ли формализованные политики ИБ и сертификации;
-    2) описаны ли конкретные меры защиты;
-    3) есть ли процедуры реагирования на инциденты;
-    4) есть ли обязательства по уведомлению об инцидентах;
-    5) упоминаются ли прошлые инциденты / утечки.
+    1) наличие формализованных политик ИБ и сертификаций;
+    2) наличие конкретных технических и организационных мер;
+    3) наличие процедур реагирования на инциденты;
+    4) наличие обязательств по уведомлению об инцидентах;
+    5) упоминание прошлых инцидентов / утечек.
+
+    Не оценивай общий уровень киберриска компании.
+    Не анализируй тему шире текста.
     </role>
 
     <context>
@@ -207,71 +222,68 @@ extraction:
     - has_incident_response_procedures
     - has_breach_notification_obligations
     - mentions_past_incidents
-    - red_flags
     - reason
 
     Важно:
-    - не анализируй тему шире текста;
-    - не придумывай данные, которых нет в фрагментах;
-    - пиши user-facing значения коротко и по-русски.
+    - не придумывай данные, которых нет в тексте;
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
-    Шаг 1 — НАЛИЧИЕ ФОРМАЛИЗОВАННЫХ ПОЛИТИК ИБ
+    Шаг 1 — ФОРМАЛИЗОВАННЫЕ ПОЛИТИКИ ИБ И СЕРТИФИКАЦИИ
 
-    Заполни поле "has_documented_security_policies".
+    Заполни "has_documented_security_policies".
 
     Значения:
-    - "yes" — упоминаются утверждённые политики ИБ или сертификации:
+    - "yes" — упоминаются утверждённые политики ИБ
+      или конкретные сертификации:
       security policy, политика информационной безопасности,
       ISMS, ISO 27001, SOC 2, PCI DSS, NIST, CIS Controls.
-    - "no" — политики или сертификации явно не упоминаются.
-    - "unclear" — формулировки общие, определить невозможно.
+    - "no" — политики и сертификации не упоминаются.
+    - "unclear" — формулировки слишком общие.
 
-    Шаг 2 — ОПИСАНИЕ ТЕХНИЧЕСКИХ И ОРГАНИЗАЦИОННЫХ МЕР
+    Шаг 2 — ТЕХНИЧЕСКИЕ И ОРГАНИЗАЦИОННЫЕ МЕРЫ
 
-    Заполни поле "describes_security_measures".
+    Заполни "describes_security_measures".
 
     Значения:
     - "yes" — описаны конкретные меры:
-      * шифрование (encryption) at rest и/или in transit;
-      * контроль доступа (access control), аутентификация, MFA;
-      * логирование, мониторинг, SIEM, DLP;
-      * penetration testing, vulnerability assessment;
-      * backup, disaster recovery, BCP.
+      шифрование at rest и/или in transit;
+      контроль доступа, аутентификация, MFA;
+      логирование, мониторинг, SIEM, DLP;
+      penetration testing, vulnerability assessment;
+      backup, disaster recovery, BCP.
     - "no" — мер нет или только декларативные заявления
-      ("обеспечивает конфиденциальность", "принимает меры")
-      без конкретики.
+      без конкретики ("обеспечивает конфиденциальность",
+      "принимает все необходимые меры").
     - "unclear" — оценка невозможна по фрагментам.
 
     Шаг 3 — ПРОЦЕДУРЫ РЕАГИРОВАНИЯ НА ИНЦИДЕНТЫ
 
-    Заполни поле "has_incident_response_procedures".
+    Заполни "has_incident_response_procedures".
 
     Значения:
-    - "yes" — явно описаны:
-      * процессы выявления, регистрации, расследования инцидентов;
-      * журналирование (incident log);
-      * сроки реагирования и восстановления.
+    - "yes" — явно описаны процессы выявления, регистрации,
+      расследования инцидентов; журналирование (incident log);
+      сроки реагирования и восстановления.
     - "no" — процедуры отсутствуют.
     - "unclear" — формулировки неопределённые.
 
     Шаг 4 — ОБЯЗАТЕЛЬСТВА ПО УВЕДОМЛЕНИЮ ОБ ИНЦИДЕНТАХ
 
-    Заполни поле "has_breach_notification_obligations".
+    Заполни "has_breach_notification_obligations".
 
     Значения:
     - "yes" — явно установлены обязательства уведомить:
-      * клиента об инцидентах и утечках;
-      * регуляторов (GDPR, 152-ФЗ и т.п.);
-      * субъектов данных.
-      Плюс/минус: указаны ли сроки (72 часа по GDPR).
-    - "no" — обязательств нет.
+      клиента об инцидентах и утечках;
+      регуляторов (GDPR, 152-ФЗ и т.п.);
+      субъектов данных.
+    - "no" — обязательств по уведомлению нет.
     - "unclear" — формулировки неопределённые.
 
-    Шаг 5 — УПОМИНАНИЯ ПРОШЛЫХ ИНЦИДЕНТОВ / УТЕЧЕК
+    Шаг 5 — УПОМИНАНИЯ ПРОШЛЫХ ИНЦИДЕНТОВ
 
-    Заполни поле "mentions_past_incidents".
+    Заполни "mentions_past_incidents".
 
     Значения:
     - "yes" — есть ссылки на прошлые security incidents,
@@ -279,111 +291,89 @@ extraction:
     - "no" — не упоминаются.
     - "unclear" — неопределённо.
 
-    Шаг 6 — RED FLAGS
+    Шаг 6 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "red_flags".
+    Заполни "cybersecurity_display".
 
-    Используй:
-    - "NONE" — если существенных риск-факторов нет.
-    - "UNCLEAR" — если данных недостаточно.
-    - Коды через запятую:
-      * CYB1 — отсутствие формализованной политики ИБ при работе
-        с чувствительными данными или большим массивом ПДн.
-      * CYB2 — упоминания прошлых инцидентов без описания мер
-        remediation и предотвращения повторов.
-      * CYB3 — отсутствие процедур реагирования на инциденты
-        (incident response) и журналирования.
-      * CYB4 — меры защиты описаны только декларативно
-        без конкретики.
-      * CYB5 — нет обязательства уведомлять клиента и/или
-        регулятора об инцидентах и утечках.
-      * CYB6 — ссылка на устаревшие или неактуальные стандарты /
-        сертификаты без подтверждения актуальности.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 7 — USER-FACING SUMMARY
+    Базовые случаи:
+    - все поля "unclear":
+      "Не удалось определить уровень ИБ"
+    - все поля "no" / policies = "no", measures = "no":
+      "Требования ИБ не установлены"
 
-    Заполни поле "cybersecurity_display".
-
-    Строй display как краткий factual вывод:
+    Если есть что-то конкретное — комбинируй через ";":
+    - если has_documented_security_policies = "yes":
+      начни с "Политики ИБ задокументированы"
+    - если describes_security_measures = "yes":
+      добавь "меры защиты описаны"
+    - если describes_security_measures = "no":
+      добавь "меры защиты не описаны"
+    - если has_breach_notification_obligations = "yes":
+      добавь "уведомление об инцидентах предусмотрено"
+    - если has_breach_notification_obligations = "no":
+      добавь "уведомление об инцидентах не предусмотрено"
+    - если mentions_past_incidents = "yes":
+      добавь "упоминаются прошлые инциденты"
 
     Примеры:
-    - "Политики ИБ задокументированы (ISO 27001);
-       меры защиты описаны; уведомление об инцидентах предусмотрено"
-    - "Меры ИБ только декларативные; нет incident response;
-       нет обязательства уведомлять"
-    - "Политики ИБ отсутствуют; меры защиты не описаны"
+    - "Политики ИБ задокументированы (ISO 27001); меры описаны; уведомление предусмотрено"
+    - "Меры ИБ только декларативные; нет incident response"
+    - "Требования ИБ не установлены"
     - "Не удалось определить уровень ИБ"
 
-    Правила:
-    - Отрази максимум 3 ключевых факта через точку с запятой.
-    - Если все параметры unclear: "Не удалось определить уровень ИБ"
-    - Приоритизируй наиболее критичные findings.
+    Ограничение: не более 3 фактов через точку с запятой.
 
-    Шаг 8 — ОБОСНОВАНИЕ
+    Шаг 7 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
     - Укажи: какие политики / сертификации упоминаются,
       какие меры описаны, есть ли incident response
-      и уведомление об инцидентах, почему выставлены red_flags.
-    - Приведи короткую цитату из текста в кавычках.
-    - Если red_flags = "NONE" — укажи, почему ИБ-риск
-      контролируем.
+      и уведомление.
+    - Приведи короткую цитату в кавычках.
     </instructions>
 
     <edge_cases>
-    - Только декларативные заявления без конкретных мер
-      и политик:
-      * has_documented_security_policies = "unclear" или "no"
+    - Только декларативные заявления без конкретных мер:
       * describes_security_measures = "no"
-      * red_flags включает "CYB4"
 
-    - Меры описаны (шифрование, контроль доступа), но нет
-      ничего про incident response:
+    - Меры описаны, но нет incident response:
       * has_incident_response_procedures = "no"
-      * red_flags включает "CYB3"
 
-    - Упоминаются прошлые инциденты без мер remediation:
+    - Прошлые инциденты упоминаются без мер remediation:
       * mentions_past_incidents = "yes"
-      * red_flags включает "CYB2"
 
-    - Ссылка на ISO 27001 без года или с устаревшим сроком:
-      * has_documented_security_policies = "yes"
-      * red_flags включает "CYB6"
-
-    - Нет обязательств уведомлять об инцидентах:
+    - Нет обязательств по уведомлению:
       * has_breach_notification_obligations = "no"
-      * red_flags включает "CYB5"
-
-    - Договор касается ПДн, но политики ИБ не упоминаются:
-      * has_documented_security_policies = "no"
-      * red_flags включает "CYB1"
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
-      * red_flags = "UNCLEAR"
       * cybersecurity_display = "Не удалось определить уровень ИБ"
 
-    - Всё в порядке:
-      * red_flags = "NONE"
-      * в reason объясни, почему ИБ-риск контролируем
+    - Всё структурно в порядке:
+      * cybersecurity_display отражает позитивные факты
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "cybersecurity_display"
       type: "string"
-      description: "Уровень ИБ: краткий вывод"
+      presentation: "fact"
+      label: "Информационная безопасность"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "has_documented_security_policies"
       type: "string"
+      presentation: "signal"
       description: "Формализованные политики ИБ / сертификации"
       allowed_values:
         - "yes"
@@ -392,7 +382,8 @@ extraction:
 
     - name: "describes_security_measures"
       type: "string"
-      description: "Конкретные меры защиты описаны"
+      presentation: "signal"
+      description: "Конкретные технические и организационные меры"
       allowed_values:
         - "yes"
         - "no"
@@ -400,6 +391,7 @@ extraction:
 
     - name: "has_incident_response_procedures"
       type: "string"
+      presentation: "signal"
       description: "Процедуры реагирования на инциденты"
       allowed_values:
         - "yes"
@@ -408,6 +400,7 @@ extraction:
 
     - name: "has_breach_notification_obligations"
       type: "string"
+      presentation: "signal"
       description: "Обязательства по уведомлению об инцидентах"
       allowed_values:
         - "yes"
@@ -416,18 +409,16 @@ extraction:
 
     - name: "mentions_past_incidents"
       type: "string"
+      presentation: "signal"
       description: "Упоминания прошлых инцидентов / утечек"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды киберрисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true

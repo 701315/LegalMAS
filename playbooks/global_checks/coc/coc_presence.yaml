@@ -1,5 +1,6 @@
 id: "coc_presence"
 name: "Наличие клауз смены контроля"
+group: "COC"
 description: >
   Screening-check: проверяет, содержит ли договор положения о смене
   контроля (change of control, смена бенефициара, переход контроля),
@@ -30,48 +31,36 @@ rules:
 
   keywords:
     high:
-      # Смена контроля — прямые термины
       - "(?i)change\\s+of\\s+control"
       - "(?i)change[-\\s]of[-\\s]control"
       - "(?i)change\\s+in\\s+control"
       - "(?i)смен[аы]\\s+контрол[яю]"
       - "(?i)переход\\s+контрол[яю]"
       - "(?i)переход\\s+прав[аов]?\\s+контрол[яю]"
-
-      # Бенефициарное владение
       - "(?i)смен[аы]\\s+бенефициарного\\s+владельц[аы]"
       - "(?i)смен[аы]\\s+бенефициар[аы]"
       - "(?i)ultimate\\s+beneficial\\s+owner"
       - "(?i)\\bUBO\\b"
       - "(?i)change\\s+in\\s+beneficial\\s+ownership"
       - "(?i)изменени[ея]\\s+бенефициарного\\s+владени[яи]"
-
-      # Переход через акции / доли
       - "(?i)transfer\\s+of\\s+controlling\\s+(interest|stake|share)"
       - "(?i)acquisition\\s+of\\s+control"
       - "(?i)переход\\s+контрольного\\s+(пакета|интереса)"
       - "(?i)отчуждени[ея]\\s+контрольного\\s+пакета"
       - "(?i)change\\s+in\\s+ownership"
-
-      # Косвенная смена
       - "(?i)indirect\\s+(change\\s+of\\s+control|transfer\\s+of\\s+control)"
       - "(?i)indirect\\s+change\\s+in\\s+ownership"
       - "(?i)косвенн[а-я]+\\s+(смен[аы]|переход)[\\s\\S]{0,30}контрол"
 
     medium:
-      # Структура владения
       - "(?i)material\\s+change\\s+in\\s+(ownership|shareholding)"
       - "(?i)существенн[а-я]+\\s+изменени[яе]\\s+в\\s+структур[ае]\\s+владени"
       - "(?i)change\\s+in\\s+(composition\\s+of\\s+)?(shareholders?|members?)"
       - "(?i)изменени[ея]\\s+состав[аы]\\s+(участников|акционеров)"
-
-      # Контролирующие лица
       - "(?i)controlling\\s+(person|party|shareholder|entity)"
       - "(?i)контролирующ[а-я]+\\s+(лиц[аоу]|сторон|акционер|участник)"
       - "(?i)конечн[а-я]+\\s+бенефициар"
       - "(?i)beneficial\\s+owner"
-
-      # Согласие / расторжение в CoC-контексте
       - "(?i)consent\\s+to\\s+(a\\s+)?change\\s+(of|in)\\s+control"
       - "(?i)согласи[ея]\\s+на\\s+(смену|переход)\\s+контрол"
       - "(?i)right\\s+to\\s+terminate[\\s\\S]{0,40}change\\s+of\\s+control"
@@ -101,30 +90,65 @@ evidence:
   max_snippet_length: 500
 
 retrieval:
-  context_k: 5
-  max_chunks: 8
+  context_k: 6
+  max_chunks: 10
+
+  retrieval_query: >
+    change of control смена контроля переход контроля
+    смена бенефициарного владельца UBO ultimate beneficial owner
+    indirect change of control косвенная смена контроля
+    transfer of controlling interest переход контрольного пакета
+
   boost_keywords:
     - "change of control"
-    - "change-of-control"
     - "change in control"
     - "смена контроля"
     - "переход контроля"
     - "смена бенефициарного владельца"
-    - "смена бенефициара"
     - "ultimate beneficial owner"
     - "UBO"
-    - "change in beneficial ownership"
     - "indirect change of control"
     - "косвенная смена контроля"
     - "transfer of controlling interest"
     - "переход контрольного пакета"
-    - "отчуждение контрольного пакета"
-    - "существенные изменения в структуре владения"
     - "acquisition of control"
     - "consent to change of control"
     - "согласие на смену контроля"
-    - "right to terminate upon change of control"
-    - "право расторгнуть при смене контроля"
+    - "termination upon change of control"
+
+  negative_keywords:
+    - "уступка прав"
+    - "assignment of rights"
+    - "перевод долга"
+    - "transfer of obligations"
+    - "означает"
+    - "в целях настоящего"
+    - "споры"
+    - "подсудность"
+    - "применимое право"
+
+  preferred_unit_types:
+    - "obligation"
+    - "general_provision"
+    - "termination_provision"
+
+  excluded_unit_types:
+    - "definition"
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "rights"
+    - "limitations"
+    - "obligations"
+    - "boilerplate"
+
+  position_bias:
+    preferred_range: [0.55, 1.00]
+    boost: 0.30
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -134,28 +158,25 @@ enrichment_hints:
   preferred_segment_types:
     - "contract"
     - "amendment"
-    - "annex"
   excluded_segment_types:
     - "technical_specification"
     - "price_list"
     - "invoice"
     - "act"
     - "schedule"
-  preferred_clause_functions:
-    - "change_of_control"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 420
+  llm_max_tokens: 400
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A и коммерческим договорам.
     Твоя задача — screening-анализ: определить наличие CoC-клаузы,
     тип её триггера и верхнеуровневый характер последствий.
-    Это не детальный анализ — он выполняется отдельными чеками.
+    Это не детальный анализ — он выполняется отдельными checks.
     </role>
 
     <context>
@@ -169,9 +190,8 @@ extraction:
     - coc_display
     - has_coc_clause
     - coc_trigger_type
-    - coc_coverage_gaps
+    - coc_trigger_coverage_gaps
     - coc_consequence_type
-    - red_flags
     - reason
 
     Важно:
@@ -210,31 +230,26 @@ extraction:
     - "direct_and_indirect" — прямая и косвенная смена
       (через материнские / холдинговые структуры).
     - "includes_ubo" — охватывает смену UBO
-      (ultimate beneficial owner), но возможно без косвенной смены.
+      (ultimate beneficial owner).
     - "broad" — широкое определение: охватывает прямую,
       косвенную смену и UBO одновременно.
     - "not_applicable" — has_coc_clause = "no".
     - "unclear" — тип триггера нельзя определить.
 
-    Шаг 3 — ПРОБЕЛЫ В ПОКРЫТИИ
+    Шаг 3 — ПРОБЕЛЫ В ПОКРЫТИИ ТРИГГЕРА
 
-    Заполни поле "coc_coverage_gaps".
+    Заполни поле "coc_trigger_coverage_gaps".
 
-    Определи, какие типы смены контроля явно НЕ охвачены
-    CoC-клаузой на основе текста:
-    - "none" — пробелов не выявлено; покрытие адекватное.
-    - "no_indirect" — косвенная смена (через материнские структуры)
-      не охвачена.
+    Значения:
+    - "none" — пробелов в покрытии триггера не выявлено.
+    - "no_indirect" — косвенная смена не охвачена.
     - "no_ubo" — смена UBO не охвачена.
     - "no_indirect_and_no_ubo" — не охвачены ни косвенная смена,
       ни UBO.
-    - "no_consequences" — CoC-клауза есть, но последствия
-      не прописаны (нет права расторжения, согласия, уведомления).
-    - "not_applicable" — has_coc_clause = "no"
-      (сама клауза отсутствует).
-    - "unclear" — невозможно оценить покрытие.
+    - "not_applicable" — has_coc_clause = "no".
+    - "unclear" — невозможно оценить покрытие триггера.
 
-    Шаг 4 — ХАРАКТЕР ПОСЛЕДСТВИЙ
+    Шаг 4 — ВЕРХНЕУРОВНЕВЫЙ ХАРАКТЕР ПОСЛЕДСТВИЙ
 
     Заполни поле "coc_consequence_type".
 
@@ -245,42 +260,19 @@ extraction:
     Значения:
     - "notification" — только обязанность уведомить.
     - "consent_required" — требуется предварительное согласие.
-    - "termination_right" — право на расторжение.
+    - "termination_right" — предусмотрено право на расторжение.
     - "renegotiation" — право требовать пересмотра условий.
-    - "multiple" — несколько типов последствий одновременно
-      (уточни в reason).
+    - "multiple" — несколько типов последствий одновременно.
     - "no_consequences" — CoC-клауза есть, но последствия
       не прописаны.
     - "not_applicable" — has_coc_clause = "no".
     - "unclear" — последствия нельзя определить.
 
-    Шаг 5 — RED FLAGS
-
-    Заполни поле "red_flags".
-
-    Используй:
-    - "NONE" — если существенных риск-факторов нет.
-    - "UNCLEAR" — если данных недостаточно.
-    - Коды через запятую:
-      * COC1 — CoC-клауза отсутствует, что создаёт риск
-        неконтролируемой смены контроля без последствий
-        для контрагента.
-      * COC2 — CoC-клауза покрывает только прямую смену;
-        косвенная смена (через материнские / холдинговые структуры)
-        не охвачена.
-      * COC3 — CoC-клауза не охватывает смену UBO
-        (смена через многоуровневую структуру остаётся за рамками).
-      * COC4 — CoC-клауза есть, но последствия не прописаны
-        (нет права расторжения, согласия, уведомления).
-
-    Шаг 6 — USER-FACING SUMMARY
+    Шаг 5 — USER-FACING SUMMARY
 
     Заполни поле "coc_display".
 
-    Правила:
-    - Кратко и фактически: наличие, тип триггера,
-      верхнеуровневые последствия.
-    - Структура: {наличие}; {триггер}; {последствие / пробел}
+    Структура: {наличие}; {триггер}; {последствие / пробел}
 
     Примеры:
     - "CoC-клауза есть; прямая и косвенная смена; последствие — согласие"
@@ -294,15 +286,15 @@ extraction:
     - "no" → "CoC-клауза отсутствует"
     - "unclear" → "Не удалось определить наличие CoC-клаузы"
 
-    Шаг 7 — ОБОСНОВАНИЕ
+    Шаг 6 — ОБОСНОВАНИЕ
 
     Заполни поле "reason".
 
     Правила:
     - 1–2 коротких предложения.
     - Укажи: есть ли CoC-клауза, тип триггера, пробелы в покрытии,
-      верхнеуровневые последствия, почему выставлены red_flags.
-    - Приведи короткую цитату из текста в кавычках.
+      верхнеуровневые последствия.
+    - Приведи короткую цитату в кавычках.
     - Не анализируй детали согласия и последствий.
     </instructions>
 
@@ -310,17 +302,14 @@ extraction:
     - Только общий запрет уступки прав без упоминания CoC / бенефициара:
       * has_coc_clause = "no"
       * coc_trigger_type = "not_applicable"
-      * coc_coverage_gaps = "not_applicable"
+      * coc_trigger_coverage_gaps = "not_applicable"
       * coc_consequence_type = "not_applicable"
-      * red_flags = "COC1"
       * coc_display = "CoC-клауза отсутствует"
       * в reason: "запрет уступки прав ≠ CoC-клауза"
 
-    - Формулировки о смене участника / акционера, но без последствий:
+    - Формулировки о смене участника / акционера без последствий:
       * has_coc_clause = "yes"
       * coc_consequence_type = "no_consequences"
-      * coc_coverage_gaps = "no_consequences"
-      * red_flags = "COC4"
       * coc_display = "CoC-клауза есть; последствия не установлены"
 
     - "Существенные изменения в структуре владения" без термина
@@ -331,35 +320,29 @@ extraction:
 
     - CoC-клауза только для прямой смены, косвенная не охвачена:
       * coc_trigger_type = "direct_only"
-      * coc_coverage_gaps = "no_indirect"
-      * red_flags включает "COC2"
+      * coc_trigger_coverage_gaps = "no_indirect"
 
     - CoC-клауза не упоминает UBO:
-      * coc_coverage_gaps = "no_ubo" или "no_indirect_and_no_ubo"
-      * red_flags включает "COC3"
+      * coc_trigger_coverage_gaps = "no_ubo"
 
     - Не охвачены ни косвенная смена, ни UBO:
       * coc_trigger_type = "direct_only"
-      * coc_coverage_gaps = "no_indirect_and_no_ubo"
-      * red_flags = "COC2, COC3"
+      * coc_trigger_coverage_gaps = "no_indirect_and_no_ubo"
 
     - Последствий несколько (согласие + право расторгнуть):
       * coc_consequence_type = "multiple"
-      * в reason: перечисли оба типа
 
     - Широкое покрытие, нет пробелов, есть последствия:
       * coc_trigger_type = "broad"
-      * coc_coverage_gaps = "none"
-      * red_flags = "NONE"
+      * coc_trigger_coverage_gaps = "none"
       * coc_display =
         "CoC-клауза есть; широкое покрытие; последствие — согласие"
 
     - Фрагменты нерелевантны или пусты:
       * has_coc_clause = "unclear"
       * coc_trigger_type = "unclear"
-      * coc_coverage_gaps = "unclear"
+      * coc_trigger_coverage_gaps = "unclear"
       * coc_consequence_type = "unclear"
-      * red_flags = "UNCLEAR"
       * coc_display = "Не удалось определить наличие CoC-клаузы"
     </edge_cases>
 
@@ -372,10 +355,13 @@ extraction:
   fields:
     - name: "coc_display"
       type: "string"
-      description: "CoC-клауза: наличие, триггер, последствие"
+      presentation: "fact"
+      label: "CoC-клауза"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "has_coc_clause"
       type: "string"
+      presentation: "signal"
       description: "Наличие CoC-клаузы"
       allowed_values:
         - "yes"
@@ -384,6 +370,7 @@ extraction:
 
     - name: "coc_trigger_type"
       type: "string"
+      presentation: "signal"
       description: "Тип триггера смены контроля"
       allowed_values:
         - "direct_only"
@@ -393,20 +380,21 @@ extraction:
         - "not_applicable"
         - "unclear"
 
-    - name: "coc_coverage_gaps"
+    - name: "coc_trigger_coverage_gaps"
       type: "string"
-      description: "Пробелы в покрытии CoC-клаузы"
+      presentation: "signal"
+      description: "Пробелы в покрытии триггера CoC"
       allowed_values:
         - "none"
         - "no_indirect"
         - "no_ubo"
         - "no_indirect_and_no_ubo"
-        - "no_consequences"
         - "not_applicable"
         - "unclear"
 
     - name: "coc_consequence_type"
       type: "string"
+      presentation: "signal"
       description: "Верхнеуровневый характер последствий (routing)"
       allowed_values:
         - "notification"
@@ -418,14 +406,10 @@ extraction:
         - "not_applicable"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды пробелов в покрытии CoC"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true
-
   

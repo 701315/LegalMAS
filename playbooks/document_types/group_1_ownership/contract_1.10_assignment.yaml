@@ -907,19 +907,38 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_query: "цедент цессионарий новый кредитор первоначальный кредитор должник ИНН ОГРН именуемый в лице действующего на основании устава доверенности реквизиты подписант"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - boilerplate
+      negative_keywords:
+        - "право требования к"
+        - "основание возникновения"
+        - "сумма долга"
+        - "уведомление должника"
+        - "гарантирует действительность"
+        - "не уступалось"
+        - "делькредере"
+        - "обеспечительные права"
+        - "залог"
+        - "поручительство"
+        - "будущие требования"
+        - "частичная уступка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.25
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "цедент"
-        - "цессионарий"
-        - "должник"
-        - "именуемый"
-        - "ИНН"
-        - "ОГРН"
-        - "в лице"
-        - "действующего на основании"
-        - "устав"
-        - "доверенность"
       rerank: true
 
     enrichment_hints:
@@ -936,50 +955,108 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии сведения
+        о Цеденте, Цессионарии и Должнике, а также о подписантах Цедента
+        и Цессионария и основаниях их полномочий.
+        Не анализируй предмет уступки, уведомление должника, цену уступки,
+        обеспечительные права или расторжение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. cedent_details_status — "defined" если Цедент прямо идентифицирован, иначе "not_defined".
+        2. cedent_details — наименование/ФИО и реквизиты Цедента.
+        3. cedent_signatory — ФИО/должность подписанта от Цедента.
+        4. cedent_signatory_status — "defined" если подписант Цедента прямо указан, иначе "not_defined".
+        5. cedent_signatory_basis — "charter" / "poa" / "order" / "other" / "not_defined".
+        6. assignee_details_status — "defined" если Цессионарий прямо идентифицирован, иначе "not_defined".
+        7. assignee_details — наименование/ФИО и реквизиты Цессионария.
+        8. assignee_signatory — ФИО/должность подписанта от Цессионария.
+        9. assignee_signatory_status — "defined" если подписант Цессионария прямо указан, иначе "not_defined".
+        10. assignee_signatory_basis — "charter" / "poa" / "order" / "other" / "not_defined".
+        11. debtor_details_status — "defined" если Должник прямо идентифицирован, иначе "not_defined".
+        12. debtor_details — наименование/ФИО и реквизиты Должника.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не делай предположений о сторонах и реквизитах.
+        - Для Должника извлекай только то, что прямо написано в договоре цессии.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "cedent_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо определён Цедент с реквизитами. Иначе 'not_defined'."
+          description: "Статус идентификации Цедента."
         - name: "cedent_details"
           type: "string"
-          description: "Укажи Цедента и его реквизиты. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Цедент: реквизиты"
+          description: "Наименование/ФИО и реквизиты Цедента."
         - name: "cedent_signatory"
           type: "string"
-          description: "Укажи подписанта от Цедента. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Цедент: подписант"
+          description: "Подписант от Цедента."
         - name: "cedent_signatory_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если подписант от Цедента прямо указан. Иначе 'not_defined'."
+          description: "Статус указания подписанта Цедента."
         - name: "cedent_signatory_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
-          description: "Основание полномочий подписанта Цедента. Если не указано — 'not_defined'."
+          description: "Основание полномочий подписанта Цедента."
         - name: "assignee_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо определён Цессионарий с реквизитами. Иначе 'not_defined'."
+          description: "Статус идентификации Цессионария."
         - name: "assignee_details"
           type: "string"
-          description: "Укажи Цессионария и его реквизиты. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Цессионарий: реквизиты"
+          description: "Наименование/ФИО и реквизиты Цессионария."
         - name: "assignee_signatory"
           type: "string"
-          description: "Укажи подписанта от Цессионария. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Цессионарий: подписант"
+          description: "Подписант от Цессионария."
         - name: "assignee_signatory_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если подписант от Цессионария прямо указан. Иначе 'not_defined'."
+          description: "Статус указания подписанта Цессионария."
         - name: "assignee_signatory_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
-          description: "Основание полномочий подписанта Цессионария. Если не указано — 'not_defined'."
+          description: "Основание полномочий подписанта Цессионария."
         - name: "debtor_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо указан Должник с реквизитами. Иначе 'not_defined'."
+          description: "Статус идентификации Должника."
         - name: "debtor_details"
           type: "string"
-          description: "Укажи Должника и его реквизиты. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Должник: реквизиты"
+          description: "Наименование/ФИО и реквизиты Должника."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1136,17 +1213,39 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_query: "право требования к должнику основание возникновения договор-основание расписка судебный акт сумма долга размер требования непогашенная задолженность в полном объёме частично в части объём передаваемых прав запрет уступки уступка не ограничена"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "цедент цессионарий именуемый"
+        - "ИНН ОГРН реквизиты"
+        - "уведомление должника"
+        - "гарантирует действительность"
+        - "делькредере"
+        - "обеспечительные права"
+        - "залог"
+        - "поручительство"
+        - "акт сверки"
+        - "встречные требования"
+        - "будущие требования"
+        - "передача документов подтверждающих"
+        - "акт приема-передачи документов"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.05, 0.50]
+        boost: 0.20
+        scope: segment
       context_k: 7
       max_chunks: 9
-      boost_keywords:
-        - "право требования"
-        - "должник"
-        - "основание возникновения"
-        - "сумма долга"
-        - "в полном объёме"
-        - "частичная уступка"
-        - "запрет уступки"
-        - "договор-основание"
       rerank: true
 
     enrichment_hints:
@@ -1163,43 +1262,96 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 540
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии сведения
+        об уступаемом праве требования: Должник, основание возникновения,
+        сумма требования, объём уступки и проверка запрета уступки.
+        Не анализируй реквизиты сторон договора цессии, цену уступки,
+        уведомление Должника или обеспечительные права.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. debtor_identification_status — "defined" если Должник по уступаемому требованию прямо идентифицирован, иначе "not_defined".
+        2. debtor_identification_details — Должник по уступаемому требованию.
+        3. claim_basis_status — "defined" если основание требования указано, иначе "not_defined".
+        4. claim_basis_type — "contract" / "receipt" / "court_act" / "other" / "not_defined".
+        5. claim_basis_details — реквизиты основания требования.
+        6. claim_amount_status — "defined" если сумма требования прямо указана, иначе "not_defined".
+        7. claim_amount_details — сумма уступаемого требования.
+        8. assignment_scope — "full" / "partial" / "not_defined".
+        9. prohibition_check_status — "defined" если в договоре прямо есть формулировка о запрете уступки или его отсутствии, иначе "not_defined".
+        10. prohibition_check_details — текст о запрете уступки или его отсутствии.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Основание требования — только то, из чего возникло уступаемое требование.
+        - Не подменяй текст договора общими нормами закона.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "debtor_identification_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Должник прямо идентифицирован. Иначе 'not_defined'."
+          description: "Статус идентификации Должника по уступаемому требованию."
         - name: "debtor_identification_details"
           type: "string"
-          description: "Укажи Должника. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Должник по требованию"
+          description: "Идентификация Должника по уступаемому требованию."
         - name: "claim_basis_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если основание требования прямо указано. Иначе 'not_defined'."
+          description: "Статус определения основания возникновения требования."
         - name: "claim_basis_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["contract", "receipt", "court_act", "other", "not_defined"]
-          description: "Тип основания требования."
+          description: "Тип основания возникновения уступаемого требования."
         - name: "claim_basis_details"
           type: "string"
-          description: "Реквизиты основания. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Основание требования"
+          description: "Реквизиты основания возникновения уступаемого требования."
         - name: "claim_amount_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если сумма требования прямо указана. Иначе 'not_defined'."
+          description: "Статус указания суммы уступаемого требования."
         - name: "claim_amount_details"
           type: "string"
-          description: "Укажи сумму требования. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Сумма требования"
+          description: "Сумма уступаемого требования."
         - name: "assignment_scope"
           type: "string"
+          presentation: "signal"
           allowed_values: ["full", "partial", "not_defined"]
-          description: "Объём уступки: full / partial. Если не указан — 'not_defined'."
+          description: "Объём уступки."
         - name: "prohibition_check_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо подтверждено отсутствие запрета уступки. Иначе 'not_defined'."
+          description: "Статус наличия в договоре условия о запрете уступки или его отсутствии."
         - name: "prohibition_check_details"
           type: "string"
-          description: "Укажи формулировку о запрете/его отсутствии. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Запрет уступки"
+          description: "Формулировка о запрете уступки или его отсутствии."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1354,16 +1506,39 @@ checks_v8:
       max_tokens: 750
 
     retrieval:
+      retrieval_query: "цедент гарантирует действительность требования право требования существует долг не погашен не уступалось ранее не обременено цедент не отвечает за платежеспособность не несет ответственности за неисполнение расчёты являются окончательными без права обратного требования без права регресса"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "возражения должника"
+        - "встречное требование"
+        - "зачёт"
+        - "акт сверки"
+        - "скрытые требования"
+        - "делькредере"
+        - "цедент несёт ответственность за исполнение должником"
+        - "гарантия платежеспособности"
+        - "уведомление должника"
+        - "обеспечительные права"
+        - "будущие требования"
+        - "частичная уступка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.70]
+        boost: 0.15
+        scope: segment
       context_k: 7
       max_chunks: 9
-      boost_keywords:
-        - "цедент гарантирует"
-        - "действительность требования"
-        - "не уступалось"
-        - "не обременено"
-        - "не отвечает за платежеспособность"
-        - "окончательные расчёты"
-        - "без права регресса"
       rerank: true
 
     enrichment_hints:
@@ -1380,49 +1555,107 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 560
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии гарантии Цедента
+        о действительности требования, его существовании, отсутствии предыдущих уступок,
+        отсутствии обременений, а также ограничение ответственности за платёжеспособность
+        Должника и условие об окончательности расчётов.
+        Не анализируй цену уступки, уведомление Должника, будущие требования или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. validity_warranty_status — "defined" если есть гарантия действительности требования, иначе "not_defined".
+        2. validity_warranty_details — формулировка гарантии действительности.
+        3. existence_warranty_status — "defined" если есть гарантия существования/непогашенности требования, иначе "not_defined".
+        4. existence_warranty_details — формулировка гарантии существования требования.
+        5. no_prior_assignment_status — "defined" если указано, что требование ранее не уступалось, иначе "not_defined".
+        6. no_prior_assignment_details — формулировка об отсутствии предыдущих уступок.
+        7. no_encumbrances_status — "defined" если указано отсутствие обременений на требование, иначе "not_defined".
+        8. no_encumbrances_details — формулировка об отсутствии обременений.
+        9. solvency_liability_excluded_status — "defined" если прямо ограничена ответственность Цедента за платёжеспособность или исполнение Должником, иначе "not_defined".
+        10. solvency_liability_excluded_details — формулировка об исключении ответственности за платёжеспособность.
+        11. final_settlement_status — "defined" если есть условие об окончательности расчётов / без права регресса, иначе "not_defined".
+        12. final_settlement_details — текст такого условия.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не выводи гарантию из закона, если её нет в тексте.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "validity_warranty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо есть гарантия действительности требования. Иначе 'not_defined'."
+          description: "Статус наличия гарантии действительности требования."
         - name: "validity_warranty_details"
           type: "string"
-          description: "Укажи формулировку гарантии. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Гарантия действительности требования"
+          description: "Формулировка гарантии действительности требования."
         - name: "existence_warranty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо есть гарантия существования требования. Иначе 'not_defined'."
+          description: "Статус наличия гарантии существования требования."
         - name: "existence_warranty_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Гарантия существования требования"
+          description: "Формулировка гарантии существования или непогашенности требования."
         - name: "no_prior_assignment_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указано, что требование ранее не уступалось. Иначе 'not_defined'."
+          description: "Статус гарантии отсутствия предыдущих уступок."
         - name: "no_prior_assignment_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Отсутствие предыдущих уступок"
+          description: "Формулировка об отсутствии предыдущих уступок."
         - name: "no_encumbrances_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указано отсутствие обременений на требование. Иначе 'not_defined'."
+          description: "Статус гарантии отсутствия обременений на требование."
         - name: "no_encumbrances_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Отсутствие обременений на требование"
+          description: "Формулировка об отсутствии обременений на требование."
         - name: "solvency_liability_excluded_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо ограничена ответственность Цедента за платёжеспособность Должника. Иначе 'not_defined'."
+          description: "Статус ограничения ответственности Цедента за платёжеспособность Должника."
         - name: "solvency_liability_excluded_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Исключение ответственности за платёжеспособность"
+          description: "Формулировка об ограничении ответственности Цедента за исполнение Должником."
         - name: "final_settlement_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указана окончательность расчётов. Иначе 'not_defined'."
+          description: "Статус условия об окончательности расчётов."
         - name: "final_settlement_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Окончательность расчётов"
+          description: "Условие об окончательности расчётов или отсутствии права регресса."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1566,15 +1799,37 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_query: "уведомление должника письменное уведомление уведомить должника в течение заказное письмо цедент обязуется уведомить цессионарий уведомляет момент уведомления подтверждение получения форма уведомления приложение"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "цедент цессионарий именуемый"
+        - "ИНН ОГРН реквизиты"
+        - "право требования к"
+        - "гарантирует действительность"
+        - "делькредере"
+        - "обеспечительные права"
+        - "акт сверки"
+        - "встречные требования"
+        - "будущие требования"
+        - "частичная уступка"
+        - "передача документов"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.30, 0.75]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "уведомление должника"
-        - "письменное уведомление"
-        - "заказное письмо"
-        - "срок уведомления"
-        - "цедент обязан уведомить"
-        - "цессионарий уведомляет"
       rerank: true
 
     enrichment_hints:
@@ -1591,43 +1846,93 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии процедуру уведомления Должника:
+        кто уведомляет, в какой срок, каким способом, в какой форме и как подтверждается получение.
+        Не анализируй цену уступки, гарантии Цедента, обеспечительные права или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. notification_status — "defined" если уведомление Должника прямо предусмотрено, иначе "not_defined".
+        2. notification_responsibility — "cedent" / "assignee" / "joint" / "not_defined".
+        3. notification_deadline_status — "defined" если срок уведомления указан, иначе "not_defined".
+        4. notification_deadline_details — срок уведомления.
+        5. notification_method_status — "defined" если способ уведомления указан, иначе "not_defined".
+        6. notification_method_details — способ уведомления.
+        7. notification_form_status — "defined" если форма уведомления или ссылка на приложение указаны, иначе "not_defined".
+        8. notification_form_details — форма уведомления.
+        9. receipt_confirmation_status — "defined" если предусмотрено подтверждение получения, иначе "not_defined".
+        10. receipt_confirmation_details — способ подтверждения получения уведомления.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не заменяй текст договора диспозитивными правилами закона.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "notification_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо предусмотрено уведомление Должника. Иначе 'not_defined'."
+          description: "Статус наличия процедуры уведомления Должника."
         - name: "notification_responsibility"
           type: "string"
+          presentation: "signal"
           allowed_values: ["cedent", "assignee", "joint", "not_defined"]
-          description: "Кто обязан уведомить Должника. Если не указано — 'not_defined'."
+          description: "Сторона, обязанная уведомить Должника."
         - name: "notification_deadline_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указан срок уведомления. Иначе 'not_defined'."
+          description: "Статус указания срока уведомления Должника."
         - name: "notification_deadline_details"
           type: "string"
-          description: "Укажи срок уведомления. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок уведомления Должника"
+          description: "Срок уведомления Должника об уступке."
         - name: "notification_method_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указан способ уведомления. Иначе 'not_defined'."
+          description: "Статус указания способа уведомления Должника."
         - name: "notification_method_details"
           type: "string"
-          description: "Укажи способ уведомления. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Способ уведомления Должника"
+          description: "Способ уведомления Должника."
         - name: "notification_form_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указана форма уведомления. Иначе 'not_defined'."
+          description: "Статус указания формы уведомления Должника."
         - name: "notification_form_details"
           type: "string"
-          description: "Укажи форму уведомления. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Форма уведомления Должника"
+          description: "Форма уведомления Должника или ссылка на приложение."
         - name: "receipt_confirmation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо предусмотрено подтверждение получения уведомления. Иначе 'not_defined'."
+          description: "Статус условия о подтверждении получения уведомления."
         - name: "receipt_confirmation_details"
           type: "string"
-          description: "Укажи способ подтверждения получения. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Подтверждение получения уведомления"
+          description: "Способ подтверждения получения уведомления Должником."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1779,16 +2084,36 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_query: "переход обеспечительных прав права из договора залога поручительство право на неустойку проценты дополнительные права документы по залогу права из обеспечительных сделок вместе с правом требования переходят уведомление поручителя залогодателя"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "гарантирует действительность"
+        - "не обременено правами третьих лиц"
+        - "делькредере"
+        - "акт сверки"
+        - "встречные требования"
+        - "уведомление должника"
+        - "будущие требования"
+        - "частичная уступка"
+        - "передача документов подтверждающих требование"
+        - "акт приема-передачи документов подтверждающих"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.30, 0.80]
+        boost: 0.15
+        scope: segment
       context_k: 5
       max_chunks: 7
-      boost_keywords:
-        - "обеспечительные права"
-        - "залог"
-        - "поручительство"
-        - "неустойка"
-        - "переход прав"
-        - "документы по залогу"
-        - "уведомление поручителя"
       rerank: true
 
     enrichment_hints:
@@ -1805,53 +2130,112 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 540
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии условия
+        о переходе обеспечительных и дополнительных прав: залог, поручительство,
+        неустойка, проценты, документы по обеспечению и уведомление поручителей/залогодателей.
+        Не анализируй цену уступки, общие гарантии Цедента или расторжение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. accessory_rights_status — "defined" если в целом прямо урегулирован переход обеспечительных/дополнительных прав, иначе "not_defined".
+        2. pledge_transfer_status — "defined" если прямо указан переход прав из залога, иначе "not_defined".
+        3. pledge_transfer_details — формулировка о правах из залога.
+        4. surety_transfer_status — "defined" если прямо указан переход прав из поручительства, иначе "not_defined".
+        5. surety_transfer_details — формулировка о правах из поручительства.
+        6. penalty_transfer_status — "defined" если прямо указан переход права на неустойку, иначе "not_defined".
+        7. penalty_transfer_details — формулировка о праве на неустойку.
+        8. interest_transfer_status — "defined" если прямо указан переход права на проценты, иначе "not_defined".
+        9. interest_transfer_details — формулировка о праве на проценты.
+        10. documents_transfer_status — "defined" если предусмотрена передача документов по обеспечению, иначе "not_defined".
+        11. documents_transfer_details — формулировка о передаче документов.
+        12. surety_notification_status — "defined" если предусмотрено уведомление поручителей/залогодателей, иначе "not_defined".
+        13. surety_notification_details — текст условия об уведомлении.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не выводи переход accessory rights по умолчанию из ст. 384 ГК РФ.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "accessory_rights_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо урегулирован переход обеспечительных прав. Иначе 'not_defined'."
+          description: "Статус общего урегулирования перехода обеспечительных и дополнительных прав."
         - name: "pledge_transfer_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указан переход прав из залога. Иначе 'not_defined'."
+          description: "Статус указания перехода прав из залога."
         - name: "pledge_transfer_details"
           type: "string"
-          description: "Укажи формулировку о залоге. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Переход прав из залога"
+          description: "Формулировка о переходе прав из договора залога."
         - name: "surety_transfer_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указан переход прав из поручительства. Иначе 'not_defined'."
+          description: "Статус указания перехода прав из поручительства."
         - name: "surety_transfer_details"
           type: "string"
-          description: "Укажи формулировку о поручительстве. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Переход прав из поручительства"
+          description: "Формулировка о переходе прав из поручительства."
         - name: "penalty_transfer_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указан переход права на неустойку. Иначе 'not_defined'."
+          description: "Статус указания перехода права на неустойку."
         - name: "penalty_transfer_details"
           type: "string"
-          description: "Укажи формулировку о неустойке. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Переход права на неустойку"
+          description: "Формулировка о переходе права на неустойку."
         - name: "interest_transfer_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указан переход права на проценты. Иначе 'not_defined'."
+          description: "Статус указания перехода права на проценты."
         - name: "interest_transfer_details"
           type: "string"
-          description: "Укажи формулировку о процентах. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Переход права на проценты"
+          description: "Формулировка о переходе права на проценты."
         - name: "documents_transfer_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо предусмотрена передача документов по обеспечению. Иначе 'not_defined'."
+          description: "Статус условия о передаче документов по обеспечению."
         - name: "documents_transfer_details"
           type: "string"
-          description: "Укажи формулировку о передаче документов. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Передача документов по обеспечению"
+          description: "Формулировка о передаче документов по обеспечительным сделкам."
         - name: "surety_notification_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо предусмотрено уведомление поручителей / залогодателей. Иначе 'not_defined'."
+          description: "Статус условия об уведомлении поручителей/залогодателей."
         - name: "surety_notification_details"
           type: "string"
-          description: "Укажи формулировку об уведомлении. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Уведомление поручителей/залогодателей"
+          description: "Формулировка об уведомлении поручителей или залогодателей."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1989,15 +2373,36 @@ checks_v8:
       max_tokens: 650
 
     retrieval:
+      retrieval_query: "возражения должника зачёт встречных требований встречное требование право должника на зачёт отсутствие встречных требований должник не имеет возражений акт сверки компенсация потерь цессионария скрытые встречные требования"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "действительность требования"
+        - "существование требования"
+        - "не уступалось ранее"
+        - "не обременено"
+        - "делькредере"
+        - "уведомление должника"
+        - "обеспечительные права"
+        - "будущие требования"
+        - "частичная уступка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.30, 0.80]
+        boost: 0.12
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "возражения должника"
-        - "встречное требование"
-        - "зачёт"
-        - "акт сверки"
-        - "отсутствие встречных требований"
-        - "скрытые требования"
       rerank: true
 
     enrichment_hints:
@@ -2014,35 +2419,82 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии условия,
+        связанные с риском возражений, зачёта и встречных требований Должника:
+        гарантии Цедента, раскрытие известных возражений, акт сверки, компенсация потерь.
+        Не анализируй уведомление Должника, цену уступки или обеспечительные права.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. cedent_warranty_no_counterclaims_status — "defined" если есть гарантия об отсутствии встречных требований, иначе "not_defined".
+        2. cedent_warranty_no_counterclaims_details — текст гарантии.
+        3. known_objections_disclosed_status — "defined" если Цедент прямо раскрывает известные возражения Должника, иначе "not_defined".
+        4. known_objections_disclosed_details — что именно раскрыто.
+        5. reconciliation_act_status — "defined" если упомянут акт сверки с Должником, иначе "not_defined".
+        6. reconciliation_act_details — текст об акте сверки.
+        7. compensation_on_hidden_claims_status — "defined" если предусмотрена компенсация при обнаружении скрытых встречных требований, иначе "not_defined".
+        8. compensation_on_hidden_claims_details — формулировка о компенсации.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не подменяй текст договора анализом риска.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "cedent_warranty_no_counterclaims_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо есть гарантия об отсутствии встречных требований. Иначе 'not_defined'."
+          description: "Статус гарантии об отсутствии встречных требований Должника."
         - name: "cedent_warranty_no_counterclaims_details"
           type: "string"
-          description: "Укажи формулировку гарантии. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Гарантия отсутствия встречных требований"
+          description: "Формулировка гарантии об отсутствии встречных требований Должника."
         - name: "known_objections_disclosed_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Цедент прямо раскрывает известные возражения Должника. Иначе 'not_defined'."
+          description: "Статус раскрытия известных возражений Должника."
         - name: "known_objections_disclosed_details"
           type: "string"
-          description: "Укажи, что именно раскрыто. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Раскрытие возражений Должника"
+          description: "Что именно раскрыто Цедентом о возражениях Должника."
         - name: "reconciliation_act_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо упомянут акт сверки с Должником. Иначе 'not_defined'."
+          description: "Статус наличия акта сверки с Должником."
         - name: "reconciliation_act_details"
           type: "string"
-          description: "Укажи формулировку об акте сверки. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Акт сверки с Должником"
+          description: "Формулировка об акте сверки с Должником."
         - name: "compensation_on_hidden_claims_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо предусмотрена компенсация при обнаружении скрытых встречных требований. Иначе 'not_defined'."
+          description: "Статус условия о компенсации при скрытых встречных требованиях."
         - name: "compensation_on_hidden_claims_details"
           type: "string"
-          description: "Укажи условие компенсации. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Компенсация при скрытых требованиях"
+          description: "Формулировка о компенсации потерь Цессионария при обнаружении скрытых встречных требований."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2187,14 +2639,38 @@ checks_v8:
       max_tokens: 650
 
     retrieval:
+      retrieval_query: "делькредере цедент отвечает за исполнение должником гарантия платежеспособности должника цедент принимает на себя риск неплатежа ответственность за неисполнение требования цедент выступает поручителем гарантия возврата уплаченного возместить цессионарию"
+      preferred_unit_types:
+        - liability_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "цедент не отвечает за платежеспособность"
+        - "цедент не несёт ответственности за неисполнение"
+        - "расчёты являются окончательными"
+        - "без права регресса"
+        - "гарантирует действительность требования"
+        - "не уступалось"
+        - "возражения должника"
+        - "акт сверки"
+        - "уведомление должника"
+        - "будущие требования"
+        - "частичная уступка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 5
       max_chunks: 7
-      boost_keywords:
-        - "делькредере"
-        - "ответственность за исполнение"
-        - "гарантия платежеспособности"
-        - "неисполнение должником"
-        - "возместить цессионарию"
       rerank: true
 
     enrichment_hints:
@@ -2211,39 +2687,89 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии условия
+        о делькредере: принял ли Цедент на себя ответственность за исполнение
+        Должником, а также тип, объём, условия и срок такой ответственности.
+        Не анализируй общие гарантии Цедента, цену уступки или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. del_credere_status — "defined" если Цедент прямо принял ответственность за исполнение Должником, иначе "not_defined".
+        2. del_credere_details — текст условия о делькредере.
+        3. del_credere_type — "full" / "partial" / "conditional" / "not_defined".
+        4. del_credere_amount_status — "defined" если размер ответственности указан, иначе "not_defined".
+        5. del_credere_amount_details — размер ответственности.
+        6. del_credere_conditions_status — "defined" если условия возникновения ответственности указаны, иначе "not_defined".
+        7. del_credere_conditions_details — условия возникновения ответственности.
+        8. del_credere_period_status — "defined" если срок предъявления требований или исполнения указан, иначе "not_defined".
+        9. del_credere_period_details — такой срок.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не считай делькредере существующим по умолчанию.
+        - Если в договоре написано, что Цедент НЕ отвечает, это не делькредере.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "del_credere_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо принято делькредере. Иначе 'not_defined'."
+          description: "Статус наличия делькредере."
         - name: "del_credere_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Условие о делькредере"
+          description: "Формулировка о принятии Цедентом ответственности за исполнение Должником."
         - name: "del_credere_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["full", "partial", "conditional", "not_defined"]
-          description: "Тип делькредере. Если не определён — 'not_defined'."
+          description: "Тип делькредере."
         - name: "del_credere_amount_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указан размер ответственности. Иначе 'not_defined'."
+          description: "Статус указания размера ответственности по делькредере."
         - name: "del_credere_amount_details"
           type: "string"
-          description: "Укажи размер. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Размер ответственности по делькредере"
+          description: "Размер ответственности Цедента по делькредере."
         - name: "del_credere_conditions_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указаны условия возникновения ответственности. Иначе 'not_defined'."
+          description: "Статус указания условий возникновения делькредере."
         - name: "del_credere_conditions_details"
           type: "string"
-          description: "Укажи условия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Условия делькредере"
+          description: "Условия возникновения ответственности Цедента по делькредере."
         - name: "del_credere_period_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указан срок предъявления требований. Иначе 'not_defined'."
+          description: "Статус указания срока по делькредере."
         - name: "del_credere_period_details"
           type: "string"
-          description: "Укажи срок. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок по делькредере"
+          description: "Срок предъявления требований или исполнения по делькредере."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2397,14 +2923,35 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_query: "будущие требования права которые возникнут критерии определения будущих требований период возникновения определение будущего должника основание будущих требований механизм фиксации реестр требований ст. 388.2 ГК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "частичная уступка"
+        - "часть требования"
+        - "остаток требования"
+        - "распределение поступлений"
+        - "делимость"
+        - "действительность требования"
+        - "делькредере"
+        - "уведомление должника"
+        - "обеспечительные права"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "будущие требования"
-        - "критерии определения"
-        - "возникнут в будущем"
-        - "период возникновения"
-        - "реестр требований"
       rerank: true
 
     enrichment_hints:
@@ -2421,42 +2968,106 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии условия
+        об уступке будущих требований: сами требования, критерии их определения,
+        будущий Должник, основание возникновения, период возникновения и механизм фиксации.
+        Не анализируй частичную уступку, цену уступки, уведомление Должника или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. future_claims_status — "defined" если в договоре прямо упомянуты будущие требования, иначе "not_defined".
+        2. future_claims_details — формулировка о будущих требованиях.
+        3. identification_criteria_status — "defined" если критерии определения будущих требований указаны, иначе "not_defined".
+        4. identification_criteria_details — такие критерии.
+        5. future_debtor_status — "defined" если будущий Должник определён или описан, иначе "not_defined".
+        6. future_debtor_details — будущий Должник.
+        7. future_basis_status — "defined" если основание будущих требований указано, иначе "not_defined".
+        8. future_basis_details — основание будущих требований.
+        9. time_period_status — "defined" если период возникновения требований определён, иначе "not_defined".
+        10. time_period_details — период возникновения.
+        11. fixation_mechanism_status — "defined" если механизм фиксации возникших требований описан, иначе "not_defined".
+        12. fixation_mechanism_details — такой механизм.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не достраивай критерии идентификации, если их нет.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "future_claims_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо указаны будущие требования. Иначе 'not_defined'."
+          description: "Статус наличия условия об уступке будущих требований."
         - name: "future_claims_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Будущие требования"
+          description: "Формулировка о будущих требованиях."
         - name: "identification_criteria_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указаны критерии определения будущих требований. Иначе 'not_defined'."
+          description: "Статус указания критериев определения будущих требований."
         - name: "identification_criteria_details"
           type: "string"
-          description: "Укажи критерии. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Критерии определения будущих требований"
+          description: "Критерии определения будущих требований."
         - name: "future_debtor_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если будущий Должник прямо определён. Иначе 'not_defined'."
+          description: "Статус указания будущего Должника."
         - name: "future_debtor_details"
           type: "string"
-          description: "Укажи Должника. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Будущий Должник"
+          description: "Идентификация будущего Должника."
+        - name: "future_basis_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания основания будущих требований."
+        - name: "future_basis_details"
+          type: "string"
+          presentation: "fact"
+          label: "Основание будущих требований"
+          description: "Основание будущих требований."
         - name: "time_period_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если период возникновения прямо определён. Иначе 'not_defined'."
+          description: "Статус определения периода возникновения будущих требований."
         - name: "time_period_details"
           type: "string"
-          description: "Укажи период. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Период возникновения будущих требований"
+          description: "Период возникновения будущих требований."
         - name: "fixation_mechanism_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если механизм фиксации возникших требований прямо описан. Иначе 'not_defined'."
+          description: "Статус указания механизма фиксации возникших требований."
         - name: "fixation_mechanism_details"
           type: "string"
-          description: "Укажи механизм. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Механизм фиксации возникших требований"
+          description: "Механизм фиксации возникших требований."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2606,15 +3217,36 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_query: "частичная уступка часть требования в части из общей суммы остаток требования делимость распределение поступлений приоритет при нехватке из общей суммы задолженности остаток сохраняется за цедентом пропорционально долям"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "будущие требования"
+        - "права которые возникнут"
+        - "критерии определения будущих"
+        - "период возникновения"
+        - "механизм фиксации"
+        - "делькредере"
+        - "уведомление должника"
+        - "обеспечительные права"
+        - "акт сверки"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "частичная уступка"
-        - "часть требования"
-        - "остаток требования"
-        - "распределение поступлений"
-        - "из общей суммы"
-        - "приоритет"
       rerank: true
 
     enrichment_hints:
@@ -2631,58 +3263,113 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии условия
+        о частичной уступке: какая часть передаётся, что остаётся у Цедента,
+        делимость требования, распределение поступлений и приоритет при нехватке исполнения.
+        Не анализируй цену уступки, будущие требования, уведомление Должника или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. partial_assignment_type — "amount_based" / "component_based" / "mixed" / "not_defined".
+        2. transferred_amount_status — "defined" если размер или состав передаваемой части указан, иначе "not_defined".
+        3. transferred_amount_details — размер или состав передаваемой части.
+        4. retained_by_cedent_status — "defined" если прямо указано, что остаётся у Цедента, иначе "not_defined".
+        5. retained_by_cedent_details — остаток у Цедента.
+        6. divisibility_status — "defined" если делимость требования прямо подтверждена, иначе "not_defined".
+        7. divisibility_details — формулировка о делимости.
+        8. proceeds_distribution_status — "defined" если порядок распределения поступлений от Должника определён, иначе "not_defined".
+        9. proceeds_distribution_details — такой порядок.
+        10. priority_on_shortfall_status — "defined" если указан приоритет при недостаточности исполнения Должником, иначе "not_defined".
+        11. priority_on_shortfall_details — условие о приоритете.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не выводи делимость из природы обязательства, если это не написано.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "partial_assignment_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["amount_based", "component_based", "mixed", "not_defined"]
-          description: "Тип частичной уступки. Если не определён — 'not_defined'."
+          description: "Тип частичной уступки."
         - name: "transferred_amount_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если размер передаваемой части прямо указан. Иначе 'not_defined'."
+          description: "Статус определения передаваемой части требования."
         - name: "transferred_amount_details"
           type: "string"
-          description: "Укажи размер передаваемой части. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Передаваемая часть требования"
+          description: "Размер или состав передаваемой части требования."
         - name: "retained_by_cedent_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если остаток у Цедента прямо определён. Иначе 'not_defined'."
+          description: "Статус указания остатка, сохраняемого за Цедентом."
         - name: "retained_by_cedent_details"
           type: "string"
-          description: "Укажи остаток. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Остаток у Цедента"
+          description: "Какая часть требования сохраняется за Цедентом."
         - name: "divisibility_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если делимость прямо подтверждена в тексте. Иначе 'not_defined'."
+          description: "Статус подтверждения делимости требования."
         - name: "divisibility_details"
           type: "string"
-          description: "Укажи формулировку о делимости. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Делимость требования"
+          description: "Формулировка о делимости требования."
         - name: "proceeds_distribution_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок распределения поступлений прямо определён. Иначе 'not_defined'."
+          description: "Статус определения порядка распределения поступлений от Должника."
         - name: "proceeds_distribution_details"
           type: "string"
-          description: "Укажи порядок. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Распределение поступлений"
+          description: "Порядок распределения поступлений от Должника."
         - name: "priority_on_shortfall_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если приоритет при нехватке средств прямо определён. Иначе 'not_defined'."
+          description: "Статус определения приоритета при недостаточности исполнения."
         - name: "priority_on_shortfall_details"
           type: "string"
-          description: "Укажи условие о приоритете. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Приоритет при недостаточности исполнения"
+          description: "Условие о приоритете при недостаточности исполнения Должником."
       store_payload: true
 
+
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 10: Форма уступки и передача документов
+  # CHECK 10: Форма основного договора
   # ──────────────────────────────────────────────────────────────────────────
-  - id: documents_and_form_compliance
-    name: "Форма договора уступки, передача документов и возмездность (ст. 385, 389 ГК РФ, ст. 575 ГК РФ)"
+
+
+  - id: assignment_form_compliance_check
+    name: "Форма основного договора и соответствие формы договора уступки (ст. 389 ГК РФ)"
     description: >
-      Фактографическая проверка: соответствует ли форма договора уступки форме
-      основного договора (нотариальная / регистрируемая); есть ли условие о передаче
-      оригиналов документов, подтверждающих требование; является ли уступка возмездной
-      или безвозмездной.
+      Фактографическая проверка формы основного договора и формы договора уступки,
+      а также их соответствия друг другу.
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
@@ -2690,231 +3377,302 @@ checks_v8:
 
     rules:
       keywords:
+        - "форма основного договора"
+        - "простая письменная форма"
         - "нотариальная форма"
         - "нотариальное удостоверение"
         - "государственная регистрация"
-        - "форма основного договора"
-        - "передать документы"
-        - "оригиналы договоров"
-        - "перечень передаваемых документов"
-        - "подлинники документов"
-        - "безвозмездная уступка"
-        - "цена уступки"
+        - "подлежит регистрации"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)нотариальн[а-я]+\\s+(?:удостоверен|форм)"
-        - "(?i)государственн[а-я]+\\s+регистрац"
-        - "(?i)цедент.*обязуется.*передать.*цессионарию.*следующие.*документы"
-        - "(?i)безвозмездно.*уступ"
-        - "(?i)подлежит.*регистрац"
-
+        - "(?i)прост(ая|ой)\\s+письменн(ая|ой)\\s+форм"
+        - "(?i)нотариальн(ая|ой|ое)\\s+(форм|удостоверен)"
+        - "(?i)государственн(ая|ой)\\s+регистрац"
+        - "(?i)подлежит\\s+регистрац"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор цессии (уступки права требования) по Главе 24 ГК РФ (ст. 382–390).
-        Проверяется только один вопрос: форма договора уступки, передача документов
-        и возмездность уступки.
-
-        Нормативный ориентир:
-        - ст. 389 ГК РФ — форма договора уступки
-        - ст. 385 ГК РФ — передача документов Цедентом
-        - ст. 575 ГК РФ — ограничение безвозмездной передачи между юрлицами
-
-        Важно:
-        - Твоя задача — только установить, что прямо есть в тексте договора, а чего прямо нет.
-        - Не оценивай серьёзность риска.
+        Анализируется договор уступки права требования.
+        Проверяется только один вопрос: форма основного договора и форма договора уступки.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Какая форма основного договора указана (простая письменная / нотариальная / регистрируемая).
+        1. Какая форма основного договора указана.
         2. Какая форма договора уступки указана.
-        3. Есть ли условие о передаче документов по требованию.
-        4. Есть ли перечень передаваемых документов.
-        5. Предусмотрен ли акт приёма-передачи документов.
-        6. Является ли уступка возмездной или безвозмездной.
+        3. Можно ли по тексту установить, совпадают ли эти формы.
 
         [ПРАВИЛА]
         1. Используй только текст документа.
-        2. Не подставляй нормы закона вместо текста договора.
+        2. Не подставляй закон вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
-        4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
-        6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
-
-        [ПРИМЕРЫ (FEW-SHOT)]
-
-        Пример 1 — форма и документы определены:
-        Фрагмент:
-        "Настоящий договор заключён в простой письменной форме. Основной договор
-        между Цедентом и Должником заключён в простой письменной форме.
-        Цедент обязуется в течение 3 рабочих дней передать Цессионарию по акту
-        приёма-передачи следующие документы: оригинал Договора поставки № 15
-        от 10.01.2024, оригиналы товарных накладных. Уступка является возмездной."
-
-        Ответ:
-        {
-          "main_contract_form_status": "defined",
-          "main_contract_form_details": "простая письменная форма",
-          "assignment_form_status": "defined",
-          "assignment_form_details": "простая письменная форма",
-          "form_match_status": "matched",
-          "documents_transfer_status": "defined",
-          "documents_transfer_details": "оригинал Договора поставки № 15, оригиналы товарных накладных",
-          "documents_list_status": "defined",
-          "documents_list_details": "оригинал договора поставки, оригиналы товарных накладных",
-          "transfer_act_status": "defined",
-          "transfer_act_details": "акт приёма-передачи",
-          "consideration_status": "defined",
-          "consideration_type": "paid",
-          "evidence": [
-            {
-              "clause_ref": "п. 2.1",
-              "quote": "Цедент обязуется в течение 3 рабочих дней передать Цессионарию по акту приёма-передачи следующие документы: оригинал Договора поставки № 15 от 10.01.2024, оригиналы товарных накладных."
-            }
-          ]
-        }
-
-        Пример 2 — форма и документы не определены:
-        Фрагмент:
-        "Цедент передаёт Цессионарию документы по требованию."
-
-        Ответ:
-        {
-          "main_contract_form_status": "not_defined",
-          "main_contract_form_details": "Данные не определены",
-          "assignment_form_status": "not_defined",
-          "assignment_form_details": "Данные не определены",
-          "form_match_status": "not_defined",
-          "documents_transfer_status": "defined",
-          "documents_transfer_details": "передача по требованию",
-          "documents_list_status": "not_defined",
-          "documents_list_details": "Данные не определены",
-          "transfer_act_status": "not_defined",
-          "transfer_act_details": "Данные не определены",
-          "consideration_status": "not_defined",
-          "consideration_type": "not_defined",
-          "evidence": [
-            {
-              "clause_ref": "п. 2.1",
-              "quote": "Цедент передаёт Цессионарию документы по требованию."
-            }
-          ]
-        }
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Найди прямую цитату о форме основного договора.
-        2. Найди прямую цитату о форме договора уступки.
-        3. Сравни — совпадают ли формы (только если обе определены).
-        4. Найди прямую цитату о перечне документов.
-        5. Найди прямую цитату об акте приёма-передачи.
-        6. Найди прямую цитату о возмездности / безвозмездности.
-        7. Если прямой цитаты нет — верни "not_defined". Не додумывай форму.
-
-        Не выводи шаги проверки. Верни только JSON.
-
-        [ФОРМАТ ОТВЕТА]
-        {
-          "main_contract_form_status": "<defined / not_defined>",
-          "main_contract_form_details": "<simple_written / notarized / registered / 'Данные не определены'>",
-          "assignment_form_status": "<defined / not_defined>",
-          "assignment_form_details": "<simple_written / notarized / registered / 'Данные не определены'>",
-          "form_match_status": "<matched / mismatched / not_defined>",
-          "documents_transfer_status": "<defined / not_defined>",
-          "documents_transfer_details": "<текст или 'Данные не определены'>",
-          "documents_list_status": "<defined / not_defined>",
-          "documents_list_details": "<текст или 'Данные не определены'>",
-          "transfer_act_status": "<defined / not_defined>",
-          "transfer_act_details": "<текст или 'Данные не определены'>",
-          "consideration_status": "<defined / not_defined>",
-          "consideration_type": "<paid / gratuitous / not_defined>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
-        }
-      context_k: 6
+        4. Верни только один JSON-объект.
+      context_k: 5
       temperature: 0.0
-      max_tokens: 750
-
+      max_tokens: 450
     retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "нотариальная форма"
-        - "государственная регистрация"
-        - "форма основного договора"
+      retrieval_query: "форма основного договора простая письменная форма нотариальная форма нотариальное удостоверение государственная регистрация подлежит регистрации форма договора уступки ст. 389 ГК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - procedures
+      negative_keywords:
         - "передача документов"
-        - "акт приёма-передачи"
         - "перечень документов"
-        - "безвозмездная уступка"
-        - "возмездная уступка"
+        - "акт приема-передачи"
+        - "оригиналы"
+        - "делькредере"
+        - "уведомление должника"
+        - "гарантирует действительность"
+        - "будущие требования"
+        - "частичная уступка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.55, 1.0]
+        boost: 0.18
+        scope: segment
+      context_k: 5
+      max_chunks: 7
       rerank: true
-
     enrichment_hints:
       preferred_clause_functions:
-        - "procedures"
         - "boilerplate"
+        - "procedures"
       confidence_bonus_on_match: 0.08
-
     evidence:
       required: true
-      min_snippet_length: 40
-      max_snippet_length: 650
-
+      min_snippet_length: 30
+      max_snippet_length: 500
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 360
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии сведения
+        о форме основного договора и форме договора уступки.
+        Не анализируй передачу документов, цену уступки или расторжение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. main_contract_form_status — "defined" если форма основного договора указана, иначе "not_defined".
+        2. main_contract_form_details — "simple_written" / "notarized" / "registered" / "Данные не определены".
+        3. assignment_form_status — "defined" если форма договора уступки указана, иначе "not_defined".
+        4. assignment_form_details — "simple_written" / "notarized" / "registered" / "Данные не определены".
+        5. form_match_status — "matched" / "mismatched" / "not_defined".
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - form_match_status = "matched" или "mismatched" только если обе формы прямо определены.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "main_contract_form_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если форма основного договора прямо указана. Иначе 'not_defined'."
+          description: "Статус указания формы основного договора."
         - name: "main_contract_form_details"
           type: "string"
-          description: "Укажи форму основного договора. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Форма основного договора"
+          description: "Форма основного договора."
         - name: "assignment_form_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если форма договора уступки прямо указана. Иначе 'not_defined'."
+          description: "Статус указания формы договора уступки."
         - name: "assignment_form_details"
           type: "string"
-          description: "Укажи форму договора уступки. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Форма договора уступки"
+          description: "Форма договора уступки."
         - name: "form_match_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["matched", "mismatched", "not_defined"]
-          description: "Совпадают ли формы: matched / mismatched. Если хотя бы одна не определена — 'not_defined'."
-        - name: "documents_transfer_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо предусмотрена передача документов. Иначе 'not_defined'."
-        - name: "documents_transfer_details"
-          type: "string"
-          description: "Укажи условие. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "documents_list_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо указан перечень документов. Иначе 'not_defined'."
-        - name: "documents_list_details"
-          type: "string"
-          description: "Укажи перечень. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "transfer_act_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если прямо предусмотрен акт приёма-передачи документов. Иначе 'not_defined'."
-        - name: "transfer_act_details"
-          type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "consideration_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если возмездность / безвозмездность прямо указана. Иначе 'not_defined'."
-        - name: "consideration_type"
-          type: "string"
-          allowed_values: ["paid", "gratuitous", "not_defined"]
-          description: "Тип уступки: paid / gratuitous. Если не указано — 'not_defined'."
+          description: "Соответствие формы уступки форме основного договора."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 11: Цена уступки и порядок оплаты
+  # CHECK 11: Передача документов
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - id: claim_documents_transfer_check
+    name: "Передача документов, подтверждающих уступаемое требование (ст. 385 ГК РФ)"
+    description: >
+      Фактографическая проверка наличия условий о передаче Цедентом документов,
+      подтверждающих уступаемое требование: перечень документов и акт передачи.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "передать документы"
+        - "оригиналы документов"
+        - "подлинники"
+        - "перечень документов"
+        - "акт приема-передачи"
+        - "акт приёма-передачи"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цедент.*обязуется.*передать.*документ"
+        - "(?i)оригинал(ы)?\\s+документ"
+        - "(?i)акт\\s+(приема|приёма)-?передачи"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор уступки права требования.
+        Проверяется только один вопрос: передача документов, подтверждающих требование.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли условие о передаче документов.
+        2. Есть ли перечень передаваемых документов.
+        3. Есть ли акт приема-передачи документов.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй закон вместо текста договора.
+        3. Если условие не указано прямо — возвращай "not_defined".
+        4. Верни только один JSON-объект.
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      retrieval_query: "передать документы оригиналы документов подлинники перечень документов акт приема-передачи передача документов подтверждающих требование ст. 385 ГК РФ цедент обязуется передать"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "документы по залогу"
+        - "документы по обеспечению"
+        - "переход обеспечительных прав"
+        - "форма основного договора"
+        - "нотариальная форма"
+        - "государственная регистрация"
+        - "делькредере"
+        - "уведомление должника"
+        - "гарантирует действительность"
+        - "будущие требования"
+        - "частичная уступка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.30, 0.80]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 7
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 360
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии условия
+        о передаче документов, подтверждающих уступаемое требование.
+        Не анализируй форму договора, цену уступки или расторжение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. documents_transfer_status — "defined" если передача документов предусмотрена, иначе "not_defined".
+        2. documents_transfer_details — общее условие о передаче документов.
+        3. documents_list_status — "defined" если перечень документов указан, иначе "not_defined".
+        4. documents_list_details — перечень документов.
+        5. transfer_act_status — "defined" если акт приема-передачи предусмотрен, иначе "not_defined".
+        6. transfer_act_details — формулировка об акте приема-передачи.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не объединяй список документов с accessory rights, если речь не о документах по обеспечению.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "documents_transfer_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия условия о передаче документов."
+        - name: "documents_transfer_details"
+          type: "string"
+          presentation: "fact"
+          label: "Передача документов по требованию"
+          description: "Общее условие о передаче документов, подтверждающих уступаемое требование."
+        - name: "documents_list_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия перечня передаваемых документов."
+        - name: "documents_list_details"
+          type: "string"
+          presentation: "fact"
+          label: "Перечень передаваемых документов"
+          description: "Перечень документов, передаваемых Цессионарию."
+        - name: "transfer_act_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия акта приема-передачи документов."
+        - name: "transfer_act_details"
+          type: "string"
+          presentation: "fact"
+          label: "Акт приема-передачи документов"
+          description: "Формулировка об акте приема-передачи документов."
+      store_payload: true
+
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 12: Цена уступки и порядок оплаты
   # ──────────────────────────────────────────────────────────────────────────
   - id: assignment_price_and_payment
     name: "Цена уступки, порядок и сроки оплаты (ст. 424 ГК РФ, ст. 575 ГК РФ)"
@@ -3063,16 +3821,41 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_query: "цена уступки стоимость уступки уплачивает цеденту срок оплаты не позднее в течение банковский перевод после подписания рассрочка цена договора уступки возмездно безвозмездно дисконт премия номинал долга последствия неоплаты"
+      preferred_unit_types:
+        - payment_term
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "сумма требования"
+        - "основной долг"
+        - "непогашенная задолженность"
+        - "право требования к должнику"
+        - "обратная уступка"
+        - "возврат права требования"
+        - "делькредере"
+        - "гарантия платежеспособности должника"
+        - "обеспечительные права"
+        - "залог"
+        - "поручительство"
+        - "будущие требования"
+        - "частичная уступка"
+        - "уведомление должника"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.75]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "цена уступки"
-        - "стоимость уступки"
-        - "срок оплаты"
-        - "банковский перевод"
-        - "последствия просрочки"
-        - "пени"
-        - "дисконт"
       rerank: true
 
     enrichment_hints:
@@ -3089,53 +3872,119 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии цену уступки,
+        соотношение цены с номиналом долга, срок и способ оплаты, последствия просрочки,
+        а также указание на возмездность или безвозмездность уступки.
+        Не анализируй форму договора, передачу документов, уведомление Должника или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. consideration_status — "defined" если прямо указано, что уступка возмездная или безвозмездная, иначе "not_defined".
+        2. consideration_type — "paid" / "gratuitous" / "not_defined".
+        3. price_status — "defined" если цена уступки указана, иначе "not_defined".
+        4. price_details — цена уступки.
+        5. price_vs_nominal — "equal" / "below" / "above" / "not_defined".
+        6. price_vs_nominal_details — текст о соотношении цены с номиналом долга.
+        7. payment_deadline_status — "defined" если срок оплаты указан, иначе "not_defined".
+        8. payment_deadline_details — срок оплаты.
+        9. payment_method_status — "defined" если способ оплаты указан, иначе "not_defined".
+        10. payment_method_details — способ оплаты.
+        11. late_payment_consequences_status — "defined" если последствия просрочки оплаты указаны, иначе "not_defined".
+        12. late_payment_consequences_details — последствия просрочки оплаты.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Если уступка обозначена как безвозмездная, цена может быть не определена — не додумывай её.
+        - Верни только JSON.
+        </rules>
       fields:
+        - name: "consideration_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус прямого указания на возмездность или безвозмездность уступки."
+        - name: "consideration_type"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["paid", "gratuitous", "not_defined"]
+          description: "Тип уступки: возмездная или безвозмездная."
         - name: "price_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если цена уступки прямо указана. Иначе 'not_defined'."
+          description: "Статус указания цены уступки."
         - name: "price_details"
           type: "string"
-          description: "Укажи цену уступки. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Цена уступки"
+          description: "Цена уступки."
         - name: "price_vs_nominal"
           type: "string"
+          presentation: "signal"
           allowed_values: ["equal", "below", "above", "not_defined"]
-          description: "Соотношение цены с номиналом долга. Если не указано — 'not_defined'."
+          description: "Соотношение цены уступки с номиналом долга."
         - name: "price_vs_nominal_details"
           type: "string"
-          description: "Укажи соотношение. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Соотношение цены с номиналом долга"
+          description: "Соотношение цены уступки с номиналом долга."
         - name: "payment_deadline_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок оплаты прямо указан. Иначе 'not_defined'."
+          description: "Статус указания срока оплаты цены уступки."
         - name: "payment_deadline_details"
           type: "string"
-          description: "Укажи срок оплаты. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок оплаты"
+          description: "Срок оплаты цены уступки."
         - name: "payment_method_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если способ оплаты прямо указан. Иначе 'not_defined'."
+          description: "Статус указания способа оплаты."
         - name: "payment_method_details"
           type: "string"
-          description: "Укажи способ оплаты. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Способ оплаты"
+          description: "Способ оплаты цены уступки."
         - name: "late_payment_consequences_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если последствия просрочки оплаты прямо указаны. Иначе 'not_defined'."
+          description: "Статус указания последствий просрочки оплаты."
         - name: "late_payment_consequences_details"
           type: "string"
-          description: "Укажи последствия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Последствия просрочки оплаты"
+          description: "Последствия просрочки оплаты цены уступки."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 12: Расторжение, ответственность, споры, конфиденциальность, право
+  # CHECK 13: Расторжение уступки
   # ──────────────────────────────────────────────────────────────────────────
-  - id: termination_liability_and_disputes
-    name: "Расторжение, ответственность, споры, конфиденциальность и применимое право (ст. 450–453 ГК РФ)"
+
+  - id: termination_and_reversal_mechanics_check
+    name: "Расторжение уступки, обратная уступка и возврат цены"
     description: >
-      Фактографическая проверка наличия в договоре условий о расторжении
-      (основания, обратная уступка, возврат цены), ответственности (неустойка),
-      претензионном порядке, подсудности, конфиденциальности и применимом праве.
+      Фактографическая проверка специальных для цессии условий расторжения:
+      основания расторжения, обратная уступка права требования, возврат цены уступки
+      и неустойка. Общие споры, претензионный порядок, конфиденциальность и применимое право
+      покрываются global checks.
     triggers: {}
     severity: "high"
     origin: "DOCUMENT_TYPE"
@@ -3145,252 +3994,175 @@ checks_v8:
       keywords:
         - "расторжение"
         - "отказ от договора"
-        - "возврат права требования"
         - "обратная уступка"
+        - "возврат права требования"
         - "возврат цены уступки"
         - "неустойка"
         - "штраф"
         - "пеня"
-        - "досудебный порядок"
-        - "претензионный порядок"
-        - "арбитражный суд"
-        - "подсудность"
-        - "конфиденциальность"
-        - "применимое право"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)расторж[а-я]+"
-        - "(?i)возврат.*прав[аo]\\s+требован"
         - "(?i)обратн[а-я]+\\s+уступк"
-        - "(?i)неустойк[аи]\\s+в\\s+размере"
-        - "(?i)арбитражн.*суд"
-        - "(?i)претензионн.*порядок"
-        - "(?i)конфиденциал"
-        - "(?i)применим[а-я]+\\s+прав"
-
+        - "(?i)возврат.*прав[ао]\\s+требован"
+        - "(?i)возврат.*цен[ыа]\\s+уступки"
+        - "(?i)неустойк"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор цессии (уступки права требования) по Главе 24 ГК РФ (ст. 382–390).
-        Проверяется только один вопрос: расторжение, ответственность, споры,
-        конфиденциальность и применимое право.
-
-        Нормативный ориентир:
-        - ст. 450–453 ГК РФ — расторжение
-        - ст. 330, 393 ГК РФ — неустойка и убытки
+        Анализируется договор уступки права требования.
+        Проверяется только один вопрос: условия расторжения договора уступки,
+        обратной уступки, возврата цены и неустойки.
 
         Важно:
-        - Твоя задача — только установить, что прямо есть в тексте договора, а чего прямо нет.
-        - Не оценивай серьёзность риска.
+        - Не анализируй претензионный порядок, подсудность, конфиденциальность
+          и применимое право.
+        - Они проверяются другими checks.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Есть ли основания расторжения.
+        1. Основания расторжения.
         2. Есть ли условие об обратной уступке при расторжении.
-        3. Есть ли условие о возврате цены уступки при расторжении.
-        4. Есть ли неустойка (ставка, основание).
-        5. Есть ли претензионный / досудебный порядок и срок ответа.
-        6. Указан ли суд / форум разрешения споров.
-        7. Есть ли условие о конфиденциальности.
-        8. Указано ли применимое право.
+        3. Есть ли условие о возврате цены уступки.
+        4. Есть ли условие о неустойке / штрафе / пене в связи с расторжением
+           или нарушением обязанностей по договору уступки.
 
         [ПРАВИЛА]
         1. Используй только текст документа.
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
-        4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
-        6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
-
-        [ПРИМЕРЫ (FEW-SHOT)]
-
-        Пример 1 — блок определён:
-        Фрагмент:
-        "Договор может быть расторгнут по соглашению сторон или по требованию одной из
-        сторон в судебном порядке при существенном нарушении. При расторжении Цессионарий
-        обязан вернуть право требования Цеденту посредством обратной уступки, а Цедент
-        обязан вернуть цену уступки. Споры разрешаются в Арбитражном суде г. Москвы.
-        Обязательный претензионный порядок: срок ответа 30 дней.
-        Применимое право — законодательство Российской Федерации."
-
-        Ответ:
-        {
-          "termination_grounds_status": "defined",
-          "termination_grounds_details": "по соглашению или в судебном порядке при существенном нарушении",
-          "back_assignment_status": "defined",
-          "back_assignment_details": "Цессионарий обязан вернуть право требования посредством обратной уступки",
-          "price_return_status": "defined",
-          "price_return_details": "Цедент обязан вернуть цену уступки",
-          "penalty_status": "not_defined",
-          "penalty_details": "Данные не определены",
-          "pretrial_status": "defined",
-          "pretrial_details": "обязательный претензионный порядок, срок ответа 30 дней",
-          "dispute_forum_status": "defined",
-          "dispute_forum_details": "Арбитражный суд г. Москвы",
-          "confidentiality_status": "not_defined",
-          "confidentiality_details": "Данные не определены",
-          "governing_law_status": "defined",
-          "governing_law_details": "законодательство Российской Федерации",
-          "evidence": [
-            {
-              "clause_ref": "п. 8.1–8.4",
-              "quote": "Споры разрешаются в Арбитражном суде г. Москвы. Обязательный претензионный порядок: срок ответа 30 дней."
-            }
-          ]
-        }
-
-        Пример 2 — блок не определён:
-        Фрагмент:
-        "Все споры регулируются действующим законодательством."
-
-        Ответ:
-        {
-          "termination_grounds_status": "not_defined",
-          "termination_grounds_details": "Данные не определены",
-          "back_assignment_status": "not_defined",
-          "back_assignment_details": "Данные не определены",
-          "price_return_status": "not_defined",
-          "price_return_details": "Данные не определены",
-          "penalty_status": "not_defined",
-          "penalty_details": "Данные не определены",
-          "pretrial_status": "not_defined",
-          "pretrial_details": "Данные не определены",
-          "dispute_forum_status": "not_defined",
-          "dispute_forum_details": "Данные не определены",
-          "confidentiality_status": "not_defined",
-          "confidentiality_details": "Данные не определены",
-          "governing_law_status": "not_defined",
-          "governing_law_details": "Данные не определены",
-          "evidence": []
-        }
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Найди прямую цитату об основаниях расторжения.
-        2. Найди прямую цитату об обратной уступке.
-        3. Найди прямую цитату о возврате цены.
-        4. Найди прямую цитату о неустойке.
-        5. Найди прямую цитату о претензионном порядке и сроке ответа.
-        6. Найди прямую цитату о суде / форуме.
-        7. Найди прямую цитату о конфиденциальности.
-        8. Найди прямую цитату о применимом праве.
-        9. Если прямой цитаты нет — верни "not_defined". Не додумывай.
-
-        Не выводи шаги проверки. Верни только JSON.
-
-        [ФОРМАТ ОТВЕТА]
-        {
-          "termination_grounds_status": "<defined / not_defined>",
-          "termination_grounds_details": "<текст или 'Данные не определены'>",
-          "back_assignment_status": "<defined / not_defined>",
-          "back_assignment_details": "<текст или 'Данные не определены'>",
-          "price_return_status": "<defined / not_defined>",
-          "price_return_details": "<текст или 'Данные не определены'>",
-          "penalty_status": "<defined / not_defined>",
-          "penalty_details": "<текст или 'Данные не определены'>",
-          "pretrial_status": "<defined / not_defined>",
-          "pretrial_details": "<текст или 'Данные не определены'>",
-          "dispute_forum_status": "<defined / not_defined>",
-          "dispute_forum_details": "<текст или 'Данные не определены'>",
-          "confidentiality_status": "<defined / not_defined>",
-          "confidentiality_details": "<текст или 'Данные не определены'>",
-          "governing_law_status": "<defined / not_defined>",
-          "governing_law_details": "<текст или 'Данные не определены'>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
-        }
-      context_k: 7
+        4. Верни только один JSON-объект.
+      context_k: 6
       temperature: 0.0
-      max_tokens: 800
-
+      max_tokens: 550
     retrieval:
-      context_k: 7
-      max_chunks: 10
-      boost_keywords:
-        - "расторжение"
-        - "обратная уступка"
-        - "возврат права требования"
-        - "неустойка"
-        - "претензионный порядок"
-        - "арбитражный суд"
-        - "конфиденциальность"
-        - "применимое право"
+      retrieval_query: "расторжение отказ от договора обратная уступка возврат права требования возврат цены уступки неустойка штраф пеня расторжение договора уступки последствия расторжения"
+      preferred_unit_types:
+        - termination_provision
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+      negative_keywords:
+        - "срок оплаты"
+        - "банковский перевод"
+        - "цена уступки как коммерческое условие"
+        - "делькредере"
+        - "гарантия платежеспособности"
+        - "неисполнение должником"
+        - "уведомление должника"
+        - "обеспечительные права"
+        - "залог"
+        - "поручительство"
+        - "будущие требования"
+        - "частичная уступка"
+        - "форма договора"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.55, 1.0]
+        boost: 0.18
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
-
     enrichment_hints:
       preferred_clause_functions:
         - "remedies"
         - "procedures"
-        - "limitations"
-        - "boilerplate"
       confidence_bonus_on_match: 0.08
-
     evidence:
       required: true
       min_snippet_length: 40
-      max_snippet_length: 750
-
+      max_snippet_length: 600
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 420
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цессии условия
+        о расторжении, обратной уступке права требования, возврате цены уступки
+        и неустойке.
+        Не анализируй подсудность, претензионный порядок, конфиденциальность
+        или применимое право.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. termination_grounds_status — "defined" если основания расторжения перечислены, иначе "not_defined".
+        2. termination_grounds_details — основания расторжения.
+        3. back_assignment_status — "defined" если обратная уступка прямо предусмотрена, иначе "not_defined".
+        4. back_assignment_details — условие об обратной уступке.
+        5. price_return_status — "defined" если возврат цены уступки прямо предусмотрен, иначе "not_defined".
+        6. price_return_details — условие о возврате цены уступки.
+        7. penalty_status — "defined" если предусмотрена неустойка/штраф/пеня, иначе "not_defined".
+        8. penalty_details — формулировка о неустойке/штрафе/пене.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не подменяй конкретные условия расторжения общими нормами закона.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "termination_grounds_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если основания расторжения прямо указаны. Иначе 'not_defined'."
+          description: "Статус указания оснований расторжения договора уступки."
         - name: "termination_grounds_details"
           type: "string"
-          description: "Укажи основания расторжения. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Основания расторжения"
+          description: "Основания расторжения договора уступки."
         - name: "back_assignment_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если обратная уступка при расторжении прямо предусмотрена. Иначе 'not_defined'."
+          description: "Статус наличия условия об обратной уступке."
         - name: "back_assignment_details"
           type: "string"
-          description: "Укажи условие. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Обратная уступка"
+          description: "Условие об обратной уступке права требования."
         - name: "price_return_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если возврат цены уступки при расторжении прямо предусмотрен. Иначе 'not_defined'."
+          description: "Статус условия о возврате цены уступки."
         - name: "price_return_details"
           type: "string"
-          description: "Укажи условие. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Возврат цены уступки"
+          description: "Условие о возврате цены уступки при расторжении."
         - name: "penalty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если неустойка прямо предусмотрена. Иначе 'not_defined'."
+          description: "Статус наличия неустойки / штрафа / пени."
         - name: "penalty_details"
           type: "string"
-          description: "Укажи ставку и основание неустойки. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "pretrial_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если претензионный порядок прямо предусмотрен. Иначе 'not_defined'."
-        - name: "pretrial_details"
-          type: "string"
-          description: "Укажи условие. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "dispute_forum_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если суд / форум разрешения споров прямо указан. Иначе 'not_defined'."
-        - name: "dispute_forum_details"
-          type: "string"
-          description: "Укажи суд / форум. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "confidentiality_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие о конфиденциальности прямо предусмотрено. Иначе 'not_defined'."
-        - name: "confidentiality_details"
-          type: "string"
-          description: "Укажи условие. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "governing_law_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если применимое право прямо указано. Иначе 'not_defined'."
-        - name: "governing_law_details"
-          type: "string"
-          description: "Укажи применимое право. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Неустойка / штраф / пеня"
+          description: "Условие о неустойке, штрафе или пене."
       store_payload: true
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES

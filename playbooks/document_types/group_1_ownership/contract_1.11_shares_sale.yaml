@@ -964,17 +964,39 @@ checks_v8:
       max_tokens: 750
 
     retrieval:
+      retrieval_query: "продавец покупатель эмитент общество в лице действующего на основании ИНН ОГРН согласие супруга нотариальное согласие не состоит в браке брачный договор именуемый реквизиты target-компания"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - boilerplate
+      negative_keywords:
+        - "доля в уставном капитале"
+        - "акции"
+        - "размер доли"
+        - "цена сделки"
+        - "механизм перехода права"
+        - "ЕГРЮЛ"
+        - "регистратор"
+        - "заверения об обстоятельствах"
+        - "conditions precedent"
+        - "due diligence"
+        - "ковенанты"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.25
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "продавец"
-        - "покупатель"
-        - "эмитент"
-        - "ИНН"
-        - "ОГРН"
-        - "в лице"
-        - "согласие супруга"
-        - "действующего на основании"
       rerank: true
 
     enrichment_hints:
@@ -991,65 +1013,130 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 540
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора купли-продажи
+        корпоративных прав данные о продавце, покупателе, target-компании,
+        подписантах и согласии супруга.
+        Не анализируй предмет сделки, цену, механизм перехода права или заверения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. seller_details_status — "defined" если продавец прямо идентифицирован, иначе "not_defined".
+        2. seller_details — наименование/ФИО и реквизиты продавца.
+        3. seller_type — "legal_entity" / "individual" / "individual_entrepreneur" / "not_defined".
+        4. seller_signatory_status — "defined" если подписант продавца прямо указан, иначе "not_defined".
+        5. seller_signatory — подписант от продавца.
+        6. seller_signatory_basis — "charter" / "poa" / "order" / "other" / "not_defined".
+        7. buyer_details_status — "defined" если покупатель прямо идентифицирован, иначе "not_defined".
+        8. buyer_details — наименование/ФИО и реквизиты покупателя.
+        9. buyer_type — "legal_entity" / "individual" / "individual_entrepreneur" / "not_defined".
+        10. buyer_signatory_status — "defined" если подписант покупателя прямо указан, иначе "not_defined".
+        11. buyer_signatory — подписант от покупателя.
+        12. buyer_signatory_basis — "charter" / "poa" / "order" / "other" / "not_defined".
+        13. target_details_status — "defined" если target прямо идентифицирован, иначе "not_defined".
+        14. target_details — наименование, ОГРН, ИНН target-компании.
+        15. spousal_consent_status — "defined" если согласие супруга или личный режим имущества прямо указан, иначе "not_defined".
+        16. spousal_consent_details — формулировка о согласии супруга или личном режиме.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Target-компания — это не продавец и не покупатель, а тот, чьи доли/акции продаются.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "seller_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Продавец прямо идентифицирован с реквизитами. Иначе 'not_defined'."
+          description: "Статус идентификации продавца."
         - name: "seller_details"
           type: "string"
-          description: "Укажи Продавца и реквизиты. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Продавец: реквизиты"
+          description: "Наименование/ФИО и реквизиты продавца."
         - name: "seller_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
-          description: "Тип продавца. Если не определён — 'not_defined'."
+          description: "Тип продавца."
         - name: "seller_signatory_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если подписант от Продавца прямо указан. Иначе 'not_defined'."
+          description: "Статус указания подписанта продавца."
         - name: "seller_signatory"
           type: "string"
-          description: "Укажи подписанта Продавца. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Продавец: подписант"
+          description: "Подписант от продавца."
         - name: "seller_signatory_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
-          description: "Основание полномочий подписанта Продавца. Если не указано — 'not_defined'."
+          description: "Основание полномочий подписанта продавца."
         - name: "buyer_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Покупатель прямо идентифицирован с реквизитами. Иначе 'not_defined'."
+          description: "Статус идентификации покупателя."
         - name: "buyer_details"
           type: "string"
-          description: "Укажи Покупателя и реквизиты. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Покупатель: реквизиты"
+          description: "Наименование/ФИО и реквизиты покупателя."
         - name: "buyer_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
-          description: "Тип покупателя. Если не определён — 'not_defined'."
+          description: "Тип покупателя."
         - name: "buyer_signatory_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если подписант от Покупателя прямо указан. Иначе 'not_defined'."
+          description: "Статус указания подписанта покупателя."
         - name: "buyer_signatory"
           type: "string"
-          description: "Укажи подписанта Покупателя. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Покупатель: подписант"
+          description: "Подписант от покупателя."
         - name: "buyer_signatory_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
-          description: "Основание полномочий подписанта Покупателя. Если не указано — 'not_defined'."
+          description: "Основание полномочий подписанта покупателя."
         - name: "target_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если target-компания/эмитент прямо идентифицированы. Иначе 'not_defined'."
+          description: "Статус идентификации target-компании."
         - name: "target_details"
           type: "string"
-          description: "Укажи target и реквизиты. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Target-компания: реквизиты"
+          description: "Наименование, ОГРН, ИНН target-компании."
         - name: "spousal_consent_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо указано согласие супруга или подтверждение личного режима. Иначе 'not_defined'."
+          description: "Статус наличия согласия супруга или подтверждения личного режима."
         - name: "spousal_consent_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Согласие супруга"
+          description: "Формулировка о согласии супруга или личном режиме имущества."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1227,17 +1314,41 @@ checks_v8:
       max_tokens: 800
 
     retrieval:
+      retrieval_query: "доля в уставном капитале акции эмитент общество с ограниченной ответственностью акционерное общество размер доли номинальная стоимость количество акций цена сделки покупная цена номер выпуска акций ОГРН target ИНН target"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "структура платежей"
+        - "escrow"
+        - "эскроу"
+        - "earn-out"
+        - "отложенный платёж"
+        - "корректировка цены"
+        - "working capital"
+        - "последствия просрочки"
+        - "ЕГРЮЛ"
+        - "нотариус подаёт заявление"
+        - "регистратор"
+        - "closing"
+        - "заверения"
+        - "conditions precedent"
+        - "due diligence"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.05, 0.50]
+        boost: 0.20
+        scope: segment
       context_k: 7
       max_chunks: 9
-      boost_keywords:
-        - "доля в уставном капитале"
-        - "акции"
-        - "ОГРН"
-        - "ИНН"
-        - "размер доли"
-        - "цена сделки"
-        - "номер выпуска"
-        - "номинальная стоимость"
       rerank: true
 
     enrichment_hints:
@@ -1254,88 +1365,160 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 560
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
+        прав данные о предмете сделки: тип актива, реквизиты target, параметры доли
+        или акций и цена.
+        Не анализируй стороны договора, механизм перехода права или заверения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. asset_type — "llc_share" / "shares" / "mixed" / "not_defined".
+        2. target_name_status — "defined" если наименование target прямо указано, иначе "not_defined".
+        3. target_name_details — наименование target-компании.
+        4. target_ogrn_status — "defined" если ОГРН target прямо указан, иначе "not_defined".
+        5. target_ogrn_details — ОГРН target-компании.
+        6. target_inn_status — "defined" если ИНН target прямо указан, иначе "not_defined".
+        7. target_inn_details — ИНН target-компании.
+        8. share_ratio_status — "defined" если размер доли в % прямо указан, иначе "not_defined".
+        9. share_ratio_details — размер доли в уставном капитале в процентах.
+        10. share_nominal_status — "defined" если номинальная стоимость доли прямо указана, иначе "not_defined".
+        11. share_nominal_details — номинальная стоимость доли.
+        12. shares_quantity_status — "defined" если количество акций прямо указано, иначе "not_defined".
+        13. shares_quantity_details — количество акций.
+        14. issue_number_status — "defined" если номер выпуска акций прямо указан, иначе "not_defined".
+        15. issue_number_details — номер выпуска акций.
+        16. price_status — "defined" если цена сделки прямо указана, иначе "not_defined".
+        17. price_details — цена сделки с валютой.
+        18. price_currency — "RUB" / "USD" / "EUR" / "other" / "not_defined".
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - llc_share = доля в ООО, shares = акции АО.
+        - Не путай цену сделки с номинальной стоимостью доли.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "asset_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["llc_share", "shares", "mixed", "not_defined"]
-          description: "Тип корпоративного актива. Если не определён — 'not_defined'."
+          description: "Тип корпоративного актива."
         - name: "target_name_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если наименование target прямо указано. Иначе 'not_defined'."
+          description: "Статус указания наименования target."
         - name: "target_name_details"
           type: "string"
-          description: "Наименование target. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Target: наименование"
+          description: "Наименование target-компании."
         - name: "target_ogrn_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ОГРН target прямо указан. Иначе 'not_defined'."
+          description: "Статус указания ОГРН target."
         - name: "target_ogrn_details"
           type: "string"
-          description: "ОГРН target. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Target: ОГРН"
+          description: "ОГРН target-компании."
         - name: "target_inn_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ИНН target прямо указан. Иначе 'not_defined'."
+          description: "Статус указания ИНН target."
         - name: "target_inn_details"
           type: "string"
-          description: "ИНН target. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Target: ИНН"
+          description: "ИНН target-компании."
         - name: "share_ratio_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если размер доли в % прямо указан. Иначе 'not_defined'."
+          description: "Статус указания размера доли."
         - name: "share_ratio_details"
           type: "string"
-          description: "Размер доли. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Размер доли"
+          description: "Размер доли в уставном капитале target."
         - name: "share_nominal_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если номинальная стоимость прямо указана. Иначе 'not_defined'."
+          description: "Статус указания номинальной стоимости доли."
         - name: "share_nominal_details"
           type: "string"
-          description: "Номинальная стоимость. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Номинальная стоимость доли"
+          description: "Номинальная стоимость доли в уставном капитале."
         - name: "shares_quantity_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если количество акций прямо указано. Иначе 'not_defined'."
+          description: "Статус указания количества акций."
         - name: "shares_quantity_details"
           type: "string"
-          description: "Количество акций. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Количество акций"
+          description: "Количество продаваемых акций."
         - name: "issue_number_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если номер выпуска акций прямо указан. Иначе 'not_defined'."
+          description: "Статус указания номера выпуска акций."
         - name: "issue_number_details"
           type: "string"
-          description: "Номер выпуска. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Номер выпуска акций"
+          description: "Номер выпуска акций."
         - name: "price_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если цена сделки прямо указана. Иначе 'not_defined'."
+          description: "Статус указания цены сделки."
         - name: "price_details"
           type: "string"
-          description: "Цена сделки. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Цена сделки"
+          description: "Цена сделки с указанием валюты."
         - name: "price_currency"
           type: "string"
+          presentation: "signal"
           allowed_values: ["RUB", "USD", "EUR", "other", "not_defined"]
-          description: "Валюта цены. Если не определена — 'not_defined'."
+          description: "Валюта цены сделки."
       store_payload: true
 
+
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 3: Механизм перехода права, нотариус, регистратор, титул
+  # CHECK 3: Механизм перехода права
   # ──────────────────────────────────────────────────────────────────────────
-  - id: transfer_mechanics_and_title_check
-    name: "Переход права на долю/акции: нотариус/ЕГРЮЛ, регистратор/депозитарий, титул продавца, обременения"
+
+  - id: transfer_mechanics_check
+    name: "Механизм перехода права на долю/акции: нотариус, ЕГРЮЛ, регистратор, closing sequence"
     description: >
-      Фактографическая проверка наличия в договоре механизма перехода права:
-      для ООО — нотариальное удостоверение и ЕГРЮЛ; для АО — передаточное
-      распоряжение и запись у регистратора/депозитария. Подтверждение титула
-      продавца и отсутствия обременений.
+      Фактографическая проверка наличия в договоре механизма перехода права на
+      корпоративный актив: для ООО — нотариальное удостоверение и ЕГРЮЛ; для АО —
+      передаточное распоряжение и запись у регистратора/депозитария; closing sequence.
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "ЕГРЮЛ"
@@ -1347,129 +1530,31 @@ checks_v8:
         - "счет депо"
         - "лицевой счет"
         - "closing"
-        - "принадлежит на праве собственности"
-        - "свободна от обременений"
-        - "не заложена"
-        - "не находится под арестом"
-        - "правоустанавливающие документы"
+        - "нотариальное удостоверение"
       keyword_mode: "any"
       regex_patterns:
-        - "{{ egrul_record }}"
         - "(?i)передаточн(ое|ого)\\s+распоряжен"
         - "(?i)счет\\s+депо|лицев(ой|ого)\\s+счет"
         - "(?i)нотариус.*пода[её]т.*заявлен"
-        - "(?i)свободн(а|ы)\\s+от\\s+обременен"
-        - "(?i)принадлеж(ит|ат)\\s+на\\s+праве"
-
+        - "(?i)нотариальн(ое|ого)\\s+удостоверен"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по корпоративным сделкам.
-        Анализируется договор купли-продажи корпоративных прав (долей/акций).
-        Проверяется только один вопрос: механизм перехода права на корпоративный
-        актив, подтверждение титула продавца и обременения.
-
-        Нормативный ориентир:
-        - ст. 21 ФЗ-14 — переход доли ООО через нотариуса и ЕГРЮЛ
-        - ФЗ-39, ГК РФ — переход акций через регистратора/депозитария
-        - ст. 460 ГК РФ — свобода актива от прав третьих лиц
-        - ст. 209 ГК РФ — право собственности продавца
-
-        Важно:
-        - Твоя задача — только установить, что прямо есть в тексте договора, а чего прямо нет.
-        - Не оценивай серьёзность риска.
+        Анализируется договор купли-продажи корпоративных прав.
+        Проверяется только один вопрос: механизм перехода права и closing sequence.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Есть ли условие о нотариальном удостоверении (для доли ООО).
-        2. Есть ли условие о внесении записи в ЕГРЮЛ (для доли ООО).
-        3. Есть ли условие о передаточном распоряжении / записи у регистратора (для акций АО).
-        4. Есть ли условие о closing sequence (последовательность действий).
-        5. Есть ли подтверждение титула продавца на актив.
-        6. Есть ли заверение об отсутствии залога, ареста, прав третьих лиц.
+        1. Момент перехода права собственности на актив.
+        2. Условие о нотариальном удостоверении (для доли ООО).
+        3. Условие о внесении записи в ЕГРЮЛ (для доли ООО).
+        4. Условие о передаточном распоряжении / записи у регистратора (для акций АО).
+        5. Closing sequence (последовательность действий при закрытии).
 
         [ПРАВИЛА]
-        1. Используй только текст документа.
-        2. Не подставляй нормы закона вместо текста договора.
-        3. Если условие не указано прямо — возвращай "not_defined".
-        4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
-        6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
-
-        [ПРИМЕРЫ (FEW-SHOT)]
-
-        Пример 1 — механизм определён (доля ООО):
-        Фрагмент:
-        "Переход права на долю осуществляется с момента нотариального удостоверения
-        настоящего договора. Нотариус подаёт заявление в ЕГРЮЛ в течение 3 рабочих дней.
-        Доля принадлежит Продавцу на праве собственности, свободна от залога и ареста."
-
-        Ответ:
-        {
-          "transfer_mechanism_status": "defined",
-          "transfer_mechanism_details": "с момента нотариального удостоверения",
-          "llc_notarization_status": "defined",
-          "llc_notarization_details": "нотариальное удостоверение настоящего договора",
-          "llc_egrul_status": "defined",
-          "llc_egrul_details": "нотариус подаёт заявление в ЕГРЮЛ в течение 3 рабочих дней",
-          "shares_registry_status": "not_defined",
-          "shares_registry_details": "Данные не определены",
-          "closing_sequence_status": "not_defined",
-          "closing_sequence_details": "Данные не определены",
-          "title_confirmation_status": "defined",
-          "title_confirmation_details": "доля принадлежит Продавцу на праве собственности",
-          "pledge_status": "defined",
-          "pledge_details": "свободна от залога",
-          "arrest_status": "defined",
-          "arrest_details": "свободна от ареста",
-          "third_party_rights_status": "not_defined",
-          "third_party_rights_details": "Данные не определены",
-          "evidence": [
-            {
-              "clause_ref": "п. 3.1",
-              "quote": "Переход права на долю осуществляется с момента нотариального удостоверения настоящего договора. Нотариус подаёт заявление в ЕГРЮЛ в течение 3 рабочих дней."
-            }
-          ]
-        }
-
-        Пример 2 — механизм не определён:
-        Фрагмент:
-        "Продавец передаёт долю Покупателю."
-
-        Ответ:
-        {
-          "transfer_mechanism_status": "not_defined",
-          "transfer_mechanism_details": "Данные не определены",
-          "llc_notarization_status": "not_defined",
-          "llc_notarization_details": "Данные не определены",
-          "llc_egrul_status": "not_defined",
-          "llc_egrul_details": "Данные не определены",
-          "shares_registry_status": "not_defined",
-          "shares_registry_details": "Данные не определены",
-          "closing_sequence_status": "not_defined",
-          "closing_sequence_details": "Данные не определены",
-          "title_confirmation_status": "not_defined",
-          "title_confirmation_details": "Данные не определены",
-          "pledge_status": "not_defined",
-          "pledge_details": "Данные не определены",
-          "arrest_status": "not_defined",
-          "arrest_details": "Данные не определены",
-          "third_party_rights_status": "not_defined",
-          "third_party_rights_details": "Данные не определены",
-          "evidence": []
-        }
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Найди прямую цитату о нотариальном удостоверении (для ООО).
-        2. Найди прямую цитату о ЕГРЮЛ (для ООО).
-        3. Найди прямую цитату о передаточном распоряжении / регистраторе (для АО).
-        4. Найди прямую цитату о closing sequence.
-        5. Найди прямую цитату о праве собственности продавца.
-        6. Найди прямые цитаты о залоге, аресте, правах третьих лиц.
-        7. Если прямой цитаты нет — верни "not_defined". Не подменяй закон текстом.
-
-        Не выводи шаги проверки. Верни только JSON.
+        1. Только текст документа. Если нет — "not_defined".
+        2. Верни только один JSON-объект.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -1483,6 +1568,192 @@ checks_v8:
           "shares_registry_details": "<текст или 'Данные не определены'>",
           "closing_sequence_status": "<defined / not_defined>",
           "closing_sequence_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      retrieval_query: "ЕГРЮЛ нотариус подаёт заявление переход права на долю регистратор реестродержатель передаточное распоряжение счёт депо лицевой счёт closing нотариальное удостоверение момент перехода права"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "преимущественное право"
+        - "корпоративное одобрение"
+        - "ФАС"
+        - "уставные ограничения"
+        - "conditions precedent"
+        - "long-stop"
+        - "заверения"
+        - "indemnity"
+        - "due diligence"
+        - "ковенанты"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.70]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "procedures"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 430
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
+        прав механизм перехода права: нотариус, ЕГРЮЛ, регистратор, closing sequence.
+        Не анализируй заверения о титуле, обременениях, цену или стороны.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. transfer_mechanism_status — "defined" если момент/механизм перехода права прямо указан, иначе "not_defined".
+        2. transfer_mechanism_details — формулировка о механизме перехода.
+        3. llc_notarization_status — "defined" если нотариальное удостоверение прямо предусмотрено, иначе "not_defined".
+        4. llc_notarization_details — формулировка о нотариальном удостоверении.
+        5. llc_egrul_status — "defined" если этап с ЕГРЮЛ прямо описан, иначе "not_defined".
+        6. llc_egrul_details — формулировка об ЕГРЮЛ.
+        7. shares_registry_status — "defined" если регистратор/депозитарий прямо указан, иначе "not_defined".
+        8. shares_registry_details — формулировка о регистраторе.
+        9. closing_sequence_status — "defined" если closing sequence прямо описан, иначе "not_defined".
+        10. closing_sequence_details — формулировка о closing sequence.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не выводи механизм перехода из закона.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "transfer_mechanism_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения механизма перехода права."
+        - name: "transfer_mechanism_details"
+          type: "string"
+          presentation: "fact"
+          label: "Механизм перехода права"
+          description: "Формулировка о механизме перехода права на корпоративный актив."
+        - name: "llc_notarization_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус нотариального удостоверения (для доли ООО)."
+        - name: "llc_notarization_details"
+          type: "string"
+          presentation: "fact"
+          label: "Нотариальное удостоверение"
+          description: "Формулировка о нотариальном удостоверении договора."
+        - name: "llc_egrul_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус урегулирования записи в ЕГРЮЛ."
+        - name: "llc_egrul_details"
+          type: "string"
+          presentation: "fact"
+          label: "Регистрация в ЕГРЮЛ"
+          description: "Формулировка об этапе с ЕГРЮЛ."
+        - name: "shares_registry_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус урегулирования записи у регистратора/депозитария."
+        - name: "shares_registry_details"
+          type: "string"
+          presentation: "fact"
+          label: "Запись у регистратора"
+          description: "Формулировка о передаточном распоряжении и записи у регистратора."
+        - name: "closing_sequence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия closing sequence."
+        - name: "closing_sequence_details"
+          type: "string"
+          presentation: "fact"
+          label: "Closing sequence"
+          description: "Формулировка о последовательности действий при закрытии."
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 4: Титул и обремемения
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - id: title_and_encumbrances_check
+    name: "Титул продавца на актив и отсутствие обременений (ст. 460 ГК РФ)"
+    description: >
+      Фактографическая проверка наличия в договоре подтверждения права собственности
+      продавца на корпоративный актив и заверений об отсутствии залога, ареста,
+      прав третьих лиц.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "принадлежит на праве собственности"
+        - "свободна от обременений"
+        - "не заложена"
+        - "не находится под арестом"
+        - "свободна от прав третьих лиц"
+        - "правоустанавливающие документы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)принадлеж(ит|ат)\\s+на\\s+праве"
+        - "(?i)свободн(а|ы)\\s+от\\s+обременен"
+        - "(?i)не\\s+заложен"
+        - "(?i)не\\s+находится\\s+под\\s+арест"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор купли-продажи корпоративных прав.
+        Проверяется только один вопрос: титул продавца и обременения.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Подтверждение права собственности продавца на актив.
+        2. Заверение об отсутствии залога.
+        3. Заверение об отсутствии ареста.
+        4. Заверение об отсутствии прав третьих лиц.
+
+        [ПРАВИЛА]
+        1. Только текст документа. Если нет — "not_defined".
+        2. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
           "title_confirmation_status": "<defined / not_defined>",
           "title_confirmation_details": "<текст или 'Данные не определены'>",
           "pledge_status": "<defined / not_defined>",
@@ -1493,107 +1764,129 @@ checks_v8:
           "third_party_rights_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 7
+      context_k: 5
       temperature: 0.0
-      max_tokens: 800
-
+      max_tokens: 500
     retrieval:
-      context_k: 7
-      max_chunks: 9
-      boost_keywords:
-        - "ЕГРЮЛ"
-        - "нотариус"
-        - "регистратор"
-        - "передаточное распоряжение"
-        - "closing"
-        - "свободна от обременений"
-        - "принадлежит на праве"
-        - "залог"
-        - "арест"
+      retrieval_query: "принадлежит на праве собственности свободна от обременений не заложена не находится под арестом свободна от прав третьих лиц правоустанавливающие документы право собственности продавца на долю акции"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "налоги уплачены"
+        - "судебные споры"
+        - "лицензии"
+        - "IP"
+        - "compliance"
+        - "заверения об обстоятельствах target"
+        - "indemnity"
+        - "cap"
+        - "basket"
+        - "due diligence"
+        - "conditions precedent"
+        - "ковенанты"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.70]
+        boost: 0.15
+        scope: segment
+      context_k: 5
+      max_chunks: 7
       rerank: true
-
     enrichment_hints:
       preferred_clause_functions:
-        - "procedures"
+        - "representations"
         - "obligations"
       confidence_bonus_on_match: 0.10
-
     evidence:
       required: true
-      min_snippet_length: 40
-      max_snippet_length: 700
-
+      min_snippet_length: 30
+      max_snippet_length: 550
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 380
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки заверения о титуле продавца и отсутствии
+        обременений на продаваемый корпоративный актив.
+        Не анализируй механизм перехода права, цену, стороны или ковенанты.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. title_confirmation_status — "defined" если право собственности продавца прямо подтверждено, иначе "not_defined".
+        2. title_confirmation_details — формулировка о праве собственности.
+        3. pledge_status — "defined" если отсутствие залога прямо указано, иначе "not_defined".
+        4. pledge_details — формулировка об отсутствии залога.
+        5. arrest_status — "defined" если отсутствие ареста прямо указано, иначе "not_defined".
+        6. arrest_details — формулировка об отсутствии ареста.
+        7. third_party_rights_status — "defined" если отсутствие прав третьих лиц прямо указано, иначе "not_defined".
+        8. third_party_rights_details — формулировка об отсутствии прав третьих лиц.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
       fields:
-        - name: "transfer_mechanism_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если механизм перехода права прямо описан. Иначе 'not_defined'."
-        - name: "transfer_mechanism_details"
-          type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "llc_notarization_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если нотариальное удостоверение прямо предусмотрено. Иначе 'not_defined'."
-        - name: "llc_notarization_details"
-          type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "llc_egrul_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если этап с ЕГРЮЛ прямо описан. Иначе 'not_defined'."
-        - name: "llc_egrul_details"
-          type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "shares_registry_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если этап у регистратора/депозитария прямо описан. Иначе 'not_defined'."
-        - name: "shares_registry_details"
-          type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "closing_sequence_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если closing sequence прямо описан. Иначе 'not_defined'."
-        - name: "closing_sequence_details"
-          type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
         - name: "title_confirmation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право собственности продавца прямо подтверждено. Иначе 'not_defined'."
+          description: "Статус подтверждения права собственности продавца на актив."
         - name: "title_confirmation_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Титул продавца"
+          description: "Формулировка о праве собственности продавца на актив."
         - name: "pledge_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если отсутствие залога прямо указано. Иначе 'not_defined'."
+          description: "Статус заверения об отсутствии залога."
         - name: "pledge_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Отсутствие залога"
+          description: "Формулировка об отсутствии залога на актив."
         - name: "arrest_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если отсутствие ареста прямо указано. Иначе 'not_defined'."
+          description: "Статус заверения об отсутствии ареста."
         - name: "arrest_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Отсутствие ареста"
+          description: "Формулировка об отсутствии ареста на актив."
         - name: "third_party_rights_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если отсутствие прав третьих лиц прямо указано. Иначе 'not_defined'."
+          description: "Статус заверения об отсутствии прав третьих лиц."
         - name: "third_party_rights_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Отсутствие прав третьих лиц"
+          description: "Формулировка об отсутствии прав третьих лиц на актив."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 4: Корпоративные процедуры, преимущественное право, ФАС
+  # CHECK 5: Корпоративные процедуры, преимущественное право, ФАС
   # ──────────────────────────────────────────────────────────────────────────
   - id: corporate_procedure_compliance_check
     name: "Корпоративные процедуры: преимущественное право, одобрения, ФАС, уставные ограничения"
@@ -1737,16 +2030,38 @@ checks_v8:
       max_tokens: 750
 
     retrieval:
+      retrieval_query: "преимущественное право покупки оферта участникам отказ участников согласие общества крупная сделка сделка с заинтересованностью ФАС антимонопольное согласование ограничения устава корпоративное одобрение одобрение общего собрания решение единственного участника"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "conditions precedent для closing"
+        - "long-stop date"
+        - "право отказаться от сделки при неисполнении CP"
+        - "ЕГРЮЛ регистрация"
+        - "механизм перехода права"
+        - "нотариус"
+        - "заверения"
+        - "indemnity"
+        - "due diligence"
+        - "ковенанты промежуточного периода"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.70]
+        boost: 0.15
+        scope: segment
       context_k: 7
       max_chunks: 9
-      boost_keywords:
-        - "преимущественное право"
-        - "оферта участникам"
-        - "корпоративное одобрение"
-        - "ФАС"
-        - "ограничения устава"
-        - "крупная сделка"
-        - "единственный участник"
       rerank: true
 
     enrichment_hints:
@@ -1763,43 +2078,88 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора корпоративные процедуры:
+        преимущественное право, одобрения, уставные ограничения и ФАС.
+        Не анализируй механизм перехода права, цену, заверения или ковенанты.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. preemptive_rights_status — "defined" если преимущественное право прямо урегулировано, иначе "not_defined".
+        2. preemptive_rights_details — формулировка о преимущественном праве.
+        3. corporate_approval_status — "defined" если корпоративное одобрение прямо упомянуто, иначе "not_defined".
+        4. corporate_approval_details — текст одобрения.
+        5. corporate_approval_type — "general_meeting" / "board" / "sole_participant" / "not_defined".
+        6. charter_restrictions_status — "defined" если уставные ограничения прямо проверены, иначе "not_defined".
+        7. charter_restrictions_details — формулировка об уставных ограничениях.
+        8. fas_clearance_status — "defined" если ФАС-согласование прямо упомянуто, иначе "not_defined".
+        9. fas_clearance_details — формулировка о ФАС или его ненужности.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "preemptive_rights_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если преимущественное право прямо урегулировано. Иначе 'not_defined'."
+          description: "Статус урегулирования преимущественного права."
         - name: "preemptive_rights_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Преимущественное право"
+          description: "Формулировка о соблюдении или отказе от преимущественного права."
         - name: "corporate_approval_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если корпоративное одобрение прямо упомянуто. Иначе 'not_defined'."
+          description: "Статус наличия корпоративного одобрения."
         - name: "corporate_approval_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Корпоративное одобрение"
+          description: "Формулировка о корпоративном одобрении сделки."
         - name: "corporate_approval_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["general_meeting", "board", "sole_participant", "not_defined"]
-          description: "Тип корпоративного одобрения. Если не указан — 'not_defined'."
+          description: "Тип органа корпоративного одобрения."
         - name: "charter_restrictions_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если уставные ограничения прямо проверены. Иначе 'not_defined'."
+          description: "Статус проверки уставных ограничений."
         - name: "charter_restrictions_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Уставные ограничения"
+          description: "Формулировка о проверке уставных ограничений на отчуждение."
         - name: "fas_clearance_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ФАС-согласование прямо упомянуто. Иначе 'not_defined'."
+          description: "Статус упоминания ФАС-согласования."
         - name: "fas_clearance_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "ФАС-согласование"
+          description: "Формулировка о ФАС-согласовании или его ненужности."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 5: Цена и структура платежей
+  # CHECK 6: Цена и структура платежей
   # ──────────────────────────────────────────────────────────────────────────
   - id: price_and_payment_mechanics
     name: "Цена сделки, структура платежей, escrow, earn-out, корректировка цены"
@@ -1957,17 +2317,40 @@ checks_v8:
       max_tokens: 750
 
     retrieval:
+      retrieval_query: "цена сделки покупная цена цена доли цена акций escrow эскроу отложенный платёж поэтапная оплата earn-out удержание части цены условия release корректировка цены working capital debt cash-free последствия просрочки оплаты срок оплаты"
+      preferred_unit_types:
+        - payment_term
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "номинальная стоимость доли"
+        - "количество акций"
+        - "номер выпуска акций"
+        - "размер доли в процентах"
+        - "заверения"
+        - "indemnity"
+        - "cap"
+        - "basket"
+        - "conditions precedent"
+        - "due diligence"
+        - "ковенанты"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.65]
+        boost: 0.18
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "цена сделки"
-        - "покупная цена"
-        - "escrow"
-        - "эскроу"
-        - "earn-out"
-        - "отложенный платеж"
-        - "корректировка цены"
-        - "просрочка оплаты"
       rerank: true
 
     enrichment_hints:
@@ -1984,211 +2367,161 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 530
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора цену сделки и структуру
+        платежей: upfront, escrow, deferred, earn-out, корректировка цены и последствия
+        просрочки.
+        Не анализируй заверения, ковенанты, механизм перехода права или стороны.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. price_status — "defined" если цена прямо указана, иначе "not_defined".
+        2. price_details — цена сделки.
+        3. price_currency — "RUB" / "USD" / "EUR" / "other" / "not_defined".
+        4. payment_structure — "upfront" / "deferred" / "escrow" / "earn_out" / "mixed" / "not_defined".
+        5. payment_structure_details — структура платежей.
+        6. escrow_release_status — "defined" если условия release из эскроу прямо указаны, иначе "not_defined".
+        7. escrow_release_details — условия release.
+        8. price_adjustment_status — "defined" если механизм корректировки прямо описан, иначе "not_defined".
+        9. price_adjustment_details — механизм корректировки.
+        10. payment_deadline_status — "defined" если срок оплаты прямо указан, иначе "not_defined".
+        11. payment_deadline_details — срок оплаты.
+        12. late_payment_status — "defined" если последствия просрочки прямо указаны, иначе "not_defined".
+        13. late_payment_details — последствия просрочки.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не смешивай цену сделки с номинальной стоимостью доли.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "price_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если цена сделки прямо указана. Иначе 'not_defined'."
+          description: "Статус указания цены сделки."
         - name: "price_details"
           type: "string"
-          description: "Укажи цену. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Цена сделки"
+          description: "Цена продажи корпоративного актива."
         - name: "price_currency"
           type: "string"
+          presentation: "signal"
           allowed_values: ["RUB", "USD", "EUR", "other", "not_defined"]
-          description: "Валюта цены. Если не указана — 'not_defined'."
+          description: "Валюта цены сделки."
         - name: "payment_structure"
           type: "string"
+          presentation: "signal"
           allowed_values: ["upfront", "deferred", "escrow", "earn_out", "mixed", "not_defined"]
-          description: "Структура платежей. Если не определена — 'not_defined'."
+          description: "Структура платежей."
         - name: "payment_structure_details"
           type: "string"
-          description: "Укажи структуру. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Структура платежей"
+          description: "Описание структуры платежей по сделке."
         - name: "escrow_release_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условия release из эскроу прямо описаны. Иначе 'not_defined'."
+          description: "Статус определения условий release из эскроу."
         - name: "escrow_release_details"
           type: "string"
-          description: "Укажи условия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Условия release из эскроу"
+          description: "Условия release средств из эскроу-счёта."
         - name: "price_adjustment_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если механизм корректировки цены прямо описан. Иначе 'not_defined'."
+          description: "Статус наличия механизма корректировки цены."
         - name: "price_adjustment_details"
           type: "string"
-          description: "Укажи механизм. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Корректировка цены"
+          description: "Механизм корректировки цены (working capital, debt/cash-free и т.п.)."
         - name: "payment_deadline_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок оплаты прямо указан. Иначе 'not_defined'."
+          description: "Статус определения срока оплаты."
         - name: "payment_deadline_details"
           type: "string"
-          description: "Укажи срок. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок оплаты"
+          description: "Срок оплаты цены сделки."
         - name: "late_payment_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если последствия просрочки прямо указаны. Иначе 'not_defined'."
+          description: "Статус наличия условий о последствиях просрочки."
         - name: "late_payment_details"
           type: "string"
-          description: "Укажи последствия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Последствия просрочки оплаты"
+          description: "Последствия просрочки оплаты цены сделки."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 6: Заверения, indemnity, cap, basket, claim period
+  # CHECK 7: Заверения
   # ──────────────────────────────────────────────────────────────────────────
-  - id: warranties_and_indemnity_check
-    name: "Заверения об обстоятельствах, indemnity, cap, basket, claim period"
+
+  - id: warranties_check
+    name: "Заверения об обстоятельствах продавца (title, tax, litigation, IP, compliance)"
     description: >
-      Фактографическая проверка наличия пакета заверений продавца (title, taxes,
-      litigation, licenses, IP, employment, compliance), механизма indemnity,
-      лимита ответственности (cap), порогов de minimis/basket и срока предъявления
-      требований (claim period).
+      Фактографическая проверка наличия пакета заверений продавца: title, tax,
+      litigation, IP, licenses, compliance. Indemnity и лимиты ответственности
+      проверяются в отдельном check.
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "заверения об обстоятельствах"
         - "representations and warranties"
-        - "гарантии и заверения"
         - "налоги уплачены"
         - "судебные споры"
-        - "indemnity"
-        - "компенсация потерь"
-        - "лимит ответственности"
-        - "cap"
-        - "de minimis"
-        - "basket"
-        - "срок предъявления требований"
+        - "лицензии действительны"
+        - "гарантии и заверения"
+        - "IP"
+        - "интеллектуальная собственность"
+        - "соответствие законодательству"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)заверени(я|е)\\s+об\\s+обстоятельств"
         - "(?i)representations\\s+and\\s+warranties"
-        - "(?i)indemnity|компенсац(ия|ии)\\s+потер"
-        - "(?i)лимит\\s+ответственност"
-        - "(?i)de\\s+minimis|basket|cap"
-
+        - "(?i)все\\s+налог(и|ов)\\s+(уплачен|исчислен)"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по корпоративным сделкам.
-        Анализируется договор купли-продажи корпоративных прав (долей/акций).
-        Проверяется только один вопрос: заверения об обстоятельствах, indemnity
-        и ограничения ответственности.
-
-        Нормативный ориентир:
-        - ст. 431.2 ГК РФ — заверения об обстоятельствах
-        - ст. 15, 393 ГК РФ — возмещение убытков
-
-        Важно:
-        - Твоя задача — только установить, что прямо есть в тексте договора, а чего прямо нет.
-        - Не оценивай серьёзность риска.
+        Анализируется договор купли-продажи корпоративных прав.
+        Проверяется только один вопрос: пакет заверений продавца.
 
         [ЗАДАЧА]
-        Найди в тексте договора:
-        1. Есть ли пакет заверений продавца (title, taxes, litigation, IP,
-           licenses, employment, compliance).
-        2. Есть ли механизм indemnity (компенсации потерь при нарушении заверений).
-        3. Есть ли лимит ответственности (cap) и его размер.
-        4. Есть ли пороги de minimis / basket.
-        5. Есть ли срок предъявления требований по заверениям (claim period).
+        Найди в тексте договора заверения по каждому из типов:
+        1. tax (налоги уплачены, деклараций нет, нет споров с ФНС).
+        2. litigation (отсутствие судебных споров).
+        3. license (действительность лицензий и разрешений).
+        4. title (право собственности на имущество target).
+        5. IP (права на интеллектуальную собственность).
+        6. compliance (соответствие применимому законодательству).
 
         [ПРАВИЛА]
-        1. Используй только текст документа.
-        2. Не подставляй нормы закона вместо текста договора.
-        3. Если условие не указано прямо — возвращай "not_defined".
-        4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
-        6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
-
-        [ПРИМЕРЫ (FEW-SHOT)]
-
-        Пример 1 — заверения есть:
-        Фрагмент:
-        "Продавец заверяет: (а) все налоги уплачены; (б) отсутствуют судебные споры;
-        (в) все лицензии действительны. При нарушении заверений Покупатель вправе
-        требовать компенсации убытков (indemnity). Совокупный лимит ответственности
-        Продавца (cap) составляет 100% покупной цены. Порог de minimis — 500 000 рублей.
-        Срок предъявления требований — 24 месяца с даты закрытия."
-
-        Ответ:
-        {
-          "warranties_status": "defined",
-          "tax_warranty_status": "defined",
-          "tax_warranty_details": "все налоги уплачены",
-          "litigation_warranty_status": "defined",
-          "litigation_warranty_details": "отсутствуют судебные споры",
-          "license_warranty_status": "defined",
-          "license_warranty_details": "все лицензии действительны",
-          "title_warranty_status": "not_defined",
-          "title_warranty_details": "Данные не определены",
-          "ip_warranty_status": "not_defined",
-          "ip_warranty_details": "Данные не определены",
-          "compliance_warranty_status": "not_defined",
-          "compliance_warranty_details": "Данные не определены",
-          "indemnity_status": "defined",
-          "indemnity_details": "право требовать компенсации убытков при нарушении заверений",
-          "liability_cap_status": "defined",
-          "liability_cap_details": "100% покупной цены",
-          "de_minimis_basket_status": "defined",
-          "de_minimis_basket_details": "порог de minimis — 500 000 рублей",
-          "claim_period_status": "defined",
-          "claim_period_details": "24 месяца с даты закрытия",
-          "evidence": [
-            {
-              "clause_ref": "п. 6.1",
-              "quote": "Продавец заверяет: все налоги уплачены; отсутствуют судебные споры; все лицензии действительны."
-            }
-          ]
-        }
-
-        Пример 2 — заверений нет:
-        Фрагмент:
-        "Продавец передаёт долю на условиях «как есть»."
-
-        Ответ:
-        {
-          "warranties_status": "not_defined",
-          "tax_warranty_status": "not_defined",
-          "tax_warranty_details": "Данные не определены",
-          "litigation_warranty_status": "not_defined",
-          "litigation_warranty_details": "Данные не определены",
-          "license_warranty_status": "not_defined",
-          "license_warranty_details": "Данные не определены",
-          "title_warranty_status": "not_defined",
-          "title_warranty_details": "Данные не определены",
-          "ip_warranty_status": "not_defined",
-          "ip_warranty_details": "Данные не определены",
-          "compliance_warranty_status": "not_defined",
-          "compliance_warranty_details": "Данные не определены",
-          "indemnity_status": "not_defined",
-          "indemnity_details": "Данные не определены",
-          "liability_cap_status": "not_defined",
-          "liability_cap_details": "Данные не определены",
-          "de_minimis_basket_status": "not_defined",
-          "de_minimis_basket_details": "Данные не определены",
-          "claim_period_status": "not_defined",
-          "claim_period_details": "Данные не определены",
-          "evidence": [
-            {
-              "clause_ref": "п. 6.1",
-              "quote": "Продавец передаёт долю на условиях «как есть»."
-            }
-          ]
-        }
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Найди прямые цитаты по каждому типу заверений (tax, litigation, IP и т.д.).
-        2. Найди прямую цитату о механизме indemnity.
-        3. Найди прямую цитату о cap и его размере.
-        4. Найди прямую цитату о de minimis / basket.
-        5. Найди прямую цитату о claim period.
-        6. Если прямой цитаты нет — верни "not_defined". Не додумывай заверения.
-
-        Не выводи шаги проверки. Верни только JSON.
+        1. Только текст документа. Если нет — "not_defined".
+        2. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -2205,6 +2538,206 @@ checks_v8:
           "ip_warranty_details": "<текст или 'Данные не определены'>",
           "compliance_warranty_status": "<defined / not_defined>",
           "compliance_warranty_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 700
+    retrieval:
+      retrieval_query: "заверения об обстоятельствах representations and warranties налоги уплачены судебные споры лицензии действительны IP интеллектуальная собственность compliance соответствие законодательству"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+      negative_keywords:
+        - "принадлежит на праве собственности продавца на долю"
+        - "не заложена не арестована"
+        - "права третьих лиц на актив"
+        - "indemnity"
+        - "лимит ответственности"
+        - "cap"
+        - "basket"
+        - "claim period"
+        - "due diligence"
+        - "conditions precedent"
+        - "ковенанты"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.30, 0.80]
+        boost: 0.15
+        scope: segment
+      context_k: 7
+      max_chunks: 9
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "representations"
+      confidence_bonus_on_match: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора пакет заверений продавца:
+        tax, litigation, license, title, IP, compliance.
+        Не анализируй indemnity, cap, basket, claim period, цену или стороны.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. warranties_status — "defined" если пакет заверений прямо присутствует, иначе "not_defined".
+        2. tax_warranty_status — "defined" если налоговое заверение прямо есть, иначе "not_defined".
+        3. tax_warranty_details — формулировка налогового заверения.
+        4. litigation_warranty_status — "defined" если заверение об отсутствии споров прямо есть, иначе "not_defined".
+        5. litigation_warranty_details — формулировка.
+        6. license_warranty_status — "defined" если заверение о лицензиях прямо есть, иначе "not_defined".
+        7. license_warranty_details — формулировка.
+        8. title_warranty_status — "defined" если заверение о праве собственности на имущество target прямо есть, иначе "not_defined".
+        9. title_warranty_details — формулировка.
+        10. ip_warranty_status — "defined" если заверение об IP прямо есть, иначе "not_defined".
+        11. ip_warranty_details — формулировка.
+        12. compliance_warranty_status — "defined" если заверение о compliance прямо есть, иначе "not_defined".
+        13. compliance_warranty_details — формулировка.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+      fields:
+        - name: "warranties_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия пакета заверений продавца."
+        - name: "tax_warranty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус налогового заверения."
+        - name: "tax_warranty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Налоговое заверение"
+          description: "Формулировка налогового заверения продавца."
+        - name: "litigation_warranty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии споров."
+        - name: "litigation_warranty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Заверение об отсутствии споров"
+          description: "Формулировка заверения об отсутствии судебных споров."
+        - name: "license_warranty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения о лицензиях."
+        - name: "license_warranty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Заверение о лицензиях"
+          description: "Формулировка заверения о действительности лицензий."
+        - name: "title_warranty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения о праве собственности на имущество target."
+        - name: "title_warranty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Заверение о титуле target"
+          description: "Формулировка заверения о праве собственности target."
+        - name: "ip_warranty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об IP."
+        - name: "ip_warranty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Заверение об IP"
+          description: "Формулировка заверения о правах на интеллектуальную собственность."
+        - name: "compliance_warranty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения о compliance."
+        - name: "compliance_warranty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Заверение о compliance"
+          description: "Формулировка заверения о соответствии применимому законодательству."
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 8: Indemnity, cap, basket, claim period
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - id: indemnity_and_liability_limits_check
+    name: "Indemnity, cap ответственности, basket/de minimis и claim period"
+    description: >
+      Фактографическая проверка механизма indemnity при нарушении заверений,
+      лимита ответственности продавца (cap), порогов de minimis/basket и срока
+      предъявления требований (claim period).
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "indemnity"
+        - "компенсация потерь"
+        - "лимит ответственности"
+        - "cap"
+        - "de minimis"
+        - "basket"
+        - "срок предъявления требований"
+        - "claim period"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)indemnity|компенсац(ия|ии)\\s+потер"
+        - "(?i)лимит\\s+ответственност"
+        - "(?i)de\\s+minimis|basket|\\bcap\\b"
+        - "(?i)claim\\s+period|срок.*предъявлен"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по корпоративным сделкам.
+        Анализируется договор купли-продажи корпоративных прав.
+        Проверяется только один вопрос: механизм indemnity и ограничения ответственности.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Механизм indemnity (компенсация потерь при нарушении заверений).
+        2. Лимит ответственности (cap) и его размер.
+        3. Пороги de minimis / basket.
+        4. Срок предъявления требований по заверениям (claim period).
+
+        [ПРАВИЛА]
+        1. Только текст документа. Если нет — "not_defined".
+        2. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
           "indemnity_status": "<defined / not_defined>",
           "indemnity_details": "<текст или 'Данные не определены'>",
           "liability_cap_status": "<defined / not_defined>",
@@ -2215,90 +2748,129 @@ checks_v8:
           "claim_period_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 7
+      context_k: 6
       temperature: 0.0
-      max_tokens: 850
-
+      max_tokens: 550
     retrieval:
-      context_k: 7
-      max_chunks: 9
-      boost_keywords:
-        - "заверения об обстоятельствах"
-        - "indemnity"
+      retrieval_query: "indemnity компенсация потерь лимит ответственности cap de minimis basket срок предъявления требований claim period нарушение заверений компенсация убытков ограничение ответственности продавца"
+      preferred_unit_types:
+        - liability_provision
+        - indemnification
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - limitations
+        - remedies
+      negative_keywords:
         - "налоги уплачены"
         - "судебные споры"
-        - "лимит ответственности"
-        - "de minimis"
-        - "basket"
-        - "claim period"
+        - "лицензии"
+        - "IP"
+        - "compliance"
+        - "due diligence"
+        - "data room"
+        - "disclosure letter"
+        - "conditions precedent"
+        - "ковенанты"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 0.90]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
-
     enrichment_hints:
       preferred_clause_functions:
-        - "representations"
-        - "obligations"
         - "limitations"
+        - "remedies"
       confidence_bonus_on_match: 0.10
-
     evidence:
       required: true
-      min_snippet_length: 50
-      max_snippet_length: 750
-
+      min_snippet_length: 40
+      max_snippet_length: 600
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 400
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора механизм indemnity, лимит
+        ответственности (cap), пороги de minimis/basket и claim period.
+        Не анализируй заверения продавца, цену, стороны или ковенанты.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. indemnity_status — "defined" если механизм indemnity прямо предусмотрен, иначе "not_defined".
+        2. indemnity_details — формулировка об indemnity.
+        3. liability_cap_status — "defined" если лимит ответственности прямо указан, иначе "not_defined".
+        4. liability_cap_details — размер cap.
+        5. de_minimis_basket_status — "defined" если пороги de minimis / basket прямо указаны, иначе "not_defined".
+        6. de_minimis_basket_details — значения порогов.
+        7. claim_period_status — "defined" если срок предъявления требований прямо указан, иначе "not_defined".
+        8. claim_period_details — срок.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
       fields:
-        - name: "warranties_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если пакет заверений продавца прямо присутствует. Иначе 'not_defined'."
-        - name: "tax_warranty_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если налоговое заверение прямо присутствует. Иначе 'not_defined'."
-        - name: "tax_warranty_details"
-          type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "litigation_warranty_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение об отсутствии споров прямо присутствует. Иначе 'not_defined'."
-        - name: "litigation_warranty_details"
-          type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
         - name: "indemnity_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если механизм indemnity прямо предусмотрен. Иначе 'not_defined'."
+          description: "Статус наличия механизма indemnity."
         - name: "indemnity_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Механизм indemnity"
+          description: "Формулировка о компенсации потерь при нарушении заверений."
         - name: "liability_cap_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если лимит ответственности прямо указан. Иначе 'not_defined'."
+          description: "Статус указания лимита ответственности продавца."
         - name: "liability_cap_details"
           type: "string"
-          description: "Укажи размер cap. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Лимит ответственности (cap)"
+          description: "Размер совокупного лимита ответственности продавца."
         - name: "de_minimis_basket_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если пороги de minimis / basket прямо указаны. Иначе 'not_defined'."
+          description: "Статус указания порогов de minimis / basket."
         - name: "de_minimis_basket_details"
           type: "string"
-          description: "Укажи пороги. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Пороги de minimis / basket"
+          description: "Значения порогов de minimis и basket."
         - name: "claim_period_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок предъявления требований прямо указан. Иначе 'not_defined'."
+          description: "Статус указания срока предъявления требований."
         - name: "claim_period_details"
           type: "string"
-          description: "Укажи срок. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Claim period"
+          description: "Срок предъявления требований по заверениям."
       store_payload: true
 
+
+
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 7: Due Diligence и раскрытие информации
+  # CHECK 9: Due Diligence и раскрытие информации
   # ──────────────────────────────────────────────────────────────────────────
   - id: due_diligence_and_disclosure_check
     name: "Due Diligence, data room, disclosure letter, reliance покупателя"
@@ -2437,15 +3009,38 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_query: "due diligence проверка компании раскрытие информации data room виртуальная комната данных disclosure letter reliance no-reliance порядок при DD-issues"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - warranty
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - procedures
+      negative_keywords:
+        - "conditions precedent"
+        - "long-stop date"
+        - "право отказаться при неисполнении CP"
+        - "closing sequence"
+        - "closing deliverables"
+        - "indemnity"
+        - "cap"
+        - "basket"
+        - "ковенанты"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.75]
+        boost: 0.12
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "due diligence"
-        - "data room"
-        - "раскрытие информации"
-        - "disclosure letter"
-        - "reliance"
-        - "no-reliance"
       rerank: true
 
     enrichment_hints:
@@ -2462,39 +3057,77 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 460
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора данные о Due Diligence,
+        data room, disclosure letter и позиции покупателя по reliance.
+        Не анализируй заверения, indemnity, цену или механизм перехода права.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. dd_status — "defined" если DD прямо упомянут, иначе "not_defined".
+        2. dd_details — описание DD.
+        3. data_room_status — "defined" если data room прямо упомянута, иначе "not_defined".
+        4. data_room_details — формулировка о data room.
+        5. disclosure_letter_status — "defined" если disclosure letter прямо упомянут, иначе "not_defined".
+        6. disclosure_letter_details — формулировка о disclosure letter.
+        7. buyer_reliance_status — "defined" если позиция покупателя прямо указана, иначе "not_defined".
+        8. buyer_reliance_details — "reliance" / "no_reliance" / "Данные не определены".
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
       fields:
         - name: "dd_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если DD прямо упомянут. Иначе 'not_defined'."
+          description: "Статус упоминания Due Diligence."
         - name: "dd_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Due Diligence"
+          description: "Описание проведённого Due Diligence."
         - name: "data_room_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если data room прямо упомянута. Иначе 'not_defined'."
+          description: "Статус упоминания data room."
         - name: "data_room_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Data room"
+          description: "Формулировка о data room."
         - name: "disclosure_letter_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если disclosure letter прямо упомянут. Иначе 'not_defined'."
+          description: "Статус упоминания disclosure letter."
         - name: "disclosure_letter_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Disclosure letter"
+          description: "Формулировка о disclosure letter."
         - name: "buyer_reliance_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если позиция покупателя по reliance прямо указана. Иначе 'not_defined'."
+          description: "Статус указания позиции покупателя по reliance."
         - name: "buyer_reliance_details"
           type: "string"
-          description: "Укажи позицию (reliance / no_reliance). Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Reliance покупателя"
+          description: "Позиция покупателя: reliance или no-reliance."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 8: Conditions Precedent, closing mechanics, long-stop date
+  # CHECK 10: Conditions Precedent, closing mechanics, long-stop date
   # ──────────────────────────────────────────────────────────────────────────
   - id: closing_conditions_and_payment_mechanics_check
     name: "Conditions Precedent, closing mechanics, long-stop date"
@@ -2646,15 +3279,40 @@ checks_v8:
       max_tokens: 800
 
     retrieval:
+      retrieval_query: "conditions precedent условия закрытия closing long-stop предельный срок право отказаться от сделки closing agenda closing sequence closing deliverables выполнение условий до закрытия"
+      preferred_unit_types:
+        - termination_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "преимущественное право"
+        - "корпоративное одобрение как pre-signing"
+        - "ФАС как pre-signing"
+        - "due diligence"
+        - "data room"
+        - "disclosure letter"
+        - "reliance"
+        - "indemnity"
+        - "cap"
+        - "basket"
+        - "ковенанты промежуточного периода"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.35, 0.85]
+        boost: 0.15
+        scope: segment
       context_k: 7
       max_chunks: 9
-      boost_keywords:
-        - "conditions precedent"
-        - "closing"
-        - "long-stop"
-        - "условия закрытия"
-        - "право отказаться"
-        - "closing agenda"
       rerank: true
 
     enrichment_hints:
@@ -2671,230 +3329,101 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 490
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора условия закрытия (conditions
+        precedent), long-stop date, право отказа и closing sequence.
+        Не анализируй заверения, цену, ковенанты или стороны.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. cp_status — "defined" если перечень CP прямо указан, иначе "not_defined".
+        2. cp_details — перечень conditions precedent.
+        3. cp_regulatory_status — "defined" если CP, связанный с регуляторными одобрениями, прямо указан.
+        4. cp_regulatory_details — такой CP.
+        5. cp_corporate_status — "defined" если CP, связанный с корпоративными одобрениями, прямо указан.
+        6. cp_corporate_details — такой CP.
+        7. long_stop_date_status — "defined" если long-stop date прямо указана, иначе "not_defined".
+        8. long_stop_date_details — дата.
+        9. termination_on_cp_failure_status — "defined" если право отказа при неисполнении CP прямо предусмотрено.
+        10. termination_on_cp_failure_details — формулировка.
+        11. closing_sequence_status — "defined" если closing sequence прямо описан, иначе "not_defined".
+        12. closing_sequence_details — формулировка.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
       fields:
         - name: "cp_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если список CP прямо присутствует. Иначе 'not_defined'."
+          description: "Статус наличия перечня conditions precedent."
         - name: "cp_details"
           type: "string"
-          description: "Укажи CP. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Conditions Precedent"
+          description: "Перечень условий закрытия сделки."
+        - name: "cp_regulatory_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус CP, связанного с регуляторными одобрениями."
+        - name: "cp_regulatory_details"
+          type: "string"
+          presentation: "fact"
+          label: "CP: регуляторные одобрения"
+          description: "CP, требующий регуляторного одобрения."
+        - name: "cp_corporate_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус CP, связанного с корпоративными одобрениями."
+        - name: "cp_corporate_details"
+          type: "string"
+          presentation: "fact"
+          label: "CP: корпоративные одобрения"
+          description: "CP, требующий корпоративного одобрения."
         - name: "long_stop_date_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если long-stop date прямо указана. Иначе 'not_defined'."
+          description: "Статус указания long-stop date."
         - name: "long_stop_date_details"
           type: "string"
-          description: "Укажи дату. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Long-stop date"
+          description: "Предельная дата для выполнения условий закрытия."
         - name: "termination_on_cp_failure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право отказа при неисполнении CP прямо предусмотрено. Иначе 'not_defined'."
+          description: "Статус права отказа при неисполнении CP."
         - name: "termination_on_cp_failure_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Право отказа при неисполнении CP"
+          description: "Формулировка о праве отказаться от сделки при неисполнении CP."
         - name: "closing_sequence_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если closing sequence прямо описан. Иначе 'not_defined'."
+          description: "Статус наличия closing sequence."
         - name: "closing_sequence_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Closing sequence"
+          description: "Формулировка о последовательности действий при закрытии."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 9: MAC/MAE clause
-  # ──────────────────────────────────────────────────────────────────────────
-  - id: mac_clause_check
-    name: "MAC/MAE clause: существенное неблагоприятное изменение"
-    description: >
-      Фактографическая проверка наличия и параметров MAC/MAE clause — права
-      покупателя отказаться от сделки при существенном ухудшении бизнеса target
-      между подписанием и закрытием.
-    triggers:
-      any: ["mac_clause_present"]
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-
-    rules:
-      keywords:
-        - "существенное неблагоприятное изменение"
-        - "material adverse change"
-        - "material adverse effect"
-        - "MAC"
-        - "MAE"
-        - "существенное ухудшение"
-        - "право отказаться"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)material\\s+adverse\\s+(change|effect)"
-        - "(?i)существенн(ое|ого)\\s+(неблагоприятн|ухудшен)"
-
-    llm:
-      prompt_template: |
-        [КОНТЕКСТ]
-        Ты — российский юрист по корпоративным сделкам.
-        Анализируется договор купли-продажи корпоративных прав (долей/акций).
-        Проверяется только один вопрос: MAC/MAE clause — существенное неблагоприятное
-        изменение.
-
-        Нормативный ориентир:
-        - ст. 421 ГК РФ — свобода договора
-        - ст. 451 ГК РФ — существенное изменение обстоятельств
-
-        Важно:
-        - Твоя задача — только установить, что прямо есть в тексте договора, а чего прямо нет.
-        - Не оценивай серьёзность риска.
-
-        [ЗАДАЧА]
-        Найди в тексте договора:
-        1. Есть ли MAC/MAE clause.
-        2. Как определён MAC (широко / узко / стандартно).
-        3. Есть ли перечень carve-outs (событий, не являющихся MAC).
-        4. Каково последствие MAC (право отказаться / корректировка цены).
-        5. Есть ли порог существенности.
-
-        [ПРАВИЛА]
-        1. Используй только текст документа.
-        2. Не подставляй нормы закона вместо текста договора.
-        3. Если условие не указано прямо — возвращай "not_defined".
-        4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
-        6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
-
-        [ПРИМЕРЫ (FEW-SHOT)]
-
-        Пример 1 — MAC clause есть:
-        Фрагмент:
-        "Под существенным неблагоприятным изменением (MAC) понимается снижение выручки
-        Target более чем на 20% по сравнению с аналогичным периодом предыдущего года.
-        Carve-outs: общеэкономические условия, форс-мажор, действия Покупателя.
-        При наступлении MAC Покупатель вправе отказаться от договора."
-
-        Ответ:
-        {
-          "mac_status": "defined",
-          "mac_details": "снижение выручки Target более чем на 20%",
-          "mac_definition_scope": "narrow",
-          "mac_carve_outs_status": "defined",
-          "mac_carve_outs_details": "общеэкономические условия, форс-мажор, действия Покупателя",
-          "mac_consequence_status": "defined",
-          "mac_consequence_details": "право Покупателя отказаться от договора",
-          "mac_consequence_type": "termination_right",
-          "mac_threshold_status": "defined",
-          "mac_threshold_details": "снижение выручки более чем на 20%",
-          "evidence": [
-            {
-              "clause_ref": "п. 9.1",
-              "quote": "Под существенным неблагоприятным изменением (MAC) понимается снижение выручки Target более чем на 20%."
-            }
-          ]
-        }
-
-        Пример 2 — MAC clause нет:
-        Фрагмент:
-        "Стороны договорились о продаже корпоративных прав."
-
-        Ответ:
-        {
-          "mac_status": "not_defined",
-          "mac_details": "Данные не определены",
-          "mac_definition_scope": "not_defined",
-          "mac_carve_outs_status": "not_defined",
-          "mac_carve_outs_details": "Данные не определены",
-          "mac_consequence_status": "not_defined",
-          "mac_consequence_details": "Данные не определены",
-          "mac_consequence_type": "not_defined",
-          "mac_threshold_status": "not_defined",
-          "mac_threshold_details": "Данные не определены",
-          "evidence": []
-        }
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Найди прямую цитату о MAC/MAE clause.
-        2. Найди прямую цитату об определении MAC.
-        3. Найди прямую цитату о carve-outs.
-        4. Найди прямую цитату о последствии MAC.
-        5. Если прямой цитаты нет — верни "not_defined". Не додумывай определение MAC.
-
-        Не выводи шаги проверки. Верни только JSON.
-
-        [ФОРМАТ ОТВЕТА]
-        {
-          "mac_status": "<defined / not_defined>",
-          "mac_details": "<текст или 'Данные не определены'>",
-          "mac_definition_scope": "<broad / narrow / standard / not_defined>",
-          "mac_carve_outs_status": "<defined / not_defined>",
-          "mac_carve_outs_details": "<текст или 'Данные не определены'>",
-          "mac_consequence_status": "<defined / not_defined>",
-          "mac_consequence_details": "<текст или 'Данные не определены'>",
-          "mac_consequence_type": "<termination_right / price_adjustment / other / not_defined>",
-          "mac_threshold_status": "<defined / not_defined>",
-          "mac_threshold_details": "<текст или 'Данные не определены'>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
-        }
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 700
-
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "существенное неблагоприятное изменение"
-        - "material adverse"
-        - "MAC"
-        - "MAE"
-        - "право отказаться от сделки"
-        - "carve-outs"
-      rerank: true
-
-    enrichment_hints:
-      preferred_clause_functions:
-        - "limitations"
-        - "remedies"
-      confidence_bonus_on_match: 0.08
-
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 650
-
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "mac_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если MAC/MAE clause прямо присутствует. Иначе 'not_defined'."
-        - name: "mac_details"
-          type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "mac_definition_scope"
-          type: "string"
-          allowed_values: ["broad", "narrow", "standard", "not_defined"]
-          description: "Широта определения MAC. Если не определена — 'not_defined'."
-        - name: "mac_carve_outs_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если carve-outs прямо перечислены. Иначе 'not_defined'."
-        - name: "mac_carve_outs_details"
-          type: "string"
-          description: "Укажи carve-outs. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "mac_consequence_type"
-          type: "string"
-          allowed_values: ["termination_right", "price_adjustment", "other", "not_defined"]
-          description: "Тип последствия MAC. Если не определён — 'not_defined'."
-        - name: "mac_consequence_details"
-          type: "string"
-          description: "Укажи последствие. Если данных нет, верни строго: 'Данные не определены'."
-      store_payload: true
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 10: Ковенанты промежуточного периода
+  # CHECK 11: Ковенанты промежуточного периода
   # ──────────────────────────────────────────────────────────────────────────
   - id: interim_period_covenants_check
     name: "Промежуточный период: ковенанты между подписанием и закрытием"
@@ -3051,15 +3580,39 @@ checks_v8:
       max_tokens: 800
 
     retrieval:
+      retrieval_query: "промежуточный период interim period обычная хозяйственная деятельность ordinary course запрет на дивиденды не допускать изменений без согласия покупателя ковенанты дивиденды заимствования отчуждение активов нарушение ковенантов"
+      preferred_unit_types:
+        - obligation
+        - limitation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "conditions precedent"
+        - "long-stop date"
+        - "closing deliverables"
+        - "преимущественное право"
+        - "корпоративное одобрение pre-signing"
+        - "ФАС"
+        - "due diligence"
+        - "заверения"
+        - "indemnity"
+        - "cap"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 7
       max_chunks: 9
-      boost_keywords:
-        - "промежуточный период"
-        - "обычная хозяйственная деятельность"
-        - "без согласия покупателя"
-        - "ковенанты"
-        - "дивиденды"
-        - "interim period"
       rerank: true
 
     enrichment_hints:
@@ -3076,229 +3629,105 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ковенанты промежуточного
+        периода: ordinary course, запреты на дивиденды, займы, отчуждение активов.
+        Не анализируй заверения, indemnity, цену или механизм перехода права.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. interim_covenants_status — "defined" если ковенанты промежуточного периода прямо присутствуют.
+        2. ordinary_course_status — "defined" если обязательство по ordinary course прямо указано.
+        3. ordinary_course_details — формулировка.
+        4. restricted_actions_status — "defined" если перечень запрещённых действий прямо указан.
+        5. restricted_actions_details — перечень.
+        6. dividend_restriction_status — "defined" если запрет дивидендов прямо указан.
+        7. dividend_restriction_details — формулировка.
+        8. borrowing_restriction_status — "defined" если запрет заимствований прямо указан.
+        9. borrowing_restriction_details — формулировка.
+        10. asset_disposal_restriction_status — "defined" если запрет отчуждения активов прямо указан.
+        11. asset_disposal_restriction_details — формулировка.
+        12. breach_consequences_status — "defined" если последствия нарушения прямо указаны.
+        13. breach_consequences_details — последствия.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
       fields:
         - name: "interim_covenants_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ковенанты промежуточного периода прямо присутствуют. Иначе 'not_defined'."
+          description: "Статус наличия ковенантов промежуточного периода."
         - name: "ordinary_course_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если обязательство по ordinary course прямо указано. Иначе 'not_defined'."
+          description: "Статус указания обязательства ordinary course."
         - name: "ordinary_course_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Ordinary course"
+          description: "Обязательство вести бизнес target в обычном режиме."
         - name: "restricted_actions_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если перечень запрещённых действий прямо указан. Иначе 'not_defined'."
+          description: "Статус перечня запрещённых действий."
         - name: "restricted_actions_details"
           type: "string"
-          description: "Укажи перечень. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Запрещённые действия"
+          description: "Перечень действий, запрещённых без согласия покупателя."
         - name: "dividend_restriction_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если запрет дивидендов прямо указан. Иначе 'not_defined'."
+          description: "Статус запрета дивидендов."
         - name: "dividend_restriction_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Запрет дивидендов"
+          description: "Формулировка запрета выплаты дивидендов в промежуточный период."
+        - name: "borrowing_restriction_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус запрета новых заимствований."
+        - name: "borrowing_restriction_details"
+          type: "string"
+          presentation: "fact"
+          label: "Запрет заимствований"
+          description: "Формулировка запрета новых заимствований в промежуточный период."
+        - name: "asset_disposal_restriction_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус запрета отчуждения активов."
+        - name: "asset_disposal_restriction_details"
+          type: "string"
+          presentation: "fact"
+          label: "Запрет отчуждения активов"
+          description: "Формулировка запрета отчуждения активов target."
         - name: "breach_consequences_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если последствия нарушения ковенантов прямо указаны. Иначе 'not_defined'."
+          description: "Статус указания последствий нарушения ковенантов."
         - name: "breach_consequences_details"
           type: "string"
-          description: "Укажи последствия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Последствия нарушения ковенантов"
+          description: "Последствия нарушения ковенантов промежуточного периода."
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 11: Change of control
-  # ──────────────────────────────────────────────────────────────────────────
-  - id: change_of_control_contracts_check
-    name: "Change of control: ключевые договоры target с CoC-триггерами"
-    description: >
-      Фактографическая проверка наличия в договоре раскрытия и урегулирования
-      рисков change of control: контракты target с CoC-клаузами (кредиты, лицензии,
-      коммерческие контракты), порядок получения согласий, сроки.
-    triggers:
-      any: ["change_of_control_risk", "majority_stake_sale"]
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-
-    rules:
-      keywords:
-        - "смена контроля"
-        - "change of control"
-        - "переход контроля"
-        - "согласие контрагентов"
-        - "уведомление контрагентов"
-        - "ключевые договоры"
-        - "кредитный договор"
-        - "досрочное погашение"
-        - "лицензия"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)смен(а|ы|е)\\s+контрол"
-        - "(?i)change\\s+of\\s+control"
-        - "(?i)ключев(ые|ых)\\s+договор"
-
-    llm:
-      prompt_template: |
-        [КОНТЕКСТ]
-        Ты — российский юрист по корпоративным сделкам.
-        Анализируется договор купли-продажи корпоративных прав (долей/акций).
-        Проверяется только один вопрос: риски change of control для ключевых
-        договоров target-компании.
-
-        Нормативный ориентир:
-        - ст. 431.2 ГК РФ — нераскрытие существенных договоров как нарушение заверений
-
-        Важно:
-        - Твоя задача — только установить, что прямо есть в тексте договора, а чего прямо нет.
-        - Не оценивай серьёзность риска.
-
-        [ЗАДАЧА]
-        Найди в тексте договора:
-        1. Есть ли упоминание риска change of control / смены контроля.
-        2. Есть ли перечень ключевых договоров target с CoC-условиями.
-        3. Есть ли условие о необходимости согласия кредиторов.
-        4. Есть ли условие о лицензиях при смене собственника.
-        5. Есть ли порядок получения согласий контрагентов и сроки.
-
-        [ПРАВИЛА]
-        1. Используй только текст документа.
-        2. Не подставляй нормы закона вместо текста договора.
-        3. Если условие не указано прямо — возвращай "not_defined".
-        4. Если текстового значения нет — возвращай строго "Данные не определены".
-        5. Не используй "None", "null", "not_specified", пустые строки.
-        6. В evidence включай только текст договора.
-        7. Верни только один JSON-объект.
-
-        [ПРИМЕРЫ (FEW-SHOT)]
-
-        Пример 1 — CoC риск урегулирован:
-        Фрагмент:
-        "Продавец раскрывает ключевые договоры Target с CoC-клаузами: кредитный договор
-        с ПАО «Банк» от 01.01.2023 (требует согласия банка на смену контроля), лицензия
-        на недропользование (требует уведомления ФАС в течение 30 дней после closing)."
-
-        Ответ:
-        {
-          "coc_risk_status": "defined",
-          "coc_risk_details": "кредитный договор с ПАО «Банк»; лицензия на недропользование",
-          "key_contracts_status": "defined",
-          "key_contracts_details": "кредитный договор с ПАО «Банк» от 01.01.2023; лицензия на недропользование",
-          "lender_consent_status": "defined",
-          "lender_consent_details": "требует согласия банка на смену контроля",
-          "license_coc_status": "defined",
-          "license_coc_details": "требует уведомления ФАС в течение 30 дней после closing",
-          "counterparty_consent_procedure_status": "not_defined",
-          "counterparty_consent_procedure_details": "Данные не определены",
-          "evidence": [
-            {
-              "clause_ref": "п. 11.1",
-              "quote": "Продавец раскрывает ключевые договоры Target с CoC-клаузами: кредитный договор с ПАО «Банк» от 01.01.2023."
-            }
-          ]
-        }
-
-        Пример 2 — CoC риск не упомянут:
-        Фрагмент:
-        "Продавец гарантирует действительность передаваемой доли."
-
-        Ответ:
-        {
-          "coc_risk_status": "not_defined",
-          "coc_risk_details": "Данные не определены",
-          "key_contracts_status": "not_defined",
-          "key_contracts_details": "Данные не определены",
-          "lender_consent_status": "not_defined",
-          "lender_consent_details": "Данные не определены",
-          "license_coc_status": "not_defined",
-          "license_coc_details": "Данные не определены",
-          "counterparty_consent_procedure_status": "not_defined",
-          "counterparty_consent_procedure_details": "Данные не определены",
-          "evidence": []
-        }
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Найди прямую цитату о CoC-риске или смене контроля.
-        2. Найди прямую цитату о ключевых договорах с CoC-условиями.
-        3. Найди прямую цитату о согласии кредиторов.
-        4. Найди прямую цитату о лицензиях.
-        5. Найди прямую цитату о порядке получения согласий.
-        6. Если прямой цитаты нет — верни "not_defined". Не додумывай список договоров.
-
-        Не выводи шаги проверки. Верни только JSON.
-
-        [ФОРМАТ ОТВЕТА]
-        {
-          "coc_risk_status": "<defined / not_defined>",
-          "coc_risk_details": "<текст или 'Данные не определены'>",
-          "key_contracts_status": "<defined / not_defined>",
-          "key_contracts_details": "<текст или 'Данные не определены'>",
-          "lender_consent_status": "<defined / not_defined>",
-          "lender_consent_details": "<текст или 'Данные не определены'>",
-          "license_coc_status": "<defined / not_defined>",
-          "license_coc_details": "<текст или 'Данные не определены'>",
-          "counterparty_consent_procedure_status": "<defined / not_defined>",
-          "counterparty_consent_procedure_details": "<текст или 'Данные не определены'>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
-        }
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 700
-
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "смена контроля"
-        - "change of control"
-        - "ключевые договоры"
-        - "кредитный договор"
-        - "согласие контрагентов"
-        - "лицензия"
-      rerank: true
-
-    enrichment_hints:
-      preferred_clause_functions:
-        - "representations"
-        - "obligations"
-      confidence_bonus_on_match: 0.08
-
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 650
-
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "coc_risk_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если CoC-риск прямо упомянут и урегулирован. Иначе 'not_defined'."
-        - name: "coc_risk_details"
-          type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "key_contracts_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ключевые договоры target с CoC-условиями прямо раскрыты. Иначе 'not_defined'."
-        - name: "key_contracts_details"
-          type: "string"
-          description: "Укажи договоры. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "lender_consent_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если необходимость согласия кредиторов прямо указана. Иначе 'not_defined'."
-        - name: "lender_consent_details"
-          type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
-      store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
   # CHECK 12: Санкции, AML/KYC, бенефициарные владельцы
@@ -3441,15 +3870,38 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_query: "санкции бенефициарный владелец конечный бенефициар источник средств AML KYC комплаенс право отказа от closing иностранное лицо нерезидент UBO SDN EU UN санкционные списки источник финансирования"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - boilerplate
+      negative_keywords:
+        - "налоги уплачены"
+        - "судебные споры"
+        - "лицензии"
+        - "IP"
+        - "compliance как часть warranty package"
+        - "indemnity"
+        - "cap"
+        - "basket"
+        - "conditions precedent"
+        - "due diligence"
+        - "ковенанты"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "санкции"
-        - "AML"
-        - "KYC"
-        - "бенефициар"
-        - "источник средств"
-        - "приостановить closing"
       rerank: true
 
     enrichment_hints:
@@ -3466,39 +3918,79 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 460
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора условия о санкциях, UBO,
+        источнике средств и праве приостановить closing при compliance-нарушениях.
+        Не анализируй заверения о налогах, цену или механизм перехода права.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. sanctions_rep_status — "defined" если санкционные заверения прямо присутствуют.
+        2. sanctions_rep_details — формулировка.
+        3. sanctions_covers_both_parties — "yes" / "no" / "not_defined".
+        4. ubo_disclosure_status — "defined" если UBO прямо раскрыт.
+        5. ubo_disclosure_details — формулировка.
+        6. source_of_funds_status — "defined" если источник средств прямо подтверждён.
+        7. source_of_funds_details — формулировка.
+        8. compliance_termination_status — "defined" если право приостановить closing прямо предусмотрено.
+        9. compliance_termination_details — формулировка.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
       fields:
         - name: "sanctions_rep_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если санкционные заверения прямо присутствуют. Иначе 'not_defined'."
+          description: "Статус наличия санкционных заверений."
         - name: "sanctions_rep_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Санкционные заверения"
+          description: "Формулировка санкционных заверений сторон."
         - name: "sanctions_covers_both_parties"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Верни 'yes', если заверения покрывают обе стороны прямо. Если нет — 'no'. Если не указано — 'not_defined'."
+          description: "Покрывают ли санкционные заверения обе стороны."
         - name: "ubo_disclosure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если UBO прямо раскрыт. Иначе 'not_defined'."
+          description: "Статус раскрытия UBO."
         - name: "ubo_disclosure_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Раскрытие UBO"
+          description: "Формулировка о раскрытии бенефициарных владельцев."
         - name: "source_of_funds_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если источник средств прямо подтверждён. Иначе 'not_defined'."
+          description: "Статус подтверждения источника средств."
         - name: "source_of_funds_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Источник средств"
+          description: "Формулировка о подтверждении источника средств покупателя."
         - name: "compliance_termination_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право приостановить closing прямо предусмотрено. Иначе 'not_defined'."
+          description: "Статус права приостановить closing при compliance-нарушениях."
         - name: "compliance_termination_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Право приостановить closing"
+          description: "Формулировка о праве приостановить closing при compliance-нарушениях."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3659,16 +4151,41 @@ checks_v8:
       max_tokens: 800
 
     retrieval:
+      retrieval_query: "неконкуренция non-compete непереманивание сотрудников non-solicit запрет на конкурирующую деятельность налоговые обязательства НДФЛ налог на прибыль pre-closing tax tax indemnity налоговые проверки распределение налоговых рисков"
+      preferred_unit_types:
+        - obligation
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - limitations
+        - obligations
+        - boilerplate
+      negative_keywords:
+        - "заверения о налогах target как warranty"
+        - "cap basket claim period"
+        - "indemnity как механизм нарушения заверений"
+        - "расторжение"
+        - "long-stop date"
+        - "break fee"
+        - "уступка прав"
+        - "конфиденциальность"
+        - "conditions precedent"
+        - "due diligence"
+        - "ковенанты промежуточного периода"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.55, 1.0]
+        boost: 0.18
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "неконкуренция"
-        - "non-compete"
-        - "non-solicit"
-        - "налоговые обязательства"
-        - "НДФЛ"
-        - "pre-closing tax"
-        - "tax indemnity"
       rerank: true
 
     enrichment_hints:
@@ -3686,53 +4203,103 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 530
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора post-closing обязательства:
+        non-compete, non-solicit, налоговые оговорки и распределение pre-closing рисков.
+        Не анализируй заверения о налогах target, цену или механизм перехода права.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. non_compete_status — "defined" если non-compete прямо предусмотрен.
+        2. non_compete_details — условия non-compete.
+        3. non_compete_duration_status — "defined" если срок прямо указан.
+        4. non_compete_duration_details — срок.
+        5. non_compete_territory_status — "defined" если территория прямо указана.
+        6. non_compete_territory_details — территория.
+        7. non_solicit_status — "defined" если non-solicit прямо предусмотрен.
+        8. non_solicit_details — условия non-solicit.
+        9. tax_allocation_status — "defined" если распределение налоговых рисков прямо описано.
+        10. tax_allocation_details — формулировка.
+        11. pre_closing_tax_liability — "seller" / "buyer" / "shared" / "not_defined".
+        12. tax_indemnity_status — "defined" если налоговая индемнити прямо предусмотрена.
+        13. tax_indemnity_details — формулировка.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
       fields:
         - name: "non_compete_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если non-compete прямо предусмотрен. Иначе 'not_defined'."
+          description: "Статус наличия non-compete clause."
         - name: "non_compete_details"
           type: "string"
-          description: "Укажи условия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Non-compete"
+          description: "Условия non-compete продавца."
         - name: "non_compete_duration_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок non-compete прямо указан. Иначе 'not_defined'."
+          description: "Статус указания срока non-compete."
         - name: "non_compete_duration_details"
           type: "string"
-          description: "Укажи срок. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок non-compete"
+          description: "Срок действия non-compete ограничения."
         - name: "non_compete_territory_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если территория non-compete прямо указана. Иначе 'not_defined'."
+          description: "Статус указания территории non-compete."
         - name: "non_compete_territory_details"
           type: "string"
-          description: "Укажи территорию. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Территория non-compete"
+          description: "Территория действия non-compete ограничения."
         - name: "non_solicit_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если non-solicit прямо предусмотрен. Иначе 'not_defined'."
+          description: "Статус наличия non-solicit clause."
         - name: "non_solicit_details"
           type: "string"
-          description: "Укажи условия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Non-solicit"
+          description: "Условия запрета на переманивание сотрудников и клиентов."
         - name: "tax_allocation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если распределение налоговых рисков прямо описано. Иначе 'not_defined'."
+          description: "Статус определения распределения налоговых рисков."
         - name: "tax_allocation_details"
           type: "string"
-          description: "Укажи условия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Распределение налоговых рисков"
+          description: "Формулировка о распределении налоговых рисков target."
         - name: "pre_closing_tax_liability"
           type: "string"
+          presentation: "signal"
           allowed_values: ["seller", "buyer", "shared", "not_defined"]
-          description: "Кто несёт ответственность за pre-closing налоги target. Если не указано — 'not_defined'."
+          description: "Кто несёт ответственность за pre-closing налоги target."
         - name: "tax_indemnity_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если налоговая индемнити прямо предусмотрена. Иначе 'not_defined'."
+          description: "Статус наличия налоговой индемнити."
         - name: "tax_indemnity_details"
           type: "string"
-          description: "Укажи условия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Налоговая индемнити"
+          description: "Формулировка налоговой индемнити."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3758,22 +4325,13 @@ checks_v8:
         - "reverse break fee"
         - "уступка прав"
         - "без согласия другой стороны"
-        - "конфиденциальность"
-        - "неразглашение"
-        - "арбитражный суд"
-        - "третейский суд"
-        - "претензионный порядок"
-        - "применимое право"
-        - "governing law"
+
       keyword_mode: "any"
       regex_patterns:
         - "(?i)расторж(ение|ении)"
         - "(?i)long[- ]?stop"
         - "(?i)break\\s+fee"
         - "(?i)уступк(а|и).*без\\s+соглас"
-        - "(?i)конфиденциал"
-        - "(?i)арбитражн(ый|ого)\\s+суд"
-        - "(?i)применим(ое|ого)\\s+прав"
 
     llm:
       prompt_template: |
@@ -3786,7 +4344,6 @@ checks_v8:
         Нормативный ориентир:
         - ст. 450–453 ГК РФ — расторжение
         - ст. 382, 388 ГК РФ — уступка прав
-        - ст. 1210–1211 ГК РФ — применимое право
 
         Важно:
         - Твоя задача — только установить, что прямо есть в тексте договора, а чего прямо нет.
@@ -3799,9 +4356,7 @@ checks_v8:
         3. Есть ли break fee (размер и условия).
         4. Есть ли reverse break fee.
         5. Есть ли ограничение на уступку прав без согласия.
-        6. Есть ли условие о конфиденциальности (срок, исключения).
-        7. Есть ли суд / форум разрешения споров и претензионный порядок.
-        8. Есть ли применимое право.
+
 
         [ПРАВИЛА]
         1. Используй только текст документа.
@@ -3834,14 +4389,6 @@ checks_v8:
           "reverse_break_fee_details": "Данные не определены",
           "assignment_restriction_status": "defined",
           "assignment_restriction_details": "уступка без согласия другой стороны не допускается",
-          "confidentiality_status": "defined",
-          "confidentiality_details": "3 года",
-          "pretrial_status": "not_defined",
-          "pretrial_details": "Данные не определены",
-          "dispute_forum_status": "defined",
-          "dispute_forum_details": "МКАС при ТПП РФ",
-          "governing_law_status": "defined",
-          "governing_law_details": "законодательство Российской Федерации",
           "evidence": [
             {
               "clause_ref": "п. 14.1",
@@ -3866,14 +4413,6 @@ checks_v8:
           "reverse_break_fee_details": "Данные не определены",
           "assignment_restriction_status": "not_defined",
           "assignment_restriction_details": "Данные не определены",
-          "confidentiality_status": "not_defined",
-          "confidentiality_details": "Данные не определены",
-          "pretrial_status": "not_defined",
-          "pretrial_details": "Данные не определены",
-          "dispute_forum_status": "not_defined",
-          "dispute_forum_details": "Данные не определены",
-          "governing_law_status": "not_defined",
-          "governing_law_details": "Данные не определены",
           "evidence": []
         }
 
@@ -3902,14 +4441,6 @@ checks_v8:
           "reverse_break_fee_details": "<текст или 'Данные не определены'>",
           "assignment_restriction_status": "<defined / not_defined>",
           "assignment_restriction_details": "<текст или 'Данные не определены'>",
-          "confidentiality_status": "<defined / not_defined>",
-          "confidentiality_details": "<текст или 'Данные не определены'>",
-          "pretrial_status": "<defined / not_defined>",
-          "pretrial_details": "<текст или 'Данные не определены'>",
-          "dispute_forum_status": "<defined / not_defined>",
-          "dispute_forum_details": "<текст или 'Данные не определены'>",
-          "governing_law_status": "<defined / not_defined>",
-          "governing_law_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 7
@@ -3917,17 +4448,42 @@ checks_v8:
       max_tokens: 850
 
     retrieval:
+      retrieval_query: "расторжение отказ от договора long-stop break fee reverse break fee уступка прав без согласия другой стороны walk-away rights MAC material adverse change"
+      preferred_unit_types:
+        - termination_provision
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+        - limitations
+      negative_keywords:
+        - "conditions precedent для closing"
+        - "closing deliverables"
+        - "non-compete"
+        - "non-solicit"
+        - "налоговые обязательства"
+        - "pre-closing tax"
+        - "заверения"
+        - "indemnity"
+        - "cap"
+        - "basket"
+        - "due diligence"
+        - "ковенанты промежуточного периода"
+        - "санкции"
+        - "AML"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.60, 1.0]
+        boost: 0.18
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "расторжение"
-        - "long-stop"
-        - "break fee"
-        - "уступка прав"
-        - "конфиденциальность"
-        - "арбитражный суд"
-        - "МКАС"
-        - "применимое право"
       rerank: true
 
     enrichment_hints:
@@ -3946,56 +4502,93 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 460
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
+        прав doc-type специфику расторжения: основания, long-stop date, break fee,
+        reverse break fee, ограничение уступки прав.
+        Не анализируй претензионный порядок, подсудность, конфиденциальность
+        и применимое право — они покрываются global checks.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. termination_grounds_status — "defined" если основания расторжения прямо указаны.
+        2. termination_grounds_details — основания.
+        3. long_stop_date_status — "defined" если long-stop date прямо указана.
+        4. long_stop_date_details — дата.
+        5. break_fee_status — "defined" если break fee прямо предусмотрен.
+        6. break_fee_details — размер и условия.
+        7. reverse_break_fee_status — "defined" если reverse break fee прямо предусмотрен.
+        8. reverse_break_fee_details — размер и условия.
+        9. assignment_restriction_status — "defined" если ограничение уступки прямо указано.
+        10. assignment_restriction_details — формулировка.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не выводи претензионный порядок или применимое право.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "termination_grounds_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если основания расторжения прямо указаны. Иначе 'not_defined'."
+          description: "Статус указания оснований расторжения."
         - name: "termination_grounds_details"
           type: "string"
-          description: "Укажи основания. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Основания расторжения"
+          description: "Основания расторжения договора."
         - name: "long_stop_date_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если long-stop date прямо указана. Иначе 'not_defined'."
+          description: "Статус указания long-stop date."
         - name: "long_stop_date_details"
           type: "string"
-          description: "Укажи дату. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Long-stop date"
+          description: "Предельная дата, после которой стороны вправе отказаться от сделки."
         - name: "break_fee_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если break fee прямо предусмотрен. Иначе 'not_defined'."
+          description: "Статус наличия break fee."
         - name: "break_fee_details"
           type: "string"
-          description: "Укажи размер и условия. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Break fee"
+          description: "Размер и условия уплаты break fee."
+        - name: "reverse_break_fee_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия reverse break fee."
+        - name: "reverse_break_fee_details"
+          type: "string"
+          presentation: "fact"
+          label: "Reverse break fee"
+          description: "Размер и условия уплаты reverse break fee."
         - name: "assignment_restriction_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ограничение на уступку прямо указано. Иначе 'not_defined'."
+          description: "Статус ограничения на уступку прав."
         - name: "assignment_restriction_details"
           type: "string"
-          description: "Укажи формулировку. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "confidentiality_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если конфиденциальность прямо предусмотрена. Иначе 'not_defined'."
-        - name: "confidentiality_details"
-          type: "string"
-          description: "Укажи срок и исключения. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "dispute_forum_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если суд / форум разрешения споров прямо указан. Иначе 'not_defined'."
-        - name: "dispute_forum_details"
-          type: "string"
-          description: "Укажи форум. Если данных нет, верни строго: 'Данные не определены'."
-        - name: "governing_law_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если применимое право прямо указано. Иначе 'not_defined'."
-        - name: "governing_law_details"
-          type: "string"
-          description: "Укажи применимое право. Если данных нет, верни строго: 'Данные не определены'."
+          presentation: "fact"
+          label: "Ограничение уступки прав"
+          description: "Формулировка об ограничении уступки прав по договору."
       store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -4005,9 +4598,6 @@ checks_v8:
 
 dd_request_templates:
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 1: parties_and_authority
-  # ──────────────────────────────────────────────────────────────────────────
   parties_and_authority:
 
     missing_seller_details:

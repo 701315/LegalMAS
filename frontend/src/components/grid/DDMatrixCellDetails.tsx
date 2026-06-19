@@ -219,6 +219,7 @@ function getUiModeLabel(value: string | null | undefined): string {
     case "clause_presence":
       return "Наличие оговорки";
     case "extraction":
+    case "field_extraction":
       return "Извлечение значения";
     case "risk_flag":
       return "Риск-индикатор";

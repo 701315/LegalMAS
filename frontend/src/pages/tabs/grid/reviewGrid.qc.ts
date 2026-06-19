@@ -61,7 +61,20 @@ export interface ReviewQcTarget {
 }
 
 /**
- * Возвращает findings, относящиеся к выбранным строкам review matrix.
+ * Возвращает findings, относящиеся к выбранным элементам selection.
+ *
+ * Поддерживает два режима selection:
+ *
+ * Matrix mode:
+ *   ReviewSelectionItem содержит только rowId (=== matrixRowId).
+ *   Возвращаются все findings с matching rowId.
+ *
+ * List mode:
+ *   ReviewSelectionItem содержит rowId (flat key), matrixRowId и checkId.
+ *   Возвращается только точный finding с matching (matrixRowId + checkId).
+ *   Это предотвращает попадание sibling-findings той же строки матрицы в QC.
+ *
+ * Результат дедуплицирован по findingId.
  */
 export function getSelectedReviewFindings(
   findings: ReviewFinding[],
@@ -71,8 +84,35 @@ export function getSelectedReviewFindings(
     return [];
   }
 
-  const selectedRowIds = new Set(selection.map((item) => item.rowId));
-  return findings.filter((finding) => selectedRowIds.has(finding.rowId));
+  // Разбиваем selection на два типа:
+  // exact — list mode (есть matrixRowId + checkId)
+  // coarse — matrix mode (только rowId)
+  const exactKeys = new Set<string>();
+  const coarseRowIds = new Set<string>();
+
+  for (const item of selection) {
+    if (item.matrixRowId && item.checkId) {
+      exactKeys.add(`${item.matrixRowId}::${item.checkId}`);
+    } else {
+      coarseRowIds.add(item.rowId);
+    }
+  }
+
+  const seen = new Set<string>();
+  const result: ReviewFinding[] = [];
+
+  for (const finding of findings) {
+    const exactKey = `${finding.rowId}::${finding.checkId}`;
+    const matchedExact = exactKeys.has(exactKey);
+    const matchedCoarse = coarseRowIds.has(finding.rowId);
+
+    if ((matchedExact || matchedCoarse) && !seen.has(finding.findingId)) {
+      seen.add(finding.findingId);
+      result.push(finding);
+    }
+  }
+
+  return result;
 }
 
 /**

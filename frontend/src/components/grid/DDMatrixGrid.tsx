@@ -44,6 +44,7 @@ import DDMatrixCellDetails, {
 import type {
   ReviewGridRow,
   ReviewCheckColumn,
+  ReviewSelectionItem,
 } from "../../pages/tabs/grid/reviewGrid.types";
 
 import {
@@ -138,7 +139,7 @@ export interface DDMatrixGridProps {
     checkName?: string | null;
     cell: MatrixCellDetailsCell;
   }) => void;
-  onSelectionChange?: (rowIds: string[]) => void;
+  onSelectionChange?: (selection: ReviewSelectionItem[]) => void;
   clearSelectionToken?: number;
 }
 
@@ -166,13 +167,23 @@ function getHeaderTooltip(meta: ReviewCheckColumn): string {
     .join("\n");
 }
 
-function getSelectedRowIds(
+function buildSelectionItems(
   event: SelectionChangedEvent<MatrixGridRow>,
-): string[] {
+): ReviewSelectionItem[] {
   return event.api
     .getSelectedNodes()
-    .map((node) => node.data?.rowId)
-    .filter((value): value is string => Boolean(value));
+    .flatMap((node) => {
+      const data = node.data;
+      if (!data?.rowId) {
+        return [];
+      }
+
+      return [
+        {
+          rowId: data.rowId,
+        },
+      ];
+    });
 }
 
 export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
@@ -584,7 +595,7 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
   const handleSelectionChanged = useCallback(
     (event: SelectionChangedEvent<MatrixGridRow>) => {
       if (!onSelectionChange) return;
-      onSelectionChange(getSelectedRowIds(event));
+      onSelectionChange(buildSelectionItems(event));
     },
     [onSelectionChange],
   );

@@ -1,5 +1,6 @@
 id: "hr_collective_agreements_and_social_packages"
 name: "Коллективные договоры и социальные обязательства"
+group: "HR"
 description: >
   Анализирует коллективные договоры (CBA), соглашения с профсоюзами
   и социальные обязательства работодателя: наличие и срок CBA,
@@ -112,6 +113,11 @@ evidence:
 retrieval:
   context_k: 5
   max_chunks: 10
+
+  retrieval_query: >
+    коллективный договор профсоюз социальный пакет ДМС пенсионная программа 
+    выходное пособие гарантия рабочих мест консультации с профсоюзом
+
   boost_keywords:
     - "коллективный договор"
     - "collective agreement"
@@ -139,6 +145,35 @@ retrieval:
     - "pension plan"
     - "пенсионная программа"
     - "moratorium on layoffs"
+
+  negative_keywords:
+    - "коммерческая тайна"
+    - "интеллектуальная собственность"
+    - "подсудность"
+    - "применимое право"
+    - "штрафные санкции"
+
+  preferred_unit_types:
+    - "obligation"
+    - "general_provision"
+    
+  excluded_unit_types:
+    - "definition"
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "obligations"
+    - "procedures"
+    - "limitations"
+    - "remedies"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -156,26 +191,25 @@ enrichment_hints:
     - "invoice"
     - "act"
     - "schedule"
-  preferred_clause_functions:
-    - "non_compete"
-    - "non_solicitation"
-    - "general_provisions"
   confidence_bonus_on_match: 0.08
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 460
+  llm_max_tokens: 440
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по трудовому праву и HR due diligence.
+    Ты — юрист по трудовому праву.
     Твоя задача — точно извлечь из текста:
     1) есть ли коллективный договор / соглашение с профсоюзом;
     2) какие социальные льготы предусмотрены;
     3) есть ли enhanced severance;
     4) есть ли ограничения на сокращения;
-    5) требуются ли обязательные консультации при реорганизации или CoC.
+    5) требуются ли обязательные консультации при реорганизации
+       или CoC.
+
+    Не придумывай данные, которых нет в тексте.
     </role>
 
     <context>
@@ -195,18 +229,16 @@ extraction:
     - has_redundancy_restrictions
     - requires_consultation_on_restructuring
     - union_coverage_strength
-    - red_flags
     - reason
 
     Важно:
-    - не придумывай данные, которых нет в тексте;
-    - пиши user-facing значения коротко и по-русски.
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
-    Шаг 1 — НАЛИЧИЕ КОЛЛЕКТИВНОГО ДОГОВОРА / ПРОФСОЮЗА
+    Шаг 1 — НАЛИЧИЕ CBA / ПРОФСОЮЗА
 
-    Заполни поле "has_collective_agreement".
+    Заполни "has_collective_agreement".
 
     Значения:
     - "yes" — есть CBA / соглашение с профсоюзом /
@@ -216,54 +248,52 @@ extraction:
 
     Шаг 2 — СРОК И ПРОЦЕДУРА ИЗМЕНЕНИЯ CBA
 
-    Заполни поле "cba_term".
-    - Конкретный срок: "до 31.12.2026", "3 года"
-    - Если бессрочный: "Бессрочный"
-    - Если не указан: "Не указан"
+    Заполни "cba_term":
+    - Конкретный: "до 31.12.2026", "3 года"
+    - Бессрочный: "Бессрочный"
+    - Не указан: "Не указан"
+    - Если CBA нет: "Не применимо"
 
-    Заполни поле "cba_modification_procedure".
-    Значения:
-    - "yes" — процедура досрочного прекращения / пересмотра
-      предусмотрена.
-    - "no" — не предусмотрена или отсутствует.
+    Заполни "cba_modification_procedure":
+    - "yes" — процедура пересмотра предусмотрена.
+    - "no" — не предусмотрена.
     - "not_applicable" — CBA нет.
     - "unclear" — неясно.
 
     Шаг 3 — СОЦИАЛЬНЫЙ ПАКЕТ
 
-    Заполни поле "social_benefits_summary".
-    - Кратко перечисли ключевые льготы через ";":
-      * "ДМС; дополнительный отпуск 5 дней; пенсионная программа"
+    Заполни "social_benefits_summary".
+
+    Правила:
+    - Кратко через ";":
+      "ДМС; дополнительный отпуск 5 дней; пенсионная программа"
     - Если нет: "Не предусмотрен"
     - Если неясно: "Не удалось определить"
 
     Шаг 4 — ENHANCED SEVERANCE
 
-    Заполни поле "has_enhanced_severance".
+    Заполни "has_enhanced_severance".
 
     Значения:
-    - "yes" — выходные пособия сверх ТК РФ / законодательства:
-      * повышенные выплаты при увольнении;
-      * дополнительные компенсации сверх установленных законом.
+    - "yes" — выплаты при увольнении сверх ТК РФ /
+      законодательства: повышенные пособия, доп. компенсации.
     - "no" — нет.
     - "unclear" — неясно.
 
     Шаг 5 — ОГРАНИЧЕНИЯ НА СОКРАЩЕНИЯ
 
-    Заполни поле "has_redundancy_restrictions".
+    Заполни "has_redundancy_restrictions".
 
     Значения:
-    - "yes" — есть:
-      * no-redundancy clause;
-      * job security guarantee;
-      * moratorium on layoffs;
-      * ограничения на аутсорсинг / offshoring.
+    - "yes" — есть: no-redundancy clause, job security
+      guarantee, moratorium on layoffs, ограничения
+      на аутсорсинг / offshoring.
     - "no" — нет.
     - "unclear" — неясно.
 
-    Шаг 6 — ОБЯЗАТЕЛЬНЫЕ КОНСУЛЬТАЦИИ ПРИ РЕОРГАНИЗАЦИИ
+    Шаг 6 — ОБЯЗАТЕЛЬНЫЕ КОНСУЛЬТАЦИИ
 
-    Заполни поле "requires_consultation_on_restructuring".
+    Заполни "requires_consultation_on_restructuring".
 
     Значения:
     - "yes" — обязательные консультации с работниками /
@@ -272,40 +302,38 @@ extraction:
     - "no" — не предусмотрены.
     - "unclear" — неясно.
 
-    Шаг 7 — СИЛА ПРОФСОЮЗА
+    Шаг 7 — СИЛА ПРОФСОЮЗА / ОХВАТ CBA
 
-    Заполни поле "union_coverage_strength".
+    Заполни "union_coverage_strength".
+
+    Это поле заполняй только если охват явно указан в тексте.
+    Не угадывай по косвенным признакам.
 
     Значения:
-    - "high" — высокий охват (> 50%) или сильный профсоюз.
+    - "high" — охват > 50% или явно указан как высокий.
     - "medium" — умеренный охват / влияние.
-    - "low" — низкий охват / слабый профсоюз.
+    - "low" — низкий охват или слабый профсоюз.
     - "none" — профсоюз отсутствует.
-    - "unclear" — неясно.
+    - "unclear" — охват не указан или неясно.
 
-    Шаг 8 — RED FLAGS
+    Шаг 8 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "red_flags".
+    Заполни "hr_cba_display".
 
-    Используй:
-    - "NONE" — если существенных риск-факторов нет.
-    - "UNCLEAR" — если данных недостаточно.
-    - Коды через запятую:
-      * CBA1 — CBA с широким соцпакетом и повышенными
-        выплатами, существенно увеличивающими затраты.
-      * CBA2 — обязательные консультации с профсоюзом
-        при реорганизации / CoC.
-      * CBA3 — enhanced severance сверх ТК / законодательства.
-      * CBA4 — no-redundancy clause или ограничения
-        на сокращение штата.
-      * CBA5 — долгосрочный CBA (> 3 лет) без процедуры
-        досрочного прекращения / пересмотра.
-      * CBA6 — высокий охват CBA или сильный профсоюз
-        с переговорной силой.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 9 — USER-FACING SUMMARY
+    Базовые случаи:
+    - has_collective_agreement = "no":
+      "CBA не обнаружен; профсоюза нет"
+    - все поля unclear:
+      "Не удалось определить наличие CBA"
 
-    Заполни поле "hr_cba_display".
+    Если CBA есть — комбинируй через ";":
+    - начни с "CBA" + cba_term (если указан)
+    - добавь social_benefits_summary (кратко)
+    - добавь has_redundancy_restrictions (если "yes")
+    - добавь requires_consultation_on_restructuring (если "yes")
 
     Примеры:
     - "CBA до 2026 г.; ДМС + доп. отпуск; no-redundancy clause"
@@ -313,74 +341,61 @@ extraction:
     - "CBA не обнаружен; профсоюза нет"
     - "Не удалось определить наличие CBA"
 
-    Правила:
-    - Отрази максимум 3 ключевых факта через ";".
-    - Если нет CBA: "CBA не обнаружен; профсоюза нет"
-    - Если всё unclear: "Не удалось определить наличие CBA"
+    Ограничение: не более 3 фактов через ";".
 
-    Шаг 10 — ОБОСНОВАНИЕ
+    Шаг 9 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
     - Укажи: есть ли CBA, срок, ключевые льготы,
-      ограничения, консультации, почему выставлены red_flags.
-    - Приведи короткую цитату в кавычках.
-    - Если NONE — почему HR-риск минимален.
+      ограничения, консультации.
+    - Приведи цитату в кавычках.
     </instructions>
 
     <edge_cases>
     - Профсоюз упоминается, текста CBA нет:
       * has_collective_agreement = "unclear"
-      * в reason: неопределённость
 
-    - Широкий соцпакет, неясно — CBA или локальный акт:
-      * has_collective_agreement = "unclear"
-      * social_benefits_summary — заполни по содержанию
-
-    - Явные консультации при реорганизации / CoC:
+    - Явные консультации при CoC:
       * requires_consultation_on_restructuring = "yes"
-      * red_flags включает "CBA2"
 
-    - Enhanced severance "3 месячных оклада сверх закона":
+    - Enhanced severance "3 оклада сверх закона":
       * has_enhanced_severance = "yes"
-      * red_flags включает "CBA3"
 
     - No-redundancy clause:
       * has_redundancy_restrictions = "yes"
-      * red_flags включает "CBA4"
 
-    - CBA до 2030 г., процедура пересмотра не указана:
+    - CBA до 2030 г., пересмотр не предусмотрен:
       * cba_term = "до 2030"
       * cba_modification_procedure = "no"
-      * red_flags включает "CBA5"
 
-    - Нет упоминаний CBA / профсоюза:
+    - Нет CBA / профсоюза:
       * has_collective_agreement = "no"
       * union_coverage_strength = "none"
-      * red_flags = "NONE"
       * hr_cba_display = "CBA не обнаружен; профсоюза нет"
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
-      * red_flags = "UNCLEAR"
       * hr_cba_display = "Не удалось определить наличие CBA"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "hr_cba_display"
       type: "string"
-      description: "Коллективный договор и соцпакет: краткий вывод"
+      presentation: "fact"
+      label: "Коллективный договор и соцпакет"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "has_collective_agreement"
       type: "string"
+      presentation: "signal"
       description: "Наличие CBA / соглашения с профсоюзом"
       allowed_values:
         - "yes"
@@ -389,11 +404,14 @@ extraction:
 
     - name: "cba_term"
       type: "string"
-      description: "Срок действия CBA"
+      presentation: "fact"
+      label: "Срок CBA"
+      description: "Срок действия коллективного договора"
 
     - name: "cba_modification_procedure"
       type: "string"
-      description: "Процедура досрочного прекращения / пересмотра CBA"
+      presentation: "signal"
+      description: "Процедура пересмотра CBA"
       allowed_values:
         - "yes"
         - "no"
@@ -402,10 +420,13 @@ extraction:
 
     - name: "social_benefits_summary"
       type: "string"
+      presentation: "fact"
+      label: "Социальный пакет"
       description: "Ключевые элементы социального пакета"
 
     - name: "has_enhanced_severance"
       type: "string"
+      presentation: "signal"
       description: "Enhanced severance сверх закона"
       allowed_values:
         - "yes"
@@ -414,6 +435,7 @@ extraction:
 
     - name: "has_redundancy_restrictions"
       type: "string"
+      presentation: "signal"
       description: "Ограничения на сокращения"
       allowed_values:
         - "yes"
@@ -422,6 +444,7 @@ extraction:
 
     - name: "requires_consultation_on_restructuring"
       type: "string"
+      presentation: "signal"
       description: "Обязательные консультации при реорганизации / CoC"
       allowed_values:
         - "yes"
@@ -430,7 +453,8 @@ extraction:
 
     - name: "union_coverage_strength"
       type: "string"
-      description: "Сила профсоюза / охват CBA"
+      presentation: "signal"
+      description: "Охват CBA / сила профсоюза"
       allowed_values:
         - "high"
         - "medium"
@@ -438,12 +462,9 @@ extraction:
         - "none"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true

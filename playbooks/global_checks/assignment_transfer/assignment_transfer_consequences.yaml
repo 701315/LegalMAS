@@ -1,0 +1,377 @@
+id: "assignment_transfer_consequences"
+name: "Последствия уступки прав / перевода долга"
+group: "ASSIGNMENT_TRANSFER"
+description: >
+  Анализирует substantive последствия, которые наступают при
+  уступке прав, переводе долга или передаче обязательств:
+  право на расторжение и его механизм, акселерацию обязательств,
+  изменение цены / условий, наличие смягчающих механизмов
+  (cure period, waiver).
+
+  Check не анализирует:
+  - наличие / тип базового режима — это задача
+    assignment_transfer_regime;
+  - механику получения согласия — это задача
+    assignment_transfer_consent;
+  - последствия смены контроля (CoC) — это задача
+    coc_consequences;
+  - definition of control / CoC trigger;
+  - оценку общего M&A-риска.
+
+doc_types: []
+
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+ui_mode: "field_extraction"
+
+rules:
+  keyword_mode: any
+
+  keywords:
+    high:
+      - "(?i)right\\s+to\\s+terminate[\\s\\S]{0,40}(assign|transfer|уступк|перевод)"
+      - "(?i)terminat(e|ion)\\s+upon[\\s\\S]{0,20}(assign|transfer)"
+      - "(?i)право\\s+(на\\s+)?расторжени[ея][\\s\\S]{0,40}(уступк|перевод|передач)"
+      - "(?i)automatic(ally)?\\s+terminat(e|ion|ed)"
+      - "(?i)автоматическ[а-я]+\\s+(прекращени|расторжени)"
+      - "(?i)acceleration\\s+of[\\s\\S]{0,30}(payment|obligation|debt)"
+      - "(?i)досрочн[а-я]+\\s+(исполнени|взыскани|погашени)"
+      - "(?i)all\\s+outstanding\\s+amounts?\\s+(shall\\s+)?become\\s+due"
+      - "(?i)step[-\\s]?up"
+      - "(?i)увеличени[ея]\\s+(ставк|марж|процент)"
+      - "(?i)отмен[аы]\\s+(скид[а-я]+|льгот|преференц)"
+
+    medium:
+      - "(?i)right\\s+to\\s+terminate"
+      - "(?i)termination\\s+(right|option)"
+      - "(?i)право\\s+расторгнуть"
+      - "(?i)cure\\s+period"
+      - "(?i)срок\\s+(для\\s+)?устранени[яи]"
+      - "(?i)grace\\s+period"
+      - "(?i)waiver"
+      - "(?i)уступка\\s+прав"
+      - "(?i)assignment\\s+of\\s+rights"
+
+    low:
+      - "(?i)automatic(ally)?\\s+terminat"
+      - "(?i)досрочн[а-я]+\\s+погашени"
+      - "(?i)step[-\\s]?up"
+      - "(?i)cure\\s+period"
+
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 420
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 6
+  max_chunks: 12
+
+  retrieval_query: >
+    уступка прав assignment расторжение termination
+    автоматическое прекращение акселерация acceleration
+    досрочное исполнение step-up изменение условий cure period
+
+  boost_keywords:
+    - "termination upon assignment"
+    - "расторжение при уступке"
+    - "automatic termination"
+    - "автоматическое прекращение"
+    - "right to terminate"
+    - "право расторгнуть"
+    - "acceleration"
+    - "досрочное исполнение"
+    - "step-up"
+    - "cure period"
+    - "grace period"
+
+  negative_keywords:
+    - "change of control"
+    - "смена контроля"
+    - "consent"
+    - "согласие"
+    - "означает"
+    - "в целях настоящего"
+    - "споры"
+    - "подсудность"
+    - "применимое право"
+
+  preferred_unit_types:
+    - "termination_provision"
+    - "liability_provision"
+    - "obligation"
+    - "general_provision"
+
+  excluded_unit_types:
+    - "definition"
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "rights"
+    - "limitations"
+    - "procedures"
+    - "obligations"
+
+  position_bias:
+    preferred_range: [0.55, 1.00]
+    boost: 0.30
+    scope: "segment"
+
+  rerank: true
+  filters: {}
+
+conditional: null
+
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 320
+  llm_prompt_extraction: |
+    <role>
+    Ты — юрист по коммерческим договорам.
+    Твоя задача — точно извлечь substantive последствия,
+    которые наступают при уступке прав / переводе долга /
+    передаче обязательств.
+
+    Не анализируй смену контроля (CoC).
+    Не анализируй механику согласия.
+    Не анализируй базовый режим (prohibited / consent_required).
+    Не оценивай общий M&A-риск.
+    </role>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
+
+    <task>
+    Заполни только следующие поля:
+    - at_consequences_display
+    - at_termination_right
+    - at_termination_mechanism
+    - at_acceleration
+    - at_price_terms_change
+    - at_cure_or_waiver
+    - reason
+
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - не придумывай последствий, которых нет;
+    - пиши коротко и по-русски.
+    </task>
+
+    <instructions>
+    Шаг 1 — ПРАВО НА РАСТОРЖЕНИЕ
+
+    Заполни "at_termination_right".
+
+    Значения:
+    - "none" — нет специального права на расторжение.
+    - "limited" — право есть, но ограниченное: только при
+      определённых условиях или с cure period.
+    - "broad" — широкое право расторгнуть.
+    - "unclear" — нельзя определить.
+
+    Шаг 2 — МЕХАНИЗМ РАСТОРЖЕНИЯ
+
+    Заполни "at_termination_mechanism".
+
+    Значения:
+    - "optional" — расторжение по выбору стороны.
+    - "automatic" — договор прекращается автоматически.
+    - "with_cure" — расторжение только после cure period.
+    - "not_applicable" — at_termination_right = "none".
+    - "unclear" — нельзя определить.
+
+    Шаг 3 — АКСЕЛЕРАЦИЯ
+
+    Заполни "at_acceleration".
+
+    Значения:
+    - "yes" — предусмотрено досрочное исполнение обязательств.
+    - "no" — не предусмотрено.
+    - "unclear" — нельзя определить.
+
+    Шаг 4 — ИЗМЕНЕНИЕ ЦЕНЫ / УСЛОВИЙ
+
+    Заполни "at_price_terms_change".
+
+    Значения:
+    - "yes" — предусмотрено ухудшение условий: step-up,
+      отмена скидок / льгот, иные ухудшения.
+    - "no" — не предусмотрено.
+    - "unclear" — нельзя определить.
+
+    Шаг 5 — СМЯГЧАЮЩИЕ МЕХАНИЗМЫ
+
+    Заполни "at_cure_or_waiver".
+
+    Значения:
+    - "yes" — есть cure period, grace period или waiver.
+    - "no" — смягчающих механизмов нет.
+    - "unclear" — нельзя определить.
+
+    Шаг 6 — DISPLAY ДЛЯ DD GRID
+
+    Заполни "at_consequences_display".
+
+    Правила:
+    - Начинай с "Для уступки — ".
+    - Перечисляй последствия через точку с запятой.
+    - Если cure/waiver есть — добавь в конец.
+
+    Примеры:
+    - "Для уступки — автоматическое прекращение договора"
+    - "Для уступки — право расторгнуть; cure period предусмотрен"
+    - "Для уступки — право расторгнуть; акселерация"
+    - "Для уступки — только согласие контрагента"
+    - "Последствия уступки не установлены"
+    - "Не удалось определить последствия уступки"
+
+    Шаг 7 — ОБОСНОВАНИЕ
+
+    Заполни "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: какие последствия предусмотрены,
+      механизм расторжения, есть ли cure/waiver.
+    - Приведи короткую цитату в кавычках.
+    </instructions>
+
+    <edge_cases>
+    - Договор прекращается автоматически:
+      * at_termination_right = "broad"
+      * at_termination_mechanism = "automatic"
+      * at_cure_or_waiver = "no"
+      * at_consequences_display =
+        "Для уступки — автоматическое прекращение договора"
+
+    - Право расторгнуть с cure period:
+      * at_termination_right = "limited"
+      * at_termination_mechanism = "with_cure"
+      * at_cure_or_waiver = "yes"
+      * at_consequences_display =
+        "Для уступки — право расторгнуть; cure period предусмотрен"
+
+    - Только согласие, без расторжения / акселерации:
+      * at_termination_right = "none"
+      * at_acceleration = "no"
+      * at_price_terms_change = "no"
+      * at_consequences_display =
+        "Для уступки — только согласие контрагента"
+
+    - Нет упоминаний последствий:
+      * at_termination_right = "none"
+      * at_termination_mechanism = "not_applicable"
+      * at_acceleration = "no"
+      * at_price_terms_change = "no"
+      * at_cure_or_waiver = "no"
+      * at_consequences_display =
+        "Последствия уступки не установлены"
+
+    - Фрагменты нерелевантны:
+      * at_termination_right = "unclear"
+      * at_termination_mechanism = "unclear"
+      * at_acceleration = "unclear"
+      * at_price_terms_change = "unclear"
+      * at_cure_or_waiver = "unclear"
+      * at_consequences_display =
+        "Не удалось определить последствия уступки"
+    </edge_cases>
+
+    <output_expectations>
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    </output_expectations>
+
+  fields:
+    - name: "at_consequences_display"
+      type: "string"
+      presentation: "fact"
+      label: "Последствия уступки"
+      description: "Нормализованный user-facing вывод для DD Grid"
+
+    - name: "at_termination_right"
+      type: "string"
+      presentation: "signal"
+      description: "Право на расторжение при уступке"
+      allowed_values:
+        - "none"
+        - "limited"
+        - "broad"
+        - "unclear"
+
+    - name: "at_termination_mechanism"
+      type: "string"
+      presentation: "signal"
+      description: "Механизм расторжения при уступке"
+      allowed_values:
+        - "optional"
+        - "automatic"
+        - "with_cure"
+        - "not_applicable"
+        - "unclear"
+
+    - name: "at_acceleration"
+      type: "string"
+      presentation: "signal"
+      description: "Акселерация при уступке"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "at_price_terms_change"
+      type: "string"
+      presentation: "signal"
+      description: "Изменение цены / условий при уступке"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "at_cure_or_waiver"
+      type: "string"
+      presentation: "signal"
+      description: "Cure period / waiver при уступке"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "reason"
+      type: "string"
+      presentation: "diagnostic"
+      description: "Краткое обоснование"
+
+  store_payload: true
+
+  

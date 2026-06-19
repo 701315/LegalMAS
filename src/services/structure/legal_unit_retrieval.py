@@ -134,6 +134,63 @@ def _resolve_raw_uid(unit: LegalUnit) -> str | None:
         return raw_uid.strip()
     return None
 
+def _compute_position_ratio_within_segment(
+    unit: LegalUnit,
+    snapshot: LegalUnitsSnapshot,
+) -> float | None:
+    """
+    Нормализованная позиция legal unit внутри сегмента.
+
+    Используем page_start/page_end unit относительно page range сегмента.
+    Возвращаем значение в диапазоне [0.0, 1.0] или None если данных недостаточно.
+    """
+    segment = getattr(snapshot, "segment", None)
+
+    # В LegalUnitsSnapshot page range лежит на top-level segment fields
+    segment_page_start = getattr(snapshot, "segment_order", None)  # safety placeholder
+
+    seg_start = None
+    seg_end = None
+
+    # Snapshot хранит segment metadata отдельными полями, не вложенным объектом
+    try:
+        seg_start = int(getattr(snapshot, "segment_order", None))  # placeholder for mypy-safe branch
+    except Exception:
+        seg_start = None
+
+    # Правильные поля берём напрямую из snapshot segment contract
+    # page range сегмента не гарантирован в LegalUnitsSnapshot, поэтому если его нет — вернём None.
+    snapshot_segment_page_start = getattr(snapshot, "segment_page_start", None)
+    snapshot_segment_page_end = getattr(snapshot, "segment_page_end", None)
+
+    if snapshot_segment_page_start is None or snapshot_segment_page_end is None:
+        return None
+
+    try:
+        seg_start = int(snapshot_segment_page_start)
+        seg_end = int(snapshot_segment_page_end)
+        unit_start = int(getattr(unit, "page_start", None))
+        unit_end = int(getattr(unit, "page_end", None))
+    except (TypeError, ValueError):
+        return None
+
+    if seg_end < seg_start:
+        return None
+
+    span = seg_end - seg_start + 1
+    if span <= 0:
+        return None
+
+    mid = (unit_start + unit_end) / 2.0
+    relative = (mid - seg_start + 1.0) / float(span)
+
+    if relative < 0.0:
+        return 0.0
+    if relative > 1.0:
+        return 1.0
+    return relative
+
+
 
 def _should_include_unit(unit: LegalUnit, text: str) -> bool:
     """
@@ -233,6 +290,18 @@ def build_retrieval_units_from_legal_units(
         if not isinstance(context_prefix, str):
             context_prefix = None
 
+        clause_function = _enumish_str(getattr(unit, "clause_function", None))
+        topic_tags = _listify(getattr(unit, "topic_tags", None))
+
+        citability_obj = getattr(unit, "citability", None)
+        citability_score = None
+        citability_band = _resolve_citability_band(unit)
+        if citability_obj is not None:
+            try:
+                citability_score = float(getattr(citability_obj, "citability_score", None))
+            except (TypeError, ValueError):
+                citability_score = None
+
         metadata: dict[str, Any] = {
             "doc_id": str_doc_id,
             "chunk_kind": "legal_unit",
@@ -241,10 +310,15 @@ def build_retrieval_units_from_legal_units(
             "scope": snapshot_segment_id,
             "unit_class": unit_class,
             "unit_type": unit_type,
-            "citability": _resolve_citability_band(unit),
+            "clause_function": clause_function,
+            "topic_tags": topic_tags,
+            "citability": citability_band,
+            "citability_band": citability_band,
+            "citability_score": citability_score,
             "context_prefix": context_prefix,
             "level": getattr(unit, "level", None),
             "title": title,
+            "section_title": title,
             "path_titles": path_titles,
             "start_page": page_start,
             "end_page": page_end,

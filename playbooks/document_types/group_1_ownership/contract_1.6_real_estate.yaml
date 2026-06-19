@@ -843,17 +843,43 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "продавец покупатель именуем в лице действующего на основании ИНН ОГРН устава доверенности паспорт гражданин физическое лицо крупная сделка сделка с заинтересованностью одобрение общего собрания совета директоров корпоративное одобрение"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - boilerplate
+      negative_keywords:
+        - "кадастровый номер"
+        - "площадь"
+        - "адрес объекта"
+        - "ЕГРН"
+        - "обременения"
+        - "залог"
+        - "арест"
+        - "аренда"
+        - "банкротство"
+        - "цена"
+        - "задаток"
+        - "аккредитив"
+        - "ипотека в силу закона"
+        - "передаточный акт"
+        - "согласие супруга"
+        - "маткапитал"
+        - "орган опеки"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.25
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "продавец"
-        - "покупатель"
-        - "именуем"
-        - "ИНН"
-        - "ОГРН"
-        - "действующий на основании"
-        - "крупная сделка"
-        - "одобрение"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -867,50 +893,108 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора купли-продажи недвижимости
+        сведения о продавце и покупателе: реквизиты, тип стороны, подписанта, основание
+        полномочий и корпоративное одобрение сделки.
+        Не анализируй предмет договора, цену, расчёты, обременения, передачу объекта
+        или семейные риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. seller_details_status — "defined" или "not_defined".
+        2. seller_details — реквизиты продавца.
+        3. seller_type — legal_entity / individual / ip / not_defined.
+        4. seller_signatory — подписант продавца.
+        5. seller_signatory_basis — charter / poa / order / personal / other / not_defined.
+        6. buyer_details_status — "defined" или "not_defined".
+        7. buyer_details — реквизиты покупателя.
+        8. buyer_type — legal_entity / individual / ip / not_defined.
+        9. buyer_signatory — подписант покупателя.
+        10. buyer_signatory_basis — charter / poa / order / personal / other / not_defined.
+        11. corporate_approval_status — "defined" или "not_defined".
+        12. corporate_approval_details — корпоративное одобрение сделки или указание, что оно не требуется.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Для физлица, подписывающего лично, используй seller_signatory_basis / buyer_signatory_basis = "personal".
+        - Не подставляй корпоративные правила, если они не отражены в договоре.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "seller_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Продавец прямо определён с реквизитами. Иначе 'not_defined'."
+          description: "Статус определения реквизитов продавца."
         - name: "seller_details"
           type: "string"
-          description: "Реквизиты Продавца. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Продавец"
+          description: "Реквизиты продавца."
         - name: "seller_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["legal_entity", "individual", "ip", "not_defined"]
-          description: "Тип Продавца."
+          description: "Тип продавца."
         - name: "seller_signatory"
           type: "string"
-          description: "Подписант от Продавца. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Подписант продавца"
+          description: "Подписант продавца."
         - name: "seller_signatory_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта Продавца."
+          description: "Основание полномочий подписанта продавца."
         - name: "buyer_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Покупатель прямо определён с реквизитами. Иначе 'not_defined'."
+          description: "Статус определения реквизитов покупателя."
         - name: "buyer_details"
           type: "string"
-          description: "Реквизиты Покупателя. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Покупатель"
+          description: "Реквизиты покупателя."
         - name: "buyer_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["legal_entity", "individual", "ip", "not_defined"]
-          description: "Тип Покупателя."
+          description: "Тип покупателя."
         - name: "buyer_signatory"
           type: "string"
-          description: "Подписант от Покупателя. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Подписант покупателя"
+          description: "Подписант покупателя."
         - name: "buyer_signatory_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта Покупателя."
+          description: "Основание полномочий подписанта покупателя."
         - name: "corporate_approval_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если корпоративное одобрение или заверение о его отсутствии прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия корпоративного одобрения или заверения о его ненужности."
         - name: "corporate_approval_details"
           type: "string"
-          description: "Корпоративное одобрение. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Корпоративное одобрение"
+          description: "Корпоративное одобрение сделки или указание, что оно не требуется."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1053,14 +1137,43 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "кадастровый номер адрес объекта площадь выписка ЕГРН правоустанавливающий документ правоподтверждающий документ запись ЕГРН Росреестр свидетельство о праве основание права квартира земельный участок нежилое помещение"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "не обременен"
+        - "свободен от прав третьих лиц"
+        - "не заложен"
+        - "не под арестом"
+        - "не сдан в аренду"
+        - "задолженность"
+        - "ЗОУИТ"
+        - "перепланировка"
+        - "банкротство"
+        - "цена"
+        - "задаток"
+        - "аванс"
+        - "аккредитив"
+        - "ипотека в силу закона"
+        - "передаточный акт"
+        - "согласие супруга"
+        - "маткапитал"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.05, 0.45]
+        boost: 0.20
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "кадастровый номер"
-        - "адрес"
-        - "площадь"
-        - "выписка ЕГРН"
-        - "правоустанавливающий документ"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1074,55 +1187,125 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 560
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора купли-продажи недвижимости
+        сведения об объекте и титуле продавца: кадастровый номер, адрес, площадь,
+        вид объекта, выписку ЕГРН и правоустанавливающий документ.
+        Не анализируй цену, расчёты, обременения, семейные риски или передачу объекта.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. cadastral_number_status — "defined" или "not_defined".
+        2. cadastral_number — кадастровый номер.
+        3. address_status — "defined" или "not_defined".
+        4. address_details — адрес объекта.
+        5. area_status — "defined" или "not_defined".
+        6. area_details — площадь объекта.
+        7. object_type — apartment / house / land / building / non_residential / share / unfinished / other / not_defined.
+        8. object_type_details — вид объекта, как он назван в договоре.
+        9. egrn_extract_status — "defined" или "not_defined".
+        10. egrn_extract_details — реквизиты выписки ЕГРН.
+        11. title_document_status — "defined" или "not_defined".
+        12. title_document_type — тип правоустанавливающего документа.
+        13. title_document_details — реквизиты правоустанавливающего документа.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не выводи кадастровый номер из контекста — только если он прямо написан.
+        - object_type_details передавай так, как это названо в договоре: "квартира", "земельный участок", "нежилое помещение" и т.п.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "cadastral_number_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если кадастровый номер прямо указан. Иначе 'not_defined'."
+          description: "Статус определения кадастрового номера."
         - name: "cadastral_number"
           type: "string"
+          presentation: "fact"
+          label: "Кадастровый номер"
           regex_patterns: ["(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"]
-          description: "Кадастровый номер. Если нет — строго 'Данные не определены'."
+          description: "Кадастровый номер объекта."
         - name: "address_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если адрес объекта прямо указан. Иначе 'not_defined'."
+          description: "Статус определения адреса."
         - name: "address_details"
           type: "string"
-          description: "Адрес объекта. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Адрес"
+          description: "Адрес объекта."
         - name: "area_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если площадь прямо указана. Иначе 'not_defined'."
+          description: "Статус определения площади."
         - name: "area_details"
           type: "string"
-          description: "Площадь. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Площадь"
+          description: "Площадь объекта."
         - name: "object_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["apartment", "house", "land", "building", "non_residential", "share", "unfinished", "other", "not_defined"]
-          description: "Вид объекта недвижимости."
+          description: "Тип объекта недвижимости."
+        - name: "object_type_details"
+          type: "string"
+          presentation: "fact"
+          label: "Вид объекта"
+          description: "Вид объекта так, как он назван в договоре."
         - name: "egrn_extract_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если выписка ЕГРН упомянута. Иначе 'not_defined'."
+          description: "Статус упоминания выписки ЕГРН."
+        - name: "egrn_extract_details"
+          type: "string"
+          presentation: "fact"
+          label: "Выписка ЕГРН"
+          description: "Реквизиты выписки ЕГРН."
         - name: "title_document_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если правоустанавливающий документ прямо указан. Иначе 'not_defined'."
+          description: "Статус указания правоустанавливающего документа."
         - name: "title_document_type"
           type: "string"
-          description: "Тип правоустанавливающего документа. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Правоустанавливающий документ"
+          description: "Тип правоустанавливающего документа."
+        - name: "title_document_details"
+          type: "string"
+          presentation: "fact"
+          label: "Реквизиты основания права"
+          description: "Реквизиты правоустанавливающего документа."
       store_payload: true
 
+# ──────────────────────────────────────────────────────────────────────────
+  # CHECK 3: Чистота титула — обременения, аресты, аренда, долги
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 3: Чистота титула — обременения, аресты, ЗОУИТ, экология, аренда
-  # ──────────────────────────────────────────────────────────────────────────
-  - id: encumbrances_due_diligence_cluster
-    name: "Чистота титула: обременения, аресты, ЗОУИТ, аренда, долги, перепланировки, банкротство"
+  - id: title_cleanliness_check
+    name: "Чистота титула: обременения, аресты, аренда и задолженность"
     description: >
-      Фактографическая проверка наличия в договоре заверений о чистоте титула по всем
-      ключевым DD-блокам: обременения, аресты, ЗОУИТ, экология, аренда, долги, перепланировки,
-      банкротный риск продавца.
+      Фактографическая проверка заверений об отсутствии залогов, ипотек, арестов,
+      запретов регистрационных действий, действующих договоров аренды и задолженности
+      по ЖКУ. Это частноправовые притязания третьих лиц на объект.
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
@@ -1141,22 +1324,11 @@ checks_v8:
         - "арест"
         - "отсутствуют ограничения"
         - "в ЕГРН отсутствуют записи"
-        - "СЗЗ"
-        - "санитарно-защитная зона"
-        - "ЗОУИТ"
-        - "зона с особыми условиями"
-        - "охранная зона"
-        - "культурное наследие"
-        - "ОКН"
-        - "экологическое состояние"
-        - "загрязнение"
         - "аренда"
+        - "найм"
         - "отсутствие задолженности"
         - "коммунальные"
-        - "перепланировка"
-        - "реконструкция"
-        - "не находится в процедуре банкротства"
-        - "отсутствие признаков банкротства"
+        - "капремонт"
       keyword_mode: "any"
       negative_keywords:
         - "наложен арест"
@@ -1166,145 +1338,121 @@ checks_v8:
         - "(?i)(не\\s+обременен|свободен\\s+от.*прав)"
         - "(?i)запрет\\s+регистрационн"
         - "(?i)в\\s+ЕГРН\\s+отсутств(уют|ует)"
-        - "(?i)санитарно\\s*[- ]?защитн|ЗОУИТ|СЗЗ"
-        - "(?i)культурн(ого)?\\s+наслед"
-        - "(?i)экологическ|свалк|захоронен|загрязнен"
-        - "(?i)сервитут|охранн(ая|ой)\\s+зон"
         - "(?i)договор\\s+аренд"
         - "(?i)отсутств(ует|уют).*задолженн"
-        - "(?i)перепланировк|реконструкц"
-        - "(?i)не\\s+находится\\s+в\\s+процедур(е|ы)\\s+банкротств"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор купли-продажи недвижимости (§ 7 Главы 30 ГК РФ,
-        ст. 460 ГК РФ; ФЗ-218; ФЗ-127; ЖК РФ).
-        Проверяется только один вопрос: наличие в договоре заверений о чистоте
-        титула по различным категориям рисков.
+        Анализируется договор купли-продажи недвижимости (ст. 460 ГК РФ; ФЗ-218).
+        Проверяется только один вопрос: наличие заверений о частноправовой чистоте
+        титула — обременения, аресты, аренда, задолженность.
+        Не анализируй ЗОУИТ, экологию, перепланировки или банкротство продавца.
 
         [ЗАДАЧА]
-        Найди в тексте договора наличие или отсутствие заверений/условий по каждому блоку:
+        Найди в тексте договора:
         1. Заверение об отсутствии обременений (залог, ипотека, сервитут).
         2. Заверение об отсутствии арестов и запретов регистрационных действий.
-        3. Раскрытие ЗОУИТ / охранных зон / санитарно-защитных зон.
-        4. Экологическое состояние участка/объекта.
-        5. Раскрытие инженерных коммуникаций и сервитутов.
-        6. Раскрытие действующих договоров аренды/найма или заверение об их отсутствии.
-        7. Заверение об отсутствии задолженности по ЖКУ, налогам, капремонту.
-        8. Раскрытие перепланировок (согласованы/не проводились).
-        9. Заверение об отсутствии банкротных процедур в отношении продавца.
+        3. Раскрытие аренды/найма или заверение об их отсутствии.
+        4. Заверение об отсутствии задолженности по ЖКУ, налогам, капремонту.
 
         [ПРАВИЛА]
         1. Только текст документа.
-        2. Если заверение или условие не указано прямо — "not_defined".
+        2. Если заверение не указано прямо — "not_defined".
         3. Строго "Данные не определены" при отсутствии текста.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни только JSON.
 
         [ПРИМЕРЫ (FEW-SHOT)]
-
         Пример 1:
-        Фрагмент:
-        "Продавец гарантирует, что объект не обременён залогами, не находится под
-        арестом, не сдан в аренду. Задолженность по коммунальным платежам отсутствует.
-        Перепланировок не проводилось. Продавец не находится в процедуре банкротства."
-
+        "Объект не обременён залогами, не под арестом, не сдан в аренду.
+        Задолженность по ЖКУ отсутствует."
         Ответ:
         {
           "encumbrances_status": "defined",
-          "encumbrances_details": "объект не обременён залогами",
+          "encumbrances_details": "не обременён залогами",
           "arrest_ban_status": "defined",
-          "arrest_ban_details": "не находится под арестом",
-          "zouit_status": "not_defined",
-          "zouit_details": "Данные не определены",
-          "ecological_status": "not_defined",
-          "utilities_servitudes_status": "not_defined",
+          "arrest_ban_details": "не под арестом",
           "lease_status": "defined",
           "lease_details": "не сдан в аренду",
           "utility_debts_status": "defined",
-          "utility_debts_details": "задолженность по коммунальным платежам отсутствует",
-          "redevelopment_status": "defined",
-          "redevelopment_details": "перепланировок не проводилось",
-          "bankruptcy_status": "defined",
-          "bankruptcy_details": "не находится в процедуре банкротства",
-          "evidence": [
-            {
-              "clause_ref": "п. 4.1",
-              "quote": "Продавец гарантирует, что объект не обременён залогами, не находится под арестом, не сдан в аренду."
-            }
-          ]
+          "utility_debts_details": "задолженность по ЖКУ отсутствует",
+          "evidence": [{"clause_ref": "п. 4.1", "quote": "..."}]
         }
 
         Пример 2:
-        Фрагмент:
         "Продавец передаёт объект покупателю."
-
         Ответ:
         {
           "encumbrances_status": "not_defined",
           "encumbrances_details": "Данные не определены",
           "arrest_ban_status": "not_defined",
           "arrest_ban_details": "Данные не определены",
-          "zouit_status": "not_defined",
-          "zouit_details": "Данные не определены",
-          "ecological_status": "not_defined",
-          "utilities_servitudes_status": "not_defined",
           "lease_status": "not_defined",
           "lease_details": "Данные не определены",
           "utility_debts_status": "not_defined",
           "utility_debts_details": "Данные не определены",
-          "redevelopment_status": "not_defined",
-          "redevelopment_details": "Данные не определены",
-          "bankruptcy_status": "not_defined",
-          "bankruptcy_details": "Данные не определены",
           "evidence": []
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли прямая фраза о заверении по каждому блоку?
-        2. "Данных нет" — это not_defined, а не defined.
-        3. Не выводи заверения, которых нет в тексте.
+        1. Заверение по каждому блоку — прямо в тексте?
+        2. Не выводи заверения, которых нет.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "encumbrances_status": "<defined / not_defined>",
           "encumbrances_details": "<текст или 'Данные не определены'>",
           "arrest_ban_status": "<defined / not_defined>",
           "arrest_ban_details": "<текст или 'Данные не определены'>",
-          "zouit_status": "<defined / not_defined>",
-          "zouit_details": "<текст или 'Данные не определены'>",
-          "ecological_status": "<defined / not_defined>",
-          "utilities_servitudes_status": "<defined / not_defined>",
           "lease_status": "<defined / not_defined>",
           "lease_details": "<текст или 'Данные не определены'>",
           "utility_debts_status": "<defined / not_defined>",
           "utility_debts_details": "<текст или 'Данные не определены'>",
-          "redevelopment_status": "<defined / not_defined>",
-          "redevelopment_details": "<текст или 'Данные не определены'>",
-          "bankruptcy_status": "<defined / not_defined>",
-          "bankruptcy_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 8
+      context_k: 7
       temperature: 0.0
-      max_tokens: 800
+      max_tokens: 650
     retrieval:
-      context_k: 8
-      max_chunks: 12
-      boost_keywords:
-        - "обременения"
-        - "арест"
-        - "запрет регистрационных действий"
+      retrieval_query: "не обременен отсутствие обременений не заложен не находится под арестом свободен от прав третьих лиц не сдан в аренду никаких прав третьих лиц запрет регистрационных действий арест отсутствуют ограничения в ЕГРН отсутствуют записи аренда найм отсутствие задолженности коммунальные капремонт"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
         - "ЗОУИТ"
+        - "санитарно-защитная зона"
         - "охранная зона"
-        - "аренда"
-        - "задолженность"
+        - "культурное наследие"
+        - "экологическое состояние"
         - "перепланировка"
+        - "сервитут инженерный"
+        - "ипотека в силу закона"
+        - "до полной оплаты в залоге у продавца"
+        - "ст. 488 ГК РФ"
         - "банкротство"
+        - "несостоятельность"
+        - "цена"
+        - "задаток"
+        - "аккредитив"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.70]
+        boost: 0.15
+        scope: segment
+      context_k: 7
+      max_chunks: 10
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1314,49 +1462,519 @@ checks_v8:
     evidence:
       required: true
       min_snippet_length: 40
-      max_snippet_length: 750
+      max_snippet_length: 650
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 460
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора купли-продажи недвижимости заверения
+        о частноправовой чистоте титула: обременения, аресты, аренда, задолженность.
+        Не анализируй ЗОУИТ, экологию, перепланировки, банкротство продавца,
+        цену, расчёты или передачу объекта.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. encumbrances_status — "defined" или "not_defined".
+        2. encumbrances_details — заверение об обременениях.
+        3. arrest_ban_status — "defined" или "not_defined".
+        4. arrest_ban_details — заверение об арестах и запретах.
+        5. lease_status — "defined" или "not_defined".
+        6. lease_details — сведения об аренде или её отсутствии.
+        7. utility_debts_status — "defined" или "not_defined".
+        8. utility_debts_details — сведения о задолженности.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не додумывай заверения.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "encumbrances_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение об отсутствии обременений прямо определено. Иначе 'not_defined'."
+          description: "Статус заверения об обременениях."
+        - name: "encumbrances_details"
+          type: "string"
+          presentation: "fact"
+          label: "Обременения"
+          description: "Заверение об отсутствии обременений."
         - name: "arrest_ban_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение об отсутствии арестов прямо определено. Иначе 'not_defined'."
-        - name: "zouit_status"
+          description: "Статус заверения об арестах."
+        - name: "arrest_ban_details"
           type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ЗОУИТ прямо раскрыты. Иначе 'not_defined'."
+          presentation: "fact"
+          label: "Аресты и запреты"
+          description: "Заверение об отсутствии арестов и запретов."
         - name: "lease_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если аренда прямо раскрыта. Иначе 'not_defined'."
+          description: "Статус раскрытия аренды."
+        - name: "lease_details"
+          type: "string"
+          presentation: "fact"
+          label: "Аренда"
+          description: "Сведения об аренде или её отсутствии."
         - name: "utility_debts_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если долги по ЖКУ прямо раскрыты. Иначе 'not_defined'."
-        - name: "redevelopment_status"
+          description: "Статус раскрытия задолженности."
+        - name: "utility_debts_details"
           type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если перепланировки прямо раскрыты. Иначе 'not_defined'."
-        - name: "bankruptcy_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если банкротный риск прямо раскрыт. Иначе 'not_defined'."
+          presentation: "fact"
+          label: "Задолженность"
+          description: "Сведения о задолженности по ЖКУ, налогам, капремонту."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 4: Цена, расчёты, задаток и ипотека в силу закона
+  # CHECK 4: Публично-правовые ограничения и техническое состояние
   # ──────────────────────────────────────────────────────────────────────────
-  - id: price_payment_cluster
-    name: "Цена, порядок расчётов, задаток и ипотека в силу закона"
+  - id: public_law_restrictions_check
+    name: "Публично-правовые ограничения: ЗОУИТ, экология, сервитуты, перепланировки"
     description: >
-      Фактографическая проверка наличия цены, способа расчётов, условий задатка/аванса
-      и регулирования ипотеки в силу закона.
+      Фактографическая проверка раскрытия публично-правовых ограничений объекта:
+      ЗОУИТ, охранные зоны, санитарные зоны, культурное наследие, экологическое
+      состояние, инженерные сервитуты, перепланировки.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "СЗЗ"
+        - "санитарно-защитная зона"
+        - "ЗОУИТ"
+        - "зона с особыми условиями"
+        - "охранная зона"
+        - "культурное наследие"
+        - "ОКН"
+        - "объект культурного наследия"
+        - "экологическое состояние"
+        - "загрязнение"
+        - "захоронение"
+        - "свалка"
+        - "сервитут"
+        - "охранная зона сетей"
+        - "перепланировка"
+        - "реконструкция"
+        - "согласованная перепланировка"
+        - "самовольная перепланировка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)санитарно\\s*[- ]?защитн|ЗОУИТ|СЗЗ"
+        - "(?i)культурн(ого)?\\s+наслед"
+        - "(?i)экологическ|свалк|захоронен|загрязнен"
+        - "(?i)сервитут|охранн(ая|ой)\\s+зон"
+        - "(?i)перепланировк|реконструкц"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор купли-продажи недвижимости (ФЗ-218; ЗК РФ; ГрК РФ).
+        Проверяется только один вопрос: публично-правовые ограничения и техническое
+        состояние объекта — ЗОУИТ, экология, сервитуты, перепланировки.
+        Не анализируй обременения (залог, ипотека), аресты, аренду,
+        задолженность или банкротство продавца.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Раскрытие ЗОУИТ / охранных зон / санитарно-защитных зон.
+        2. Упоминание объектов культурного наследия (ОКН).
+        3. Экологическое состояние участка/объекта.
+        4. Раскрытие инженерных коммуникаций и сервитутов.
+        5. Перепланировки (согласованы / не проводились / самовольные).
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. Строго "Данные не определены" при отсутствии текста.
+        4. В evidence — только текст договора.
+        5. Верни только JSON.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        "Объект не входит в ЗОУИТ. Перепланировок не проводилось.
+        Экологическое состояние соответствует нормативным требованиям."
+        Ответ:
+        {
+          "zouit_status": "defined",
+          "zouit_details": "объект не входит в ЗОУИТ",
+          "heritage_status": "not_defined",
+          "ecological_status": "defined",
+          "ecological_details": "соответствует нормативным требованиям",
+          "utilities_servitudes_status": "not_defined",
+          "utilities_servitudes_details": "Данные не определены",
+          "redevelopment_status": "defined",
+          "redevelopment_details": "перепланировок не проводилось",
+          "evidence": [{"clause_ref": "п. 4.2", "quote": "..."}]
+        }
+
+        Пример 2:
+        "Продавец передаёт объект."
+        Ответ:
+        {
+          "zouit_status": "not_defined",
+          "zouit_details": "Данные не определены",
+          "heritage_status": "not_defined",
+          "ecological_status": "not_defined",
+          "ecological_details": "Данные не определены",
+          "utilities_servitudes_status": "not_defined",
+          "utilities_servitudes_details": "Данные не определены",
+          "redevelopment_status": "not_defined",
+          "redevelopment_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Каждый блок — только если есть прямое упоминание.
+        2. Не выводи заверения из молчания договора.
+
+        Не выводи шаги. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "zouit_status": "<defined / not_defined>",
+          "zouit_details": "<текст или 'Данные не определены'>",
+          "heritage_status": "<defined / not_defined>",
+          "ecological_status": "<defined / not_defined>",
+          "ecological_details": "<текст или 'Данные не определены'>",
+          "utilities_servitudes_status": "<defined / not_defined>",
+          "utilities_servitudes_details": "<текст или 'Данные не определены'>",
+          "redevelopment_status": "<defined / not_defined>",
+          "redevelopment_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 650
+    retrieval:
+      retrieval_query: "СЗЗ санитарно-защитная зона ЗОУИТ зона с особыми условиями охранная зона культурное наследие ОКН объект культурного наследия экологическое состояние загрязнение захоронение свалка сервитут охранная зона сетей перепланировка реконструкция согласованная перепланировка самовольная перепланировка"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "не обременен залогом"
+        - "не заложен"
+        - "не под арестом"
+        - "не сдан в аренду"
+        - "задолженность по ЖКУ"
+        - "коммунальные платежи"
+        - "капремонт"
+        - "ипотека в силу закона"
+        - "банкротство"
+        - "несостоятельность"
+        - "цена"
+        - "задаток"
+        - "аккредитив"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.70]
+        boost: 0.12
+        scope: segment
+      context_k: 7
+      max_chunks: 10
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "representations"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 480
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора купли-продажи недвижимости раскрытия
+        публично-правовых ограничений: ЗОУИТ, охранные зоны, объекты культурного наследия,
+        экология, инженерные сервитуты, перепланировки.
+        Не анализируй обременения, аресты, аренду, задолженность, банкротство,
+        цену, расчёты или передачу объекта.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. zouit_status — "defined" или "not_defined".
+        2. zouit_details — раскрытие ЗОУИТ, охранных или санитарных зон.
+        3. heritage_status — "defined" или "not_defined".
+        4. ecological_status — "defined" или "not_defined".
+        5. ecological_details — сведения об экологическом состоянии.
+        6. utilities_servitudes_status — "defined" или "not_defined".
+        7. utilities_servitudes_details — сведения о сервитутах и коммуникациях.
+        8. redevelopment_status — "defined" или "not_defined".
+        9. redevelopment_details — сведения о перепланировках.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - ecological_status = defined только при прямом упоминании.
+        - utilities_servitudes_status = defined только при прямом упоминании.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "zouit_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус раскрытия ЗОУИТ."
+        - name: "zouit_details"
+          type: "string"
+          presentation: "fact"
+          label: "ЗОУИТ и охранные зоны"
+          description: "Раскрытие ЗОУИТ, охранных и санитарных зон."
+        - name: "heritage_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус упоминания объекта культурного наследия."
+        - name: "ecological_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус раскрытия экологического состояния."
+        - name: "ecological_details"
+          type: "string"
+          presentation: "fact"
+          label: "Экологическое состояние"
+          description: "Сведения об экологическом состоянии объекта."
+        - name: "utilities_servitudes_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус раскрытия сервитутов и коммуникаций."
+        - name: "utilities_servitudes_details"
+          type: "string"
+          presentation: "fact"
+          label: "Сервитуты и коммуникации"
+          description: "Сведения об инженерных сервитутах и коммуникациях."
+        - name: "redevelopment_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус раскрытия перепланировок."
+        - name: "redevelopment_details"
+          type: "string"
+          presentation: "fact"
+          label: "Перепланировки"
+          description: "Сведения о перепланировках или реконструкции."
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 5: Банкротный риск продавца
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: seller_bankruptcy_check
+    name: "Банкротный риск продавца (ФЗ-127, ст. 61.2)"
+    description: >
+      Фактографическая проверка наличия заверений об отсутствии банкротных
+      процедур и признаков несостоятельности продавца. Самостоятельный check
+      из-за критичности риска оспаривания сделки.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "не находится в процедуре банкротства"
+        - "отсутствие признаков банкротства"
+        - "несостоятельность"
+        - "процедура наблюдения"
+        - "конкурсное производство"
+        - "внешнее управление"
+        - "финансовое оздоровление"
+        - "ст. 61.2"
+        - "подозрительная сделка"
+        - "сделка в ущерб кредиторам"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+находится\\s+в\\s+процедур(е|ы)\\s+банкротств"
+        - "(?i)банкротств|несостоятельност"
+        - "(?i)ст\\s*\\.?\\s*61\\.2"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор купли-продажи недвижимости (ФЗ-127 «О несостоятельности»,
+        ст. 61.2, 61.3).
+        Проверяется только один вопрос: банкротный риск продавца и риск оспаривания
+        сделки как подозрительной.
+        Не анализируй обременения, ЗОУИТ, аренду или перепланировки.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Заверение продавца об отсутствии банкротных процедур.
+        2. Заверение об отсутствии признаков несостоятельности.
+        3. Прямую ссылку на ст. 61.2 ФЗ-127 или «подозрительную сделку».
+        4. Цену сделки относительно рыночной стоимости (при наличии).
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если заверение не указано прямо — "not_defined".
+        3. Строго "Данные не определены" при отсутствии текста.
+        4. В evidence — только текст договора.
+        5. Верни только JSON.
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Прямо ли написано "не находится в процедуре банкротства"?
+        2. Есть ли упоминание ст. 61.2 или "подозрительная сделка"?
+        3. Не выводи заверения из молчания договора.
+
+        Не выводи шаги. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "bankruptcy_status": "<defined / not_defined>",
+          "bankruptcy_details": "<текст или 'Данные не определены'>",
+          "insolvency_signs_status": "<defined / not_defined>",
+          "insolvency_signs_details": "<текст или 'Данные не определены'>",
+          "voidability_reference_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 550
+    retrieval:
+      retrieval_query: "не находится в процедуре банкротства отсутствие признаков банкротства несостоятельность процедура наблюдения конкурсное производство внешнее управление финансовое оздоровление ст. 61.2 подозрительная сделка сделка в ущерб кредиторам"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "не обременен"
+        - "залог"
+        - "арест"
+        - "аренда"
+        - "задолженность по ЖКУ"
+        - "ЗОУИТ"
+        - "перепланировка"
+        - "цена"
+        - "задаток"
+        - "аккредитив"
+        - "ипотека в силу закона"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.75]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 6
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "representations"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 380
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора купли-продажи недвижимости заверения
+        о банкротном риске продавца: наличие процедур, признаков несостоятельности,
+        ссылок на оспаривание сделки.
+        Не анализируй обременения, ЗОУИТ, аренду, перепланировки, цену или расчёты.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. bankruptcy_status — "defined" или "not_defined".
+        2. bankruptcy_details — заверение об отсутствии банкротства.
+        3. insolvency_signs_status — "defined" или "not_defined".
+        4. insolvency_signs_details — заверение об отсутствии признаков несостоятельности.
+        5. voidability_reference_status — "defined" или "not_defined".
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не выводи заверения из молчания договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "bankruptcy_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии банкротства."
+        - name: "bankruptcy_details"
+          type: "string"
+          presentation: "fact"
+          label: "Банкротство продавца"
+          description: "Заверение об отсутствии банкротных процедур."
+        - name: "insolvency_signs_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии признаков несостоятельности."
+        - name: "insolvency_signs_details"
+          type: "string"
+          presentation: "fact"
+          label: "Признаки несостоятельности"
+          description: "Заверение об отсутствии признаков несостоятельности продавца."
+        - name: "voidability_reference_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус упоминания риска оспаривания сделки как подозрительной."
+      store_payload: true
+
+# ──────────────────────────────────────────────────────────────────────────
+  # CHECK 6: Цена и коммерческие условия расчётов
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: commercial_payment_terms_check
+    name: "Цена, способ расчётов, задаток и распределение расходов"
+    description: >
+      Фактографическая проверка цены, способа расчётов, типа обеспечительного
+      платежа, условий его возврата, налоговой оговорки и распределения расходов
+      на регистрацию. Ипотека в силу закона проверяется отдельным check.
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
@@ -1367,7 +1985,6 @@ checks_v8:
         - "стоимость"
         - "цену в размере"
         - "рублей"
-        - "рублях"
         - "аванс"
         - "задаток"
         - "обеспечительный платеж"
@@ -1380,151 +1997,151 @@ checks_v8:
         - "оплата"
         - "срок оплаты"
         - "после регистрации"
-        - "банковские реквизиты"
-        - "ипотека в силу закона"
-        - "в залоге у продавца"
-        - "до полной оплаты"
         - "НДС"
         - "госпошлина"
         - "расходы по регистрации"
       keyword_mode: "any"
-      negative_keywords:
-        - "ипотека в силу закона не возникает"
-        - "залог не возникает"
-        - "право залога не применяется"
       regex_patterns:
         - "(?i)цен[аеуой]\\s+.*?\\d"
         - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
         - "(?i)\\b(аванс|задаток|обеспечительн(ый|ого)\\s+платеж)\\b"
         - "(?i)аккредитив|эскроу|ячейк|депозит\\s+нотариуса"
-        - "(?i)ипотек.*в\\s+силу\\s+закона"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор купли-продажи недвижимости (§ 7 Главы 30 ГК РФ,
-        ст. 555, 380-381, 488 ГК РФ).
-        Проверяется только один вопрос: цена, порядок расчётов, задаток/аванс
-        и ипотека в силу закона.
+        Анализируется договор купли-продажи недвижимости (ст. 555, 380-381 ГК РФ).
+        Проверяется только один вопрос: цена, способ расчётов, задаток/аванс,
+        налоговая оговорка и расходы на регистрацию.
+        Не анализируй ипотеку в силу закона — она проверяется отдельно.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Цену объекта (числовое значение, цифрами и/или прописью).
+        1. Цену объекта (числовое значение).
         2. Способ расчётов (аккредитив / эскроу / ячейка / безнал / наличные).
-        3. Тип обеспечительного платежа (аванс / задаток / иное) и его сумму.
+        3. Тип обеспечительного платежа (аванс / задаток) и сумму.
         4. Условия возврата/удержания обеспечительного платежа.
-        5. Вопрос ипотеки в силу закона при рассрочке — возникает / исключается / не упомянут.
-        6. Налоговую оговорку (НДС включён / не включён / не применимо).
-        7. Распределение расходов на регистрацию.
+        5. Налоговую оговорку (НДС включён / не включён / не применимо).
+        6. Распределение расходов на регистрацию и госпошлину.
 
         [ПРАВИЛА]
         1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
-        4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        2. Если нет — "not_defined" / "Данные не определены".
+        3. В evidence — только текст договора.
+        4. Верни только JSON.
 
         [ПРИМЕРЫ (FEW-SHOT)]
-
         Пример 1:
-        Фрагмент:
-        "Цена объекта составляет 15 000 000 (пятнадцать миллионов) рублей, включая НДС.
-        Расчёты производятся через аккредитив. Покупатель уплачивает задаток в размере
-        500 000 рублей. При отказе покупателя задаток не возвращается; при отказе
-        продавца задаток возвращается в двойном размере. Ипотека в силу закона
-        по настоящему договору не возникает."
-
+        "Цена: 15 000 000 рублей, включая НДС. Расчёты через аккредитив.
+        Задаток 500 000 рублей. При отказе покупателя не возвращается,
+        при отказе продавца — двойной размер. Расходы по регистрации — покупатель."
         Ответ:
         {
           "price_status": "defined",
           "price_details": "15 000 000 рублей, включая НДС",
           "payment_method_status": "defined",
           "payment_method": "accreditive",
+          "payment_method_details": "через аккредитив",
           "deposit_type_status": "defined",
           "deposit_type": "zadatok",
+          "deposit_type_details": "задаток",
           "deposit_amount": "500 000 рублей",
           "deposit_return_status": "defined",
           "deposit_return_details": "при отказе покупателя не возвращается; при отказе продавца — двойной размер",
-          "mortgage_by_law_status": "defined",
-          "mortgage_by_law_regime": "excluded",
           "vat_status": "defined",
           "vat_details": "включая НДС",
-          "expense_allocation_status": "not_defined",
-          "evidence": [
-            {
-              "clause_ref": "п. 2.1",
-              "quote": "Цена объекта составляет 15 000 000 рублей, включая НДС. Расчёты производятся через аккредитив."
-            }
-          ]
+          "expense_allocation_status": "defined",
+          "expense_allocation_details": "расходы несёт покупатель",
+          "evidence": [{"clause_ref": "п. 2.1", "quote": "..."}]
         }
 
         Пример 2:
-        Фрагмент:
-        "Стороны договорились о цене объекта."
-
+        "Стороны договорились о цене."
         Ответ:
         {
           "price_status": "not_defined",
           "price_details": "Данные не определены",
           "payment_method_status": "not_defined",
           "payment_method": "not_defined",
+          "payment_method_details": "Данные не определены",
           "deposit_type_status": "not_defined",
           "deposit_type": "not_defined",
+          "deposit_type_details": "Данные не определены",
           "deposit_amount": "Данные не определены",
           "deposit_return_status": "not_defined",
           "deposit_return_details": "Данные не определены",
-          "mortgage_by_law_status": "not_defined",
-          "mortgage_by_law_regime": "not_addressed",
           "vat_status": "not_defined",
           "vat_details": "Данные не определены",
           "expense_allocation_status": "not_defined",
+          "expense_allocation_details": "Данные не определены",
           "evidence": []
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Указана ли цена конкретной суммой?
-        2. Указан ли способ расчётов (аккредитив / эскроу / ячейка)?
-        3. Квалифицирован ли платёж как задаток или аванс прямо?
-        4. Прямо ли написано условие возврата/удержания?
-        5. Упомянута ли ипотека в силу закона (возникает / исключается)?
+        1. Цена — конкретная сумма прямо?
+        2. Способ расчётов — прямо назван?
+        3. Задаток или аванс — прямо квалифицирован?
+        4. Условия возврата — прямо написаны?
+        5. Не анализируй ипотеку в силу закона.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "price_status": "<defined / not_defined>",
           "price_details": "<цена или 'Данные не определены'>",
           "payment_method_status": "<defined / not_defined>",
           "payment_method": "<escrow / accreditive / bank_cell / cashless / cash / mixed / not_defined>",
+          "payment_method_details": "<текст или 'Данные не определены'>",
           "deposit_type_status": "<defined / not_defined>",
           "deposit_type": "<advance / zadatok / security_payment / not_defined>",
+          "deposit_type_details": "<текст или 'Данные не определены'>",
           "deposit_amount": "<сумма или 'Данные не определены'>",
           "deposit_return_status": "<defined / not_defined>",
           "deposit_return_details": "<условия или 'Данные не определены'>",
-          "mortgage_by_law_status": "<defined / not_defined>",
-          "mortgage_by_law_regime": "<arises / excluded / not_addressed / not_defined>",
           "vat_status": "<defined / not_defined>",
           "vat_details": "<текст или 'Данные не определены'>",
           "expense_allocation_status": "<defined / not_defined>",
+          "expense_allocation_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 8
+      context_k: 7
       temperature: 0.0
-      max_tokens: 800
+      max_tokens: 750
     retrieval:
-      context_k: 8
-      max_chunks: 12
-      boost_keywords:
-        - "цена"
-        - "стоимость"
-        - "задаток"
-        - "аванс"
-        - "обеспечительный платёж"
-        - "аккредитив"
-        - "эскроу"
-        - "банковская ячейка"
+      retrieval_query: "цена стоимость цену в размере рублей аванс задаток обеспечительный платёж возврат удержание аккредитив эскроу банковская ячейка депозит нотариуса оплата срок оплаты после регистрации НДС госпошлина расходы по регистрации"
+      preferred_unit_types:
+        - payment_term
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
         - "ипотека в силу закона"
+        - "в залоге у продавца до полной оплаты"
+        - "ст. 488 ГК РФ"
+        - "снятие ипотеки"
+        - "передаточный акт"
+        - "срок закрытия"
+        - "подать на регистрацию"
+        - "условие закрытия"
+        - "не обременен"
+        - "залог третьих лиц"
+        - "арест"
+        - "банкротство"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.60]
+        boost: 0.18
+        scope: segment
+      context_k: 7
+      max_chunks: 10
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1538,47 +2155,302 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 560
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора купли-продажи недвижимости цену,
+        способ расчётов, тип и условия обеспечительного платежа, налоговую оговорку
+        и распределение расходов на регистрацию.
+        Не анализируй ипотеку в силу закона — она проверяется отдельным check.
+        Не анализируй обременения, передачу объекта или семейные риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. price_status — "defined" или "not_defined".
+        2. price_details — цена объекта.
+        3. payment_method_status — "defined" или "not_defined".
+        4. payment_method — escrow / accreditive / bank_cell / cashless / cash / mixed / not_defined.
+        5. payment_method_details — способ расчётов как в договоре.
+        6. deposit_type_status — "defined" или "not_defined".
+        7. deposit_type — advance / zadatok / security_payment / not_defined.
+        8. deposit_type_details — квалификация платежа.
+        9. deposit_amount — сумма.
+        10. deposit_return_status — "defined" или "not_defined".
+        11. deposit_return_details — условия возврата/удержания.
+        12. vat_status — "defined" или "not_defined".
+        13. vat_details — налоговая оговорка.
+        14. expense_allocation_status — "defined" или "not_defined".
+        15. expense_allocation_details — распределение расходов.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не анализируй ипотеку в силу закона.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "price_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если цена прямо определена. Иначе 'not_defined'."
+          description: "Статус цены."
         - name: "price_details"
           type: "string"
-          description: "Цена. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Цена"
+          description: "Цена объекта."
         - name: "payment_method_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если способ расчётов прямо определён. Иначе 'not_defined'."
+          description: "Статус способа расчётов."
         - name: "payment_method"
           type: "string"
+          presentation: "signal"
           allowed_values: ["escrow", "accreditive", "bank_cell", "cashless", "cash", "mixed", "not_defined"]
-          description: "Способ расчётов."
+          description: "Тип способа расчётов."
+        - name: "payment_method_details"
+          type: "string"
+          presentation: "fact"
+          label: "Способ расчётов"
+          description: "Способ расчётов как описан в договоре."
         - name: "deposit_type_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если тип обеспечительного платежа прямо определён. Иначе 'not_defined'."
+          description: "Статус обеспечительного платежа."
         - name: "deposit_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["advance", "zadatok", "security_payment", "not_defined"]
           description: "Тип обеспечительного платежа."
-        - name: "mortgage_by_law_status"
+        - name: "deposit_type_details"
           type: "string"
+          presentation: "fact"
+          label: "Тип обеспечительного платежа"
+          description: "Квалификация обеспечительного платежа."
+        - name: "deposit_amount"
+          type: "string"
+          presentation: "fact"
+          label: "Сумма обеспечительного платежа"
+          description: "Сумма задатка или аванса."
+        - name: "deposit_return_status"
+          type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ипотека в силу закона прямо урегулирована. Иначе 'not_defined'."
-        - name: "mortgage_by_law_regime"
+          description: "Статус условий возврата."
+        - name: "deposit_return_details"
           type: "string"
-          allowed_values: ["arises", "excluded", "not_addressed", "not_defined"]
-          description: "Режим ипотеки в силу закона."
+          presentation: "fact"
+          label: "Возврат/удержание платежа"
+          description: "Условия возврата или удержания обеспечительного платежа."
+        - name: "vat_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус налоговой оговорки."
+        - name: "vat_details"
+          type: "string"
+          presentation: "fact"
+          label: "Налоговая оговорка"
+          description: "НДС или иная налоговая оговорка."
+        - name: "expense_allocation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус распределения расходов на регистрацию."
+        - name: "expense_allocation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Расходы на регистрацию"
+          description: "Распределение расходов на регистрацию и госпошлину."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 5: Закрытие сделки, условия и передача объекта
+  # CHECK 7: Ипотека в силу закона
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: mortgage_by_law_check
+    name: "Ипотека в силу закона (ст. 488 ГК РФ)"
+    description: >
+      Фактографическая проверка наличия и режима ипотеки в силу закона при
+      рассрочке или отсрочке оплаты. Отдельный check, чтобы избежать смешения
+      с коммерческими условиями расчётов и залоговым обременением.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ипотека в силу закона"
+        - "в залоге у продавца"
+        - "до полной оплаты"
+        - "залог не возникает"
+        - "право залога не применяется"
+        - "ипотека в силу закона не возникает"
+        - "рассрочка"
+        - "отсрочка платежа"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ипотек.*в\\s+силу\\s+закона"
+        - "(?i)в\\s+залог(е|е\\s+у)\\s+продавц"
+        - "(?i)до\\s+полной\\s+оплат"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор купли-продажи недвижимости (ст. 488 ГК РФ; ФЗ-102).
+        Проверяется только один вопрос: ипотека в силу закона.
+        Не анализируй способ расчётов, задаток, аванс или иные коммерческие условия.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Возникает ли ипотека в силу закона (до полной оплаты объект в залоге у продавца).
+        2. Прямо ли исключена ипотека в силу закона.
+        3. Условия прекращения ипотеки (момент полной оплаты, снятие обременения).
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если нет — "not_defined" / "not_addressed".
+        3. В evidence — только текст договора.
+        4. Верни только JSON.
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Есть ли фраза "ипотека в силу закона" прямо?
+        2. Написано ли "не возникает" или "возникает"?
+        3. Условия снятия — прямо описаны?
+
+        Не выводи шаги. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "mortgage_by_law_status": "<defined / not_defined>",
+          "mortgage_by_law_regime": "<arises / excluded / not_addressed / not_defined>",
+          "mortgage_by_law_details": "<текст или 'Данные не определены'>",
+          "mortgage_termination_status": "<defined / not_defined>",
+          "mortgage_termination_details": "<условия снятия или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 550
+    retrieval:
+      retrieval_query: "ипотека в силу закона в залоге у продавца до полной оплаты залог не возникает право залога не применяется ипотека в силу закона не возникает рассрочка отсрочка платежа ст. 488 ГК РФ снятие ипотеки"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "не обременен залогом третьих лиц"
+        - "не заложен в пользу банка"
+        - "залог в пользу кредитора"
+        - "ипотека банка"
+        - "аккредитив"
+        - "эскроу"
+        - "банковская ячейка"
+        - "задаток"
+        - "аванс"
+        - "госпошлина"
+        - "расходы по регистрации"
+        - "передаточный акт"
+        - "срок закрытия"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
+      context_k: 5
+      max_chunks: 6
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "obligations"
+        - "definitions"
+      confidence_bonus_on_match: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 380
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора купли-продажи недвижимости сведения
+        об ипотеке в силу закона: режим (возникает/исключена/не упомянута) и условия
+        прекращения ипотеки.
+        Не анализируй способ расчётов, задаток, обременения от третьих лиц или
+        залог в пользу банка.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. mortgage_by_law_status — "defined" или "not_defined".
+        2. mortgage_by_law_regime — arises / excluded / not_addressed / not_defined.
+        3. mortgage_by_law_details — формулировка об ипотеке в силу закона.
+        4. mortgage_termination_status — "defined" или "not_defined".
+        5. mortgage_termination_details — условия прекращения ипотеки.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        Если вопрос прямо не урегулирован: mortgage_by_law_regime = "not_addressed".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - not_addressed = вопрос не поднят вообще.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "mortgage_by_law_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус регулирования ипотеки в силу закона."
+        - name: "mortgage_by_law_regime"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["arises", "excluded", "not_addressed", "not_defined"]
+          description: "Режим ипотеки в силу закона."
+        - name: "mortgage_by_law_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ипотека в силу закона"
+          description: "Формулировка об ипотеке в силу закона."
+        - name: "mortgage_termination_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условий прекращения ипотеки."
+        - name: "mortgage_termination_details"
+          type: "string"
+          presentation: "fact"
+          label: "Прекращение ипотеки"
+          description: "Условия снятия ипотеки в силу закона."
+      store_payload: true
+
+# ──────────────────────────────────────────────────────────────────────────
+  # CHECK 8: Закрытие сделки, условия и передача объекта
   # ──────────────────────────────────────────────────────────────────────────
   - id: closing_transfer_cluster
     name: "Закрытие, условия закрытия и передача объекта"
     description: >
-      Фактографическая проверка наличия сроков закрытия, перечня conditions precedent,
+      Фактографическая проверка сроков закрытия, перечня conditions precedent,
       передаточного акта, освобождения объекта и технической документации.
     triggers: {}
     severity: "high"
@@ -1614,39 +2486,37 @@ checks_v8:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор купли-продажи недвижимости (§ 7 Главы 30 ГК РФ, ст. 556 ГК РФ).
-        Проверяется только один вопрос: сроки закрытия, условия закрытия
-        и передача объекта.
+        Анализируется договор купли-продажи недвижимости (ст. 556 ГК РФ).
+        Проверяется только один вопрос: сроки закрытия, условия закрытия и передача объекта.
+        Не анализируй цену, расчёты, обременения, ипотеку или семейные риски.
 
         [ЗАДАЧА]
         Найди в тексте договора:
         1. Срок закрытия/подачи на регистрацию.
-        2. Long-stop дату (крайний срок).
-        3. Перечень conditions precedent (условий закрытия).
-        4. Наличие передаточного акта (акта приёма-передачи).
-        5. Дату/срок освобождения объекта продавцом.
-        6. Условие о снятии с регистрационного учёта (для жилья).
-        7. Порядок действий при отказе/приостановке регистрации.
-        8. Передачу технической документации (для зданий).
+        2. Long-stop дату.
+        3. Перечень conditions precedent.
+        4. Наличие передаточного акта.
+        5. Срок освобождения объекта.
+        6. Снятие с регистрационного учёта.
+        7. Порядок при отказе/приостановке регистрации.
+        8. Передача технической документации.
 
         [ПРАВИЛА]
         1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
+        2. Если нет — "not_defined" / "Данные не определены".
+        3. closing_date и longstop_date — разные поля.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли конкретная дата или период для подачи на регистрацию?
-        2. Есть ли перечень условий закрытия с конкретными требованиями?
-        3. Упомянут ли акт приёма-передачи?
-        4. Указан ли срок фактического освобождения объекта?
-        5. Что происходит при отказе в регистрации — прямо написано?
+        1. Срок — конкретный?
+        2. Условия закрытия — перечислены?
+        3. Акт — упомянут?
+        4. Срок освобождения — прямо указан?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "closing_date_status": "<defined / not_defined>",
           "closing_date_details": "<срок или 'Данные не определены'>",
@@ -1655,28 +2525,57 @@ checks_v8:
           "conditions_precedent_status": "<defined / not_defined>",
           "conditions_precedent_details": "<перечень или 'Данные не определены'>",
           "transfer_act_status": "<defined / not_defined>",
+          "transfer_act_details": "<текст или 'Данные не определены'>",
           "possession_delivery_status": "<defined / not_defined>",
           "possession_delivery_details": "<срок или 'Данные не определены'>",
           "deregistration_status": "<defined / not_defined>",
+          "deregistration_details": "<текст или 'Данные не определены'>",
           "registration_refusal_status": "<defined / not_defined>",
+          "registration_refusal_details": "<текст или 'Данные не определены'>",
           "technical_docs_status": "<defined / not_defined>",
+          "technical_docs_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 7
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "срок закрытия подать на регистрацию регистрация перехода права дата закрытия при условии после предоставления до регистрации условие закрытия передаточный акт акт приёма-передачи передача ключей освободить снятие с регистрационного учёта техническая документация long-stop отказ в регистрации приостановка регистрации"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "цена"
+        - "задаток"
+        - "аванс"
+        - "аккредитив"
+        - "эскроу"
+        - "банковская ячейка"
+        - "ипотека в силу закона"
+        - "не обременен"
+        - "арест"
+        - "банкротство"
+        - "расторжение"
+        - "уступка прав"
+        - "риск гибели"
+        - "страхование"
+        - "согласие супруга"
+        - "маткапитал"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.35, 0.80]
+        boost: 0.15
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "срок закрытия"
-        - "подать на регистрацию"
-        - "передаточный акт"
-        - "акт приёмки-передачи"
-        - "освободить"
-        - "снятие с регистрационного учёта"
-        - "техническая документация"
-        - "условие закрытия"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1690,44 +2589,137 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 560
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора купли-продажи недвижимости условия
+        закрытия и передачи объекта: срок подачи на регистрацию, long-stop, conditions
+        precedent, передаточный акт, освобождение, снятие с учёта, отказ регистрации,
+        техдокументация.
+        Не анализируй цену, расчёты, обременения, ипотеку или семейные риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. closing_date_status — "defined" или "not_defined".
+        2. closing_date_details — срок закрытия.
+        3. longstop_date_status — "defined" или "not_defined".
+        4. longstop_date_details — крайний срок.
+        5. conditions_precedent_status — "defined" или "not_defined".
+        6. conditions_precedent_details — перечень условий.
+        7. transfer_act_status — "defined" или "not_defined".
+        8. transfer_act_details — условие о передаточном акте.
+        9. possession_delivery_status — "defined" или "not_defined".
+        10. possession_delivery_details — срок освобождения.
+        11. deregistration_status — "defined" или "not_defined".
+        12. deregistration_details — снятие с учёта.
+        13. registration_refusal_status — "defined" или "not_defined".
+        14. registration_refusal_details — порядок при отказе регистрации.
+        15. technical_docs_status — "defined" или "not_defined".
+        16. technical_docs_details — передача техдокументации.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - closing_date и longstop_date не смешивай.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "closing_date_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок закрытия прямо определён. Иначе 'not_defined'."
+          description: "Статус срока закрытия."
         - name: "closing_date_details"
           type: "string"
-          description: "Срок закрытия. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок закрытия"
+          description: "Срок закрытия или подачи на регистрацию."
+        - name: "longstop_date_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус крайнего срока."
+        - name: "longstop_date_details"
+          type: "string"
+          presentation: "fact"
+          label: "Крайний срок закрытия"
+          description: "Крайний срок закрытия сделки."
         - name: "conditions_precedent_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если перечень условий закрытия прямо определён. Иначе 'not_defined'."
+          description: "Статус условий закрытия."
+        - name: "conditions_precedent_details"
+          type: "string"
+          presentation: "fact"
+          label: "Условия закрытия"
+          description: "Перечень conditions precedent."
         - name: "transfer_act_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если передаточный акт прямо упомянут. Иначе 'not_defined'."
+          description: "Статус передаточного акта."
+        - name: "transfer_act_details"
+          type: "string"
+          presentation: "fact"
+          label: "Передаточный акт"
+          description: "Условие о передаточном акте."
         - name: "possession_delivery_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если дата освобождения объекта прямо определена. Иначе 'not_defined'."
+          description: "Статус срока освобождения."
+        - name: "possession_delivery_details"
+          type: "string"
+          presentation: "fact"
+          label: "Освобождение объекта"
+          description: "Срок фактического освобождения."
         - name: "deregistration_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если снятие с регистрационного учёта прямо предусмотрено. Иначе 'not_defined'."
+          description: "Статус снятия с регистрационного учёта."
+        - name: "deregistration_details"
+          type: "string"
+          presentation: "fact"
+          label: "Снятие с регистрационного учёта"
+          description: "Условие о снятии с регистрационного учёта."
         - name: "registration_refusal_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок при отказе в регистрации прямо определён. Иначе 'not_defined'."
+          description: "Статус порядка при отказе регистрации."
+        - name: "registration_refusal_details"
+          type: "string"
+          presentation: "fact"
+          label: "Отказ/приостановка регистрации"
+          description: "Порядок действий при отказе в регистрации."
+        - name: "technical_docs_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус передачи технической документации."
+        - name: "technical_docs_details"
+          type: "string"
+          presentation: "fact"
+          label: "Техническая документация"
+          description: "Передача технической документации."
       store_payload: true
 
+# ──────────────────────────────────────────────────────────────────────────
+  # CHECK 9: Расторжение договора и уступка прав
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 6: Общие условия — расторжение, споры, налоги, риск, страхование
-  # ──────────────────────────────────────────────────────────────────────────
-  - id: general_provisions_cluster
-    name: "Общие условия: расторжение, споры, налоги, риск гибели, страхование, конфиденциальность"
+  - id: contract_lifecycle_check
+    name: "Расторжение, последствия и ограничения уступки прав"
     description: >
-      Фактографическая проверка наличия оснований расторжения, подсудности,
-      налоговых оговорок, риска гибели, страхования и конфиденциальности.
+      Фактографическая проверка оснований и последствий расторжения договора,
+      возврата денежных средств и ограничений на уступку прав требования.
     triggers: {}
     severity: "high"
     origin: "DOCUMENT_TYPE"
@@ -1744,283 +2736,383 @@ checks_v8:
         - "перевод долга"
         - "без согласия"
         - "с согласия другой стороны"
-        - "подсудность"
-        - "арбитражный суд"
-        - "суд общей юрисдикции"
-        - "претензионный порядок"
-        - "по месту нахождения объекта"
-        - "НДС"
-        - "госпошлина"
-        - "расходы по регистрации"
-        - "кадастровая стоимость"
-        - "риск случайной гибели"
-        - "риск случайного повреждения"
-        - "до регистрации"
-        - "страхование"
-        - "конфиденциальность"
-        - "неразглашение"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)расторж(ение|ении)"
         - "(?i)возврат.*денежн"
         - "(?i)уступк(а|и).*без\\s+соглас"
-        - "(?i)арбитражн(ый|ого)\\s+суд"
-        - "(?i)претензионн(ый|ого)\\s+поряд"
-        - "(?i)по\\s+месту\\s+нахождения\\s+объект"
-        - "(?i)\\bНДС\\b|госпошлин"
-        - "(?i)риск\\s+случайн(ой|ого)\\s+(гибел|поврежден)"
-        - "(?i)страхов(ание|ой\\s+полис)"
-        - "(?i)конфиденциал"
+        - "(?i)одностороннем\\s+порядке"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор купли-продажи недвижимости (§ 7 Главы 30 ГК РФ,
-        ст. 453, 459, 558 ГК РФ; ст. 30 ГПК РФ).
-        Проверяется только один вопрос: общие условия договора.
+        Анализируется договор купли-продажи недвижимости (ст. 453 ГК РФ).
+        Проверяется только один вопрос: основания и последствия расторжения,
+        возврат денег и ограничения уступки прав.
+        Не анализируй подсудность, налоги, риск гибели или страхование.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Основания расторжения и возврат денег.
-        2. Ограничения уступки прав.
-        3. Подсудность (корректна ли — по месту нахождения объекта).
-        4. Претензионный порядок.
-        5. Налоговую оговорку (НДС / кадастровая стоимость).
-        6. Риск случайной гибели объекта (кто несёт до регистрации).
-        7. Страхование объекта.
-        8. Конфиденциальность условий сделки.
+        1. Основания расторжения.
+        2. Последствия расторжения и возврат денежных средств.
+        3. Ограничения на уступку прав.
 
         [ПРАВИЛА]
         1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
-        4. В evidence — только текст договора.
-        5. Для подсудности: корректная — по месту нахождения объекта (ст. 30 ГПК РФ).
-        6. Верни только один JSON-объект.
+        2. Если нет — "not_defined" / "Данные не определены".
+        3. В evidence — только текст договора.
+        4. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Перечислены ли конкретные основания расторжения?
-        2. Есть ли ограничение уступки (запрет / только с согласия)?
-        3. Указан ли суд — по месту объекта или иной?
-        4. Есть ли оговорка про НДС или кадастровую стоимость?
-        5. Кто несёт риск до регистрации — прямо написано?
+        1. Основания — перечислены конкретно?
+        2. Последствия — что происходит с деньгами?
+        3. Уступка — запрет / только с согласия / свободна?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "termination_grounds_status": "<defined / not_defined>",
           "termination_grounds_details": "<основания или 'Данные не определены'>",
           "termination_consequences_status": "<defined / not_defined>",
+          "termination_consequences_details": "<последствия или 'Данные не определены'>",
           "assignment_restriction_status": "<defined / not_defined>",
           "assignment_restriction": "<prohibited / allowed_with_consent / allowed / not_defined>",
-          "jurisdiction_status": "<defined / not_defined>",
-          "jurisdiction_details": "<суд или 'Данные не определены'>",
-          "jurisdiction_correct": "<yes / no / not_defined>",
-          "pretrial_status": "<defined / not_defined>",
-          "vat_clause_status": "<defined / not_defined>",
-          "cadastral_value_status": "<defined / not_defined>",
-          "risk_of_loss_status": "<defined / not_defined>",
-          "risk_of_loss_details": "<кто несёт или 'Данные не определены'>",
-          "insurance_status": "<defined / not_defined>",
-          "confidentiality_status": "<defined / not_defined>",
+          "assignment_restriction_details": "<условие или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 8
+      context_k: 6
       temperature: 0.0
-      max_tokens: 750
+      max_tokens: 600
     retrieval:
-      context_k: 8
-      max_chunks: 12
-      boost_keywords:
-        - "расторжение"
-        - "возврат денежных средств"
-        - "задаток"
-        - "уступка"
-        - "подсудность"
-        - "по месту нахождения объекта"
-        - "НДС"
-        - "кадастровая стоимость"
+      retrieval_query: "расторжение отказ от договора возврат денежных средств неустойка штраф уступка переуступка перевод долга без согласия с согласия другой стороны одностороннее расторжение последствия расторжения"
+      preferred_unit_types:
+        - termination_provision
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+      negative_keywords:
+        - "отказ в регистрации"
+        - "приостановка регистрации"
+        - "срок закрытия"
+        - "передаточный акт"
+        - "условие закрытия"
+        - "ипотека в силу закона"
+        - "не обременен"
+        - "банкротство"
         - "риск гибели"
         - "страхование"
-        - "конфиденциальность"
+        - "подсудность"
+        - "согласие супруга"
+        - "маткапитал"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.50, 0.95]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
         - "remedies"
-        - "boilerplate"
         - "procedures"
-        - "limitations"
-      confidence_bonus_on_match: 0.06
+      confidence_bonus_on_match: 0.08
     evidence:
       required: true
       min_snippet_length: 40
-      max_snippet_length: 700
+      max_snippet_length: 600
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 420
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора купли-продажи недвижимости основания
+        расторжения, последствия расторжения с возвратом денег и ограничения уступки прав.
+        Не анализируй подсудность, налоги, риск гибели, страхование, обременения
+        или передачу объекта.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. termination_grounds_status — "defined" или "not_defined".
+        2. termination_grounds_details — основания расторжения.
+        3. termination_consequences_status — "defined" или "not_defined".
+        4. termination_consequences_details — последствия, включая возврат денег.
+        5. assignment_restriction_status — "defined" или "not_defined".
+        6. assignment_restriction — prohibited / allowed_with_consent / allowed / not_defined.
+        7. assignment_restriction_details — условие об уступке.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "termination_grounds_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если основания расторжения прямо определены. Иначе 'not_defined'."
+          description: "Статус оснований расторжения."
+        - name: "termination_grounds_details"
+          type: "string"
+          presentation: "fact"
+          label: "Основания расторжения"
+          description: "Основания расторжения договора."
+        - name: "termination_consequences_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус последствий расторжения."
+        - name: "termination_consequences_details"
+          type: "string"
+          presentation: "fact"
+          label: "Последствия расторжения"
+          description: "Последствия расторжения, включая возврат денег."
         - name: "assignment_restriction_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ограничения уступки прямо определены. Иначе 'not_defined'."
+          description: "Статус ограничений уступки."
         - name: "assignment_restriction"
           type: "string"
+          presentation: "signal"
           allowed_values: ["prohibited", "allowed_with_consent", "allowed", "not_defined"]
           description: "Режим уступки прав."
-        - name: "jurisdiction_status"
+        - name: "assignment_restriction_details"
           type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если подсудность прямо определена. Иначе 'not_defined'."
-        - name: "jurisdiction_correct"
-          type: "string"
-          allowed_values: ["yes", "no", "not_defined"]
-          description: "Верни 'yes' если по месту объекта (правильно по ст. 30 ГПК). 'no' если иной суд."
-        - name: "risk_of_loss_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если риск гибели прямо определён. Иначе 'not_defined'."
-        - name: "vat_clause_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если налоговая оговорка прямо определена. Иначе 'not_defined'."
-        - name: "confidentiality_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если конфиденциальность прямо предусмотрена. Иначе 'not_defined'."
+          presentation: "fact"
+          label: "Уступка прав"
+          description: "Условие об уступке прав."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 7: Земельный участок — параметры предмета
+  # CHECK 10: Сохранность актива, налоги и подсудность
   # ──────────────────────────────────────────────────────────────────────────
-  - id: land_subject_extraction
-    name: "Земля: параметры земельного участка"
+  - id: asset_protection_taxes_check
+    name: "Риск гибели, страхование, налоги и подсудность"
     description: >
-      Фактографическая проверка наличия всех параметров земельного участка
-      как предмета договора.
-    triggers:
-      any: ["land_plot_sale"]
+      Фактографическая проверка распределения риска случайной гибели объекта,
+      условий страхования, налоговой оговорки и корректности подсудности по спорам
+      о недвижимости (ст. 30 ГПК РФ).
+    triggers: {}
     severity: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
       keywords:
-        - "земельный участок"
-        - "кадастровый номер"
-        - "категория земель"
-        - "разрешенное использование"
-        - "вид разрешенного использования"
-        - "ВРИ"
+        - "риск случайной гибели"
+        - "риск случайного повреждения"
+        - "до регистрации"
+        - "страхование"
+        - "страховой полис"
+        - "подсудность"
+        - "арбитражный суд"
+        - "суд общей юрисдикции"
+        - "по месту нахождения объекта"
+        - "НДС"
+        - "кадастровая стоимость"
+        - "налог на доход"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+        - "(?i)риск\\s+случайн(ой|ого)\\s+(гибел|поврежден)"
+        - "(?i)страхов(ание|ой\\s+полис)"
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+        - "(?i)по\\s+месту\\s+нахождения\\s+объект"
+        - "(?i)\\bНДС\\b|кадастровая\\s+стоимость"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор купли-продажи земельного участка (§ 7 Главы 30 ГК РФ,
-        ст. 554 ГК РФ; ЗК РФ, ст. 7-8).
-        Проверяется только один вопрос: параметры земельного участка.
+        Анализируется договор купли-продажи недвижимости (ст. 459 ГК РФ; ст. 30 ГПК РФ).
+        Проверяется только один вопрос: распределение риска гибели, страхование,
+        налоговая оговорка и корректность подсудности.
+        Не анализируй расторжение, уступку, обременения или семейные риски.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Кадастровый номер (формат NN:NN:NNNNNNN:N).
-        2. Адрес/местоположение участка.
-        3. Площадь участка с единицей.
-        4. Категорию земель.
-        5. Вид разрешённого использования (ВРИ).
+        1. Кто несёт риск случайной гибели до регистрации.
+        2. Условие страхования объекта.
+        3. Налоговую оговорку (НДС, кадастровая стоимость).
+        4. Подсудность и её соответствие ст. 30 ГПК РФ (по месту объекта).
 
         [ПРАВИЛА]
         1. Только текст документа.
-        2. Не выводи кадастровый номер — только если прямо написан в формате NN:NN:...
-        3. Если параметр не указан прямо — "not_defined".
-        4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        2. Если нет — "not_defined" / "Данные не определены".
+        3. jurisdiction_correct = "yes" только если подсудность по месту объекта.
+        4. jurisdiction_correct = "no" если указан иной суд.
+        5. В evidence — только текст договора.
+        6. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Кадастровый номер — только если прямо цифрами в формате XX:XX:XXXXXXX:X.
-        2. Категория — только прямое название (земли населённых пунктов и т.п.).
-        3. ВРИ — только прямая формулировка.
+        1. Риск — прямо указано, кто несёт?
+        2. Страхование — обязанность прямо установлена?
+        3. НДС — явно включён или не включён?
+        4. Суд — по месту объекта или иной?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
-          "cadastral_number_status": "<defined / not_defined>",
-          "cadastral_number": "<номер или 'Данные не определены'>",
-          "address_status": "<defined / not_defined>",
-          "address_details": "<адрес или 'Данные не определены'>",
-          "area_status": "<defined / not_defined>",
-          "area_details": "<площадь или 'Данные не определены'>",
-          "land_category_status": "<defined / not_defined>",
-          "land_category": "<категория или 'Данные не определены'>",
-          "vri_status": "<defined / not_defined>",
-          "vri_details": "<ВРИ или 'Данные не определены'>",
+          "risk_of_loss_status": "<defined / not_defined>",
+          "risk_of_loss_details": "<кто несёт или 'Данные не определены'>",
+          "insurance_status": "<defined / not_defined>",
+          "insurance_details": "<условие или 'Данные не определены'>",
+          "tax_clause_status": "<defined / not_defined>",
+          "tax_clause_details": "<текст или 'Данные не определены'>",
+          "jurisdiction_status": "<defined / not_defined>",
+          "jurisdiction_details": "<суд или 'Данные не определены'>",
+          "jurisdiction_correct": "<yes / no / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 5
+      context_k: 6
       temperature: 0.0
       max_tokens: 600
     retrieval:
-      context_k: 5
+      retrieval_query: "риск случайной гибели риск случайного повреждения до регистрации страхование страховой полис подсудность арбитражный суд суд общей юрисдикции по месту нахождения объекта НДС кадастровая стоимость налог на доход"
+      preferred_unit_types:
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - limitations
+      negative_keywords:
+        - "не обременен"
+        - "залог"
+        - "арест"
+        - "аренда"
+        - "задолженность по ЖКУ"
+        - "банкротство"
+        - "задаток"
+        - "аванс"
+        - "аккредитив"
+        - "ипотека в силу закона"
+        - "передаточный акт"
+        - "расторжение"
+        - "уступка"
+        - "согласие супруга"
+        - "маткапитал"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.55, 1.0]
+        boost: 0.18
+        scope: segment
+      context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "земельный участок"
-        - "кадастровый номер"
-        - "категория земель"
-        - "разрешённое использование"
-        - "вид разрешённого использования"
-        - "ВРИ"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
-        - "definitions"
-        - "obligations"
-      confidence_bonus_on_match: 0.10
+        - "boilerplate"
+        - "limitations"
+      confidence_bonus_on_match: 0.06
     evidence:
       required: true
-      min_snippet_length: 50
+      min_snippet_length: 30
       max_snippet_length: 600
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 440
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора купли-продажи недвижимости сведения
+        о риске случайной гибели, страховании, налоговой оговорке и подсудности.
+        Не анализируй расторжение, уступку, обременения, семейные риски или расчёты.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. risk_of_loss_status — "defined" или "not_defined".
+        2. risk_of_loss_details — кто несёт риск до регистрации.
+        3. insurance_status — "defined" или "not_defined".
+        4. insurance_details — условие страхования.
+        5. tax_clause_status — "defined" или "not_defined".
+        6. tax_clause_details — налоговая оговорка.
+        7. jurisdiction_status — "defined" или "not_defined".
+        8. jurisdiction_details — суд или форум.
+        9. jurisdiction_correct — yes / no / not_defined.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - jurisdiction_correct = "yes" только если подсудность по месту объекта.
+        - jurisdiction_correct = "no" если прямо указан иной суд.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "cadastral_number_status"
+        - name: "risk_of_loss_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если кадастровый номер прямо указан. Иначе 'not_defined'."
-        - name: "cadastral_number"
+          description: "Статус риска случайной гибели."
+        - name: "risk_of_loss_details"
           type: "string"
-          regex_patterns: ["(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"]
-          description: "Кадастровый номер. Если нет — строго 'Данные не определены'."
-        - name: "area_status"
+          presentation: "fact"
+          label: "Риск случайной гибели"
+          description: "Кто несёт риск до регистрации перехода права."
+        - name: "insurance_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если площадь прямо указана. Иначе 'not_defined'."
-        - name: "land_category_status"
+          description: "Статус страхования объекта."
+        - name: "insurance_details"
           type: "string"
+          presentation: "fact"
+          label: "Страхование"
+          description: "Условие страхования объекта."
+        - name: "tax_clause_status"
+          type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если категория земель прямо указана. Иначе 'not_defined'."
-        - name: "land_category"
+          description: "Статус налоговой оговорки."
+        - name: "tax_clause_details"
           type: "string"
-          description: "Категория земель. Если нет — строго 'Данные не определены'."
-        - name: "vri_status"
+          presentation: "fact"
+          label: "Налоговая оговорка"
+          description: "НДС, кадастровая стоимость и иные налоговые условия."
+        - name: "jurisdiction_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ВРИ прямо указан. Иначе 'not_defined'."
-        - name: "vri_details"
+          description: "Статус подсудности."
+        - name: "jurisdiction_details"
           type: "string"
-          description: "ВРИ. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Подсудность"
+          description: "Суд или форум разрешения споров."
+        - name: "jurisdiction_correct"
+          type: "string"
+          presentation: "diagnostic"
+          allowed_values: ["yes", "no", "not_defined"]
+          description: "Маркер корректности подсудности по ст. 30 ГПК РФ."
       store_payload: true
 
+
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 8: Обязательность кадастрового номера (rules-only)
+  # CHECK 11: Обязательность кадастрового номера (rules-only)
   # ──────────────────────────────────────────────────────────────────────────
   - id: cadastral_number_required_for_land_plot
     name: "Земля: обязательность кадастрового номера (ст. 554 ГК РФ)"
@@ -2044,11 +3136,24 @@ checks_v8:
       temperature: 0.0
       max_tokens: 128
     retrieval:
+      retrieval_query: "кадастровый номер земельный участок идентификация объекта"
+      preferred_unit_types:
+        - general_provision
+        - obligation
+      excluded_unit_types:
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.50]
+        boost: 0.15
+        scope: segment
       context_k: 3
       max_chunks: 6
-      boost_keywords:
-        - "кадастровый номер"
-        - "земельный участок"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2065,7 +3170,7 @@ checks_v8:
       store_payload: false
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 9: Категория, ВРИ и ковенант о неизменности назначения
+  # CHECK 12: Категория, ВРИ и ковенант о неизменности назначения
   # ──────────────────────────────────────────────────────────────────────────
   - id: land_vri_and_category_required
     name: "Земля: категория, ВРИ и ковенант о неизменности назначения"
@@ -2134,15 +3239,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "категория земель разрешённое использование вид разрешённого использования ВРИ не изменять целевое назначение без согласия продавца ковенант запрет изменения назначения ЗК РФ ГрК РФ сельскохозяйственного назначения населённых пунктов"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - warranty
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "кадастровый номер"
+        - "площадь"
+        - "адрес"
+        - "ЕГРН"
+        - "правоустанавливающий документ"
+        - "не обременен"
+        - "арест"
+        - "аренда"
+        - "ЗОУИТ"
+        - "цена"
+        - "задаток"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "категория земель"
-        - "разрешённое использование"
-        - "вид разрешённого использования"
-        - "ВРИ"
-        - "целевое назначение"
-        - "без согласия продавца"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2156,23 +3284,87 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 460
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора купли-продажи земельного участка
+        категорию земель, ВРИ, условие о соответствии ВРИ целям покупателя и ковенант
+        о запрете изменения категории или ВРИ.
+        Не анализируй общие параметры объекта, цену, расчёты, обременения или передачу.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. land_category_status — "defined" или "not_defined".
+        2. land_category — категория земель.
+        3. vri_status — "defined" или "not_defined".
+        4. vri_details — вид разрешённого использования.
+        5. intended_use_fit_status — "defined" или "not_defined".
+        6. intended_use_fit — yes / no / unclear / not_defined.
+        7. covenant_no_change_status — "defined" или "not_defined".
+        8. covenant_no_change_details — ковенант о неизменности категории или ВРИ.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - intended_use_fit = yes только если в договоре прямо указано соответствие ВРИ целям покупателя.
+        - Не выводи ковенант из общего описания ВРИ — нужен прямой запрет или ограничение изменения.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "land_category_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если категория прямо указана. Иначе 'not_defined'."
+          description: "Статус определения категории земель."
+        - name: "land_category"
+          type: "string"
+          presentation: "fact"
+          label: "Категория земель"
+          description: "Категория земель."
         - name: "vri_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ВРИ прямо указан. Иначе 'not_defined'."
+          description: "Статус определения ВРИ."
+        - name: "vri_details"
+          type: "string"
+          presentation: "fact"
+          label: "Вид разрешённого использования"
+          description: "Вид разрешённого использования."
+        - name: "intended_use_fit_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения соответствия ВРИ целям покупателя."
+        - name: "intended_use_fit"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["yes", "no", "unclear", "not_defined"]
+          description: "Соответствие ВРИ целям покупателя."
         - name: "covenant_no_change_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ковенант о неизменности прямо определён. Иначе 'not_defined'."
+          description: "Статус наличия ковенанта о неизменности назначения."
+        - name: "covenant_no_change_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ковенант о неизменности назначения"
+          description: "Ковенант о неизменности категории или ВРИ."
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 10: Перечень лиц с правом пользования (жильё)
+# ──────────────────────────────────────────────────────────────────────────
+  # CHECK 13: Перечень лиц с правом пользования (жильё)
   # ──────────────────────────────────────────────────────────────────────────
   - id: residents_list_required
     name: "Жильё: перечень лиц с правом пользования (ст. 558 ГК РФ)"
@@ -2202,51 +3394,41 @@ checks_v8:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор купли-продажи жилой недвижимости (§ 7 Главы 30 ГК РФ,
-        ст. 558 ГК РФ; ст. 292 ГК РФ; ст. 19 ФЗ-189).
+        Анализируется договор купли-продажи жилой недвижимости (ст. 558, 292 ГК РФ).
         Проверяется только один вопрос: перечень лиц с правом пользования.
+        Не анализируй согласие супруга, маткапитал или органы опеки — они отдельные checks.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Перечень лиц с правом пользования жилым помещением (если есть).
-        2. Явное указание на отсутствие таких лиц.
-        3. Упоминание отказавшихся от приватизации.
-        4. Упоминание несовершеннолетних.
+        1. Перечень лиц с правом пользования или заверение об их отсутствии.
+        2. Отказавшихся от приватизации.
+        3. Несовершеннолетних в контексте ст. 558.
 
         [ПРАВИЛА]
         1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
+        2. explicitly_none = только если прямо написано, что лиц нет.
+        3. Не выводи отсутствие из молчания договора.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни только JSON.
 
         [ПРИМЕРЫ (FEW-SHOT)]
-
         Пример 1:
-        Фрагмент:
-        "Лиц, сохраняющих право пользования жилым помещением в соответствии со ст. 558 ГК РФ,
-        не имеется. Лиц, отказавшихся от участия в приватизации, нет."
-
+        "Лиц, сохраняющих право пользования по ст. 558 ГК РФ, не имеется.
+        Отказавшихся от приватизации нет."
         Ответ:
         {
           "residents_list_status": "defined",
           "residents_regime": "explicitly_none",
           "residents_details": "лиц с правом пользования не имеется",
           "privatization_refusers_status": "defined",
-          "privatization_refusers_details": "лиц, отказавшихся от приватизации, нет",
+          "privatization_refusers_details": "отказавшихся от приватизации нет",
           "minor_residents_status": "not_defined",
-          "evidence": [
-            {
-              "clause_ref": "п. 3.5",
-              "quote": "Лиц, сохраняющих право пользования жилым помещением в соответствии со ст. 558 ГК РФ, не имеется."
-            }
-          ]
+          "minor_residents_details": "Данные не определены",
+          "evidence": [{"clause_ref": "п. 3.5", "quote": "..."}]
         }
 
         Пример 2:
-        Фрагмент:
-        "Продавец передаёт квартиру покупателю."
-
+        "Продавец передаёт квартиру."
         Ответ:
         {
           "residents_list_status": "not_defined",
@@ -2255,18 +3437,18 @@ checks_v8:
           "privatization_refusers_status": "not_defined",
           "privatization_refusers_details": "Данные не определены",
           "minor_residents_status": "not_defined",
+          "minor_residents_details": "Данные не определены",
           "evidence": []
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли явная фраза "лиц с правом пользования нет" или их перечень?
-        2. Упомянуты ли отказавшиеся от приватизации?
-        3. Отсутствие раздела = not_defined (критично!).
+        1. Явная фраза "лиц нет" или их перечень — прямо?
+        2. Отказавшиеся от приватизации — упомянуты?
+        3. Отсутствие раздела = not_defined.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "residents_list_status": "<defined / not_defined>",
           "residents_regime": "<listed / explicitly_none / not_defined>",
@@ -2274,20 +3456,49 @@ checks_v8:
           "privatization_refusers_status": "<defined / not_defined>",
           "privatization_refusers_details": "<текст или 'Данные не определены'>",
           "minor_residents_status": "<defined / not_defined>",
+          "minor_residents_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 5
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "право пользования зарегистрированные лица проживающие лица сохраняют право пользования лица не утратившие право отсутствуют лица никто не зарегистрирован снят с регистрационного учёта перечень проживающих ст. 558 ГК РФ приватизация отказавшиеся от приватизации"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "согласие супруга"
+        - "в браке не состоит"
+        - "брачный договор"
+        - "маткапитал"
+        - "материнский капитал"
+        - "средства МСК"
+        - "выделение долей детям"
+        - "орган опеки"
+        - "разрешение опеки"
+        - "недееспособный"
+        - "цена"
+        - "задаток"
+        - "аккредитив"
+        - "не обременен"
+        - "арест"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.80]
+        boost: 0.15
+        scope: segment
       context_k: 5
       max_chunks: 6
-      boost_keywords:
-        - "право пользования"
-        - "зарегистрированные лица"
-        - "перечень лиц"
-        - "ст. 558 ГК РФ"
-        - "приватизация"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2301,31 +3512,88 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 440
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора купли-продажи жилой недвижимости
+        сведения о лицах с правом пользования, отказавшихся от приватизации
+        и несовершеннолетних в контексте ст. 558 ГК РФ.
+        Не анализируй согласие супруга, маткапитал, цену или передачу объекта.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. residents_list_status — "defined" или "not_defined".
+        2. residents_regime — listed / explicitly_none / not_defined.
+        3. residents_details — перечень или указание об отсутствии.
+        4. privatization_refusers_status — "defined" или "not_defined".
+        5. privatization_refusers_details — об отказавшихся от приватизации.
+        6. minor_residents_status — "defined" или "not_defined".
+        7. minor_residents_details — о несовершеннолетних.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - explicitly_none = только если прямо написано.
+        - Не выводи из молчания договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "residents_list_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если перечень лиц или заверение об их отсутствии прямо определено. Иначе 'not_defined'."
+          description: "Статус перечня лиц с правом пользования."
+        - name: "residents_details"
+          type: "string"
+          presentation: "fact"
+          label: "Лица с правом пользования"
+          description: "Сведения о лицах с правом пользования."
         - name: "residents_regime"
           type: "string"
+          presentation: "signal"
           allowed_values: ["listed", "explicitly_none", "not_defined"]
-          description: "Статус: есть перечень / явно нет / не определено."
+          description: "Режим: перечислены / явно нет / не определено."
         - name: "privatization_refusers_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если отказавшиеся от приватизации упомянуты. Иначе 'not_defined'."
+          description: "Статус отказавшихся от приватизации."
+        - name: "privatization_refusers_details"
+          type: "string"
+          presentation: "fact"
+          label: "Отказавшиеся от приватизации"
+          description: "Сведения об отказавшихся от приватизации."
+        - name: "minor_residents_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус несовершеннолетних."
+        - name: "minor_residents_details"
+          type: "string"
+          presentation: "fact"
+          label: "Несовершеннолетние"
+          description: "Сведения о несовершеннолетних."
       store_payload: true
 
+# ──────────────────────────────────────────────────────────────────────────
+  # CHECK 14: Семейные риски — супруг, маткапитал, опека
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 11: Согласие супруга и органов опеки
-  # ──────────────────────────────────────────────────────────────────────────
-  - id: spousal_consent_check
-    name: "Согласие супруга, семейное положение и разрешение органов опеки"
+  - id: family_risks_check
+    name: "Семейные риски: согласие супруга, маткапитал и разрешение органов опеки"
     description: >
-      Фактографическая проверка наличия нотариального согласия супруга или
-      подтверждения отсутствия брака, а также разрешения органов опеки.
+      Фактографическая проверка трёх взаимосвязанных семейных рисков:
+      нотариальное согласие супруга или подтверждение отсутствия брака,
+      использование маткапитала и выделение долей детям,
+      разрешение органов опеки при наличии несовершеннолетних.
+      Все три темы касаются состава семьи и прав на общее имущество.
     triggers:
-      any: ["individual_party"]
+      any: ["individual_party", "residential_property"]
     severity: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
@@ -2335,111 +3603,164 @@ checks_v8:
         - "нотариальное согласие"
         - "не состоит в браке"
         - "брачный договор"
-        - "является единственным собственником"
         - "приобретено до брака"
         - "личная собственность"
         - "согласие органа опеки"
         - "разрешение опеки"
         - "несовершеннолетн"
         - "недееспособн"
-        - "отсутствие несовершеннолетних"
+        - "материнский капитал"
+        - "маткапитал"
+        - "средства МСК"
+        - "выделение долей детям"
+        - "не использовались средства маткапитала"
+        - "ФЗ-256"
         - "орган опеки и попечительства"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)согласи(е|я)\\s+супруг"
         - "(?i)не\\s+состоит?\\s+в\\s+браке"
         - "(?i)орган(а|ов)?\\s+опек"
+        - "(?i)материнск(ий|ого)\\s+капитал"
+        - "(?i)средств(а|ами)\\s+МСК"
+        - "(?i)выделени(е|я)\\s+дол(ей|и)\\s+(детям|членам\\s+семьи)"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор купли-продажи недвижимости, в котором одна из сторон —
-        физическое лицо (ст. 35 СК РФ; ст. 292 ГК РФ; ФЗ-48).
-        Проверяется только один вопрос: согласие супруга и разрешение органов опеки.
+        Анализируется договор купли-продажи недвижимости (ст. 35 СК РФ; ст. 292 ГК РФ;
+        ФЗ-48; ст. 10 ФЗ-256).
+        Проверяется только один вопрос: три семейных риска —
+        согласие супруга, маткапитал, разрешение органов опеки.
+        Не анализируй перечень прописанных лиц по ст. 558 ГК — это отдельный check.
+        Не анализируй цену, расчёты, обременения или передачу объекта.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Нотариальное согласие супруга продавца или заверение о его отсутствии в браке.
-        2. Ссылку на брачный договор (если имущество — личное).
-        3. Наличие несовершеннолетних/недееспособных.
-        4. Разрешение органа опеки (при наличии несовершеннолетних).
+        БЛОК А — СУПРУГ:
+        1. Нотариальное согласие супруга или заверение об отсутствии брака.
+        2. Ссылку на брачный договор.
+
+        БЛОК Б — МАТКАПИТАЛ:
+        3. Заверение о неиспользовании маткапитала.
+        4. Если использован — выделены ли доли всем членам семьи.
+
+        БЛОК В — ОПЕКА:
+        5. Наличие несовершеннолетних/недееспособных, чьи права затронуты.
+        6. Разрешение органа опеки.
 
         [ПРАВИЛА]
         1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
+        2. Если нет — "not_defined" / "not_addressed".
+        3. matcapital_regime = "not_addressed" если маткапитал вообще не упомянут.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        5. Верни только JSON.
 
         [ПРИМЕРЫ (FEW-SHOT)]
-
         Пример 1:
-        Фрагмент:
-        "Продавец подтверждает, что в зарегистрированном браке не состоит.
-        Несовершеннолетних детей, чьи права могут быть затронуты, не имеется."
-
+        "Продавец в браке не состоит.
+        Маткапитал не использовался.
+        Несовершеннолетних детей, чьи права затронуты, нет."
         Ответ:
         {
           "spousal_consent_status": "defined",
           "spousal_consent_regime": "not_married_confirmed",
-          "spousal_consent_details": "в зарегистрированном браке не состоит",
-          "minor_residents_status": "defined",
-          "minor_residents_details": "несовершеннолетних детей не имеется",
+          "spousal_consent_details": "в браке не состоит",
+          "matcapital_status": "defined",
+          "matcapital_regime": "yes_not_used",
+          "matcapital_details": "маткапитал не использовался",
+          "shares_allocated_status": "not_defined",
+          "shares_allocated": "not_applicable",
+          "shares_allocated_details": "Данные не определены",
+          "minor_protected_status": "defined",
+          "minor_protected_details": "несовершеннолетних детей нет",
           "guardianship_consent_status": "not_defined",
-          "evidence": [
-            {
-              "clause_ref": "п. 4.3",
-              "quote": "Продавец подтверждает, что в зарегистрированном браке не состоит."
-            }
-          ]
+          "guardianship_consent_details": "Данные не определены",
+          "evidence": [{"clause_ref": "п. 4.3", "quote": "..."}]
         }
 
         Пример 2:
-        Фрагмент:
         "Продавец вправе продать объект."
-
         Ответ:
         {
           "spousal_consent_status": "not_defined",
           "spousal_consent_regime": "not_defined",
           "spousal_consent_details": "Данные не определены",
-          "minor_residents_status": "not_defined",
-          "minor_residents_details": "Данные не определены",
+          "matcapital_status": "not_defined",
+          "matcapital_regime": "not_addressed",
+          "matcapital_details": "Данные не определены",
+          "shares_allocated_status": "not_defined",
+          "shares_allocated": "not_defined",
+          "shares_allocated_details": "Данные не определены",
+          "minor_protected_status": "not_defined",
+          "minor_protected_details": "Данные не определены",
           "guardianship_consent_status": "not_defined",
+          "guardianship_consent_details": "Данные не определены",
           "evidence": []
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли прямая фраза о браке (не состоит / согласие приложено)?
-        2. Упомянуты ли несовершеннолетние?
-        3. Есть ли ссылка на разрешение органа опеки?
+        БЛОК А: брак — прямо?
+        БЛОК Б: маткапитал — упомянут? Если нет — not_addressed (критично!).
+        БЛОК В: несовершеннолетние — упомянуты? Опека — прямо?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "spousal_consent_status": "<defined / not_defined>",
           "spousal_consent_regime": "<consent_present / not_married_confirmed / prenuptial_referenced / not_defined>",
           "spousal_consent_details": "<текст или 'Данные не определены'>",
-          "minor_residents_status": "<defined / not_defined>",
-          "minor_residents_details": "<текст или 'Данные не определены'>",
+          "matcapital_status": "<defined / not_defined>",
+          "matcapital_regime": "<yes_not_used / yes_used_and_complied / not_addressed / not_defined>",
+          "matcapital_details": "<текст или 'Данные не определены'>",
+          "shares_allocated_status": "<defined / not_defined>",
+          "shares_allocated": "<yes / no / not_applicable / not_defined>",
+          "shares_allocated_details": "<текст или 'Данные не определены'>",
+          "minor_protected_status": "<defined / not_defined>",
+          "minor_protected_details": "<текст или 'Данные не определены'>",
           "guardianship_consent_status": "<defined / not_defined>",
+          "guardianship_consent_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 5
+      context_k: 6
       temperature: 0.0
-      max_tokens: 650
+      max_tokens: 700
     retrieval:
-      context_k: 5
-      max_chunks: 6
-      boost_keywords:
-        - "согласие супруга"
-        - "нотариальное согласие"
-        - "состоит в браке"
-        - "ст. 35 СК РФ"
-        - "орган опеки"
-        - "несовершеннолетний"
+      retrieval_query: "согласие супруга нотариальное согласие не состоит в браке брачный договор приобретено до брака личная собственность согласие органа опеки разрешение опеки несовершеннолетний недееспособный материнский капитал маткапитал средства МСК выделение долей детям не использовались средства маткапитала ФЗ-256 орган опеки и попечительства"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "перечень лиц с правом пользования"
+        - "зарегистрированные лица"
+        - "проживающие лица"
+        - "ст. 558 ГК РФ право пользования"
+        - "отказавшиеся от приватизации"
+        - "снят с регистрационного учёта"
+        - "не обременен"
+        - "арест"
+        - "аренда"
+        - "банкротство"
+        - "ЗОУИТ"
+        - "цена"
+        - "задаток"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.85]
+        boost: 0.12
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2449,33 +3770,133 @@ checks_v8:
     evidence:
       required: true
       min_snippet_length: 30
-      max_snippet_length: 500
+      max_snippet_length: 600
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора купли-продажи недвижимости три группы
+        семейных рисков:
+        А) согласие супруга или подтверждение отсутствия брака,
+        Б) маткапитал и выделение долей детям,
+        В) несовершеннолетние, защищаемые лица и разрешение органов опеки.
+        Не анализируй прописанных лиц по ст. 558 — это отдельный check.
+        Не анализируй цену, расчёты, обременения или передачу объекта.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        БЛОК А — СУПРУГ:
+        1. spousal_consent_status — "defined" или "not_defined".
+        2. spousal_consent_regime — consent_present / not_married_confirmed / prenuptial_referenced / not_defined.
+        3. spousal_consent_details — сведения о браке или согласии.
+
+        БЛОК Б — МАТКАПИТАЛ:
+        4. matcapital_status — "defined" или "not_defined".
+        5. matcapital_regime — yes_not_used / yes_used_and_complied / not_addressed / not_defined.
+        6. matcapital_details — сведения о маткапитале.
+        7. shares_allocated_status — "defined" или "not_defined".
+        8. shares_allocated — yes / no / not_applicable / not_defined.
+        9. shares_allocated_details — сведения о выделении долей.
+
+        БЛОК В — ОПЕКА:
+        10. minor_protected_status — "defined" или "not_defined".
+        11. minor_protected_details — сведения о несовершеннолетних.
+        12. guardianship_consent_status — "defined" или "not_defined".
+        13. guardianship_consent_details — сведения о разрешении опеки.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        Маткапитал не упомянут вообще: matcapital_regime = "not_addressed".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - not_married_confirmed = прямо написано "не состоит в браке".
+        - prenuptial_referenced = прямая ссылка на брачный договор.
+        - not_applicable для shares_allocated = маткапитал не использовался.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "spousal_consent_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если согласие супруга или отсутствие брака прямо определено. Иначе 'not_defined'."
+          description: "Статус согласия супруга или семейного положения."
+        - name: "spousal_consent_details"
+          type: "string"
+          presentation: "fact"
+          label: "Согласие супруга / семейное положение"
+          description: "Сведения о браке, согласии или брачном договоре."
         - name: "spousal_consent_regime"
           type: "string"
+          presentation: "signal"
           allowed_values: ["consent_present", "not_married_confirmed", "prenuptial_referenced", "not_defined"]
-          description: "Статус согласия супруга."
+          description: "Режим согласия супруга."
+        - name: "matcapital_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус раскрытия маткапитала."
+        - name: "matcapital_details"
+          type: "string"
+          presentation: "fact"
+          label: "Маткапитал"
+          description: "Сведения о маткапитале."
+        - name: "matcapital_regime"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["yes_not_used", "yes_used_and_complied", "not_addressed", "not_defined"]
+          description: "Режим раскрытия маткапитала."
+        - name: "shares_allocated_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус выделения долей."
+        - name: "shares_allocated"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["yes", "no", "not_applicable", "not_defined"]
+          description: "Выделены ли доли членам семьи."
+        - name: "shares_allocated_details"
+          type: "string"
+          presentation: "fact"
+          label: "Выделение долей членам семьи"
+          description: "Сведения о выделении долей."
+        - name: "minor_protected_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус несовершеннолетних и защищаемых лиц."
+        - name: "minor_protected_details"
+          type: "string"
+          presentation: "fact"
+          label: "Несовершеннолетние / защищаемые лица"
+          description: "Сведения о несовершеннолетних или недееспособных."
         - name: "guardianship_consent_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если разрешение органов опеки прямо определено. Иначе 'not_defined'."
+          description: "Статус разрешения органов опеки."
+        - name: "guardianship_consent_details"
+          type: "string"
+          presentation: "fact"
+          label: "Разрешение органов опеки"
+          description: "Сведения о разрешении органа опеки и попечительства."
       store_payload: true
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 12: Долевая собственность — преимущественное право
+# ──────────────────────────────────────────────────────────────────────────
+  # CHECK 15: Долевая собственность — преимущественное право
   # ──────────────────────────────────────────────────────────────────────────
   - id: co_owner_preemptive_right_check
     name: "Долевая собственность: преимущественное право и нотариальная форма"
     description: >
-      Фактографическая проверка соблюдения преимущественного права покупки сособственников
-      и нотариальной формы сделки с долей.
+      Фактографическая проверка соблюдения преимущественного права покупки
+      сособственников и нотариальной формы сделки с долей (ст. 250 ГК РФ).
     triggers:
       any: ["share_in_right_sale"]
     severity: "critical"
@@ -2504,49 +3925,80 @@ checks_v8:
         Анализируется договор купли-продажи доли в праве на недвижимость
         (ст. 250 ГК РФ; ФЗ-218, ст. 42).
         Проверяется соблюдение преимущественного права и нотариальная форма.
+        Не анализируй семейные риски, цену, расчёты или обременения.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Статус преимущественного права сособственников (отказались / уведомлены).
+        1. Статус преимущественного права (отказались / уведомлены).
         2. Способ уведомления сособственников.
         3. Соответствие цены в уведомлении цене договора.
-        4. Упоминание нотариального удостоверения.
+        4. Нотариальное удостоверение.
 
         [ПРАВИЛА]
         1. Только текст документа. Если нет — "not_defined".
-        2. В evidence — только текст договора.
-        3. Верни только один JSON-объект.
+        2. waived = прямой отказ сособственников.
+        3. notified = сособственники уведомлены.
+        4. В evidence — только текст договора.
+        5. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Прямо ли написано об отказе или уведомлении сособственников?
-        2. Упомянут ли нотариус для удостоверения?
+        1. Отказ или уведомление — прямо написаны?
+        2. Нотариус — упомянут прямо?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "preemptive_right_status": "<defined / not_defined>",
           "preemptive_right_regime": "<waived / notified / not_defined>",
+          "preemptive_right_details": "<текст или 'Данные не определены'>",
           "notification_method_status": "<defined / not_defined>",
           "notification_method": "<notary / registered_mail / other / not_defined>",
           "price_matches_notification_status": "<defined / not_defined>",
           "price_matches_notification": "<yes / no / not_defined>",
           "notary_form_status": "<defined / not_defined>",
+          "notary_form_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 5
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "преимущественное право покупки уведомление сособственников отказ от преимущественного права извещение о продаже доли ст. 250 ГК РФ нотариус нотариальное удостоверение удостоверено нотариусом нотариальная форма"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - warranty
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - procedures
+      negative_keywords:
+        - "нотариальное согласие супруга"
+        - "цена"
+        - "задаток"
+        - "аванс"
+        - "аккредитив"
+        - "не обременен"
+        - "арест"
+        - "банкротство"
+        - "передаточный акт"
+        - "срок закрытия"
+        - "согласие супруга"
+        - "маткапитал"
+        - "орган опеки"
+        - "право пользования"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "преимущественное право"
-        - "уведомление сособственников"
-        - "отказ от права"
-        - "ст. 250 ГК РФ"
-        - "нотариальное удостоверение"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2560,23 +4012,87 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 440
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора купли-продажи доли сведения о
+        соблюдении преимущественного права сособственников и нотариальной форме сделки.
+        Не анализируй семейные риски, цену, расчёты или обременения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. preemptive_right_status — "defined" или "not_defined".
+        2. preemptive_right_details — сведения о праве.
+        3. preemptive_right_regime — waived / notified / not_defined.
+        4. notification_method_status — "defined" или "not_defined".
+        5. notification_method — notary / registered_mail / other / not_defined.
+        6. price_matches_notification_status — "defined" или "not_defined".
+        7. price_matches_notification — yes / no / not_defined.
+        8. notary_form_status — "defined" или "not_defined".
+        9. notary_form_details — о нотариальном удостоверении.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - waived = прямой отказ. notified = уведомлены.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "preemptive_right_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если преимущественное право прямо урегулировано. Иначе 'not_defined'."
+          description: "Статус преимущественного права."
+        - name: "preemptive_right_details"
+          type: "string"
+          presentation: "fact"
+          label: "Преимущественное право"
+          description: "Сведения о соблюдении преимущественного права."
         - name: "preemptive_right_regime"
           type: "string"
+          presentation: "signal"
           allowed_values: ["waived", "notified", "not_defined"]
-          description: "Статус: отказались / уведомлены / не определено."
+          description: "Режим: отказались / уведомлены / не определено."
+        - name: "notification_method_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус способа уведомления."
+        - name: "notification_method"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["notary", "registered_mail", "other", "not_defined"]
+          description: "Способ уведомления."
+        - name: "price_matches_notification_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус соответствия цены уведомлению."
+        - name: "price_matches_notification"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["yes", "no", "not_defined"]
+          description: "Цена совпадает с ценой уведомления."
         - name: "notary_form_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если нотариальная форма упомянута. Иначе 'not_defined'."
+          description: "Статус нотариальной формы."
+        - name: "notary_form_details"
+          type: "string"
+          presentation: "fact"
+          label: "Нотариальная форма"
+          description: "Сведения о нотариальном удостоверении."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 13: Ипотека — согласие залогодержателя
+  # CHECK 16: Ипотека — согласие залогодержателя
   # ──────────────────────────────────────────────────────────────────────────
   - id: mortgagee_consent_check
     name: "Ипотека: согласие залогодержателя и механизм снятия обременения"
@@ -2645,14 +4161,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "согласие залогодержателя согласие банка погашение кредита снятие ипотеки снятие обременения закладная досрочное погашение механизм снятия ипотеки одновременная регистрация перехода права и снятия обременения сумма ипотечного долга аккредитив эскроу для погашения ипотеки"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "ипотека в силу закона"
+        - "в залоге у продавца"
+        - "ст. 488 ГК РФ"
+        - "не обременен залогом третьих лиц"
+        - "залог как обременение третьих лиц"
+        - "задаток"
+        - "аванс"
+        - "обеспечительный платёж"
+        - "расходы по регистрации"
+        - "банкротство"
+        - "арест"
+        - "аренда"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "согласие залогодержателя"
-        - "согласие банка"
-        - "погашение ипотеки"
-        - "снятие обременения"
-        - "закладная"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2666,27 +4206,93 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 460
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора купли-продажи ипотечной недвижимости
+        сведения о согласии залогодержателя, механизме погашения ипотеки, одновременности
+        снятия обременения и регистрации перехода права, а также сумме ипотечного долга.
+        Не анализируй обычные расчёты без ипотеки, передачу объекта или семейные риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. mortgagee_consent_status — "defined" или "not_defined".
+        2. mortgagee_consent_details — сведения о согласии залогодержателя или банка.
+        3. clearance_mechanism_status — "defined" или "not_defined".
+        4. clearance_mechanism — escrow / accreditive / direct_payment / not_defined.
+        5. clearance_mechanism_details — механизм погашения ипотеки и снятия обременения.
+        6. simultaneous_registration_status — "defined" или "not_defined".
+        7. simultaneous_registration_details — условие об одновременном снятии ипотеки и регистрации перехода права.
+        8. mortgage_amount_status — "defined" или "not_defined".
+        9. mortgage_amount — сумма ипотечного долга.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не подставляй банковскую логику, если механизм прямо не описан.
+        - clearance_mechanism_details передавай кратко и дословно по смыслу договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "mortgagee_consent_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если согласие залогодержателя прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия согласия залогодержателя."
+        - name: "mortgagee_consent_details"
+          type: "string"
+          presentation: "fact"
+          label: "Согласие залогодержателя"
+          description: "Сведения о согласии залогодержателя или банка."
         - name: "clearance_mechanism_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если механизм снятия ипотеки прямо определён. Иначе 'not_defined'."
+          description: "Статус определения механизма погашения ипотеки."
         - name: "clearance_mechanism"
           type: "string"
+          presentation: "signal"
           allowed_values: ["escrow", "accreditive", "direct_payment", "not_defined"]
-          description: "Механизм снятия ипотеки."
+          description: "Тип механизма погашения ипотеки."
+        - name: "clearance_mechanism_details"
+          type: "string"
+          presentation: "fact"
+          label: "Механизм снятия ипотеки"
+          description: "Механизм погашения ипотеки и снятия обременения."
         - name: "simultaneous_registration_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если одновременность регистраций прямо определена. Иначе 'not_defined'."
+          description: "Статус условия об одновременности регистраций."
+        - name: "simultaneous_registration_details"
+          type: "string"
+          presentation: "fact"
+          label: "Одновременность снятия обременения и регистрации"
+          description: "Условие об одновременности снятия ипотеки и регистрации перехода права."
+        - name: "mortgage_amount_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения суммы ипотечного долга."
+        - name: "mortgage_amount"
+          type: "string"
+          presentation: "fact"
+          label: "Сумма ипотечного долга"
+          description: "Сумма ипотечного долга."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 14: Единство судьбы земли и строения
+  # CHECK 17: Единство судьбы земли и строения
   # ──────────────────────────────────────────────────────────────────────────
   - id: land_building_unity_check
     name: "Единство судьбы земли и строения (ст. 552 ГК РФ, ст. 35 ЗК РФ)"
@@ -2750,14 +4356,40 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "вместе с земельным участком право аренды земельного участка переходит вместе со зданием права на землю земельный участок под зданием передача прав на землю ст. 552 ГК РФ ст. 35 ЗК РФ согласие арендодателя кадастровый номер участка под зданием площадь участка"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "кадастровый номер здания"
+        - "площадь здания"
+        - "категория земель"
+        - "вид разрешённого использования"
+        - "ВРИ"
+        - "ковенант о неизменности назначения"
+        - "ЗОУИТ"
+        - "охранная зона"
+        - "не обременен"
+        - "арест"
+        - "аренда как обременение"
+        - "ипотека"
+        - "цена"
+        - "задаток"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 5
       max_chunks: 6
-      boost_keywords:
-        - "земельный участок"
-        - "права на землю"
-        - "переходит вместе"
-        - "ст. 552 ГК РФ"
-        - "право аренды участка"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2771,173 +4403,95 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 440
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора купли-продажи здания
+        или сооружения условия о правах на земельный участок под объектом:
+        вид передаваемых прав, кадастровый номер, площадь и согласие арендодателя.
+        Не анализируй общие параметры здания, цену, расчёты или ипотеку.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. land_rights_transfer_status — "defined" или "not_defined".
+        2. land_rights_transfer — ownership / lease / not_defined.
+        3. land_rights_transfer_details — описание передаваемых прав на землю.
+        4. land_cadastral_number_status — "defined" или "not_defined".
+        5. land_cadastral_number — кадастровый номер участка.
+        6. land_area_status — "defined" или "not_defined".
+        7. land_area — площадь участка.
+        8. lease_consent_status — "defined" или "not_defined".
+        9. lease_consent_details — условие о согласии арендодателя.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - ownership = прямо передаётся право собственности на землю.
+        - lease = прямо передаётся право аренды или иное производное право пользования землёй.
+        - Не выводи права на землю из общих норм закона — только из текста договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "land_rights_transfer_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если вид передаваемых прав на землю прямо определён. Иначе 'not_defined'."
+          description: "Статус определения вида передаваемых прав на землю."
         - name: "land_rights_transfer"
           type: "string"
+          presentation: "signal"
           allowed_values: ["ownership", "lease", "not_defined"]
-          description: "Вид передаваемых прав на участок."
+          description: "Вид передаваемых прав на земельный участок."
+        - name: "land_rights_transfer_details"
+          type: "string"
+          presentation: "fact"
+          label: "Права на землю"
+          description: "Описание передаваемых прав на земельный участок."
         - name: "land_cadastral_number_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если кадастровый номер участка прямо указан. Иначе 'not_defined'."
+          description: "Статус определения кадастрового номера участка."
+        - name: "land_cadastral_number"
+          type: "string"
+          presentation: "fact"
+          label: "Кадастровый номер участка"
+          regex_patterns: ["(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"]
+          description: "Кадастровый номер участка под зданием."
+        - name: "land_area_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения площади участка."
+        - name: "land_area"
+          type: "string"
+          presentation: "fact"
+          label: "Площадь участка"
+          description: "Площадь участка под зданием."
+        - name: "lease_consent_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условия о согласии арендодателя."
+        - name: "lease_consent_details"
+          type: "string"
+          presentation: "fact"
+          label: "Согласие арендодателя"
+          description: "Условие о согласии арендодателя при аренде участка."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 15: Маткапитал
-  # ──────────────────────────────────────────────────────────────────────────
-  - id: maternity_capital_risk_check
-    name: "Маткапитал: риск невыделения долей детям и заверения продавца (ст. 10 ФЗ-256)"
-    description: >
-      Фактографическая проверка наличия заверения о маткапитале или
-      подтверждения выделения долей — один из самых частых рисков при вторичной продаже жилья.
-    triggers:
-      any: ["maternity_capital", "residential_property", "individual_party"]
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "материнский капитал"
-        - "маткапитал"
-        - "средства МСК"
-        - "Пенсионный фонд"
-        - "сертификат"
-        - "обязательство о наделении долями"
-        - "выделение долей детям"
-        - "не использовались средства маткапитала"
-        - "ФЗ-256"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)материнск(ий|ого)\\s+капитал"
-        - "(?i)средств(а|ами)\\s+МСК"
-        - "(?i)выделени(е|я)\\s+дол(ей|и)\\s+(детям|членам\\s+семьи)"
-        - "(?i)не\\s+использовал(ись|ся).*маткапитал"
-    llm:
-      prompt_template: |
-        [КОНТЕКСТ]
-        Ты — российский юрист по договорной работе.
-        Анализируется договор купли-продажи жилой недвижимости (ст. 10 ФЗ-256).
-        КРИТИЧЕСКИ ВАЖНО: это один из самых частых рисков при покупке вторичного жилья.
-        Проверяется вопрос использования маткапитала продавцом.
-
-        [ЗАДАЧА]
-        Найди в тексте договора:
-        1. Заверение о том, что маткапитал НЕ использовался.
-        2. Если использовался — подтверждение выделения долей всем членам семьи.
-        3. Ссылку на ФЗ-256 или Социальный/Пенсионный фонд.
-        4. Наличие несовершеннолетних, чьи права могут быть затронуты.
-
-        [ПРАВИЛА]
-        1. Только текст документа.
-        2. Если вопрос маткапитала вообще не упомянут — "not_addressed" (критический риск!).
-        3. Строго "Данные не определены" при отсутствии текста.
-        4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
-
-        [ПРИМЕРЫ (FEW-SHOT)]
-
-        Пример 1:
-        Фрагмент:
-        "Продавец гарантирует, что средства материнского (семейного) капитала
-        при приобретении объекта не использовались."
-
-        Ответ:
-        {
-          "matcapital_status": "defined",
-          "matcapital_regime": "yes_not_used",
-          "matcapital_details": "средства МСК не использовались",
-          "shares_allocated_status": "not_defined",
-          "shares_allocated": "not_applicable",
-          "evidence": [
-            {
-              "clause_ref": "п. 4.5",
-              "quote": "Продавец гарантирует, что средства материнского (семейного) капитала при приобретении объекта не использовались."
-            }
-          ]
-        }
-
-        Пример 2:
-        Фрагмент:
-        "Продавец продаёт квартиру."
-
-        Ответ:
-        {
-          "matcapital_status": "not_defined",
-          "matcapital_regime": "not_addressed",
-          "matcapital_details": "Данные не определены",
-          "shares_allocated_status": "not_defined",
-          "shares_allocated": "not_defined",
-          "evidence": []
-        }
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли слово "маткапитал" или "МСК" или "материнский капитал"?
-        2. Если есть — что написано: не использовался / использовался и доли выделены?
-        3. Если вопрос вообще не упомянут — regime = "not_addressed" (это КРИТИЧНО).
-
-        Не выводи шаги проверки. Верни только JSON.
-
-        [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
-        {
-          "matcapital_status": "<defined / not_defined>",
-          "matcapital_regime": "<yes_not_used / yes_used_and_complied / not_addressed / not_defined>",
-          "matcapital_details": "<текст или 'Данные не определены'>",
-          "shares_allocated_status": "<defined / not_defined>",
-          "shares_allocated": "<yes / no / not_applicable / not_defined>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
-        }
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 650
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "материнский капитал"
-        - "маткапитал"
-        - "выделение долей"
-        - "ФЗ-256"
-        - "Пенсионный фонд"
-        - "Социальный фонд"
-      rerank: true
-    enrichment_hints:
-      preferred_clause_functions:
-        - "representations"
-        - "obligations"
-      confidence_bonus_on_match: 0.10
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 600
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "matcapital_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если вопрос маткапитала прямо раскрыт. Иначе 'not_defined'."
-        - name: "matcapital_regime"
-          type: "string"
-          allowed_values: ["yes_not_used", "yes_used_and_complied", "not_addressed", "not_defined"]
-          description: "Статус маткапитала: не использовался / использован и доли выделены / не упомянут (риск!) / нет данных."
-        - name: "shares_allocated_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если вопрос выделения долей прямо раскрыт. Иначе 'not_defined'."
-        - name: "shares_allocated"
-          type: "string"
-          allowed_values: ["yes", "no", "not_applicable", "not_defined"]
-          description: "Выделены ли доли членам семьи."
-      store_payload: true
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 16: Наследственный титул
+  # CHECK 18: Наследственный титул
   # ──────────────────────────────────────────────────────────────────────────
   - id: inheritance_title_risk_check
     name: "Наследственный титул: риск появления неучтённых наследников"
@@ -3008,14 +4562,40 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "наследство свидетельство о праве на наследство наследодатель наследник завещание наследование по закону отсутствие иных наследников круг наследников срок вступления в наследство обязательная доля обязательные наследники наследственные споры ст. 1149 ГК РФ ст. 1154 ГК РФ"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "согласие супруга"
+        - "в браке не состоит"
+        - "маткапитал"
+        - "орган опеки"
+        - "несовершеннолетний в контексте опеки"
+        - "право пользования"
+        - "зарегистрированные лица"
+        - "не обременен"
+        - "арест"
+        - "банкротство"
+        - "цена"
+        - "задаток"
+        - "ипотека"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "наследство"
-        - "свидетельство о праве на наследство"
-        - "наследник"
-        - "завещание"
-        - "обязательная доля"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -3029,31 +4609,95 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 440
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора купли-продажи недвижимости
+        сведения о наследственном титуле продавца: основание наследования, заверения
+        об иных наследниках, обязательной доле и наследственных спорах.
+        Не анализируй семейные вопросы, маткапитал, цену или расчёты.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. inheritance_basis_status — "defined" или "not_defined".
+        2. inheritance_basis — will / by_law / not_defined.
+        3. inheritance_basis_details — основание наследования, как оно описано в договоре.
+        4. other_heirs_warranty_status — "defined" или "not_defined".
+        5. other_heirs_warranty_details — заверение об отсутствии иных наследников.
+        6. mandatory_share_status — "defined" или "not_defined".
+        7. mandatory_share_details — сведения об обязательных наследниках или обязательной доле.
+        8. inheritance_disputes_status — "defined" или "not_defined".
+        9. inheritance_disputes_details — заверение об отсутствии наследственных споров.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - enum-поле = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - inheritance_basis = will только при прямой ссылке на завещание.
+        - inheritance_basis = by_law только при прямой ссылке на наследование по закону.
+        - Не выводи отсутствие обязательных наследников из молчания договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "inheritance_basis_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если основание наследования прямо определено. Иначе 'not_defined'."
+          description: "Статус определения основания наследования."
         - name: "inheritance_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["will", "by_law", "not_defined"]
-          description: "Основание наследования."
+          description: "Тип основания наследования."
+        - name: "inheritance_basis_details"
+          type: "string"
+          presentation: "fact"
+          label: "Основание наследования"
+          description: "Основание наследования, как оно описано в договоре."
         - name: "other_heirs_warranty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение об отсутствии иных наследников прямо определено. Иначе 'not_defined'."
+          description: "Статус заверения об отсутствии иных наследников."
+        - name: "other_heirs_warranty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Иные наследники"
+          description: "Заверение об отсутствии иных наследников."
         - name: "mandatory_share_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если обязательные наследники упомянуты. Иначе 'not_defined'."
+          description: "Статус упоминания обязательной доли или обязательных наследников."
+        - name: "mandatory_share_details"
+          type: "string"
+          presentation: "fact"
+          label: "Обязательная доля"
+          description: "Сведения об обязательной доле или обязательных наследниках."
         - name: "inheritance_disputes_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение об отсутствии наследственных споров прямо определено. Иначе 'not_defined'."
+          description: "Статус заверения об отсутствии наследственных споров."
+        - name: "inheritance_disputes_details"
+          type: "string"
+          presentation: "fact"
+          label: "Наследственные споры"
+          description: "Заверение об отсутствии наследственных споров."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 17: Общее имущество МКД — решение ОСС
+  # CHECK 19: Общее имущество МКД — решение ОСС
   # ──────────────────────────────────────────────────────────────────────────
   - id: mcd_common_property_approval_check
     name: "Общее имущество МКД: решение общего собрания собственников (ЖК РФ)"
@@ -3114,14 +4758,40 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_query: "общее собрание собственников протокол общего собрания решение собственников кворум голосование общее имущество общедомовое имущество ст. 36 ЖК РФ ст. 44 ЖК РФ две трети голосов правовой статус объекта общее имущество МКД"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - representations
+      negative_keywords:
+        - "протокол совета директоров"
+        - "протокол общего собрания участников ООО"
+        - "протокол акционеров"
+        - "одобрение совета директоров"
+        - "крупная сделка"
+        - "корпоративное одобрение"
+        - "не обременен"
+        - "арест"
+        - "банкротство"
+        - "ипотека"
+        - "цена"
+        - "задаток"
+        - "наследство"
+        - "согласие супруга"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 5
       max_chunks: 6
-      boost_keywords:
-        - "общее собрание собственников"
-        - "протокол общего собрания"
-        - "общее имущество"
-        - "ст. 36 ЖК РФ"
-        - "кворум"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -3135,22 +4805,72 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 400
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Твоя задача — извлечь из договора купли-продажи общего имущества МКД
+        сведения о решении общего собрания собственников, кворуме и правовом статусе объекта.
+        Не анализируй обычную продажу отдельной квартиры, цену, расчёты или титул продавца.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. oss_decision_status — "defined" или "not_defined".
+        2. oss_decision_details — реквизиты решения или протокола ОСС.
+        3. quorum_status — "defined" или "not_defined".
+        4. property_status_status — "defined" или "not_defined".
+        5. property_status — common_property / independent_object / unclear / not_defined.
+        6. property_status_details — описание правового статуса объекта.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - enum-поле = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - common_property = только если прямо сказано, что отчуждается общее имущество МКД.
+        - independent_object = только если прямо сказано, что объект является самостоятельным объектом недвижимости.
+        - unclear = если тема затронута, но статус объекта из текста однозначно не следует.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "oss_decision_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если решение ОСС прямо определено. Иначе 'not_defined'."
+          description: "Статус упоминания решения ОСС."
         - name: "oss_decision_details"
           type: "string"
-          description: "Реквизиты протокола. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Решение ОСС"
+          description: "Реквизиты решения или протокола общего собрания собственников."
         - name: "quorum_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если кворум прямо подтверждён. Иначе 'not_defined'."
+          description: "Статус подтверждения кворума."
+        - name: "property_status_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения правового статуса объекта."
         - name: "property_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["common_property", "independent_object", "unclear", "not_defined"]
           description: "Правовой статус объекта."
+        - name: "property_status_details"
+          type: "string"
+          presentation: "fact"
+          label: "Статус объекта"
+          description: "Описание правового статуса объекта."
       store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════

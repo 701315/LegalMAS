@@ -18,10 +18,11 @@ ExtractionLLMDetector: LLM‑экстрактор структурированн
    - формирует контекст текста (обычно вокруг evidence/location детектора),
    - вызывает ExtractionLLMDetector.extract(check, basetext).
 3. ExtractionLLMDetector:
-   - строит промпт для LLM по общему шаблону playbooks/json_format_ru.txt,
-   - подмешивает доменный инструктаж из check.extraction.llm_prompt_extraction
-     (если он есть для этого чека),
-   - вызывает LLMClient и получает ответ в виде JSON {"fields": {...}},
+   - строит prompt из двух независимых внешних templates:
+       * semantic prompt block (custom llm_prompt_extraction или fallback template),
+       * technical response contract (json_format_ru.txt);
+   - гарантирует, что контекст договора попадает в prompt ровно один раз;
+   - вызывает LLMClient и получает ответ в canonical JSON-виде {"fields": {...}}.
    - нормализует значения по схеме (allowed_values, confidence и т.п.),
    - возвращает словарь вида:
        {
@@ -163,16 +164,36 @@ from ..playbook.models import (
 logger = get_logger(__name__)
 
 LLM_DEFAULT_CONFIDENCE: float = settings.LLM_DEFAULT_CONFIDENCE
-EXTRACTION_PROMPT_PATH = os.path.join(settings.BASE_DIR, "playbooks", "json_format_ru.txt")
+
+EXTRACTION_PROMPT_PATH = os.path.join(
+    settings.BASE_DIR,
+    "playbooks",
+    "json_format_ru.txt",
+)
+
+EXTRACTION_FALLBACK_META_PATH = os.path.join(
+    settings.BASE_DIR,
+    "playbooks",
+    "extraction_fallback_meta_ru.txt",
+)
 
 
-def _load_prompt_template(path: str) -> str | None:
+def _load_prompt_template(path: str) -> str:
+    """
+    Строгий loader внешнего prompt template.
+
+    Production-принцип:
+    - отсутствие prompt template — это deployment/config error,
+      а не runtime-warning, который надо silently обходить;
+    - extraction pipeline должен fail-fast, если обязательный template отсутствует.
+    """
     try:
         with open(path, encoding="utf-8") as f:
             return f.read()
-    except OSError:
-        logger.warning("Failed to load extraction prompt template", path=path)
-        return None
+    except OSError as e:
+        raise RuntimeError(
+            f"Failed to load extraction prompt template: {path}"
+        ) from e
 
 
 class ExtractionLLMDetector:
@@ -297,6 +318,13 @@ class ExtractionLLMDetector:
         # ------------------------------------------------------------------
         # 5. ФИНАЛЬНЫЙ ПРОМПТ: собираем с реальным (возможно обрезанным) context.
         # ------------------------------------------------------------------
+        logger.debug(
+            "ExtractionLLMDetector: context_text sample",
+            check_id=getattr(check, "id", None),
+            context_words=len(text.split()),
+            context_preview=text[:400] if text else "(empty)",
+        )
+
         prompt = self._build_prompt(check, extraction_cfg, text)
         grammar_path = getattr(settings, "LLM_EXTRACTION_JSON_GRAMMAR_PATH", None)
 
@@ -345,69 +373,121 @@ class ExtractionLLMDetector:
         context_text: str,
     ) -> str:
         """
-        Построить промпт для LLM по списку полей.
+        Построить extraction prompt.
 
-        Шаблон берётся из playbooks/json_format_ru.txt и заполняется
-        динамическими блоками:
-        - {CHECK_META}
-        - {FIELDS_SCHEMA}
-        - {EXAMPLE_JSON}
-        - {CONTEXT_TEXT}
-
-        Все подстановки выполняются через _render_template() — безопасный
-        метод на основе .replace(). НЕ используем str.format(), чтобы избежать
-        KeyError на JSON-фигурных скобках внутри промптов.
+        Архитектура:
+        - semantic block задаётся либо custom llm_prompt_extraction из YAML,
+          либо внешним fallback template;
+        - context попадает в prompt ровно один раз;
+        - response contract задаётся отдельным внешним template
+          (json_format_ru.txt);
+        - код выполняет только orchestration/rendering, но не хранит
+          текстовые prompt instructions внутри Python.
         """
-        template = _load_prompt_template(EXTRACTION_PROMPT_PATH)
+        technical_template = _load_prompt_template(EXTRACTION_PROMPT_PATH)
+        fields_schema = self._build_fields_schema(extraction_cfg)
+        example_json = self._build_example_json(extraction_cfg)
+        context_clean = context_text.strip()
 
-        # 1. Динамический блок про чек
-        check_meta_lines: list[str] = []
-
-        # 1.1. Если в extraction есть свой LLM-промпт — используем его как основу.
-        # ВАЖНО: если в llm_prompt_extraction написано {context} — заменяем его
-        # на реальный текст договора прямо здесь, через _render_template.
-        # Это необходимо для чеков вроде governing_law_and_forum, где юридический
-        # инструктаж включает блок с анализируемым текстом.
         custom_extraction_prompt = getattr(extraction_cfg, "llm_prompt_extraction", None)
-        if isinstance(custom_extraction_prompt, str) and custom_extraction_prompt.strip():
-            # Подставляем {context} в кастомный промпт, если он там есть.
-            # Остальные плейсхолдеры (если есть) оставляем как есть — они могут
-            # быть частью JSON-примеров внутри инструктажа.
-            rendered_custom = self._render_template(
-                template=custom_extraction_prompt.strip(),
-                variables={"{context}": context_text},
+        has_custom_prompt = bool(
+            isinstance(custom_extraction_prompt, str)
+            and custom_extraction_prompt.strip()
+        )
+
+        if has_custom_prompt:
+            check_meta = self._build_custom_semantic_block(
+                custom_prompt=custom_extraction_prompt.strip(),
+                context_text=context_clean,
             )
-            check_meta_lines.append(rendered_custom)
         else:
-            # 1.2. Иначе — минимальная метаинформация по чеку
-            if getattr(check, "name", None):
-                check_meta_lines.append(f"Текущая проверка: {check.name.strip()}.")
-            if getattr(check, "description", None):
-                check_meta_lines.append(f"Краткое описание проверки: {check.description.strip()}")
-
-        check_meta = "\n".join(check_meta_lines).strip()
-        if not check_meta:
-            check_meta = "Текущая проверка: (без названия)."
-            logger.warning(
-                "ExtractionLLMDetector: check has no name, description "
-                "or llm_prompt_extraction — using fallback check_meta",
-                check_id=getattr(check, "id", None),
+            check_meta = self._build_fallback_semantic_block(
+                check=check,
+                context_text=context_clean,
             )
 
-        # 2. Схема полей
+        prompt = self._render_template(
+            template=technical_template,
+            variables={
+                "{CHECK_META}": check_meta,
+                "{FIELDS_SCHEMA}": fields_schema,
+                "{EXAMPLE_JSON}": example_json,
+            },
+        )
+        return prompt
+
+
+    def _build_custom_semantic_block(
+        self,
+        *,
+        custom_prompt: str,
+        context_text: str,
+    ) -> str:
+        """
+        Построить semantic block из llm_prompt_extraction.
+
+        Контракт:
+        - custom prompt обязан содержать {context}
+        - именно custom prompt управляет placement контекста
+        """
+        if "{context}" not in custom_prompt:
+            raise ValueError(
+                "Custom extraction prompt must contain '{context}' placeholder"
+            )
+
+        return self._render_template(
+            template=custom_prompt,
+            variables={"{context}": context_text},
+        )
+
+    def _build_fallback_semantic_block(
+        self,
+        *,
+        check: CheckDefinition,
+        context_text: str,
+    ) -> str:
+        """
+        Построить fallback semantic block через внешний template.
+        """
+        fallback_template = _load_prompt_template(EXTRACTION_FALLBACK_META_PATH)
+
+        check_name = (getattr(check, "name", None) or "(без названия)").strip()
+        check_description = (
+            getattr(check, "description", None)
+            or "Описание проверки не задано."
+        ).strip()
+
+        return self._render_template(
+            template=fallback_template,
+            variables={
+                "{CHECK_NAME}": check_name,
+                "{CHECK_DESCRIPTION}": check_description,
+                "{CONTEXT}": context_text,
+            },
+        )
+
+    def _build_fields_schema(
+        self,
+        extraction_cfg: ExtractionConfig,
+    ) -> str:
+        """
+        Построить человекочитаемую схему полей.
+        """
         schema_lines: list[str] = []
+
         for idx, field in enumerate(extraction_cfg.fields or [], 1):
             desc = (field.description or "").strip()
             type_name = field.type.name.lower()
 
             schema_lines.append(f"{idx}. {field.name} (тип: {type_name})")
+
             if desc:
                 schema_lines.append(f"   Описание: {desc}")
 
             if field.allowed_values:
                 allowed_vals = ", ".join(f'"{v}"' for v in field.allowed_values)
                 schema_lines.append(
-                    "   Допустимые значения (СТРОГО только одно из списка, как строка): "
+                    "   Допустимые значения: "
                     f"[{allowed_vals}]"
                 )
 
@@ -415,10 +495,18 @@ class ExtractionLLMDetector:
                 schema_lines.append(f"   Единица измерения: {field.unit}")
 
             schema_lines.append("")
-        fields_schema = "\n".join(schema_lines).rstrip()
 
-        # 3. Пример JSON
+        return "\n".join(schema_lines).rstrip()
+
+    def _build_example_json(
+        self,
+        extraction_cfg: ExtractionConfig,
+    ) -> str:
+        """
+        Построить canonical example JSON.
+        """
         example_fields: dict[str, dict[str, Any]] = {}
+
         for field in extraction_cfg.fields or []:
             if field.allowed_values:
                 example_value: Any = str(field.allowed_values[0])
@@ -436,76 +524,9 @@ class ExtractionLLMDetector:
             }
 
         example_obj = {"fields": example_fields}
-        example_json = json.dumps(example_obj, ensure_ascii=False, indent=2)
+        return json.dumps(example_obj, ensure_ascii=False, indent=2)
 
-        # 4. Контекст
-        context_clean = context_text.strip()
 
-        if template:
-            # Используем _render_template() — безопасная замена через .replace().
-            # str.format() здесь НЕ используется намеренно: шаблон json_format_ru.txt
-            # и example_json содержат фигурные скобки как часть JSON-примеров,
-            # и str.format() падал бы с KeyError на каждом таком символе.
-            prompt = self._render_template(
-                template=template,
-                variables={
-                    "{CHECK_META}": check_meta,
-                    "{FIELDS_SCHEMA}": fields_schema,
-                    "{EXAMPLE_JSON}": example_json,
-                    "{CONTEXT_TEXT}": context_clean,
-                },
-            )
-            return prompt
-
-        # Fallback, если файла нет — минимальный встроенный промпт.
-        # Используем обычную конкатенацию строк, не format().
-        lines: list[str] = []
-        lines.append("Ты — юридический ассистент по анализу договоров.")
-        lines.append(
-            "Тебе дан фрагмент договора. Твоя задача — извлечь структурированные поля "
-            "по приведённой ниже схеме и вернуть ТОЛЬКО один JSON-объект."
-        )
-        lines.append("")
-        lines.append(check_meta)
-        lines.append("")
-        lines.append("Схема полей для извлечения:")
-        lines.append(fields_schema)
-        lines.append("")
-        lines.append("Пример формата JSON-ответа (ПРИМЕР, а не реальные значения):")
-        lines.append(example_json)
-        lines.append("")
-        lines.append("Текст договора (фрагмент для анализа):")
-        lines.append("---")
-        lines.append(context_clean)
-        lines.append("---")
-        lines.append("")
-        lines.append("ЖЁСТКИЕ правила формата ответа (ОБЯЗАТЕЛЬНО):")
-        lines.append('- Выведи ТОЛЬКО один валидный JSON-объект с корневым ключом "fields".')
-        lines.append(
-            "- НЕ добавляй НИКАКОГО текста до или после JSON: "
-            "никаких пояснений, инструкций, комментариев, Markdown, списков, "
-            '"Шаг 1", "Ответ:", подсказок по форматированию и т.п.'
-        )
-        lines.append(
-            "- НЕ объясняй, КАК нужно оформить JSON, не пиши советы типа "
-            '"заверши ответ запятой". Просто СРАЗУ выведи готовый JSON.'
-        )
-        lines.append("- Все ключи и строковые значения должны быть в двойных кавычках.")
-        lines.append(
-            "- Если по какому-то полю нет достаточно информации, установи "
-            "value = null и confidence = 0.2."
-        )
-        lines.append("- Не добавляй поля, которых нет в описанной схеме.")
-        lines.append(
-            "- Начни ответ СРАЗУ с символа { и закончи СРАЗУ символом } "
-            "(никаких символов или переводов строк до и после)."
-        )
-        lines.append(
-            "- Пример выше — это только пример структуры. В ответе выведи "
-            'ТОЛЬКО реальный JSON, БЕЗ слов "пример", "ответ" и т.п.'
-        )
-
-        return "\n".join(lines)
 
     # -------------------------------------------------------------------------
     # TEMPLATE RENDERING
@@ -551,24 +572,29 @@ class ExtractionLLMDetector:
 
     def _parse_response(self, text: str) -> dict[str, dict[str, Any]]:
         """
-        Распарсить JSON-ответ LLM в "сырую" структуру без учёта схемы.
+        Распарсить JSON-ответ LLM.
 
-        Ожидаем:
+        Canonical contract:
         {
           "fields": {
             "field_name": {
               "value": ...,
               "confidence": 0.0-1.0
-            },
-            ...
+            }
           }
         }
+
+        Runtime robustness:
+        - если LLM вернул top-level flat JSON вместо {"fields": ...},
+          parser принимает его как fallback и логирует warning;
+        - это не backward compatibility со старыми данными,
+          а устойчивость к occasional model drift.
         """
         text = text.strip()
+
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
-            # Попробуем вытащить JSON "изнутри"
             candidate = _extract_json(text)
             if not candidate:
                 logger.warning("Failed to parse LLM extraction JSON", raw=text[:500])
@@ -578,16 +604,25 @@ class ExtractionLLMDetector:
         if not isinstance(data, dict):
             return {}
 
-        fields = data.get("fields") or {}
-        if not isinstance(fields, dict):
-            return {}
+        if isinstance(data.get("fields"), dict):
+            raw_fields = data["fields"]
+        else:
+            logger.warning(
+                "ExtractionLLMDetector: non-canonical flat JSON response received; "
+                "accepting via tolerant parser"
+            )
+            raw_fields = data
 
         result: dict[str, dict[str, Any]] = {}
-        for name, payload in fields.items():
-            if not isinstance(payload, dict):
-                continue
-            value = payload.get("value")
-            conf_raw = payload.get("confidence", LLM_DEFAULT_CONFIDENCE)
+
+        for name, payload in raw_fields.items():
+            if isinstance(payload, dict):
+                value = payload.get("value")
+                conf_raw = payload.get("confidence", LLM_DEFAULT_CONFIDENCE)
+            else:
+                value = payload
+                conf_raw = LLM_DEFAULT_CONFIDENCE
+
             try:
                 confidence = float(conf_raw)
             except (TypeError, ValueError):

@@ -66,6 +66,14 @@ class CheckResultRepository:
         clause_uid: str | None = None,
         element_id: str | None = None,
         bbox: dict[str, Any] | None = None,
+        segment_id: str | None = None,
+        segment_type: str | None = None,
+        segment_title: str | None = None,
+        segment_order: int | None = None,
+        is_primary_segment: bool | None = None,
+        chunk_id: str | None = None,
+        chunk_index: int | None = None,
+        context_trace: list[dict[str, Any]] | None = None,
     ) -> CheckResult:
         """
         Создать новую запись в check_results.
@@ -94,6 +102,14 @@ class CheckResultRepository:
             clause_uid=clause_uid,
             element_id=element_id,
             bbox=bbox,
+            segment_id=segment_id,
+            segment_type=segment_type,
+            segment_title=segment_title,
+            segment_order=segment_order,
+            is_primary_segment=is_primary_segment,
+            chunk_id=chunk_id,
+            chunk_index=chunk_index,
+            context_trace=context_trace,
         )
 
         self.session.add(obj)

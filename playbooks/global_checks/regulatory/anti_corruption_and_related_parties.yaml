@@ -1,5 +1,6 @@
 id: "anti_corruption_and_related_parties"
 name: "Антикоррупция и сделки с аффилированными лицами"
+group: "Regulatory"
 description: >
   Анализирует антикоррупционные положения (запрет взяток, откатов,
   неподобающих подарков / hospitality, ссылки на FCPA / UK Bribery
@@ -138,6 +139,11 @@ evidence:
 retrieval:
   context_k: 5
   max_chunks: 10
+
+  retrieval_query: >
+    антикоррупция взятки FCPA кодекс этики комплаенс аудит whistleblowing 
+    сделки с аффилированными лицами arm's length заинтересованные сделки
+
   boost_keywords:
     - "anti-corruption"
     - "anti-bribery"
@@ -165,6 +171,32 @@ retrieval:
     - "на рыночных условиях"
     - "board approval"
     - "одобрение совета директоров"
+
+  negative_keywords:
+    - "коммерческая тайна"
+    - "форс-мажор"
+    - "условия оплаты"
+    - "интеллектуальная собственность"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "obligation"
+
+  excluded_unit_types:
+    - "technical_fragment"
+    - "appendix_reference"
+    - "structural_anchor"
+
+  preferred_clause_functions:
+    - "representations"
+    - "obligations"
+    - "procedures"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -182,17 +214,13 @@ enrichment_hints:
     - "invoice"
     - "act"
     - "schedule"
-  preferred_clause_functions:
-    - "representations_warranties"
-    - "general_provisions"
-    - "confidentiality"
   confidence_bonus_on_match: 0.08
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 440
+  llm_max_tokens: 420
   llm_prompt_extraction: |
     <role>
     Ты — юрист по комплаенсу и корпоративному праву.
@@ -202,6 +230,9 @@ extraction:
     3) права аудита комплаенса;
     4) механизмы whistleblowing;
     5) регулирование сделок с аффилированными лицами.
+
+    Не считай достаточным общие фразы "соблюдать применимое
+    законотельство" без конкретики по антикоррупции.
     </role>
 
     <context>
@@ -220,33 +251,29 @@ extraction:
     - has_related_party_regulation
     - requires_arms_length
     - requires_corporate_approvals
-    - red_flags
     - reason
 
     Важно:
-    - не считай достаточным общие фразы "соблюдать применимое
-      законодательство" без конкретики по антикоррупции;
-    - пиши user-facing значения коротко и по-русски.
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
     Шаг 1 — АНТИКОРРУПЦИОННЫЕ ПОЛОЖЕНИЯ
 
-    Заполни поле "has_anti_corruption_clauses".
+    Заполни "has_anti_corruption_clauses".
 
     Значения:
     - "yes" — явные антикоррупционные нормы:
-      * прямые запреты взяток, откатов, коррупционных платежей;
-      * ссылки на FCPA, UK Bribery Act, ФЗ-273;
-      * representations о соблюдении антикоррупционного
-        законодательства с конкретикой.
+      прямые запреты взяток, откатов, коррупционных платежей;
+      ссылки на FCPA, UK Bribery Act, ФЗ-273;
+      representations о соблюдении с конкретикой.
     - "no" — нет.
-    - "unclear" — только общие декларативные формулировки
-      "соблюдать законодательство" без конкретики по взяткам.
+    - "unclear" — только декларативные формулировки
+      "соблюдать законодательство" без конкретики.
 
     Шаг 2 — КОДЕКСЫ ЭТИКИ И ПОЛИТИКИ
 
-    Заполни поле "has_code_of_conduct_reference".
+    Заполни "has_code_of_conduct_reference".
 
     Значения:
     - "yes" — упоминается code of conduct / code of ethics /
@@ -256,18 +283,17 @@ extraction:
 
     Шаг 3 — ПРАВА АУДИТА КОМПЛАЕНСА
 
-    Заполни поле "has_audit_rights".
+    Заполни "has_audit_rights".
 
     Значения:
     - "yes" — явное право проводить аудит соблюдения
-      антикоррупционных требований / инспектировать
-      документы / требовать отчётности.
+      антикоррупционных требований / инспектировать документы.
     - "no" — нет.
     - "unclear" — неясно.
 
     Шаг 4 — WHISTLEBLOWING
 
-    Заполни поле "has_whistleblowing_mechanism".
+    Заполни "has_whistleblowing_mechanism".
 
     Значения:
     - "yes" — есть: hotline, механизм сообщения о нарушениях,
@@ -275,20 +301,19 @@ extraction:
     - "no" — нет.
     - "unclear" — неясно.
 
-    Шаг 5 — РЕГУЛИРОВАНИЕ СДЕЛОК С АФФИЛИРОВАННЫМИ ЛИЦАМИ
+    Шаг 5 — РЕГУЛИРОВАНИЕ RELATED PARTY TRANSACTIONS
 
-    Заполни поле "has_related_party_regulation".
+    Заполни "has_related_party_regulation".
 
     Значения:
-    - "yes" — специальные правила для related party / affiliate /
-      interested party transactions: disclosure, ограничения,
-      запреты.
+    - "yes" — специальные правила: disclosure, ограничения,
+      запреты для related party / affiliate / interested party.
     - "no" — нет.
     - "unclear" — неясно.
 
     Шаг 6 — ТРЕБОВАНИЕ ARM'S LENGTH
 
-    Заполни поле "requires_arms_length".
+    Заполни "requires_arms_length".
 
     Значения:
     - "yes" — сделки с аффилированными лицами должны быть
@@ -296,9 +321,9 @@ extraction:
     - "no" — нет.
     - "unclear" — неясно.
 
-    Шаг 7 — КОРПОРАТИВНЫЕ ОДОБРЕНИЯ
+    Шаг 7 — КОРПОРАТИВНЫЕ ОДОБРЕНИЯ ДЛЯ RPT
 
-    Заполни поле "requires_corporate_approvals".
+    Заполни "requires_corporate_approvals".
 
     Значения:
     - "yes" — требуется одобрение СД / ОСА / независимых
@@ -306,104 +331,73 @@ extraction:
     - "no" — нет.
     - "unclear" — неясно.
 
-    Шаг 8 — RED FLAGS
+    Шаг 8 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "red_flags".
+    Заполни "anti_corruption_display".
 
-    Используй:
-    - "NONE" — антикоррупционные положения развёрнутые
-      (конкретные запреты, ссылки на законы, права аудита,
-      code of conduct) И related party transactions
-      регулируются.
-    - "UNCLEAR" — данных недостаточно.
-    - Коды через запятую:
-      * COMPL1 — слабые или отсутствующие антикоррупционные
-        положения при очевидном комплаенс-риске:
-        нет конкретных запретов, нет ссылок на законы,
-        нет прав аудита.
-      * COMPL2 — нет контроля за сделками с аффилированными
-        лицами: нет regulation, нет arm's length, нет
-        корпоративных одобрений при групповой структуре.
-      * COMPL3 — формальные / декларативные антикоррупционные
-        положения без механизмов контроля:
-        общие representations без прав аудита и code of conduct.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 9 — USER-FACING SUMMARY
-
-    Заполни поле "anti_corruption_display".
-
-    Примеры:
-    - "Антикоррупционные положения есть (FCPA / UK Bribery Act);
-       код этики; аудит; related party на рыночных условиях"
-    - "Антикоррупционные положения декларативные; нет аудита;
-       нет контроля related party"
-    - "Антикоррупционных положений нет; нет контроля
-       аффилированных сделок"
-    - "Не удалось определить антикоррупционный комплаенс"
-
-    Правила:
-    - Отрази максимум 3–4 ключевых факта через ";".
-    - Если всё unclear:
+    Базовый случай:
+    - все поля unclear:
       "Не удалось определить антикоррупционный комплаенс"
 
-    Шаг 10 — ОБОСНОВАНИЕ
+    Если данные есть — комбинируй через ";":
+    - has_anti_corruption_clauses (yes: "Антикоррупционные положения"; no: "Нет")
+    - has_code_of_conduct_reference (если "yes": "код этики")
+    - has_audit_rights (если "yes": "аудит")
+    - has_related_party_regulation (если "no": "нет контроля RPT")
 
-    Заполни поле "reason".
+    Примеры:
+    - "Антикоррупционные положения (FCPA / UK Bribery Act); код этики; аудит; RPT на рыночных условиях"
+    - "Декларативные положения; нет аудита; нет контроля RPT"
+    - "Антикоррупционных положений нет; нет контроля аффилированных сделок"
+    - "Не удалось определить антикоррупционный комплаенс"
+
+    Ограничение: не более 4 фактов через ";".
+
+    Шаг 9 — КРАТКОЕ ОБОСНОВАНИЕ
+
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
-    - Укажи: ключевые положения, ссылки на законы, права аудита,
-      related party regulation, почему red_flags.
-    - Приведи короткую цитату в кавычках.
-    - Если NONE — почему комплаенс-конфигурация сильная.
+    - Укажи: ключевые положения, ссылки на законы, аудит,
+      RPT regulation.
+    - Приведи цитату в кавычках.
     </instructions>
 
     <edge_cases>
-    - "Компания соблюдает применимое законодательство"
-      без конкретики по взяткам:
+    - "Компания соблюдает законодательство" без конкретики:
       * has_anti_corruption_clauses = "unclear"
-      * red_flags включает "COMPL3"
 
-    - Развитый anti-bribery раздел + FCPA + code of conduct
-      + audit rights + whistleblowing:
+    - Anti-bribery + FCPA + code of conduct + audit + whistleblowing:
       * has_anti_corruption_clauses = "yes"
-      * red_flags = "NONE"
 
-    - Нет упоминаний related party, arm's length, одобрений
-      при групповой структуре:
+    - Нет RPT-регулирования при групповой структуре:
       * has_related_party_regulation = "no"
-      * red_flags включает "COMPL2"
-
-    - Только representations "соблюдаем антикоррупционный закон"
-      без механизмов аудита / контроля:
-      * has_anti_corruption_clauses = "unclear"
-      * has_audit_rights = "no"
-      * red_flags включает "COMPL3"
-
-    - Code of conduct упомянут, но не детализирован:
-      * has_code_of_conduct_reference = "yes"
-      * в reason: содержание политики неизвестно
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
-      * red_flags = "UNCLEAR"
       * anti_corruption_display =
         "Не удалось определить антикоррупционный комплаенс"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "anti_corruption_display"
       type: "string"
-      description: "Антикоррупция и related party: краткий вывод"
+      presentation: "fact"
+      label: "Антикоррупция и related party"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "has_anti_corruption_clauses"
       type: "string"
+      presentation: "signal"
       description: "Антикоррупционные положения"
       allowed_values:
         - "yes"
@@ -412,6 +406,7 @@ extraction:
 
     - name: "has_code_of_conduct_reference"
       type: "string"
+      presentation: "signal"
       description: "Код этики / антикоррупционная политика"
       allowed_values:
         - "yes"
@@ -420,6 +415,7 @@ extraction:
 
     - name: "has_audit_rights"
       type: "string"
+      presentation: "signal"
       description: "Права аудита комплаенса"
       allowed_values:
         - "yes"
@@ -428,6 +424,7 @@ extraction:
 
     - name: "has_whistleblowing_mechanism"
       type: "string"
+      presentation: "signal"
       description: "Механизм whistleblowing"
       allowed_values:
         - "yes"
@@ -436,6 +433,7 @@ extraction:
 
     - name: "has_related_party_regulation"
       type: "string"
+      presentation: "signal"
       description: "Регулирование related party transactions"
       allowed_values:
         - "yes"
@@ -444,7 +442,8 @@ extraction:
 
     - name: "requires_arms_length"
       type: "string"
-      description: "Требование arm's length"
+      presentation: "signal"
+      description: "Требование arm's length для RPT"
       allowed_values:
         - "yes"
         - "no"
@@ -452,20 +451,19 @@ extraction:
 
     - name: "requires_corporate_approvals"
       type: "string"
-      description: "Корпоративные одобрения для related party"
+      presentation: "signal"
+      description: "Корпоративные одобрения для RPT"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true
+
 
   

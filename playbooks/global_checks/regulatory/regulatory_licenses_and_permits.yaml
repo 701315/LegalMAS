@@ -1,5 +1,6 @@
 id: "regulatory_licenses_and_permits"
 name: "Лицензии, разрешения и аккредитации"
+group: "Regulatory"
 description: >
   Анализирует положения о наличии лицензий, разрешений,
   аккредитаций: на кого оформлены, зависят ли от структуры
@@ -124,6 +125,11 @@ evidence:
 retrieval:
   context_k: 5
   max_chunks: 10
+  
+  retrieval_query: >
+    лицензия лицензиат разрешение аккредитация license permit regulatory consent 
+    переоформление смена контроля change of control ownership
+
   boost_keywords:
     - "лицензия"
     - "лицензии"
@@ -152,6 +158,33 @@ retrieval:
     - "приостановление"
     - "ownership structure"
     - "beneficial owner"
+
+  negative_keywords:
+    - "интеллектуальная собственность"
+    - "авторские права"
+    - "условия оплаты"
+    - "форс-мажор"
+    - "коммерческая тайна"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "obligation"
+
+  excluded_unit_types:
+    - "technical_fragment"
+    - "appendix_reference"
+    - "structural_anchor"
+
+  preferred_clause_functions:
+    - "representations"
+    - "change_of_control"
+    - "obligations"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -168,26 +201,23 @@ enrichment_hints:
     - "price_list"
     - "invoice"
     - "act"
-  preferred_clause_functions:
-    - "representations_warranties"
-    - "change_of_control"
-    - "general_provisions"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 440
+  llm_max_tokens: 420
   llm_prompt_extraction: |
     <role>
     Ты — юрист по регуляторному комплаенсу и M&A.
     Твоя задача — точно извлечь из текста:
-    1) есть ли упоминания ключевых лицензий / разрешений;
+    1) наличие ключевых лицензий / разрешений;
     2) на кого они оформлены;
     3) зависят ли от структуры владения / контроля;
-    4) есть ли механизм сохранения при M&A;
-    5) каков уровень риска утраты лицензий.
+    4) есть ли механизм сохранения при M&A.
+
+    Не придумывай данные о лицензиях если их нет в тексте.
     </role>
 
     <context>
@@ -204,69 +234,64 @@ extraction:
     - license_holder_type
     - depends_on_ownership
     - preservation_mechanism
-    - license_loss_risk
-    - red_flags
     - reason
 
     Важно:
-    - не придумывай данные о лицензиях если их нет в тексте;
-    - пиши user-facing значения коротко и по-русски.
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
     Шаг 1 — НАЛИЧИЕ КЛЮЧЕВЫХ ЛИЦЕНЗИЙ
 
-    Заполни поле "has_key_licenses".
+    Заполни "has_key_licenses".
 
     Значения:
     - "yes" — упоминаются лицензии, разрешения, аккредитации,
       без которых деятельность невозможна или существенно
       ограничена.
-    - "no" — лицензии не упоминаются.
+    - "no" — не упоминаются.
     - "unclear" — неясно.
 
     Шаг 2 — ОПИСАНИЕ ЛИЦЕНЗИЙ
 
-    Заполни поле "licenses_summary".
+    Заполни "licenses_summary".
 
     Правила:
-    - Кратко опиши выявленные лицензии через ";":
-      * "Банковская лицензия ЦБ; страховая лицензия"
-      * "Медицинская лицензия; образовательная лицензия"
-    - Если не упоминаются: "Не выявлено"
+    - Кратко через ";":
+      "Банковская лицензия ЦБ; страховая лицензия"
+      "Медицинская лицензия; образовательная лицензия"
+    - Если нет: "Не выявлено"
     - Если неясно: "Не удалось определить"
 
-    Шаг 3 — НА КОГО ОФОРМЛЕНЫ ЛИЦЕНЗИИ
+    Шаг 3 — ДЕРЖАТЕЛЬ ЛИЦЕНЗИЙ
 
-    Заполни поле "license_holder_type".
+    Заполни "license_holder_type".
 
     Значения:
-    - "target" — на Target (основное юрлицо сделки).
-    - "subsidiary" — на дочернюю / зависимую компанию Target.
+    - "target" — на Target.
+    - "subsidiary" — на дочернюю / зависимую компанию.
     - "parent" — на материнскую компанию.
     - "third_party" — на третье лицо или индивидуального
-      лицензированного специалиста, не аффилированного
-      с Target.
-    - "mixed" — на нескольких разных держателей.
+      лицензированного специалиста.
+    - "mixed" — несколько держателей.
     - "not_applicable" — лицензий нет.
     - "unclear" — неясно.
 
     Шаг 4 — ЗАВИСИМОСТЬ ОТ СТРУКТУРЫ ВЛАДЕНИЯ
 
-    Заполни поле "depends_on_ownership".
+    Заполни "depends_on_ownership".
 
     Значения:
-    - "yes" — при смене контроля / владения требуется:
-      согласие или уведомление регулятора, re-licensing,
-      повторная аккредитация; или лицензия выдана с учётом
-      конкретных бенефициаров / структуры.
+    - "yes" — при смене контроля / владения требуется
+      согласие регулятора, re-licensing, переаккредитация;
+      или лицензия выдана с учётом конкретных бенефициаров.
     - "no" — явно указано, что лицензии не зависят
       от структуры.
     - "unclear" — неясно.
 
-    Шаг 5 — МЕХАНИЗМ СОХРАНЕНИЯ ЛИЦЕНЗИЙ
+    Шаг 5 — МЕХАНИЗМ СОХРАНЕНИЯ
 
-    Заполни поле "preservation_mechanism".
+    Заполни "preservation_mechanism".
 
     Значения:
     - "yes" — предусмотрен механизм: согласованный с
@@ -276,121 +301,79 @@ extraction:
     - "not_applicable" — лицензий нет или не зависят от CoC.
     - "unclear" — неясно.
 
-    Шаг 6 — РИСК УТРАТЫ ЛИЦЕНЗИЙ
+    Шаг 6 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "license_loss_risk".
+    Заполни "licenses_display".
 
-    Значения:
-    - "low" — нет явных рисков или есть ясные механизмы
-      сохранения / переоформления.
-    - "medium" — есть условия / риски, но с возможностью
-      управляемого перехода.
-    - "high" — велика вероятность утраты / приостановки
-      ключевых лицензий без понятного плана.
-    - "unclear" — нельзя надёжно оценить.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 7 — RED FLAGS
+    Базовые случаи:
+    - has_key_licenses = "no":
+      "Лицензии не выявлены"
+    - все поля unclear:
+      "Не удалось определить наличие лицензий"
 
-    Заполни поле "red_flags".
-
-    Используй:
-    - "NONE" — лицензии на Target, не зависят от CoC
-      или есть ясный механизм сохранения, риск утраты низкий.
-    - "UNCLEAR" — данных недостаточно.
-    - Коды через запятую:
-      * REG4 — критичные лицензии оформлены не на Target
-        (third_party или individual), нет долгосрочного
-        обеспечения доступа.
-      * REG5 — лицензии жёстко зависят от структуры владения
-        (CoC trigger), нет механизма сохранения.
-      * REG6 — высокий риск утраты ключевых лицензий при
-        сделке без ясного плана.
-
-    Шаг 8 — USER-FACING SUMMARY
-
-    Заполни поле "licenses_display".
+    Если лицензии есть — комбинируй через ";":
+    - licenses_summary (кратко)
+    - license_holder_type (если не "target")
+    - depends_on_ownership (если "yes")
+    - preservation_mechanism (если "no" и depends = "yes")
 
     Примеры:
-    - "Банковская лицензия ЦБ; на Target; зависит от CoC;
-       согласие ЦБ необходимо"
-    - "Медицинская лицензия; на дочерней компании;
-       нет CoC-зависимости"
-    - "Лицензия на третье лицо; без механизма сохранения"
+    - "Банковская лицензия ЦБ; на Target; зависит от CoC; согласие ЦБ необходимо"
+    - "Медицинская лицензия; на дочерней компании; нет CoC-зависимости"
+    - "Лицензия на третье лицо; нет механизма сохранения"
     - "Лицензии не выявлены"
     - "Не удалось определить наличие лицензий"
 
-    Правила:
-    - Отрази максимум 4 ключевых факта через ";".
-    - Если лицензий нет: "Лицензии не выявлены"
-    - Если всё unclear:
-      "Не удалось определить наличие лицензий"
+    Ограничение: не более 4 фактов через ";".
 
-    Шаг 9 — ОБОСНОВАНИЕ
+    Шаг 7 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
     - Укажи: тип лицензий, держатель, CoC-зависимость,
-      механизм сохранения, риск утраты, почему red_flags.
-    - Приведи короткую цитату в кавычках.
-    - Если NONE — почему риск приемлем.
+      механизм сохранения.
+    - Приведи цитату в кавычках.
     </instructions>
 
     <edge_cases>
-    - Лицензия на третье лицо без долгосрочного контроля:
+    - Лицензия на третье лицо без контроля:
       * license_holder_type = "third_party"
-      * red_flags включает "REG4"
 
-    - Лицензия на индивидуального специалиста:
-      * license_holder_type = "third_party"
-      * red_flags включает "REG4"
-      * в reason: риск ухода ключевого лицензиата
-
-    - Лицензия на Target, при CoC требуется согласие
-      регулятора, механизма нет:
+    - Лицензия на Target, CoC-зависимость, нет механизма:
       * depends_on_ownership = "yes"
       * preservation_mechanism = "no"
-      * red_flags включает "REG5"
 
-    - Только "все необходимые лицензии имеются" без конкретики:
+    - "Все необходимые лицензии имеются" без конкретики:
       * has_key_licenses = "unclear"
-      * в reason: неопределённость как фактор риска
 
-    - Структура сделки не триггерит CoC, waiver от регулятора:
-      * depends_on_ownership = "no" или "yes"
+    - Waiver от регулятора предусмотрен:
       * preservation_mechanism = "yes"
-      * license_loss_risk = "low"
-      * red_flags = "NONE"
-
-    - Лицензия на дочернюю компанию, контроль сохраняется:
-      * license_holder_type = "subsidiary"
-      * license_loss_risk = "low" или "medium"
-
-    - Упоминаются истёкшие лицензии или необходимость продления:
-      * в licenses_summary и reason — отметить
-      * может повышать license_loss_risk
 
     - Нет релевантных фрагментов:
       * has_key_licenses = "unclear"
-      * red_flags = "UNCLEAR"
-      * licenses_display =
-        "Не удалось определить наличие лицензий"
+      * licenses_display = "Не удалось определить наличие лицензий"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "licenses_display"
       type: "string"
-      description: "Лицензии и разрешения: краткий вывод"
+      presentation: "fact"
+      label: "Лицензии и разрешения"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "has_key_licenses"
       type: "string"
+      presentation: "signal"
       description: "Наличие ключевых лицензий"
       allowed_values:
         - "yes"
@@ -399,10 +382,13 @@ extraction:
 
     - name: "licenses_summary"
       type: "string"
-      description: "Перечень выявленных лицензий"
+      presentation: "fact"
+      label: "Перечень лицензий"
+      description: "Краткий перечень выявленных лицензий"
 
     - name: "license_holder_type"
       type: "string"
+      presentation: "signal"
       description: "Держатель лицензии"
       allowed_values:
         - "target"
@@ -415,7 +401,8 @@ extraction:
 
     - name: "depends_on_ownership"
       type: "string"
-      description: "Зависимость лицензий от структуры владения"
+      presentation: "signal"
+      description: "Зависимость от структуры владения"
       allowed_values:
         - "yes"
         - "no"
@@ -423,31 +410,19 @@ extraction:
 
     - name: "preservation_mechanism"
       type: "string"
-      description: "Механизм сохранения лицензий при сделке"
+      presentation: "signal"
+      description: "Механизм сохранения лицензий"
       allowed_values:
         - "yes"
         - "no"
         - "not_applicable"
         - "unclear"
 
-    - name: "license_loss_risk"
-      type: "string"
-      description: "Риск утраты лицензий при M&A"
-      allowed_values:
-        - "low"
-        - "medium"
-        - "high"
-        - "unclear"
-
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true
-
 
   

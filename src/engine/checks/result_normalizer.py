@@ -128,6 +128,17 @@ def normalize_check_result(
     if structured_data:
         _extract_red_flags(structured_data, quality_flags)
 
+    detector_method = exec_result.get("detector_method")
+    if detector_method == "extraction_only" and structured_data:
+        provenance = exec_result.get("provenance") or {}
+        has_primary_provenance = any(
+            provenance.get(k) is not None
+            for k in ("chunk_id", "clause_uid", "page", "segment_id")
+        )
+        if not has_primary_provenance:
+            quality_flags["missing_provenance"] = True
+
+
     # Conditional check info
     conditional = getattr(check, "conditional", None) if check is not None else None
     if isinstance(conditional, dict):
@@ -140,7 +151,7 @@ def normalize_check_result(
     check_origin = getattr(check, "origin", None) if check is not None else None
 
     # Segment provenance
-    segment_info = _extract_segment_provenance(exec_result)
+    provenance_info = _extract_provenance(exec_result)
 
     # ── Anchor / citation fields ──────────────────────────────────────────────
     # Эти поля заполняются когда детектор использует legal units + citation resolver.
@@ -176,7 +187,7 @@ def normalize_check_result(
         "page": exec_result.get("page"),
         "clause_uid": exec_result.get("clause_uid"),
         "element_id": exec_result.get("element_id"),
-        "bbox": exec_result.get("bbox"),
+        "context_trace": exec_result.get("context_trace") or [],
         # ── Citation anchor fields ─────────────────────────────────────────────
         "anchor_uid": anchor_uid,
         "anchor_title": anchor_title,
@@ -184,7 +195,7 @@ def normalize_check_result(
         "quote_start_char": quote_start_char,
         "quote_end_char": quote_end_char,
         "source_unit_id": source_unit_id,
-        **segment_info,
+        **provenance_info,
     }
 
 
@@ -335,53 +346,43 @@ def _cleanup_legacy_ui_keys(quality_flags: dict[str, Any]) -> None:
             raw.pop(key, None)
 
 
-def _extract_segment_provenance(exec_result: dict) -> dict[str, Any]:
+def _extract_provenance(exec_result: dict) -> dict[str, Any]:
     """
-    Извлечь segment-aware информацию из exec_result.
+    Извлечь canonical provenance из exec_result.
 
-    Для непрофессионального программиста:
-    - Сначала проверяем верхний уровень exec_result (segment_id, segment_type, ...);
-    - Если там пусто, пытаемся найти в exec_result["raw"]["segment_provenance"];
-    - Это даёт совместимость и с новым кодом (check_runner кладёт прямо в exec_result),
-      и со старым кодом (если segment_provenance приходит из LLM executor в raw).
+    Contract:
+    - primary source: exec_result["provenance"]
+    - fallback: top-level fields (для безопасности в рамках одного rollout)
     """
-    segment_id = exec_result.get("segment_id")
-    segment_type = exec_result.get("segment_type")
-    segment_title = exec_result.get("segment_title")
-    segment_order = exec_result.get("segment_order")
-    is_primary_segment = exec_result.get("is_primary_segment")
+    provenance = exec_result.get("provenance")
+    if not isinstance(provenance, dict):
+        provenance = {}
 
-    # Fallback: если в верхнем уровне пусто, ищем в raw.segment_provenance
-    if segment_id is None:
-        raw_segment = None
-        if isinstance(exec_result.get("raw"), dict):
-            raw_segment = exec_result["raw"].get("segment_provenance")
+    page = provenance.get("page", exec_result.get("page"))
+    clause_uid = provenance.get("clause_uid", exec_result.get("clause_uid"))
+    element_id = provenance.get("element_id", exec_result.get("element_id"))
+    bbox = provenance.get("bbox", exec_result.get("bbox"))
 
-        if isinstance(raw_segment, dict):
-            segment_id = raw_segment.get("segment_id") or None
-            segment_type = raw_segment.get("segment_type") or None
-            segment_title = raw_segment.get("segment_title") or None
-
-            try:
-                if raw_segment.get("segment_order") is not None:
-                    segment_order = int(raw_segment.get("segment_order"))
-            except (TypeError, ValueError):
-                segment_order = None
-
-            is_primary_segment = raw_segment.get("is_primary_segment")
-            if isinstance(is_primary_segment, str):
-                is_primary_segment = is_primary_segment.strip().lower() in (
-                    "1",
-                    "true",
-                    "yes",
-                )
+    segment_id = provenance.get("segment_id", exec_result.get("segment_id"))
+    segment_type = provenance.get("segment_type", exec_result.get("segment_type"))
+    segment_title = provenance.get("segment_title", exec_result.get("segment_title"))
+    segment_order = provenance.get("segment_order", exec_result.get("segment_order"))
+    is_primary_segment = provenance.get("is_primary_segment", exec_result.get("is_primary_segment"))
+    chunk_id = provenance.get("chunk_id", exec_result.get("chunk_id"))
+    chunk_index = provenance.get("chunk_index", exec_result.get("chunk_index"))
 
     return {
+        "page": page,
+        "clause_uid": clause_uid,
+        "element_id": element_id,
+        "bbox": bbox,
         "segment_id": segment_id,
         "segment_type": segment_type,
         "segment_title": segment_title,
         "segment_order": segment_order,
         "is_primary_segment": is_primary_segment,
+        "chunk_id": chunk_id,
+        "chunk_index": chunk_index,
     }
 
 

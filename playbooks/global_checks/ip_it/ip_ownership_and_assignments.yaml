@@ -1,5 +1,6 @@
 id: "ip_ownership_and_assignments"
 name: "Принадлежность IP и assignment от разработчиков"
+group: "IP"
 description: >
   Анализирует принадлежность ключевых IP-активов: ПО, исходного
   кода, результатов работ, контента, баз данных, товарных знаков
@@ -132,6 +133,12 @@ evidence:
 retrieval:
   context_k: 5
   max_chunks: 12
+
+  retrieval_query: >
+    интеллектуальная собственность исключительные права отчуждение передача прав 
+    служебное произведение исходный код результаты работ разработчик подрядчик 
+    основатель цепочка прав
+
   boost_keywords:
     - "intellectual property"
     - "интеллектуальная собственность"
@@ -160,6 +167,32 @@ retrieval:
     - "retains ownership"
     - "license only"
     - "open source"
+
+  negative_keywords:
+    - "коммерческая тайна"
+    - "конфиденциальная информация"
+    - "подсудность"
+    - "форс-мажор"
+    - "условия оплаты"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "obligation"
+
+  excluded_unit_types:
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "intellectual_property"
+    - "assignment"
+    - "representations"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -176,25 +209,23 @@ enrichment_hints:
     - "price_list"
     - "invoice"
     - "act"
-  preferred_clause_functions:
-    - "intellectual_property"
-    - "assignment"
-    - "representations_warranties"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 520
+  llm_max_tokens: 480
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по интеллектуальной собственности и технологиям.
+    Ты — юрист по интеллектуальной собственности.
     Твоя задача — точно извлечь из текста:
     1) кому принадлежат ключевые IP-активы;
     2) есть ли assignment от основателей / сотрудников;
     3) есть ли assignment от подрядчиков / разработчиков;
     4) насколько полон scope передачи прав.
+
+    Не делай предположений о chain of title без явных данных.
     </role>
 
     <context>
@@ -212,19 +243,16 @@ extraction:
     - assignment_scope_appears_full
     - has_third_party_or_preexisting_ip_risk
     - chain_of_title_clarity
-    - overall_ip_risk_level
-    - red_flags
     - reason
 
     Важно:
-    - не делай предположений о chain of title без явных данных;
-    - пиши user-facing значения коротко и по-русски.
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
-    Шаг 1 — ФОРМАЛЬНЫЙ ВЛАДЕЛЕЦ КЛЮЧЕВЫХ IP-АКТИВОВ
+    Шаг 1 — ФОРМАЛЬНЫЙ ВЛАДЕЛЕЦ IP
 
-    Заполни поле "ip_owner_status".
+    Заполни "ip_owner_status".
 
     Значения:
     - "target" — IP принадлежит Target по документам.
@@ -236,175 +264,135 @@ extraction:
 
     Шаг 2 — ASSIGNMENT ОТ ОСНОВАТЕЛЕЙ И СОТРУДНИКОВ
 
-    Заполни поле "has_assignments_from_founders_and_employees".
+    Заполни "has_assignments_from_founders_and_employees".
 
     Значения:
-    - "yes" — явный assignment: "all right, title and interest",
-      служебные произведения / work made for hire,
+    - "yes" — явный assignment: "all right, title and
+      interest", служебные произведения / work made for hire,
       deed of assignment от основателей.
     - "no" — assignment отсутствует или только лицензия.
-    - "partial" — для одной категории есть, для другой нет.
+    - "partial" — для части есть, для части нет.
     - "unclear" — неясно.
 
     Шаг 3 — ASSIGNMENT ОТ ПОДРЯДЧИКОВ
 
-    Заполни поле "has_assignments_from_contractors".
+    Заполни "has_assignments_from_contractors".
 
     Значения:
-    - "yes" — явное отчуждение прав на результаты работ
-      подрядчиков / deed of assignment.
-    - "no" — нет assignment; только лицензия или retained rights.
+    - "yes" — явное отчуждение прав на результаты работ.
+    - "no" — нет; только лицензия или retained rights.
     - "partial" — частично есть.
     - "unclear" — неясно.
 
-    Шаг 4 — ПОЛНОТА SCOPE ПЕРЕДАЧИ ПРАВ
+    Шаг 4 — ПОЛНОТА SCOPE
 
-    Заполни поле "assignment_scope_appears_full".
+    Заполни "assignment_scope_appears_full".
 
     Значения:
-    - "yes" — scope выглядит полным:
-      worldwide / full term / all uses / derivative works /
-      irrevocable.
+    - "yes" — scope полный: worldwide / full term /
+      all uses / derivative works / irrevocable.
     - "no" — scope явно ограничен.
-    - "partial" — часть элементов есть, часть отсутствует.
+    - "partial" — часть элементов есть, часть нет.
     - "unclear" — неясно.
 
     Шаг 5 — THIRD-PARTY / PRE-EXISTING IP РИСК
 
-    Заполни поле "has_third_party_or_preexisting_ip_risk".
+    Заполни "has_third_party_or_preexisting_ip_risk".
 
     Значения:
-    - "yes" — есть признаки:
-      * Target получает только лицензию на pre-existing IP;
-      * retained rights у подрядчиков / основателей;
-      * значимые open source или third-party components.
+    - "yes" — признаки: Target получает только лицензию
+      на pre-existing IP; retained rights у третьих лиц;
+      значимые open source / third-party компоненты.
     - "no" — признаков нет.
     - "unclear" — неясно.
 
     Шаг 6 — CHAIN OF TITLE
 
-    Заполни поле "chain_of_title_clarity".
+    Заполни "chain_of_title_clarity".
 
     Значения:
     - "clear" — цепочка прав прослеживается явно.
     - "partial" — частично прослеживается.
-    - "unclear" — нельзя прослеdit.
     - "not_established" — chain of title явно не установлена
       или есть пробелы.
+    - "unclear" — нельзя прослеживать по фрагментам.
 
-    Шаг 7 — ОБЩИЙ УРОВЕНЬ IP-РИСКА
+    Шаг 7 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "overall_ip_risk_level".
+    Заполни "ip_ownership_display".
 
-    Значения:
-    - "low" — IP принадлежит Target, assignment полный,
-      chain of title чистая.
-    - "medium" — есть отдельные пробелы, но критичных
-      блокеров нет.
-    - "high" — IP не полностью у Target, нет assignment
-      от ключевых лиц, chain of title неясна.
-    - "unclear" — данных недостаточно.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 8 — RED FLAGS
+    Базовые случаи:
+    - все поля unclear:
+      "Не удалось определить принадлежность IP"
+    - нет проблем:
+      "IP принадлежит Target; assignment полный; chain of title чистая"
 
-    Заполни поле "red_flags".
-
-    Используй:
-    - "NONE" — если существенных риск-факторов нет.
-    - "UNCLEAR" — если данных недостаточно.
-    - Коды через запятую:
-      * IPOWN1 — ключевые IP-активы не принадлежат Target
-        или принадлежат смешанно.
-      * IPOWN2 — нет явных assignment от разработчиков /
-        подрядчиков.
-      * IPOWN3 — ключевой продукт создан до регистрации
-        компании без явного отчуждения в пользу Target.
-      * IPOWN4 — scope assignment неполный: нет worldwide /
-        full term / all rights / derivative works.
-      * IPOWN5 — Target получает только лицензию на ключевой IP
-        или есть retained rights у третьих лиц.
-      * IPOWN6 — chain of title не прослеживается или
-        прослеживается лишь частично.
-
-    Шаг 9 — USER-FACING SUMMARY
-
-    Заполни поле "ip_ownership_display".
+    Если есть конкретные данные — комбинируй через ";":
+    - начни с ip_owner_status (кратко)
+    - добавь assignment от основателей / подрядчиков (если проблема)
+    - добавь chain_of_title_clarity (если not_established)
+    - добавь third_party / preexisting (если "yes")
 
     Примеры:
-    - "IP принадлежит Target; assignment от основателей
-       и подрядчиков есть; scope полный"
-    - "IP у основателей; assignment отсутствует;
-       chain of title не установлена"
-    - "Смешанная принадлежность; assignment от подрядчиков
-       отсутствует; scope неполный"
+    - "IP принадлежит Target; assignment от основателей и подрядчиков есть; scope полный"
+    - "IP у основателей; assignment отсутствует; chain of title не установлена"
+    - "Смешанная принадлежность; assignment от подрядчиков отсутствует"
     - "Не удалось определить принадлежность IP"
 
-    Правила:
-    - Отрази максимум 3 ключевых факта через ";".
-    - Если всё unclear:
-      "Не удалось определить принадлежность IP"
+    Ограничение: не более 3 фактов через ";".
 
-    Шаг 10 — ОБОСНОВАНИЕ
+    Шаг 8 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
-    - Укажи: кому принадлежит IP, есть ли assignment,
-      насколько полон scope, chain of title, third-party риск,
-      почему выставлены red_flags.
-    - Приведи короткую цитату в кавычках.
-    - Если NONE — почему структура прав выглядит безопасной.
+    - Укажи: кому принадлежит IP, assignment, scope,
+      chain of title, third-party риск.
+    - Приведи цитату в кавычках.
     </instructions>
 
     <edge_cases>
-    - Служебные произведения → работодатель, но нет assignment
-      от подрядчиков:
+    - Служебные произведения без assignment от подрядчиков:
       * has_assignments_from_founders_and_employees = "yes"
       * has_assignments_from_contractors = "no"
-      * red_flags включает "IPOWN2"
 
-    - Продукт создан до регистрации компании:
+    - IP создан до регистрации компании:
       * ip_owner_status = "founders"
-      * red_flags включает "IPOWN3, IPOWN1"
 
-    - "All right, title and interest are hereby assigned
-       worldwide, irrevocable, for full term":
+    - "All right, title and interest worldwide, irrevocable":
       * assignment_scope_appears_full = "yes"
-      * это сильный фактор low risk
+      * это сильный low risk фактор
 
-    - Target получает только лицензию на ключевой IP:
+    - Target только лицензиат ключевого IP:
       * has_third_party_or_preexisting_ip_risk = "yes"
-      * red_flags включает "IPOWN5"
 
     - Нет данных о chain of title:
       * chain_of_title_clarity = "unclear"
-      * red_flags включает "IPOWN6"
-
-    - Open source компоненты без признаков нарушения:
-      * has_third_party_or_preexisting_ip_risk = "yes"
-      * в reason: степень риска по контексту
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
-      * red_flags = "UNCLEAR"
-      * ip_ownership_display =
-        "Не удалось определить принадлежность IP"
+      * ip_ownership_display = "Не удалось определить принадлежность IP"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "ip_ownership_display"
       type: "string"
-      description: "Принадлежность IP: краткий вывод"
+      presentation: "fact"
+      label: "Принадлежность IP"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "ip_owner_status"
       type: "string"
+      presentation: "signal"
       description: "Формальный владелец IP"
       allowed_values:
         - "target"
@@ -416,6 +404,7 @@ extraction:
 
     - name: "has_assignments_from_founders_and_employees"
       type: "string"
+      presentation: "signal"
       description: "Assignment от основателей и сотрудников"
       allowed_values:
         - "yes"
@@ -425,6 +414,7 @@ extraction:
 
     - name: "has_assignments_from_contractors"
       type: "string"
+      presentation: "signal"
       description: "Assignment от подрядчиков / разработчиков"
       allowed_values:
         - "yes"
@@ -434,6 +424,7 @@ extraction:
 
     - name: "assignment_scope_appears_full"
       type: "string"
+      presentation: "signal"
       description: "Полнота scope передачи прав"
       allowed_values:
         - "yes"
@@ -443,6 +434,7 @@ extraction:
 
     - name: "has_third_party_or_preexisting_ip_risk"
       type: "string"
+      presentation: "signal"
       description: "Риск third-party / pre-existing IP"
       allowed_values:
         - "yes"
@@ -451,28 +443,17 @@ extraction:
 
     - name: "chain_of_title_clarity"
       type: "string"
+      presentation: "signal"
       description: "Чистота цепочки прав"
       allowed_values:
         - "clear"
         - "partial"
-        - "unclear"
         - "not_established"
-
-    - name: "overall_ip_risk_level"
-      type: "string"
-      description: "Общий уровень IP-риска"
-      allowed_values:
-        - "low"
-        - "medium"
-        - "high"
         - "unclear"
-
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
 
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true

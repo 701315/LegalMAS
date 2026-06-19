@@ -1,5 +1,6 @@
 id: "document_completeness_and_side_letters"
 name: "Полнота документации и side letters"
+group: "Document completeness"
 description: >
   Анализирует полноту пакета документов по сделке в контексте
   M&A due diligence: наличие всех приложений, допсоглашений,
@@ -117,6 +118,12 @@ evidence:
 retrieval:
   context_k: 6
   max_chunks: 12
+
+  retrieval_query: >
+    приложения schedule exhibit annex side letter отдельное соглашение 
+    дополнительное соглашение amendment протокол разногласий disclosure schedule 
+    entire agreement исчерпывающий характер договора реестр договоров
+
   boost_keywords:
     - "schedule"
     - "exhibit"
@@ -141,6 +148,30 @@ retrieval:
     - "amended and restated"
     - "сторонами также заключено"
     - "parties have also entered"
+
+  negative_keywords:
+    - "условия оплаты"
+    - "валюта платежа"
+    - "финансовые ковенанты"
+    - "take-or-pay"
+    - "штрафные санкции"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "appendix_reference"
+
+  excluded_unit_types:
+    - "structural_anchor"
+    - "technical_fragment"
+
+  preferred_clause_functions:
+    - "boilerplate"
+
+  position_bias:
+    preferred_range: [0.70, 1.00]
+    boost: 0.20
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -157,18 +188,16 @@ enrichment_hints:
     - "price_list"
     - "invoice"
     - "act"
-  preferred_clause_functions:
-    - "general_provisions"
   confidence_bonus_on_match: 0.08
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 460
+  llm_max_tokens: 440
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по M&A и due diligence.
+    Ты — юрист по M&A due diligence.
     Твоя задача — точно извлечь из текста:
     1) признаки отсутствующих документов в пакете;
     2) наличие side letters и скрытых договорённостей;
@@ -176,6 +205,8 @@ extraction:
     4) качество disclosure schedules;
     5) наличие amendments и их консолидацию;
     6) соответствие реестрам.
+
+    Не придумывай данные, которых нет в тексте.
     </role>
 
     <context>
@@ -195,199 +226,173 @@ extraction:
     - has_amendments
     - consolidation_status
     - registers_gap_risk
-    - red_flags
     - reason
 
     Важно:
-    - не придумывай данные, которых нет в тексте;
-    - пиши user-facing значения коротко и по-русски.
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
-    Шаг 1 — ПОДОЗРЕНИЕ НА ОТСУТСТВУЮЩИЕ ДОКУМЕНТЫ
+    Шаг 1 — ОТСУТСТВУЮЩИЕ ДОКУМЕНТЫ
 
-    Заполни поле "has_suspected_missing_documents".
+    Заполни "has_suspected_missing_documents".
 
     Значения:
     - "yes" — обоснованное подозрение:
-      * ссылки "as set out in Schedule X" без текста Schedule X;
-      * пропуски в нумерации приложений;
-      * упоминание side letter без его текста;
-      * ссылки на amendments без содержания.
+      ссылки "as set out in Schedule X" без текста Schedule X;
+      пропуски в нумерации приложений;
+      упоминание side letter без его текста;
+      ссылки на amendments без содержания.
     - "no" — все упомянутые документы присутствуют.
     - "unclear" — невозможно определить.
 
     Шаг 2 — СПИСОК ПРЕДПОЛОЖИТЕЛЬНО ОТСУТСТВУЮЩИХ ДОКУМЕНТОВ
 
-    Заполни поле "missing_documents_list".
+    Заполни "missing_documents_list".
 
     Правила:
-    - Если has_suspected_missing_documents = "yes":
-      перечисли предположительно отсутствующие документы
-      через ";":
-      * "Schedule A; Amendment #2; Disclosure Schedule"
-    - Если has_suspected_missing_documents = "no":
-      "Не применимо"
-    - Если unclear:
-      "Не удалось определить"
+    - Если "yes": перечисли через ";":
+      "Schedule A; Amendment #2; Disclosure Schedule"
+    - Если "no": "Не применимо"
+    - Если unclear: "Не удалось определить"
 
     Шаг 3 — РИСК SIDE LETTERS
 
-    Заполни поле "side_letters_risk".
+    Заполни "side_letters_risk".
 
     Значения:
     - "high" — side letter упоминается, но не предоставлен.
-    - "medium" — есть косвенные признаки скрытых договорённостей.
+    - "medium" — косвенные признаки скрытых договорённостей.
     - "low" — нет признаков side letters.
     - "unclear" — невозможно определить.
 
     Шаг 4 — ENTIRE AGREEMENT CLAUSE
 
-    Заполни поле "has_entire_agreement_clause".
+    Заполни "has_entire_agreement_clause".
 
     Значения:
-    - "yes" — есть: договор = полная договорённость,
+    - "yes" — договор = полная договорённость,
       замещает предшествующие соглашения.
     - "no" — нет.
     - "unclear" — неясно.
 
     Шаг 5 — DISCLOSURE SCHEDULES
 
-    Заполни поле "disclosure_schedules_assessment".
+    Заполни "disclosure_schedules_assessment".
 
     Значения:
     - "adequate" — детализированные, содержательные.
-    - "weak" — формальные, blanket statements,
-      недостаточная детализация.
+    - "weak" — формальные, blanket statements.
     - "empty" — пустые или "Nothing to disclose".
-    - "not_present" — disclosure schedules не упоминаются.
+    - "not_present" — не упоминаются.
     - "unclear" — невозможно оценить.
 
     Шаг 6 — AMENDMENTS И ВЕРСИОННОСТЬ
 
-    Заполни поле "has_amendments".
+    Заполни "has_amendments" и "consolidation_status".
 
-    Значения:
-    - "yes" — есть amendments / variations к договору.
-    - "no" — нет.
-    - "unclear" — неясно.
+    Значения для has_amendments:
+    - "yes" / "no" / "unclear"
 
-    Заполни поле "consolidation_status".
-
-    Значения:
-    - "consolidated" — есть консолидированная /
-      restated версия договора.
+    Значения для consolidation_status:
+    - "consolidated" — есть консолидированная / restated версия.
     - "not_consolidated" — amendments без консолидации.
     - "not_applicable" — amendments нет.
     - "unclear" — неясно.
 
     Шаг 7 — СООТВЕТСТВИЕ РЕЕСТРАМ
 
-    Заполни поле "registers_gap_risk".
+    Заполни "registers_gap_risk".
 
     Значения:
-    - "high" — очевидный разрыв: реестр упоминает документы
-      которых нет, или наоборот.
+    - "high" — очевидный разрыв между реестрами и пакетом.
     - "medium" — отдельные несоответствия.
     - "low" — реестры соответствуют пакету или не упоминаются.
     - "unclear" — невозможно определить.
 
-    Шаг 8 — RED FLAGS
+    Шаг 8 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "red_flags".
+    Заполни "document_completeness_display".
 
-    Используй:
-    - "NONE" — если существенных риск-факторов нет.
-    - "UNCLEAR" — если данных недостаточно.
-    - Коды через запятую:
-      * DOC1 — отсутствие приложений / schedules, на которые
-        прямо ссылается договор.
-      * DOC2 — упоминание side letter без его текста.
-      * DOC3 — очевидный разрыв между реестрами и пакетом.
-      * DOC4 — disclosure schedules пустые или формальные.
-      * DOC5 — нет entire agreement clause.
-      * DOC6 — множественные amendments без консолидации.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 9 — USER-FACING SUMMARY
-
-    Заполни поле "document_completeness_display".
-
-    Примеры:
-    - "Пакет полный; entire agreement есть; amendments консолидированы"
-    - "Отсутствует Schedule A; упоминается side letter;
-       disclosure schedules формальные"
-    - "Amendments без консолидации; нет entire agreement clause"
-    - "Не удалось оценить полноту документации"
-
-    Правила:
-    - Отрази максимум 3 ключевых факта через ";".
-    - Если все параметры unclear:
+    Базовые случаи:
+    - все поля unclear:
       "Не удалось оценить полноту документации"
-    - Если нет проблем:
+    - нет признаков проблем:
       "Пакет выглядит полным"
 
-    Шаг 10 — ОБОСНОВАНИЕ
+    Если есть конкретные данные — комбинируй через ";":
+    - начни с наиболее критичного факта
+    - has_suspected_missing_documents = "yes":
+      "Отсутствует {missing_documents_list}"
+    - side_letters_risk = "high":
+      "упоминается side letter без текста"
+    - disclosure_schedules_assessment = "empty":
+      "disclosure schedules пустые"
+    - consolidation_status = "not_consolidated":
+      "amendments без консолидации"
 
-    Заполни поле "reason".
+    Примеры:
+    - "Пакет выглядит полным; entire agreement есть; amendments консолидированы"
+    - "Отсутствует Schedule A; упоминается side letter; disclosure schedules формальные"
+    - "Amendments без консолидации"
+    - "Не удалось оценить полноту документации"
+
+    Ограничение: не более 3 фактов через ";".
+
+    Шаг 9 — КРАТКОЕ ОБОСНОВАНИЕ
+
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
     - Укажи: отсутствующие документы, признаки side letters,
-      состояние disclosure schedules, amendments, реестры,
-      почему выставлены red_flags.
-    - Приведи короткую цитату в кавычках.
-    - Если NONE — почему пакет выглядит полным.
+      disclosure schedules, amendments, реестры.
+    - Приведи цитату в кавычках.
     </instructions>
 
     <edge_cases>
-    - Договор упоминает Schedule X, текста нет:
+    - "As set out in Schedule X", текста нет:
       * has_suspected_missing_documents = "yes"
       * missing_documents_list = "Schedule X"
-      * red_flags включает "DOC1"
 
-    - "Сторонами также заключено отдельное соглашение",
-      текста нет:
+    - "Сторонами также заключено отдельное соглашение":
       * side_letters_risk = "high"
-      * red_flags включает "DOC2"
 
-    - Нет ссылок на приложения, schedules, реестры:
+    - Нет ссылок на приложения и schedules:
       * has_suspected_missing_documents = "no"
       * side_letters_risk = "low"
-      * в reason: дополнительных документов не видно
 
-    - Есть entire agreement clause:
-      * has_entire_agreement_clause = "yes"
-      * DOC5 не выставляется
-
-    - Disclosure schedules "Nothing to disclose":
+    - "Nothing to disclose":
       * disclosure_schedules_assessment = "empty"
-      * red_flags включает "DOC4"
 
     - Amendment #1, #2, #3 без consolidated version:
       * has_amendments = "yes"
       * consolidation_status = "not_consolidated"
-      * red_flags включает "DOC6"
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
-      * red_flags = "UNCLEAR"
       * document_completeness_display =
         "Не удалось оценить полноту документации"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "document_completeness_display"
       type: "string"
-      description: "Полнота документации: краткий вывод"
+      presentation: "fact"
+      label: "Полнота документации"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "has_suspected_missing_documents"
       type: "string"
+      presentation: "signal"
       description: "Подозрение на отсутствующие документы"
       allowed_values:
         - "yes"
@@ -396,10 +401,13 @@ extraction:
 
     - name: "missing_documents_list"
       type: "string"
-      description: "Предположительно отсутствующие документы"
+      presentation: "fact"
+      label: "Отсутствующие документы"
+      description: "Перечень предположительно отсутствующих документов"
 
     - name: "side_letters_risk"
       type: "string"
+      presentation: "signal"
       description: "Риск side letters / скрытых договорённостей"
       allowed_values:
         - "high"
@@ -409,6 +417,7 @@ extraction:
 
     - name: "has_entire_agreement_clause"
       type: "string"
+      presentation: "signal"
       description: "Entire agreement clause"
       allowed_values:
         - "yes"
@@ -417,6 +426,7 @@ extraction:
 
     - name: "disclosure_schedules_assessment"
       type: "string"
+      presentation: "signal"
       description: "Качество disclosure schedules"
       allowed_values:
         - "adequate"
@@ -427,6 +437,7 @@ extraction:
 
     - name: "has_amendments"
       type: "string"
+      presentation: "signal"
       description: "Наличие amendments / допсоглашений"
       allowed_values:
         - "yes"
@@ -435,6 +446,7 @@ extraction:
 
     - name: "consolidation_status"
       type: "string"
+      presentation: "signal"
       description: "Статус консолидации amendments"
       allowed_values:
         - "consolidated"
@@ -444,6 +456,7 @@ extraction:
 
     - name: "registers_gap_risk"
       type: "string"
+      presentation: "signal"
       description: "Риск расхождения с реестрами"
       allowed_values:
         - "high"
@@ -451,15 +464,11 @@ extraction:
         - "low"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true
-
 
   

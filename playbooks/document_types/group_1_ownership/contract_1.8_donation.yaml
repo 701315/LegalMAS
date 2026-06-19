@@ -892,19 +892,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "даритель одаряемый именуем в лице действующего на основании ИНН ОГРН ОГРНИП паспорт дата рождения крупная сделка сделка с заинтересованностью одобрение общего собрания одобрение совета директоров решение единственного участника право хозяйственного ведения согласие собственника малолетний несовершеннолетний недееспособный орган опеки законный представитель"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - boilerplate
+      negative_keywords:
+        - "безвозмездно"
+        - "в дар"
+        - "предмет дарения"
+        - "встречное предоставление"
+        - "обещание дарения"
+        - "отмена дарения"
+        - "обременения"
+        - "залог"
+        - "арест"
+        - "банкротство"
+        - "НДФЛ"
+        - "пожертвование"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.25
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "даритель"
-        - "одаряемый"
-        - "именуем"
-        - "в лице"
-        - "ИНН"
-        - "ОГРН"
-        - "крупная сделка"
-        - "одобрение"
-        - "орган опеки"
-        - "законный представитель"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -918,48 +937,111 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 550
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора дарения
+        данные о сторонах: реквизиты, тип, подписанты, основания полномочий,
+        корпоративное одобрение, дееспособность и согласие органа опеки.
+        Не анализируй предмет дарения, налоги, обременения или отмену дарения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. donor_details_status
+        2. donor_details
+        3. donor_type
+        4. donor_signatory
+        5. donor_signatory_basis
+        6. donee_details_status
+        7. donee_details
+        8. donee_type
+        9. donee_signatory
+        10. donee_signatory_basis
+        11. corporate_approval_status
+        12. corporate_approval_details
+        13. capacity_issues_status
+        14. guardianship_consent_status
+        15. owner_consent_status
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не делай предположений о дееспособности.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "donor_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Даритель прямо определён с реквизитами. Иначе 'not_defined'."
+          description: "Статус определения реквизитов Дарителя."
         - name: "donor_details"
           type: "string"
-          description: "Реквизиты Дарителя. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Даритель: реквизиты"
+          description: "Наименование и реквизиты Дарителя."
         - name: "donor_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["legal_entity", "individual_entrepreneur", "individual", "not_defined"]
-          description: "Тип Дарителя."
         - name: "donor_signatory"
           type: "string"
-          description: "Подписант от Дарителя. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Даритель: подписант"
         - name: "donor_signatory_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта Дарителя."
         - name: "donee_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Одаряемый прямо определён с реквизитами. Иначе 'not_defined'."
         - name: "donee_details"
           type: "string"
-          description: "Реквизиты Одаряемого. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Одаряемый: реквизиты"
         - name: "donee_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["legal_entity", "individual_entrepreneur", "individual", "not_defined"]
-          description: "Тип Одаряемого."
+        - name: "donee_signatory"
+          type: "string"
+          presentation: "fact"
+          label: "Одаряемый: подписант"
+        - name: "donee_signatory_basis"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
         - name: "corporate_approval_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если корпоративное одобрение прямо определено. Иначе 'not_defined'."
+        - name: "corporate_approval_details"
+          type: "string"
+          presentation: "fact"
+          label: "Корпоративное одобрение"
         - name: "capacity_issues_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если признаки несовершеннолетних/недееспособных прямо упомянуты. Иначе 'not_defined'."
         - name: "guardianship_consent_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если согласие органа опеки прямо определено. Иначе 'not_defined'."
+        - name: "owner_consent_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1104,16 +1186,45 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "безвозмездно в дар предмет дарения имущественное право освобождение от обязанности передаёт в дар объект дарения не является притворной сделкой безвозмездный характер даритель одаряемый ст. 572 ГК РФ немедленная передача обещание дарения"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "оплата"
+        - "компенсация"
+        - "в обмен на"
+        - "вознаграждение"
+        - "уход"
+        - "содержание"
+        - "рента"
+        - "ежемесячные платежи"
+        - "цена"
+        - "отмена дарения"
+        - "отмена"
+        - "обременения"
+        - "залог"
+        - "арест"
+        - "банкротство"
+        - "НДФЛ"
+        - "пожертвование"
+        - "кадастровый номер"
+        - "ЕГРН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.05, 0.50]
+        boost: 0.20
+        scope: segment
       context_k: 7
       max_chunks: 9
-      boost_keywords:
-        - "безвозмездно"
-        - "в дар"
-        - "даритель"
-        - "одаряемый"
-        - "предмет дарения"
-        - "притворная сделка"
-        - "встречное предоставление"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1127,38 +1238,74 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора дарения
+        предмет дарения, его тип и признаки безвозмездности.
+        Не анализируй отмену дарения, стороны и налоги.
+        </role>
+
+        <context>{context}</context>
+
+        <task>
+        Заполни:
+
+        donation_subject_status
+        donation_subject
+        donation_subject_type
+        subject_specificity
+        gratuitousness_status
+        gratuitousness_explicitness
+        counter_performance_signs
+        sham_prevention_status
+        transfer_timing
+
+        Если нет данных — not_defined.
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не делай правовых выводов.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "donation_subject_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если предмет дарения прямо определён. Иначе 'not_defined'."
         - name: "donation_subject"
           type: "string"
-          description: "Предмет дарения. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Предмет дарения"
         - name: "donation_subject_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["thing", "right", "debt_release", "mixed", "not_defined"]
-          description: "Тип предмета дарения."
+        - name: "subject_specificity"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["specific", "vague", "not_defined"]
         - name: "gratuitousness_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если безвозмездность прямо определена. Иначе 'not_defined'."
         - name: "gratuitousness_explicitness"
           type: "string"
+          presentation: "signal"
           allowed_values: ["explicit", "implied", "contradicted", "not_defined"]
-          description: "Явность безвозмездности: explicit (прямо), implied (косвенно), contradicted (противоречит)."
         - name: "counter_performance_signs"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если признаки встречного предоставления прямо присутствуют. Иначе 'not_defined'."
         - name: "sham_prevention_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение о непритворности прямо определено. Иначе 'not_defined'."
         - name: "transfer_timing"
           type: "string"
+          presentation: "signal"
           allowed_values: ["immediate", "future_promise", "not_defined"]
-          description: "Немедленная передача или обещание в будущем."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1279,17 +1426,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "оплата компенсация вознаграждение встречное предоставление в обмен на содержание уход обязуется выплачивать цена ежемесячные платежи рента обязанности одаряемого взамен при условии притворная сделка переквалификация ст. 170 ГК РФ"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - representations
+      negative_keywords:
+        - "безвозмездно"
+        - "в дар"
+        - "не является притворной"
+        - "одаряемый не несёт обязательств"
+        - "отмена дарения"
+        - "обременения"
+        - "залог"
+        - "арест"
+        - "банкротство"
+        - "НДФЛ"
+        - "пожертвование"
+        - "кадастровый номер"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "встречное предоставление"
-        - "оплата"
-        - "компенсация"
-        - "уход"
-        - "содержание"
-        - "цена"
-        - "притворная сделка"
-        - "переквалификация"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1303,19 +1472,38 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 420
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Найди прямые признаки встречного предоставления
+        в договоре дарения.
+        </role>
+
+        <context>{context}</context>
+
+        <task>
+        counter_performance_found
+        reclassification_target
+        protective_clause_present
+        </task>
+
+        <rules>
+        Только текст договора.
+        Верни JSON.
+        </rules>
       fields:
         - name: "counter_performance_found"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no"]
-          description: "Верни 'yes', если признаки встречного предоставления прямо обнаружены. Иначе 'no'."
         - name: "reclassification_target"
           type: "string"
+          presentation: "signal"
           allowed_values: ["sale", "exchange", "annuity", "sham", "not_applicable"]
-          description: "Тип возможной переквалификации."
         - name: "protective_clause_present"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение об отсутствии встречного предоставления прямо есть. Иначе 'not_defined'."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1387,15 +1575,36 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "обещает подарить обязуется передать в будущем после наступления условия обещание дарения впоследствии письменная форма всё имущество ст. 572 ГК РФ ч. 2 ст. 574 ГК РФ условие вступления в силу определённость предмета"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "безвозмездно передаёт в дар немедленно"
+        - "оплата"
+        - "компенсация"
+        - "в обмен на"
+        - "отмена дарения"
+        - "обременения"
+        - "залог"
+        - "НДФЛ"
+        - "пожертвование"
+        - "кадастровый номер"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "обещание дарения"
-        - "обязуется передать"
-        - "в будущем"
-        - "всё имущество"
-        - "ст. 572"
-        - "ст. 574"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1409,19 +1618,79 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 420
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора дарения признаки
+        обещания дарения в будущем: форма, конкретность предмета, условие
+        вступления в силу.
+        Не анализируй стороны, безвозмездность, передачу или отмену дарения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. promise_of_gift_status — "defined" если обещание дарения в будущем
+           прямо присутствует ("обязуется передать", "обещает подарить"),
+           иначе "not_defined".
+        2. written_form_status — "defined" если соблюдение письменной формы
+           прямо подтверждено, иначе "not_defined".
+        3. subject_specificity_status — "defined" если предмет обещания
+           конкретно описан, иначе "not_defined".
+        4. subject_specificity — "specific" / "vague" / "all_property" /
+           "not_defined".
+        5. triggering_condition_status — "defined" если условие вступления
+           в силу обещания прямо указано, иначе "not_defined".
+        6. triggering_condition_details — текст условия вступления в силу.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - "all_property" = фраза типа "всё своё имущество" — это ничтожно
+          по ст. 572 ГК РФ, фиксируй как есть.
+        - Не анализируй, является ли условие законным.
+        - Пиши кратко. Верни только JSON.
+        </rules>
       fields:
         - name: "promise_of_gift_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если обещание дарения прямо присутствует. Иначе 'not_defined'."
+          description: "Статус наличия обещания дарения в будущем."
+        - name: "written_form_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус соблюдения письменной формы обещания."
+        - name: "subject_specificity_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определённости предмета обещания дарения."
         - name: "subject_specificity"
           type: "string"
+          presentation: "signal"
           allowed_values: ["specific", "vague", "all_property", "not_defined"]
-          description: "Определённость предмета обещания."
+          description: "Степень конкретности предмета обещания дарения."
         - name: "triggering_condition_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие вступления в силу прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия условия вступления обещания в силу."
+        - name: "triggering_condition_details"
+          type: "string"
+          presentation: "fact"
+          label: "Условие вступления обещания в силу"
+          description: "Текст условия, при наступлении которого обещание дарения
+            вступает в силу."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1498,14 +1767,36 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "передача дара передаточный акт акт приёма-передачи с момента передачи вручение передаётся право собственности переходит момент перехода права с момента подписания с момента регистрации место передачи дата передачи"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "кадастровый номер"
+        - "ЕГРН"
+        - "государственная регистрация перехода права на недвижимость"
+        - "госпошлина"
+        - "зарегистрированные лица"
+        - "обременения"
+        - "отмена дарения"
+        - "встречное предоставление"
+        - "НДФЛ"
+        - "пожертвование"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.70]
+        boost: 0.15
+        scope: segment
       context_k: 5
       max_chunks: 7
-      boost_keywords:
-        - "передача дара"
-        - "акт приёма-передачи"
-        - "право собственности переходит"
-        - "момент передачи"
-        - "вручение"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1519,19 +1810,92 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 450
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора дарения условия
+        о порядке и моменте передачи дара: дата, место, акт приёма-передачи,
+        момент перехода права собственности.
+        Не анализируй стороны, предмет дарения, обременения или отмену дарения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. transfer_procedure_status — "defined" если порядок передачи дара
+           прямо описан, иначе "not_defined".
+        2. transfer_date_status — "defined" если дата или срок передачи
+           прямо указаны, иначе "not_defined".
+        3. transfer_date_details — конкретная дата или срок передачи дара.
+        4. transfer_act_status — "defined" если акт приёма-передачи прямо
+           предусмотрен, иначе "not_defined".
+        5. transfer_location_status — "defined" если место передачи прямо
+           указано, иначе "not_defined".
+        6. transfer_location_details — адрес или описание места передачи.
+        7. ownership_transfer_status — "defined" если момент перехода права
+           собственности прямо указан, иначе "not_defined".
+        8. ownership_transfer_moment — момент перехода права:
+           "upon_handover" / "upon_registration" / "upon_signing" /
+           "custom" / "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Для недвижимости момент перехода = регистрация (upon_registration).
+        - Для движимого имущества = вручение (upon_handover).
+        - Только если это прямо написано в договоре.
+        - Пиши кратко. Верни только JSON.
+        </rules>
       fields:
         - name: "transfer_procedure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок передачи прямо определён. Иначе 'not_defined'."
+          description: "Статус определения порядка передачи дара."
+        - name: "transfer_date_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения даты или срока передачи дара."
+        - name: "transfer_date_details"
+          type: "string"
+          presentation: "fact"
+          label: "Дата/срок передачи дара"
+          description: "Конкретная дата или срок передачи предмета дарения."
         - name: "transfer_act_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если акт приёма-передачи прямо предусмотрен. Иначе 'not_defined'."
+          description: "Статус наличия условия об акте приёма-передачи дара."
+        - name: "transfer_location_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения места передачи дара."
+        - name: "transfer_location_details"
+          type: "string"
+          presentation: "fact"
+          label: "Место передачи дара"
+          description: "Адрес или описание места передачи предмета дарения."
+        - name: "ownership_transfer_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения момента перехода права собственности."
         - name: "ownership_transfer_moment"
           type: "string"
-          allowed_values: ["upon_handover", "upon_registration", "upon_signing", "custom", "not_defined"]
-          description: "Момент перехода права собственности."
+          presentation: "signal"
+          allowed_values: ["upon_handover", "upon_registration", "upon_signing",
+            "custom", "not_defined"]
+          description: "Момент перехода права собственности на предмет дарения."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1607,15 +1971,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "отмена дарения отказ от исполнения даритель вправе отменить ст. 578 ГК РФ ст. 577 ГК РФ покушение на жизнь угроза безвозвратной утраты имущественное положение дарителя смерть одаряемого возврат дара отказ от принятия дара одаряемый вправе отказаться"
+      preferred_unit_types:
+        - termination_provision
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+      negative_keywords:
+        - "в обмен на"
+        - "оплата"
+        - "компенсация"
+        - "встречное предоставление"
+        - "обременения"
+        - "залог"
+        - "банкротство"
+        - "НДФЛ"
+        - "пожертвование"
+        - "кадастровый номер"
+        - "передача дара"
+        - "акт приёма-передачи"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 0.90]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "отмена дарения"
-        - "отказ от исполнения"
-        - "ст. 578"
-        - "ст. 577"
-        - "смерть одаряемого"
-        - "одаряемый вправе отказаться"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1629,23 +2017,73 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 430
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора дарения условия
+        об отмене дарения, отказе от исполнения обещания и правах одаряемого
+        на отказ от принятия дара (ст. 573, 577-578 ГК РФ).
+        Не анализируй стороны, предмет дарения, обременения, налоги или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. revocation_clause_status — "defined" если условие об отмене дарения
+           прямо присутствует, иначе "not_defined".
+        2. revocation_grounds_status — "defined" если основания отмены прямо
+           перечислены, иначе "not_defined".
+        3. revocation_grounds_lawful — соответствуют ли основания ст. 577-578
+           ГК РФ: "yes" / "no" / "unclear" / "not_defined".
+        4. donee_death_reversion_status — "defined" если условие о возврате
+           дара при смерти одаряемого раньше дарителя прямо предусмотрено,
+           иначе "not_defined".
+        5. donee_refusal_right_status — "defined" если право одаряемого
+           отказаться от принятия дара прямо предусмотрено, иначе "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - revocation_grounds_lawful = "yes" только если основания совпадают
+          со ст. 577-578 ГК (ухудшение имущественного положения, покушение
+          на жизнь, смерть одаряемого раньше). Не домысливай.
+        - Пиши кратко. Верни только JSON.
+        </rules>
       fields:
         - name: "revocation_clause_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие об отмене прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия условия об отмене дарения."
+        - name: "revocation_grounds_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус перечисления оснований для отмены дарения."
         - name: "revocation_grounds_lawful"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no", "unclear", "not_defined"]
-          description: "Соответствуют ли основания закону (ст. 577-578 ГК)."
+          description: "Соответствие оснований отмены ст. 577-578 ГК РФ."
         - name: "donee_death_reversion_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие о возврате при смерти одаряемого прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия условия о возврате дара при смерти
+            одаряемого ранее дарителя."
         - name: "donee_refusal_right_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право одаряемого отказаться прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия права одаряемого отказаться от принятия дара."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1726,16 +2164,37 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "не обременён отсутствие обременений не находится под арестом свободен от прав третьих лиц не заложен отсутствие признаков банкротства не находится в процедуре банкротства не нарушает права кредиторов кредиторы не является притворной сделкой ФЗ-127 ст. 61.2 ст. 61.3"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "кадастровый номер"
+        - "ЕГРН"
+        - "государственная регистрация"
+        - "зарегистрированные лица"
+        - "право пользования"
+        - "госпошлина"
+        - "НДФЛ"
+        - "пожертвование"
+        - "отмена дарения"
+        - "встречное предоставление"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.75]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "обременения"
-        - "права третьих лиц"
-        - "не заложен"
-        - "банкротство"
-        - "кредиторы"
-        - "ФЗ-127"
-        - "притворная сделка"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1749,23 +2208,95 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора дарения заверения
+        дарителя об отсутствии обременений на предмет дарения, его банкротном
+        статусе, ненарушении прав кредиторов и непритворности сделки.
+        Не анализируй стороны, передачу, налоги или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. encumbrances_warranty_status — "defined" если заверение об
+           отсутствии обременений прямо указано, иначе "not_defined".
+        2. encumbrances_warranty_details — текст заверения об отсутствии
+           обременений.
+        3. pledge_absence_status — "defined" если отсутствие залога прямо
+           подтверждено, иначе "not_defined".
+        4. arrest_absence_status — "defined" если отсутствие ареста прямо
+           подтверждено, иначе "not_defined".
+        5. third_party_rights_status — "defined" если заверение об отсутствии
+           прав третьих лиц прямо указано, иначе "not_defined".
+        6. bankruptcy_warranty_status — "defined" если заверение о банкротном
+           статусе дарителя прямо указано, иначе "not_defined".
+        7. creditors_not_harmed_status — "defined" если заверение о
+           ненарушении прав кредиторов прямо указано, иначе "not_defined".
+        8. sham_prevention_status — "defined" если заверение о непритворности
+           сделки прямо указано, иначе "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Общая фраза "предмет дарения свободен от обременений" покрывает
+          pledge и arrest одновременно.
+        - Не применяй нормы ФЗ-127 по умолчанию.
+        - Пиши кратко. Верни только JSON.
+        </rules>
       fields:
         - name: "encumbrances_warranty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение об отсутствии обременений прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия заверения об отсутствии обременений
+            на предмет дарения."
+        - name: "encumbrances_warranty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Заверение об отсутствии обременений"
+          description: "Текст заверения дарителя об отсутствии обременений
+            на предмет дарения."
+        - name: "pledge_absence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии залога на предмет дарения."
+        - name: "arrest_absence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии ареста на предмет дарения."
+        - name: "third_party_rights_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии прав третьих лиц
+            на предмет дарения."
         - name: "bankruptcy_warranty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение о банкротном статусе прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия заверения о банкротном статусе дарителя."
         - name: "creditors_not_harmed_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение о ненарушении прав кредиторов прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия заверения о ненарушении прав кредиторов."
         - name: "sham_prevention_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение о непритворности прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия заверения о непритворности договора дарения."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1840,16 +2371,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "общая собственность совместная собственность долевая собственность согласие сособственников согласие всех участников согласие супруга нотариальное согласие не состоит в браке личная собственность брачный договор единоличная собственность ст. 576 ГК РФ ст. 35 СК РФ ст. 253 ГК РФ"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "корпоративное одобрение"
+        - "одобрение совета директоров"
+        - "решение единственного участника"
+        - "крупная сделка"
+        - "обременения"
+        - "залог"
+        - "банкротство"
+        - "НДФЛ"
+        - "пожертвование"
+        - "кадастровый номер"
+        - "отмена дарения"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.08
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "общая собственность"
-        - "согласие сособственников"
-        - "согласие супруга"
-        - "ст. 576 ГК"
-        - "ст. 35 СК"
-        - "личная собственность"
-        - "не состоит в браке"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1863,27 +2416,81 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 430
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора дарения данные
+        о режиме собственности на предмет дарения, согласии сособственников
+        и согласии супруга.
+        Не анализируй стороны, предмет дарения, обременения, налоги или передачу.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. ownership_regime_status — "defined" если режим собственности прямо
+           указан, иначе "not_defined".
+        2. ownership_regime — "sole" (единоличная) / "joint" (совместная) /
+           "shared" (долевая) / "not_defined".
+        3. co_owner_consent_status — "defined" если согласие сособственников
+           или заверение об единоличной собственности прямо указано,
+           иначе "not_defined".
+        4. co_owner_consent — "obtained" (согласие получено) /
+           "not_required_stated" (заявлено, что не требуется) / "not_defined".
+        5. spousal_consent_status — "defined" если согласие супруга или
+           подтверждение отсутствия брака прямо указано, иначе "not_defined".
+        6. spousal_consent — "consent_present" / "not_married_confirmed" /
+           "prenuptial" / "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не делай предположений о семейном положении.
+        - Пиши кратко. Верни только JSON.
+        </rules>
       fields:
         - name: "ownership_regime_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если режим собственности прямо определён. Иначе 'not_defined'."
+          description: "Статус определения режима собственности на предмет дарения."
         - name: "ownership_regime"
           type: "string"
+          presentation: "signal"
           allowed_values: ["sole", "joint", "shared", "not_defined"]
-          description: "Режим собственности."
+          description: "Режим собственности на предмет дарения."
         - name: "co_owner_consent_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если согласие сособственников прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия согласия сособственников или заверения
+            об его ненужности."
+        - name: "co_owner_consent"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["obtained", "not_required_stated", "not_defined"]
+          description: "Статус согласия сособственников при дарении из
+            общей собственности."
         - name: "spousal_consent_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если согласие супруга или отсутствие брака прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия согласия супруга или подтверждения
+            отсутствия брака."
         - name: "spousal_consent"
           type: "string"
-          allowed_values: ["consent_present", "not_married_confirmed", "prenuptial", "not_defined"]
-          description: "Статус согласия супруга."
+          presentation: "signal"
+          allowed_values: ["consent_present", "not_married_confirmed",
+            "prenuptial", "not_defined"]
+          description: "Статус согласия супруга дарителя на дарение."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1961,16 +2568,36 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "пожертвование общеполезные цели целевое использование отчёт отчётность благотворительные цели использование по назначению изменение цели использования пожертвованное имущество отмена пожертвования ст. 582 ГК РФ нецелевое использование"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "безвозмездно передаёт в дар обычный"
+        - "отмена дарения ст. 578"
+        - "встречное предоставление"
+        - "обременения"
+        - "залог"
+        - "банкротство"
+        - "НДФЛ"
+        - "кадастровый номер"
+        - "ЕГРН"
+        - "согласие супруга"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "пожертвование"
-        - "целевое использование"
-        - "отчётность"
-        - "общеполезные цели"
-        - "ст. 582 ГК"
-        - "изменение цели"
-        - "нецелевое использование"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1984,22 +2611,90 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 470
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора пожертвования
+        данные о целевом использовании имущества, обязанности отчётности
+        и последствиях нецелевого использования (ст. 582 ГК РФ).
+        Не анализируй стороны, передачу, безвозмездность или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. target_use_status — "defined" если целевое использование прямо
+           определено, иначе "not_defined".
+        2. target_use_details — конкретное описание цели пожертвования.
+        3. reporting_obligation_status — "defined" если обязанность
+           отчитываться перед жертвователем прямо предусмотрена,
+           иначе "not_defined".
+        4. reporting_frequency_status — "defined" если периодичность
+           отчётности прямо указана, иначе "not_defined".
+        5. reporting_frequency_details — периодичность (ежегодно, ежеквартально
+           и т.п.).
+        6. change_of_purpose_consent_status — "defined" если порядок изменения
+           цели использования прямо определён, иначе "not_defined".
+        7. non_target_use_consequences_status — "defined" если последствия
+           нецелевого использования прямо указаны, иначе "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не применяй ст. 582 ГК РФ по умолчанию.
+        - Только прямые формулировки из договора.
+        - Пиши кратко. Верни только JSON.
+        </rules>
       fields:
         - name: "target_use_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если целевое использование прямо определено. Иначе 'not_defined'."
+          description: "Статус определения целевого использования пожертвованного
+            имущества."
         - name: "target_use_details"
           type: "string"
-          description: "Описание цели. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Цель пожертвования"
+          description: "Конкретная общеполезная цель использования
+            пожертвованного имущества."
         - name: "reporting_obligation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если обязанность отчитываться прямо определена. Иначе 'not_defined'."
+          description: "Статус наличия обязанности одаряемого отчитываться
+            перед жертвователем."
+        - name: "reporting_frequency_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения периодичности отчётности."
+        - name: "reporting_frequency_details"
+          type: "string"
+          presentation: "fact"
+          label: "Периодичность отчётности"
+          description: "Периодичность предоставления отчётов об использовании
+            пожертвования."
+        - name: "change_of_purpose_consent_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения порядка изменения цели использования
+            пожертвования."
         - name: "non_target_use_consequences_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если последствия нецелевого использования прямо определены. Иначе 'not_defined'."
+          description: "Статус определения последствий нецелевого использования
+            пожертвованного имущества."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2090,17 +2785,37 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "кадастровый номер ЕГРН Росреестр государственная регистрация перехода права дарения обременение право пользования зарегистрированные лица жилое помещение передаточный акт выписка из ЕГРН право собственности основание права проживающие лица снят с регистрационного учёта госпошлина ст. 558 ГК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - warranty
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+        - representations
+      negative_keywords:
+        - "обременения в общем смысле без ЕГРН"
+        - "залог движимого имущества"
+        - "арест движимого имущества"
+        - "банкротство"
+        - "НДФЛ"
+        - "пожертвование"
+        - "встречное предоставление"
+        - "отмена дарения"
+        - "согласие супруга"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 8
       max_chunks: 10
-      boost_keywords:
-        - "кадастровый номер"
-        - "ЕГРН"
-        - "государственная регистрация"
-        - "обременения"
-        - "передаточный акт"
-        - "зарегистрированные лица"
-        - "Росреестр"
-        - "ст. 558 ГК"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2114,27 +2829,128 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 530
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора дарения недвижимого
+        имущества специальные условия: кадастровый номер, выписка ЕГРН,
+        основание права дарителя, обременения, госрегистрация, зарегистрированные
+        лица, передаточный акт.
+        Не анализируй стороны, безвозмездность, налоги, отмену дарения или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. cadastral_number_status — "defined" если кадастровый номер объекта
+           прямо указан, иначе "not_defined".
+        2. cadastral_number — кадастровый номер в формате NN:NN:NNNNNNN:N.
+        3. egrn_extract_status — "defined" если ссылка на выписку ЕГРН
+           прямо указана, иначе "not_defined".
+        4. donor_title_basis_status — "defined" если основание права
+           собственности дарителя прямо указано, иначе "not_defined".
+        5. donor_title_basis_details — текст об основании права дарителя
+           (договор купли-продажи, наследство, приватизация и т.п.).
+        6. encumbrances_status — "defined" если заверение об отсутствии
+           обременений прямо указано, иначе "not_defined".
+        7. encumbrances_details — текст заверения об обременениях.
+        8. registration_procedure_status — "defined" если порядок
+           государственной регистрации перехода права прямо описан,
+           иначе "not_defined".
+        9. registration_cost_status — "defined" если распределение расходов
+           на госпошлину прямо указано, иначе "not_defined".
+        10. residents_list_status — "defined" если перечень лиц, сохраняющих
+            право пользования, или заверение об их отсутствии прямо указано,
+            иначе "not_defined".
+        11. residents_list_regime — "listed" (перечислены конкретные лица) /
+            "explicitly_none" (явно указано, что таких лиц нет) / "not_defined".
+        12. transfer_act_status — "defined" если передаточный акт прямо
+            предусмотрен, иначе "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Кадастровый номер — строго в формате NN:NN:NNNNNNN:N.
+        - Не домысливай основание права дарителя.
+        - Пиши кратко. Верни только JSON.
+        </rules>
       fields:
         - name: "cadastral_number_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если кадастровый номер прямо указан. Иначе 'not_defined'."
+          description: "Статус наличия кадастрового номера объекта дарения."
         - name: "cadastral_number"
           type: "string"
-          regex_patterns: ["(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"]
-          description: "Кадастровый номер. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Кадастровый номер объекта"
+          description: "Кадастровый номер объекта недвижимости
+            в формате NN:NN:NNNNNNN:N."
+        - name: "egrn_extract_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия ссылки на выписку из ЕГРН."
+        - name: "donor_title_basis_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения основания права собственности дарителя."
+        - name: "donor_title_basis_details"
+          type: "string"
+          presentation: "fact"
+          label: "Основание права дарителя"
+          description: "Правоустанавливающий документ или иное основание
+            права собственности дарителя на объект."
         - name: "encumbrances_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если гарантия отсутствия обременений прямо определена. Иначе 'not_defined'."
+          description: "Статус наличия заверения об отсутствии обременений
+            на объект дарения."
+        - name: "encumbrances_details"
+          type: "string"
+          presentation: "fact"
+          label: "Заверение об отсутствии обременений"
+          description: "Текст заверения об отсутствии обременений,
+            залога, ареста на объект недвижимости."
         - name: "registration_procedure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок госрегистрации прямо определён. Иначе 'not_defined'."
+          description: "Статус определения порядка государственной регистрации
+            перехода права собственности."
+        - name: "registration_cost_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения распределения расходов на госпошлину."
+        - name: "residents_list_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия перечня лиц, сохраняющих право
+            пользования объектом после дарения."
         - name: "residents_list_regime"
           type: "string"
+          presentation: "signal"
           allowed_values: ["listed", "explicitly_none", "not_defined"]
-          description: "Статус перечня проживающих лиц."
+          description: "Режим указания лиц, сохраняющих право пользования
+            подаренным объектом недвижимости."
+        - name: "transfer_act_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия условия о передаточном акте
+            при дарении недвижимости."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2203,15 +3019,35 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_query: "НДФЛ близкие родственники освобождение от налога налоговая декларация одаряемый уплачивает налог ст. 217 НК РФ налоговые последствия рыночная стоимость дара декларация 3-НДФЛ п. 18.1 НК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - obligations
+      negative_keywords:
+        - "обременения"
+        - "залог"
+        - "банкротство"
+        - "встречное предоставление"
+        - "отмена дарения"
+        - "пожертвование"
+        - "кадастровый номер"
+        - "ЕГРН"
+        - "согласие супруга"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.55, 1.0]
+        boost: 0.18
+        scope: segment
       context_k: 5
       max_chunks: 7
-      boost_keywords:
-        - "НДФЛ"
-        - "близкие родственники"
-        - "ст. 217 НК РФ"
-        - "налоговые последствия"
-        - "освобождение от налога"
-        - "налоговая декларация"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2225,19 +3061,77 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 420
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора дарения налоговые
+        оговорки: НДФЛ для одаряемого, статус родства сторон, освобождение
+        для близких родственников, обязанность подачи декларации
+        (ст. 217 п. 18.1 НК РФ).
+        Не анализируй стороны, предмет дарения, обременения или передачу.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. tax_warning_status — "defined" если налоговая оговорка об НДФЛ
+           прямо присутствует, иначе "not_defined".
+        2. close_relative_status_stated — "defined" если статус родства сторон
+           прямо указан в договоре, иначе "not_defined".
+        3. close_relative_status — "confirmed" (подтверждено родство) /
+           "not_confirmed" (родства нет) / "not_stated" (не упомянуто) /
+           "not_defined".
+        4. close_relative_exemption_status — "defined" если освобождение
+           от НДФЛ для близких родственников прямо упомянуто
+           (ссылка на ст. 217 п. 18.1 НК РФ или аналогичная формулировка),
+           иначе "not_defined".
+        5. tax_declaration_status — "defined" если обязанность подачи
+           декларации 3-НДФЛ прямо указана, иначе "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не применяй нормы НК РФ по умолчанию.
+        - Только прямые формулировки из договора.
+        - Пиши кратко. Верни только JSON.
+        </rules>
       fields:
         - name: "tax_warning_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если налоговая оговорка прямо определена. Иначе 'not_defined'."
-        - name: "close_relative_exemption_status"
+          description: "Статус наличия налоговой оговорки об НДФЛ в договоре."
+        - name: "close_relative_status_stated"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если освобождение для близких родственников прямо упомянуто. Иначе 'not_defined'."
+          description: "Статус наличия прямого указания на родство сторон
+            в договоре."
         - name: "close_relative_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["confirmed", "not_confirmed", "not_stated", "not_defined"]
-          description: "Статус родства."
+          description: "Статус родства дарителя и одаряемого по тексту договора."
+        - name: "close_relative_exemption_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия указания на освобождение от НДФЛ
+            для близких родственников (ст. 217 п. 18.1 НК РФ)."
+        - name: "tax_declaration_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия указания на обязанность подачи
+            декларации 3-НДФЛ одаряемым."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2315,16 +3209,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "доля в уставном капитале доля в ООО нотариальное удостоверение нотариус ЕГРЮЛ преимущественное право устав общества запрет дарения согласие участников размер доли номинальная стоимость ст. 21 ФЗ-14 уставные ограничения"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+        - representations
+      negative_keywords:
+        - "согласие участников как сособственников недвижимости"
+        - "ЕГРН"
+        - "кадастровый номер"
+        - "государственная регистрация перехода права на недвижимость"
+        - "обременения"
+        - "залог"
+        - "банкротство"
+        - "НДФЛ"
+        - "пожертвование"
+        - "отмена дарения"
+        - "встречное предоставление"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 7
       max_chunks: 9
-      boost_keywords:
-        - "доля в ООО"
-        - "нотариальное удостоверение"
-        - "ЕГРЮЛ"
-        - "устав"
-        - "преимущественное право"
-        - "согласие участников"
-        - "ст. 21 ФЗ-14"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2338,158 +3254,118 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора дарения доли
+        в уставном капитале ООО специальные условия: нотариальная форма,
+        размер и номинальная стоимость доли, ЕГРЮЛ, уставные ограничения,
+        согласие участников, преимущественное право (ст. 21 ФЗ-14).
+        Не анализируй стороны, безвозмездность, обременения, налоги или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. notarization_status — "defined" если нотариальная форма удостоверения
+           прямо подтверждена или упомянута, иначе "not_defined".
+        2. share_size_status — "defined" если размер даримой доли прямо
+           указан, иначе "not_defined".
+        3. share_size — размер доли (например, "25%" или "1/4").
+        4. share_nominal_value_status — "defined" если номинальная стоимость
+           доли прямо указана, иначе "not_defined".
+        5. share_nominal_value — номинальная стоимость доли в рублях.
+        6. egrul_procedure_status — "defined" если порядок внесения изменений
+           в ЕГРЮЛ прямо описан, иначе "not_defined".
+        7. charter_restrictions_status — "defined" если уставные ограничения
+           на дарение доли прямо упомянуты, иначе "not_defined".
+        8. participants_consent_status — "defined" если согласие участников
+           общества прямо получено или упомянуто, иначе "not_defined".
+        9. preemptive_right_status — "defined" если вопрос преимущественного
+           права прямо рассмотрен, иначе "not_defined".
+        10. preemptive_right — "complied" (соблюдено) /
+            "not_applicable" (не применимо — дарение третьему лицу без
+            преимущественного права) / "not_addressed" (не рассмотрено) /
+            "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не применяй нормы ФЗ-14 по умолчанию.
+        - Только прямые формулировки из договора.
+        - Пиши кратко. Верни только JSON.
+        </rules>
       fields:
         - name: "notarization_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если нотариальная форма прямо определена. Иначе 'not_defined'."
+          description: "Статус наличия нотариальной формы удостоверения
+            договора дарения доли."
         - name: "share_size_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если размер доли прямо определён. Иначе 'not_defined'."
+          description: "Статус определения размера даримой доли в уставном
+            капитале ООО."
+        - name: "share_size"
+          type: "string"
+          presentation: "fact"
+          label: "Размер даримой доли"
+          description: "Размер доли в уставном капитале ООО,
+            передаваемой в дар (в процентах или дробях)."
+        - name: "share_nominal_value_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения номинальной стоимости даримой доли."
+        - name: "share_nominal_value"
+          type: "string"
+          presentation: "fact"
+          label: "Номинальная стоимость доли"
+          description: "Номинальная стоимость даримой доли в уставном
+            капитале ООО в рублях."
+        - name: "egrul_procedure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения порядка внесения изменений
+            в ЕГРЮЛ после дарения доли."
         - name: "charter_restrictions_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если уставные ограничения прямо упомянуты. Иначе 'not_defined'."
+          description: "Статус упоминания уставных ограничений на дарение
+            доли в ООО."
+        - name: "participants_consent_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия согласия участников общества
+            на дарение доли."
+        - name: "preemptive_right_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус рассмотрения вопроса о преимущественном
+            праве участников при дарении доли."
         - name: "preemptive_right"
           type: "string"
-          allowed_values: ["complied", "not_applicable", "not_addressed", "not_defined"]
-          description: "Статус преимущественного права."
+          presentation: "signal"
+          allowed_values: ["complied", "not_applicable", "not_addressed",
+            "not_defined"]
+          description: "Статус соблюдения преимущественного права участников
+            ООО при дарении доли."
       store_payload: true
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 13: Споры, конфиденциальность, форс-мажор, применимое право
-  # ──────────────────────────────────────────────────────────────────────────
-  - id: termination_and_disputes
-    name: "Споры, конфиденциальность, форс-мажор, применимое право"
-    description: >
-      Фактографическая проверка наличия блока завершающих условий: порядок споров,
-      подсудность, претензионный порядок, конфиденциальность, форс-мажор,
-      применимое право.
-    triggers: {}
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "подсудность"
-        - "арбитражный суд"
-        - "суд общей юрисдикции"
-        - "претензионный порядок"
-        - "досудебный порядок"
-        - "медиация"
-        - "конфиденциальность"
-        - "неразглашение"
-        - "не раскрывать третьим лицам"
-        - "форс-мажор"
-        - "непреодолимая сила"
-        - "применимое право"
-        - "законодательство Российской Федерации"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)арбитражн(ый|ого)\\s+суд"
-        - "(?i)претензионн(ый|ого)\\s+поряд"
-        - "(?i)конфиденциал"
-        - "(?i)не\\s+разглаш"
-        - "(?i)форс[\\s-]?мажор"
-        - "(?i)непреодолим(ая|ой)\\s+сил"
-        - "(?i)применим(ое|ого)\\s+прав"
-    llm:
-      prompt_template: |
-        [КОНТЕКСТ]
-        Ты — российский юрист по договорной работе.
-        Анализируется договор дарения (гл. 32 ГК РФ).
-        Проверяется наличие завершающих условий договора.
-
-        [ЗАДАЧА]
-        Найди в тексте договора:
-        1. Претензионный порядок (срок направления и рассмотрения).
-        2. Подсудность (какой суд).
-        3. Условия конфиденциальности (срок, перечень).
-        4. Форс-мажорную оговорку (перечень, уведомление).
-        5. Применимое право.
-
-        [ПРАВИЛА]
-        1. Только текст документа. Если нет — "not_defined".
-        2. В evidence — только текст договора.
-        3. Верни только один JSON-объект.
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Указан ли конкретный суд?
-        2. Есть ли срок претензии числом?
-        3. Упомянуты ли форс-мажор и его последствия?
-
-        Не выводи шаги проверки. Верни только JSON.
-
-        [ФОРМАТ ОТВЕТА]
-        {
-          "pretrial_status": "<defined / not_defined>",
-          "pretrial_deadline_status": "<defined / not_defined>",
-          "pretrial_deadline": "<срок или 'Данные не определены'>",
-          "jurisdiction_status": "<defined / not_defined>",
-          "jurisdiction_details": "<суд или 'Данные не определены'>",
-          "confidentiality_status": "<defined / not_defined>",
-          "confidentiality_duration_status": "<defined / not_defined>",
-          "force_majeure_status": "<defined / not_defined>",
-          "force_majeure_details": "<текст или 'Данные не определены'>",
-          "governing_law_status": "<defined / not_defined>",
-          "governing_law": "<RU / foreign / not_defined>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
-        }
-      context_k: 5
-      temperature: 0.0
-      max_tokens: 650
-    retrieval:
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "подсудность"
-        - "арбитражный суд"
-        - "претензионный порядок"
-        - "конфиденциальность"
-        - "форс-мажор"
-        - "применимое право"
-        - "непреодолимая сила"
-      rerank: true
-    enrichment_hints:
-      preferred_clause_functions:
-        - "procedures"
-        - "boilerplate"
-        - "limitations"
-      confidence_bonus_on_match: 0.06
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 600
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "pretrial_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если претензионный порядок прямо определён. Иначе 'not_defined'."
-        - name: "jurisdiction_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если подсудность прямо определена. Иначе 'not_defined'."
-        - name: "jurisdiction_details"
-          type: "string"
-          description: "Суд. Если нет — строго 'Данные не определены'."
-        - name: "confidentiality_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если конфиденциальность прямо определена. Иначе 'not_defined'."
-        - name: "force_majeure_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если форс-мажорная оговорка прямо определена. Иначе 'not_defined'."
-        - name: "governing_law"
-          type: "string"
-          allowed_values: ["RU", "foreign", "not_defined"]
-          description: "Применимое право."
-      store_payload: true
-      
+     
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader

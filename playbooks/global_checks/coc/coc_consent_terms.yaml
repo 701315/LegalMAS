@@ -1,22 +1,21 @@
 id: "coc_consent_terms"
-name: "Условия согласия при CoC / уступке"
+name: "Условия согласия при смене контроля"
+group: "COC"
 description: >
   Анализирует механику получения согласия контрагента при смене
-  контроля (CoC) и/или уступке прав / переводе долга. Определяет,
-  к какому именно триггеру относится требование согласия (CoC,
-  уступка или оба), кто его даёт, в какой форме, установлен ли срок
-  ответа, предусмотрен ли deemed consent (молчание = согласие),
-  ограничен ли отказ стандартом reasonableness или возможен
-  по sole discretion, есть ли carve-out для аффилированных лиц /
-  правопреемника / банка-залогодержателя, и каковы последствия отказа.
+  контроля (Change of Control): требуется ли согласие, в какой форме,
+  установлен ли срок ответа, предусмотрен ли deemed consent
+  (молчание = согласие), ограничен ли отказ стандартом разумности
+  или возможен по sole discretion.
 
-  Формирует краткий user-facing вывод с явным указанием scope
-  (для CoC / для уступки / для обоих) и оценивает риск блокировки
-  сделки контрагентом.
-
-  Если договор регулирует режим уступки прав / перевода долга
-  отдельно, базовый режим (prohibited / consent_required / free)
-  анализируется чеком coc_assignment_presence.
+  Check не анализирует:
+  - наличие / отсутствие CoC clause и тип режима — это задача
+    coc_change_of_control_regime;
+  - уступку прав и перевод долга — это задача
+    assignment_transfer_consent;
+  - substantive consequences отказа (расторжение, акселерация);
+  - carve-out и исключения из consent;
+  - кто именно даёт согласие (counterparty / internal / third party).
 
 doc_types: []
 
@@ -33,88 +32,35 @@ rules:
 
   keywords:
     high:
-      # Согласие — точные формулировки
-      - "(?i)prior\\s+written\\s+consent"
-      - "(?i)предварительн[а-я]+\\s+письменн[а-я]+\\s+согласи[ея]"
-      - "(?i)consent\\s+of\\s+the\\s+other\\s+party"
-      - "(?i)согласи[ея]\\s+(другой\\s+стороны|контрагента)"
-      - "(?i)without\\s+(the\\s+)?(prior\\s+)?(written\\s+)?consent"
-      - "(?i)без\\s+(получения\\s+)?(предварительного\\s+)?(письменного\\s+)?согласи[яи]"
-      - "(?i)approval\\s+of\\s+the\\s+other\\s+party"
-      - "(?i)одобрени[ея]\\s+(другой\\s+стороны|контрагента)"
-
-      # Reasonableness / sole discretion
-      - "(?i)not\\s+(to\\s+be\\s+)?unreasonably\\s+(withheld|delayed|conditioned)"
-      - "(?i)consent\\s+shall\\s+not\\s+be\\s+unreasonably"
-      - "(?i)не\\s+может\\s+быть\\s+необоснованно\\s+(удержан|отказан|задержан)"
-      - "(?i)согласи[ея]\\s+не\\s+должно\\s+(необоснованно|без\\s+оснований)"
-      - "(?i)sole\\s+(and\\s+absolute\\s+)?discretion"
-      - "(?i)absolute\\s+discretion"
-      - "(?i)по\\s+(своему\\s+)?(исключительному\\s+)?усмотрению"
-      - "(?i)without\\s+giving\\s+(any\\s+)?reason"
-
-      # Deemed consent
-      - "(?i)deemed\\s+(to\\s+be\\s+)?(given|granted|obtained)"
-      - "(?i)shall\\s+be\\s+deemed\\s+(to\\s+have\\s+)?consent"
-      - "(?i)failure\\s+to\\s+respond[\\s\\S]{0,40}deemed"
-      - "(?i)считается\\s+(данным|полученным|предоставленным)"
-      - "(?i)молчани[ея][\\s\\S]{0,40}(означает|считается|равносильн)"
-
-      # Change of control — consent context
       - "(?i)consent\\s+to\\s+(a\\s+)?change\\s+(of|in)\\s+control"
-      - "(?i)согласи[ея]\\s+на\\s+(смену|переход)\\s+контрол"
       - "(?i)prior\\s+written\\s+consent[\\s\\S]{0,40}(change|control)"
       - "(?i)change\\s+of\\s+control[\\s\\S]{0,40}consent"
-      - "(?i)change\\s+in\\s+control[\\s\\S]{0,40}consent"
+      - "(?i)согласи[ея]\\s+на\\s+(смену|переход)\\s+контрол"
       - "(?i)смен[аеы]\\s+контрол[яе][\\s\\S]{0,40}согласи"
-
-      # Assignment / transfer — consent context
-      - "(?i)consent\\s+to\\s+(assignment|transfer)"
-      - "(?i)согласи[ея]\\s+на\\s+(уступк|перевод|передач)"
-      - "(?i)without\\s+(the\\s+)?(prior\\s+)?(written\\s+)?consent[\\s\\S]{0,40}(assign|transfer)"
-      - "(?i)без\\s+(предварительного\\s+)?(письменного\\s+)?согласи[яи][\\s\\S]{0,40}(уступ|перевод)"
+      - "(?i)not\\s+(to\\s+be\\s+)?unreasonably\\s+(withheld|delayed|conditioned)"
+      - "(?i)sole\\s+(and\\s+absolute\\s+)?discretion"
+      - "(?i)deemed\\s+(to\\s+be\\s+)?(given|granted|obtained)"
+      - "(?i)failure\\s+to\\s+respond[\\s\\S]{0,40}deemed"
+      - "(?i)считается\\s+(данным|полученным|предоставленным)"
+      - "(?i)молчани[ея][\\s\\S]{0,40}(означает|считается)"
 
     medium:
-      # Carve-out
-      - "(?i)except\\s+(for\\s+)?(transfer|assignment)[\\s\\S]{0,40}(affiliate|group|successor)"
-      - "(?i)за\\s+исключением\\s+(передач|уступк)[\\s\\S]{0,40}(аффилированн|групп|правопреем)"
-      - "(?i)intra[-\\s]?group\\s+transfer"
-      - "(?i)permitted\\s+(transfer|assignment)"
-      - "(?i)внутригрупповая\\s+передач"
-      - "(?i)разрешённ[а-я]+\\s+(передач|уступк)"
-      - "(?i)affiliate"
-      - "(?i)аффилированн"
-      - "(?i)successor"
-      - "(?i)правопреемник"
-      - "(?i)reorganization"
-      - "(?i)реструктуризаци"
-      - "(?i)merger"
-      - "(?i)слияни[ея]"
-      - "(?i)security\\s+assignment"
-      - "(?i)залог\\s+(прав|требовани)"
-
-      # Сроки рассмотрения
+      - "(?i)prior\\s+written\\s+consent"
+      - "(?i)предварительн[а-я]+\\s+письменн[а-я]+\\s+согласи[ея]"
+      - "(?i)without\\s+(the\\s+)?(prior\\s+)?(written\\s+)?consent"
+      - "(?i)без\\s+(получения\\s+)?(предварительного\\s+)?(письменного\\s+)?согласи[яи]"
       - "(?i)within\\s+\\d+\\s+(business\\s+|working\\s+)?days?"
-      - "(?i)response\\s+(period|time)"
       - "(?i)в\\s+течение\\s+\\d+\\s+(рабочих\\s+)?(дней|календарных)"
       - "(?i)срок\\s+рассмотрени[яи]"
       - "(?i)срок\\s+для\\s+ответа"
-
-      # Последствия отказа
-      - "(?i)if\\s+consent\\s+is\\s+not\\s+(given|obtained|granted)"
-      - "(?i)refusal\\s+(of|to\\s+give)\\s+consent"
-      - "(?i)если\\s+согласи[ея]\\s+не\\s+(получено|дано|предоставлено)"
-      - "(?i)отказ\\s+в\\s+(даче\\s+)?согласи[яи]"
-      - "(?i)termination\\s+right"
-      - "(?i)право\\s+на\\s+расторжение"
+      - "(?i)response\\s+(period|time)"
+      - "(?i)не\\s+может\\s+быть\\s+необоснованно"
+      - "(?i)по\\s+(своему\\s+)?(исключительному\\s+)?усмотрению"
 
     low:
-      - "(?i)not\\s+unreasonably\\s+withheld"
-      - "(?i)deemed\\s+consent"
       - "(?i)change\\s+of\\s+control"
       - "(?i)смена\\s+контроля"
-      - "(?i)внутригрупповая\\s+передача"
-      - "(?i)предварительное\\s+письменное\\s+согласие"
+      - "(?i)deemed\\s+consent"
 
   regex_patterns: []
   clause_patterns: []
@@ -123,7 +69,7 @@ llm:
   prompt_file: "detection/generic_presence.txt"
   context_k: 5
   temperature: 0.0
-  max_tokens: 700
+  max_tokens: 420
 
 evidence:
   required: true
@@ -131,38 +77,61 @@ evidence:
   max_snippet_length: 500
 
 retrieval:
-  context_k: 5
-  max_chunks: 10
+  context_k: 6
+  max_chunks: 12
+
+  retrieval_query: >
+    смена контроля change of control согласие consent
+    предварительное письменное согласие prior written consent
+    deemed consent молчание считается согласием
+    sole discretion unreasonably withheld срок ответа
+
   boost_keywords:
-    - "prior written consent"
-    - "предварительное письменное согласие"
-    - "consent of the other party"
-    - "согласие контрагента"
-    - "without prior written consent"
-    - "без получения согласия"
-    - "not unreasonably withheld"
-    - "не может быть необоснованно удержано"
-    - "deemed consent"
-    - "считается данным"
-    - "sole discretion"
-    - "по своему усмотрению"
-    - "response period"
-    - "срок рассмотрения"
-    - "срок для ответа"
-    - "refusal of consent"
-    - "отказ в согласии"
     - "consent to change of control"
     - "согласие на смену контроля"
-    - "consent to assignment"
-    - "согласие на уступку"
-    - "intra-group transfer"
-    - "внутригрупповая передача"
-    - "permitted transfer"
-    - "разрешённая передача"
-    - "successor"
-    - "правопреемник"
-    - "security assignment"
-    - "залог прав"
+    - "prior written consent"
+    - "предварительное письменное согласие"
+    - "deemed consent"
+    - "считается данным"
+    - "not unreasonably withheld"
+    - "не может быть необоснованно"
+    - "sole discretion"
+    - "по своему усмотрению"
+    - "срок рассмотрения"
+    - "response period"
+
+  negative_keywords:
+    - "уступка прав"
+    - "assignment of rights"
+    - "перевод долга"
+    - "transfer of obligations"
+    - "означает"
+    - "в целях настоящего"
+    - "споры"
+    - "подсудность"
+    - "применимое право"
+
+  preferred_unit_types:
+    - "obligation"
+    - "general_provision"
+
+  excluded_unit_types:
+    - "definition"
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "limitations"
+    - "procedures"
+    - "rights"
+    - "boilerplate"
+
+  position_bias:
+    preferred_range: [0.55, 1.00]
+    boost: 0.30
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -172,31 +141,30 @@ enrichment_hints:
   preferred_segment_types:
     - "contract"
     - "amendment"
-    - "annex"
   excluded_segment_types:
     - "technical_specification"
     - "price_list"
     - "invoice"
     - "act"
-    - "schedule"
-  preferred_clause_functions:
-    - "assignment"
-    - "change_of_control"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 560
+  llm_max_tokens: 320
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A и коммерческим договорам.
-    Твоя задача — точно извлечь условия получения согласия
-    контрагента при смене контроля (CoC) и/или уступке прав /
-    переводе долга: к чему именно относится требование согласия,
-    кто его даёт, в какой форме, каковы сроки, есть ли deemed
-    consent, ограничен ли отказ, есть ли carve-out.
+    Твоя задача — точно извлечь механику получения согласия
+    контрагента при смене контроля (Change of Control).
+
+    Не анализируй уступку прав и перевод долга.
+    Не анализируй наличие / тип режима CoC — это задача другого check.
+    Не анализируй последствия отказа (расторжение, акселерация).
+    Не анализируй carve-out и исключения.
+    Не анализируй, кто именно даёт согласие.
+    Не оценивай риск.
     </role>
 
     <context>
@@ -207,351 +175,164 @@ extraction:
 
     <task>
     Заполни только следующие поля:
-    - consent_terms_display
-    - consent_trigger_scope
-    - consent_required
-    - consent_grantor
-    - consent_form
-    - response_period
-    - deemed_consent
-    - reasonableness_standard
-    - carveout_type
-    - refusal_consequences
-    - red_flags
-    - overall_risk_level
+    - coc_consent_display
+    - coc_consent_required
+    - coc_consent_form
+    - coc_response_period
+    - coc_deemed_consent
+    - coc_reasonableness_standard
     - reason
 
-    Важно:
-    - не анализируй тему шире текста;
-    - не придумывай условия, которых нет в фрагментах;
-    - пиши user-facing значения коротко и по-русски;
-    - display-поле должно быть пригодно для DD Grid.
+    Общие правила:
+    - используй только то, что прямо следует из текста;
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
-    Шаг 1 — ОПРЕДЕЛИ SCOPE ТРЕБОВАНИЯ СОГЛАСИЯ
+    Шаг 1 — ТРЕБОВАНИЕ СОГЛАСИЯ
 
-    Заполни поле "consent_trigger_scope".
-
-    Определи, к чему именно относится требование согласия
-    в найденных фрагментах:
-    - "coc_only" — согласие требуется только при смене контроля (CoC).
-    - "assignment_only" — согласие требуется только при уступке прав /
-      переводе долга, но не при CoC.
-    - "both" — одна и та же механика согласия применяется
-      и при CoC, и при уступке / переводе долга.
-    - "unclear" — невозможно разграничить.
-
-    Важно: не объединяй разные механики в одно поле.
-    Если для CoC и для assignment условия разные —
-    зафиксируй это в reason и отрази в consent_terms_display.
-
-    Шаг 2 — ТРЕБУЕТСЯ ЛИ СОГЛАСИЕ
-
-    Заполни поле "consent_required".
+    Заполни "coc_consent_required".
 
     Значения:
-    - "yes_always" — согласие требуется, исключений не видно.
-    - "yes_with_carveout" — согласие требуется, но есть carve-out.
-    - "no" — согласие прямо не требуется.
-    - "not_specified" — условия согласия в тексте не установлены.
-    - "unclear" — фрагменты не позволяют сделать надёжный вывод.
+    - "yes" — согласие контрагента прямо требуется при CoC.
+    - "no" — согласие прямо не требуется при CoC.
+    - "not_specified" — тема не урегулирована.
+    - "unclear" — вывод сделать нельзя.
 
-    Шаг 3 — КТО ДАЁТ СОГЛАСИЕ
+    Шаг 2 — ФОРМА СОГЛАСИЯ
 
-    Заполни поле "consent_grantor".
-
-    Значения:
-    - "counterparty" — согласие даёт только контрагент.
-    - "counterparty_and_internal" — нужен контрагент + внутреннее
-      одобрение (совет директоров, орган управления и т.п.).
-    - "counterparty_and_third_party" — нужен контрагент + третье лицо
-      (банк, регулятор, залогодержатель и т.п.).
-    - "multiple" — требуется более одного дополнительного
-      согласующего субъекта.
-    - "not_specified" — кто именно даёт согласие, не определено.
-    - "not_applicable" — согласие не требуется.
-    - "unclear" — невозможно определить.
-
-    Шаг 4 — ФОРМА СОГЛАСИЯ
-
-    Заполни поле "consent_form".
+    Заполни "coc_consent_form".
 
     Значения:
     - "prior_written" — предварительное письменное согласие.
-    - "written" — письменное согласие без требования предварительности.
+    - "written" — письменное без требования предварительности.
     - "any_form" — форма не ограничена.
     - "not_specified" — форма не установлена.
     - "not_applicable" — согласие не требуется.
     - "unclear" — нельзя определить.
 
-    Шаг 5 — СРОК ОТВЕТА
+    Шаг 3 — СРОК ОТВЕТА
 
-    Заполни поле "response_period".
+    Заполни "coc_response_period".
 
     Правила:
-    - Если срок установлен: "10 рабочих дней", "30 календарных дней".
-    - Если срок не установлен: "Не установлен".
+    - Если срок установлен: извлеки как есть
+      ("10 рабочих дней", "30 календарных дней").
+    - Если не установлен: "Не установлен".
     - Если согласие не требуется: "Не применимо".
-    - Если вывод невозможен: "Не удалось определить".
+    - Если нельзя определить: "Не удалось определить".
 
-    Шаг 6 — DEEMED CONSENT
+    Шаг 4 — DEEMED CONSENT
 
-    Заполни поле "deemed_consent".
+    Заполни "coc_deemed_consent".
 
     Значения:
     - "yes" — молчание / отсутствие ответа в срок считается согласием.
-    - "no" — прямо указано, что deemed consent нет,
-      либо требуется явное согласие.
+    - "no" — прямо требуется явное согласие.
     - "not_specified" — тема не урегулирована.
     - "not_applicable" — согласие не требуется.
     - "unclear" — нельзя определить.
 
-    Шаг 7 — СТАНДАРТ ОТКАЗА
+    Шаг 5 — СТАНДАРТ ОТКАЗА
 
-    Заполни поле "reasonableness_standard".
+    Заполни "coc_reasonableness_standard".
 
     Значения:
-    - "not_unreasonably_withheld" — отказ / задержка / условия
-      не могут быть необоснованными.
-    - "sole_discretion" — отказ по исключительному усмотрению.
-    - "with_criteria" — есть объективные критерии для отказа.
+    - "not_unreasonably_withheld" — отказ не может быть необоснованным.
+    - "sole_discretion" — отказ по усмотрению.
     - "not_specified" — стандарт не установлен.
     - "not_applicable" — согласие не требуется.
     - "unclear" — нельзя определить.
 
-    Шаг 8 — CARVE-OUT
+    Шаг 6 — DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "carveout_type".
-
-    Значения:
-    - "none" — carve-out нет.
-    - "affiliate_group" — carve-out для аффилированных лиц /
-      группы / внутригрупповой передачи.
-    - "successor_mna" — carve-out для правопреемника, merger,
-      reorganization, sale of business / M&A.
-    - "security_financing" — carve-out для банка, залогодержателя,
-      обеспечения (security assignment, залог прав).
-    - "multiple" — есть два и более типа carve-out.
-    - "not_specified" — carve-out не урегулирован.
-    - "not_applicable" — согласие не требуется.
-    - "unclear" — нельзя определить.
-
-    Шаг 9 — ПОСЛЕДСТВИЯ ОТКАЗА
-
-    Заполни поле "refusal_consequences".
-
-    Значения:
-    - "transaction_blocked" — сделка / уступка / CoC невозможны
-      без согласия.
-    - "termination_right" — отказ даёт право на расторжение /
-      досрочное прекращение.
-    - "renegotiation" — стороны должны пересмотреть условия.
-    - "no_specific_consequences" — последствия отказа отдельно
-      не описаны.
-    - "not_specified" — условия согласия в целом не установлены.
-    - "not_applicable" — согласие не требуется.
-    - "unclear" — нельзя определить.
-
-    Шаг 10 — RED FLAGS
-
-    Заполни поле "red_flags".
-
-    Используй:
-    - "NONE" — если существенных риск-факторов нет;
-    - "UNCLEAR" — если данных недостаточно;
-    - коды через запятую:
-      * CNS1 — согласие требуется, а отказ возможен по sole discretion
-        или без разумных ограничений;
-      * CNS2 — нет срока ответа и нет deemed consent —
-        согласие может блокироваться бездействием;
-      * CNS3 — требуется несколько согласований / approval layers
-        (контрагент + регулятор / банк / совет директоров);
-      * CNS4 — отказ влечёт termination / acceleration
-        или иной жёсткий consequence;
-      * CNS5 — согласие требуется в жёстком режиме,
-        но carve-out для группы / правопреемства отсутствует.
-
-    Шаг 11 — ОБЩИЙ УРОВЕНЬ РИСКА БЛОКИРОВКИ СДЕЛКИ
-
-    Заполни поле "overall_risk_level".
-
-    Значения:
-    - "low" — согласие не требуется, либо есть workable режим:
-      фиксированный срок ответа + deemed consent
-      или reasonableness standard.
-    - "medium" — согласие требуется, условия относительно управляемы:
-      есть срок ответа, но нет deemed consent;
-      или есть reasonableness, но нет carve-out.
-    - "high" — consent может реально блокировать сделку:
-      sole discretion, нет срока ответа, нет deemed consent,
-      termination right при отказе, множественные approvals.
-    - "unclear" — недостаточно данных.
-
-    Шаг 12 — USER-FACING SUMMARY
-
-    Заполни поле "consent_terms_display".
-
-    Правила построения:
-    - Всегда начинай с явного scope:
-      * consent_trigger_scope = "coc_only" → "Для CoC ..."
-      * consent_trigger_scope = "assignment_only" → "Для уступки ..."
-      * consent_trigger_scope = "both" → "Для CoC и уступки ..."
-      * consent_trigger_scope = "unclear" → без scope prefix
-    - Строй display как цепочку через точку с запятой:
-      {scope} + {основное условие} + {ключевая деталь если есть}
+    Заполни "coc_consent_display".
 
     Примеры:
-    - "Для CoC требуется согласие; только предварительное письменное;
-       срок ответа не установлен"
+    - "Для CoC требуется предварительное письменное согласие;
+      срок ответа не установлен"
     - "Для CoC требуется согласие; 15 рабочих дней;
-       молчание считается согласием"
-    - "Для CoC требуется согласие; отказ не ограничен
-       стандартом разумности"
-    - "Для CoC и уступки требуется согласие; есть carve-out
-       для аффилированных лиц"
-    - "Для уступки требуется согласие; 30 дней; deemed consent нет"
+      молчание считается согласием"
+    - "Для CoC требуется согласие; отказ по sole discretion"
+    - "Для CoC требуется согласие; отказ не может быть необоснованным"
     - "Для CoC согласие не требуется"
-    - "Условия согласия не установлены"
-    - "Не удалось определить условия согласия"
+    - "Условия согласия при CoC не установлены"
+    - "Не удалось определить условия согласия при CoC"
 
-    Если для CoC и для уступки условия разные —
-    опиши оба через " / " или двумя частями через ";".
+    Шаг 7 — ОБОСНОВАНИЕ
 
-    Шаг 13 — ОБОСНОВАНИЕ
-
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
-    - Укажи: к чему относится consent (scope), требуется ли,
-      форма, срок ответа, deemed consent, стандарт отказа,
-      carve-out, почему выставлены red_flags / risk level.
     - Приведи короткую цитату в кавычках.
-    - Не добавляй ничего вне текста договора.
     </instructions>
 
     <edge_cases>
-    - Согласие требуется при CoC, но не при уступке:
-      * consent_trigger_scope = "coc_only"
-      * consent_terms_display = "Для CoC требуется согласие; ..."
+    - "A change of control requires prior written consent":
+      * coc_consent_required = "yes"
+      * coc_consent_form = "prior_written"
+      * coc_response_period = "Не установлен"
+      * coc_deemed_consent = "not_specified"
+      * coc_reasonableness_standard = "not_specified"
+      * coc_consent_display =
+        "Для CoC требуется предварительное письменное согласие;
+        срок ответа не установлен"
 
-    - Согласие требуется при уступке, но не при CoC:
-      * consent_trigger_scope = "assignment_only"
-      * consent_terms_display = "Для уступки требуется согласие; ..."
+    - "Consent shall not be unreasonably withheld, delayed or conditioned":
+      * coc_reasonableness_standard = "not_unreasonably_withheld"
 
-    - Одна механика для CoC и уступки:
-      * consent_trigger_scope = "both"
-      * consent_terms_display = "Для CoC и уступки требуется согласие; ..."
+    - "In the event of a failure to respond within 15 business days,
+      consent shall be deemed to have been given":
+      * coc_response_period = "15 business days"
+      * coc_deemed_consent = "yes"
 
-    - Есть фиксированный срок ответа и deemed consent:
-      * overall_risk_level = "low" или "medium"
-      * CNS2 не выставляется
+    - "In its sole and absolute discretion":
+      * coc_reasonableness_standard = "sole_discretion"
 
-    - Согласие по sole discretion, без срока, без deemed consent:
-      * reasonableness_standard = "sole_discretion"
-      * overall_risk_level = "high"
-      * red_flags = "CNS1, CNS2"
-
-    - Только "с предварительного письменного согласия" без деталей:
-      * consent_form = "prior_written"
-      * response_period = "Не установлен"
-      * deemed_consent = "not_specified"
-      * reasonableness_standard = "not_specified"
-      * red_flags = "CNS2, CNS3" или "CNS2" по контексту
-
-    - Кроме контрагента нужно одобрение совета директоров / регулятора:
-      * consent_grantor = "counterparty_and_internal"
-        или "counterparty_and_third_party" / "multiple"
-      * red_flags включает "CNS3"
-
-    - Есть carve-out для внутригрупповой передачи:
-      * consent_required = "yes_with_carveout"
-      * carveout_type = "affiliate_group"
-
-    - Есть carve-out для банка / залогодержателя:
-      * carveout_type = "security_financing"
-
-    - Есть два типа carve-out (группа + правопреемник):
-      * carveout_type = "multiple"
-
-    - Отказ даёт право на расторжение:
-      * refusal_consequences = "termination_right"
-      * red_flags включает "CNS4"
-      * overall_risk_level = "high"
-
-    - Согласие не требуется вообще:
-      * consent_required = "no"
-      * consent_grantor = "not_applicable"
-      * consent_form = "not_applicable"
-      * response_period = "Не применимо"
-      * deemed_consent = "not_applicable"
-      * carveout_type = "not_applicable"
-      * refusal_consequences = "not_applicable"
-      * red_flags = "NONE"
-      * overall_risk_level = "low"
-      * consent_terms_display = "Для CoC согласие не требуется"
-        (или "Для уступки согласие не требуется" по scope)
+    - Согласие не требуется:
+      * coc_consent_required = "no"
+      * coc_consent_form = "not_applicable"
+      * coc_response_period = "Не применимо"
+      * coc_deemed_consent = "not_applicable"
+      * coc_reasonableness_standard = "not_applicable"
+      * coc_consent_display = "Для CoC согласие не требуется"
 
     - Нет релевантных фрагментов:
-      * consent_required = "not_specified"
-      * consent_trigger_scope = "unclear"
-      * overall_risk_level = "unclear"
-      * red_flags = "UNCLEAR"
-      * consent_terms_display = "Условия согласия не установлены"
+      * coc_consent_required = "not_specified"
+      * coc_consent_display =
+        "Условия согласия при CoC не установлены"
 
     - Фрагменты есть, но вывод сделать нельзя:
-      * consent_required = "unclear"
-      * consent_trigger_scope = "unclear"
-      * overall_risk_level = "unclear"
-      * red_flags = "UNCLEAR"
-      * consent_terms_display = "Не удалось определить условия согласия"
+      * coc_consent_required = "unclear"
+      * coc_consent_display =
+        "Не удалось определить условия согласия при CoC"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
-    - name: "consent_terms_display"
+    - name: "coc_consent_display"
       type: "string"
-      description: "Условия согласия (с указанием scope)"
+      presentation: "fact"
+      label: "Согласие при CoC"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
-    - name: "consent_trigger_scope"
+    - name: "coc_consent_required"
       type: "string"
-      description: "К чему относится требование согласия"
+      presentation: "signal"
+      description: "Требуется ли согласие при CoC"
       allowed_values:
-        - "coc_only"
-        - "assignment_only"
-        - "both"
-        - "unclear"
-
-    - name: "consent_required"
-      type: "string"
-      description: "Требование согласия"
-      allowed_values:
-        - "yes_always"
-        - "yes_with_carveout"
+        - "yes"
         - "no"
         - "not_specified"
         - "unclear"
 
-    - name: "consent_grantor"
+    - name: "coc_consent_form"
       type: "string"
-      description: "Кто даёт согласие"
-      allowed_values:
-        - "counterparty"
-        - "counterparty_and_internal"
-        - "counterparty_and_third_party"
-        - "multiple"
-        - "not_specified"
-        - "not_applicable"
-        - "unclear"
-
-    - name: "consent_form"
-      type: "string"
+      presentation: "signal"
       description: "Форма согласия"
       allowed_values:
         - "prior_written"
@@ -561,13 +342,16 @@ extraction:
         - "not_applicable"
         - "unclear"
 
-    - name: "response_period"
+    - name: "coc_response_period"
       type: "string"
-      description: "Срок ответа"
+      presentation: "fact"
+      label: "Срок ответа"
+      description: "Срок рассмотрения запроса о согласии при CoC"
 
-    - name: "deemed_consent"
+    - name: "coc_deemed_consent"
       type: "string"
-      description: "Молчание = согласие"
+      presentation: "signal"
+      description: "Deemed consent при CoC"
       allowed_values:
         - "yes"
         - "no"
@@ -575,57 +359,22 @@ extraction:
         - "not_applicable"
         - "unclear"
 
-    - name: "reasonableness_standard"
+    - name: "coc_reasonableness_standard"
       type: "string"
-      description: "Стандарт отказа"
+      presentation: "signal"
+      description: "Стандарт отказа при CoC"
       allowed_values:
         - "not_unreasonably_withheld"
         - "sole_discretion"
-        - "with_criteria"
         - "not_specified"
         - "not_applicable"
-        - "unclear"
-
-    - name: "carveout_type"
-      type: "string"
-      description: "Тип carve-out от требования согласия"
-      allowed_values:
-        - "none"
-        - "affiliate_group"
-        - "successor_mna"
-        - "security_financing"
-        - "multiple"
-        - "not_specified"
-        - "not_applicable"
-        - "unclear"
-
-    - name: "refusal_consequences"
-      type: "string"
-      description: "Последствия отказа в согласии"
-      allowed_values:
-        - "transaction_blocked"
-        - "termination_right"
-        - "renegotiation"
-        - "no_specific_consequences"
-        - "not_specified"
-        - "not_applicable"
-        - "unclear"
-
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков блокировки сделки"
-
-    - name: "overall_risk_level"
-      type: "string"
-      description: "Риск блокировки сделки контрагентом"
-      allowed_values:
-        - "low"
-        - "medium"
-        - "high"
         - "unclear"
 
     - name: "reason"
       type: "string"
-      description: "Обоснование"
+      presentation: "diagnostic"
+      description: "Краткое обоснование"
 
   store_payload: true
+
+  

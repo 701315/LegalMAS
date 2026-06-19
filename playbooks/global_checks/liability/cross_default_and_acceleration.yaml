@@ -1,5 +1,6 @@
 id: "cross_default_and_acceleration"
 name: "Cross-default и cross-acceleration"
+group: "Liability"
 description: >
   Анализирует положения о cross-default / cross-acceleration:
   дефолт или акселерация по другим договорам / обязательствам
@@ -96,6 +97,11 @@ evidence:
 retrieval:
   context_k: 5
   max_chunks: 10
+
+  retrieval_query: >
+    кросс-дефолт cross-default кросс-акселерация досрочное погашение 
+    дефолт по другим обязательствам threshold grace period
+
   boost_keywords:
     - "cross-default"
     - "cross default"
@@ -116,6 +122,31 @@ retrieval:
     - "cure period"
     - "any default under any agreement"
     - "любой дефолт по любому договору"
+
+  negative_keywords:
+    - "интеллектуальная собственность"
+    - "авторские права"
+    - "коммерческая тайна"
+    - "персональные данные"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "obligation"
+    
+  excluded_unit_types:
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "termination"
+    - "remedies"
+    - "obligations"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -132,27 +163,24 @@ enrichment_hints:
     - "invoice"
     - "act"
     - "schedule"
-  preferred_clause_functions:
-    - "liability"
-    - "termination"
-    - "governing_law"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 420
+  llm_max_tokens: 400
   llm_prompt_extraction: |
     <role>
-    Ты — юрист по финансированию и кредитным договорам.
+    Ты — юрист по финансированию.
     Твоя задача — точно извлечь из текста:
     1) есть ли cross-default;
     2) есть ли cross-acceleration;
-    3) каков охват (scope) — только финансовые обязательства
-       или любые;
-    4) есть ли пороговое значение (threshold);
-    5) есть ли grace period / cure period.
+    3) охват, threshold, grace period и механизм триггера.
+
+    Чётко различай cross-default (триггер: факт дефолта)
+    и cross-acceleration (триггер: акселерация долга).
+    Не придумывай пороги если они не указаны.
     </role>
 
     <context>
@@ -171,181 +199,147 @@ extraction:
     - threshold_value
     - has_grace_period
     - trigger_mechanism
-    - red_flags
     - reason
 
     Важно:
-    - чётко различай cross-default (триггер: факт дефолта)
-      и cross-acceleration (триггер: именно акселерация долга);
-    - не придумывай пороги если они не указаны;
-    - пиши user-facing значения коротко и по-русски.
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
     Шаг 1 — НАЛИЧИЕ CROSS-DEFAULT
 
-    Заполни поле "has_cross_default".
+    Заполни "has_cross_default".
 
     Значения:
-    - "yes" — дефолт или нарушение по другим договорам /
-      обязательствам = событие дефолта по данному договору.
+    - "yes" — дефолт / нарушение по другим договорам =
+      событие дефолта по данному договору.
     - "no" — не предусмотрено.
-    - "unclear" — формулировки допускают двойное толкование.
+    - "unclear" — двойное толкование.
 
     Шаг 2 — НАЛИЧИЕ CROSS-ACCELERATION
 
-    Заполни поле "has_cross_acceleration".
+    Заполни "has_cross_acceleration".
 
     Значения:
-    - "yes" — акселерация (досрочное истребование) другого долга
-      = право требовать досрочного погашения по данному договору.
+    - "yes" — акселерация другого долга = право требовать
+      досрочного погашения по данному договору.
     - "no" — не предусмотрено.
-    - "unclear" — неясно, идёт речь о cross-default
-      или cross-acceleration.
+    - "unclear" — неясно.
 
-    Шаг 3 — ОХВАТ (SCOPE)
+    Шаг 3 — ОХВАТ
 
-    Заполни поле "cross_default_scope".
+    Заполни "cross_default_scope".
 
     Значения:
-    - "financial_only" — только финансовые обязательства
-      (кредиты, облигации, лизинг, гарантии).
+    - "financial_only" — только финансовые обязательства.
     - "any_obligation" — любые обязательства / любые договоры.
-    - "specified" — конкретно перечисленные виды обязательств.
-    - "not_applicable" — ни cross-default, ни cross-acceleration нет.
+    - "specified" — конкретно перечисленные виды.
+    - "not_applicable" — ни cross-default, ни cross-acceleration.
     - "unclear" — неясно.
 
     Шаг 4 — ПОРОГОВОЕ ЗНАЧЕНИЕ
 
-    Заполни поля "has_threshold" и "threshold_value".
+    Заполни "has_threshold" и "threshold_value".
 
     Значения для has_threshold:
-    - "yes" — есть threshold amount.
-    - "no" — нет порогового значения.
-    - "unclear" — неясно.
+    - "yes" / "no" / "unclear"
 
-    Для threshold_value:
+    Правила для threshold_value:
     - Если указан: "USD 1M", "5% от активов", "RUB 50M"
-    - Если нет: "Не установлен"
-    - Если неясно: "Не удалось определить"
+    - Нет: "Не установлен"
+    - Неясно: "Не удалось определить"
 
-    Шаг 5 — GRACE PERIOD / CURE PERIOD
+    Шаг 5 — GRACE PERIOD
 
-    Заполни поле "has_grace_period".
+    Заполни "has_grace_period".
 
     Значения:
-    - "yes" — есть grace / cure period.
-    - "no" — нарушение = немедленный триггер.
-    - "unclear" — неясно.
+    - "yes" / "no" / "unclear"
 
     Шаг 6 — МЕХАНИЗМ ТРИГГЕРА
 
-    Заполни поле "trigger_mechanism".
+    Заполни "trigger_mechanism".
 
     Значения:
-    - "automatic" — триггер срабатывает автоматически.
-    - "declaratory" — требует формального объявления
-      дефолта кредитором.
-    - "not_applicable" — нет cross-default / cross-acceleration.
+    - "automatic" — срабатывает автоматически.
+    - "declaratory" — требует формального объявления.
+    - "not_applicable" — нет cross-default / acceleration.
     - "unclear" — неясно.
 
-    Шаг 7 — RED FLAGS
+    Шаг 7 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "red_flags".
+    Заполни "cross_default_display".
 
-    Используй:
-    - "NONE" — если существенных риск-факторов нет:
-      ограничено финансовыми обязательствами, есть threshold,
-      есть grace period, требует формального объявления.
-    - "UNCLEAR" — если данных недостаточно.
-    - Коды через запятую:
-      * XD1 — cross-default охватывает практически любые
-        обязательства / любые договоры без порогового значения:
-        высокий риск цепной реакции дефолтов.
-      * XD2 — жёсткий cross-acceleration: автоматический триггер,
-        нет grace period, возможен при любом объёме задолженности.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 8 — USER-FACING SUMMARY
+    Базовые случаи:
+    - has_cross_default = "no" и has_cross_acceleration = "no":
+      "Cross-default и cross-acceleration не обнаружены"
+    - все поля unclear:
+      "Не удалось определить наличие cross-default"
 
-    Заполни поле "cross_default_display".
+    Если есть — комбинируй через ";":
+    - тип (cross-default / cross-acceleration)
+    - scope (если "any_obligation": "любые обязательства")
+    - threshold (если "no": "нет threshold")
+    - grace period (если "no": "нет grace period")
 
     Примеры:
-    - "Cross-default: любые обязательства; нет threshold;
-       нет grace period"
-    - "Cross-default: только финансовые; threshold USD 1M;
-       grace period 30 дней"
+    - "Cross-default: любые обязательства; нет threshold; нет grace period"
+    - "Cross-default: только финансовые; threshold USD 1M; grace period 30 дней"
     - "Cross-acceleration: автоматический; нет порога"
     - "Cross-default и cross-acceleration не обнаружены"
     - "Не удалось определить наличие cross-default"
 
-    Правила:
-    - Отрази максимум 3 ключевых факта через ";".
-    - Если нет ни cross-default, ни cross-acceleration:
-      "Cross-default и cross-acceleration не обнаружены"
-    - Если всё unclear:
-      "Не удалось определить наличие cross-default"
+    Ограничение: не более 3 фактов через ";".
 
-    Шаг 9 — ОБОСНОВАНИЕ
+    Шаг 8 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
-    - Укажи: есть ли cross-default / acceleration, охват, threshold,
-      grace period, механизм, почему выставлены red_flags.
-    - Приведи короткую цитату в кавычках.
-    - Если NONE — почему риск цепной реакции ограничен.
+    - Укажи: есть ли cross-default / acceleration, охват,
+      threshold, grace period, механизм.
+    - Приведи цитату в кавычках.
     </instructions>
 
     <edge_cases>
     - "Any default under any agreement" без threshold:
       * cross_default_scope = "any_obligation"
       * has_threshold = "no"
-      * red_flags = "XD1"
-
-    - Только финансовые обязательства, threshold USD 1M,
-      grace period 30 дней, declaratory:
-      * cross_default_scope = "financial_only"
-      * has_threshold = "yes"
-      * has_grace_period = "yes"
-      * trigger_mechanism = "declaratory"
-      * red_flags = "NONE"
 
     - Только акселерация другого долга как триггер:
-      * has_cross_default = "no" или "unclear"
+      * has_cross_default = "no"
       * has_cross_acceleration = "yes"
 
-    - "Существенное ухудшение финансового состояния"
-      без прямой привязки к дефолту по другим договорам:
-      * has_cross_default = "no" или "unclear"
-      * в reason: потенциальный фактор, не cross-default
-
-    - Cross-acceleration без grace period, автоматический:
+    - Автоматический cross-acceleration без grace:
       * trigger_mechanism = "automatic"
       * has_grace_period = "no"
-      * red_flags = "XD2"
 
     - Нет релевантных фрагментов:
       * has_cross_default = "unclear"
       * has_cross_acceleration = "unclear"
-      * red_flags = "UNCLEAR"
       * cross_default_display =
         "Не удалось определить наличие cross-default"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "cross_default_display"
       type: "string"
-      description: "Cross-default / cross-acceleration: краткий вывод"
+      presentation: "fact"
+      label: "Cross-default / cross-acceleration"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "has_cross_default"
       type: "string"
+      presentation: "signal"
       description: "Наличие cross-default"
       allowed_values:
         - "yes"
@@ -354,6 +348,7 @@ extraction:
 
     - name: "has_cross_acceleration"
       type: "string"
+      presentation: "signal"
       description: "Наличие cross-acceleration"
       allowed_values:
         - "yes"
@@ -362,6 +357,7 @@ extraction:
 
     - name: "cross_default_scope"
       type: "string"
+      presentation: "signal"
       description: "Охват cross-default"
       allowed_values:
         - "financial_only"
@@ -372,6 +368,7 @@ extraction:
 
     - name: "has_threshold"
       type: "string"
+      presentation: "signal"
       description: "Пороговое значение"
       allowed_values:
         - "yes"
@@ -380,10 +377,13 @@ extraction:
 
     - name: "threshold_value"
       type: "string"
+      presentation: "fact"
+      label: "Пороговое значение"
       description: "Размер порогового значения"
 
     - name: "has_grace_period"
       type: "string"
+      presentation: "signal"
       description: "Grace period / cure period"
       allowed_values:
         - "yes"
@@ -392,6 +392,7 @@ extraction:
 
     - name: "trigger_mechanism"
       type: "string"
+      presentation: "signal"
       description: "Механизм триггера"
       allowed_values:
         - "automatic"
@@ -399,15 +400,12 @@ extraction:
         - "not_applicable"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true
 
-  
 
+  

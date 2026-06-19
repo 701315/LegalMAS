@@ -1489,6 +1489,16 @@ class SegmentChunkBuilderV2:
                 snapshot=legal_units_snapshot,
                 doc_id=document_id,
             )
+            legal_unit_chunks = self._enrich_segment_metadata(
+                chunks=legal_unit_chunks,
+                segment=segment,
+                file_graph_ref=file_graph_ref,
+                layout_ref=layout_ref,
+                segment_clause_tree_ref=segment_clause_tree_ref,
+                total_pages=total_pages,
+            )
+            legal_unit_chunks = add_summary(legal_unit_chunks)
+
             logger.info(
                 "SegmentChunkBuilderV2: legal_unit retrieval chunks built",
                 extra={

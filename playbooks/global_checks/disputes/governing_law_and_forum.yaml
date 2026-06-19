@@ -1,5 +1,6 @@
 id: "governing_law_and_forum"
 name: "Применимое право и юрисдикция"
+group: "Governing law"
 description: >
   Анализирует применимое право (governing law) и форум разрешения
   споров (государственный суд или арбитражный институт).
@@ -32,21 +33,16 @@ rules:
 
   keywords:
     high:
-      # Применимое право — английские формулы
       - "(?i)governed\\s+by\\s+the\\s+laws?\\s+of"
       - "(?i)governing\\s+law"
       - "(?i)this\\s+agreement[\\s\\S]{0,40}shall\\s+be\\s+governed"
       - "(?i)law\\s+of\\s+[A-Z][A-Za-z\\s]+"
-
-      # Применимое право — русские формулы
       - "(?i)настоящий[\\s\\S]{0,40}договор[\\s\\S]{0,40}(регулирует|регулируется)"
       - "(?i)применим[оа]\\s+право"
       - "(?i)подлежит\\s+регулировани[юя]"
       - "(?i)к\\s+данн(ому|ому\\s+договору)[\\s\\S]{0,40}применя[ею]тся\\s+законы"
       - "(?i)подлежат\\s+толкованию\\s+и\\s+регулированию"
       - "(?i)в\\s+соответствии\\s+с\\s+законодательством[\\s\\S]{0,30}(РФ|России|Российской)"
-
-      # Юрисдикция / подсудность
       - "(?i)exclusive\\s+jurisdiction"
       - "(?i)non[-\\s]?exclusive\\s+jurisdiction"
       - "(?i)мест[оа]\\s+рассмотрен[ияи]\\s+спор[аы]"
@@ -54,8 +50,6 @@ rules:
       - "(?i)споры[\\s\\S]{0,40}рассматрива[ею]тся[\\s\\S]{0,40}(суд|арбитраж)"
       - "(?i)передается\\s+на\\s+рассмотрение"
       - "(?i)споры\\s+и\\s+разногласия[\\s\\S]{0,40}(суд|арбитраж)"
-
-      # Арбитраж — выбор форума
       - "(?i)arbitration\\s+clause"
       - "(?i)arbitral\\s+tribunal"
       - "(?i)арбитражн[а-я]+\\s+суд"
@@ -63,8 +57,6 @@ rules:
       - "(?i)\\bICC\\s+arbitration\\b"
       - "(?i)\\bLCIA\\b"
       - "(?i)арбитражный\\s+суд\\s+города"
-
-      # Обязательные досудебные процедуры
       - "(?i)pre[-\\s]?arbitration\\s+procedure"
       - "(?i)mandatory\\s+pre[-\\s]?trial\\s+procedure"
       - "(?i)condition\\s+precedent"
@@ -73,30 +65,23 @@ rules:
       - "(?i)услови[ея]\\s+предварительн[а-я]+\\s+урегулировани[я]"
 
     medium:
-      # Ссылки на право/закон
       - "(?i)применим[оа]\\s+закон[ы]?"
       - "(?i)материальн[оеая]\\s+право"
       - "(?i)substantive\\s+law"
       - "(?i)laws?\\s+of\\s+the\\s+Russian\\s+Federation"
       - "(?i)право\\s+Российской\\s+Федерац[ии]"
       - "(?i)право\\s+РФ"
-
-      # Маркеры споров / органов
       - "(?i)jurisdiction"
       - "(?i)dispute\\s+resolution"
       - "(?i)settlement\\s+of\\s+disputes"
       - "(?i)разрешен[иеи]\\s+спор[аы]"
       - "(?i)разрешен[иеи]\\s+разноглас[ийия]"
       - "(?i)подведомственност[ьи]"
-
-      # Арбитраж/суды — общие
       - "(?i)arbitration"
       - "(?i)arbitral"
       - "(?i)арбитраж"
       - "(?i)третейск[ийое]\\s+суд"
       - "(?i)коммерческ[ийое]\\s+арбитраж"
-
-      # Досудебные процедуры
       - "(?i)claim\\s+procedure"
       - "(?i)pre[-\\s]?trial\\s+procedure"
       - "(?i)претензи[яи]\\s+до\\s+обращени[яи]\\s+в\\s+суд"
@@ -130,35 +115,58 @@ evidence:
 
 retrieval:
   context_k: 5
-  max_chunks: 10
+  max_chunks: 8
+
+  retrieval_query: >
+    применимое право governing law регулируется законодательством
+    подсудность юрисдикция форум разрешения споров арбитраж
+    МКАС ICC LCIA арбитражный суд досудебный порядок претензия
+
   boost_keywords:
+    - "применимое право"
     - "governing law"
     - "governed by the laws of"
-    - "настоящий договор регулируется"
-    - "применимое право"
-    - "подлежит регулированию"
-    - "подлежат толкованию и регулированию"
-    - "в соответствии с законодательством"
-    - "exclusive jurisdiction"
-    - "место рассмотрения споров"
+    - "регулируется законодательством"
     - "подсудность"
-    - "arbitration"
-    - "арбитраж"
+    - "exclusive jurisdiction"
     - "арбитражный суд"
     - "МКАС"
     - "ICC arbitration"
     - "LCIA"
-    - "споры и разногласия"
-    - "передается на рассмотрение"
-    - "pre-arbitration procedure"
-    - "mandatory pre-trial"
-    - "обязательный претензионный порядок"
-    - "досудебный порядок"
-    - "mediation"
-    - "право Российской Федерации"
-    - "laws of the Russian Federation"
-    - "dispute resolution"
     - "разрешение споров"
+    - "dispute resolution"
+    - "досудебный порядок"
+    - "обязательный претензионный порядок"
+    - "право Российской Федерации"
+
+  negative_keywords:
+    - "уступка прав"
+    - "смена контроля"
+    - "конфиденциальность"
+    - "означает"
+    - "в целях настоящего"
+
+  preferred_unit_types:
+    - "governing_law"
+    - "jurisdiction"
+    - "dispute_resolution"
+    - "general_provision"
+
+  excluded_unit_types:
+    - "definition"
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "boilerplate"
+    - "procedures"
+
+  position_bias:
+    preferred_range: [0.75, 1.00]
+    boost: 0.50
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -174,18 +182,13 @@ enrichment_hints:
     - "invoice"
     - "act"
     - "schedule"
-  preferred_clause_functions:
-    - "governing_law"
-    - "dispute_resolution"
-    - "jurisdiction"
-    - "arbitration"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.20
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 450
+  llm_max_tokens: 420
   llm_prompt_extraction: |
     <role>
     Ты — юрист по международным контрактам и разрешению споров.
@@ -193,6 +196,11 @@ extraction:
     1) применимое право;
     2) форум разрешения споров;
     3) верхнеуровневый факт наличия обязательной досудебной процедуры.
+
+    Детальный анализ сроков и механики досудебного порядка
+    выполняется отдельным чеком limitation_periods_and_pre_claim_procedures.
+    Детали арбитражной процедуры (seat, язык, состав арбитров)
+    выполняются отдельным чеком dispute_resolution_procedure_details.
     </role>
 
     <context>
@@ -216,15 +224,15 @@ extraction:
     - не делай вывод о праве или форуме по косвенным признакам:
       языку договора, валюте, месту подписания, адресам сторон,
       месту исполнения;
-    - не смешивай применимое право и форум — это разные вещи;
+    - не смешивай применимое право и форум;
     - если значение отсутствует, для *_value возвращай пустую строку;
     - пиши user-facing значения коротко и по-русски.
     </task>
 
     <instructions>
-    Шаг 1 — ОПРЕДЕЛИ ПРИМЕНИМОЕ ПРАВО
+    Шаг 1 — ПРИМЕНИМОЕ ПРАВО
 
-    Заполни поля "governing_law_status" и "governing_law_value".
+    Заполни "governing_law_status" и "governing_law_value".
 
     Значения для governing_law_status:
     - "present" — договор прямо указывает применимое право.
@@ -233,26 +241,17 @@ extraction:
       либо положения противоречат друг другу.
 
     Правила для governing_law_value:
-    - Возвращай короткое юридически точное название правопорядка.
-    - Примеры:
-      * "РФ"
-      * "Англия и Уэльс"
-      * "Швейцария"
-      * "Германия"
-      * "Штат Нью-Йорк, США"
-      * "Делавэр, США"
-    - Не возвращай длинные фразы:
-      * вместо "настоящее соглашение регулируется правом РФ" → "РФ"
-      * вместо "the laws of the State of New York" → "Штат Нью-Йорк, США"
-    - Не своди "England and Wales" к "Великобритания".
-    - Не своди "State of New York" к "США".
-    - Если только "applicable law" / "relevant law" без юрисдикции:
-      * governing_law_status = "unclear"
-      * governing_law_value = ""
+    - Короткое юридически точное название правопорядка.
+    - Примеры: "РФ", "Англия и Уэльс", "Швейцария",
+      "Штат Нью-Йорк, США", "Делавэр, США".
+    - Не свои "England and Wales" → "Великобритания".
+    - Не своди "State of New York" → "США".
+    - Если только "applicable law" без юрисдикции:
+      governing_law_status = "unclear", governing_law_value = "".
 
-    Шаг 2 — ОПРЕДЕЛИ ФОРУМ РАЗРЕШЕНИЯ СПОРОВ
+    Шаг 2 — ФОРУМ РАЗРЕШЕНИЯ СПОРОВ
 
-    Заполни поля "dispute_forum_status" и "dispute_forum_value".
+    Заполни "dispute_forum_status" и "dispute_forum_value".
 
     Под forum понимай:
     - конкретный государственный суд;
@@ -265,28 +264,20 @@ extraction:
     - "unclear" — формулировка неполная или противоречивая.
 
     Правила для dispute_forum_value:
-    - Возвращай короткое user-facing название форума.
-    - Примеры:
-      * "Арбитражный суд г. Москвы"
-      * "Арбитражный суд СПб и ЛО"
-      * "Суды Англии и Уэльса"
-      * "Суд штата Калифорния"
-      * "МКАС при ТПП РФ"
-      * "ICC arbitration"
-      * "LCIA arbitration"
-      * "Компетентный суд по месту нахождения ответчика"
-    - Не путай форум с seat, language, number of arbitrators,
-      procedural rules, interim measures.
-    - Если институт назван прямо — возвращай именно институт.
-    - Если институт не назван, но выбран арбитраж:
-      * "Арбитраж" или "Арбитраж в Лондоне" по контексту.
+    - Короткое user-facing название форума.
+    - Примеры: "Арбитражный суд г. Москвы", "МКАС при ТПП РФ",
+      "ICC arbitration", "LCIA arbitration",
+      "Суды Англии и Уэльса", "Суд штата Калифорния".
+    - Не путай форум с seat, language, составом арбитров.
     - Если несколько форумов — перечисли через " / ".
+    - "Seat of arbitration shall be London" + явный выбор арбитража
+      → dispute_forum_value = "Арбитраж в Лондоне".
 
     Шаг 3 — НАЛИЧИЕ ОБЯЗАТЕЛЬНОЙ ДОСУДЕБНОЙ ПРОЦЕДУРЫ
 
-    Заполни поле "pre_claim_procedure_present".
+    Заполни "pre_claim_procedure_present".
 
-    Это routing-поле верхнего уровня.
+    Это routing-сигнал верхнего уровня.
     Детальный анализ выполняется чеком
     limitation_periods_and_pre_claim_procedures.
 
@@ -297,43 +288,47 @@ extraction:
     - "no" — обязательной досудебной процедуры нет.
     - "unclear" — невозможно определить.
 
-    Шаг 4 — USER-FACING SUMMARY
+    Шаг 4 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "governing_law_and_forum_display".
+    Заполни "governing_law_and_forum_display".
 
-    Строй display как:
-    {применимое право} + {форум} + {досудебный порядок если есть}
+    Блок применимого права:
+    - governing_law_status = "present":
+      "Применимое право: {governing_law_value}"
+    - governing_law_status = "missing":
+      "Применимое право: не указано"
+    - governing_law_status = "unclear":
+      "Применимое право: не удалось определить"
+
+    Блок форума:
+    - dispute_forum_status = "present":
+      "; Форум: {dispute_forum_value}"
+    - dispute_forum_status = "missing":
+      "; Форум: не указан"
+    - dispute_forum_status = "unclear":
+      "; Форум: не удалось определить"
+
+    Досудебный порядок:
+    - pre_claim_procedure_present = "yes":
+      добавь "; досудебный порядок предусмотрен"
 
     Примеры:
     - "Применимое право: РФ; Форум: Арбитражный суд г. Москвы"
-    - "Применимое право: Англия и Уэльс;
-       Форум: LCIA arbitration; досудебный порядок предусмотрен"
+    - "Применимое право: Англия и Уэльс; Форум: LCIA arbitration; досудебный порядок предусмотрен"
     - "Применимое право: РФ; Форум: не указан"
     - "Применимое право: не указано; Форум: МКАС при ТПП РФ"
     - "Применимое право: не указано; Форум: не указан"
-    - "Не удалось определить применимое право и форум"
 
-    Правила:
-    - Если governing_law_status = "present": "Применимое право: {value}"
-    - Если governing_law_status = "missing": "Применимое право: не указано"
-    - Если governing_law_status = "unclear": "Применимое право: не удалось определить"
-    - Если dispute_forum_status = "present": "Форум: {value}"
-    - Если dispute_forum_status = "missing": "Форум: не указан"
-    - Если dispute_forum_status = "unclear": "Форум: не удалось определить"
-    - Если pre_claim_procedure_present = "yes": добавь "; досудебный порядок предусмотрен"
+    Шаг 5 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Шаг 5 — ОБОСНОВАНИЕ
-
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
     - Укажи отдельно вывод по применимому праву и по форуму.
     - Приведи краткую цитату из текста в кавычках.
-    - Не анализируй:
-      * exclusive / non-exclusive nature;
-      * seat, language, number of arbitrators;
-      * детали досудебного порядка.
+    - Не анализируй: exclusive / non-exclusive nature;
+      seat, language, состав арбитров; детали досудебного порядка.
     </instructions>
 
     <edge_cases>
@@ -346,43 +341,39 @@ extraction:
       * dispute_forum_status = "present"
       * governing_law_status = "missing"
 
-    - Только "applicable law" / "according to law" без юрисдикции:
+    - Только "applicable law" без юрисдикции:
       * governing_law_status = "unclear"
       * governing_law_value = ""
 
-    - Несовместимые положения о праве или форуме:
+    - Несовместимые положения:
       * соответствующий status = "unclear"
       * соответствующий value = ""
 
-    - "Courts of England and Wales" — forum present,
-      даже без полного официального наименования суда.
-
-    - "Seat of arbitration shall be London" с явным выбором арбитража:
+    - "Courts of England and Wales":
       * dispute_forum_status = "present"
-      * dispute_forum_value = "Арбитраж в Лондоне"
-      (не извлекать language, состав арбитров, procedural details)
+      * dispute_forum_value = "Суды Англии и Уэльса"
 
     - Нет релевантных фрагментов:
-      * governing_law_status = "missing"
-      * governing_law_value = ""
-      * dispute_forum_status = "missing"
-      * dispute_forum_value = ""
+      * governing_law_status = "missing", governing_law_value = ""
+      * dispute_forum_status = "missing", dispute_forum_value = ""
       * pre_claim_procedure_present = "unclear"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "governing_law_and_forum_display"
       type: "string"
-      description: "Применимое право и форум"
+      presentation: "fact"
+      label: "Применимое право и форум"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "governing_law_status"
       type: "string"
+      presentation: "signal"
       description: "Наличие применимого права"
       allowed_values:
         - "present"
@@ -391,10 +382,13 @@ extraction:
 
     - name: "governing_law_value"
       type: "string"
+      presentation: "fact"
+      label: "Применимое право"
       description: "Применимое право (короткое название)"
 
     - name: "dispute_forum_status"
       type: "string"
+      presentation: "signal"
       description: "Наличие форума разрешения споров"
       allowed_values:
         - "present"
@@ -403,11 +397,14 @@ extraction:
 
     - name: "dispute_forum_value"
       type: "string"
+      presentation: "fact"
+      label: "Форум"
       description: "Форум разрешения споров"
 
     - name: "pre_claim_procedure_present"
       type: "string"
-      description: "Обязательная досудебная процедура (routing)"
+      presentation: "signal"
+      description: "Обязательная досудебная процедура (routing-сигнал)"
       allowed_values:
         - "yes"
         - "no"
@@ -415,10 +412,9 @@ extraction:
 
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true
-
-  
 
   

@@ -820,17 +820,37 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "получатель ренты плательщик ренты именуем в лице действующего на основании ИНН ОГРН ОГРНИП паспорт дата рождения пенсионер гражданин физическое лицо ООО АО некоммерческая организация дееспособен нотариус разъяснил"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - boilerplate
+      negative_keywords:
+        - "постоянная рента"
+        - "пожизненная рента"
+        - "содержание с иждивением"
+        - "кадастровый номер"
+        - "ЕГРН"
+        - "залог в силу закона"
+        - "размер ренты"
+        - "индексация"
+        - "выкуп ренты"
+        - "расторжение"
+        - "обременение рентой"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.25
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "получатель ренты"
-        - "плательщик ренты"
-        - "именуем"
-        - "ИНН"
-        - "ОГРН"
-        - "паспорт"
-        - "гражданин"
-        - "дееспособен"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -844,36 +864,106 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты данные о сторонах:
+        реквизиты, тип, подписанты, основания полномочий и подтверждение дееспособности.
+        Не анализируй имущество, размер ренты, нотариальную форму, выкуп или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. receiver_details_status — "defined" если получатель ренты прямо идентифицирован, иначе "not_defined".
+        2. receiver_details — реквизиты получателя ренты.
+        3. receiver_type — "individual" / "nco" / "commercial" / "not_defined".
+        4. receiver_signatory — подписант от получателя ренты.
+        5. receiver_signatory_basis — "charter" / "poa" / "order" / "personal" / "other" / "not_defined".
+        6. payer_details_status — "defined" если плательщик ренты прямо идентифицирован, иначе "not_defined".
+        7. payer_details — реквизиты плательщика ренты.
+        8. payer_type — "individual" / "legal_entity" / "not_defined".
+        9. payer_signatory — подписант от плательщика ренты.
+        10. payer_signatory_basis — "charter" / "poa" / "order" / "personal" / "other" / "not_defined".
+        11. capacity_confirmed_status — "defined" если подтверждение дееспособности прямо указано, иначе "not_defined".
+        12. capacity_confirmed_details — текст о проверке дееспособности или разъяснениях нотариуса.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не делай выводов о допустимости получателя по закону.
+        - Не подставляй данные из нотариальной формы, если они не относятся к сторонам.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "receiver_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Получатель ренты прямо определён с реквизитами. Иначе 'not_defined'."
+          description: "Статус идентификации получателя ренты."
         - name: "receiver_details"
           type: "string"
-          description: "Реквизиты Получателя. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Получатель ренты: реквизиты"
+          description: "Наименование и реквизиты получателя ренты."
         - name: "receiver_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["individual", "nco", "commercial", "not_defined"]
-          description: "Тип Получателя ренты."
+          description: "Тип получателя ренты."
         - name: "receiver_signatory"
           type: "string"
-          description: "Подписант от Получателя. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Получатель ренты: подписант"
+          description: "Подписант от получателя ренты."
+        - name: "receiver_signatory_basis"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
+          description: "Основание полномочий подписанта получателя ренты."
         - name: "payer_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Плательщик ренты прямо определён с реквизитами. Иначе 'not_defined'."
+          description: "Статус идентификации плательщика ренты."
         - name: "payer_details"
           type: "string"
-          description: "Реквизиты Плательщика. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Плательщик ренты: реквизиты"
+          description: "Наименование и реквизиты плательщика ренты."
         - name: "payer_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["individual", "legal_entity", "not_defined"]
-          description: "Тип Плательщика ренты."
+          description: "Тип плательщика ренты."
+        - name: "payer_signatory"
+          type: "string"
+          presentation: "fact"
+          label: "Плательщик ренты: подписант"
+          description: "Подписант от плательщика ренты."
+        - name: "payer_signatory_basis"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
+          description: "Основание полномочий подписанта плательщика ренты."
         - name: "capacity_confirmed_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если дееспособность прямо подтверждена. Иначе 'not_defined'."
+          description: "Статус наличия подтверждения дееспособности."
+        - name: "capacity_confirmed_details"
+          type: "string"
+          presentation: "fact"
+          label: "Подтверждение дееспособности"
+          description: "Текст о проверке дееспособности получателя ренты."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1009,15 +1099,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "постоянная рента пожизненная рента пожизненное содержание с иждивением получатель ренты плательщик ренты передает имущество рентные платежи содержание с иждивением передача имущества за плату бесплатно безвозмездно ежемесячно ежеквартально ежегодно"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "нотариальное удостоверение"
+        - "реестровый номер"
+        - "кадастровый номер"
+        - "ЕГРН"
+        - "залог в силу закона"
+        - "обременение рентой"
+        - "размер ренты 30000 рублей"
+        - "прожиточный минимум"
+        - "индексация"
+        - "выкуп ренты"
+        - "расторжение"
+        - "страхование"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.05, 0.45]
+        boost: 0.18
+        scope: segment
       context_k: 7
       max_chunks: 9
-      boost_keywords:
-        - "постоянная рента"
-        - "пожизненная рента"
-        - "содержание с иждивением"
-        - "рентные платежи"
-        - "передает имущество"
-        - "периодически"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1031,31 +1145,107 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 540
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты вид ренты,
+        описание передаваемого имущества, форму рентного предоставления,
+        периодичность и характер передачи имущества.
+        Не анализируй нотариальную форму, выкуп, страхование или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. rent_type_status — "defined" если вид ренты определён, иначе "not_defined".
+        2. rent_type — "permanent" / "life_annuity" / "lifetime_maintenance" / "mixed" / "not_defined".
+        3. rent_type_explicitly_stated — "yes" / "implied" / "not_defined".
+        4. property_description_status — "defined" если имущество описано, иначе "not_defined".
+        5. property_description — описание передаваемого имущества.
+        6. property_kind — "real_estate" / "movable" / "mixed" / "not_defined".
+        7. payment_form_status — "defined" если форма рентного предоставления указана, иначе "not_defined".
+        8. payment_form — "money" / "in_kind" / "mixed" / "not_defined".
+        9. payment_periodicity_status — "defined" если периодичность указана, иначе "not_defined".
+        10. payment_periodicity — "monthly" / "quarterly" / "yearly" / "custom" / "not_defined".
+        11. transfer_character_status — "defined" если имущество передаётся за плату или бесплатно, иначе "not_defined".
+        12. transfer_character — "paid" / "free" / "not_defined".
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Вид ренты "implied" только если он очевидно следует из содержания обязательств.
+        - Не анализируй выкуп, неустойку и снятие обременения.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "rent_type_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если вид ренты прямо определён. Иначе 'not_defined'."
+          description: "Статус определения вида ренты."
         - name: "rent_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["permanent", "life_annuity", "lifetime_maintenance", "mixed", "not_defined"]
-          description: "Вид ренты."
+          description: "Вид договора ренты."
+        - name: "rent_type_explicitly_stated"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["yes", "implied", "not_defined"]
+          description: "Прямо ли назван вид ренты в тексте."
+        - name: "property_description_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус описания имущества, передаваемого под выплату ренты."
+        - name: "property_description"
+          type: "string"
+          presentation: "fact"
+          label: "Передаваемое имущество"
+          description: "Описание имущества, передаваемого плательщику ренты."
         - name: "property_kind"
           type: "string"
+          presentation: "signal"
           allowed_values: ["real_estate", "movable", "mixed", "not_defined"]
-          description: "Вид передаваемого имущества."
+          description: "Категория передаваемого имущества."
+        - name: "payment_form_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения формы рентного предоставления."
         - name: "payment_form"
           type: "string"
+          presentation: "signal"
           allowed_values: ["money", "in_kind", "mixed", "not_defined"]
           description: "Форма рентного предоставления."
+        - name: "payment_periodicity_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения периодичности выплат или содержания."
         - name: "payment_periodicity"
           type: "string"
+          presentation: "signal"
           allowed_values: ["monthly", "quarterly", "yearly", "custom", "not_defined"]
-          description: "Периодичность выплат."
+          description: "Периодичность рентных платежей или содержания."
+        - name: "transfer_character_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения характера передачи имущества."
         - name: "transfer_character"
           type: "string"
+          presentation: "signal"
           allowed_values: ["paid", "free", "not_defined"]
-          description: "Характер передачи имущества."
+          description: "Передача имущества за плату или бесплатно."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1175,13 +1365,33 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "нотариальное удостоверение удостоверено нотариусом нотариус реестровый номер совершено в нотариальной форме нотариальная форма ст. 584 ГК РФ нотариальный округ"
+      preferred_unit_types:
+        - general_provision
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - boilerplate
+      negative_keywords:
+        - "пожизненная рента"
+        - "размер ренты"
+        - "залог в силу закона"
+        - "выкуп ренты"
+        - "расторжение"
+        - "обременение"
+        - "страхование"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 4
       max_chunks: 6
-      boost_keywords:
-        - "нотариальное удостоверение"
-        - "нотариус"
-        - "ст. 584 ГК РФ"
-        - "реестровый номер"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1195,37 +1405,94 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 430
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты сведения
+        о нотариальном удостоверении: факт нотариальной формы, нотариус,
+        дата удостоверения и реестровый номер.
+        Не анализируй ничтожность, стороны, имущество, выкуп или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. notarization_status — "defined" если нотариальная форма прямо подтверждена, иначе "not_defined".
+        2. notarization_level — "clearly_notarial" / "mentioned" / "not_found".
+        3. notary_details_status — "defined" если данные нотариуса указаны, иначе "not_defined".
+        4. notary_details — ФИО нотариуса и/или нотариальный округ.
+        5. notary_date_status — "defined" если дата удостоверения указана, иначе "not_defined".
+        6. notary_date — дата удостоверения.
+        7. registry_number_status — "defined" если реестровый номер указан, иначе "not_defined".
+        8. registry_number — реестровый номер нотариального действия.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не выводи правовой вывод о ничтожности.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "notarization_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если нотариальная форма прямо подтверждена. Иначе 'not_defined'."
+          description: "Статус подтверждения нотариальной формы договора ренты."
         - name: "notarization_level"
           type: "string"
+          presentation: "signal"
           allowed_values: ["clearly_notarial", "mentioned", "not_found"]
-          description: "Уровень подтверждения нотариальной формы."
+          description: "Уровень подтверждения нотариального удостоверения."
         - name: "notary_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если реквизиты нотариуса прямо указаны. Иначе 'not_defined'."
+          description: "Статус наличия реквизитов нотариуса."
+        - name: "notary_details"
+          type: "string"
+          presentation: "fact"
+          label: "Нотариус"
+          description: "ФИО нотариуса и/или нотариальный округ."
+        - name: "notary_date_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия даты нотариального удостоверения."
+        - name: "notary_date"
+          type: "string"
+          presentation: "fact"
+          label: "Дата нотариального удостоверения"
+          description: "Дата нотариального удостоверения договора ренты."
         - name: "registry_number_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если реестровый номер прямо указан. Иначе 'not_defined'."
-        - name: "nullity_risk"
+          description: "Статус наличия реестрового номера нотариального действия."
+        - name: "registry_number"
           type: "string"
-          allowed_values: ["critical", "low"]
-          description: "Риск ничтожности при отсутствии нотариальной формы."
+          presentation: "fact"
+          label: "Реестровый номер"
+          description: "Реестровый номер нотариального действия."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 4: Имущество, залог в силу закона и обеспечение
+  # CHECK 4: Идентификация имущества
   # ──────────────────────────────────────────────────────────────────────────
-  - id: property_and_statutory_pledge_check
-    name: "Имущество под ренту, залог в силу закона и обеспечение выплаты (ст. 587 ГК РФ)"
+
+  - id: property_identification_check
+    name: "Идентификация имущества, передаваемого под выплату ренты"
     description: >
-      Фактографическая проверка идентификации имущества, наличия залога в силу
-      закона (для недвижимости) и обеспечения выплаты (для движимого имущества).
+      Фактографическая проверка описания и идентификации имущества,
+      передаваемого под выплату ренты, включая кадастровый номер
+      для недвижимости.
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
@@ -1234,51 +1501,35 @@ checks_v8:
       keywords:
         - "имущество"
         - "передаваемое под выплату ренты"
-        - "обременение рентой"
-        - "залог в силу закона"
+        - "передает в собственность"
+        - "квартира"
+        - "жилой дом"
+        - "земельный участок"
         - "кадастровый номер"
         - "ЕГРН"
-        - "обеспечение выплаты ренты"
-        - "поручительство"
-        - "банковская гарантия"
-        - "страхование ответственности"
-        - "передает в собственность"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)залог\\s+в\\s+силу\\s+закона"
-        - "(?i)обременени(е|я)\\s+рент"
-        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
         - "(?i)переда[её]т\\s+в\\s+собственность"
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор ренты (гл. 33 ГК РФ, ст. 587 ГК РФ).
-        Проверяется только один вопрос: имущество под ренту, залог в силу закона,
-        обеспечение выплаты.
+        Анализируется договор ренты.
+        Проверяется только один вопрос: идентификация имущества,
+        передаваемого под выплату ренты.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Описание и идентификацию передаваемого имущества.
-        2. Кадастровый номер (для недвижимости).
-        3. Наличие залога в силу закона в пользу получателя ренты.
-        4. Наличие регистрации обременения рентой.
-        5. Вид обеспечения для движимого имущества (поручительство / гарантия / страхование).
+        1. Описание имущества.
+        2. Вид имущества.
+        3. Кадастровый номер, если это недвижимость.
 
         [ПРАВИЛА]
         1. Только текст документа.
         2. Если условие не указано прямо — "not_defined".
-        3. Кадастровый номер — только если прямо написан.
+        3. Верни только один JSON-объект.
         4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Описано ли имущество с конкретными признаками?
-        2. Есть ли кадастровый номер в формате XX:XX:XXXXXXX:X?
-        3. Написано ли прямо "залог в силу закона"?
-        4. Упомянуто ли обеспечение (поручительство / гарантия / страхование)?
-
-        Не выводи шаги проверки. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -1287,64 +1538,277 @@ checks_v8:
           "property_kind": "<real_estate / movable / mixed / not_defined>",
           "cadastral_number_status": "<defined / not_defined>",
           "cadastral_number": "<номер или 'Данные не определены'>",
+          "evidence": [{"clause_ref":"<пункт>", "quote":"<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      retrieval_query: "имущество передаваемое под выплату ренты передает в собственность квартира жилой дом земельный участок кадастровый номер ЕГРН автомобиль имущество под ренту описание имущества"
+      preferred_unit_types:
+        - general_provision
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "постоянная рента"
+        - "пожизненная рента"
+        - "содержание с иждивением"
+        - "ежемесячно"
+        - "размер ренты"
+        - "прожиточный минимум"
+        - "индексация"
+        - "залог в силу закона"
+        - "обременение рентой"
+        - "выкуп ренты"
+        - "расторжение"
+        - "страхование"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.05, 0.45]
+        boost: 0.15
+        scope: segment
+      context_k: 5
+      max_chunks: 7
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 380
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты описание имущества,
+        передаваемого плательщику ренты, и его идентификаторы.
+        Не анализируй залог в силу закона, обеспечение, размер ренты или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. property_identified_status — "defined" если имущество идентифицировано, иначе "not_defined".
+        2. property_description — описание имущества.
+        3. property_kind — "real_estate" / "movable" / "mixed" / "not_defined".
+        4. cadastral_number_status — "defined" если кадастровый номер указан, иначе "not_defined".
+        5. cadastral_number — кадастровый номер.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Кадастровый номер — только если прямо написан.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "property_identified_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус идентификации имущества, передаваемого под выплату ренты."
+        - name: "property_description"
+          type: "string"
+          presentation: "fact"
+          label: "Имущество под ренту"
+          description: "Описание имущества, передаваемого плательщику ренты."
+        - name: "property_kind"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["real_estate", "movable", "mixed", "not_defined"]
+          description: "Категория передаваемого имущества."
+        - name: "cadastral_number_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия кадастрового номера."
+        - name: "cadastral_number"
+          type: "string"
+          presentation: "fact"
+          label: "Кадастровый номер"
+          description: "Кадастровый номер передаваемого объекта недвижимости."
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 5: Залог в силу закона и обеспечение
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: rent_security_and_statutory_pledge_check
+    name: "Залог в силу закона, обременение рентой и обеспечение выплат"
+    description: >
+      Фактографическая проверка наличия залога в силу закона для недвижимости,
+      регистрации обременения рентой и обеспечения выплат по движимому имуществу.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "залог в силу закона"
+        - "обременение рентой"
+        - "обеспечение выплаты ренты"
+        - "поручительство"
+        - "банковская гарантия"
+        - "страхование ответственности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)залог\\s+в\\s+силу\\s+закона"
+        - "(?i)обременени(е|я)\\s+рент"
+        - "(?i)поручительств"
+        - "(?i)банковск(ая|ой)\\s+гарант"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор ренты (ст. 587 ГК РФ).
+        Проверяется только один вопрос: залог в силу закона, регистрация
+        обременения и обеспечение выплат.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие залога в силу закона.
+        2. Регистрацию обременения рентой.
+        3. Вид обеспечения по движимому имуществу.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. Верни только один JSON-объект.
+
+        [ФОРМАТ ОТВЕТА]
+        {
           "statutory_pledge_status": "<defined / not_defined>",
           "statutory_pledge_details": "<текст или 'Данные не определены'>",
           "encumbrance_registration_status": "<defined / not_defined>",
           "movable_security_status": "<defined / not_defined>",
           "movable_security_type": "<guarantee / surety / pledge / insurance / not_applicable / not_defined>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+          "evidence": [{"clause_ref":"<пункт>", "quote":"<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 5
       temperature: 0.0
-      max_tokens: 700
+      max_tokens: 500
     retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "залог в силу закона"
-        - "обременение рентой"
-        - "кадастровый номер"
-        - "обеспечение выплаты ренты"
-        - "ст. 587 ГК"
-        - "ЕГРН"
+      retrieval_query: "залог в силу закона обременение рентой обеспечение выплаты ренты поручительство банковская гарантия страхование ответственности регистрация обременения ст. 587 ГК РФ"
+      preferred_unit_types:
+        - liability_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - limitations
+        - obligations
+      negative_keywords:
+        - "расторжение договора"
+        - "существенное нарушение"
+        - "возврат имущества"
+        - "снятие обременения при расторжении"
+        - "выкуп ренты"
+        - "прожиточный минимум"
+        - "индексация"
+        - "риск случайной гибели"
+        - "добровольность"
+        - "кабальная сделка"
+        - "запрет отчуждения"
+        - "согласие получателя ренты"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.65]
+        boost: 0.15
+        scope: segment
+      context_k: 5
+      max_chunks: 7
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
+        - "limitations"
         - "obligations"
-        - "procedures"
-      confidence_bonus_on_match: 0.10
+      confidence_bonus_on_match: 0.08
     evidence:
       required: true
       min_snippet_length: 40
-      max_snippet_length: 650
+      max_snippet_length: 500
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 390
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты сведения о залоге
+        в силу закона, регистрации обременения рентой и обеспечении выплат.
+        Не анализируй описание имущества, выкуп, страхование просрочки или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. statutory_pledge_status — "defined" если залог в силу закона прямо упомянут, иначе "not_defined".
+        2. statutory_pledge_details — текст о залоге в силу закона.
+        3. encumbrance_registration_status — "defined" если регистрация обременения рентой прямо указана, иначе "not_defined".
+        4. movable_security_status — "defined" если обеспечение по движимому имуществу прямо указано, иначе "not_defined".
+        5. movable_security_type — "guarantee" / "surety" / "pledge" / "insurance" / "not_applicable" / "not_defined".
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Если договор касается недвижимости и про обеспечение движимого ничего нет, movable_security_type может быть "not_applicable".
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "property_identified_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если имущество прямо идентифицировано. Иначе 'not_defined'."
-        - name: "cadastral_number_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если кадастровый номер прямо указан. Иначе 'not_defined'."
-        - name: "cadastral_number"
-          type: "string"
-          regex_patterns: ["(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"]
-          description: "Кадастровый номер. Если нет — строго 'Данные не определены'."
         - name: "statutory_pledge_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если залог в силу закона прямо упомянут. Иначе 'not_defined'."
+          description: "Статус наличия условия о залоге в силу закона."
+        - name: "statutory_pledge_details"
+          type: "string"
+          presentation: "fact"
+          label: "Залог в силу закона"
+          description: "Текст договора о залоге в силу закона в пользу получателя ренты."
+        - name: "encumbrance_registration_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия условия о регистрации обременения рентой."
+        - name: "movable_security_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия обеспечения выплаты ренты по движимому имуществу."
         - name: "movable_security_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["guarantee", "surety", "pledge", "insurance", "not_applicable", "not_defined"]
-          description: "Вид обеспечения для движимого имущества."
+          description: "Вид обеспечения выплаты ренты по движимому имуществу."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 5: Размер ренты, периодичность и индексация
+  # CHECK 6: Размер ренты, периодичность и индексация
   # ──────────────────────────────────────────────────────────────────────────
   - id: rent_amount_indexation_check
     name: "Размер ренты, периодичность и индексация (ст. 590, 597, 602 ГК РФ)"
@@ -1471,16 +1935,36 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "размер ренты прожиточный минимум индексация ежемесячная выплата денежная сумма не менее увеличивается пропорционально ежеквартально ежегодно выплачивается содержание индекс потребительских цен"
+      preferred_unit_types:
+        - payment_term
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "пеня"
+        - "проценты за просрочку"
+        - "неустойка"
+        - "выкуп ренты"
+        - "расторжение"
+        - "страхование"
+        - "залог в силу закона"
+        - "обременение рентой"
+        - "нотариальное удостоверение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.70]
+        boost: 0.18
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "прожиточный минимум"
-        - "индексация"
-        - "размер ренты"
-        - "ежемесячная выплата"
-        - "ст. 590 ГК"
-        - "ст. 597 ГК"
-        - "ст. 602 ГК"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1494,34 +1978,96 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты размер ренты,
+        привязку к прожиточному минимуму, индексацию, периодичность выплат
+        и последствия просрочки.
+        Не анализируй имущество, выкуп, риск гибели или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. rent_amount_status — "defined" если размер ренты прямо указан, иначе "not_defined".
+        2. rent_amount — размер ренты или содержания.
+        3. pm_link_status — "defined" если есть привязка к прожиточному минимуму, иначе "not_defined".
+        4. pm_link_details — текст о привязке к прожиточному минимуму.
+        5. indexation_status — "defined" если индексация прямо указана, иначе "not_defined".
+        6. indexation_mechanism — "pm_based" / "inflation" / "custom" / "not_defined".
+        7. payment_periodicity_status — "defined" если периодичность указана, иначе "not_defined".
+        8. payment_periodicity — "monthly" / "quarterly" / "yearly" / "custom" / "not_defined".
+        9. late_payment_status — "defined" если последствия просрочки прямо указаны, иначе "not_defined".
+        10. late_payment_details — текст о пене, процентах или иной ответственности за просрочку.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не смешивай late payment clause с общим risk/insurance block.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "rent_amount_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если размер ренты прямо определён. Иначе 'not_defined'."
+          description: "Статус определения размера ренты."
         - name: "rent_amount"
           type: "string"
-          description: "Размер ренты. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Размер ренты"
+          description: "Размер ренты или содержания в денежном выражении."
         - name: "pm_link_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если привязка к ПМ прямо определена. Иначе 'not_defined'."
+          description: "Статус наличия привязки к прожиточному минимуму."
+        - name: "pm_link_details"
+          type: "string"
+          presentation: "fact"
+          label: "Привязка к прожиточному минимуму"
+          description: "Текст договора о привязке размера ренты к прожиточному минимуму."
         - name: "indexation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если механизм индексации прямо определён. Иначе 'not_defined'."
+          description: "Статус определения механизма индексации."
         - name: "indexation_mechanism"
           type: "string"
+          presentation: "signal"
           allowed_values: ["pm_based", "inflation", "custom", "not_defined"]
-          description: "Механизм индексации."
+          description: "Механизм индексации рентных выплат."
+        - name: "payment_periodicity_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения периодичности рентных выплат."
         - name: "payment_periodicity"
           type: "string"
+          presentation: "signal"
           allowed_values: ["monthly", "quarterly", "yearly", "custom", "not_defined"]
-          description: "Периодичность выплат."
+          description: "Периодичность рентных выплат."
+        - name: "late_payment_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения последствий просрочки рентных платежей."
+        - name: "late_payment_details"
+          type: "string"
+          presentation: "fact"
+          label: "Просрочка рентных платежей"
+          description: "Условие о пене, процентах или иной ответственности за просрочку."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 6: Объём содержания при ДПСИ
+  # CHECK 7: Объём содержания при ДПСИ
   # ──────────────────────────────────────────────────────────────────────────
   - id: lifetime_maintenance_scope_check
     name: "ДПСИ: объём натурального содержания, ритуальные услуги, замена деньгами (ст. 602-603 ГК РФ)"
@@ -1613,17 +2159,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "питание лекарства медицинская помощь одежда обувь уборка гигиенические процедуры жильё коммунальные услуги ритуальные услуги уход содержание погребение похороны замена содержания денежный эквивалент денежная сумма вместо содержания"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "кабальная сделка"
+        - "действует добровольно"
+        - "осознает последствия"
+        - "нотариус разъяснил"
+        - "независимая оценка"
+        - "отсутствие давления"
+        - "посещение родственников"
+        - "контроль качества ухода"
+        - "выкуп ренты"
+        - "расторжение"
+        - "запрет отчуждения"
+        - "залог в силу закона"
+        - "пеня"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.75]
+        boost: 0.15
+        scope: segment
       context_k: 7
       max_chunks: 9
-      boost_keywords:
-        - "содержание"
-        - "иждивение"
-        - "питание"
-        - "лекарства"
-        - "ритуальные услуги"
-        - "ст. 602 ГК"
-        - "ст. 603 ГК"
-        - "замена содержания"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1637,37 +2205,121 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 560
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора пожизненного содержания
+        с иждивением объём натурального содержания, стоимость содержания,
+        ритуальные услуги и замену содержания денежными выплатами.
+        Не анализируй нотариальную форму, выкуп, риск гибели или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. maintenance_scope_status — "defined" если объём содержания указан, иначе "not_defined".
+        2. maintenance_scope_level — "detailed" / "general" / "not_defined".
+        3. housing_status — "defined" если жильё входит в состав содержания, иначе "not_defined".
+        4. food_status — "defined" если питание входит в состав содержания, иначе "not_defined".
+        5. medical_care_status — "defined" если медицинская помощь указана, иначе "not_defined".
+        6. clothing_status — "defined" если одежда, обувь или гигиена указаны, иначе "not_defined".
+        7. utilities_status — "defined" если коммунальные услуги указаны, иначе "not_defined".
+        8. funeral_services_status — "defined" если ритуальные услуги указаны, иначе "not_defined".
+        9. funeral_services_details — текст о ритуальных услугах.
+        10. maintenance_value_status — "defined" если стоимость содержания указана, иначе "not_defined".
+        11. maintenance_value — стоимость содержания.
+        12. cash_substitution_status — "defined" если замена содержания деньгами указана, иначе "not_defined".
+        13. cash_substitution_details — текст о замене содержания денежными выплатами.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - "general" = общие слова без перечня; "detailed" = конкретный состав содержания.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "maintenance_scope_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если объём содержания прямо определён. Иначе 'not_defined'."
+          description: "Статус определения объёма натурального содержания."
         - name: "maintenance_scope_level"
           type: "string"
+          presentation: "signal"
           allowed_values: ["detailed", "general", "not_defined"]
-          description: "Степень детализации: detailed (конкретный перечень) / general (общие слова)."
+          description: "Степень детализации состава содержания."
+        - name: "housing_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус включения жилья в состав содержания."
+        - name: "food_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус включения питания в состав содержания."
+        - name: "medical_care_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус включения медицинской помощи в состав содержания."
+        - name: "clothing_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус включения одежды, обуви или гигиены в состав содержания."
+        - name: "utilities_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус включения коммунальных услуг в состав содержания."
         - name: "funeral_services_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ритуальные услуги прямо упомянуты. Иначе 'not_defined'."
+          description: "Статус наличия условия о ритуальных услугах."
+        - name: "funeral_services_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ритуальные услуги"
+          description: "Текст условия о ритуальных услугах и погребении."
         - name: "maintenance_value_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если стоимость содержания прямо определена. Иначе 'not_defined'."
+          description: "Статус определения стоимости содержания."
+        - name: "maintenance_value"
+          type: "string"
+          presentation: "fact"
+          label: "Стоимость содержания"
+          description: "Стоимость пожизненного содержания в денежном выражении."
         - name: "cash_substitution_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если замена содержания деньгами прямо предусмотрена. Иначе 'not_defined'."
+          description: "Статус наличия условия о замене содержания денежными выплатами."
+        - name: "cash_substitution_details"
+          type: "string"
+          presentation: "fact"
+          label: "Замена содержания деньгами"
+          description: "Текст условия о замене натурального содержания денежными выплатами."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 7: Выкуп ренты, расторжение и возврат имущества
+  # CHECK 8: Выкуп ренты
   # ──────────────────────────────────────────────────────────────────────────
-  - id: redemption_and_termination_check
-    name: "Выкуп ренты, расторжение и возврат имущества (ст. 592-594, 599, 605 ГК РФ)"
+
+  - id: rent_buyout_check
+    name: "Выкуп ренты: право выкупа, цена и уведомление"
     description: >
-      Фактографическая проверка наличия условий о выкупе ренты, основаниях расторжения,
-      критериях существенного нарушения и возврате имущества при расторжении ДПСИ.
+      Фактографическая проверка наличия условий о выкупе ренты:
+      право требовать выкупа, выкупная цена и срок уведомления.
     triggers: {}
     severity: "high"
     origin: "DOCUMENT_TYPE"
@@ -1677,50 +2329,32 @@ checks_v8:
         - "выкуп ренты"
         - "выкупная цена"
         - "право требовать выкупа"
-        - "расторжение договора"
-        - "существенное нарушение"
-        - "возврат имущества"
-        - "просрочка выплаты"
-        - "ненадлежащее содержание"
         - "уведомление о выкупе"
         - "цена выкупа"
-        - "снятие обременения"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)выкупн(ая|ой)\\s+цен"
-        - "(?i)расторжени(е|я)\\s+договор"
-        - "(?i)существенн(ое|ого)\\s+нарушен"
-        - "(?i)возврат\\s+имуществ"
+        - "(?i)право\\s+требовать\\s+выкуп"
+        - "(?i)уведомлени(е|я).*выкуп"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор ренты (гл. 33 ГК РФ, ст. 592-594, 599, 605 ГК РФ).
-        Проверяется только один вопрос: выкуп ренты, расторжение, возврат имущества.
+        Анализируется договор ренты.
+        Проверяется только один вопрос: право выкупа ренты, выкупная цена
+        и срок уведомления.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Право требовать выкупа ренты и у кого оно есть.
-        2. Выкупную цену и её методику.
-        3. Срок уведомления о намерении выкупить.
-        4. Основания расторжения (критерии существенного нарушения).
-        5. При ДПСИ — право требовать возврата имущества при расторжении.
-        6. Порядок снятия обременения при прекращении договора.
+        1. Право требовать выкупа ренты.
+        2. У кого есть такое право.
+        3. Выкупную цену или её методику.
+        4. Срок уведомления о намерении выкупить ренту.
 
         [ПРАВИЛА]
         1. Только текст документа.
         2. Если условие не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
-        4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли прямое условие о праве выкупа?
-        2. Указана ли выкупная цена?
-        3. Перечислены ли конкретные основания расторжения?
-        4. Предусмотрен ли возврат имущества при расторжении ДПСИ?
-
-        Не выводи шаги проверки. Верни только JSON.
+        3. Верни только один JSON-объект.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -1730,27 +2364,44 @@ checks_v8:
           "buyout_price_details": "<сумма/методика или 'Данные не определены'>",
           "buyout_notice_period_status": "<defined / not_defined>",
           "buyout_notice_period": "<срок или 'Данные не определены'>",
-          "termination_grounds_status": "<defined / not_defined>",
-          "breach_criteria_status": "<defined / not_defined>",
-          "return_of_property_status": "<defined / not_defined>",
-          "encumbrance_removal_status": "<defined / not_defined>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+          "evidence": [{"clause_ref":"<пункт>", "quote":"<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 5
       temperature: 0.0
-      max_tokens: 700
+      max_tokens: 500
     retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "выкуп ренты"
-        - "выкупная цена"
-        - "расторжение"
-        - "возврат имущества"
+      retrieval_query: "выкуп ренты выкупная цена право требовать выкупа уведомление о выкупе цена выкупа срок уведомления о намерении выкупить"
+      preferred_unit_types:
+        - termination_provision
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+      negative_keywords:
+        - "расторжение договора"
         - "существенное нарушение"
-        - "ст. 592 ГК"
-        - "ст. 599 ГК"
-        - "ст. 605 ГК"
+        - "возврат имущества"
+        - "снятие обременения"
+        - "пеня"
+        - "проценты за просрочку"
+        - "залог в силу закона"
+        - "страхование"
+        - "запрет отчуждения"
+        - "добровольность"
+        - "кабальная сделка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.45, 0.90]
+        boost: 0.15
+        scope: segment
+      context_k: 5
+      max_chunks: 7
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1760,37 +2411,231 @@ checks_v8:
     evidence:
       required: true
       min_snippet_length: 40
-      max_snippet_length: 650
+      max_snippet_length: 500
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 390
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты условия о выкупе:
+        право выкупа, выкупная цена и срок уведомления.
+        Не анализируй расторжение, возврат имущества, страхование или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. buyout_clause_status — "defined" если условие о выкупе есть, иначе "not_defined".
+        2. buyout_right_holder — "receiver" / "payer" / "both" / "not_defined".
+        3. buyout_price_status — "defined" если цена или методика указана, иначе "not_defined".
+        4. buyout_price_details — сумма или методика выкупной цены.
+        5. buyout_notice_period_status — "defined" если срок уведомления указан, иначе "not_defined".
+        6. buyout_notice_period — срок уведомления.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "buyout_clause_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие о выкупе прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия условия о выкупе ренты."
         - name: "buyout_right_holder"
           type: "string"
+          presentation: "signal"
           allowed_values: ["receiver", "payer", "both", "not_defined"]
-          description: "У кого право на выкуп."
-        - name: "return_of_property_status"
+          description: "Сторона, у которой есть право требовать выкупа ренты."
+        - name: "buyout_price_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если возврат имущества при расторжении прямо предусмотрен. Иначе 'not_defined'."
-        - name: "encumbrance_removal_status"
+          description: "Статус определения выкупной цены или методики её расчёта."
+        - name: "buyout_price_details"
           type: "string"
+          presentation: "fact"
+          label: "Выкупная цена"
+          description: "Сумма или методика определения выкупной цены ренты."
+        - name: "buyout_notice_period_status"
+          type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок снятия обременения прямо определён. Иначе 'not_defined'."
+          description: "Статус определения срока уведомления о намерении выкупить ренту."
+        - name: "buyout_notice_period"
+          type: "string"
+          presentation: "fact"
+          label: "Срок уведомления о выкупе"
+          description: "Срок уведомления о намерении выкупить ренту."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 8: Риск гибели, страхование и пеня за просрочку
+  # CHECK 9: Расторжение и возврат имущества
   # ──────────────────────────────────────────────────────────────────────────
-  - id: risk_insurance_and_late_payment
-    name: "Риск случайной гибели, страхование и ответственность за просрочку (ст. 588, 595, 600 ГК РФ)"
+  - id: rent_termination_and_return_check
+    name: "Расторжение договора ренты, критерии нарушения и возврат имущества"
     description: >
-      Фактографическая проверка распределения риска случайной гибели имущества,
-      условий страхования и ставки процентов/неустойки за просрочку рентных платежей.
+      Фактографическая проверка наличия оснований расторжения, критериев
+      существенного нарушения, возврата имущества и снятия обременения.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "расторжение договора"
+        - "существенное нарушение"
+        - "возврат имущества"
+        - "снятие обременения"
+        - "ненадлежащее содержание"
+        - "просрочка выплаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расторжени(е|я)\\s+договор"
+        - "(?i)существенн(ое|ого)\\s+нарушен"
+        - "(?i)возврат\\s+имуществ"
+        - "(?i)снят(ие|ия)\\s+обременени"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор ренты.
+        Проверяется только один вопрос: основания расторжения, критерии нарушения,
+        возврат имущества и снятие обременения.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Основания расторжения.
+        2. Критерии существенного нарушения.
+        3. Возврат имущества при расторжении.
+        4. Порядок снятия обременения.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. Верни только один JSON-объект.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "termination_grounds_status": "<defined / not_defined>",
+          "breach_criteria_status": "<defined / not_defined>",
+          "return_of_property_status": "<defined / not_defined>",
+          "encumbrance_removal_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref":"<пункт>", "quote":"<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      retrieval_query: "расторжение договора существенное нарушение возврат имущества снятие обременения ненадлежащее содержание просрочка выплаты прекращение договора ренты возврат переданного имущества"
+      preferred_unit_types:
+        - termination_provision
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+      negative_keywords:
+        - "выкуп ренты"
+        - "выкупная цена"
+        - "уведомление о выкупе"
+        - "право требовать выкупа"
+        - "прожиточный минимум"
+        - "индексация"
+        - "залог в силу закона"
+        - "страхование"
+        - "добровольность"
+        - "кабальная сделка"
+        - "запрет отчуждения"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.50, 0.95]
+        boost: 0.18
+        scope: segment
+      context_k: 5
+      max_chunks: 7
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "remedies"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 360
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты основания расторжения,
+        критерии нарушения, возврат имущества и снятие обременения.
+        Не анализируй выкуп ренты, страхование или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. termination_grounds_status — "defined" если основания расторжения перечислены, иначе "not_defined".
+        2. breach_criteria_status — "defined" если критерии существенного нарушения указаны, иначе "not_defined".
+        3. return_of_property_status — "defined" если возврат имущества предусмотрен, иначе "not_defined".
+        4. encumbrance_removal_status — "defined" если снятие обременения урегулировано, иначе "not_defined".
+
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "termination_grounds_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения оснований расторжения договора ренты."
+        - name: "breach_criteria_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения критериев существенного нарушения."
+        - name: "return_of_property_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия условия о возврате имущества при расторжении."
+        - name: "encumbrance_removal_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус урегулирования снятия обременения рентой."
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 10: Риск гибели, страхование
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - id: risk_and_insurance_check
+    name: "Риск случайной гибели имущества и страхование"
+    description: >
+      Фактографическая проверка распределения риска случайной гибели или повреждения
+      имущества и наличия страхования.
     triggers: {}
     severity: "high"
     origin: "DOCUMENT_TYPE"
@@ -1799,53 +2644,33 @@ checks_v8:
       keywords:
         - "риск случайной гибели"
         - "риск повреждения"
-        - "несёт плательщик ренты"
-        - "гибель имущества не освобождает"
         - "страхование имущества"
         - "страхование ответственности"
-        - "страховой полис"
         - "выгодоприобретатель"
-        - "проценты за просрочку"
-        - "пеня"
-        - "неустойка"
-        - "ст. 395 ГК"
-        - "ответственность за просрочку"
+        - "не освобождает от выплаты"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)риск\\s+случайн(ой|ого)\\s+гибел"
-        - "(?i)не\\s+освобождает\\s+от\\s+выплат"
         - "(?i)страхов(ание|ой\\s+полис)"
-        - "(?i)пен(я|и|ю)\\s+в\\s+размере"
-        - "(?i)процент(ы|ов)\\s+за\\s+просрочк"
+        - "(?i)выгодоприобретател"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор ренты (гл. 33 ГК РФ, ст. 588, 595, 600 ГК РФ).
-        Проверяется только один вопрос: риск случайной гибели, страхование,
-        ответственность за просрочку.
+        Анализируется договор ренты.
+        Проверяется только один вопрос: риск случайной гибели и страхование.
 
         [ЗАДАЧА]
         Найди в тексте договора:
         1. Кто несёт риск случайной гибели/повреждения имущества.
-        2. Влияние гибели имущества на обязанность выплачивать ренту.
-        3. Условия страхования (имущества или ответственности).
-        4. Выгодоприобретателя по страхованию.
-        5. Ставку пени/процентов за просрочку рентных платежей.
+        2. Влияет ли гибель имущества на обязанность выплачивать ренту.
+        3. Предусмотрено ли страхование.
+        4. Кто является выгодоприобретателем.
 
         [ПРАВИЛА]
         1. Только текст документа.
         2. Если условие не указано прямо — "not_defined".
-        3. В evidence — только текст договора.
-        4. Верни только один JSON-объект.
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Написано ли прямо, кто несёт риск гибели?
-        2. Написано ли, что гибель не освобождает от выплаты ренты?
-        3. Упомянуто ли страхование?
-        4. Указана ли конкретная ставка пени числом?
-
-        Не выводи шаги проверки. Верни только JSON.
+        3. Верни только один JSON-объект.
 
         [ФОРМАТ ОТВЕТА]
         {
@@ -1856,62 +2681,256 @@ checks_v8:
           "insurance_status": "<defined / not_defined>",
           "insurance_beneficiary_status": "<defined / not_defined>",
           "insurance_beneficiary": "<сторона или 'Данные не определены'>",
-          "late_payment_rate_status": "<defined / not_defined>",
-          "late_payment_rate": "<ставка или 'Данные не определены'>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+          "evidence": [{"clause_ref":"<пункт>", "quote":"<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 5
       temperature: 0.0
-      max_tokens: 650
+      max_tokens: 500
     retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "риск случайной гибели"
-        - "страхование"
-        - "проценты за просрочку"
-        - "пеня"
-        - "ст. 588 ГК"
-        - "ст. 595 ГК"
-        - "ст. 600 ГК"
+      retrieval_query: "риск случайной гибели риск повреждения страхование имущества страхование ответственности выгодоприобретатель не освобождает от выплаты гибель имущества обязанность выплачивать ренту"
+      preferred_unit_types:
+        - liability_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - limitations
+        - obligations
+      negative_keywords:
+        - "залог в силу закона"
+        - "обременение рентой"
+        - "поручительство"
+        - "банковская гарантия"
+        - "выкуп ренты"
+        - "расторжение договора"
+        - "существенное нарушение"
+        - "прожиточный минимум"
+        - "индексация"
+        - "запрет отчуждения"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.80]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 7
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
-        - "remedies"
         - "limitations"
         - "obligations"
       confidence_bonus_on_match: 0.08
     evidence:
       required: true
       min_snippet_length: 40
-      max_snippet_length: 600
+      max_snippet_length: 500
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 370
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты условия
+        о риске случайной гибели имущества и страховании.
+        Не анализируй просрочку платежей, выкуп или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. risk_allocation_status — "defined" если риск распределён, иначе "not_defined".
+        2. risk_allocation — "payer" / "receiver" / "not_defined".
+        3. loss_non_discharge_status — "defined" если сказано, влияет ли гибель имущества на обязанность платить, иначе "not_defined".
+        4. loss_non_discharge_details — текст об этом.
+        5. insurance_status — "defined" если страхование предусмотрено, иначе "not_defined".
+        6. insurance_beneficiary_status — "defined" если выгодоприобретатель указан, иначе "not_defined".
+        7. insurance_beneficiary — сторона-выгодоприобретатель.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "risk_allocation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если риск случайной гибели прямо распределён. Иначе 'not_defined'."
+          description: "Статус распределения риска случайной гибели имущества."
         - name: "risk_allocation"
           type: "string"
+          presentation: "signal"
           allowed_values: ["payer", "receiver", "not_defined"]
-          description: "Кто несёт риск."
+          description: "Сторона, несущая риск случайной гибели имущества."
+        - name: "loss_non_discharge_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания, освобождает ли гибель имущества от выплаты ренты."
+        - name: "loss_non_discharge_details"
+          type: "string"
+          presentation: "fact"
+          label: "Влияние гибели имущества на выплату ренты"
+          description: "Текст договора о влиянии гибели имущества на обязанность выплачивать ренту."
         - name: "insurance_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если страхование прямо предусмотрено. Иначе 'not_defined'."
-        - name: "late_payment_rate_status"
+          description: "Статус наличия страхования имущества или ответственности."
+        - name: "insurance_beneficiary_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ставка пени прямо определена. Иначе 'not_defined'."
-        - name: "late_payment_rate"
+          description: "Статус определения выгодоприобретателя по страхованию."
+        - name: "insurance_beneficiary"
           type: "string"
-          description: "Ставка пени. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Выгодоприобретатель по страхованию"
+          description: "Сторона, указанная выгодоприобретателем по договору страхования."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 9: Кабальность, добровольность и защита от злоупотреблений
+  # CHECK 11: Пеня за просрочку
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: late_payment_liability_check
+    name: "Ответственность за просрочку рентных платежей"
+    description: >
+      Фактографическая проверка наличия ставки пени, процентов или иной ответственности
+      за просрочку рентных платежей.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "проценты за просрочку"
+        - "пеня"
+        - "неустойка"
+        - "ст. 395 ГК"
+        - "ответственность за просрочку"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)пен(я|и|ю)"
+        - "(?i)процент(ы|ов)\\s+за\\s+просрочк"
+        - "(?i)неустойк"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор ренты.
+        Проверяется только один вопрос: ответственность за просрочку рентных платежей.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие ответственности за просрочку.
+        2. Ставку пени или процентов.
+        3. Основание начисления.
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. Верни только один JSON-объект.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "late_payment_rate_status": "<defined / not_defined>",
+          "late_payment_rate": "<ставка или 'Данные не определены'>",
+          "evidence": [{"clause_ref":"<пункт>", "quote":"<точная цитата>"}]
+        }
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 350
+    retrieval:
+      retrieval_query: "проценты за просрочку пеня неустойка ст. 395 ГК РФ ответственность за просрочку рентных платежей просрочка выплаты ренты"
+      preferred_unit_types:
+        - liability_provision
+        - payment_term
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+      negative_keywords:
+        - "прожиточный минимум"
+        - "индексация"
+        - "ежемесячная выплата"
+        - "выкуп ренты"
+        - "расторжение"
+        - "залог в силу закона"
+        - "страхование"
+        - "запрет отчуждения"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.35, 0.90]
+        boost: 0.12
+        scope: segment
+      context_k: 4
+      max_chunks: 6
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "remedies"
+      confidence_bonus_on_match: 0.06
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 260
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты условие
+        об ответственности за просрочку рентных платежей.
+        Не анализируй риск гибели, страхование, выкуп или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. late_payment_rate_status — "defined" если ставка или правило начисления указаны, иначе "not_defined".
+        2. late_payment_rate — ставка пени, процентов или иное описание ответственности.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "late_payment_rate_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия условия о ставке пени или процентов за просрочку рентных платежей."
+        - name: "late_payment_rate"
+          type: "string"
+          presentation: "fact"
+          label: "Пеня/проценты за просрочку"
+          description: "Ставка пени, процентов или иное условие ответственности за просрочку рентных платежей."
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 12: Кабальность, добровольность и защита от злоупотреблений
   # ──────────────────────────────────────────────────────────────────────────
   - id: unconscionability_and_capacity_check
     name: "Кабальность, добровольность и механизмы защиты получателя ренты (ст. 179, 602 ГК РФ)"
@@ -1992,16 +3011,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "не является кабальной сделкой действует добровольно осознает последствия нотариус разъяснил последствия независимая оценка рыночная стоимость отсутствие давления в здравом уме дееспособен право на посещение родственниками запрет на изоляцию контроль качества ухода доступ медицинских работников социальные службы"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "питание"
+        - "лекарства"
+        - "одежда"
+        - "коммунальные услуги"
+        - "ритуальные услуги"
+        - "замена содержания деньгами"
+        - "прожиточный минимум"
+        - "индексация"
+        - "выкуп ренты"
+        - "расторжение"
+        - "залог в силу закона"
+        - "страхование"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.80]
+        boost: 0.12
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "кабальная сделка"
-        - "добровольно"
-        - "осознает последствия"
-        - "независимая оценка"
-        - "посещение родственников"
-        - "контроль качества ухода"
-        - "ст. 179 ГК"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2015,23 +3057,91 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты заверения
+        о добровольности, отсутствии давления, разъяснениях нотариуса,
+        независимой оценке и механизмах защиты получателя ренты.
+        Не анализируй размер ренты, выкуп, страхование или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. voluntariness_status — "defined" если добровольность прямо подтверждена, иначе "not_defined".
+        2. voluntariness_details — текст о добровольности или осознании последствий.
+        3. notary_explanation_status — "defined" если упомянуты разъяснения нотариуса, иначе "not_defined".
+        4. independent_valuation_status — "defined" если независимая оценка имущества упомянута, иначе "not_defined".
+        5. pressure_absence_status — "defined" если отсутствие давления прямо подтверждено, иначе "not_defined".
+        6. abuse_protection_status — "defined" если механизмы защиты получателя предусмотрены, иначе "not_defined".
+        7. abuse_protection_details — текст о механизмах защиты.
+        8. relatives_access_status — "defined" если право родственников навещать прямо указано, иначе "not_defined".
+        9. care_quality_control_status — "defined" если контроль качества ухода прямо указан, иначе "not_defined".
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не оценивай кабальность самостоятельно.
+        - Фиксируй только прямые защитные формулировки.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "voluntariness_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если добровольность прямо подтверждена. Иначе 'not_defined'."
+          description: "Статус подтверждения добровольности заключения договора."
+        - name: "voluntariness_details"
+          type: "string"
+          presentation: "fact"
+          label: "Добровольность и осознание последствий"
+          description: "Текст о добровольности заключения договора и осознании его последствий."
+        - name: "notary_explanation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус упоминания разъяснений нотариуса."
+        - name: "independent_valuation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус упоминания независимой оценки имущества."
+        - name: "pressure_absence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус подтверждения отсутствия давления или принуждения."
         - name: "abuse_protection_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если механизмы защиты прямо определены. Иначе 'not_defined'."
+          description: "Статус наличия механизмов защиты получателя ренты."
+        - name: "abuse_protection_details"
+          type: "string"
+          presentation: "fact"
+          label: "Механизмы защиты получателя"
+          description: "Текст о механизмах защиты получателя ренты."
         - name: "relatives_access_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право родственников навещать прямо определено. Иначе 'not_defined'."
+          description: "Статус наличия права родственников навещать получателя."
+        - name: "care_quality_control_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия механизма контроля качества ухода."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 10: Запрет распоряжения имуществом
+  # CHECK 13: Запрет распоряжения имуществом
   # ──────────────────────────────────────────────────────────────────────────
   - id: alienation_restriction_compliance_check
     name: "ДПСИ: запрет распоряжения имуществом без согласия получателя (ст. 604 ГК РФ)"
@@ -2106,14 +3216,37 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "запрет отчуждения не вправе отчуждать без предварительного согласия получателя распоряжение имуществом запрет залога запрет обременения ст. 604 ГК РФ ограничение права распоряжения запрет сдачи в аренду согласие получателя ренты"
+      preferred_unit_types:
+        - liability_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - limitations
+        - obligations
+      negative_keywords:
+        - "залог в силу закона"
+        - "обременение рентой"
+        - "обеспечение выплаты ренты"
+        - "банковская гарантия"
+        - "поручительство"
+        - "выкуп ренты"
+        - "расторжение"
+        - "страхование"
+        - "добровольность"
+        - "кабальная сделка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.45, 0.95]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "запрет отчуждения"
-        - "согласие получателя ренты"
-        - "ст. 604 ГК"
-        - "распоряжение имуществом"
-        - "запрет залога"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2127,23 +3260,84 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ДПСИ ограничения
+        на распоряжение имуществом: отчуждение, залог, аренду, согласие получателя
+        и последствия нарушения.
+        Не анализируй размер содержания, выкуп, страхование или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. alienation_restriction_status — "defined" если ограничение распоряжения прямо указано, иначе "not_defined".
+        2. restriction_scope — "full_ban" / "consent_required" / "limited" / "not_defined".
+        3. pledge_ban_status — "defined" если запрет залога прямо указан, иначе "not_defined".
+        4. lease_ban_status — "defined" если запрет аренды или аналогичного обременения прямо указан, иначе "not_defined".
+        5. consent_procedure_status — "defined" если процедура получения согласия указана, иначе "not_defined".
+        6. consent_procedure_details — текст процедуры получения согласия.
+        7. violation_consequence_status — "defined" если последствия нарушения указаны, иначе "not_defined".
+        8. violation_consequence_details — текст о последствиях нарушения ограничения.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не выводи диспозитивные нормы закона.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "alienation_restriction_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если запрет на распоряжение прямо определён. Иначе 'not_defined'."
+          description: "Статус наличия ограничения на распоряжение имуществом."
         - name: "restriction_scope"
           type: "string"
+          presentation: "signal"
           allowed_values: ["full_ban", "consent_required", "limited", "not_defined"]
-          description: "Объём ограничения."
+          description: "Объём ограничения распоряжения имуществом."
+        - name: "pledge_ban_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус прямого запрета залога имущества."
+        - name: "lease_ban_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус прямого запрета аренды или иного обременения имущества."
         - name: "consent_procedure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если процедура получения согласия прямо определена. Иначе 'not_defined'."
+          description: "Статус определения процедуры получения согласия получателя ренты."
+        - name: "consent_procedure_details"
+          type: "string"
+          presentation: "fact"
+          label: "Порядок получения согласия"
+          description: "Текст о порядке получения согласия получателя ренты на распоряжение имуществом."
+        - name: "violation_consequence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения последствий нарушения ограничения распоряжения."
+        - name: "violation_consequence_details"
+          type: "string"
+          presentation: "fact"
+          label: "Последствия нарушения ограничения"
+          description: "Текст о последствиях нарушения запрета или ограничения распоряжения имуществом."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 11: Характер передачи и преемственность обязательств
+  # CHECK 14: Характер передачи и преемственность обязательств
   # ──────────────────────────────────────────────────────────────────────────
   - id: paid_vs_free_transfer_and_succession
     name: "Характер передачи имущества и преемственность обязательств (ст. 585, 586 ГК РФ)"
@@ -2223,17 +3417,37 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_query: "за плату бесплатно безвозмездно правила купли-продажи правила дарения оплата при передаче без оплаты переход обязательств новый собственник приобретатель имущества субсидиарная ответственность солидарная ответственность ст. 586 ГК РФ обязательства переходят"
+      preferred_unit_types:
+        - obligation
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "размер ренты"
+        - "ежемесячная выплата"
+        - "прожиточный минимум"
+        - "индексация"
+        - "залог в силу закона"
+        - "обременение рентой"
+        - "выкуп ренты"
+        - "расторжение"
+        - "страхование"
+        - "запрет отчуждения"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.80]
+        boost: 0.12
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "за плату"
-        - "бесплатно"
-        - "правила купли-продажи"
-        - "переход обязательств"
-        - "субсидиарная ответственность"
-        - "солидарная ответственность"
-        - "ст. 585 ГК"
-        - "ст. 586 ГК"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2247,141 +3461,86 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 490
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора ренты характер передачи
+        имущества (за плату или бесплатно) и условия перехода рентных обязательств
+        к новому собственнику.
+        Не анализируй размер ренты, страхование, выкуп или споры.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. transfer_type_status — "defined" если характер передачи указан, иначе "not_defined".
+        2. transfer_type — "paid" / "free" / "not_defined".
+        3. transfer_price_status — "defined" если цена при возмездной передаче указана, иначе "not_defined".
+        4. transfer_price — цена передачи имущества.
+        5. succession_clause_status — "defined" если переход рентных обязательств к новому собственнику указан, иначе "not_defined".
+        6. succession_clause_details — текст о переходе обязательств.
+        7. liability_type_status — "defined" если вид ответственности прежнего плательщика указан, иначе "not_defined".
+        8. liability_type — "subsidiary" / "solidary" / "not_defined".
+        9. notification_procedure_status — "defined" если порядок уведомления получателя о смене плательщика указан, иначе "not_defined".
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не смешивай paid/free transfer с rent payment amount.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "transfer_type_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если характер передачи прямо определён. Иначе 'not_defined'."
+          description: "Статус определения характера передачи имущества."
         - name: "transfer_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["paid", "free", "not_defined"]
-          description: "Характер передачи имущества."
+          description: "Передача имущества за плату или бесплатно."
+        - name: "transfer_price_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения цены при возмездной передаче имущества."
+        - name: "transfer_price"
+          type: "string"
+          presentation: "fact"
+          label: "Цена передачи имущества"
+          description: "Цена передачи имущества, если оно передаётся за плату."
         - name: "succession_clause_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если преемственность обязательств прямо определена. Иначе 'not_defined'."
+          description: "Статус наличия условия о переходе рентных обязательств к новому собственнику."
+        - name: "succession_clause_details"
+          type: "string"
+          presentation: "fact"
+          label: "Переход рентных обязательств"
+          description: "Текст о переходе рентных обязательств к новому собственнику имущества."
+        - name: "liability_type_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения вида ответственности прежнего плательщика."
         - name: "liability_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["subsidiary", "solidary", "not_defined"]
-          description: "Тип ответственности прежнего плательщика."
-      store_payload: true
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 12: Споры, конфиденциальность и применимое право
-  # ──────────────────────────────────────────────────────────────────────────
-  - id: termination_liability_and_disputes
-    name: "Споры, конфиденциальность и применимое право"
-    description: >
-      Фактографическая проверка наличия блока завершающих условий: подсудность,
-      претензионный порядок, конфиденциальность и применимое право.
-    triggers: {}
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "подсудность"
-        - "арбитражный суд"
-        - "суд общей юрисдикции"
-        - "претензионный порядок"
-        - "досудебный порядок"
-        - "конфиденциальность"
-        - "неразглашение"
-        - "не раскрывать третьим лицам"
-        - "применимое право"
-        - "законодательство Российской Федерации"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)арбитражн(ый|ого)\\s+суд"
-        - "(?i)претензионн(ый|ого)\\s+поряд"
-        - "(?i)конфиденциал"
-        - "(?i)не\\s+разглаш"
-        - "(?i)применим(ое|ого)\\s+прав"
-    llm:
-      prompt_template: |
-        [КОНТЕКСТ]
-        Ты — российский юрист по договорной работе.
-        Анализируется договор ренты (гл. 33 ГК РФ).
-        Проверяется наличие завершающих условий договора.
-
-        [ЗАДАЧА]
-        Найди в тексте договора:
-        1. Претензионный порядок (срок направления и рассмотрения).
-        2. Подсудность (какой суд).
-        3. Условия конфиденциальности.
-        4. Применимое право.
-
-        [ПРАВИЛА]
-        1. Только текст документа. Если нет — "not_defined".
-        2. В evidence — только текст договора.
-        3. Верни только один JSON-объект.
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Указан ли конкретный суд?
-        2. Есть ли срок претензии числом?
-        3. Упомянута ли конфиденциальность?
-        4. Указано ли применимое право?
-
-        Не выводи шаги проверки. Верни только JSON.
-
-        [ФОРМАТ ОТВЕТА]
-        {
-          "pretrial_status": "<defined / not_defined>",
-          "pretrial_deadline_status": "<defined / not_defined>",
-          "pretrial_deadline": "<срок или 'Данные не определены'>",
-          "jurisdiction_status": "<defined / not_defined>",
-          "jurisdiction_details": "<суд или 'Данные не определены'>",
-          "confidentiality_status": "<defined / not_defined>",
-          "governing_law_status": "<defined / not_defined>",
-          "governing_law": "<RU / foreign / not_defined>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
-        }
-      context_k: 5
-      temperature: 0.0
-      max_tokens: 600
-    retrieval:
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "подсудность"
-        - "арбитражный суд"
-        - "претензионный порядок"
-        - "конфиденциальность"
-        - "применимое право"
-      rerank: true
-    enrichment_hints:
-      preferred_clause_functions:
-        - "procedures"
-        - "boilerplate"
-        - "limitations"
-      confidence_bonus_on_match: 0.06
-    evidence:
-      required: true
-      min_snippet_length: 30
-      max_snippet_length: 550
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "pretrial_status"
+          description: "Вид ответственности прежнего плательщика ренты."
+        - name: "notification_procedure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если претензионный порядок прямо определён. Иначе 'not_defined'."
-        - name: "jurisdiction_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если подсудность прямо определена. Иначе 'not_defined'."
-        - name: "jurisdiction_details"
-          type: "string"
-          description: "Суд. Если нет — строго 'Данные не определены'."
-        - name: "confidentiality_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если конфиденциальность прямо определена. Иначе 'not_defined'."
-        - name: "governing_law"
-          type: "string"
-          allowed_values: ["RU", "foreign", "not_defined"]
-          description: "Применимое право."
+          description: "Статус определения порядка уведомления получателя ренты о смене плательщика."
       store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -509,13 +509,13 @@ compliance_rules: []
 checks_v8:
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 1: Стороны договора — реквизиты и полномочия
+  # CHECK 1: Стороны договора и полномочия
   # ──────────────────────────────────────────────────────────────────────────
-  - id: parties_subject_price_cluster
-    name: "Стороны договора: идентификация поставщика и покупателя"
+  - id: parties_and_authority_cluster
+    name: "Стороны договора и полномочия подписантов"
     description: >
-      Фактографическая проверка наличия в договоре данных о поставщике и покупателе,
-      их реквизитах, подписантах и документах, подтверждающих полномочия.
+      Фактографическая проверка наличия реквизитов поставщика и покупателя,
+      а также полномочий подписантов.
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
@@ -529,28 +529,11 @@ checks_v8:
         - "ОГРНИП"
         - "в лице"
         - "действующего на основании"
-        - "товар"
-        - "наименование"
-        - "ассортимент"
-        - "номенклатура"
-        - "количество"
-        - "спецификация"
-        - "приложение"
-        - "цена"
-        - "стоимость"
-        - "за единицу"
-        - "за партию"
-        - "рублей"
-        - "индексация цены"
-        - "изменение цены"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)(поставщик|покупатель).*в\\s+лице"
         - "(?i)ИНН\\s*\\d{10,12}"
-        - "(?i)товар.*наименован"
-        - "(?i)количеств.*\\d+"
-        - "(?i)цен[аеуой].*?\\d"
-        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+        - "(?i)ОГРН\\s*\\d{13,15}"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -572,11 +555,6 @@ checks_v8:
         1. Кто указан как Поставщик (наименование и реквизиты).
         2. Кто указан как Покупатель (наименование и реквизиты).
         3. Кто подписывает договор от каждой стороны и на каком основании.
-        4. Определён ли предмет договора (наименование товара).
-        5. Определено ли количество товара или порядок его определения.
-        6. Определена ли цена товара или механизм её определения.
-        7. Указан ли НДС (включён или нет).
-        8. Предусмотрен ли механизм изменения цены.
 
         [ПРАВИЛА]
         1. Используй только текст документа.
@@ -598,8 +576,6 @@ checks_v8:
         Покупатель: АО «Бета», ИНН 7700000001, ОГРН 1027700000001, в лице
         Коммерческого директора Петрова А.А., действующего на основании
         Доверенности № 5 от 01.01.2026.
-        Предмет: металлические трубы ГОСТ 8731-74 в количестве 500 тонн.
-        Цена: 85 000 рублей за тонну, в том числе НДС 20%."
 
         Ответ:
         {
@@ -611,14 +587,6 @@ checks_v8:
           "buyer_details": "АО «Бета», ИНН 7700000001, ОГРН 1027700000001",
           "buyer_signatory": "Коммерческий директор Петров А.А.",
           "buyer_signatory_basis": "poa",
-          "subject_status": "defined",
-          "subject_details": "металлические трубы ГОСТ 8731-74",
-          "quantity_status": "defined",
-          "quantity_details": "500 тонн",
-          "price_status": "defined",
-          "price_details": "85 000 рублей за тонну",
-          "vat_status": "defined",
-          "price_change_mechanism_status": "not_defined",
           "evidence": [
             {
               "clause_ref": "преамбула",
@@ -642,14 +610,6 @@ checks_v8:
           "buyer_details": "Данные не определены",
           "buyer_signatory": "Данные не определены",
           "buyer_signatory_basis": "not_defined",
-          "subject_status": "not_defined",
-          "subject_details": "Данные не определены",
-          "quantity_status": "not_defined",
-          "quantity_details": "Данные не определены",
-          "price_status": "not_defined",
-          "price_details": "Данные не определены",
-          "vat_status": "not_defined",
-          "price_change_mechanism_status": "not_defined",
           "evidence": []
         }
 
@@ -658,12 +618,7 @@ checks_v8:
         1. Есть ли прямая цитата с наименованием и ИНН/ОГРН поставщика?
         2. Есть ли прямая цитата с наименованием и ИНН/ОГРН покупателя?
         3. Указан ли конкретный подписант и документ, на основании которого он действует?
-        4. Есть ли наименование конкретного товара (не просто "товар")?
-        5. Указано ли количество числом с единицей измерения?
-        6. Указана ли цена конкретной суммой или формулой?
-        7. Указано ли, включает ли цена НДС или нет?
-        8. Если чего-то нет — "not_defined" и "Данные не определены".
-        9. Убедись, что evidence содержит только текст договора.
+        4. Убедись, что evidence содержит только текст договора.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -678,6 +633,227 @@ checks_v8:
           "buyer_details": "<реквизиты или 'Данные не определены'>",
           "buyer_signatory": "<ФИО и должность или 'Данные не определены'>",
           "buyer_signatory_basis": "<charter / poa / order / other / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      retrieval_query: "поставщик покупатель стороны договора ИНН ОГРН ОГРНИП в лице действующего на основании устава доверенности реквизиты подписант представитель полномочия"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - boilerplate
+      negative_keywords:
+        - "предмет договора"
+        - "наименование товара"
+        - "количество"
+        - "цена"
+        - "срок поставки"
+        - "качество"
+        - "гарантия"
+        - "неустойка"
+        - "расторжение"
+        - "форс-мажор"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.25
+        scope: segment
+      context_k: 5
+      max_chunks: 8
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 480
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора сведения о сторонах и полномочиях.
+        Не анализируй предмет, цену или поставку.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+        1. supplier_details_status
+        2. supplier_details
+        3. supplier_signatory
+        4. supplier_signatory_basis
+        5. buyer_details_status
+        6. buyer_details
+        7. buyer_signatory
+        8. buyer_signatory_basis
+
+        Если нет — "not_defined" и "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не делай предположений.
+        - Верни JSON.
+        </rules>
+      fields:
+        - name: "supplier_details_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+        - name: "supplier_details"
+          type: "string"
+          presentation: "fact"
+          label: "Поставщик"
+        - name: "supplier_signatory"
+          type: "string"
+          presentation: "fact"
+          label: "Подписант поставщика"
+        - name: "supplier_signatory_basis"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["charter", "poa", "order", "other", "not_defined"]
+        - name: "buyer_details_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+        - name: "buyer_details"
+          type: "string"
+          presentation: "fact"
+          label: "Покупатель"
+        - name: "buyer_signatory"
+          type: "string"
+          presentation: "fact"
+          label: "Подписант покупателя"
+        - name: "buyer_signatory_basis"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["charter", "poa", "order", "other", "not_defined"]
+      store_payload: true
+
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 2: Предмет, количество и цена
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: subject_quantity_price_cluster
+    name: "Предмет договора, количество и цена"
+    description: >
+      Фактографическая проверка наличия предмета поставки, количества,
+      цены, НДС и механизма изменения цены.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "предмет договора"
+        - "наименование товара"
+        - "ассортимент"
+        - "номенклатура"
+        - "количество"
+        - "спецификация"
+        - "цена"
+        - "стоимость"
+        - "НДС"
+        - "индексация"
+        - "изменение цены"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поставки товаров между предпринимателями по § 3 Главы 30 ГК РФ.
+        Проверяется только один вопрос: идентификация сторон, реквизиты, подписанты
+        и основные параметры сделки — предмет, количество, цена.
+
+        Нормативный ориентир:
+        - ст. 432, 455, 485, 506 ГК РФ
+
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Твоя задача — только установить, что прямо есть в тексте договора, а чего прямо нет.
+        - Юрист будет использовать результат в сравнительной таблице по нескольким договорам.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Определён ли предмет договора (наименование товара).
+        2. Определено ли количество товара или порядок его определения.
+        3. Определена ли цена товара или механизм её определения.
+        4. Указан ли НДС (включён или нет).
+        5. Предусмотрен ли механизм изменения цены.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Не оценивай, хороший договор или плохой.
+        4. Если данные не указаны прямо — возвращай "not_defined" или строго
+           "Данные не определены".
+        5. Не используй "None", "null", "not_specified" или пустые строки.
+        6. В evidence включай только цитаты из договора.
+        7. Не цитируй закон в evidence.
+        8. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        Предмет: металлические трубы ГОСТ 8731-74 в количестве 500 тонн.
+        Цена: 85 000 рублей за тонну, в том числе НДС 20%."
+
+        Ответ:
+        {
+          "subject_status": "defined",
+          "subject_details": "металлические трубы ГОСТ 8731-74",
+          "quantity_status": "defined",
+          "quantity_details": "500 тонн",
+          "price_status": "defined",
+          "price_details": "85 000 рублей за тонну",
+          "vat_status": "defined",
+          "price_change_mechanism_status": "not_defined"
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Стороны договорились о поставке товара на условиях, которые будут
+        согласованы дополнительно."
+
+        Ответ:
+        {
+          "subject_status": "not_defined",
+          "subject_details": "Данные не определены",
+          "quantity_status": "not_defined",
+          "quantity_details": "Данные не определены",
+          "price_status": "not_defined",
+          "price_details": "Данные не определены",
+          "vat_status": "not_defined",
+          "price_change_mechanism_status": "not_defined"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Перед ответом внутренне проверь:
+        1. Есть ли наименование конкретного товара (не просто "товар")?
+        2. Указано ли количество числом с единицей измерения?
+        3. Указана ли цена конкретной суммой или формулой?
+        4. Указано ли, включает ли цена НДС или нет?
+        5. Если чего-то нет — "not_defined" и "Данные не определены".
+        6. Убедись, что evidence содержит только текст договора.
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
           "subject_status": "<defined / not_defined>",
           "subject_details": "<наименование товара или 'Данные не определены'>",
           "quantity_status": "<defined / not_defined>",
@@ -688,29 +864,45 @@ checks_v8:
           "price_change_mechanism_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 7
+      context_k: 6
       temperature: 0.0
-      max_tokens: 800
+      max_tokens: 500
     retrieval:
-      context_k: 7
-      max_chunks: 10
-      boost_keywords:
-        - "поставщик"
-        - "покупатель"
+      retrieval_query: "предмет договора наименование товара ассортимент номенклатура количество спецификация цена стоимость НДС индексация изменение цены единица измерения тонна штука партия"
+      preferred_unit_types:
+        - payment_term
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "поставщик в лице"
+        - "покупатель в лице"
         - "ИНН"
         - "ОГРН"
-        - "предмет договора"
-        - "наименование товара"
-        - "спецификация"
-        - "цена"
-        - "НДС"
-        - "индексация"
+        - "срок поставки"
+        - "график поставок"
+        - "приемка"
+        - "качество"
+        - "гарантия"
+        - "неустойка"
+        - "расторжение"
+        - "форс-мажор"
+        - "уступка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.05, 0.50]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 10
       rerank: true
-    enrichment_hints:
-      preferred_clause_functions:
-        - "definitions"
-        - "obligations"
-      confidence_bonus_on_match: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -718,68 +910,73 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки сведения о предмете поставки, количестве и цене.
+        Не анализируй ответственность или поставку.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+        1. subject_status
+        2. subject_details
+        3. quantity_status
+        4. quantity_details
+        5. price_status
+        6. price_details
+        7. vat_status
+        8. price_change_mechanism_status
+
+        Если нет — "not_defined" и "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не делай предположений.
+        - Верни JSON.
+        </rules>
       fields:
-        - name: "supplier_details_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо определён Поставщик и его реквизиты. Иначе 'not_defined'."
-        - name: "supplier_details"
-          type: "string"
-          description: "Реквизиты Поставщика. Если нет — строго 'Данные не определены'."
-        - name: "supplier_signatory"
-          type: "string"
-          description: "Подписант от Поставщика. Если нет — строго 'Данные не определены'."
-        - name: "supplier_signatory_basis"
-          type: "string"
-          allowed_values: ["charter", "poa", "order", "other", "not_defined"]
-          description: "Основание полномочий подписанта Поставщика."
-        - name: "buyer_details_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо определён Покупатель и его реквизиты. Иначе 'not_defined'."
-        - name: "buyer_details"
-          type: "string"
-          description: "Реквизиты Покупателя. Если нет — строго 'Данные не определены'."
-        - name: "buyer_signatory"
-          type: "string"
-          description: "Подписант от Покупателя. Если нет — строго 'Данные не определены'."
-        - name: "buyer_signatory_basis"
-          type: "string"
-          allowed_values: ["charter", "poa", "order", "other", "not_defined"]
-          description: "Основание полномочий подписанта Покупателя."
         - name: "subject_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если предмет (товар) прямо определён. Иначе 'not_defined'."
         - name: "subject_details"
           type: "string"
-          description: "Наименование товара. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Предмет поставки"
         - name: "quantity_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если количество прямо определено. Иначе 'not_defined'."
         - name: "quantity_details"
           type: "string"
-          description: "Количество с единицей измерения. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Количество"
         - name: "price_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если цена прямо определена. Иначе 'not_defined'."
         - name: "price_details"
           type: "string"
-          description: "Цена за единицу или партию. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Цена"
         - name: "vat_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре прямо указано включение/невключение НДС. Иначе 'not_defined'."
         - name: "price_change_mechanism_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если в договоре предусмотрен механизм изменения цены. Иначе 'not_defined'."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 2: Срок и график поставок, недопоставка
+  # CHECK 3: Срок и график поставок, недопоставка
   # ──────────────────────────────────────────────────────────────────────────
   - id: delivery_schedule_extraction
     name: "Срок, график поставок, недопоставка и восполнение"
@@ -934,17 +1131,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "срок поставки дата поставки график поставок не позднее в течение партиями ежемесячно ежеквартально период поставки спецификация заявка восполнение недопоставки допоставка недопоставленный товар в следующем периоде замена наименования без согласия покупателя номенклатура ассортимент"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "оплата"
+        - "предоплата"
+        - "срок оплаты"
+        - "приемка товара"
+        - "проверка качества"
+        - "акт приемки"
+        - "ответственное хранение"
+        - "гарантийный срок"
+        - "рекламация"
+        - "неустойка"
+        - "расторжение"
+        - "ИНН"
+        - "ОГРН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.10, 0.60]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 10
-      boost_keywords:
-        - "срок поставки"
-        - "график поставок"
-        - "партия"
-        - "заявка"
-        - "спецификация"
-        - "недопоставка"
-        - "восполнение"
-        - "ассортимент"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -958,47 +1177,89 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 560
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора сведения о сроках и графике поставок.
+        Анализируй только поставку, график, недопоставку и замену ассортимента.
+        Не анализируй цену или ответственность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+
+        1. delivery_term_status — "defined" если срок поставки прямо определён.
+        2. delivery_term_details — конкретный срок (дата или период).
+        3. delivery_schedule_type — fixed_dates / periodic / upon_request / not_defined.
+        4. periodicity — ежемесячно / ежеквартально / еженедельно / ежедневно / not_defined.
+        5. batch_size_status — "defined" если размер партии указан.
+        6. batch_size_details — размер партии.
+        7. shortfall_replenishment_status — "defined" если прямо предусмотрено восполнение недопоставки.
+        8. shortfall_replenishment_details — формулировка о восполнении.
+        9. assortment_substitution_status — "defined" если предусмотрена замена ассортимента.
+        10. assortment_substitution_details — условия замены.
+
+        Если условие отсутствует:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Срок должен быть конкретным (дата, количество дней, период).
+        - Не подменяй отсутствие условия диспозитивными нормами ГК.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "delivery_term_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок поставки прямо определён. Иначе 'not_defined'."
         - name: "delivery_term_details"
           type: "string"
-          description: "Срок поставки. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок поставки"
         - name: "delivery_schedule_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["fixed_dates", "periodic", "upon_request", "not_defined"]
-          description: "Тип графика поставок."
         - name: "periodicity"
           type: "string"
+          presentation: "signal"
           allowed_values: ["ежемесячно", "ежеквартально", "еженедельно", "ежедневно", "not_defined"]
-          description: "Периодичность поставок."
         - name: "batch_size_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если размер партии прямо определён. Иначе 'not_defined'."
         - name: "batch_size_details"
           type: "string"
-          description: "Размер партии. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Размер партии"
         - name: "shortfall_replenishment_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие о восполнении недопоставки прямо определено. Иначе 'not_defined'."
         - name: "shortfall_replenishment_details"
           type: "string"
-          description: "Условие о восполнении. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Восполнение недопоставки"
         - name: "assortment_substitution_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок замены ассортимента прямо определён. Иначе 'not_defined'."
         - name: "assortment_substitution_details"
           type: "string"
-          description: "Условие о замене ассортимента. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Замена ассортимента"
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 3: Оплата, переход права собственности и риска
+  # CHECK 4: Оплата, переход права собственности и риска
   # ──────────────────────────────────────────────────────────────────────────
   - id: payment_transfer_of_risk_cluster
     name: "Оплата, переход права собственности и риска случайной гибели"
@@ -1150,17 +1411,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "оплата предоплата постоплата отсрочка платежа аккредитив банковские реквизиты риск случайной гибели риск случайного повреждения переходит с момента несет риск право собственности сохраняется до полной оплаты переходит после оплаты собственность поставщика"
+      preferred_unit_types:
+        - payment_term
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "неустойка"
+        - "пеня"
+        - "штраф"
+        - "за каждый день просрочки"
+        - "расторжение"
+        - "форс-мажор"
+        - "приемка"
+        - "качество"
+        - "гарантия"
+        - "ИНН"
+        - "ОГРН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.70]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 10
-      boost_keywords:
-        - "оплата"
-        - "предоплата"
-        - "постоплата"
-        - "аккредитив"
-        - "риск случайной гибели"
-        - "право собственности"
-        - "retention of title"
-        - "до полной оплаты"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1174,56 +1456,101 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 580
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора сведения об оплате,
+        переходе риска и переходе права собственности.
+        Анализируй только эти темы.
+        Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+
+        1. payment_method_status — "defined" если форма оплаты прямо определена.
+        2. payment_method — prepayment / postpayment / installments / letter_of_credit / not_defined.
+        3. payment_deadline_status — "defined" если срок оплаты прямо определён.
+        4. payment_deadline_details — конкретный срок оплаты.
+        5. risk_transfer_status — "defined" если момент перехода риска прямо указан.
+        6. risk_transfer_moment — upon_delivery / upon_carrier / upon_payment / upon_act / custom / not_defined.
+        7. risk_transfer_details — формулировка о переходе риска.
+        8. title_transfer_status — "defined" если момент перехода права собственности указан.
+        9. title_transfer_moment — upon_delivery / upon_carrier / upon_payment / upon_act / custom / not_defined.
+        10. title_transfer_details — формулировка о переходе права собственности.
+        11. retention_of_title_status — yes / no / not_defined.
+        12. title_risk_alignment — same / different / not_defined.
+
+        Если условие отсутствует:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не подставляй нормы закона.
+        - Момент "подписание акта" = upon_act.
+        - Если оба момента совпадают — alignment = "same".
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "payment_method_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если форма оплаты прямо определена. Иначе 'not_defined'."
         - name: "payment_method"
           type: "string"
+          presentation: "signal"
           allowed_values: ["prepayment", "postpayment", "installments", "letter_of_credit", "not_defined"]
-          description: "Форма оплаты."
         - name: "payment_deadline_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок оплаты прямо определён. Иначе 'not_defined'."
         - name: "payment_deadline_details"
           type: "string"
-          description: "Срок оплаты. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок оплаты"
         - name: "risk_transfer_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если момент перехода риска прямо определён. Иначе 'not_defined'."
         - name: "risk_transfer_moment"
           type: "string"
+          presentation: "signal"
           allowed_values: ["upon_delivery", "upon_carrier", "upon_payment", "upon_act", "custom", "not_defined"]
-          description: "Момент перехода риска."
         - name: "risk_transfer_details"
           type: "string"
-          description: "Формулировка о переходе риска. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Переход риска"
         - name: "title_transfer_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если момент перехода права собственности прямо определён. Иначе 'not_defined'."
         - name: "title_transfer_moment"
           type: "string"
+          presentation: "signal"
           allowed_values: ["upon_delivery", "upon_carrier", "upon_payment", "upon_act", "custom", "not_defined"]
-          description: "Момент перехода права собственности."
         - name: "title_transfer_details"
           type: "string"
-          description: "Формулировка о переходе права. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Переход права собственности"
         - name: "retention_of_title_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Верни 'yes', если прямо указано retention of title. 'no' если прямо исключено. Иначе 'not_defined'."
         - name: "title_risk_alignment"
           type: "string"
+          presentation: "signal"
           allowed_values: ["same", "different", "not_defined"]
-          description: "Совпадают ли моменты перехода права и риска."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 4: Процедура приёмки и ответственное хранение
+  # CHECK 5: Процедура приёмки и ответственное хранение
   # ──────────────────────────────────────────────────────────────────────────
   - id: acceptance_procedure_extraction
     name: "Процедура приёмки товара и ответственное хранение"
@@ -1369,15 +1696,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "приемка товара проверка качества проверка количества претензия при приемке в течение рабочих дней срок для заявления акт приемки акт осмотра ответственное хранение принятие на хранение отказ от приёмки уведомить поставщика обеспечить сохранность расходы на хранение"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "гарантийный срок"
+        - "рекламация"
+        - "претензия по качеству после приемки"
+        - "замена товара"
+        - "замещающая покупка"
+        - "Инструкция П-7"
+        - "скрытые недостатки"
+        - "неустойка"
+        - "расторжение"
+        - "срок поставки"
+        - "оплата"
+        - "ИНН"
+        - "ОГРН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.70]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 10
-      boost_keywords:
-        - "приемка товара"
-        - "проверка качества"
-        - "претензия"
-        - "акт приемки"
-        - "ответственное хранение"
-        - "отказ от приёмки"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1391,47 +1742,91 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора сведения о процедуре приёмки товара и ответственном хранении.
+        Анализируй только приёмку, уведомление о недостатках и хранение.
+        Не анализируй цену, поставку или ответственность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+
+        1. quantity_check_period_status — "defined" если срок проверки количества указан.
+        2. quantity_check_period_details — конкретный срок проверки количества.
+        3. quality_check_period_status — "defined" если срок проверки качества указан.
+        4. quality_check_period_details — конкретный срок проверки качества.
+        5. acceptance_document_status — "defined" если указан документ приёмки.
+        6. acceptance_document_details — название документа (акт, накладная и т.п.).
+        7. claim_notification_period_status — "defined" если срок уведомления о недостатках указан.
+        8. claim_notification_period_details — конкретный срок уведомления.
+        9. responsible_storage_status — "defined" если предусмотрено ответственное хранение.
+        10. storage_cost_allocation — supplier / buyer / at_fault_party / not_defined.
+
+        Если условие отсутствует:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Срок должен быть числовым (дни, рабочие дни и т.п.).
+        - Если расходы на хранение прямо возложены на сторону — выбери supplier или buyer.
+        - Если расходы зависят от вины — выбери at_fault_party.
+        - Не подставляй нормы ГК вместо отсутствующих условий.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "quantity_check_period_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок проверки количества прямо определён. Иначе 'not_defined'."
         - name: "quantity_check_period_details"
           type: "string"
-          description: "Срок проверки количества. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок проверки количества"
         - name: "quality_check_period_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок проверки качества прямо определён. Иначе 'not_defined'."
         - name: "quality_check_period_details"
           type: "string"
-          description: "Срок проверки качества. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок проверки качества"
         - name: "acceptance_document_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если передаточный документ прямо определён. Иначе 'not_defined'."
         - name: "acceptance_document_details"
           type: "string"
-          description: "Тип документа приёмки. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Документ приёмки"
         - name: "claim_notification_period_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок уведомления о недостатках прямо определён. Иначе 'not_defined'."
         - name: "claim_notification_period_details"
           type: "string"
-          description: "Срок уведомления. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок уведомления о недостатках"
         - name: "responsible_storage_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие об ответственном хранении прямо определено. Иначе 'not_defined'."
         - name: "storage_cost_allocation"
           type: "string"
+          presentation: "signal"
           allowed_values: ["supplier", "buyer", "at_fault_party", "not_defined"]
-          description: "Кто несёт расходы на хранение. Если не указано — 'not_defined'."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 5: Качество, гарантия и процедура рекламации
+  # CHECK 6: Качество, гарантия и процедура рекламации
   # ──────────────────────────────────────────────────────────────────────────
   - id: quality_claims_and_rejection_check
     name: "Качество, гарантия, рекламация и замещающая покупка"
@@ -1591,16 +1986,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "гарантия гарантийный срок качество товара свободен от недостатков рекламация претензия по качеству акт о недостатках замена товара отказ от товара некачественный товар скрытые недостатки Инструкция П-7 уведомление о недостатках срок обнаружения приобрести у третьих лиц покупка у другого поставщика за счёт поставщика замещающая сделка ГОСТ ТУ стандарт качества"
+      preferred_unit_types:
+        - warranty
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - remedies
+        - procedures
+      negative_keywords:
+        - "приемка товара"
+        - "проверка количества при приемке"
+        - "акт приемки при поставке"
+        - "ответственное хранение"
+        - "отказ от приёмки при поставке"
+        - "неустойка"
+        - "расторжение"
+        - "форс-мажор"
+        - "срок поставки"
+        - "оплата"
+        - "ИНН"
+        - "ОГРН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.30, 0.80]
+        boost: 0.15
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "гарантия"
-        - "рекламация"
-        - "претензия по качеству"
-        - "акт о недостатках"
-        - "замещающая покупка"
-        - "замена товара"
-        - "Инструкция П-7"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1615,58 +2033,102 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 580
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора сведения о гарантии, качестве и правах при недостатках товара.
+        Анализируй только эти темы. Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+        1. warranty_status — "defined" если гарантийный срок прямо указан.
+        2. warranty_details — срок и момент начала гарантии.
+        3. quality_standard_status — "defined" если стандарт качества (ГОСТ/ТУ) указан.
+        4. quality_standard_details — наименование стандарта.
+        5. apparent_defects_claim_period_status — "defined" если срок по явным недостаткам указан.
+        6. apparent_defects_claim_period_details — конкретный срок.
+        7. hidden_defects_claim_period_status — "defined" если срок по скрытым недостаткам указан.
+        8. hidden_defects_claim_period_details — конкретный срок.
+        9. defect_act_status — "defined" если форма акта о недостатках прямо определена.
+        10. replacement_right_status — "defined" если право замены товара прямо предусмотрено.
+        11. replacement_right_details — формулировка о праве замены.
+        12. rejection_right_status — "defined" если право отказа от товара прямо предусмотрено.
+        13. cover_purchase_right_status — "defined" если право замещающей покупки у третьих лиц прямо предусмотрено.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не подставляй нормы ГК.
+        - "В соответствии с законодательством" — это not_defined.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "warranty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если гарантийный срок прямо определён. Иначе 'not_defined'."
         - name: "warranty_details"
           type: "string"
-          description: "Гарантийный срок. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Гарантийный срок"
         - name: "quality_standard_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если стандарт качества (ГОСТ/ТУ) прямо определён. Иначе 'not_defined'."
         - name: "quality_standard_details"
           type: "string"
-          description: "Стандарт качества. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Стандарт качества"
         - name: "apparent_defects_claim_period_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок по явным недостаткам прямо определён. Иначе 'not_defined'."
         - name: "apparent_defects_claim_period_details"
           type: "string"
-          description: "Срок по явным недостаткам. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок по явным недостаткам"
         - name: "hidden_defects_claim_period_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок по скрытым недостаткам прямо определён. Иначе 'not_defined'."
         - name: "hidden_defects_claim_period_details"
           type: "string"
-          description: "Срок по скрытым недостаткам. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Срок по скрытым недостаткам"
         - name: "defect_act_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если форма акта о недостатках прямо определена. Иначе 'not_defined'."
         - name: "replacement_right_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право замены товара прямо определено. Иначе 'not_defined'."
         - name: "replacement_right_details"
           type: "string"
-          description: "Условие о замене. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Право замены товара"
         - name: "rejection_right_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право одностороннего отказа прямо определено. Иначе 'not_defined'."
         - name: "cover_purchase_right_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право замещающей покупки прямо определено. Иначе 'not_defined'."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 6: Условия Инкотермс (международные контракты)
+  # CHECK 7: Условия Инкотермс (международные контракты)
   # ──────────────────────────────────────────────────────────────────────────
   - id: incoterms_extraction
     name: "Условия поставки по Инкотермс (международные контракты)"
@@ -1777,15 +2239,35 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_query: "Incoterms Инкотермс FCA FOB CIF EXW DAP DDP базис поставки переход риска именованное место поставки версия 2020 2010 распределение расходов"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - boilerplate
+      negative_keywords:
+        - "неустойка"
+        - "расторжение"
+        - "форс-мажор"
+        - "качество"
+        - "гарантия"
+        - "приемка"
+        - "оплата"
+        - "ИНН"
+        - "ОГРН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 4
       max_chunks: 6
-      boost_keywords:
-        - "Incoterms"
-        - "FCA"
-        - "FOB"
-        - "CIF"
-        - "базис поставки"
-        - "переход риска"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1799,34 +2281,67 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 450
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора условия поставки по Инкотермс.
+        Анализируй только Инкотермс.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+        1. incoterms_status — "defined" если термин Инкотермс прямо указан.
+        2. incoterms_rule — EXW / FCA / FAS / FOB / CFR / CIF / CPT / CIP / DAP / DPU / DDP / not_defined.
+        3. incoterms_version — 2020 / 2010 / not_defined.
+        4. named_place_status — "defined" если именованное место указано.
+        5. named_place — конкретное место.
+        6. cost_allocation_status — "defined" если распределение расходов ясно определено.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Термин только если есть прямая аббревиатура (EXW, FCA и т.п.).
+        - Не выводи термин из описания доставки.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "incoterms_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если термин Инкотермс прямо указан. Иначе 'not_defined'."
         - name: "incoterms_rule"
           type: "string"
+          presentation: "fact"
+          label: "Условие Инкотермс"
           allowed_values: ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP", "not_defined"]
-          description: "Термин Инкотермс."
         - name: "incoterms_version"
           type: "string"
+          presentation: "signal"
           allowed_values: ["2020", "2010", "not_defined"]
-          description: "Версия Инкотермс."
         - name: "named_place_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если именованное место прямо указано. Иначе 'not_defined'."
         - name: "named_place"
           type: "string"
-          description: "Именованное место. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Именованное место"
         - name: "cost_allocation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если распределение расходов ясно определено. Иначе 'not_defined'."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 7: Защита при поставке товаров под заказ
+  # CHECK 8: Защита при поставке товаров под заказ
   # ──────────────────────────────────────────────────────────────────────────
   - id: custom_order_protection_check
     name: "Защита при поставке товаров, изготовленных под заказ"
@@ -1942,14 +2457,38 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "под заказ по спецификации по чертежам нестандартный индивидуальный заказ отказ от товара возмещение затрат изготовлено по заказу спецификация покупателя нестандартные характеристики момент платной отмены начало производства фактически понесённые затраты"
+      preferred_unit_types:
+        - obligation
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - remedies
+      negative_keywords:
+        - "предмет договора стандартный"
+        - "срок поставки"
+        - "график поставок"
+        - "неустойка за просрочку поставки"
+        - "расторжение"
+        - "форс-мажор"
+        - "приемка"
+        - "качество"
+        - "гарантийный срок"
+        - "ИНН"
+        - "ОГРН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.08
+        scope: segment
       context_k: 5
       max_chunks: 6
-      boost_keywords:
-        - "под заказ"
-        - "спецификация"
-        - "отказ от товара"
-        - "возмещение"
-        - "нестандартный"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1963,32 +2502,65 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 450
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора условия защиты поставщика при отказе покупателя от товара под заказ.
+        Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+        1. custom_order_confirmed_status — "defined" если факт изготовления под заказ прямо подтверждён.
+        2. custom_order_confirmed_details — описание индивидуального заказа.
+        3. cancellation_point_status — "defined" если момент платной отмены прямо определён.
+        4. cancellation_point_details — с какого момента отмена платная.
+        5. compensation_for_costs_status — "defined" если возмещение затрат поставщика прямо предусмотрено.
+        6. compensation_for_costs_details — условия возмещения затрат.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не делай предположений.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "custom_order_confirmed_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если изготовление под заказ прямо подтверждено. Иначе 'not_defined'."
         - name: "custom_order_confirmed_details"
           type: "string"
-          description: "Описание индивидуального заказа. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Заказ под спецификацию"
         - name: "cancellation_point_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если момент платной отмены прямо определён. Иначе 'not_defined'."
         - name: "cancellation_point_details"
           type: "string"
-          description: "Момент платной отмены. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Момент платной отмены"
         - name: "compensation_for_costs_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если возмещение затрат поставщика прямо предусмотрено. Иначе 'not_defined'."
         - name: "compensation_for_costs_details"
           type: "string"
-          description: "Условия возмещения затрат. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Возмещение затрат"
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 8: Форс-мажор и санкционная оговорка
+  # CHECK 9: Форс-мажор и санкционная оговорка
   # ──────────────────────────────────────────────────────────────────────────
   - id: force_majeure_extraction
     name: "Форс-мажор и санкционная оговорка"
@@ -2126,16 +2698,40 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "форс-мажор непреодолимая сила обстоятельства непреодолимой силы освобождение от ответственности свидетельство ТПП санкции ограничительные меры подсанкционные лица прекращение поставок эпидемия пандемия запрет на вывоз действия органов власти уведомление о форс-мажоре максимальный срок форс-мажора"
+      preferred_unit_types:
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - limitations
+        - boilerplate
+        - procedures
+      negative_keywords:
+        - "неустойка"
+        - "пеня"
+        - "штраф"
+        - "расторжение по вине"
+        - "существенное нарушение"
+        - "возврат товара при расторжении"
+        - "приемка"
+        - "качество"
+        - "гарантия"
+        - "срок поставки"
+        - "оплата"
+        - "ИНН"
+        - "ОГРН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.50, 1.0]
+        boost: 0.18
+        scope: segment
       context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "форс-мажор"
-        - "непреодолимая сила"
-        - "освобождение от ответственности"
-        - "санкции"
-        - "ограничительные меры"
-        - "уведомление"
-        - "ТПП"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2149,44 +2745,81 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора сведения о форс-мажоре и санкционной оговорке.
+        Анализируй только эту тему. Не оценивай риски.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+        1. force_majeure_status — "defined" если форс-мажорная оговорка есть.
+        2. specific_events_status — "defined" если конкретные события перечислены.
+        3. specific_events_details — список событий.
+        4. notification_procedure_status — "defined" если процедура уведомления указана.
+        5. notification_procedure_details — срок и способ уведомления.
+        6. tpp_certificate_status — "defined" если требование свидетельства ТПП указано.
+        7. max_duration_status — "defined" если максимальный срок форс-мажора указан.
+        8. max_duration_details — конкретный срок.
+        9. sanctions_mentioned_status — "defined" если санкции прямо упомянуты как форс-мажор.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не подставляй нормы ГК.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "force_majeure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если форс-мажорная оговорка прямо присутствует. Иначе 'not_defined'."
         - name: "specific_events_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если конкретные события перечислены. Иначе 'not_defined'."
         - name: "specific_events_details"
           type: "string"
-          description: "Список событий. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "События форс-мажора"
         - name: "notification_procedure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если процедура уведомления прямо определена. Иначе 'not_defined'."
         - name: "notification_procedure_details"
           type: "string"
-          description: "Процедура уведомления. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Процедура уведомления"
         - name: "tpp_certificate_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если требование свидетельства ТПП прямо указано. Иначе 'not_defined'."
         - name: "max_duration_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если максимальный срок форс-мажора прямо определён. Иначе 'not_defined'."
         - name: "max_duration_details"
           type: "string"
-          description: "Максимальный срок. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Максимальный срок форс-мажора"
         - name: "sanctions_mentioned_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если санкции прямо упомянуты как форс-мажор. Иначе 'not_defined'."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 9: Документация, упаковка, маркировка, сертификация
+  # CHECK 10: Документация, упаковка, маркировка, сертификация
   # ──────────────────────────────────────────────────────────────────────────
   - id: documentation_packaging_cluster
     name: "Документация, упаковка, маркировка и сертификация"
@@ -2324,18 +2957,39 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_query: "документы на товар сертификат качества паспорт изделия инструкция по эксплуатации техническая документация упаковка маркировка тара этикетка сохранность товара многооборотная тара возврат тары возвратная тара сертификат соответствия декларация о соответствии ТР ТС маркировка ЕАС выборка товара самовывоз со склада поставщика"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+        - representations
+      negative_keywords:
+        - "акт приемки при поставке"
+        - "проверка количества при приемке"
+        - "ответственное хранение"
+        - "гарантийный срок"
+        - "рекламация"
+        - "претензия по качеству"
+        - "замена товара"
+        - "неустойка"
+        - "расторжение"
+        - "форс-мажор"
+        - "ИНН"
+        - "ОГРН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.75]
+        boost: 0.12
+        scope: segment
       context_k: 6
       max_chunks: 10
-      boost_keywords:
-        - "документы на товар"
-        - "сертификат"
-        - "декларация соответствия"
-        - "ТР ТС"
-        - "упаковка"
-        - "маркировка"
-        - "тара"
-        - "выборка"
-        - "самовывоз"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2350,43 +3004,81 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора сведения о документации, упаковке, сертификации и самовывозе.
+        Не анализируй цену или ответственность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+        1. documents_list_status — "defined" если перечень передаваемых документов прямо указан.
+        2. documents_list_details — конкретный перечень документов.
+        3. packaging_requirements_status — "defined" если требования к упаковке указаны.
+        4. packaging_requirements_details — требования к упаковке и маркировке.
+        5. certification_status — "defined" если требование сертификата/декларации ТР ТС указано.
+        6. certification_details — тип сертификации.
+        7. returnable_packaging_status — "defined" если условие о возврате тары указано.
+        8. returnable_packaging_details — срок и условия возврата тары.
+        9. pickup_condition_status — "defined" если условия самовывоза прямо определены.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не делай предположений.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "documents_list_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если перечень передаваемых документов прямо определён. Иначе 'not_defined'."
         - name: "documents_list_details"
           type: "string"
-          description: "Перечень документов. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Перечень документов"
         - name: "packaging_requirements_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если требования к упаковке прямо определены. Иначе 'not_defined'."
         - name: "packaging_requirements_details"
           type: "string"
-          description: "Требования к упаковке. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Требования к упаковке"
         - name: "certification_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если требование сертификации/декларации прямо определено. Иначе 'not_defined'."
         - name: "certification_details"
           type: "string"
-          description: "Тип сертификации. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Сертификация"
         - name: "returnable_packaging_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие о возврате тары прямо определено. Иначе 'not_defined'."
         - name: "returnable_packaging_details"
           type: "string"
-          description: "Условия возврата тары. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Возврат тары"
         - name: "pickup_condition_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условия самовывоза прямо определены. Иначе 'not_defined'."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 10: Неустойки, ответственность и расторжение
+  # CHECK 11: Неустойки, ответственность и расторжение
   # ──────────────────────────────────────────────────────────────────────────
   - id: liability_termination_cluster
     name: "Неустойки, ответственность и расторжение договора"
@@ -2535,18 +3227,42 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_query: "неустойка за просрочку поставки пеня за несвоевременную поставку штраф за нарушение сроков за каждый день просрочки неустойка за просрочку оплаты пеня за несвоевременную оплату проценты за просрочку проценты по ст. 395 ключевая ставка ЦБ расторжение отказ от договора возврат товара возврат денежных средств существенное нарушение односторонний отказ существенная недопоставка ограничение неустойки cap"
+      preferred_unit_types:
+        - liability_provision
+        - termination_provision
+        - indemnification
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - limitations
+        - procedures
+      negative_keywords:
+        - "форс-мажор"
+        - "непреодолимая сила"
+        - "освобождение от ответственности при форс-мажоре"
+        - "приемка"
+        - "проверка качества"
+        - "ответственное хранение"
+        - "гарантийный срок"
+        - "рекламация"
+        - "срок оплаты"
+        - "предоплата"
+        - "постоплата"
+        - "ИНН"
+        - "ОГРН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.50, 1.0]
+        boost: 0.20
+        scope: segment
       context_k: 7
       max_chunks: 10
-      boost_keywords:
-        - "неустойка"
-        - "пеня"
-        - "просрочка поставки"
-        - "просрочка оплаты"
-        - "проценты ст. 395"
-        - "расторжение"
-        - "односторонний отказ"
-        - "возврат товара"
-        - "убытки"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2561,69 +3277,109 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 600
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора сведения о неустойках, основаниях расторжения и возврате при расторжении.
+        Не анализируй приёмку, качество или форс-мажор.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+        1. delivery_penalty_status — "defined" если неустойка за просрочку поставки указана.
+        2. delivery_penalty_details — ставка и база неустойки за просрочку поставки.
+        3. payment_penalty_status — "defined" если неустойка за просрочку оплаты указана.
+        4. payment_penalty_details — ставка неустойки за просрочку оплаты.
+        5. penalty_cap_status — "defined" если ограничение максимальной неустойки указано.
+        6. penalty_cap_details — максимальный размер неустойки.
+        7. buyer_termination_grounds_status — "defined" если основания расторжения покупателем указаны.
+        8. buyer_termination_grounds_details — конкретные основания.
+        9. supplier_termination_grounds_status — "defined" если основания расторжения поставщиком указаны.
+        10. supplier_termination_grounds_details — конкретные основания.
+        11. goods_return_on_termination_status — "defined" если порядок возврата товара при расторжении указан.
+        12. money_return_on_termination_status — "defined" если порядок возврата денег при расторжении указан.
+
+        Важно: неустойка поставщика и покупателя — разные поля, не смешивай.
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - "В соответствии с законодательством" — это not_defined.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "delivery_penalty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если неустойка за просрочку поставки прямо определена. Иначе 'not_defined'."
         - name: "delivery_penalty_details"
           type: "string"
-          description: "Ставка и база неустойки за просрочку поставки. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Неустойка поставщика"
         - name: "payment_penalty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если неустойка за просрочку оплаты прямо определена. Иначе 'not_defined'."
         - name: "payment_penalty_details"
           type: "string"
-          description: "Ставка неустойки за просрочку оплаты. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Неустойка покупателя"
         - name: "penalty_cap_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ограничение максимальной неустойки прямо определено. Иначе 'not_defined'."
         - name: "penalty_cap_details"
           type: "string"
-          description: "Максимальный размер неустойки. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Максимальный размер неустойки"
         - name: "buyer_termination_grounds_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если основания расторжения Покупателем прямо определены. Иначе 'not_defined'."
         - name: "buyer_termination_grounds_details"
           type: "string"
-          description: "Основания расторжения Покупателем. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Расторжение покупателем"
         - name: "supplier_termination_grounds_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если основания расторжения Поставщиком прямо определены. Иначе 'not_defined'."
         - name: "supplier_termination_grounds_details"
           type: "string"
-          description: "Основания расторжения Поставщиком. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Расторжение поставщиком"
         - name: "goods_return_on_termination_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок возврата товара при расторжении прямо определён. Иначе 'not_defined'."
         - name: "money_return_on_termination_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок возврата денег при расторжении прямо определён. Иначе 'not_defined'."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 11: Конфиденциальность и уступка прав
+  # CHECK 12: Уступка прав
   # ──────────────────────────────────────────────────────────────────────────
-  - id: confidentiality_assignment_cluster
-    name: "Конфиденциальность и уступка прав/перевод долга"
+  - id: assignment_cluster
+    name: "Уступка прав/перевод долга"
     description: >
-      Фактографическая проверка наличия условий о конфиденциальности
-      и ограничений на уступку прав.
+      Фактографическая проверка наличия условий ограничений на уступку прав.
     triggers: {}
     severity: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
       keywords:
-        - "конфиденциальность"
-        - "коммерческая тайна"
-        - "неразглашение"
         - "сведения о сделке"
         - "уступка"
         - "переуступка"
@@ -2632,7 +3388,6 @@ checks_v8:
         - "с согласия другой стороны"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)конфиденциальн(ость|ую|ой)"
         - "(?i)уступк(а|у|и).*прав"
         - "(?i)перевод.*долга"
         - "(?i)без\\s+предварительного\\s+согласия"
@@ -2641,16 +3396,11 @@ checks_v8:
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
         Анализируется договор поставки товаров.
-        Проверяется наличие условий о конфиденциальности и уступке прав.
-
-        Нормативный ориентир:
-        - ст. 382-391, 421 ГК РФ; ФЗ-98
+        Проверяется наличие условий об уступке прав.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Наличие условия о конфиденциальности.
-        2. Срок действия обязательства по конфиденциальности.
-        3. Ограничения на уступку прав (запрет / только с согласия / свободно).
+        1. Ограничения на уступку прав (запрет / только с согласия / свободно).
 
         [ПРАВИЛА]
         1. Только текст документа.
@@ -2663,37 +3413,27 @@ checks_v8:
 
         Пример 1:
         Фрагмент:
-        "Стороны обязуются не разглашать условия настоящего договора и
-        коммерческую информацию третьим лицам в течение 3 лет после его
-        окончания. Уступка прав по договору допускается только с
+        "Уступка прав по договору допускается только с
         письменного согласия другой стороны."
 
         Ответ:
         {
-          "confidentiality_status": "defined",
-          "confidentiality_details": "не разглашать условия договора и коммерческую информацию",
-          "confidentiality_term_status": "defined",
-          "confidentiality_term_details": "3 года после окончания договора",
           "assignment_restriction_status": "defined",
           "assignment_restriction_details": "только с письменного согласия другой стороны",
           "evidence": [
             {
               "clause_ref": "п. 10.1",
-              "quote": "Стороны обязуются не разглашать условия настоящего договора и коммерческую информацию третьим лицам в течение 3 лет после его окончания."
+              "quote": "Стороны обязуются не передавать обязательства по нему третьей стороне."
             }
           ]
         }
 
         Пример 2:
         Фрагмент:
-        "Договор носит конфиденциальный характер."
+        "Договор предполагает возможность передачи прав по нему третьей стороне."
 
         Ответ:
         {
-          "confidentiality_status": "defined",
-          "confidentiality_details": "договор носит конфиденциальный характер",
-          "confidentiality_term_status": "not_defined",
-          "confidentiality_term_details": "Данные не определены",
           "assignment_restriction_status": "not_defined",
           "assignment_restriction_details": "Данные не определены",
           "evidence": [
@@ -2705,19 +3445,14 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли прямое условие о конфиденциальности (не просто "является конфиденциальным")?
-        2. Указан ли конкретный срок действия обязательства?
-        3. Есть ли прямое условие об уступке — запрет, только с согласия или свободно?
+        1. Указан ли конкретный срок действия обязательства?
+        2. Есть ли прямое условие об уступке — запрет, только с согласия или свободно?
 
         Не выводи шаги проверки. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
         Ответь строго в JSON:
         {
-          "confidentiality_status": "<defined / not_defined>",
-          "confidentiality_details": "<текст или 'Данные не определены'>",
-          "confidentiality_term_status": "<defined / not_defined>",
-          "confidentiality_term_details": "<срок или 'Данные не определены'>",
           "assignment_restriction_status": "<defined / not_defined>",
           "assignment_restriction_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -2726,16 +3461,37 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_query: "уступка прав переуступка перевод долга без согласия с согласия другой стороны цессия запрет уступки передача прав требований третьим лицам"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - boilerplate
+        - limitations
+      negative_keywords:
+        - "неустойка"
+        - "расторжение"
+        - "форс-мажор"
+        - "приемка"
+        - "качество"
+        - "гарантия"
+        - "срок поставки"
+        - "оплата"
+        - "ИНН"
+        - "ОГРН"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.65, 1.0]
+        boost: 0.20
+        scope: segment
       context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "конфиденциальность"
-        - "коммерческая тайна"
-        - "неразглашение"
-        - "уступка"
-        - "цессия"
-        - "перевод долга"
-        - "без согласия"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2749,28 +3505,37 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 450
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора условия по уступке прав.
+        Не анализируй другие темы.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни:
+        1. assignment_restriction_status — "defined" если ограничения на уступку прав указаны.
+        2. assignment_restriction_details — условия уступки (запрет / с согласия / свободно).
+
+        Если данных нет:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "confidentiality_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие о конфиденциальности прямо определено. Иначе 'not_defined'."
-        - name: "confidentiality_details"
-          type: "string"
-          description: "Суть обязательства по конфиденциальности. Если нет — строго 'Данные не определены'."
-        - name: "confidentiality_term_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок конфиденциальности прямо определён. Иначе 'not_defined'."
-        - name: "confidentiality_term_details"
-          type: "string"
-          description: "Срок обязательства. Если нет — строго 'Данные не определены'."
-        - name: "assignment_restriction_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ограничения на уступку прав прямо определены. Иначе 'not_defined'."
         - name: "assignment_restriction_details"
           type: "string"
-          description: "Условия уступки прав. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Уступка прав"
       store_payload: true
 
 

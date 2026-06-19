@@ -170,32 +170,109 @@ class EvidenceConfig(BaseModel):
     max_snippet_length: int = 500
 
 
+class RetrievalPositionBiasConfig(BaseModel):
+    """
+    Soft position prior for retrieval scoring.
+
+    preferred_range:
+        Диапазон нормализованной позиции чанка [min, max] в пределах [0.0, 1.0].
+
+    boost:
+        Насколько мягко усиливать чанки, попавшие в preferred_range.
+
+    scope:
+        - auto    -> сначала position_ratio_within_segment, потом within_file, потом position_ratio
+        - segment -> только position_ratio_within_segment
+        - file    -> position_ratio_within_file / position_ratio
+    """
+
+    preferred_range: list[float] = Field(default_factory=lambda: [0.0, 1.0])
+    boost: float = Field(default=0.0, ge=0.0, le=1.0)
+    scope: Literal["auto", "segment", "file"] = "auto"
+
+    @field_validator("preferred_range")
+    @classmethod
+    def _validate_preferred_range(cls, v: list[float]) -> list[float]:
+        if not isinstance(v, list) or len(v) != 2:
+            raise ValueError("position_bias.preferred_range must contain exactly 2 numbers")
+
+        try:
+            lo = float(v[0])
+            hi = float(v[1])
+        except (TypeError, ValueError):
+            raise ValueError("position_bias.preferred_range must contain numeric values")
+
+        if not (0.0 <= lo <= 1.0 and 0.0 <= hi <= 1.0):
+            raise ValueError("position_bias.preferred_range values must be within [0.0, 1.0]")
+
+        if hi < lo:
+            raise ValueError("position_bias.preferred_range must satisfy max >= min")
+
+        return [lo, hi]
+
+
 class RetrievalConfig(BaseModel):
     """
-    Конфигурация выбора чанков (retrieval) для проверки.
+    Конфигурация retrieval policy для проверки.
 
-    Для непрофессионального программиста:
+    context_k:
+        Сколько чанков реально пойдёт в detector / extraction.
 
-    - context_k: сколько чанков реально пойдёт в детектор (rules/LLM).
-    - max_chunks: сколько максимум чанков запрашивать из RetrievalEngine.
-      (Если None — берём дефолтное top_k движка.)
-    - boost_keywords: дополнительные ключевые слова для поиска.
-    - rerank: включать ли дополнительный пересортировщик (reranker)
-      поверх базового скоринга BM25+dense.
-    - filters: будущие фильтры по metadata (page, section_title, clause_uid и т.п.).
-    - levels: какие уровни чанков использовать:
-        ["legal_unit", "section"] по умолчанию.
-      После P8.8d primary retrieval substrate = legal_unit (exact legal units).
-      Legacy значение "subclause" автоматически алиасится в "legal_unit"
-      в ChunksPreparer._resolve_levels().
-    - required_kind: предпочитаемый "тип" чанка для evidence.
-      Например, "legal_unit" — значит, мы предпочитаем брать доказательство
-      из exact legal unit, даже если section тоже матчится.
+    max_chunks:
+        Сколько максимум чанков запросить из RetrievalEngine до post-processing.
+
+    retrieval_query:
+        Явная поисковая фраза для retrieval на языке документа.
+        Если не задана — runtime построит fallback query из check.name + boost_keywords.
+
+    boost_keywords:
+        Дополнительные положительные retrieval terms.
+
+    negative_keywords:
+        Anti-boost terms. Не удаляют chunk из corpus, но понижают его score,
+        если chunk явно попадает в нерелевантную семантику для данного check.
+
+    preferred_unit_types:
+        Semantic unit types, которые желательно поднимать в ranking
+        (например: warranty, payment_term, liability_provision).
+
+    excluded_unit_types:
+        Semantic unit types, которые желательно опускать в ranking
+        (например: definition, technical_fragment).
+
+    preferred_clause_functions:
+        Functional clause roles, которые желательно поднимать в ranking
+        (например: limitations, remedies, obligations).
+
+    position_bias:
+        Soft prior по позиции чанка внутри сегмента/файла.
+
+    rerank:
+        Включать ли дополнительный lightweight rerank поверх base retrieval.
+
+    filters:
+        Reserved for future hard filters by metadata.
+
+    levels:
+        Какие retrieval levels читать из corpus.
+        По умолчанию: legal_unit + section.
+
+    required_kind:
+        Предпочитаемый chunk kind при выборе evidence.
     """
 
     context_k: int = 5
     max_chunks: int | None = None
+
+    retrieval_query: str | None = None
     boost_keywords: list[str] = Field(default_factory=list)
+    negative_keywords: list[str] = Field(default_factory=list)
+
+    preferred_unit_types: list[str] = Field(default_factory=list)
+    excluded_unit_types: list[str] = Field(default_factory=list)
+    preferred_clause_functions: list[str] = Field(default_factory=list)
+    position_bias: RetrievalPositionBiasConfig | None = None
+
     rerank: bool = True
     filters: dict[str, Any] = Field(default_factory=dict)
 
@@ -205,11 +282,16 @@ class RetrievalConfig(BaseModel):
     levels: list[str] = Field(default_factory=lambda: ["legal_unit", "section"])
 
     # Предпочитаемый тип чанка для evidence.
-    # Например:
-    #   required_kind = "legal_unit"
-    # означает, что при выборе лучших чанков мы сначала смотрим на legal_unit,
-    # и только если их нет — используем другие уровни.
     required_kind: str | None = None
+
+    @field_validator("retrieval_query")
+    @classmethod
+    def _validate_retrieval_query(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+
+        cleaned = " ".join(str(v).strip().split())
+        return cleaned or None
 
 
 # ────────────────────────── NEW CONDITIONAL ──────────────────────────
@@ -314,13 +396,23 @@ class ExtractionFieldConfig(BaseModel):
     """
     Описание одного извлекаемого поля.
 
-    Примеры:
-    - termination_notice_days: NUMBER, unit="days"
-    - governing_law: STRING, allowed_values=["RU", "EN", "DE"]
+    Разделение ответственности:
+    - name:         технический machine-readable идентификатор поля.
+    - label:        краткая user-facing метка для UI / DD Grid / export.
+                    Обязательна для полей с presentation='fact'.
+    - presentation: роль поля в системе отображения.
+                    summary    — готовый итоговый текст для DD Grid ячейки.
+                    fact       — осмысленный пользовательский факт: Label: Value.
+                    signal     — машинный/routing признак, не идёт в primary display.
+                    diagnostic — reason / red_flags / evidence, не для display.
+    - description:  инструкция / смысл для extraction engine и LLM.
+                    НИКОГДА не использовать как user-facing label.
     """
 
     name: str
     type: ExtractionFieldType = ExtractionFieldType.STRING
+    label: str | None = None
+    presentation: Literal["summary", "fact", "signal", "diagnostic"] = "fact"
     description: str = ""
 
     # Подсказки для rules‑based извлечения.
@@ -349,10 +441,15 @@ class ExtractionMode(str, Enum):
 
 class ExtractionConfig(BaseModel):
     """
-    Конфигурация структурированного извлечения для проверки.
+    Конфигурация structured extraction для проверки.
 
-    Если enabled=False — проверка работает как обычная (pass/fail),
-    без попытки вытащить дополнительные поля.
+    Архитектурный контракт:
+    - semantic prompt задаётся через llm_prompt_extraction;
+    - если custom llm_prompt_extraction задан, он обязан содержать
+      плейсхолдер {context}, потому что именно extraction prompt
+      отвечает за то, где и как встраивается текст договора;
+    - технический JSON contract задаётся отдельно во внешнем
+      template-файле playbooks/json_format_ru.txt.
     """
 
     enabled: bool = False
@@ -362,15 +459,12 @@ class ExtractionConfig(BaseModel):
     # Нужно ли сохранять результат извлечения в structured_data в CheckResult.
     store_payload: bool = True
 
-    # NEW: кастомный inline-промпт для LLM-извлечения.
-    # Если задан — ExtractionLLMDetector использует его вместо файлового шаблона.
+    # Кастомный semantic prompt для extraction.
+    # ВАЖНО: если задан, обязан содержать {context}.
     llm_prompt_extraction: str | None = None
-    
-    # Per-check override для max_tokens в extraction LLM call.
-    # Если задан — ExtractionLLMDetector использует его вместо
-    # глобального extraction default.
-    llm_max_tokens: int | None = None
 
+    # Per-check override для max_tokens в extraction LLM call.
+    llm_max_tokens: int | None = None
 
     @field_validator("fields")
     @classmethod
@@ -378,6 +472,37 @@ class ExtractionConfig(BaseModel):
         enabled = info.data.get("enabled", False) if hasattr(info, "data") else False
         if enabled and not v:
             raise ValueError("extraction.enabled=true, но fields пустой")
+        return v
+
+    @field_validator("llm_prompt_extraction")
+    @classmethod
+    def _validate_llm_prompt_extraction(cls, v: str | None) -> str | None:
+        """
+        Custom extraction prompt обязан содержать {context}.
+        Это устраняет скрытую неоднозначность:
+        prompt сам управляет placement контекста, а не внешний шаблон.
+        """
+        if v is None:
+            return None
+
+        cleaned = v.strip()
+        if not cleaned:
+            return None
+
+        if "{context}" not in cleaned:
+            raise ValueError(
+                "extraction.llm_prompt_extraction must contain '{context}' placeholder"
+            )
+
+        return cleaned
+
+    @field_validator("llm_max_tokens")
+    @classmethod
+    def _validate_llm_max_tokens(cls, v: int | None) -> int | None:
+        if v is None:
+            return None
+        if v <= 0:
+            raise ValueError("extraction.llm_max_tokens must be > 0")
         return v
 
 
@@ -475,6 +600,61 @@ class CheckDefinition(BaseModel):
     # When present, influences retrieval scoring and confidence calibration.
     # Absence = no change to base behaviour.
     enrichment_hints: EnrichmentHints | None = None
+
+    @model_validator(mode="after")
+    def _validate_field_extraction_display_contract(self) -> "CheckDefinition":
+        """
+        Enforce deterministic UI contract for factual extraction checks.
+
+        For field_extraction checks (explicit ui_mode or extraction.enabled):
+        - either at least one field has presentation='summary'
+        - or at least one field has presentation='fact' with explicit label
+
+        This prevents prompt/instruction text leakage into DD Grid cells.
+        """
+        extraction = self.extraction
+        if extraction is None or not extraction.enabled:
+            return self
+
+        raw_ui_mode = self.ui_mode
+        ui_mode = str(raw_ui_mode).strip().lower() if raw_ui_mode is not None else ""
+        is_field_extraction = (ui_mode == "field_extraction") or (not ui_mode)
+
+        if not is_field_extraction:
+            return self
+
+        fields = extraction.fields or []
+        if not fields:
+            return self
+
+        has_summary = any(
+            getattr(f, "presentation", "fact") == "summary"
+            for f in fields
+        )
+        if has_summary:
+            return self
+
+        reserved = {"reason", "evidence", "explanation", "notes"}
+        missing_labels: list[str] = []
+
+        for field in fields:
+            presentation = getattr(field, "presentation", "fact")
+            if presentation in ("signal", "diagnostic"):
+                continue
+            if field.name in reserved:
+                continue
+            label = getattr(field, "label", None)
+            if not (label and str(label).strip()):
+                missing_labels.append(field.name)
+
+        if missing_labels:
+            raise ValueError(
+                f"field_extraction check (id={self.id!r}) is missing explicit "
+                f"`label` for fact fields: {missing_labels}. "
+                "Add `label: '...'` or set `presentation: signal` / `presentation: diagnostic`."
+            )
+
+        return self
 
 
 class PlaybookDefinition(BaseModel):

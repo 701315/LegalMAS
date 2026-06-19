@@ -427,6 +427,8 @@ class DocTypeCheckLoader:
                 ExtractionFieldConfig(
                     name=field_name,
                     type=field_type,
+                    label=f.get("label"),
+                    presentation=f.get("presentation", "fact"),
                     description=f.get("description", ""),
                     regex_patterns=f.get("regex_patterns") or [],
                     keyword_hints=f.get("keyword_hints") or [],

@@ -641,14 +641,14 @@ compliance_rules: []
 checks_v8:
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 1: Стороны, полномочия, корпоративное одобрение, согласие супруга
+  # CHECK 1: Стороны и корпоративные полномочия
   # ──────────────────────────────────────────────────────────────────────────
-  - id: parties_and_authority
-    name: "Стороны договора мены: идентификация, полномочия, корпоративное одобрение, согласие супруга"
+  - id: parties_corporate_authority
+    name: "Стороны договора мены: идентификация, полномочия и корпоративное одобрение"
     description: >
-      Фактографическая проверка наличия в договоре данных о Стороне 1 и Стороне 2,
-      полномочий подписантов, корпоративного одобрения для юридических лиц,
-      согласия супруга для физических лиц.
+      Фактографическая проверка наличия реквизитов обеих сторон, полномочий
+      подписантов и корпоративного одобрения для юридических лиц.
+      Согласие супруга для физических лиц проверяется отдельным check.
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
@@ -670,62 +670,43 @@ checks_v8:
         - "протокол одобрения"
         - "решение единственного участника"
         - "не является крупной сделкой"
-        - "согласие супруга"
-        - "нотариальное согласие"
-        - "не состоит в браке"
-        - "брачный договор"
-        - "личная собственность"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)(сторона\\s+[12]|первая\\s+сторона|вторая\\s+сторона).*именуем"
-        - "{{ inn_ogrn }}"
+        - "(?i)\\b(?:ИНН|ОГРН|ОГРНИП)\\s*:?\\s*\\d{10,15}\\b"
         - "(?i)крупн(ая|ой)\\s+сделк"
         - "(?i)одобрен(ие|а).*собрани"
-        - "(?i)согласи(е|я)\\s+супруг"
-        - "(?i)не\\s+состоит?\\s+в\\s+браке"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор мены (бартера) (гл. 31 ГК РФ, ст. 567-571;
-        ст. 432, 182-185 ГК РФ; ФЗ-14 ст. 45-46; ФЗ-208 ст. 78-84; ст. 35 СК РФ).
-        Проверяется только один вопрос: идентификация сторон, полномочия подписантов,
-        корпоративное одобрение и согласие супруга.
-
-        Важно:
-        - Твоя задача — не оценивать серьёзность риска.
-        - Только установить, что прямо есть в тексте договора, а чего прямо нет.
-        - Юрист будет использовать результат в сравнительной таблице.
+        Анализируется договор мены (гл. 31 ГК РФ; ФЗ-14 ст. 45-46; ФЗ-208 ст. 78-84).
+        Проверяется только один вопрос: идентификация сторон, полномочия подписантов
+        и корпоративное одобрение.
+        Не анализируй согласие супруга — это отдельный check.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Наименование и реквизиты Стороны 1 (ИНН, ОГРН — для ЮЛ; паспорт — для физлица).
+        1. Наименование и реквизиты Стороны 1 (ИНН/ОГРН — для ЮЛ; паспорт — для физлица).
         2. Тип Стороны 1 (юридическое лицо / ИП / физическое лицо).
         3. Кто подписывает от Стороны 1 и на каком основании.
         4. Наименование и реквизиты Стороны 2.
         5. Тип Стороны 2.
         6. Кто подписывает от Стороны 2 и на каком основании.
-        7. Корпоративное одобрение (протокол / решение единственного участника)
-           или заверение о том, что одобрение не требуется.
-        8. Согласие супруга / заверение об отсутствии брака (для физических лиц).
+        7. Корпоративное одобрение или заверение о его ненужности.
 
         [ПРАВИЛА]
         1. Только текст документа.
-        2. Если данные не указаны прямо — "not_defined" или "Данные не определены".
-        3. Не используй "None", "null", "not_specified", пустые строки.
-        4. В evidence — только цитаты из документа.
-        5. Верни только один JSON-объект.
+        2. Если нет — "not_defined" / "Данные не определены".
+        3. В evidence — только цитаты из документа.
+        4. Верни только JSON.
 
         [ПРИМЕРЫ (FEW-SHOT)]
-
         Пример 1:
-        Фрагмент:
         "Сторона 1 — ООО «Техника», ИНН 7700000001, ОГРН 1027700000001,
         в лице Директора Иванова А.А., действующего на основании Устава.
         Сделка одобрена решением единственного участника от 01.03.2026.
-        Сторона 2 — гражданин Петров Б.Б., паспорт серия 45 00 № 123456,
-        в браке не состоит."
-
+        Сторона 2 — гражданин Петров Б.Б., паспорт серия 45 00 № 123456."
         Ответ:
         {
           "party_A_details_status": "defined",
@@ -740,20 +721,11 @@ checks_v8:
           "party_B_signatory_basis": "personal",
           "corporate_approval_status": "defined",
           "corporate_approval_details": "решение единственного участника от 01.03.2026",
-          "spousal_consent_status": "defined",
-          "spousal_consent_details": "в браке не состоит",
-          "evidence": [
-            {
-              "clause_ref": "преамбула",
-              "quote": "Сторона 1 — ООО «Техника», ИНН 7700000001, ОГРН 1027700000001, в лице Директора Иванова А.А., действующего на основании Устава."
-            }
-          ]
+          "evidence": [{"clause_ref": "преамбула", "quote": "..."}]
         }
 
         Пример 2:
-        Фрагмент:
         "Настоящий договор заключён между Стороной 1 и Стороной 2."
-
         Ответ:
         {
           "party_A_details_status": "not_defined",
@@ -768,22 +740,18 @@ checks_v8:
           "party_B_signatory_basis": "not_defined",
           "corporate_approval_status": "not_defined",
           "corporate_approval_details": "Данные не определены",
-          "spousal_consent_status": "not_defined",
-          "spousal_consent_details": "Данные не определены",
           "evidence": []
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли прямая цитата с ИНН/ОГРН Стороны 1?
-        2. Есть ли прямая цитата с ИНН/ОГРН или паспортом Стороны 2?
-        3. Указан ли подписант и документ-основание для каждой стороны?
-        4. Упомянуто ли корпоративное одобрение или заверение о его ненужности?
-        5. Упомянуто ли согласие супруга или отсутствие брака (для физлиц)?
+        1. ИНН/ОГРН для ЮЛ или паспорт для физлица — прямо?
+        2. Подписант и документ-основание — прямо?
+        3. Одобрение — упомянуто?
+        4. Не ищи согласие супруга.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "party_A_details_status": "<defined / not_defined>",
           "party_A_details": "<реквизиты или 'Данные не определены'>",
@@ -797,26 +765,43 @@ checks_v8:
           "party_B_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
           "corporate_approval_status": "<defined / not_defined>",
           "corporate_approval_details": "<текст или 'Данные не определены'>",
-          "spousal_consent_status": "<defined / not_defined>",
-          "spousal_consent_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 6
       temperature: 0.0
-      max_tokens: 750
+      max_tokens: 700
     retrieval:
+      retrieval_query: "Сторона 1 Сторона 2 именуем в лице действующего на основании ИНН ОГРН ОГРНИП крупная сделка сделка с заинтересованностью одобрение общего собрания одобрение совета директоров протокол одобрения решение единственного участника не является крупной сделкой"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - boilerplate
+      negative_keywords:
+        - "согласие супруга"
+        - "в браке не состоит"
+        - "маткапитал"
+        - "наименование товара"
+        - "стоимость товара"
+        - "доплата"
+        - "передача товара"
+        - "акт приёма-передачи"
+        - "обременения"
+        - "залог"
+        - "эвикция"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.25
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "сторона"
-        - "именуем"
-        - "в лице"
-        - "действующего на основании"
-        - "ИНН"
-        - "ОГРН"
-        - "крупная сделка"
-        - "одобрение"
-        - "согласие супруга"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -830,62 +815,298 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 480
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены реквизиты обеих сторон,
+        типы сторон, подписантов, основания полномочий и корпоративное одобрение.
+        Не анализируй согласие супруга — оно проверяется отдельным check.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. party_A_details_status — "defined" или "not_defined".
+        2. party_A_details — реквизиты Стороны 1.
+        3. party_A_type — legal_entity / individual_entrepreneur / individual / not_defined.
+        4. party_A_signatory — подписант Стороны 1.
+        5. party_A_signatory_basis — charter / poa / order / personal / other / not_defined.
+        6. party_B_details_status — "defined" или "not_defined".
+        7. party_B_details — реквизиты Стороны 2.
+        8. party_B_type — legal_entity / individual_entrepreneur / individual / not_defined.
+        9. party_B_signatory — подписант Стороны 2.
+        10. party_B_signatory_basis — charter / poa / order / personal / other / not_defined.
+        11. corporate_approval_status — "defined" или "not_defined".
+        12. corporate_approval_details — корпоративное одобрение или указание о его ненужности.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Не ищи согласие супруга.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "party_A_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Сторона 1 прямо определена с реквизитами. Иначе 'not_defined'."
+          description: "Статус реквизитов Стороны 1."
         - name: "party_A_details"
           type: "string"
-          description: "Реквизиты Стороны 1. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Сторона 1"
+          description: "Реквизиты Стороны 1."
         - name: "party_A_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["legal_entity", "individual_entrepreneur", "individual", "not_defined"]
           description: "Тип Стороны 1."
         - name: "party_A_signatory"
           type: "string"
-          description: "Подписант от Стороны 1. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Подписант Стороны 1"
+          description: "Подписант Стороны 1."
         - name: "party_A_signatory_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта Стороны 1."
+          description: "Основание полномочий Стороны 1."
         - name: "party_B_details_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Сторона 2 прямо определена с реквизитами. Иначе 'not_defined'."
+          description: "Статус реквизитов Стороны 2."
         - name: "party_B_details"
           type: "string"
-          description: "Реквизиты Стороны 2. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Сторона 2"
+          description: "Реквизиты Стороны 2."
         - name: "party_B_type"
           type: "string"
+          presentation: "signal"
           allowed_values: ["legal_entity", "individual_entrepreneur", "individual", "not_defined"]
           description: "Тип Стороны 2."
         - name: "party_B_signatory"
           type: "string"
-          description: "Подписант от Стороны 2. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Подписант Стороны 2"
+          description: "Подписант Стороны 2."
         - name: "party_B_signatory_basis"
           type: "string"
+          presentation: "signal"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта Стороны 2."
+          description: "Основание полномочий Стороны 2."
         - name: "corporate_approval_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если корпоративное одобрение прямо определено. Иначе 'not_defined'."
-        - name: "spousal_consent_status"
+          description: "Статус корпоративного одобрения."
+        - name: "corporate_approval_details"
           type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если согласие супруга или отсутствие брака прямо определено. Иначе 'not_defined'."
+          presentation: "fact"
+          label: "Корпоративное одобрение"
+          description: "Корпоративное одобрение или указание о его ненужности."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 2: Предмет договора — оба товара
+  # CHECK 2: Согласие супруга
   # ──────────────────────────────────────────────────────────────────────────
-  - id: barter_subject_extraction
-    name: "Предмет договора мены: описание обоих товаров и равноценность"
+  - id: spousal_consent_barter
+    name: "Согласие супруга, семейное положение при мене"
     description: >
-      Фактографическая проверка наличия чёткого описания обоих обмениваемых товаров
-      (наименование, количество, стоимость, индивидуализирующие признаки)
-      и определения равноценности/неравноценности.
+      Фактографическая проверка согласия супруга или заверения об отсутствии брака
+      для физических лиц — сторон договора мены.
+      Отдельный check, чтобы избежать смешения с реквизитами и корпоративными рисками.
+    triggers:
+      any: ["individual_party"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "согласие супруга"
+        - "нотариальное согласие"
+        - "не состоит в браке"
+        - "брачный договор"
+        - "личная собственность"
+        - "приобретено до брака"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)согласи(е|я)\\s+супруг"
+        - "(?i)не\\s+состоит?\\s+в\\s+браке"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор мены (гл. 31 ГК РФ; ст. 35 СК РФ; ст. 10 ФЗ-256).
+        Проверяется только один вопрос: согласие супруга
+        для физических лиц — сторон договора мены.
+        Не анализируй реквизиты сторон, корпоративное одобрение или предмет договора.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Нотариальное согласие супруга Стороны 1 или заверение об отсутствии брака.
+        2. Нотариальное согласие супруга Стороны 2 или заверение об отсутствии брака.
+        3. Ссылку на брачный договор (личный режим имущества).
+
+        [ПРАВИЛА]
+        1. Только текст документа. Если нет — "not_defined".
+        3. В evidence — только текст договора.
+        4. Верни только JSON.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        "Сторона 2 — гражданин Петров Б.Б., в зарегистрированном браке не состоит."
+        Ответ:
+        {
+          "party_A_spousal_status": "not_defined",
+          "party_A_spousal_details": "Данные не определены",
+          "party_B_spousal_status": "defined",
+          "party_B_spousal_regime": "not_married_confirmed",
+          "party_B_spousal_details": "в зарегистрированном браке не состоит",
+          "evidence": [{"clause_ref": "п. 1.3", "quote": "..."}]
+        }
+
+        Пример 2:
+        "Стороны обмениваются товарами."
+        Ответ:
+        {
+          "party_A_spousal_status": "not_defined",
+          "party_A_spousal_details": "Данные не определены",
+          "party_B_spousal_status": "not_defined",
+          "party_B_spousal_regime": "not_defined",
+          "party_B_spousal_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Для каждой стороны-физлица — есть ли заявление о браке?
+
+        Не выводи шаги. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "party_A_spousal_status": "<defined / not_defined>",
+          "party_A_spousal_details": "<текст или 'Данные не определены'>",
+          "party_B_spousal_status": "<defined / not_defined>",
+          "party_B_spousal_regime": "<consent_present / not_married_confirmed / prenuptial_referenced / not_defined>",
+          "party_B_spousal_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      retrieval_query: "согласие супруга нотариальное согласие не состоит в браке брачный договор личная собственность приобретено до брака материнский капитал маткапитал выделение долей ст. 35 СК РФ ФЗ-256"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - boilerplate
+      negative_keywords:
+        - "крупная сделка"
+        - "одобрение совета директоров"
+        - "корпоративное одобрение"
+        - "наименование товара"
+        - "стоимость товара"
+        - "доплата"
+        - "обременения"
+        - "залог"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.35]
+        boost: 0.15
+        scope: segment
+      context_k: 5
+      max_chunks: 6
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "representations"
+        - "boilerplate"
+      confidence_bonus_on_match: 0.10
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 400
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены сведения о согласии супруга
+        или подтверждении отсутствия брака для каждой стороны-физлица.
+        Не анализируй реквизиты сторон, корпоративное одобрение или предмет договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. party_A_spousal_status — "defined" или "not_defined".
+        2. party_A_spousal_details — сведения о согласии супруга Стороны 1.
+        3. party_B_spousal_status — "defined" или "not_defined".
+        4. party_B_spousal_regime — consent_present / not_married_confirmed / prenuptial_referenced / not_defined.
+        5. party_B_spousal_details — сведения о согласии супруга Стороны 2.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - not_married_confirmed = прямо "не состоит в браке".
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "party_A_spousal_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус согласия супруга Стороны 1."
+        - name: "party_A_spousal_details"
+          type: "string"
+          presentation: "fact"
+          label: "Согласие супруга Стороны 1"
+          description: "Сведения о согласии супруга или семейном положении Стороны 1."
+        - name: "party_B_spousal_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус согласия супруга Стороны 2."
+        - name: "party_B_spousal_regime"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["consent_present", "not_married_confirmed", "prenuptial_referenced", "not_defined"]
+          description: "Режим согласия супруга Стороны 2."
+        - name: "party_B_spousal_details"
+          type: "string"
+          presentation: "fact"
+          label: "Согласие супруга Стороны 2"
+          description: "Сведения о согласии супруга или семейном положении Стороны 2."
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 3: Предмет договора, оценка и доплата
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: barter_subject_and_valuation
+    name: "Предмет договора мены: описание товаров, оценка равноценности и доплата"
+    description: >
+      Фактографическая проверка описания обоих обмениваемых товаров,
+      их индивидуализирующих признаков, метода оценки, равноценности
+      и порядка доплаты при неравноценном обмене.
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
@@ -901,50 +1122,53 @@ checks_v8:
         - "стоимость"
         - "равноценный"
         - "неравноценный"
-        - "характеристики"
-        - "описание товара"
+        - "доплата"
+        - "разница в стоимости"
+        - "рыночная стоимость"
+        - "независимый оценщик"
+        - "метод оценки"
       keyword_mode: "any"
       regex_patterns:
-        - "{{ money_amount }}"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
         - "(?i)товар\\s+[«\"]?[А-Яа-яA-Za-z]"
         - "(?i)передаёт.*в.*собственность.*другой\\s+сторон"
-        - "(?i)сторон(а|ы)\\s+[12].*передаёт"
+        - "(?i)доплат(а|у|ы|ить)\\s+.*?\\d"
+        - "(?i)(равноценн|неравноценн)"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор мены (бартера) (гл. 31 ГК РФ, ст. 567, 568;
-        ст. 432, 455 ГК РФ).
-        Проверяется только один вопрос: описание обоих обмениваемых товаров
-        и их равноценность.
+        Анализируется договор мены (гл. 31 ГК РФ, ст. 567, 568 ГК РФ).
+        Проверяется только один вопрос: предмет договора — описание обоих товаров,
+        оценка равноценности и порядок доплаты.
+        Не анализируй сроки и порядок передачи, акты, доставку или страхование.
 
         [ЗАДАЧА]
         Найди в тексте договора:
         1. Наименование, количество и стоимость товара A (передаваемого Стороной 1).
-        2. Индивидуализирующие признаки товара A (серийный номер, VIN, кадастровый номер и т.п.).
+        2. Индивидуализирующие признаки товара A (VIN, кадастровый номер и т.п.).
         3. Наименование, количество и стоимость товара B (передаваемого Стороной 2).
         4. Индивидуализирующие признаки товара B.
-        5. Заявленная равноценность или неравноценность обмена.
-        6. Размер доплаты при неравноценности и кто платит.
+        5. Метод оценки стоимости (рыночная / договорная / оценщик / формула).
+        6. Равноценность или неравноценность обмена.
+        7. Размер доплаты.
+        8. Кто платит доплату и в какой срок.
+        9. Последствия просрочки доплаты.
 
         [ПРАВИЛА]
         1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
-        4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        2. Если нет — "not_defined" / "Данные не определены".
+        3. В evidence — только текст договора.
+        4. Верни только JSON.
 
         [ПРИМЕРЫ (FEW-SHOT)]
-
         Пример 1:
-        Фрагмент:
-        "Сторона 1 передаёт в собственность Стороне 2 автомобиль Toyota Camry,
-        VIN XW7BF4FK30S123456, 2020 г.в., стоимостью 2 500 000 рублей.
-        Сторона 2 передаёт в собственность Стороне 1 нежилое помещение,
-        кадастровый номер 77:06:0001001:123, площадью 45 кв.м,
-        стоимостью 3 000 000 рублей. Обмен неравноценный. Доплата 500 000 рублей
-        осуществляется Стороной 1 в течение 5 рабочих дней."
-
+        "Сторона 1 передаёт автомобиль Toyota Camry, VIN XW7BF4FK30S123456, 2020 г.в.,
+        стоимостью 2 500 000 рублей.
+        Сторона 2 передаёт нежилое помещение, кадастровый номер 77:06:0001001:123, 45 кв.м,
+        стоимостью 3 000 000 рублей по независимой оценке.
+        Обмен неравноценный. Доплата 500 000 рублей — Сторона 1, в течение 5 р.дн.
+        При просрочке — пеня 0,1% в день."
         Ответ:
         {
           "good_A_name_status": "defined",
@@ -959,23 +1183,20 @@ checks_v8:
           "good_B_value_status": "defined",
           "good_B_value": "3 000 000 рублей",
           "good_B_identifying_features": "кадастровый номер 77:06:0001001:123",
+          "valuation_method_status": "defined",
+          "valuation_method": "appraiser",
           "equivalence_status": "defined",
           "equivalence": "unequal",
           "surcharge_status": "defined",
           "surcharge_amount": "500 000 рублей",
           "surcharge_payer": "Сторона 1",
-          "evidence": [
-            {
-              "clause_ref": "п. 1.1",
-              "quote": "Сторона 1 передаёт в собственность Стороне 2 автомобиль Toyota Camry, VIN XW7BF4FK30S123456, 2020 г.в., стоимостью 2 500 000 рублей."
-            }
-          ]
+          "surcharge_deadline": "5 рабочих дней",
+          "surcharge_late_consequences_status": "defined",
+          "evidence": [{"clause_ref": "п. 1.1", "quote": "..."}]
         }
 
         Пример 2:
-        Фрагмент:
         "Стороны обменивают товары на взаимовыгодных условиях."
-
         Ответ:
         {
           "good_A_name_status": "not_defined",
@@ -990,60 +1211,93 @@ checks_v8:
           "good_B_value_status": "not_defined",
           "good_B_value": "Данные не определены",
           "good_B_identifying_features": "Данные не определены",
+          "valuation_method_status": "not_defined",
+          "valuation_method": "not_defined",
           "equivalence_status": "not_defined",
           "equivalence": "not_defined",
           "surcharge_status": "not_defined",
           "surcharge_amount": "Данные не определены",
           "surcharge_payer": "Данные не определены",
+          "surcharge_deadline": "Данные не определены",
+          "surcharge_late_consequences_status": "not_defined",
           "evidence": []
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Указаны ли конкретные наименования товаров A и B?
-        2. Указаны ли количество и стоимость каждого товара?
-        3. Есть ли индивидуализирующие признаки (VIN / кадастровый номер / серийный №)?
-        4. Написано ли прямо "равноценный" или "неравноценный"?
-        5. Если неравноценный — указаны ли сумма, плательщик и срок доплаты?
+        1. Наименования обоих товаров — прямо?
+        2. Стоимости — числом?
+        3. Индивидуализирующие признаки — VIN / кадастр / серийный №?
+        4. Метод оценки — рыночная / договорная / оценщик?
+        5. Если неравноценный — сумма, плательщик, срок доплаты?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "good_A_name_status": "<defined / not_defined>",
           "good_A_name": "<наименование или 'Данные не определены'>",
-          "good_A_quantity": "<количество с единицей или 'Данные не определены'>",
+          "good_A_quantity": "<количество или 'Данные не определены'>",
           "good_A_value_status": "<defined / not_defined>",
           "good_A_value": "<стоимость или 'Данные не определены'>",
           "good_A_identifying_features": "<признаки или 'Данные не определены'>",
           "good_B_name_status": "<defined / not_defined>",
           "good_B_name": "<наименование или 'Данные не определены'>",
-          "good_B_quantity": "<количество с единицей или 'Данные не определены'>",
+          "good_B_quantity": "<количество или 'Данные не определены'>",
           "good_B_value_status": "<defined / not_defined>",
           "good_B_value": "<стоимость или 'Данные не определены'>",
           "good_B_identifying_features": "<признаки или 'Данные не определены'>",
+          "valuation_method_status": "<defined / not_defined>",
+          "valuation_method": "<market / appraiser / agreement / formula / not_defined>",
           "equivalence_status": "<defined / not_defined>",
           "equivalence": "<equal / unequal / not_defined>",
           "surcharge_status": "<defined / not_defined>",
           "surcharge_amount": "<сумма или 'Данные не определены'>",
           "surcharge_payer": "<сторона или 'Данные не определены'>",
+          "surcharge_deadline": "<срок или 'Данные не определены'>",
+          "surcharge_late_consequences_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 8
       temperature: 0.0
       max_tokens: 800
     retrieval:
+      retrieval_query: "товар обмениваемый передаёт в собственность получает в собственность наименование количество стоимость равноценный неравноценный доплата разница в стоимости рыночная стоимость независимый оценщик метод оценки VIN кадастровый номер серийный номер индивидуализирующие признаки"
+      preferred_unit_types:
+        - payment_term
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - "срок передачи"
+        - "место передачи"
+        - "акт приёма-передачи"
+        - "доставка"
+        - "транспортировка"
+        - "страхование"
+        - "эскроу"
+        - "аккредитив"
+        - "встречное исполнение"
+        - "право приостановления"
+        - "обременения"
+        - "залог"
+        - "арест"
+        - "эвикция"
+        - "НДС при мене"
+        - "счёт-фактура"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.05, 0.55]
+        boost: 0.15
+        scope: segment
       context_k: 8
       max_chunks: 10
-      boost_keywords:
-        - "обмениваемый товар"
-        - "передаёт"
-        - "получает"
-        - "стоимость"
-        - "равноценность"
-        - "доплата"
-        - "наименование товара"
-        - "количество"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1057,186 +1311,167 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 560
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены описание обоих обмениваемых товаров,
+        их стоимости, индивидуализирующие признаки, метод оценки, равноценность
+        и условия доплаты.
+        Не анализируй сроки передачи, акты, доставку, страхование или ответственность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. good_A_name_status — "defined" или "not_defined".
+        2. good_A_name — наименование товара A.
+        3. good_A_quantity — количество товара A.
+        4. good_A_value_status — "defined" или "not_defined".
+        5. good_A_value — стоимость товара A.
+        6. good_A_identifying_features — индивидуализирующие признаки товара A.
+        7. good_B_name_status — "defined" или "not_defined".
+        8. good_B_name — наименование товара B.
+        9. good_B_quantity — количество товара B.
+        10. good_B_value_status — "defined" или "not_defined".
+        11. good_B_value — стоимость товара B.
+        12. good_B_identifying_features — индивидуализирующие признаки товара B.
+        13. valuation_method_status — "defined" или "not_defined".
+        14. valuation_method — market / appraiser / agreement / formula / not_defined.
+        15. equivalence_status — "defined" или "not_defined".
+        16. equivalence — equal / unequal / not_defined.
+        17. surcharge_status — "defined" или "not_defined".
+        18. surcharge_amount — сумма доплаты.
+        19. surcharge_payer — кто платит доплату.
+        20. surcharge_deadline — срок доплаты.
+        21. surcharge_late_consequences_status — "defined" или "not_defined".
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Индивидуализирующие признаки: VIN, кадастровый номер, серийный номер и т.п.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "good_A_name_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если наименование товара A прямо определено. Иначе 'not_defined'."
+          description: "Статус наименования товара A."
         - name: "good_A_name"
           type: "string"
-          description: "Наименование товара A. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Товар A"
+          description: "Наименование товара A."
+        - name: "good_A_quantity"
+          type: "string"
+          presentation: "fact"
+          label: "Количество / объём товара A"
+          description: "Количество товара A с единицей измерения."
         - name: "good_A_value_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если стоимость товара A прямо определена. Иначе 'not_defined'."
+          description: "Статус стоимости товара A."
         - name: "good_A_value"
           type: "string"
-          description: "Стоимость товара A. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Стоимость товара A"
+          description: "Стоимость товара A."
+        - name: "good_A_identifying_features"
+          type: "string"
+          presentation: "fact"
+          label: "Признаки товара A"
+          description: "Индивидуализирующие признаки товара A."
         - name: "good_B_name_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если наименование товара B прямо определено. Иначе 'not_defined'."
+          description: "Статус наименования товара B."
         - name: "good_B_name"
           type: "string"
-          description: "Наименование товара B. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Товар B"
+          description: "Наименование товара B."
+        - name: "good_B_quantity"
+          type: "string"
+          presentation: "fact"
+          label: "Количество / объём товара B"
+          description: "Количество товара B с единицей измерения."
         - name: "good_B_value_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если стоимость товара B прямо определена. Иначе 'not_defined'."
+          description: "Статус стоимости товара B."
         - name: "good_B_value"
           type: "string"
-          description: "Стоимость товара B. Если нет — строго 'Данные не определены'."
-        - name: "equivalence_status"
+          presentation: "fact"
+          label: "Стоимость товара B"
+          description: "Стоимость товара B."
+        - name: "good_B_identifying_features"
           type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если равноценность прямо определена. Иначе 'not_defined'."
-        - name: "equivalence"
-          type: "string"
-          allowed_values: ["equal", "unequal", "not_defined"]
-          description: "Равноценность или неравноценность."
-        - name: "surcharge_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если доплата прямо определена. Иначе 'not_defined'."
-      store_payload: true
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 3: Оценка равноценности и доплата
-  # ──────────────────────────────────────────────────────────────────────────
-  - id: valuation_and_surcharge_check
-    name: "Оценка равноценности и порядок доплаты (ст. 568 ГК РФ)"
-    description: >
-      Фактографическая проверка наличия метода оценки, конкретного размера доплаты,
-      срока, реквизитов и последствий просрочки при неравноценном обмене.
-    triggers: {}
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "равноценный"
-        - "неравноценный"
-        - "доплата"
-        - "разница в стоимости"
-        - "компенсация разницы"
-        - "метод оценки"
-        - "рыночная стоимость"
-        - "независимый оценщик"
-        - "стоимость"
-        - "оценка"
-        - "рублей"
-        - "оценщик"
-      keyword_mode: "any"
-      regex_patterns:
-        - "{{ money_amount }}"
-        - "(?i)доплат(а|у|ы|ить)\\s+.*?\\d"
-        - "(?i)(равноценн|неравноценн)"
-        - "(?i)разниц(а|у|ы)\\s+в\\s+стоимости"
-        - "(?i)оценива(ется|ются)\\s+в"
-    llm:
-      prompt_template: |
-        [КОНТЕКСТ]
-        Ты — российский юрист по договорной работе.
-        Анализируется договор мены (бартера) (гл. 31 ГК РФ, ст. 568 ГК РФ).
-        Проверяется только один вопрос: метод оценки равноценности и порядок доплаты.
-
-        [ЗАДАЧА]
-        Найди в тексте договора:
-        1. Метод оценки стоимости каждого товара (рыночная / договорная / оценщик / формула).
-        2. Заявленная равноценность или неравноценность.
-        3. Конкретный размер доплаты при неравноценности.
-        4. Срок уплаты доплаты.
-        5. Последствия просрочки доплаты.
-        6. Механизм разрешения споров об оценке.
-
-        [ПРАВИЛА]
-        1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
-        4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Как определена стоимость — рыночная, договорная или оценщик?
-        2. Указан ли конкретный размер доплаты числом?
-        3. Указан ли срок уплаты доплаты?
-        4. Что происходит при просрочке доплаты?
-        5. Если обмен равноценный — surcharge_status = "not_defined" (не применимо).
-
-        Не выводи шаги проверки. Верни только JSON.
-
-        [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
-        {
-          "valuation_method_status": "<defined / not_defined>",
-          "valuation_method": "<market / appraiser / agreement / formula / not_defined>",
-          "equivalence_status": "<defined / not_defined>",
-          "equivalence": "<equal / unequal / not_defined>",
-          "surcharge_amount_status": "<defined / not_defined>",
-          "surcharge_amount": "<сумма или 'Данные не определены'>",
-          "surcharge_deadline_status": "<defined / not_defined>",
-          "surcharge_deadline": "<срок или 'Данные не определены'>",
-          "surcharge_late_consequences_status": "<defined / not_defined>",
-          "dispute_resolution_valuation_status": "<defined / not_defined>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
-        }
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 650
-    retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "равноценность"
-        - "доплата"
-        - "рыночная стоимость"
-        - "оценка"
-        - "ст. 568 ГК РФ"
-        - "стоимость товара"
-        - "разница в стоимости"
-      rerank: true
-    enrichment_hints:
-      preferred_clause_functions:
-        - "obligations"
-        - "definitions"
-      confidence_bonus_on_match: 0.10
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 600
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
+          presentation: "fact"
+          label: "Признаки товара B"
+          description: "Индивидуализирующие признаки товара B."
         - name: "valuation_method_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если метод оценки прямо определён. Иначе 'not_defined'."
+          description: "Статус метода оценки."
         - name: "valuation_method"
           type: "string"
+          presentation: "signal"
           allowed_values: ["market", "appraiser", "agreement", "formula", "not_defined"]
-          description: "Метод оценки стоимости."
-        - name: "surcharge_amount_status"
+          description: "Метод оценки стоимости товаров."
+        - name: "equivalence_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если размер доплаты прямо определён. Иначе 'not_defined'."
+          description: "Статус равноценности."
+        - name: "equivalence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["equal", "unequal", "not_defined"]
+          description: "Равноценность или неравноценность обмена."
+        - name: "surcharge_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус доплаты."
         - name: "surcharge_amount"
           type: "string"
-          description: "Размер доплаты. Если нет — строго 'Данные не определены'."
-        - name: "surcharge_deadline_status"
+          presentation: "fact"
+          label: "Сумма доплаты"
+          description: "Сумма доплаты при неравноценном обмене."
+        - name: "surcharge_payer"
           type: "string"
+          presentation: "fact"
+          label: "Плательщик доплаты"
+          description: "Кто платит доплату."
+        - name: "surcharge_deadline"
+          type: "string"
+          presentation: "fact"
+          label: "Срок доплаты"
+          description: "Срок уплаты доплаты."
+        - name: "surcharge_late_consequences_status"
+          type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок доплаты прямо определён. Иначе 'not_defined'."
+          description: "Статус последствий просрочки доплаты."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 4: Передача товаров, сроки, акты, доставка, страхование
+  # CHECK 4: Сроки передачи и акты приёма-передачи
   # ──────────────────────────────────────────────────────────────────────────
-  - id: delivery_transfer_and_documents
-    name: "Передача товаров: порядок, сроки, акты, доставка, страхование"
+  - id: delivery_timing_and_acts
+    name: "Сроки, место передачи и акты приёма-передачи"
     description: >
-      Фактографическая проверка наличия условий о порядке и сроках взаимной передачи
-      товаров, актов приёма-передачи, условий доставки и страхования.
+      Фактографическая проверка сроков и мест передачи каждого товара,
+      одновременности/последовательности и формы передаточных актов.
+      Страхование и доставка проверяются отдельным check.
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
@@ -1253,32 +1488,20 @@ checks_v8:
         - "передаточный акт"
         - "акт приёма-передачи"
         - "подписывают акт"
-        - "доставка"
-        - "транспортировка"
-        - "расходы на доставку"
-        - "самовывоз"
         - "место передачи"
-        - "страхование"
-        - "страховой полис"
-        - "застраховать"
-        - "страховая сумма"
-        - "выгодоприобретатель"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+"
-        - "{{ date_pattern }}"
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
         - "(?i)передач(а|и|у)\\s+товар"
         - "(?i)акт\\s+(приём|передач)"
-        - "(?i)доставк(а|у|и)\\s+за\\s+счёт"
-        - "(?i)страхов(ание|ой\\s+полис)"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор мены (бартера) (гл. 31 ГК РФ, ст. 567-571;
-        ст. 458-459 ГК РФ; ст. 556 ГК РФ — для недвижимости).
-        Проверяется только один вопрос: порядок и сроки передачи товаров,
-        акты приёма-передачи, доставка и страхование.
+        Анализируется договор мены (гл. 31 ГК РФ, ст. 556 ГК РФ — для недвижимости).
+        Проверяется только один вопрос: сроки и место передачи товаров, форма актов.
+        Не анализируй доставку, страхование или механизм обеспечения.
 
         [ЗАДАЧА]
         Найди в тексте договора:
@@ -1287,25 +1510,16 @@ checks_v8:
         3. Срок/дата передачи товара B.
         4. Место передачи каждого товара.
         5. Форма акта приёма-передачи (предусмотрен / не предусмотрен).
-        6. Кто несёт расходы на доставку/транспортировку.
-        7. Страхование товаров при перевозке или хранении (предусмотрено / нет).
 
         [ПРАВИЛА]
-        1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
-        4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        1. Только текст документа. Если нет — "not_defined".
+        2. В evidence — только текст договора.
+        3. Верни только JSON.
 
         [ПРИМЕРЫ (FEW-SHOT)]
-
         Пример 1:
-        Фрагмент:
-        "Передача обоих товаров осуществляется одновременно 15.04.2026 по адресу:
-        г. Москва, ул. Ленина, д. 1. Передача оформляется двусторонним актом
-        приёма-передачи. Расходы на доставку каждый несёт самостоятельно.
-        Страхование не предусмотрено."
-
+        "Передача обоих товаров — одновременно 15.04.2026 по адресу: г. Москва, ул. Ленина, д. 1.
+        Оформляется двусторонним актом приёма-передачи."
         Ответ:
         {
           "transfer_sequence_status": "defined",
@@ -1318,22 +1532,11 @@ checks_v8:
           "transfer_location_details": "г. Москва, ул. Ленина, д. 1",
           "transfer_act_status": "defined",
           "transfer_act_details": "двусторонний акт приёма-передачи",
-          "delivery_responsibility_status": "defined",
-          "delivery_responsibility": "each_own",
-          "insurance_status": "defined",
-          "insurance_details": "страхование не предусмотрено",
-          "evidence": [
-            {
-              "clause_ref": "п. 3.1",
-              "quote": "Передача обоих товаров осуществляется одновременно 15.04.2026 по адресу: г. Москва, ул. Ленина, д. 1."
-            }
-          ]
+          "evidence": [{"clause_ref": "п. 3.1", "quote": "..."}]
         }
 
         Пример 2:
-        Фрагмент:
-        "Стороны обязуются передать товары друг другу."
-
+        "Стороны обязуются передать товары."
         Ответ:
         {
           "transfer_sequence_status": "not_defined",
@@ -1346,24 +1549,18 @@ checks_v8:
           "transfer_location_details": "Данные не определены",
           "transfer_act_status": "not_defined",
           "transfer_act_details": "Данные не определены",
-          "delivery_responsibility_status": "not_defined",
-          "delivery_responsibility": "not_defined",
-          "insurance_status": "not_defined",
-          "insurance_details": "Данные не определены",
           "evidence": []
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Передача одновременная или последовательная — прямо написано?
-        2. Есть ли конкретная дата или срок для каждого товара?
-        3. Указано ли место передачи?
-        4. Упомянут ли акт приёма-передачи?
-        5. Кто несёт расходы на доставку — прямо написано?
+        1. Одновременно или последовательно — прямо?
+        2. Дата или срок для каждого товара?
+        3. Место — прямо указано?
+        4. Акт — упомянут?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "transfer_sequence_status": "<defined / not_defined>",
           "transfer_sequence": "<simultaneous / sequential / not_defined>",
@@ -1375,156 +1572,45 @@ checks_v8:
           "transfer_location_details": "<место или 'Данные не определены'>",
           "transfer_act_status": "<defined / not_defined>",
           "transfer_act_details": "<текст или 'Данные не определены'>",
-          "delivery_responsibility_status": "<defined / not_defined>",
-          "delivery_responsibility": "<party_A / party_B / each_own / third_party / not_defined>",
-          "insurance_status": "<defined / not_defined>",
-          "insurance_details": "<текст или 'Данные не определены'>",
-          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
-        }
-      context_k: 7
-      temperature: 0.0
-      max_tokens: 750
-    retrieval:
-      context_k: 7
-      max_chunks: 10
-      boost_keywords:
-        - "передача товара"
-        - "срок передачи"
-        - "акт приёма-передачи"
-        - "доставка"
-        - "место передачи"
-        - "страхование"
-        - "расходы на доставку"
-      rerank: true
-    enrichment_hints:
-      preferred_clause_functions:
-        - "procedures"
-        - "obligations"
-      confidence_bonus_on_match: 0.08
-    evidence:
-      required: true
-      min_snippet_length: 40
-      max_snippet_length: 650
-    extraction:
-      enabled: true
-      mode: "hybrid"
-      fields:
-        - name: "transfer_sequence_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок передачи прямо определён. Иначе 'not_defined'."
-        - name: "transfer_sequence"
-          type: "string"
-          allowed_values: ["simultaneous", "sequential", "not_defined"]
-          description: "Одновременная или последовательная передача."
-        - name: "good_A_transfer_deadline_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок передачи товара A прямо определён. Иначе 'not_defined'."
-        - name: "good_B_transfer_deadline_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок передачи товара B прямо определён. Иначе 'not_defined'."
-        - name: "transfer_act_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если акт приёма-передачи прямо предусмотрен. Иначе 'not_defined'."
-        - name: "delivery_responsibility"
-          type: "string"
-          allowed_values: ["party_A", "party_B", "each_own", "third_party", "not_defined"]
-          description: "Кто несёт расходы/обязанность по доставке."
-      store_payload: true
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 5: Механизм обеспечения одновременности
-  # ──────────────────────────────────────────────────────────────────────────
-  - id: simultaneous_transfer_mechanism_check
-    name: "Механизм обеспечения одновременности передачи (ст. 328, 570 ГК РФ)"
-    description: >
-      Фактографическая проверка наличия механизма защиты при обмене (эскроу,
-      аккредитив, задаток, банковская гарантия) и права приостановления исполнения
-      при последовательной передаче.
-    triggers: {}
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "hybrid"
-    rules:
-      keywords:
-        - "одновременная передача"
-        - "одновременно"
-        - "аккредитив"
-        - "эскроу"
-        - "банковская ячейка"
-        - "обеспечительный платеж"
-        - "задаток"
-        - "встречное исполнение"
-        - "передача через третье лицо"
-        - "депозит нотариуса"
-        - "банковская гарантия"
-        - "поручительство"
-        - "удержание"
-        - "приостановление исполнения"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)передача.*осуществляется.*одновременно"
-        - "(?i)исполнение.*обеими.*сторонами.*одновременно"
-        - "(?i)встречно(е|го)\\s+исполнен"
-        - "(?i)право.*удержан"
-        - "(?i)приостановить.*исполнение"
-    llm:
-      prompt_template: |
-        [КОНТЕКСТ]
-        Ты — российский юрист по договорной работе.
-        Анализируется договор мены (бартера) (гл. 31 ГК РФ; ст. 328, 570 ГК РФ).
-        Проверяется только один вопрос: механизм обеспечения одновременности
-        или защиты при последовательной передаче.
-
-        [ЗАДАЧА]
-        Найди в тексте договора:
-        1. Механизм обеспечения передачи (эскроу / аккредитив / задаток / гарантия / нотариус / ничего).
-        2. Кто передаёт первым при последовательной передаче.
-        3. Право приостановить исполнение (ст. 328 ГК РФ) — прямо упомянуто или нет.
-        4. Право удержания переданного товара.
-
-        [ПРАВИЛА]
-        1. Только текст документа.
-        2. Если механизм не указан прямо — "not_defined" или "none" (нет механизма).
-        3. В evidence — только текст договора.
-        4. Верни только один JSON-объект.
-
-        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли конкретный механизм (эскроу / аккредитив и т.д.)?
-        2. Если одновременная передача — это тоже механизм защиты.
-        3. Если механизма нет — security_mechanism = "none".
-
-        Не выводи шаги проверки. Верни только JSON.
-
-        [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
-        {
-          "security_mechanism_status": "<defined / not_defined>",
-          "security_mechanism": "<escrow / accreditive / bank_cell / deposit / guarantee / notary_deposit / none / not_defined>",
-          "who_transfers_first_status": "<defined / not_defined>",
-          "who_transfers_first": "<party_A / party_B / simultaneous / not_defined>",
-          "suspension_right_status": "<defined / not_defined>",
-          "retention_right_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 6
       temperature: 0.0
       max_tokens: 600
     retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "одновременная передача"
-        - "встречное исполнение"
-        - "обеспечение"
+      retrieval_query: "порядок передачи срок передачи одновременно последовательно не позднее в течение дата передачи передаточный акт акт приёма-передачи подписывают акт место передачи передача товара"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "наименование товара"
+        - "стоимость товара"
+        - "доплата"
+        - "оценщик"
+        - "доставка"
+        - "расходы на доставку"
+        - "страхование"
         - "эскроу"
         - "аккредитив"
-        - "ст. 328"
-        - "ст. 570"
-        - "удержание"
+        - "встречное исполнение"
+        - "право приостановления"
+        - "обременения"
+        - "залог"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.70]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1538,33 +1624,449 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 440
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены сроки и место передачи товаров,
+        порядок (одновременно / последовательно) и условие о передаточном акте.
+        Не анализируй доставку, страхование, механизм обеспечения или ответственность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. transfer_sequence_status — "defined" или "not_defined".
+        2. transfer_sequence — simultaneous / sequential / not_defined.
+        3. good_A_transfer_deadline_status — "defined" или "not_defined".
+        4. good_A_transfer_deadline — срок или дата передачи товара A.
+        5. good_B_transfer_deadline_status — "defined" или "not_defined".
+        6. good_B_transfer_deadline — срок или дата передачи товара B.
+        7. transfer_location_status — "defined" или "not_defined".
+        8. transfer_location_details — место передачи.
+        9. transfer_act_status — "defined" или "not_defined".
+        10. transfer_act_details — условие о передаточном акте.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "transfer_sequence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка передачи."
+        - name: "transfer_sequence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["simultaneous", "sequential", "not_defined"]
+          description: "Одновременная или последовательная передача."
+        - name: "good_A_transfer_deadline_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус срока передачи товара A."
+        - name: "good_A_transfer_deadline"
+          type: "string"
+          presentation: "fact"
+          label: "Срок передачи товара A"
+          description: "Срок или дата передачи товара A."
+        - name: "good_B_transfer_deadline_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус срока передачи товара B."
+        - name: "good_B_transfer_deadline"
+          type: "string"
+          presentation: "fact"
+          label: "Срок передачи товара B"
+          description: "Срок или дата передачи товара B."
+        - name: "transfer_location_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус места передачи."
+        - name: "transfer_location_details"
+          type: "string"
+          presentation: "fact"
+          label: "Место передачи"
+          description: "Место передачи товаров."
+        - name: "transfer_act_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус передаточного акта."
+        - name: "transfer_act_details"
+          type: "string"
+          presentation: "fact"
+          label: "Передаточный акт"
+          description: "Условие о передаточном акте."
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 5: Доставка и страхование при мене
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: delivery_logistics_and_insurance
+    name: "Доставка, расходы и страхование товаров при мене"
+    description: >
+      Фактографическая проверка условий доставки (кто несёт расходы),
+      страхования товаров при перевозке или хранении.
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "доставка"
+        - "транспортировка"
+        - "расходы на доставку"
+        - "самовывоз"
+        - "перевозка"
+        - "страхование"
+        - "страховой полис"
+        - "застраховать"
+        - "страховая сумма"
+        - "выгодоприобретатель"
+        - "риск утраты при перевозке"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)доставк(а|у|и)\\s+за\\s+счёт"
+        - "(?i)страхов(ание|ой\\s+полис)"
+        - "(?i)транспортировк(а|у)\\s+(за\\s+счёт|несёт)"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор мены.
+        Проверяется только один вопрос: кто несёт расходы на доставку
+        и предусмотрено ли страхование товаров.
+        Не анализируй сроки и место передачи, акты или механизм обеспечения.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Кто несёт расходы на доставку каждого товара.
+        2. Условие страхования товаров при перевозке или хранении.
+        3. Выгодоприобретатель по страховке.
+
+        [ПРАВИЛА]
+        1. Только текст документа. Если нет — "not_defined".
+        2. В evidence — только текст договора.
+        3. Верни только JSON.
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Кто несёт расходы — прямо написано?
+        2. Страхование — обязательно или не предусмотрено?
+
+        Не выводи шаги. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "delivery_responsibility_status": "<defined / not_defined>",
+          "delivery_responsibility": "<party_A / party_B / each_own / third_party / not_defined>",
+          "delivery_responsibility_details": "<текст или 'Данные не определены'>",
+          "insurance_status": "<defined / not_defined>",
+          "insurance_details": "<текст или 'Данные не определены'>",
+          "insurance_beneficiary_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      retrieval_query: "доставка транспортировка расходы на доставку самовывоз перевозка страхование страховой полис застраховать страховая сумма выгодоприобретатель риск утраты при перевозке кто несёт расходы"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "срок передачи"
+        - "акт приёма-передачи"
+        - "одновременно"
+        - "эскроу"
+        - "аккредитив"
+        - "встречное исполнение"
+        - "наименование товара"
+        - "стоимость товара"
+        - "доплата"
+        - "обременения"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.08
+        scope: segment
+      context_k: 5
+      max_chunks: 6
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "procedures"
+        - "obligations"
+      confidence_bonus_on_match: 0.06
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 380
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены условия доставки товаров
+        и страхования при перевозке или хранении.
+        Не анализируй сроки передачи, акты, механизм обеспечения или ответственность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. delivery_responsibility_status — "defined" или "not_defined".
+        2. delivery_responsibility — party_A / party_B / each_own / third_party / not_defined.
+        3. delivery_responsibility_details — кто и как несёт расходы на доставку.
+        4. insurance_status — "defined" или "not_defined".
+        5. insurance_details — условие страхования товаров.
+        6. insurance_beneficiary_status — "defined" или "not_defined".
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "delivery_responsibility_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус ответственности за доставку."
+        - name: "delivery_responsibility"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["party_A", "party_B", "each_own", "third_party", "not_defined"]
+          description: "Кто несёт расходы или обязанность по доставке."
+        - name: "delivery_responsibility_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ответственность за доставку"
+          description: "Условие о расходах на доставку каждого товара."
+        - name: "insurance_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус страхования товаров."
+        - name: "insurance_details"
+          type: "string"
+          presentation: "fact"
+          label: "Страхование товаров"
+          description: "Условие страхования товаров при перевозке или хранении."
+        - name: "insurance_beneficiary_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус выгодоприобретателя по страховке."
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 6: Механизм обеспечения одновременности
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: simultaneous_transfer_mechanism_check
+    name: "Механизм обеспечения одновременности передачи (ст. 328, 570 ГК РФ)"
+    description: >
+      Фактографическая проверка наличия механизма защиты при обмене (эскроу,
+      аккредитив, задаток, банковская гарантия) и права приостановления исполнения.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "одновременная передача"
+        - "аккредитив"
+        - "эскроу"
+        - "банковская ячейка"
+        - "обеспечительный платеж"
+        - "задаток"
+        - "встречное исполнение"
+        - "депозит нотариуса"
+        - "банковская гарантия"
+        - "удержание"
+        - "приостановление исполнения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)передача.*осуществляется.*одновременно"
+        - "(?i)встречно(е|го)\\s+исполнен"
+        - "(?i)право.*удержан"
+        - "(?i)приостановить.*исполнение"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор мены (гл. 31 ГК РФ; ст. 328, 570 ГК РФ).
+        Проверяется только один вопрос: механизм обеспечения одновременности
+        или защиты при последовательной передаче.
+        Не анализируй сроки и место передачи, акты или доставку.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Механизм обеспечения (эскроу / аккредитив / задаток / гарантия / нотариус / ничего).
+        2. Кто передаёт первым при последовательной передаче.
+        3. Право приостановить исполнение (ст. 328 ГК РФ).
+        4. Право удержания переданного товара.
+
+        [ПРАВИЛА]
+        1. Только текст документа. Если нет — "not_defined" / "none".
+        2. В evidence — только текст договора.
+        3. Верни только JSON.
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Есть ли конкретный механизм?
+        2. Если нет механизма — security_mechanism = "none".
+
+        Не выводи шаги. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "security_mechanism_status": "<defined / not_defined>",
+          "security_mechanism": "<escrow / accreditive / bank_cell / deposit / guarantee / notary_deposit / none / not_defined>",
+          "who_transfers_first_status": "<defined / not_defined>",
+          "who_transfers_first": "<party_A / party_B / simultaneous / not_defined>",
+          "suspension_right_status": "<defined / not_defined>",
+          "retention_right_status": "<defined / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 550
+    retrieval:
+      retrieval_query: "одновременная передача аккредитив эскроу банковская ячейка обеспечительный платёж задаток встречное исполнение депозит нотариуса банковская гарантия удержание приостановление исполнения ст. 328 ГК РФ ст. 570 ГК РФ кто передаёт первым"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "наименование товара"
+        - "стоимость товара"
+        - "доплата"
+        - "доплата за неравноценный обмен"
+        - "срок передачи"
+        - "место передачи"
+        - "акт приёма-передачи"
+        - "доставка"
+        - "страхование"
+        - "обременения"
+        - "залог"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.75]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "procedures"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 380
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены механизм обеспечения
+        одновременности передачи, кто передаёт первым, право приостановления
+        и право удержания.
+        Не анализируй сроки передачи, акты, доставку или страхование.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. security_mechanism_status — "defined" или "not_defined".
+        2. security_mechanism — escrow / accreditive / bank_cell / deposit / guarantee / notary_deposit / none / not_defined.
+        3. who_transfers_first_status — "defined" или "not_defined".
+        4. who_transfers_first — party_A / party_B / simultaneous / not_defined.
+        5. suspension_right_status — "defined" или "not_defined".
+        6. retention_right_status — "defined" или "not_defined".
+
+        Если данных нет: статус = "not_defined".
+        Если механизма нет: security_mechanism = "none".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "security_mechanism_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если механизм обеспечения прямо определён. Иначе 'not_defined'."
+          description: "Статус механизма обеспечения."
         - name: "security_mechanism"
           type: "string"
+          presentation: "signal"
           allowed_values: ["escrow", "accreditive", "bank_cell", "deposit", "guarantee", "notary_deposit", "none", "not_defined"]
           description: "Механизм обеспечения одновременности."
+        - name: "who_transfers_first_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения очерёдности передачи."
         - name: "who_transfers_first"
           type: "string"
+          presentation: "signal"
           allowed_values: ["party_A", "party_B", "simultaneous", "not_defined"]
           description: "Кто передаёт первым."
         - name: "suspension_right_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право приостановить исполнение прямо предусмотрено. Иначе 'not_defined'."
+          description: "Статус права приостановить исполнение."
+        - name: "retention_right_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус права удержания переданного товара."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 6: Переход права собственности и риск гибели
+  # CHECK 7: Переход права собственности и риск гибели
   # ──────────────────────────────────────────────────────────────────────────
   - id: ownership_transfer_timing_check
     name: "Момент перехода права собственности и риска случайной гибели (ст. 459, 570 ГК РФ)"
     description: >
-      Фактографическая проверка наличия явного условия о моменте перехода права
-      собственности и риска случайной гибели для каждого товара.
+      Фактографическая проверка момента перехода права собственности
+      и риска случайной гибели для каждого товара.
     triggers: {}
     severity: "high"
     origin: "DOCUMENT_TYPE"
@@ -1577,7 +2079,6 @@ checks_v8:
         - "риск случайной гибели"
         - "риск случайного повреждения"
         - "несёт риск"
-        - "переход риска"
         - "с момента передачи"
         - "после подписания акта"
         - "после регистрации"
@@ -1585,7 +2086,6 @@ checks_v8:
       regex_patterns:
         - "(?i)право\\s+собственности.*переходит"
         - "(?i)после\\s+исполнения.*обеими"
-        - "(?i)момент\\s+перехода\\s+прав"
         - "(?i)риск\\s+случайн(ой|ого)\\s+(гибел|поврежден)"
     llm:
       prompt_template: |
@@ -1594,31 +2094,29 @@ checks_v8:
         Анализируется договор мены (гл. 31 ГК РФ, ст. 459, 570 ГК РФ).
         Проверяется только один вопрос: момент перехода права собственности
         и риска случайной гибели.
+        Не анализируй сроки передачи, акты, доставку или ответственность.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Момент перехода права собственности на товары.
+        1. Момент перехода права собственности.
         2. Момент перехода риска случайной гибели/повреждения.
         3. Есть ли разрыв между моментами права и риска.
 
         [ПРАВИЛА]
-        1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
+        1. Только текст документа. Если нет — "not_defined".
+        2. Если явного условия нет — применяется диспозитив ст. 570 ГК РФ.
+           Пиши "default_applies", а не "not_defined".
         3. В evidence — только текст договора.
-        4. Верни только один JSON-объект.
-        5. ВАЖНО: если в тексте нет явного условия — применяется диспозитив
-           ст. 570 ГК РФ (после исполнения обеими сторонами). Фиксируй это как
-           "default_applies", а не "not_defined".
+        4. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли прямая фраза о переходе права собственности?
-        2. Есть ли прямая фраза о переходе риска?
-        3. Если явного условия нет — пиши "default_applies" для перехода права.
+        1. Прямая фраза о переходе права — есть?
+        2. Прямая фраза о переходе риска — есть?
+        3. Нет прямого условия → default_applies.
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "ownership_transfer_status": "<defined / default_applies / not_defined>",
           "ownership_transfer_moment": "<after_both_perform / upon_delivery / upon_act / upon_registration / custom / not_defined>",
@@ -1630,16 +2128,40 @@ checks_v8:
         }
       context_k: 5
       temperature: 0.0
-      max_tokens: 600
+      max_tokens: 550
     retrieval:
+      retrieval_query: "право собственности переходит после исполнения обеими сторонами момент перехода права риск случайной гибели риск случайного повреждения несёт риск с момента передачи после подписания акта после регистрации ст. 570 ГК РФ ст. 459 ГК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "доплата"
+        - "наименование товара"
+        - "стоимость товара"
+        - "доставка"
+        - "страхование"
+        - "эскроу"
+        - "аккредитив"
+        - "обременения"
+        - "залог"
+        - "неустойка"
+        - "ответственность за неисполнение"
+        - "расторжение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.75]
+        boost: 0.12
+        scope: segment
       context_k: 5
       max_chunks: 7
-      boost_keywords:
-        - "право собственности переходит"
-        - "момент перехода"
-        - "ст. 570 ГК РФ"
-        - "исполнение обеими сторонами"
-        - "риск случайной гибели"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1653,33 +2175,77 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 380
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены момент перехода права
+        собственности, момент перехода риска гибели и наличие разрыва между ними.
+        Не анализируй сроки передачи, акты, доставку или ответственность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. ownership_transfer_status — "defined", "default_applies" или "not_defined".
+        2. ownership_transfer_moment — after_both_perform / upon_delivery / upon_act / upon_registration / custom / not_defined.
+        3. ownership_transfer_details — формулировка о переходе права.
+        4. risk_transfer_status — "defined", "default_applies" или "not_defined".
+        5. risk_transfer_moment — same_as_ownership / upon_delivery / custom / not_defined.
+        6. gap_risk_identified — "yes" или "no".
+
+        Если явного условия нет: status = "default_applies" (диспозитив ст. 570 ГК).
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - default_applies = нет прямого условия, действует диспозитив.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "ownership_transfer_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "default_applies", "not_defined"]
-          description: "Верни 'defined' если прямо указано, 'default_applies' если действует диспозитив ст. 570 ГК, 'not_defined' если неясно."
+          description: "Статус момента перехода права собственности."
         - name: "ownership_transfer_moment"
           type: "string"
+          presentation: "signal"
           allowed_values: ["after_both_perform", "upon_delivery", "upon_act", "upon_registration", "custom", "not_defined"]
           description: "Момент перехода права собственности."
+        - name: "ownership_transfer_details"
+          type: "string"
+          presentation: "fact"
+          label: "Переход права собственности"
+          description: "Формулировка о моменте перехода права."
         - name: "risk_transfer_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "default_applies", "not_defined"]
-          description: "Верни 'defined', если переход риска прямо определён. Иначе соответственно."
+          description: "Статус момента перехода риска."
+        - name: "risk_transfer_moment"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["same_as_ownership", "upon_delivery", "custom", "not_defined"]
+          description: "Момент перехода риска случайной гибели."
         - name: "gap_risk_identified"
           type: "string"
+          presentation: "diagnostic"
           allowed_values: ["yes", "no"]
-          description: "Есть ли разрыв между моментами права и риска."
+          description: "Маркер разрыва между моментами права и риска."
       store_payload: true
 
+
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 7: Качество, гарантия, приёмка и претензии
+  # CHECK 8: Гарантии качества
   # ──────────────────────────────────────────────────────────────────────────
-  - id: quality_warranty_and_claims
-    name: "Качество товаров, гарантии, приёмка и претензии по недостаткам"
+
+  - id: quality_warranty_check
+    name: "Гарантии качества обмениваемых товаров и гарантийные сроки"
     description: >
-      Фактографическая проверка наличия гарантий качества для обоих товаров,
-      гарантийных сроков, порядка приёмки и претензионного механизма.
+      Фактографическая проверка наличия гарантий качества для обоих товаров
+      и гарантийных сроков. Претензии по недостаткам — в отдельном check.
     triggers: {}
     severity: "high"
     origin: "DOCUMENT_TYPE"
@@ -1690,58 +2256,42 @@ checks_v8:
         - "соответствие товара"
         - "отсутствие недостатков"
         - "технические характеристики"
-        - "проверка качества"
-        - "претензия по качеству"
-        - "скрытые недостатки"
         - "гарантийный срок"
-        - "рекламация"
-        - "недостатки товара"
-        - "обнаружение недостатков"
-        - "срок предъявления претензий"
-        - "акт о недостатках"
-        - "замена товара"
+        - "надлежащее качество"
         - "гарантиру"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)гарантиру(ет|ют).*качеств"
         - "(?i)соответств(ует|ие).*требовани"
-        - "(?i)претензи(я|и|ю).*по\\s+(качеств|недостатк)"
-        - "(?i)обнаружен(ие|ии)\\s+недостатк"
+        - "(?i)гарантийн(ый|ого)\\s+срок"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор мены (гл. 31 ГК РФ; ст. 469-477, 567 ГК РФ).
-        Проверяется только один вопрос: качество обмениваемых товаров,
-        гарантии, приёмка и претензии по недостаткам.
+        Анализируется договор мены (гл. 31 ГК РФ; ст. 469-477 ГК РФ).
+        Проверяется только один вопрос: гарантии качества и гарантийные сроки
+        для каждого из обмениваемых товаров.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Гарантия качества товара A (есть / нет / не указана).
+        1. Гарантия качества товара A (есть явная / базовая / нет).
         2. Гарантийный срок для товара A.
         3. Гарантия качества товара B.
         4. Гарантийный срок для товара B.
-        5. Порядок приёмки по качеству.
-        6. Срок и форма предъявления претензий по недостаткам.
-        7. Последствия выявления недостатков (замена / уменьшение стоимости / возврат).
 
         [ПРАВИЛА]
         1. Только текст документа.
         2. Если условие не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
-        4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        3. "Гарантирует надлежащее качество" — это базовая гарантия (basic).
+        4. В evidence — только цитаты из договора.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         1. Есть ли явные заверения о качестве для каждого товара отдельно?
-        2. Указан ли гарантийный срок числом месяцев/лет?
-        3. Указан ли конкретный срок предъявления претензий?
-        4. "Гарантирует надлежащее качество" — это базовая гарантия (basic).
+        2. Указан ли гарантийный срок числом месяцев или лет?
 
         Не выводи шаги проверки. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "good_A_quality_warranty_status": "<defined / not_defined>",
           "good_A_quality_warranty_level": "<detailed / basic / not_defined>",
@@ -1751,6 +2301,196 @@ checks_v8:
           "good_B_quality_warranty_level": "<detailed / basic / not_defined>",
           "good_B_warranty_period_status": "<defined / not_defined>",
           "good_B_warranty_period": "<срок или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 550
+    retrieval:
+      retrieval_query: "гарантия качества соответствие товара отсутствие недостатков технические характеристики гарантийный срок надлежащее качество гарантирует качество соответствует требованиям"
+      preferred_unit_types:
+        - warranty
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "приёмка по качеству"
+        - "претензия по качеству"
+        - "скрытые недостатки"
+        - "рекламация"
+        - "срок предъявления претензий"
+        - "акт о недостатках"
+        - "замена товара при недостатках"
+        - "доплата"
+        - "стоимость товара"
+        - "обременения"
+        - "эвикция"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.75]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 7
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "representations"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 430
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора мены данные о гарантиях
+        качества и гарантийных сроках для каждого из обмениваемых товаров.
+        Не анализируй претензии по недостаткам, порядок приёмки, стороны или передачу.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. good_A_quality_warranty_status — "defined" если гарантия качества товара A прямо указана, иначе "not_defined".
+        2. good_A_quality_warranty_level — "detailed" (с конкретными характеристиками) / "basic" (общая фраза о надлежащем качестве) / "not_defined".
+        3. good_A_warranty_period_status — "defined" если гарантийный срок для товара A прямо указан, иначе "not_defined".
+        4. good_A_warranty_period — конкретный гарантийный срок (месяцев, лет).
+        5. good_B_quality_warranty_status — аналогично для товара B.
+        6. good_B_quality_warranty_level — аналогично для товара B.
+        7. good_B_warranty_period_status — аналогично для товара B.
+        8. good_B_warranty_period — гарантийный срок товара B.
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - "basic" = фраза типа "гарантирует надлежащее качество" без конкретных характеристик.
+        - "detailed" = указаны конкретные ТТХ, стандарты, ГОСТ и т.п.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "good_A_quality_warranty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия гарантии качества товара A."
+        - name: "good_A_quality_warranty_level"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["detailed", "basic", "not_defined"]
+          description: "Уровень детализации гарантии качества товара A."
+        - name: "good_A_warranty_period_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения гарантийного срока товара A."
+        - name: "good_A_warranty_period"
+          type: "string"
+          presentation: "fact"
+          label: "Товар A: гарантийный срок"
+          description: "Гарантийный срок для товара A."
+        - name: "good_B_quality_warranty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия гарантии качества товара B."
+        - name: "good_B_quality_warranty_level"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["detailed", "basic", "not_defined"]
+          description: "Уровень детализации гарантии качества товара B."
+        - name: "good_B_warranty_period_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения гарантийного срока товара B."
+        - name: "good_B_warranty_period"
+          type: "string"
+          presentation: "fact"
+          label: "Товар B: гарантийный срок"
+          description: "Гарантийный срок для товара B."
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 9: Приёмка товаров по качеству
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - id: defect_claims_check
+    name: "Приёмка товаров по качеству и претензии по недостаткам"
+    description: >
+      Фактографическая проверка наличия порядка приёмки по качеству, срока
+      обнаружения и предъявления претензий по недостаткам, последствий выявления
+      недостатков. Гарантии качества — в отдельном check quality_warranty_check.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "приёмка по качеству"
+        - "проверка качества"
+        - "претензия по качеству"
+        - "скрытые недостатки"
+        - "рекламация"
+        - "недостатки товара"
+        - "обнаружение недостатков"
+        - "срок предъявления претензий"
+        - "акт о недостатках"
+        - "замена товара"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)претензи(я|и|ю).*по\\s+(качеств|недостатк)"
+        - "(?i)обнаружен(ие|ии)\\s+недостатк"
+        - "(?i)скрыт(ые|ых)\\s+недостатк"
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор мены (гл. 31 ГК РФ; ст. 474-477 ГК РФ).
+        Проверяется только один вопрос: порядок приёмки по качеству,
+        претензии по недостаткам и последствия их выявления.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Порядок приёмки по качеству (предусмотрен / нет).
+        2. Режим скрытых недостатков (отдельно оговорён / нет).
+        3. Срок предъявления претензий по недостаткам.
+        4. Форма претензии (письменная / иная).
+        5. Последствия выявления недостатков (замена / уменьшение стоимости / возврат).
+
+        [ПРАВИЛА]
+        1. Только текст документа.
+        2. Если условие не указано прямо — "not_defined".
+        3. В evidence — только цитаты из договора.
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Указан ли конкретный срок предъявления претензий числом дней?
+        2. Скрытые недостатки упомянуты отдельно?
+        3. Последствия — конкретно (замена / снижение цены / расторжение)?
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
           "acceptance_procedure_status": "<defined / not_defined>",
           "hidden_defects_status": "<defined / not_defined>",
           "claim_deadline_status": "<defined / not_defined>",
@@ -1759,61 +2499,127 @@ checks_v8:
           "defect_consequences": "<replacement / price_reduction / return / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 5
       temperature: 0.0
-      max_tokens: 700
+      max_tokens: 500
     retrieval:
-      context_k: 6
-      max_chunks: 9
-      boost_keywords:
-        - "гарантия качества"
-        - "недостатки товара"
-        - "претензия"
+      retrieval_query: "приёмка по качеству проверка качества претензия по качеству скрытые недостатки рекламация недостатки товара обнаружение недостатков срок предъявления претензий акт о недостатках замена товара при недостатках"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+        - remedies
+      negative_keywords:
         - "гарантийный срок"
-        - "скрытые недостатки"
-        - "приёмка"
-        - "рекламация"
+        - "гарантия качества"
+        - "гарантирует надлежащее качество"
+        - "технические характеристики"
+        - "обременения"
+        - "залог"
+        - "эвикция"
+        - "неустойка за неисполнение"
+        - "расторжение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.80]
+        boost: 0.12
+        scope: segment
+      context_k: 5
+      max_chunks: 7
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
-        - "representations"
-        - "obligations"
         - "procedures"
-      confidence_bonus_on_match: 0.10
+        - "obligations"
+      confidence_bonus_on_match: 0.08
     evidence:
       required: true
-      min_snippet_length: 40
-      max_snippet_length: 650
+      min_snippet_length: 30
+      max_snippet_length: 500
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 400
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора мены данные о порядке
+        приёмки по качеству, претензиях по недостаткам и последствиях их выявления.
+        Не анализируй гарантийные сроки, стороны, передачу или расторжение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. acceptance_procedure_status — "defined" если порядок приёмки по качеству прямо указан, иначе "not_defined".
+        2. hidden_defects_status — "defined" если режим скрытых недостатков отдельно оговорён, иначе "not_defined".
+        3. claim_deadline_status — "defined" если срок предъявления претензий по недостаткам прямо указан, иначе "not_defined".
+        4. claim_deadline — конкретный срок предъявления претензий.
+        5. defect_consequences_status — "defined" если последствия недостатков прямо указаны, иначе "not_defined".
+        6. defect_consequences — "replacement" / "price_reduction" / "return" / "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не подставляй нормы ГК о гарантийных сроках.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "good_A_quality_warranty_status"
+        - name: "acceptance_procedure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если гарантия качества товара A прямо определена. Иначе 'not_defined'."
-        - name: "good_B_quality_warranty_status"
+          description: "Статус наличия порядка приёмки товаров по качеству."
+        - name: "hidden_defects_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если гарантия качества товара B прямо определена. Иначе 'not_defined'."
+          description: "Статус отдельного урегулирования режима скрытых недостатков."
         - name: "claim_deadline_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок претензий прямо определён. Иначе 'not_defined'."
+          description: "Статус определения срока предъявления претензий по недостаткам."
+        - name: "claim_deadline"
+          type: "string"
+          presentation: "fact"
+          label: "Срок претензий по недостаткам"
+          description: "Конкретный срок предъявления претензий по качеству."
+        - name: "defect_consequences_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения последствий выявления недостатков."
         - name: "defect_consequences"
           type: "string"
+          presentation: "signal"
           allowed_values: ["replacement", "price_reduction", "return", "not_defined"]
-          description: "Последствия выявления недостатков."
+          description: "Последствия выявления недостатков в обмениваемом товаре."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 8: Обременения, права третьих лиц и гарантия от эвикции
+  # CHECK 10: Обременения и гарантия от эвикции
   # ──────────────────────────────────────────────────────────────────────────
   - id: encumbrances_and_eviction_warranty
     name: "Обременения, права третьих лиц и гарантия от эвикции (ст. 460-461, 571 ГК РФ)"
     description: >
-      Фактографическая проверка наличия заверений об отсутствии обременений на оба
-      товара и гарантий от эвикции по ст. 571 ГК РФ.
+      Фактографическая проверка заверений об отсутствии обременений на оба товара
+      и гарантий от эвикции по ст. 571 ГК РФ.
     triggers: {}
     severity: "critical"
     origin: "DOCUMENT_TYPE"
@@ -1825,13 +2631,9 @@ checks_v8:
         - "не заложен"
         - "не находится под арестом"
         - "свободен от прав третьих лиц"
-        - "не сдан в аренду"
-        - "никаких прав третьих лиц"
         - "гарантирует"
         - "эвикция"
         - "изъятие товара"
-        - "истребование"
-        - "возврат товара и возмещение убытков"
         - "ст. 571"
         - "ст. 461"
       keyword_mode: "any"
@@ -1845,33 +2647,68 @@ checks_v8:
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
         Анализируется договор мены (гл. 31 ГК РФ; ст. 460-461, 571 ГК РФ).
-        Проверяется только один вопрос: гарантии отсутствия обременений
-        на оба товара и защита от эвикции.
+        Проверяется только один вопрос: гарантии отсутствия обременений на оба
+        товара и защита от эвикции.
+        Не анализируй качество, сроки передачи, доставку или ответственность.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Заверение об отсутствии обременений на товар A.
-        2. Заверение об отсутствии залога на товар A.
-        3. Заверение об отсутствии ареста на товар A.
-        4. Аналогичные заверения для товара B.
-        5. Гарантия от эвикции (ст. 571 ГК РФ) — последствия изъятия товара третьим лицом.
+        1. Заверение об отсутствии обременений/залога/ареста на товар A.
+        2. Заверение об отсутствии обременений/залога/ареста на товар B.
+        3. Гарантия от эвикции (ст. 571 ГК РФ) и её последствия.
 
         [ПРАВИЛА]
-        1. Только текст документа.
-        2. Если заверение не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
-        4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        1. Только текст документа. Если нет — "not_defined".
+        2. Общая фраза о свободе обоих товаров покрывает A и B.
+        3. В evidence — только текст договора.
+        4. Верни только JSON.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1:
+        "Оба товара свободны от прав третьих лиц, обременений и арестов.
+        При изъятии товара третьим лицом передавшая сторона возмещает убытки
+        и возвращает полученный товар."
+        Ответ:
+        {
+          "good_A_encumbrance_status": "defined",
+          "good_A_encumbrance_details": "свободен от прав третьих лиц и обременений",
+          "good_A_pledge_status": "defined",
+          "good_A_arrest_status": "defined",
+          "good_B_encumbrance_status": "defined",
+          "good_B_encumbrance_details": "свободен от прав третьих лиц и обременений",
+          "good_B_pledge_status": "defined",
+          "good_B_arrest_status": "defined",
+          "eviction_warranty_status": "defined",
+          "eviction_consequences_status": "defined",
+          "eviction_consequences_details": "возмещение убытков и возврат товара",
+          "evidence": [{"clause_ref": "п. 4.1", "quote": "..."}]
+        }
+
+        Пример 2:
+        "Стороны передают товары."
+        Ответ:
+        {
+          "good_A_encumbrance_status": "not_defined",
+          "good_A_encumbrance_details": "Данные не определены",
+          "good_A_pledge_status": "not_defined",
+          "good_A_arrest_status": "not_defined",
+          "good_B_encumbrance_status": "not_defined",
+          "good_B_encumbrance_details": "Данные не определены",
+          "good_B_pledge_status": "not_defined",
+          "good_B_arrest_status": "not_defined",
+          "eviction_warranty_status": "not_defined",
+          "eviction_consequences_status": "not_defined",
+          "eviction_consequences_details": "Данные не определены",
+          "evidence": []
+        }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли явные заверения для каждого товара отдельно?
-        2. Общая фраза "товары свободны от обременений" покрывает оба — это "both".
-        3. Есть ли прямое условие об эвикции (изъятие / возврат)?
+        1. Заверения для каждого товара отдельно или совместно?
+        2. Эвикция — прямо упомянута?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "good_A_encumbrance_status": "<defined / not_defined>",
           "good_A_encumbrance_details": "<текст или 'Данные не определены'>",
@@ -1888,19 +2725,38 @@ checks_v8:
         }
       context_k: 6
       temperature: 0.0
-      max_tokens: 700
+      max_tokens: 650
     retrieval:
+      retrieval_query: "не обременён отсутствие обременений не заложен не находится под арестом свободен от прав третьих лиц гарантирует отсутствие обременений эвикция изъятие товара ст. 571 ГК РФ ст. 461 ГК РФ ст. 460 ГК РФ"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "гарантия качества"
+        - "гарантийный срок"
+        - "технические характеристики"
+        - "претензия по качеству"
+        - "недостатки товара"
+        - "неустойка за неисполнение"
+        - "расторжение"
+        - "НДС"
+        - "налоговая база"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.80]
+        boost: 0.12
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "обременения"
-        - "права третьих лиц"
-        - "эвикция"
-        - "изъятие товара"
-        - "ст. 460 ГК"
-        - "ст. 571 ГК"
-        - "не заложен"
-        - "свободен от прав"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -1914,27 +2770,99 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 440
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены заверения об отсутствии
+        обременений, залогов и арестов на оба товара, а также гарантию от эвикции.
+        Не анализируй качество, сроки передачи, доставку или ответственность за неисполнение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. good_A_encumbrance_status — "defined" или "not_defined".
+        2. good_A_encumbrance_details — заверение по товару A.
+        3. good_A_pledge_status — "defined" или "not_defined".
+        4. good_A_arrest_status — "defined" или "not_defined".
+        5. good_B_encumbrance_status — "defined" или "not_defined".
+        6. good_B_encumbrance_details — заверение по товару B.
+        7. good_B_pledge_status — "defined" или "not_defined".
+        8. good_B_arrest_status — "defined" или "not_defined".
+        9. eviction_warranty_status — "defined" или "not_defined".
+        10. eviction_consequences_status — "defined" или "not_defined".
+        11. eviction_consequences_details — последствия эвикции.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Общая фраза "оба товара свободны от обременений" = defined для A и B.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "good_A_encumbrance_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение об отсутствии обременений на товар A прямо определено. Иначе 'not_defined'."
+          description: "Статус заверения об обременениях товара A."
+        - name: "good_A_encumbrance_details"
+          type: "string"
+          presentation: "fact"
+          label: "Обременения товара A"
+          description: "Заверение об отсутствии обременений на товар A."
+        - name: "good_A_pledge_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии залога на товар A."
+        - name: "good_A_arrest_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии ареста на товар A."
         - name: "good_B_encumbrance_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение об отсутствии обременений на товар B прямо определено. Иначе 'not_defined'."
+          description: "Статус заверения об обременениях товара B."
+        - name: "good_B_encumbrance_details"
+          type: "string"
+          presentation: "fact"
+          label: "Обременения товара B"
+          description: "Заверение об отсутствии обременений на товар B."
+        - name: "good_B_pledge_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии залога на товар B."
+        - name: "good_B_arrest_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии ареста на товар B."
         - name: "eviction_warranty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если гарантия от эвикции прямо определена. Иначе 'not_defined'."
+          description: "Статус гарантии от эвикции."
         - name: "eviction_consequences_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если последствия эвикции прямо описаны. Иначе 'not_defined'."
+          description: "Статус описания последствий эвикции."
+        - name: "eviction_consequences_details"
+          type: "string"
+          presentation: "fact"
+          label: "Последствия эвикции"
+          description: "Последствия изъятия товара третьим лицом."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 9: Налоговые последствия
+  # CHECK 11: Налоговые последствия мены
   # ──────────────────────────────────────────────────────────────────────────
   - id: tax_consequences_disclosure_check
     name: "Налоговые последствия мены: НДС, НДФЛ, налоговая база"
@@ -1949,7 +2877,6 @@ checks_v8:
       keywords:
         - "налоговые последствия"
         - "НДС при мене"
-        - "рыночная стоимость для налогов"
         - "налоговая база"
         - "стоимость для целей налогообложения"
         - "счёт-фактура"
@@ -1967,29 +2894,28 @@ checks_v8:
         Ты — российский юрист по договорной работе.
         Анализируется договор мены (гл. 31 ГК РФ; ст. 39, 154, 168 НК РФ).
         Проверяется только один вопрос: налоговые оговорки в договоре.
+        Не анализируй цену товаров, сроки передачи или ответственность.
 
         [ЗАДАЧА]
         Найди в тексте договора:
         1. Налоговую оговорку (НДС: включён / не включён / освобождение).
-        2. Стоимость товаров для целей налогообложения.
+        2. Стоимость для целей налогообложения.
         3. Обязанность выставления счетов-фактур.
         4. НДФЛ для физических лиц (упомянут / нет).
 
         [ПРАВИЛА]
-        1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. В evidence — только текст договора.
-        4. Верни только один JSON-объект.
+        1. Только текст документа. Если нет — "not_defined".
+        2. В evidence — только текст договора.
+        3. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         1. Написано ли прямо про НДС?
-        2. Указана ли стоимость "для целей налогообложения" или "рыночная"?
-        3. Упомянуты ли счета-фактуры?
+        2. Стоимость "для целей налогообложения" — прямо?
+        3. Счета-фактуры — упомянуты?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "tax_disclosure_status": "<defined / not_defined>",
           "vat_treatment_status": "<defined / not_defined>",
@@ -2002,19 +2928,38 @@ checks_v8:
         }
       context_k: 5
       temperature: 0.0
-      max_tokens: 550
+      max_tokens: 500
     retrieval:
+      retrieval_query: "налоговые последствия НДС при мене налоговая база стоимость для целей налогообложения счёт-фактура реализация при мене НДФЛ встречная реализация ст. 154 НК РФ ст. 39 НК РФ ст. 54.1 НК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - obligations
+      negative_keywords:
+        - "стоимость товара для расчёта доплаты"
+        - "рыночная стоимость для доплаты"
+        - "оценщик для доплаты"
+        - "обременения"
+        - "залог"
+        - "эвикция"
+        - "гарантия качества"
+        - "претензия по качеству"
+        - "расторжение"
+        - "неустойка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.50, 1.0]
+        boost: 0.15
+        scope: segment
       context_k: 5
       max_chunks: 7
-      boost_keywords:
-        - "НДС"
-        - "налоговая база"
-        - "реализация"
-        - "счёт-фактура"
-        - "ст. 39 НК РФ"
-        - "ст. 154 НК РФ"
-        - "встречная реализация"
-        - "НДФЛ"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2028,30 +2973,80 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 360
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены налоговые оговорки:
+        НДС, налоговая база, счета-фактуры и НДФЛ для физических лиц.
+        Не анализируй цену товаров, сроки передачи, ответственность или обременения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. tax_disclosure_status — "defined" или "not_defined".
+        2. vat_treatment_status — "defined" или "not_defined".
+        3. vat_treatment — both_charge / exempt / not_specified / not_defined.
+        4. tax_base_method_status — "defined" или "not_defined".
+        5. tax_base_method — market / contractual / not_defined.
+        6. invoice_obligation_status — "defined" или "not_defined".
+        7. ndfl_status — "defined" или "not_defined".
+
+        Если данных нет: статус = "not_defined".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "tax_disclosure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если налоговые оговорки прямо определены. Иначе 'not_defined'."
+          description: "Статус наличия налоговых оговорок."
+        - name: "vat_treatment_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условия о НДС."
         - name: "vat_treatment"
           type: "string"
+          presentation: "signal"
           allowed_values: ["both_charge", "exempt", "not_specified", "not_defined"]
           description: "Порядок начисления НДС."
+        - name: "tax_base_method_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус метода определения налоговой базы."
+        - name: "tax_base_method"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["market", "contractual", "not_defined"]
+          description: "Метод определения налоговой базы."
         - name: "invoice_obligation_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если обязанность выставить счёт-фактуру прямо определена. Иначе 'not_defined'."
+          description: "Статус обязанности выставить счёт-фактуру."
+        - name: "ndfl_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус упоминания НДФЛ для физических лиц."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 10: Притворность и деловая цель
+  # CHECK 12: Деловая цель и аффилированность
   # ──────────────────────────────────────────────────────────────────────────
   - id: sham_transaction_and_business_purpose
-    name: "Деловая цель, притворность сделки и аффилированность (ст. 170 ГК РФ, ст. 54.1 НК РФ)"
+    name: "Деловая цель, притворность и аффилированность (ст. 170 ГК РФ, ст. 54.1 НК РФ)"
     description: >
       Фактографическая проверка наличия обоснования деловой цели, раскрытия
-      аффилированности и подтверждения рыночности оценки для защиты от оспаривания
-      по ст. 170 ГК РФ.
+      аффилированности и подтверждения рыночности оценки.
     triggers:
       any: ["legal_entity_party"]
     severity: "high"
@@ -2062,49 +3057,45 @@ checks_v8:
         - "деловая цель"
         - "экономическая обоснованность"
         - "хозяйственный смысл"
-        - "взаимная выгода"
         - "не является притворной"
-        - "имеет экономическое обоснование"
-        - "рыночная стоимость"
         - "аффилированные лица"
         - "взаимозависимые лица"
+        - "рыночная стоимость"
       keyword_mode: "any"
       negative_keywords:
         - "дарение"
         - "безвозмездная передача"
       regex_patterns:
         - "(?i)делов(ая|ой)\\s+цел"
-        - "(?i)экономическ(ое|ая|ого)\\s+обоснован"
         - "(?i)аффилированн"
         - "(?i)взаимозависим"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
-        Анализируется договор мены (гл. 31 ГК РФ; ст. 170 ГК РФ; ст. 54.1 НК РФ).
+        Анализируется договор мены (ст. 170 ГК РФ; ст. 54.1 НК РФ).
         Проверяется наличие обоснования деловой цели и раскрытия аффилированности.
+        Не анализируй налоговые оговорки, обременения или сроки передачи.
 
         [ЗАДАЧА]
         Найди в тексте договора:
         1. Описание деловой цели или экономического обоснования мены.
         2. Информацию об аффилированности или взаимозависимости сторон.
-        3. Подтверждение рыночности оценки товаров (оценщик / независимая экспертиза).
+        3. Подтверждение рыночности оценки (оценщик / экспертиза).
 
         [ПРАВИЛА]
-        1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. В evidence — только текст договора.
-        4. Верни только один JSON-объект.
+        1. Только текст документа. Если нет — "not_defined".
+        2. В evidence — только текст договора.
+        3. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли прямая формулировка деловой цели?
-        2. Упомянута ли аффилированность (есть / отсутствует)?
-        3. Упомянут ли независимый оценщик?
+        1. Деловая цель — прямая формулировка?
+        2. Аффилированность — упомянута (есть / отсутствует)?
+        3. Оценщик — прямо?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "business_purpose_status": "<defined / not_defined>",
           "business_purpose_details": "<текст или 'Данные не определены'>",
@@ -2114,19 +3105,41 @@ checks_v8:
           "independent_appraiser_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 5
       temperature: 0.0
-      max_tokens: 600
+      max_tokens: 550
     retrieval:
-      context_k: 6
+      retrieval_query: "деловая цель экономическая обоснованность хозяйственный смысл не является притворной аффилированные лица взаимозависимые лица рыночная стоимость подтверждение ст. 170 ГК РФ ст. 54.1 НК РФ независимый оценщик для целей антиуклонения"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - obligations
+      negative_keywords:
+        - "рыночная стоимость для доплаты"
+        - "оценщик для расчёта доплаты"
+        - "НДС при мене"
+        - "налоговая база"
+        - "счёт-фактура"
+        - "НДФЛ"
+        - "обременения"
+        - "гарантия качества"
+        - "расторжение"
+        - "неустойка"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
+      context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "деловая цель"
-        - "экономическое обоснование"
-        - "аффилированность"
-        - "взаимозависимые лица"
-        - "рыночная стоимость"
-        - "ст. 170 ГК"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2140,33 +3153,74 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 380
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены обоснование деловой цели,
+        сведения об аффилированности и подтверждение рыночности оценки.
+        Не анализируй налоги, обременения, сроки передачи или ответственность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. business_purpose_status — "defined" или "not_defined".
+        2. business_purpose_details — описание деловой цели.
+        3. affiliation_disclosure_status — "defined" или "not_defined".
+        4. affiliation_disclosure — yes_affiliated / none_stated / not_defined.
+        5. market_valuation_status — "defined" или "not_defined".
+        6. independent_appraiser_status — "defined" или "not_defined".
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "business_purpose_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если деловая цель прямо раскрыта. Иначе 'not_defined'."
+          description: "Статус раскрытия деловой цели."
+        - name: "business_purpose_details"
+          type: "string"
+          presentation: "fact"
+          label: "Деловая цель"
+          description: "Описание деловой цели мены."
         - name: "affiliation_disclosure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если аффилированность прямо раскрыта. Иначе 'not_defined'."
+          description: "Статус раскрытия аффилированности."
         - name: "affiliation_disclosure"
           type: "string"
+          presentation: "signal"
           allowed_values: ["yes_affiliated", "none_stated", "not_defined"]
-          description: "Статус аффилированности."
+          description: "Статус аффилированности сторон."
+        - name: "market_valuation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус подтверждения рыночности оценки."
         - name: "independent_appraiser_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если независимый оценщик прямо упомянут. Иначе 'not_defined'."
+          description: "Статус упоминания независимого оценщика."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 11: Последствия неисполнения
+  # CHECK 13: Последствия неисполнения
   # ──────────────────────────────────────────────────────────────────────────
   - id: non_performance_consequences_check
     name: "Последствия неисполнения одной из сторон (ст. 328, 450, 463 ГК РФ)"
     description: >
-      Фактографическая проверка наличия условий об ответственности при неисполнении:
-      право расторжения, возврат переданного товара, возмещение убытков, неустойка.
+      Фактографическая проверка условий об ответственности при неисполнении:
+      право расторжения, возврат переданного товара, убытки, неустойка.
     triggers: {}
     severity: "high"
     origin: "DOCUMENT_TYPE"
@@ -2178,14 +3232,11 @@ checks_v8:
         - "возмещение убытков"
         - "отказ от исполнения"
         - "неустойка"
-        - "штрафные санкции"
         - "право отказаться от договора"
         - "возврат переданного товара"
-        - "односторонний отказ"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)в.*случае.*неисполнения.*вправе.*расторг"
-        - "(?i)при.*отказе.*от.*передачи.*товара"
         - "(?i)возврат.*переданн(ого|ый)\\s+товар"
     llm:
       prompt_template: |
@@ -2193,6 +3244,7 @@ checks_v8:
         Ты — российский юрист по договорной работе.
         Анализируется договор мены (гл. 31 ГК РФ; ст. 328, 450, 463 ГК РФ).
         Проверяется наличие условий о последствиях неисполнения.
+        Не анализируй форс-мажор, уступку, конфиденциальность или подсудность.
 
         [ЗАДАЧА]
         Найди в тексте договора:
@@ -2202,20 +3254,18 @@ checks_v8:
         4. Неустойка (размер и основание).
 
         [ПРАВИЛА]
-        1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. В evidence — только текст договора.
-        4. Верни только один JSON-объект.
+        1. Только текст документа. Если нет — "not_defined".
+        2. В evidence — только текст договора.
+        3. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Прямо ли написано о праве расторжения?
-        2. Упомянут ли возврат уже переданного товара?
-        3. Указан ли конкретный размер неустойки?
+        1. Право расторжения — прямо?
+        2. Возврат переданного товара — прямо?
+        3. Размер неустойки — числом?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "non_performance_clause_status": "<defined / not_defined>",
           "right_to_terminate_status": "<defined / not_defined>",
@@ -2225,26 +3275,47 @@ checks_v8:
           "penalty_details": "<размер или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 6
+      context_k: 5
       temperature: 0.0
-      max_tokens: 600
+      max_tokens: 550
     retrieval:
-      context_k: 6
+      retrieval_query: "ответственность за неисполнение расторжение договора возмещение убытков отказ от исполнения неустойка право отказаться от договора возврат переданного товара при неисполнении ст. 328 ГК РФ ст. 450 ГК РФ ст. 463 ГК РФ"
+      preferred_unit_types:
+        - liability_provision
+        - termination_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - procedures
+      negative_keywords:
+        - "форс-мажор"
+        - "непреодолимая сила"
+        - "освобождение от ответственности при форс-мажоре"
+        - "уступка прав"
+        - "перевод долга"
+        - "НДС"
+        - "налоговая база"
+        - "обременения"
+        - "эвикция"
+        - "гарантия качества"
+        - "претензия по качеству"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.45, 0.90]
+        boost: 0.18
+        scope: segment
+      context_k: 5
       max_chunks: 8
-      boost_keywords:
-        - "неисполнение"
-        - "расторжение"
-        - "убытки"
-        - "неустойка"
-        - "возврат товара"
-        - "ст. 328"
-        - "ст. 463"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
         - "remedies"
         - "procedures"
-        - "limitations"
       confidence_bonus_on_match: 0.08
     evidence:
       required: true
@@ -2253,34 +3324,74 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 380
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены условия о последствиях неисполнения:
+        право расторжения, возврат переданного товара, убытки и неустойка.
+        Не анализируй форс-мажор, уступку, конфиденциальность или подсудность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. non_performance_clause_status — "defined" или "not_defined".
+        2. right_to_terminate_status — "defined" или "not_defined".
+        3. damages_recovery_status — "defined" или "not_defined".
+        4. return_of_transferred_goods_status — "defined" или "not_defined".
+        5. penalty_clause_status — "defined" или "not_defined".
+        6. penalty_details — размер неустойки.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "non_performance_clause_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если условие о последствиях неисполнения прямо определено. Иначе 'not_defined'."
+          description: "Статус условия о последствиях неисполнения."
         - name: "right_to_terminate_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если право расторжения прямо определено. Иначе 'not_defined'."
+          description: "Статус права расторжения."
+        - name: "damages_recovery_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условия о возмещении убытков."
         - name: "return_of_transferred_goods_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если возврат переданного товара прямо предусмотрен. Иначе 'not_defined'."
+          description: "Статус условия о возврате переданного товара."
         - name: "penalty_clause_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если неустойка прямо предусмотрена. Иначе 'not_defined'."
+          description: "Статус неустойки."
+        - name: "penalty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Неустойка за неисполнение"
+          description: "Размер и основание неустойки."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 12: Ответственность, расторжение, форс-мажор, уступка, конфиденциальность, споры
+  # CHECK 14: Расторжение и форс-мажор
   # ──────────────────────────────────────────────────────────────────────────
-  - id: termination_liability_disputes
-    name: "Расторжение, форс-мажор, уступка, конфиденциальность, споры и применимое право"
+  - id: termination_and_force_majeure
+    name: "Расторжение договора мены и форс-мажор"
     description: >
-      Фактографическая проверка наличия блока завершающих условий договора:
-      расторжение, форс-мажор, уступка прав, конфиденциальность,
-      претензионный порядок, подсудность, применимое право.
+      Фактографическая проверка оснований расторжения, последствий расторжения
+      с возвратом товаров и форс-мажорной оговорки.
     triggers: {}
     severity: "high"
     origin: "DOCUMENT_TYPE"
@@ -2295,157 +3406,317 @@ checks_v8:
         - "непреодолимая сила"
         - "обстоятельства непреодолимой силы"
         - "освобождение от ответственности"
-        - "уступка"
-        - "переуступка"
-        - "перевод долга"
-        - "без согласия"
-        - "с согласия другой стороны"
-        - "конфиденциальность"
-        - "неразглашение"
-        - "коммерческая тайна"
-        - "подсудность"
-        - "арбитражный суд"
-        - "претензионный порядок"
-        - "досудебный порядок"
-        - "медиация"
-        - "применимое право"
-        - "законодательство Российской Федерации"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)расторж(ение|ении)"
-        - "(?i)односторонн(ий|ем)\\s+отказ"
         - "(?i)форс[\\s-]?мажор"
         - "(?i)непреодолим(ая|ой)\\s+сил"
-        - "(?i)уступк(а|и).*без\\s+соглас"
-        - "(?i)перевод\\s+долга"
-        - "(?i)конфиденциал"
-        - "(?i)не\\s+разглаш"
-        - "(?i)арбитражн(ый|ого)\\s+суд"
-        - "(?i)претензионн(ый|ого)\\s+поряд"
-        - "(?i)применим(ое|ого)\\s+прав"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
         Анализируется договор мены (гл. 31 ГК РФ; ст. 401, 450-453 ГК РФ).
-        Проверяется наличие завершающих условий договора.
+        Проверяется только один вопрос: основания расторжения и форс-мажор.
+        Не анализируй уступку, конфиденциальность, подсудность или применимое право.
 
         [ЗАДАЧА]
         Найди в тексте договора:
-        1. Основания и порядок расторжения.
-        2. Форс-мажорная оговорка (перечень, срок уведомления).
-        3. Ограничения на уступку прав.
-        4. Условия конфиденциальности (срок, перечень).
-        5. Претензионный порядок (срок претензии и ответа).
-        6. Подсудность (какой суд).
-        7. Применимое право.
+        1. Основания расторжения.
+        2. Последствия расторжения (возврат товаров и возмещение убытков).
+        3. Форс-мажорная оговорка (перечень событий, срок уведомления, последствия).
 
         [ПРАВИЛА]
-        1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
-        3. Строго "Данные не определены" при отсутствии текста.
-        4. В evidence — только текст договора.
-        5. Верни только один JSON-объект.
+        1. Только текст документа. Если нет — "not_defined".
+        2. В evidence — только текст договора.
+        3. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Перечислены ли конкретные основания расторжения?
-        2. Есть ли форс-мажор с перечнем событий и сроком уведомления?
-        3. Есть ли ограничение уступки (запрет / только с согласия)?
-        4. Указан ли конкретный суд?
-        5. Указано ли применимое право (РФ / иное)?
+        1. Основания расторжения — перечислены конкретно?
+        2. Возврат товаров при расторжении — прямо написан?
+        3. Форс-мажор — есть перечень и срок уведомления?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "termination_grounds_status": "<defined / not_defined>",
           "termination_grounds_details": "<основания или 'Данные не определены'>",
           "termination_consequences_status": "<defined / not_defined>",
+          "termination_consequences_details": "<последствия или 'Данные не определены'>",
           "force_majeure_status": "<defined / not_defined>",
           "force_majeure_details": "<текст или 'Данные не определены'>",
           "force_majeure_notice_period_status": "<defined / not_defined>",
           "force_majeure_notice_period": "<срок или 'Данные не определены'>",
-          "assignment_restriction_status": "<defined / not_defined>",
-          "assignment_restriction": "<prohibited / allowed_with_consent / allowed / not_defined>",
-          "confidentiality_status": "<defined / not_defined>",
-          "confidentiality_duration_status": "<defined / not_defined>",
-          "pretrial_status": "<defined / not_defined>",
-          "pretrial_deadline_status": "<defined / not_defined>",
-          "pretrial_deadline": "<срок или 'Данные не определены'>",
-          "jurisdiction_status": "<defined / not_defined>",
-          "jurisdiction_details": "<суд или 'Данные не определены'>",
-          "governing_law_status": "<defined / not_defined>",
-          "governing_law": "<RU / foreign / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
-      context_k: 7
+      context_k: 6
       temperature: 0.0
-      max_tokens: 800
+      max_tokens: 600
     retrieval:
-      context_k: 7
-      max_chunks: 10
-      boost_keywords:
-        - "расторжение"
-        - "форс-мажор"
-        - "непреодолимая сила"
-        - "уступка"
-        - "конфиденциальность"
-        - "претензионный порядок"
-        - "подсудность"
-        - "применимое право"
-        - "арбитражный суд"
+      retrieval_query: "расторжение отказ от договора односторонний отказ возврат товаров при расторжении форс-мажор непреодолимая сила обстоятельства непреодолимой силы освобождение от ответственности ст. 401 ГК РФ ст. 450 ГК РФ ст. 453 ГК РФ"
+      preferred_unit_types:
+        - termination_provision
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - remedies
+        - limitations
+      negative_keywords:
+        - "неустойка за неисполнение"
+        - "право удержания"
+        - "приостановление исполнения при неисполнении"
+        - "уступка прав"
+        - "перевод долга"
+        - "НДС"
+        - "обременения"
+        - "эвикция"
+        - "гарантия качества"
+        - "претензия по качеству"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.50, 1.0]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
         - "remedies"
-        - "procedures"
         - "limitations"
-        - "boilerplate"
       confidence_bonus_on_match: 0.08
     evidence:
       required: true
       min_snippet_length: 40
-      max_snippet_length: 700
+      max_snippet_length: 650
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 440
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены основания и последствия
+        расторжения, а также форс-мажорную оговорку.
+        Не анализируй уступку, конфиденциальность, подсудность или применимое право.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. termination_grounds_status — "defined" или "not_defined".
+        2. termination_grounds_details — основания расторжения.
+        3. termination_consequences_status — "defined" или "not_defined".
+        4. termination_consequences_details — последствия расторжения.
+        5. force_majeure_status — "defined" или "not_defined".
+        6. force_majeure_details — форс-мажорная оговорка.
+        7. force_majeure_notice_period_status — "defined" или "not_defined".
+        8. force_majeure_notice_period — срок уведомления о форс-мажоре.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
+        - name: "termination_grounds_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус оснований расторжения."
+        - name: "termination_grounds_details"
+          type: "string"
+          presentation: "fact"
+          label: "Основания расторжения"
+          description: "Основания расторжения договора."
+        - name: "termination_consequences_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус последствий расторжения."
+        - name: "termination_consequences_details"
+          type: "string"
+          presentation: "fact"
+          label: "Последствия расторжения"
+          description: "Последствия расторжения, включая возврат товаров."
         - name: "force_majeure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если форс-мажорная оговорка прямо определена. Иначе 'not_defined'."
-        - name: "assignment_restriction_status"
+          description: "Статус форс-мажорной оговорки."
+        - name: "force_majeure_details"
           type: "string"
+          presentation: "fact"
+          label: "Форс-мажор"
+          description: "Форс-мажорная оговорка."
+        - name: "force_majeure_notice_period_status"
+          type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если ограничение уступки прямо определено. Иначе 'not_defined'."
-        - name: "assignment_restriction"
+          description: "Статус срока уведомления о форс-мажоре."
+        - name: "force_majeure_notice_period"
           type: "string"
-          allowed_values: ["prohibited", "allowed_with_consent", "allowed", "not_defined"]
-          description: "Режим уступки прав."
-        - name: "pretrial_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если претензионный порядок прямо определён. Иначе 'not_defined'."
-        - name: "jurisdiction_status"
-          type: "string"
-          allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если подсудность прямо определена. Иначе 'not_defined'."
-        - name: "governing_law"
-          type: "string"
-          allowed_values: ["RU", "foreign", "not_defined"]
-          description: "Применимое право."
+          presentation: "fact"
+          label: "Срок уведомления о форс-мажоре"
+          description: "Срок уведомления о форс-мажоре."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 13: Специальные условия для мены недвижимости
+  # CHECK 15: Уступка прав 
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: assignment_and_confidentiality
+    name: "Уступка прав при мене"
+    description: >
+      Фактографическая проверка ограничений на уступку прав требования.
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "уступка"
+        - "переуступка"
+        - "перевод долга"
+        - "без согласия"
+        - "с согласия другой стороны"
+
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уступк(а|и).*без\\s+соглас"
+        - "(?i)перевод\\s+долга"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор мены (гл. 31 ГК РФ).
+        Проверяется только один вопрос: ограничения уступки прав.
+        Не анализируй расторжение, форс-мажор, подсудность или применимое право.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Ограничения на уступку прав (запрет / только с согласия / свободна).
+
+        [ПРАВИЛА]
+        1. Только текст документа. Если нет — "not_defined".
+        2. В evidence — только текст договора.
+        3. Верни только JSON.
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Уступка — прямо запрещена / ограничена / разрешена?
+
+        Не выводи шаги. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "assignment_restriction_status": "<defined / not_defined>",
+          "assignment_restriction": "<prohibited / allowed_with_consent / allowed / not_defined>",
+          "assignment_restriction_details": "<условие или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      retrieval_query: "уступка переуступка перевод долга без согласия с согласия другой стороны цессия запрет уступки передача прав требований третьим лицам"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - obligations
+        - limitations
+      negative_keywords:
+        - "расторжение"
+        - "форс-мажор"
+        - "неустойка"
+        - "обременения"
+        - "НДС"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.65, 1.0]
+        boost: 0.18
+        scope: segment
+      context_k: 5
+      max_chunks: 6
+      rerank: true
+    enrichment_hints:
+      preferred_clause_functions:
+        - "procedures"
+        - "boilerplate"
+      confidence_bonus_on_match: 0.06
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 360
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены ограничения уступки прав
+        и условия конфиденциальности.
+        Не анализируй расторжение, форс-мажор, подсудность или применимое право.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. assignment_restriction_status — "defined" или "not_defined".
+        2. assignment_restriction — prohibited / allowed_with_consent / allowed / not_defined.
+        3. assignment_restriction_details — условие об уступке.
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "assignment_restriction_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус ограничений уступки."
+        - name: "assignment_restriction"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["prohibited", "allowed_with_consent", "allowed", "not_defined"]
+          description: "Режим уступки прав."
+        - name: "assignment_restriction_details"
+          type: "string"
+          presentation: "fact"
+          label: "Уступка прав"
+          description: "Условие об уступке прав."
+
+      store_payload: true
+
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 16: Специальные условия для мены недвижимости
   # ──────────────────────────────────────────────────────────────────────────
   - id: real_estate_barter_specifics_check
     name: "Специальные условия для мены недвижимости (ст. 549-558, 567 ГК РФ)"
     description: >
-      Фактографическая проверка наличия специальных условий при мене недвижимого
-      имущества: кадастровые номера, выписки ЕГРН, гарантии обременений,
-      порядок госрегистрации, перечень зарегистрированных лиц, передаточный акт.
+      Фактографическая проверка специальных условий при мене недвижимости:
+      кадастровые номера, выписки ЕГРН, гарантии, госрегистрация, жильцы, акт.
     triggers:
       any: ["real_estate_barter"]
     severity: "critical"
@@ -2463,7 +3734,6 @@ checks_v8:
         - "право пользования"
         - "зарегистрированные лица"
         - "Росреестр"
-        - "ЕГРН"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
@@ -2476,34 +3746,34 @@ checks_v8:
         Анализируется договор мены недвижимого имущества (ст. 567 ГК РФ,
         субсидиарно ст. 549-558 ГК РФ; ФЗ-218).
         Проверяется наличие специальных условий для мены недвижимости.
+        Не анализируй общие условия передачи или ответственность.
 
         [ЗАДАЧА]
         Найди в тексте договора:
         1. Кадастровый номер объекта A (формат NN:NN:NNNNNNN:N).
         2. Кадастровый номер объекта B.
-        3. Наличие ссылки на выписку ЕГРН.
+        3. Выписка ЕГРН.
         4. Заверение об отсутствии обременений.
         5. Порядок государственной регистрации перехода права.
-        6. Распределение расходов на госпошлину.
+        6. Расходы на госпошлину.
         7. Перечень зарегистрированных лиц или заверение об их отсутствии.
-        8. Наличие передаточного акта.
+        8. Передаточный акт.
         9. Одновременность регистрации.
 
         [ПРАВИЛА]
-        1. Только текст документа.
-        2. Если условие не указано прямо — "not_defined".
+        1. Только текст документа. Если нет — "not_defined".
+        2. Кадастровый номер — только в формате NN:NN:NNNNNNN:N.
         3. В evidence — только текст договора.
-        4. Верни только один JSON-объект.
+        4. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Кадастровый номер — только в формате NN:NN:NNNNNNN:N.
-        2. Упомянута ли выписка ЕГРН?
-        3. Описан ли порядок одновременной регистрации?
+        1. Кадастровые номера — оба, в правильном формате?
+        2. Выписка ЕГРН — упомянута?
+        3. Одновременность регистрации — прямо написана?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "object_A_cadastral_status": "<defined / not_defined>",
           "object_A_cadastral": "<номер или 'Данные не определены'>",
@@ -2521,18 +3791,42 @@ checks_v8:
         }
       context_k: 8
       temperature: 0.0
-      max_tokens: 700
+      max_tokens: 650
     retrieval:
+      retrieval_query: "недвижимое имущество кадастровый номер государственная регистрация отсутствие обременений выписка из ЕГРН правоустанавливающие документы передаточный акт право пользования зарегистрированные лица Росреестр одновременная регистрация госпошлина расходы на регистрацию"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - warranty
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+        - representations
+      negative_keywords:
+        - "обременения на движимый товар"
+        - "залог на движимое имущество"
+        - "арест автомобиля"
+        - "гарантия качества"
+        - "гарантийный срок"
+        - "претензия по качеству"
+        - "доплата"
+        - "стоимость товара"
+        - "НДС"
+        - "деловая цель"
+        - "аффилированность"
+        - "расторжение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 8
       max_chunks: 10
-      boost_keywords:
-        - "кадастровый номер"
-        - "ЕГРН"
-        - "государственная регистрация"
-        - "обременения"
-        - "передаточный акт"
-        - "зарегистрированные лица"
-        - "Росреестр"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2546,37 +3840,112 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 480
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены недвижимости специальные условия:
+        кадастровые номера, выписка ЕГРН, гарантии, порядок регистрации, жильцы, акт.
+        Не анализируй общую ответственность, форс-мажор или применимое право.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. object_A_cadastral_status — "defined" или "not_defined".
+        2. object_A_cadastral — кадастровый номер объекта A.
+        3. object_B_cadastral_status — "defined" или "not_defined".
+        4. object_B_cadastral — кадастровый номер объекта B.
+        5. egrn_extract_status — "defined" или "not_defined".
+        6. encumbrances_warranty_status — "defined" или "not_defined".
+        7. registration_procedure_status — "defined" или "not_defined".
+        8. registration_cost_status — "defined" или "not_defined".
+        9. residents_list_status — "defined" или "not_defined".
+        10. residents_list_regime — listed / explicitly_none / not_defined.
+        11. transfer_act_status — "defined" или "not_defined".
+        12. simultaneous_registration_status — "defined" или "not_defined".
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - Кадастровый номер — только если прямо написан в формате XX:XX:XXXXXXX:X.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "object_A_cadastral_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если кадастровый номер объекта A прямо указан. Иначе 'not_defined'."
+          description: "Статус кадастрового номера объекта A."
         - name: "object_A_cadastral"
           type: "string"
+          presentation: "fact"
+          label: "Кадастровый номер объекта A"
           regex_patterns: ["(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"]
-          description: "Кадастровый номер объекта A. Если нет — строго 'Данные не определены'."
+          description: "Кадастровый номер объекта A."
         - name: "object_B_cadastral_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если кадастровый номер объекта B прямо указан. Иначе 'not_defined'."
+          description: "Статус кадастрового номера объекта B."
+        - name: "object_B_cadastral"
+          type: "string"
+          presentation: "fact"
+          label: "Кадастровый номер объекта B"
+          regex_patterns: ["(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"]
+          description: "Кадастровый номер объекта B."
+        - name: "egrn_extract_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус упоминания выписки ЕГРН."
         - name: "encumbrances_warranty_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если заверение об отсутствии обременений прямо определено. Иначе 'not_defined'."
+          description: "Статус заверения об обременениях."
+        - name: "registration_procedure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка госрегистрации."
+        - name: "registration_cost_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус распределения расходов на госпошлину."
+        - name: "residents_list_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус перечня зарегистрированных лиц."
         - name: "residents_list_regime"
           type: "string"
+          presentation: "signal"
           allowed_values: ["listed", "explicitly_none", "not_defined"]
-          description: "Статус перечня зарегистрированных лиц."
+          description: "Режим перечня зарегистрированных лиц."
+        - name: "transfer_act_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус передаточного акта."
+        - name: "simultaneous_registration_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус одновременности регистрации."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 14: Мена транспортных средств
+  # CHECK 17: Мена транспортных средств
   # ──────────────────────────────────────────────────────────────────────────
   - id: vehicle_barter_specifics_check
     name: "Мена транспортных средств: VIN, ПТС, ГИБДД, техсостояние, ОСАГО"
     description: >
-      Фактографическая проверка наличия специальных условий для мены транспортных
-      средств: VIN, ПТС/СТС, перерегистрация ГИБДД, техническое состояние, ОСАГО.
+      Фактографическая проверка специальных условий для мены транспортных средств.
     triggers:
       any: ["vehicle_barter"]
     severity: "high"
@@ -2589,12 +3958,9 @@ checks_v8:
         - "СТС"
         - "регистрация в ГИБДД"
         - "перерегистрация"
-        - "номер кузова"
-        - "номер двигателя"
         - "год выпуска"
         - "ОСАГО"
         - "диагностическая карта"
-        - "пробег"
         - "техническое состояние"
       keyword_mode: "any"
       regex_patterns:
@@ -2606,7 +3972,8 @@ checks_v8:
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
         Анализируется договор мены транспортных средств (ст. 567 ГК РФ).
-        Проверяется наличие специальных условий для обмена ТС.
+        Проверяется только один вопрос: специальные условия для обмена ТС.
+        Не анализируй общие условия передачи или ответственность.
 
         [ЗАДАЧА]
         Найди в тексте договора:
@@ -2614,7 +3981,7 @@ checks_v8:
         2. Условие о передаче ПТС/СТС.
         3. Порядок и срок перерегистрации в ГИБДД.
         4. Заверение о техническом состоянии.
-        5. Упоминание ОСАГО.
+        5. ОСАГО.
         6. Диагностическая карта.
         7. Заверение об отсутствии залога/ограничений.
 
@@ -2622,17 +3989,16 @@ checks_v8:
         1. Только текст документа. Если нет — "not_defined".
         2. VIN — только если прямо написан.
         3. В evidence — только текст договора.
-        4. Верни только один JSON-объект.
+        4. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли VIN каждого ТС прямо написан?
-        2. Упомянут ли ПТС?
-        3. Указан ли срок перерегистрации?
+        1. VIN каждого ТС — прямо?
+        2. ПТС — упомянут?
+        3. Срок перерегистрации — конкретный?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "vehicle_A_vin_status": "<defined / not_defined>",
           "vehicle_A_vin": "<VIN или 'Данные не определены'>",
@@ -2650,19 +4016,44 @@ checks_v8:
         }
       context_k: 6
       temperature: 0.0
-      max_tokens: 650
+      max_tokens: 600
     retrieval:
+      retrieval_query: "VIN ПТС СТС регистрация в ГИБДД перерегистрация транспортного средства год выпуска ОСАГО диагностическая карта техническое состояние автомобиля отсутствие залога на автомобиль ограничения регистрационных действий"
+      preferred_unit_types:
+        - obligation
+        - warranty
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+        - representations
+      negative_keywords:
+        - "доплата"
+        - "равноценный обмен"
+        - "неравноценный обмен"
+        - "рыночная стоимость"
+        - "независимый оценщик"
+        - "эвикция"
+        - "изъятие товара"
+        - "ст. 571 ГК РФ"
+        - "налоговая база"
+        - "НДС"
+        - "деловая цель"
+        - "аффилированность"
+        - "форс-мажор"
+        - "расторжение"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 1.0]
+        boost: 0.05
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "VIN"
-        - "ПТС"
-        - "ГИБДД"
-        - "техническое состояние"
-        - "ОСАГО"
-        - "диагностическая карта"
-        - "залог"
-        - "ограничения"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2676,40 +4067,112 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 440
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из договора мены транспортных средств специальные
+        условия: VIN обоих ТС, ПТС/СТС, регистрация ГИБДД, техсостояние, ОСАГО,
+        диагностическая карта, залог.
+        Не анализируй общую ответственность, форс-мажор или подсудность.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. vehicle_A_vin_status — "defined" или "not_defined".
+        2. vehicle_A_vin — VIN ТС A.
+        3. vehicle_B_vin_status — "defined" или "not_defined".
+        4. vehicle_B_vin — VIN ТС B.
+        5. pts_transfer_status — "defined" или "not_defined".
+        6. gibdd_registration_status — "defined" или "not_defined".
+        7. gibdd_registration_deadline_status — "defined" или "not_defined".
+        8. gibdd_registration_deadline — срок перерегистрации.
+        9. technical_condition_status — "defined" или "not_defined".
+        10. osago_status — "defined" или "not_defined".
+        11. diagnostic_card_status — "defined" или "not_defined".
+        12. pledge_absence_status — "defined" или "not_defined".
+
+        Если данных нет: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Только текст договора.
+        - VIN — только если прямо написан.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "vehicle_A_vin_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если VIN ТС A прямо указан. Иначе 'not_defined'."
+          description: "Статус VIN ТС A."
         - name: "vehicle_A_vin"
           type: "string"
-          description: "VIN ТС A. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "VIN транспортного средства A"
+          description: "VIN ТС A."
         - name: "vehicle_B_vin_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если VIN ТС B прямо указан. Иначе 'not_defined'."
+          description: "Статус VIN ТС B."
+        - name: "vehicle_B_vin"
+          type: "string"
+          presentation: "fact"
+          label: "VIN транспортного средства B"
+          description: "VIN ТС B."
         - name: "pts_transfer_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если передача ПТС прямо предусмотрена. Иначе 'not_defined'."
+          description: "Статус передачи ПТС/СТС."
         - name: "gibdd_registration_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если порядок регистрации в ГИБДД прямо определён. Иначе 'not_defined'."
+          description: "Статус порядка регистрации в ГИБДД."
+        - name: "gibdd_registration_deadline_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус срока регистрации в ГИБДД."
+        - name: "gibdd_registration_deadline"
+          type: "string"
+          presentation: "fact"
+          label: "Срок регистрации в ГИБДД"
+          description: "Срок перерегистрации в ГИБДД."
+        - name: "technical_condition_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения о техническом состоянии."
         - name: "osago_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если вопрос ОСАГО прямо урегулирован. Иначе 'not_defined'."
+          description: "Статус вопроса ОСАГО."
+        - name: "diagnostic_card_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус диагностической карты."
+        - name: "pledge_absence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии залога или ограничений."
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
-  # CHECK 15: Внешнеторговый бартер
+  # CHECK 18: Внешнеторговый бартер
   # ──────────────────────────────────────────────────────────────────────────
   - id: cross_border_barter_check
-    name: "Внешнеторговый бартер: валютный контроль, таможня, Incoterms, сроки встречных поставок"
+    name: "Внешнеторговый бартер: валютный контроль, таможня, Incoterms, встречная поставка"
     description: >
-      Фактографическая проверка наличия условий о валютном контроле, таможенном
-      оформлении, Incoterms и сроках встречных поставок при ВЭД-бартере.
+      Фактографическая проверка условий о валютном контроле, таможенном оформлении,
+      Incoterms и сроках встречных поставок при ВЭД-бартере.
     triggers:
       any: ["cross_border_barter"]
     severity: "critical"
@@ -2719,16 +4182,13 @@ checks_v8:
       keywords:
         - "валютный контроль"
         - "таможенное оформление"
-        - "таможенная декларация"
         - "уполномоченный банк"
         - "ВЭД"
         - "экспорт"
         - "импорт"
         - "срок встречной поставки"
-        - "репатриация"
         - "Incoterms"
         - "базис поставки"
-        - "постановка на учёт"
         - "внешнеторговый бартер"
       keyword_mode: "any"
       regex_patterns:
@@ -2736,7 +4196,6 @@ checks_v8:
         - "(?i)таможенн(ое|ого)\\s+оформлен"
         - "(?i)Incoterms|инкотермс"
         - "(?i)встречн(ая|ой)\\s+поставк"
-        - "(?i)уполномоченн(ый|ого)\\s+банк"
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -2744,6 +4203,7 @@ checks_v8:
         Анализируется внешнеторговый бартерный договор (ст. 567 ГК РФ; ФЗ-173;
         ТК ЕАЭС; КоАП РФ ст. 15.25).
         Проверяется наличие обязательных условий для ВЭД-бартера.
+        Не анализируй общую ответственность, форс-мажор или подсудность.
 
         [ЗАДАЧА]
         Найди в тексте договора:
@@ -2757,18 +4217,17 @@ checks_v8:
         [ПРАВИЛА]
         1. Только текст документа. Если нет — "not_defined".
         2. В evidence — только текст договора.
-        3. Верни только один JSON-объект.
+        3. Верни только JSON.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Упомянут ли уполномоченный банк / постановка на учёт?
-        2. Описано ли таможенное оформление?
-        3. Указан ли срок встречной поставки?
-        4. Указан ли термин Incoterms?
+        1. Уполномоченный банк / постановка на учёт — прямо?
+        2. Таможенное оформление — описано?
+        3. Срок встречной поставки — конкретный?
+        4. Incoterms — прямо указан термин?
 
-        Не выводи шаги проверки. Верни только JSON.
+        Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь строго в JSON:
         {
           "currency_control_status": "<defined / not_defined>",
           "bank_registration_status": "<defined / not_defined>",
@@ -2784,19 +4243,45 @@ checks_v8:
         }
       context_k: 7
       temperature: 0.0
-      max_tokens: 650
+      max_tokens: 600
     retrieval:
+      retrieval_query: "валютный контроль таможенное оформление уполномоченный банк ВЭД экспорт импорт срок встречной поставки Incoterms базис поставки внешнеторговый бартер постановка на учёт в банке санкционный скрининг применимое право"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - governing_law
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+        - boilerplate
+      negative_keywords:
+        - "НДС"
+        - "налоговая база"
+        - "счёт-фактура"
+        - "НДФЛ"
+        - "деловая цель"
+        - "аффилированность"
+        - "равноценный обмен"
+        - "доплата"
+        - "гарантия качества"
+        - "обременения"
+        - "эвикция"
+        - "расторжение"
+        - "форс-мажор"
+        - "уступка прав"
+        - "конфиденциальность"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 1.0]
+        boost: 0.12
+        scope: segment
       context_k: 7
       max_chunks: 9
-      boost_keywords:
-        - "валютный контроль"
-        - "таможенное оформление"
-        - "Incoterms"
-        - "срок встречной поставки"
-        - "ФЗ-173"
-        - "уполномоченный банк"
-        - "экспорт"
-        - "импорт"
       rerank: true
     enrichment_hints:
       preferred_clause_functions:
@@ -2811,26 +4296,95 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 470
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста внешнеторгового бартерного договора
+        условия валютного контроля, таможенного оформления, сроков встречной поставки,
+        базиса Incoterms и санкционного скрининга.
+        Не анализируй стороны, наименования товаров, качество или расторжение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. currency_control_status — "defined" если валютный контроль прямо урегулирован, иначе "not_defined".
+        2. bank_registration_status — "defined" если постановка на учёт в уполномоченном банке прямо упомянута, иначе "not_defined".
+        3. customs_procedure_status — "defined" если таможенное оформление прямо описано, иначе "not_defined".
+        4. counter_delivery_deadline_status — "defined" если срок встречной поставки прямо указан, иначе "not_defined".
+        5. counter_delivery_deadline — конкретный срок встречной поставки.
+        6. incoterms_status — "defined" если термин Incoterms прямо указан, иначе "not_defined".
+        7. incoterms_term — конкретный термин Incoterms (EXW, CIF, FOB и т.п.).
+        8. governing_law_status — "defined" если применимое право прямо указано, иначе "not_defined".
+        9. governing_law — "RU" / "foreign" / "not_defined".
+        10. sanctions_check_status — "defined" если санкционный скрининг прямо упомянут, иначе "not_defined".
+
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Не применяй нормы ФЗ-173 по умолчанию.
+        - Пиши кратко.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "currency_control_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если валютный контроль прямо урегулирован. Иначе 'not_defined'."
+          description: "Статус урегулирования вопросов валютного контроля."
+        - name: "bank_registration_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия условия о постановке на учёт в уполномоченном банке."
         - name: "customs_procedure_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если таможенное оформление прямо описано. Иначе 'not_defined'."
+          description: "Статус определения таможенной процедуры для обмениваемых товаров."
         - name: "counter_delivery_deadline_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если срок встречной поставки прямо определён. Иначе 'not_defined'."
+          description: "Статус определения срока встречной поставки по ВЭД-бартеру."
+        - name: "counter_delivery_deadline"
+          type: "string"
+          presentation: "fact"
+          label: "Срок встречной поставки"
+          description: "Конкретный срок встречной поставки по внешнеторговому бартеру."
         - name: "incoterms_status"
           type: "string"
+          presentation: "signal"
           allowed_values: ["defined", "not_defined"]
-          description: "Верни 'defined', если Incoterms прямо указаны. Иначе 'not_defined'."
+          description: "Статус наличия термина Incoterms в договоре."
         - name: "incoterms_term"
           type: "string"
-          description: "Термин Incoterms. Если нет — строго 'Данные не определены'."
+          presentation: "fact"
+          label: "Базис поставки (Incoterms)"
+          description: "Термин Incoterms, определяющий базис поставки при ВЭД-бартере."
+        - name: "governing_law_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения применимого права."
+        - name: "governing_law"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["RU", "foreign", "not_defined"]
+          description: "Применимое право по внешнеторговому бартерному договору."
+        - name: "sanctions_check_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия условия о санкционном скрининге контрагента."
       store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════

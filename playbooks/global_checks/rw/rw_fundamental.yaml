@@ -1,5 +1,6 @@
 id: "rw_fundamental"
 name: "Фундаментальные заверения и гарантии"
+group: "Represents and warrants"
 description: >
   Анализирует фундаментальные R&W: статус и существование компании,
   полномочия на заключение договора, право собственности (title),
@@ -131,6 +132,11 @@ evidence:
 retrieval:
   context_k: 5
   max_chunks: 10
+
+  retrieval_query: >
+    заверения и гарантии representations and warranties полномочия право собственности 
+    отсутствие конфликта compliance authority title good standing
+
   boost_keywords:
     - "represents and warrants"
     - "заверяет и гарантирует"
@@ -153,6 +159,32 @@ retrieval:
     - "no material violation"
     - "to the best of knowledge"
     - "except as disclosed"
+
+  negative_keywords:
+    - "форс-мажор"
+    - "арбитраж"
+    - "подсудность"
+    - "штрафные санкции"
+    - "коммерческая тайна"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "obligation"
+
+  excluded_unit_types:
+    - "technical_fragment"
+    - "appendix_reference"
+    - "structural_anchor"
+
+  preferred_clause_functions:
+    - "representations"
+    - "general_provisions"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -169,29 +201,26 @@ enrichment_hints:
     - "invoice"
     - "act"
     - "schedule"
-  preferred_clause_functions:
-    - "representations_warranties"
-    - "general_provisions"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 440
+  llm_max_tokens: 420
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A.
-    Твоя задача — точно извлечь из текста наличие и качество
+    Твоя задача — точно извлечь наличие и качество
     фундаментальных R&W:
     1) статус и существование компании;
     2) полномочия;
     3) право собственности (title);
     4) отсутствие конфликтов;
-    5) соответствие законам.
+    5) соответствие законам (general).
 
     Специальные R&W (налоги, санкции, споры, IP) и сроки
-    действия анализируются отдельным чеком rw_specific_and_survival.
+    действия анализируются чеком rw_specific_and_survival.
     </role>
 
     <context>
@@ -211,19 +240,17 @@ extraction:
     - has_knowledge_qualifiers
     - has_materiality_qualifiers
     - has_disclosed_exceptions
-    - red_flags
     - reason
 
     Важно:
-    - не анализируй специальные R&W (налоги, санкции, споры, IP) —
-      это задача чека rw_specific_and_survival;
-    - пиши user-facing значения коротко и по-русски.
+    - не анализируй специальные R&W (налоги, санкции, споры, IP);
+    - пиши коротко и по-русски.
     </task>
 
     <instructions>
     Шаг 1 — СТАТУС И СУЩЕСТВОВАНИЕ
 
-    Заполни поле "rw_status_existence".
+    Заполни "rw_status_existence".
 
     Значения:
     - "present" — заверения о duly organized / validly existing /
@@ -233,18 +260,17 @@ extraction:
 
     Шаг 2 — ПОЛНОМОЧИЯ
 
-    Заполни поле "rw_authority".
+    Заполни "rw_authority".
 
     Значения:
     - "present" — есть: duly authorized, full power and authority,
-      получены все корпоративные одобрения, договор является
       valid and binding / enforceable.
     - "missing" — отсутствуют.
     - "unclear" — неясно.
 
     Шаг 3 — ПРАВО СОБСТВЕННОСТИ (TITLE)
 
-    Заполни поле "rw_title".
+    Заполни "rw_title".
 
     Значения:
     - "present" — good and marketable title / free and clear /
@@ -254,149 +280,130 @@ extraction:
 
     Шаг 4 — ОТСУТСТВИЕ КОНФЛИКТОВ
 
-    Заполни поле "rw_no_conflicts".
+    Заполни "rw_no_conflicts".
 
     Значения:
-    - "present" — заключение / исполнение договора: не нарушает
-      устав, не противоречит существенным договорам, не приведёт
+    - "present" — заключение договора не нарушает устав,
+      не противоречит существенным договорам, не приведёт
       к дефолту по другим обязательствам.
     - "missing" — отсутствует.
     - "unclear" — неясно.
 
-    Шаг 5 — СООТВЕТСТВИЕ ЗАКОНАМ (GENERAL)
+    Шаг 5 — GENERAL COMPLIANCE
 
-    Заполни поле "rw_compliance".
+    Заполни "rw_compliance".
 
-    Это именно general compliance with applicable law,
-    а не специальные R&W (налоги, санкции, комплаенс).
+    Это только general compliance with applicable law,
+    не специальные R&W.
 
     Значения:
-    - "present" — no material violations of applicable law,
-      in compliance with applicable law.
+    - "present" — no material violations of applicable law.
     - "missing" — отсутствует.
     - "unclear" — неясно.
 
     Шаг 6 — KNOWLEDGE QUALIFIERS
 
-    Заполни поле "has_knowledge_qualifiers".
+    Заполни "has_knowledge_qualifiers".
 
     Значения:
     - "yes" — knowledge qualifiers применяются к фундаментальным
-      R&W (title, authority, status, no conflict) — это нестандартно
-      и опасно.
+      R&W (title, authority, status, no conflict) — нестандартно.
     - "no" — не применяются.
     - "unclear" — неясно.
 
     Шаг 7 — MATERIALITY QUALIFIERS
 
-    Заполни поле "has_materiality_qualifiers".
+    Заполни "has_materiality_qualifiers".
 
     Значения:
-    - "excessive" — materiality qualifiers чрезмерны и ослабляют
-      защиту.
-    - "standard" — стандартные/приемлемые (например, "no material
-      violation" на compliance).
+    - "excessive" — qualifiers чрезмерны и ослабляют защиту.
+    - "standard" — стандартные (например, "no material violation"
+      на compliance).
     - "none" — отсутствуют.
     - "unclear" — неясно.
 
     Шаг 8 — DISCLOSED EXCEPTIONS
 
-    Заполни поле "has_disclosed_exceptions".
+    Заполни "has_disclosed_exceptions".
 
     Значения:
-    - "yes" — есть "except as disclosed in Disclosure Schedule"
-      или аналогичные.
+    - "yes" — есть "except as disclosed in Disclosure Schedule".
     - "no" — нет.
     - "unclear" — неясно.
 
-    Шаг 9 — RED FLAGS
+    Шаг 9 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
-    Заполни поле "red_flags".
+    Заполни "rw_fundamental_display".
 
-    Используй:
-    - "NONE" — все фундаментальные R&W присутствуют,
-      qualifiers стандартные.
-    - "UNCLEAR" — данных недостаточно.
-    - Коды через запятую:
-      * RW1 — отсутствуют или крайне слабые фундаментальные R&W
-        по статусу, полномочиям и праву собственности.
-      * RW2 — фундаментальные R&W существенно ослаблены knowledge
-        qualifiers (применяются к title, authority или status).
-      * RW3 — критичные пробелы: no conflicts и/или general
-        compliance R&W отсутствуют при наличии остальных.
+    Это не свободное summary.
+    Строй display по следующей логике:
 
-    Шаг 10 — USER-FACING SUMMARY
+    Базовый случай:
+    - все unclear:
+      "Не удалось определить фундаментальные R&W"
 
-    Заполни поле "rw_fundamental_display".
+    Если данные есть — оцени покрытие:
+    - если все 5 категорий = "present":
+      "Фундаментальные R&W полные"
+    - если есть отсутствующие:
+      "Отсутствуют: {список}; остальные есть"
+    - если есть knowledge qualifiers:
+      добавь "; knowledge qualifiers на фундаментальных R&W"
 
     Примеры:
-    - "Фундаментальные R&W полные: статус, полномочия, title,
-       no conflict, compliance"
+    - "Фундаментальные R&W полные: статус, полномочия, title, no conflict, compliance"
     - "Отсутствуют: title; no conflict; остальные есть"
     - "Knowledge qualifiers на title — нестандартно"
     - "Не удалось определить фундаментальные R&W"
 
-    Правила:
-    - Отрази: покрытие (полное / частичное) и ключевые проблемы.
-    - Если всё unclear:
-      "Не удалось определить фундаментальные R&W"
+    Ограничение: не более 3 фактов через ";".
 
-    Шаг 11 — ОБОСНОВАНИЕ
+    Шаг 10 — КРАТКОЕ ОБОСНОВАНИЕ
 
-    Заполни поле "reason".
+    Заполни "reason".
 
     Правила:
     - 1–2 коротких предложения.
-    - Укажи: какие R&W покрыты / не покрыты, qualifiers, почему
-      red_flags.
-    - Приведи короткую цитату в кавычках.
-    - Если NONE — полный стандартный набор.
+    - Укажи: покрытие R&W, qualifiers.
+    - Приведи цитату в кавычках.
     </instructions>
 
     <edge_cases>
     - Только status и authority, нет title и no conflict:
       * rw_title = "missing"
       * rw_no_conflicts = "missing"
-      * red_flags включает "RW3"
 
-    - Knowledge qualifier на title ("to Seller's knowledge,
-       Seller has good title"):
+    - Knowledge qualifier на title:
       * rw_title = "present"
       * has_knowledge_qualifiers = "yes"
-      * red_flags включает "RW2"
 
     - "Except as disclosed in the Disclosure Schedule":
       * has_disclosed_exceptions = "yes"
-      * стандартное исключение, не считается ослаблением
+      * стандартное исключение
 
-    - "In all material respects" на compliance:
-      * has_materiality_qualifiers = "standard"
-      * rw_compliance = "present"
-
-    - Нет ни одного фундаментального R&W:
+    - Нет ни одного R&W:
       * все поля = "missing"
-      * red_flags = "RW1"
 
     - Нет релевантных фрагментов:
       * все поля = "unclear"
-      * red_flags = "UNCLEAR"
-      * rw_fundamental_display =
-        "Не удалось определить фундаментальные R&W"
+      * rw_fundamental_display = "Не удалось определить фундаментальные R&W"
     </edge_cases>
 
     <output_expectations>
-    Все значения должны быть короткими, точными и пригодными
-    для отображения пользователю в DD Grid.
+    Все значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
     </output_expectations>
 
   fields:
     - name: "rw_fundamental_display"
       type: "string"
-      description: "Фундаментальные R&W: краткий вывод"
+      presentation: "fact"
+      label: "Фундаментальные R&W"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "rw_status_existence"
       type: "string"
+      presentation: "signal"
       description: "Статус и существование компании"
       allowed_values:
         - "present"
@@ -405,6 +412,7 @@ extraction:
 
     - name: "rw_authority"
       type: "string"
+      presentation: "signal"
       description: "Полномочия"
       allowed_values:
         - "present"
@@ -413,6 +421,7 @@ extraction:
 
     - name: "rw_title"
       type: "string"
+      presentation: "signal"
       description: "Право собственности (title)"
       allowed_values:
         - "present"
@@ -421,6 +430,7 @@ extraction:
 
     - name: "rw_no_conflicts"
       type: "string"
+      presentation: "signal"
       description: "Отсутствие конфликтов"
       allowed_values:
         - "present"
@@ -429,6 +439,7 @@ extraction:
 
     - name: "rw_compliance"
       type: "string"
+      presentation: "signal"
       description: "Соответствие применимым законам (general)"
       allowed_values:
         - "present"
@@ -437,6 +448,7 @@ extraction:
 
     - name: "has_knowledge_qualifiers"
       type: "string"
+      presentation: "signal"
       description: "Knowledge qualifiers на фундаментальных R&W"
       allowed_values:
         - "yes"
@@ -445,6 +457,7 @@ extraction:
 
     - name: "has_materiality_qualifiers"
       type: "string"
+      presentation: "signal"
       description: "Materiality qualifiers"
       allowed_values:
         - "excessive"
@@ -454,18 +467,16 @@ extraction:
 
     - name: "has_disclosed_exceptions"
       type: "string"
+      presentation: "signal"
       description: "Disclosed exceptions (Disclosure Schedule)"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
-    - name: "red_flags"
-      type: "string"
-      description: "Коды рисков"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true

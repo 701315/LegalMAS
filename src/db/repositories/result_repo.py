@@ -108,6 +108,35 @@ def _display_semantics_dict(cr: CheckResult) -> dict[str, Any]:
     }
 
 
+def _provenance_dict(cr: CheckResult) -> dict[str, Any]:
+    """
+    Вернуть словарь canonical provenance полей из ORM-объекта CheckResult.
+
+    Используется в get_by_run_with_docs и get_page_for_run чтобы
+    не дублировать одинаковый блок полей.
+
+    Включает:
+    - viewer/highlight fields (page, clause_uid, element_id, bbox)
+    - segment-aware provenance (segment_*)
+    - retrieval chunk provenance (chunk_id, chunk_index)
+    - retrieval context trace (context_trace)
+    """
+    return {
+        "page": cr.page,
+        "clause_uid": cr.clause_uid,
+        "element_id": cr.element_id,
+        "bbox": cr.bbox,
+        "segment_id": cr.segment_id,
+        "segment_type": cr.segment_type,
+        "segment_title": cr.segment_title,
+        "segment_order": cr.segment_order,
+        "is_primary_segment": cr.is_primary_segment,
+        "chunk_id": cr.chunk_id,
+        "chunk_index": cr.chunk_index,
+        "context_trace": cr.context_trace,
+    }
+
+
 class ResultRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -214,6 +243,7 @@ class ResultRepository:
                 "result": cr.result,
                 "severity": cr.severity,
                 "value_text": cr.value_text,
+                "evidence_ref": cr.evidence_ref,
                 "confidence": cr.confidence,
                 "detector_used": cr.detector_used,
                 "quality_flags": cr.quality_flags,
@@ -232,11 +262,8 @@ class ResultRepository:
                 "structured_data": cr.structured_data,
                 "conditional_check_triggered": cr.conditional_check_triggered,
                 "trigger_name": cr.trigger_name,
-                "segment_id": cr.segment_id,
-                "segment_type": cr.segment_type,
-                "segment_title": cr.segment_title,
-                "segment_order": cr.segment_order,
-                "is_primary_segment": cr.is_primary_segment,
+                # ── Canonical provenance ───────────────────────────────────────
+                **_provenance_dict(cr),
                 # ── Spec v2: canonical display semantics ──────────────────────
                 **_display_semantics_dict(cr),
             }
@@ -438,6 +465,7 @@ class ResultRepository:
                 "result": cr.result,
                 "severity": cr.severity,
                 "value_text": cr.value_text,
+                "evidence_ref": cr.evidence_ref,
                 "confidence": cr.confidence,
                 "detector_used": cr.detector_used,
                 "quality_flags": cr.quality_flags,
@@ -456,11 +484,8 @@ class ResultRepository:
                 "structured_data": cr.structured_data,
                 "conditional_check_triggered": cr.conditional_check_triggered,
                 "trigger_name": cr.trigger_name,
-                "segment_id": cr.segment_id,
-                "segment_type": cr.segment_type,
-                "segment_title": cr.segment_title,
-                "segment_order": cr.segment_order,
-                "is_primary_segment": cr.is_primary_segment,
+                # ── Canonical provenance ───────────────────────────────────────
+                **_provenance_dict(cr),
                 # ── Spec v2: canonical display semantics ──────────────────────
                 **_display_semantics_dict(cr),
             }
@@ -602,11 +627,11 @@ class ResultRepository:
         segment_title: str | None = None,
         segment_order: int | None = None,
         is_primary_segment: bool | None = None,
-        execution_status: str,
+        chunk_id: str | None = None,
+        chunk_index: int | None = None,
+        context_trace: list[dict[str, Any]] | None = None,
+        execution_status: str = CheckExecutionStatus.SUCCESS.value,
         error_details: dict | None = None,
-        # ── Spec v2: canonical display semantics ──────────────────────────────
-        # Все со значениями по умолчанию — saver начнёт передавать их
-        # сразу на Шаге 5, но до тех пор repo работает без ошибок.
         ui_mode: str | None = None,
         display_text: str | None = None,
         machine_reason_code: str | None = None,
@@ -629,11 +654,15 @@ class ResultRepository:
         - Все ORM-объекты, загруженные до этого вызова, остаются валидными.
         - log_error() выполняется в рамках той же основной транзакции.
 
+        Provenance contract:
+        - chunk_id / chunk_index: retrieval chunk, из которого LLM собирал контекст.
+        - context_trace: компактный список top-N retrieval contexts (без полного текста).
+          Хранится для forensic/debug audit, не для фильтрации.
+
         Spec v2:
-        - Новые параметры ui_mode, display_text, machine_reason_code,
+        - Параметры ui_mode, display_text, machine_reason_code,
           review_status, review_message, needs_manual_review записываются
           в CheckResult при create и update.
-        - Все имеют значения по умолчанию для безопасного rollout.
         """
         now = datetime.now(UTC)
 
@@ -697,6 +726,9 @@ class ResultRepository:
                         segment_title=segment_title,
                         segment_order=segment_order,
                         is_primary_segment=is_primary_segment,
+                        chunk_id=chunk_id,
+                        chunk_index=chunk_index,
+                        context_trace=context_trace,
                         execution_status=status_value,
                         started_at=now if status_value in started_statuses else None,
                         finished_at=now if status_value in finished_statuses else None,
@@ -736,6 +768,9 @@ class ResultRepository:
                 existing.segment_title = segment_title
                 existing.segment_order = segment_order
                 existing.is_primary_segment = is_primary_segment
+                existing.chunk_id = chunk_id
+                existing.chunk_index = chunk_index
+                existing.context_trace = context_trace
                 existing.execution_status = status_value
                 existing.error_details = error_details
                 # ── Spec v2: canonical display semantics ──────────────────────
@@ -788,6 +823,8 @@ class ResultRepository:
                 "segment_title": segment_title,
                 "segment_order": segment_order,
                 "is_primary_segment": is_primary_segment,
+                "chunk_id": chunk_id,
+                "chunk_index": chunk_index,
                 "execution_status": execution_status,
                 "error_details": error_details,
                 # ── Spec v2: включаем в payload для диагностики ───────────────

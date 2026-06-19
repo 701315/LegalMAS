@@ -15,6 +15,11 @@ from engine.playbook.models import (
 )
 
 
+def _humanize(field_name: str) -> str:
+    """Deterministic label fallback: snake_case → Title case."""
+    return field_name.replace("_", " ").strip().capitalize()
+
+
 def _make_check(
     *,
     check_id: str = "check_001",
@@ -26,18 +31,51 @@ def _make_check(
     severity_if_unclear: str | None = "medium",
     extraction_enabled: bool = False,
     extraction_fields: list[dict] | None = None,
+    auto_label_facts: bool = True,
 ) -> CheckDefinition:
+    """
+    Build a minimal CheckDefinition for testing.
+
+    auto_label_facts=True (default):
+        Automatically synthesises a deterministic label for any fact/summary
+        field that has no explicit label. This ensures the check passes model
+        validation without requiring every test to spell out labels that are
+        irrelevant to what it is actually testing.
+
+    auto_label_facts=False:
+        Fields are created exactly as specified. Use this only in tests that
+        explicitly verify model-level validation behaviour (e.g. "check without
+        labels must be rejected").
+    """
     extraction = None
+
     if extraction_enabled or extraction_fields is not None:
-        fields = [
-            ExtractionFieldConfig(
-                name=f["name"],
-                type=ExtractionFieldType(f.get("type", "string")),
-                description=f.get("description", ""),
-                unit=f.get("unit"),
+        raw_fields = extraction_fields or [{"name": "sample_field"}]
+        fields: list[ExtractionFieldConfig] = []
+
+        for f in raw_fields:
+            field_name = f["name"]
+            presentation = f.get("presentation", "fact")
+            label = f.get("label")
+
+            # Synthesise a valid label so the model validator does not reject
+            # checks that are created only to exercise executor logic (not
+            # display or label semantics).
+            if auto_label_facts and not label and presentation in ("fact", "summary"):
+                label = _humanize(field_name)
+
+            fields.append(
+                ExtractionFieldConfig(
+                    name=field_name,
+                    type=ExtractionFieldType(f.get("type", "string")),
+                    label=label,
+                    presentation=presentation,
+                    description=f.get("description", ""),
+                    unit=f.get("unit"),
+                    allowed_values=f.get("allowed_values") or [],
+                )
             )
-            for f in (extraction_fields or [{"name": "sample_field"}])
-        ]
+
         extraction = ExtractionConfig(enabled=True, fields=fields)
 
     return CheckDefinition(
@@ -462,7 +500,6 @@ class TestExecuteRegressionNonFieldExtraction:
         assert result["severity"] == "medium"
         assert result["llm_required"] is True
         assert result["llm_error_type"] == "timeout"
-
 
 
         

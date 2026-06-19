@@ -1,5 +1,6 @@
 id: "personal_data_and_dpa"
 name: "Персональные данные и DPA"
+group: "Confidentiality"
 description: >
   Screening-check: определяет наличие регулирования персональных
   данных в договоре и уровень этого регулирования.
@@ -30,37 +31,28 @@ rules:
 
   keywords:
     high:
-      # Персональные данные — точные термины
       - "(?i)personal\\s+data"
       - "(?i)персональн[а-я]+\\s+данн[ыхе]"
       - "(?i)\\bПДн\\b"
       - "(?i)\\bPII\\b"
       - "(?i)personally\\s+identifiable\\s+information"
-
-      # Роли сторон
       - "(?i)data\\s+controller"
       - "(?i)data\\s+processor"
       - "(?i)оператор\\s+(персональных\\s+)?данных"
       - "(?i)обработчик\\s+(персональных\\s+)?данных"
       - "(?i)joint\\s+controller"
       - "(?i)совместн[а-я]+\\s+(контролёр|оператор)"
-
-      # DPA / поручение на обработку
       - "(?i)data\\s+processing\\s+agreement"
       - "(?i)\\bDPA\\b"
       - "(?i)соглашени[ея]\\s+об\\s+обработк[еи]\\s+(персональных\\s+)?данных"
       - "(?i)поручени[ея]\\s+на\\s+обработку"
       - "(?i)data\\s+processing\\s+addendum"
-
-      # Регуляторные режимы
       - "(?i)\\bGDPR\\b"
       - "(?i)General\\s+Data\\s+Protection\\s+Regulation"
       - "(?i)\\b152[-\\s]?ФЗ\\b"
       - "(?i)Федеральн[а-я]+\\s+закон[\\s\\S]{0,30}персональн[а-я]+\\s+данн"
       - "(?i)\\bCCPA\\b"
       - "(?i)California\\s+Consumer\\s+Privacy"
-
-      # Трансграничная передача
       - "(?i)cross[-\\s]?border\\s+transfer"
       - "(?i)трансграничн[а-я]+\\s+передач[аи]"
       - "(?i)international\\s+data\\s+transfer"
@@ -69,21 +61,16 @@ rules:
       - "(?i)стандартн[а-я]+\\s+договорн[а-я]+\\s+оговорк[аи]"
 
     medium:
-      # Subprocessors
       - "(?i)sub[-\\s]?processor"
       - "(?i)субобработчик"
       - "(?i)third[-\\s]?party\\s+processor"
       - "(?i)привлечени[ея]\\s+третьих\\s+лиц\\s+для\\s+обработк[ьи]"
-
-      # Основания и цели обработки
       - "(?i)legal\\s+basis"
       - "(?i)правов[а-я]+\\s+основани[ея]"
       - "(?i)purpose\\s+of\\s+(the\\s+)?processing"
       - "(?i)цел[ьи]\\s+обработк[ьи]"
       - "(?i)legitimate\\s+interest"
       - "(?i)законн[а-я]+\\s+интерес"
-
-      # Категории данных
       - "(?i)categories?\\s+of\\s+(personal\\s+)?data"
       - "(?i)категори[ияи]\\s+(персональных\\s+)?данных"
       - "(?i)data\\s+subjects?"
@@ -91,13 +78,9 @@ rules:
       - "(?i)sensitive\\s+(personal\\s+)?data"
       - "(?i)special\\s+categories?"
       - "(?i)особ[а-я]+\\s+категори[ияи]"
-
-      # Инциденты и уведомления
       - "(?i)data\\s+breach"
       - "(?i)breach\\s+notification"
       - "(?i)уведомлени[ея]\\s+о[б]?\\s+(утечк|нарушени|инцидент)"
-
-      # Меры защиты
       - "(?i)technical\\s+and\\s+organizational\\s+measures?"
       - "(?i)техническ[а-я]+\\s+и\\s+организационн[а-я]+\\s+мер"
       - "(?i)data\\s+protection\\s+measures?"
@@ -129,38 +112,62 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
-  context_k: 5
+  context_k: 6
   max_chunks: 12
+
+  retrieval_query: >
+    персональные данные обработка персональных данных
+    поручение на обработку соглашение об обработке данных DPA
+    GDPR 152-ФЗ personal data data processing agreement
+    оператор данных data controller трансграничная передача
+
   boost_keywords:
-    - "personal data"
     - "персональные данные"
+    - "personal data"
     - "ПДн"
-    - "PII"
-    - "data controller"
-    - "data processor"
-    - "оператор данных"
-    - "обработчик данных"
-    - "data processing agreement"
     - "DPA"
-    - "соглашение об обработке данных"
+    - "data processing agreement"
     - "поручение на обработку"
+    - "соглашение об обработке данных"
     - "GDPR"
     - "152-ФЗ"
-    - "cross-border transfer"
+    - "оператор данных"
+    - "data controller"
+    - "обработчик данных"
+    - "data processor"
     - "трансграничная передача"
-    - "SCC"
-    - "standard contractual clauses"
-    - "sub-processor"
-    - "субобработчик"
-    - "legal basis"
-    - "правовое основание"
-    - "purpose of processing"
-    - "цель обработки"
-    - "data breach"
-    - "breach notification"
-    - "уведомление об утечке"
-    - "technical and organizational measures"
-    - "меры защиты данных"
+    - "cross-border transfer"
+
+  negative_keywords:
+    - "конфиденциальная информация"
+    - "коммерческая тайна"
+    - "означает"
+    - "в целях настоящего"
+    - "споры"
+    - "подсудность"
+    - "применимое право"
+    - "смена контроля"
+    - "уступка прав"
+
+  preferred_unit_types:
+    - "obligation"
+    - "general_provision"
+
+  excluded_unit_types:
+    - "definition"
+    - "structural_anchor"
+    - "technical_fragment"
+    - "appendix_reference"
+
+  preferred_clause_functions:
+    - "obligations"
+    - "procedures"
+
+  position_bias:
+    preferred_range: [0.30, 1.00]
+    boost: 0.20
+    scope: "segment"
+
   rerank: true
   filters: {}
 
@@ -177,16 +184,13 @@ enrichment_hints:
     - "price_list"
     - "invoice"
     - "act"
-  preferred_clause_functions:
-    - "data_protection"
-    - "confidentiality"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 380
+  llm_max_tokens: 350
   llm_prompt_extraction: |
     <role>
     Ты — юрист по защите персональных данных.
@@ -209,7 +213,6 @@ extraction:
     - personal_data_display
     - personal_data_status
     - personal_data_regulation_level
-    - personal_data_regulation_display
     - reason
 
     Важно:
@@ -220,7 +223,7 @@ extraction:
     </task>
 
     <instructions>
-    Шаг 1 — ОПРЕДЕЛИ НАЛИЧИЕ ТРЕБОВАНИЙ ПО ПЕРСОНАЛЬНЫМ ДАННЫМ
+    Шаг 1 — НАЛИЧИЕ ТРЕБОВАНИЙ ПО ПЕРСОНАЛЬНЫМ ДАННЫМ
 
     Заполни поле "personal_data_status".
 
@@ -237,35 +240,25 @@ extraction:
     - "unclear" — если фрагменты не позволяют уверенно
       определить наличие или отсутствие таких требований.
 
-    Шаг 2 — ОПРЕДЕЛИ УРОВЕНЬ РЕГУЛИРОВАНИЯ
+    Шаг 2 — УРОВЕНЬ РЕГУЛИРОВАНИЯ
 
-    Заполни поля "personal_data_regulation_level"
-    и "personal_data_regulation_display".
+    Заполни поле "personal_data_regulation_level".
 
-    Значения для personal_data_regulation_level:
-
+    Значения:
     - "dpa_attachment" — есть отдельное соглашение об обработке
       персональных данных (DPA / поручение на обработку),
       оформленное как отдельный документ / приложение к договору
       с полноценными условиями обработки данных.
-      Признаки хотя бы части из: цели обработки, категории данных,
-      срок обработки, технические меры, обязанности сторон —
-      в виде структурированного блока в приложении.
-
     - "dedicated_section" — в основном тексте договора есть
       отдельный раздел / статья, специально посвящённая
       персональным данным, с содержательными обязательствами
-      сторон. Признаки: заголовок типа "Personal Data",
-      "Персональные данные", "Data Protection", "Защита данных"
-      и содержательные условия внутри.
-
+      сторон.
     - "law_reference_only" — договор только:
       * упоминает персональные данные или законы без
         содержательных обязательств;
       * содержит общую фразу "стороны обязуются соблюдать
         применимое законодательство о защите данных";
       * ссылается на GDPR / 152-ФЗ без раскрытия условий.
-
     - "not_specified" — если personal_data_status = "missing".
     - "unclear" — если personal_data_status = "unclear"
       или уровень невозможно определить.
@@ -277,36 +270,23 @@ extraction:
       упоминания ПДн или законов о них
       не являются регулированием персональных данных.
 
-    Значения для personal_data_regulation_display:
-    - "dpa_attachment" →
-      "Отдельное соглашение об обработке ПДн (DPA)"
-    - "dedicated_section" →
-      "Отдельный раздел договора по ПДн"
-    - "law_reference_only" →
-      "Только ссылка на применимый закон"
-    - "not_specified" →
-      "Требования по ПДн не установлены"
-    - "unclear" →
-      "Не удалось определить"
-
-    Шаг 3 — СФОРМИРУЙ USER-FACING SUMMARY
+    Шаг 3 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
 
     Заполни поле "personal_data_display".
 
-    Строй display как:
-    {уровень регулирования или отсутствие}
+    Базовые шаблоны:
+    - status = "missing":
+      "Требования по ПДн не установлены"
+    - status = "unclear":
+      "Не удалось определить"
+    - status = "present", level = "dpa_attachment":
+      "Отдельное соглашение об обработке ПДн (DPA)"
+    - status = "present", level = "dedicated_section":
+      "Отдельный раздел договора по ПДн"
+    - status = "present", level = "law_reference_only":
+      "Только ссылка на применимый закон"
 
-    Примеры:
-    - "Отдельное соглашение об обработке ПДн (DPA)"
-    - "Отдельный раздел договора по ПДн"
-    - "Только ссылка на применимый закон"
-    - "Требования по ПДн не установлены"
-    - "Не удалось определить"
-
-    Правило: personal_data_display = personal_data_regulation_display.
-    Это то же значение. Не изобретай другую формулировку.
-
-    Шаг 4 — КРАТКО ОБОСНУЙ ВЫВОД
+    Шаг 4 — КРАТКОЕ ОБОСНОВАНИЕ
 
     Заполни поле "reason".
 
@@ -371,10 +351,13 @@ extraction:
   fields:
     - name: "personal_data_display"
       type: "string"
-      description: "Регулирование ПДн в договоре"
+      presentation: "fact"
+      label: "Персональные данные"
+      description: "Нормализованный user-facing вывод для DD Grid"
 
     - name: "personal_data_status"
       type: "string"
+      presentation: "signal"
       description: "Наличие требований по ПДн"
       allowed_values:
         - "present"
@@ -383,6 +366,7 @@ extraction:
 
     - name: "personal_data_regulation_level"
       type: "string"
+      presentation: "signal"
       description: "Уровень регулирования ПДн"
       allowed_values:
         - "dpa_attachment"
@@ -391,13 +375,11 @@ extraction:
         - "not_specified"
         - "unclear"
 
-    - name: "personal_data_regulation_display"
-      type: "string"
-      description: "Уровень регулирования ПДн (display)"
-
     - name: "reason"
       type: "string"
+      presentation: "diagnostic"
       description: "Обоснование"
 
   store_payload: true
 
+  

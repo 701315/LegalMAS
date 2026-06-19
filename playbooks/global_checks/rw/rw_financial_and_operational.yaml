@@ -1,0 +1,361 @@
+id: "rw_financial_and_operational"
+name: "Финансовые и операционные заверения (Financials, Liabilities, HR)"
+group: "Represents and warrants"
+description: >
+  Анализирует R&W в отношении достоверности финансовой отчетности,
+  отсутствия скрытых обязательств (undisclosed liabilities), статуса
+  существенных договоров (material contracts) и трудовых отношений / HR.
+
+  Оценивает риски выявления неучтенных долгов, скрытых дефолтов
+  по ключевым контрактам и операционных проблем с персоналом.
+
+  Фундаментальные R&W анализируются чеком rw_fundamental. 
+  Специфические R&W (налоги, санкции, суды, IP) анализируются чеком 
+  rw_specific_and_survival.
+
+doc_types: []
+
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+ui_mode: "field_extraction"
+
+rules:
+  keyword_mode: any
+
+  keywords:
+    high:
+      # Финансовая отчетность
+      - "(?i)financial\\s+statements\\s+[\\s\\S]{0,30}(fairly\\s+present|true\\s+and\\s+fair)"
+      - "(?i)финансовая\\s+отчетность\\s+[\\s\\S]{0,40}(достоверно|соответствует)"
+      - "(?i)prepared\\s+in\\s+accordance\\s+with\\s+(GAAP|IFRS|МСФО|РСБУ)"
+
+      # Скрытые обязательства
+      - "(?i)no\\s+undisclosed\\s+liabilities"
+      - "(?i)отсутстви[ея]\\s+неучтенн[а-я]+\\s+обязательств"
+      - "(?i)отсутстви[ея]\\s+скрыт[а-я]+\\s+обязательств"
+      - "(?i)liabilities\\s+not\\s+reflected\\s+on\\s+the\\s+balance\\s+sheet"
+
+      # Существенные договоры
+      - "(?i)material\\s+contracts\\s+[\\s\\S]{0,30}(valid|binding|full\\s+force)"
+      - "(?i)no\\s+default\\s+[\\s\\S]{0,30}material\\s+contracts"
+      - "(?i)существенн[а-я]+\\s+договор[а-я]*\\s+[\\s\\S]{0,30}(действительн|отсутстви[ея]\\s+нарушен)"
+
+      # HR / Трудовые отношения
+      - "(?i)employment\\s+[\\s\\S]{0,30}(represent|warrant|compliance)"
+      - "(?i)labor\\s+relations\\s+[\\s\\S]{0,30}(represent|warrant)"
+      - "(?i)трудовы[ех]\\s+отношени[яйх]\\s+[\\s\\S]{0,30}(заверени|отсутстви[ея]\\s+спор)"
+      - "(?i)no\\s+(strike|labor\\s+dispute|work\\s+stoppage)"
+
+    medium:
+      # Финансы — общие
+      - "(?i)balance\\s+sheet"
+      - "(?i)income\\s+statement"
+      - "(?i)бухгалтерск[а-я]+\\s+отчетность"
+      - "(?i)ordinary\\s+course\\s+of\\s+business"
+
+      # Обязательства
+      - "(?i)contingent\\s+liabilities"
+      - "(?i)условн[а-я]+\\s+обязательств[а-я]*"
+
+      # Договоры
+      - "(?i)material\\s+agreements"
+      - "(?i)major\\s+contracts"
+      - "(?i)основн[а-я]+\\s+договор"
+
+      # Сотрудники / HR
+      - "(?i)employee\\s+benefits"
+      - "(?i)collective\\s+bargaining\\s+agreement"
+      - "(?i)коллективн[а-я]+\\s+договор"
+      - "(?i)задолженност[ьи]\\s+по\\s+заработной\\s+плате"
+
+    low:
+      - "(?i)financial\\s+statements"
+      - "(?i)liabilities"
+      - "(?i)material\\s+contracts"
+      - "(?i)employees"
+      - "(?i)labor"
+      - "(?i)IFRS"
+      - "(?i)GAAP"
+      - "(?i)МСФО"
+
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+
+  retrieval_query: >
+    финансовая отчетность скрытые обязательства существенные договоры трудовые отношения 
+    financial statements undisclosed liabilities material contracts employment labor
+
+  boost_keywords:
+    - "financial statements"
+    - "fairly present"
+    - "true and fair view"
+    - "no undisclosed liabilities"
+    - "отсутствие неучтенных обязательств"
+    - "скрытые обязательства"
+    - "GAAP"
+    - "IFRS"
+    - "МСФО"
+    - "material contracts"
+    - "существенные договоры"
+    - "no default"
+    - "отсутствие нарушений"
+    - "employment"
+    - "labor disputes"
+    - "трудовые отношения"
+    - "коллективный договор"
+
+  negative_keywords:
+    - "интеллектуальная собственность"
+    - "санкции"
+    - "OFAC"
+    - "налоги"
+    - "tax"
+
+  preferred_unit_types:
+    - "general_provision"
+    - "obligation"
+
+  excluded_unit_types:
+    - "technical_fragment"
+    - "appendix_reference"
+    - "structural_anchor"
+
+  preferred_clause_functions:
+    - "representations"
+
+  position_bias:
+    preferred_range: [0.0, 1.0]
+    boost: 0.10
+    scope: "segment"
+
+  rerank: true
+  filters: {}
+
+conditional: null
+
+enrichment_hints:
+  preferred_segment_types:
+    - "contract"
+    - "amendment"
+    - "annex"
+  excluded_segment_types:
+    - "technical_specification"
+    - "price_list"
+    - "invoice"
+    - "act"
+    - "schedule"
+  preferred_clause_functions:
+    - "representations_warranties"
+  confidence_bonus_on_match: 0.10
+  confidence_penalty_on_excluded_segment: 0.15
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  llm_max_tokens: 420
+  llm_prompt_extraction: |
+    <role>
+    Ты — юрист по M&A.
+    Твоя задача — точно извлечь из текста наличие и характер
+    финансовых и операционных R&W:
+    1) достоверность финансовой отчетности;
+    2) отсутствие скрытых/неучтенных обязательств (undisclosed liabilities);
+    3) действительность существенных договоров (material contracts);
+    4) трудовые отношения / HR.
+
+    Фундаментальные R&W и специфика (налоги, IP, санкции) анализируются
+    другими чеками, не учитывай их здесь.
+    </role>
+
+    <context>
+    Ниже приведены релевантные фрагменты договора:
+
+    {context}
+    </context>
+
+    <task>
+    Заполни только следующие поля:
+    - rw_fin_ops_display
+    - rw_financial_statements
+    - rw_undisclosed_liabilities
+    - rw_material_contracts
+    - rw_employment_hr
+    - reason
+
+    Важно:
+    - пиши коротко и по-русски.
+    </task>
+
+    <instructions>
+    Шаг 1 — ФИНАНСОВАЯ ОТЧЕТНОСТЬ
+
+    Заполни "rw_financial_statements".
+
+    Значения:
+    - "present" — есть заверения о том, что финансовая отчетность
+      достоверна (fairly presents), подготовлена в соответствии с
+      GAAP / IFRS / МСФО / РСБУ.
+    - "missing" — отсутствуют.
+    - "unclear" — неясно.
+
+    Шаг 2 — СКРЫТЫЕ ОБЯЗАТЕЛЬСТВА (UNDISCLOSED LIABILITIES)
+
+    Заполни "rw_undisclosed_liabilities".
+
+    Значения:
+    - "present" — есть заверения об отсутствии обязательств, кроме тех,
+      что раскрыты в балансе или возникли в ходе обычной
+      хозяйственной деятельности (no undisclosed liabilities).
+    - "missing" — отсутствуют.
+    - "unclear" — неясно.
+
+    Шаг 3 — СУЩЕСТВЕННЫЕ ДОГОВОРЫ (MATERIAL CONTRACTS)
+
+    Заполни "rw_material_contracts".
+
+    Значения:
+    - "present" — есть заверения, что все существенные договоры
+      действительны, и нет дефолтов / нарушений ни со стороны
+      Target, ни со стороны контрагентов.
+    - "missing" — отсутствуют.
+    - "unclear" — неясно.
+
+    Шаг 4 — ТРУДОВЫЕ ОТНОШЕНИЯ / HR
+
+    Заполни "rw_employment_hr".
+
+    Значения:
+    - "present" — есть заверения об отсутствии трудовых споров,
+      забастовок, долгов по зарплате, соблюдении ТК и норм
+      охраны труда.
+    - "missing" — отсутствуют.
+    - "unclear" — неясно.
+
+    Шаг 5 — НОРМАЛИЗОВАННЫЙ DISPLAY ДЛЯ DD GRID
+
+    Заполни "rw_fin_ops_display".
+
+    Это не свободное summary.
+    Строй display по следующей логике:
+
+    Базовый случай:
+    - все поля unclear или missing:
+      "Финансовые и операционные R&W не выявлены"
+
+    Если данные есть, перечисли через "; " только те зоны, где
+    значение "present":
+    - "Отчетность" (если rw_financial_statements = present)
+    - "Скрытые обязательства" (если rw_undisclosed_liabilities = present)
+    - "Существенные договоры" (если rw_material_contracts = present)
+    - "Трудовые отношения" (если rw_employment_hr = present)
+
+    Если все 4 зоны присутствуют, напиши:
+    "Покрытие полное: отчетность, обязательства, контракты, HR"
+
+    Примеры:
+    - "Покрытие полное: отчетность, обязательства, контракты, HR"
+    - "Присутствуют: Отчетность; Скрытые обязательства"
+    - "Присутствуют: Существенные договоры; Трудовые отношения"
+    - "Финансовые и операционные R&W не выявлены"
+
+    Ограничение: не более 1 предложения.
+
+    Шаг 6 — КРАТКОЕ ОБОСНОВАНИЕ
+
+    Заполни "reason".
+
+    Правила:
+    - 1–2 коротких предложения.
+    - Укажи: какие финансово-операционные R&W включены в договор.
+    - Приведи цитату в кавычках.
+    </instructions>
+
+    <edge_cases>
+    - "Except for liabilities reflected on the balance sheet":
+      * rw_undisclosed_liabilities = "present" (это классическая
+        формулировка ограничения для скрытых долгов).
+
+    - Упоминание коллективного договора (CBA) без споров:
+      * rw_employment_hr = "present".
+
+    - Нет релевантных фрагментов:
+      * все поля = "unclear"
+      * rw_fin_ops_display = "Финансовые и операционные R&W не выявлены"
+    </edge_cases>
+
+    <output_expectations>
+    Все значения коротко и по-русски.
+    Не добавляй никаких полей, кроме указанных в схеме extraction.
+    </output_expectations>
+
+  fields:
+    - name: "rw_fin_ops_display"
+      type: "string"
+      presentation: "fact"
+      label: "Финансовые и операционные R&W"
+      description: "Нормализованный user-facing вывод для DD Grid"
+
+    - name: "rw_financial_statements"
+      type: "string"
+      presentation: "signal"
+      description: "R&W о достоверности финансовой отчетности"
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
+    - name: "rw_undisclosed_liabilities"
+      type: "string"
+      presentation: "signal"
+      description: "R&W об отсутствии скрытых обязательств"
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
+    - name: "rw_material_contracts"
+      type: "string"
+      presentation: "signal"
+      description: "R&W по существенным договорам"
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
+    - name: "rw_employment_hr"
+      type: "string"
+      presentation: "signal"
+      description: "R&W по трудовым отношениям"
+      allowed_values:
+        - "present"
+        - "missing"
+        - "unclear"
+
+    - name: "reason"
+      type: "string"
+      presentation: "diagnostic"
+      description: "Обоснование"
+
+  store_payload: true
+
+
+  
