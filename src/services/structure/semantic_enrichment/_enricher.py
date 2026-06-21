@@ -42,6 +42,7 @@ import asyncio
 import hashlib
 import json
 from typing import TYPE_CHECKING
+from collections.abc import Callable
 
 from core.logging import get_logger
 from services.structure.legal_unit_models import LegalUnit, LegalUnitsSnapshot
@@ -64,6 +65,9 @@ from services.structure.semantic_enrichment._prompting import (
     SemanticEnrichmentPromptContext,
     build_semantic_enrichment_prompt,
     build_semantic_enrichment_prompt_context,
+)
+from services.structure.semantic_enrichment._budget import (
+    resolve_per_unit_enrichment_timeout,
 )
 from services.structure.semantic_enrichment._types import (
     LegalUnitEnrichment,
@@ -801,6 +805,8 @@ async def enrich_legal_units_async(
     *,
     policy: SemanticEnrichmentPolicy | None = None,
     collector: "TelemetryCollector | None" = None,
+    segment_timeout_seconds: float | None = None,
+    on_unit_enriched: Callable[[LegalUnitEnrichment], None] | None = None,
 ) -> LegalUnitsEnrichmentResult:
     """
     Async версия enrich_legal_units().
@@ -811,9 +817,30 @@ async def enrich_legal_units_async(
     Phase 14.3.A:
     - exact cache document_version-scoped;
     - reuse только внутри одного document_version.
+
+    on_unit_enriched:
+    - опциональный callback, вызывается после каждого обработанного unit;
+    - используется worker-ом для накопления частичных результатов;
+    - позволяет сохранить уже обработанные units при segment timeout;
+    - failure-isolated: ошибка в callback не прерывает enrichment loop;
+    - enricher остаётся stateless — callback владеет состоянием, не enricher.
     """
     if policy is None:
         policy = SemanticEnrichmentPolicy()
+
+    from core.config import settings
+
+    configured_segment_timeout_seconds = float(
+        getattr(settings, "SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS", 900)
+    )
+
+    try:
+        effective_segment_timeout_seconds = float(segment_timeout_seconds)
+    except (TypeError, ValueError):
+        effective_segment_timeout_seconds = configured_segment_timeout_seconds
+
+    if effective_segment_timeout_seconds <= 0:
+        effective_segment_timeout_seconds = configured_segment_timeout_seconds
 
     llm_provider, llm_model = _resolve_llm_info()
 
@@ -896,6 +923,11 @@ async def enrich_legal_units_async(
     llm_execution_mode = (
         "sequential" if max_inflight_llm_calls == 1 else "bounded_parallel"
     )
+    per_unit_timeout = resolve_per_unit_enrichment_timeout(
+        settings=settings,
+        eligible_unit_count=eligible_count,
+        segment_timeout_seconds=effective_segment_timeout_seconds,
+    )
 
     logger.info(
         "STRUCTURE semantic_enrichment_start (async)",
@@ -912,6 +944,8 @@ async def enrich_legal_units_async(
             "llm_model": llm_model,
             "llm_execution_mode": llm_execution_mode,
             "max_inflight_llm_calls": max_inflight_llm_calls,
+            "per_unit_timeout_seconds": per_unit_timeout,
+            "effective_segment_timeout_seconds": effective_segment_timeout_seconds,
             "cache_enabled": _is_semantic_enrichment_cache_enabled(),
         },
     )
@@ -948,18 +982,98 @@ async def enrich_legal_units_async(
             )
 
     if max_inflight_llm_calls == 1:
-        # Embedded local native runtime path (llamacpp):
-        # do not allow concurrent in-process LLM access.
+        # Sequential path: one unit at a time.
+        # Used for llamacpp (embedded, not concurrency-safe) and when
+        # SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS=1 in config.
+        #
+        # Per-unit timeout prevents a single hanging LLM call from
+        # consuming the entire segment budget. Each unit is failure-isolated:
+        # a timeout produces status=failed for that unit and the loop continues.
         for i, unit in enumerate(units):
-            enrichment = await _process_unit(i, unit)
+            try:
+                enrichment = await asyncio.wait_for(
+                    _process_unit(i, unit),
+                    timeout=per_unit_timeout,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "STRUCTURE semantic_enrichment_unit_timeout",
+                    extra={
+                        "document_id": snapshot.document_id,
+                        "segment_id": snapshot.segment_id,
+                        "unit_id": unit.unit_id,
+                        "per_unit_timeout_seconds": per_unit_timeout,
+                    },
+                )
+                enrichment = build_failed_enrichment(
+                    unit,
+                    policy=policy,
+                    reason="per_unit_timeout",
+                )
             result.enrichments.append(enrichment)
+            if on_unit_enriched is not None:
+                try:
+                    on_unit_enriched(enrichment)
+                except Exception as cb_exc:
+                    logger.warning(
+                        "STRUCTURE semantic_enrichment_unit_callback_failed",
+                        extra={
+                            "document_id": snapshot.document_id,
+                            "segment_id": snapshot.segment_id,
+                            "unit_id": unit.unit_id,
+                            "error": str(cb_exc),
+                        },
+                    )
     else:
-        # Non-embedded providers may safely use bounded parallelism.
+        # Bounded parallel path: up to max_inflight_llm_calls concurrent units.
+        # Used for HTTP providers (ollama, openai) that are concurrency-safe.
+        #
+        # Per-unit timeout is applied inside each bounded coroutine so that
+        # one hanging unit does not block a semaphore slot indefinitely.
+        #
+        # Callback is invoked inside _process_unit_bounded immediately after
+        # each unit completes. This is critical for partial persistence:
+        # if the outer segment-level asyncio.wait_for cancels gather(),
+        # already-completed units will have been reported via callback,
+        # and the worker can build a partial sidecar from them.
         semaphore = asyncio.Semaphore(max_inflight_llm_calls)
 
         async def _process_unit_bounded(index: int, unit: LegalUnit) -> LegalUnitEnrichment:
             async with semaphore:
-                return await _process_unit(index, unit)
+                try:
+                    enrichment = await asyncio.wait_for(
+                        _process_unit(index, unit),
+                        timeout=per_unit_timeout,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "STRUCTURE semantic_enrichment_unit_timeout (bounded)",
+                        extra={
+                            "document_id": snapshot.document_id,
+                            "segment_id": snapshot.segment_id,
+                            "unit_id": unit.unit_id,
+                            "per_unit_timeout_seconds": per_unit_timeout,
+                        },
+                    )
+                    enrichment = build_failed_enrichment(
+                        unit,
+                        policy=policy,
+                        reason="per_unit_timeout",
+                    )
+                if on_unit_enriched is not None:
+                    try:
+                        on_unit_enriched(enrichment)
+                    except Exception as cb_exc:
+                        logger.warning(
+                            "STRUCTURE semantic_enrichment_unit_callback_failed (bounded)",
+                            extra={
+                                "document_id": snapshot.document_id,
+                                "segment_id": snapshot.segment_id,
+                                "unit_id": unit.unit_id,
+                                "error": str(cb_exc),
+                            },
+                        )
+                return enrichment
 
         tasks = [_process_unit_bounded(i, unit) for i, unit in enumerate(units)]
         enrichments: list[LegalUnitEnrichment] = list(await asyncio.gather(*tasks))

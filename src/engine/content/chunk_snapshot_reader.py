@@ -261,6 +261,7 @@ class ChunkCorpusReaderV2:
         segment_id: str,
         levels: list[str],
         version_id: uuid.UUID | None = None,
+        enrichment_sidecar: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Загрузить чанки только для одного сегмента документа.
@@ -375,6 +376,11 @@ class ChunkCorpusReaderV2:
             )
             return []
 
+        # Build enrichment index if sidecar provided.
+        # This allows runtime projection of enriched metadata onto chunk metadata
+        # without mutating the baseline chunk snapshot artifact.
+        enrichment_index = self._build_enrichment_index(enrichment_sidecar)
+
         # 4. Загружаем snapshot конкретного сегмента
         items = await self._load_segment_snapshot(
             doc_id=doc_id,
@@ -382,6 +388,7 @@ class ChunkCorpusReaderV2:
             segment_id=segment_id,
             segment_chunks_ref=target_chunks_ref,
             level_set=level_set,
+            enrichment_index=enrichment_index,
         )
         return items or []
 
@@ -417,6 +424,7 @@ class ChunkCorpusReaderV2:
             )
             return None
 
+
     async def _load_segment_snapshot(
         self,
         *,
@@ -425,6 +433,7 @@ class ChunkCorpusReaderV2:
         segment_id: str,
         segment_chunks_ref: str,
         level_set: set[str],
+        enrichment_index: dict[str, dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Загрузить snapshot одного сегмента и вернуть нормализованные чанки.
@@ -539,6 +548,41 @@ class ChunkCorpusReaderV2:
                 if "chunk_kind" not in metadata:
                     metadata["chunk_kind"] = lvl_normalized
 
+                # ── Runtime enrichment projection ──────────────────────────
+                # For legal_unit chunks: apply enriched semantic metadata from
+                # enrichment sidecar onto chunk metadata at read time.
+                # This avoids mutating baseline chunk snapshot artifacts while
+                # making clause_function / unit_type / topic_tags available to
+                # retrieval engine scoring and playbook excluded_unit_types filter.
+                #
+                # Invariants:
+                # - Only legal_unit chunks carry effective_uid identity for projection.
+                # - Never overwrite with None / "unknown" / empty.
+                # - Graceful: enrichment_index absent → no projection, no error.
+                if lvl_normalized == "legal_unit" and enrichment_index:
+                    effective_uid = metadata.get("effective_uid")
+                    if effective_uid and effective_uid in enrichment_index:
+                        enriched = enrichment_index[effective_uid]
+
+                        enriched_cf = enriched.get("clause_function")
+                        if enriched_cf and str(enriched_cf).strip().lower() not in (
+                            "", "unknown"
+                        ):
+                            metadata["clause_function"] = enriched_cf
+
+                        enriched_ut = enriched.get("unit_type")
+                        if enriched_ut and str(enriched_ut).strip().lower() not in (
+                            "", "unknown"
+                        ):
+                            metadata["unit_type"] = enriched_ut
+
+                        enriched_tags = enriched.get("topic_tags")
+                        if isinstance(enriched_tags, list) and enriched_tags:
+                            metadata["topic_tags"] = enriched_tags
+
+                        metadata["enrichment_status"] = enriched.get("enrichment_status")
+                        metadata["enrichment_projected"] = True
+
                 out.append(
                     {
                         "id": ch.get("id") or f"{segment_id}:{lvl_normalized}:{len(out)}",
@@ -548,6 +592,61 @@ class ChunkCorpusReaderV2:
                 )
 
         return out
+
+    @staticmethod
+    def _build_enrichment_index(
+        enrichment_sidecar: dict[str, Any] | None,
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Build unit_id → enriched_fields index from enrichment sidecar.
+
+        Used for runtime projection of enriched metadata onto chunk metadata.
+        Baseline chunk snapshot artifacts are never mutated.
+
+        Rules:
+        - status=applied: use effective layer (post-LLM enrichment).
+        - status=no_change: use effective layer (confirmed by LLM).
+        - status=failed/skipped: use base layer (deterministic baseline).
+
+        Returns empty dict if sidecar is None, malformed, or has no enrichments.
+        """
+        if not isinstance(enrichment_sidecar, dict):
+            return {}
+
+        enrichments = enrichment_sidecar.get("enrichments")
+        if not isinstance(enrichments, list) or not enrichments:
+            return {}
+
+        index: dict[str, dict[str, Any]] = {}
+
+        for item in enrichments:
+            if not isinstance(item, dict):
+                continue
+            unit_id = item.get("unit_id")
+            if not unit_id:
+                continue
+
+            status = str(item.get("status") or "").strip()
+            effective = item.get("effective") or {}
+            base = item.get("base") or {}
+
+            # For applied/no_change: use effective (post-enrichment).
+            # For failed/skipped/unknown: use base (deterministic baseline).
+            source = effective if status in ("applied", "no_change") else base
+
+            clause_function = source.get("clause_function")
+            unit_type = source.get("unit_type")
+            topic_tags = source.get("topic_tags")
+
+            index[unit_id] = {
+                "clause_function": clause_function,
+                "unit_type": unit_type,
+                "topic_tags": topic_tags if isinstance(topic_tags, list) else [],
+                "enrichment_status": status,
+            }
+
+        return index
+
 
     @staticmethod
     def _normalize_levels(levels: Iterable[str]) -> set[str]:

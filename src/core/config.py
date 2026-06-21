@@ -321,9 +321,11 @@ class Settings(BaseSettings):
     # Per-segment hard timeout. If enriching one segment's legal units
     # exceeds this, the segment is skipped and pipeline continues.
     SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS: int = 900
-    
-    SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS: int = 4
 
+    SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS: int = 4
+    # Minimum timeout in seconds for primary segment enrichment.
+    # Primary segments are typically the largest and most critical for retrieval quality.
+    SEMANTIC_ENRICHMENT_PRIMARY_SEGMENT_MIN_TIMEOUT_SECONDS: int = 600
     # Total wall-clock budget for enriching all segments of a document.
     # 0 = derive adaptively from worker soft limit minus cleanup margin.
     SEMANTIC_ENRICHMENT_DOCUMENT_BUDGET_SECONDS: int = 3600
@@ -331,6 +333,16 @@ class Settings(BaseSettings):
     # Time reserved for post-enrichment commit / audit / retrigger.
     # Not given to LLM enrichment.
     SEMANTIC_ENRICHMENT_CLEANUP_MARGIN_SECONDS: int = 120
+
+    # Per-unit timeout for semantic enrichment LLM calls.
+    # Prevents a single slow/hanging LLM call from consuming the entire segment budget.
+    # If 0: timeout is derived as segment_timeout / max(eligible_unit_count, 1).
+    # On a faster GPU machine this value can be reduced without code changes.
+    SEMANTIC_ENRICHMENT_PER_UNIT_TIMEOUT_SECONDS: int = 180
+
+    # Absolute minimum per-unit timeout regardless of budget arithmetic.
+    # Ensures that even under tight budgets each unit gets at least this much time.
+    SEMANTIC_ENRICHMENT_PER_UNIT_MIN_TIMEOUT_SECONDS: int = 30
 
     # --- Dedicated Semantic Enrichment Worker Limits ---
     SEMANTIC_ENRICHMENT_WORKER_SOFT_TIME_LIMIT_SECONDS: int = 4200
@@ -408,8 +420,21 @@ class Settings(BaseSettings):
     RUNNER_METADATA_KIND_PENALTY_SECTION: float = 0.1
     RUNNER_METADATA_SECTION_TITLE_BOOST: float = 1.0
     RUNNER_METADATA_POSITION_MID_BOOST: float = 0.3
+
+    # Structural early-document retrieval prior.
+    # Applied when chunk position_ratio <= RUNNER_METADATA_EARLY_DOC_POSITION_THRESHOLD.
+    # Replaces mid-document boost logic that caused Definitional Drift.
+    # Universal invariant: legal documents open with identification clauses
+    # (parties, subject, recitals) regardless of language or document type.
+    RUNNER_METADATA_EARLY_DOC_BOOST: float = 0.2
+    RUNNER_METADATA_EARLY_DOC_POSITION_THRESHOLD: float = 0.15
+
     RUNNER_METADATA_PATH_TITLES_BOOST: float = 0.5
     RUNNER_METADATA_SUMMARY_BOOST: float = 0.2
+
+    RUNNER_METADATA_PREAMBLE_BOOST: float = 1.0
+    RUNNER_METADATA_TOPIC_MATCH_BOOST: float = 0.6
+
     CHECK_RUNNER_MODE: str = "global_and_doc_type"
     RUNNER_EMBEDDINGS_ENABLED: bool = True
     RUNNER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"

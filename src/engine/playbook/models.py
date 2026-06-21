@@ -284,6 +284,13 @@ class RetrievalConfig(BaseModel):
     # Предпочитаемый тип чанка для evidence.
     required_kind: str | None = None
 
+    # ID retrieval profile из retrieval_profiles.py.
+    # Если задан — RetrievalEngine применяет profile-specific boosts
+    # по topic_tags/clause_function из enriched chunk metadata.
+    # Это universal retrieval intent declaration, не check-specific heuristic.
+    # Примеры: "party_identification_check", "governing_law_check".
+    retrieval_profile: str | None = None
+
     @field_validator("retrieval_query")
     @classmethod
     def _validate_retrieval_query(cls, v: str | None) -> str | None:
@@ -413,6 +420,21 @@ class ExtractionFieldConfig(BaseModel):
     type: ExtractionFieldType = ExtractionFieldType.STRING
     label: str | None = None
     presentation: Literal["summary", "fact", "signal", "diagnostic"] = "fact"
+
+    # Grid display contract (universal, playbook-driven).
+    #
+    # display_in_grid:
+    #   Opt-in flag for including this factual field into DD Grid compact summary
+    #   when no explicit summary / *_display field is provided.
+    #
+    # display_priority:
+    #   Lower value = earlier in compact DD Grid summary.
+    #   If omitted, extraction field declaration order remains fallback priority.
+    #
+    # These fields are ignored for presentation=signal/diagnostic.
+    display_in_grid: bool = False
+    display_priority: int | None = None
+
     description: str = ""
 
     # Подсказки для rules‑based извлечения.

@@ -671,8 +671,8 @@ checks_v8:
         - structural_anchor
         - technical_fragment
       preferred_clause_functions:
+        - representations
         - boilerplate
-        - definitions
       negative_keywords:
         - "цена"
         - "стоимость"

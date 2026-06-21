@@ -687,6 +687,7 @@ checks_v8:
       context_k: 5
       temperature: 0.0
       max_tokens: 650
+
     retrieval:
       retrieval_query: "продавец покупатель стороны договора именуемый в лице действующего на основании устава доверенности ИНН ОГРН КПП реквизиты подписант представитель полномочия"
       preferred_unit_types:
@@ -711,11 +712,12 @@ checks_v8:
         - "претензия"
       position_bias:
         preferred_range: [0.0, 0.25]
-        boost: 0.25
-        scope: segment
+        boost: 0.4
+        scope: auto
       context_k: 5
       max_chunks: 7
       rerank: true
+
     enrichment_hints:
       preferred_clause_functions:
         - "definitions"

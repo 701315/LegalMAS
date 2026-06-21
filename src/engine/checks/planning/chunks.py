@@ -117,6 +117,7 @@ class ChunksPreparer:
         checks: list[Any],
         segment_id: str,
         max_chars: int = MAX_CHUNK_TEXT_CHARS,
+        enrichment_sidecar: dict | None = None,
     ) -> list[dict]:
         """
         Собрать safe_chunks для одного логического документа-сегмента.
@@ -148,11 +149,14 @@ class ChunksPreparer:
 
         # Загружаем чанки только этого сегмента через ChunkCorpusReaderV2.
         # Он сам находит последнюю версию документа и читает нужный snapshot из MinIO.
+        # enrichment_sidecar передаётся для runtime projection enriched metadata
+        # на chunk metadata. Если None — reader продолжает без обогащения.
         reader = ChunkCorpusReaderV2(session=session)
         chunks = await reader.load_segment(
             doc_id=doc.id,
             segment_id=segment_id,
             levels=levels_for_segment,
+            enrichment_sidecar=enrichment_sidecar,
         )
 
         if not chunks:

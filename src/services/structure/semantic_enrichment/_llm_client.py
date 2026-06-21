@@ -53,7 +53,7 @@ def is_semantic_enrichment_llm_available() -> bool:
 def call_semantic_enrichment_llm(
     *,
     prompt: str,
-    max_retries: int = 2,
+    max_retries: int = 0,
 ) -> str:
     """
     Вызывает LLM через общий LLMClient проекта.
@@ -62,6 +62,13 @@ def call_semantic_enrichment_llm(
     LLMDetector и L4LLMClassifier.
 
     Возвращает raw string из response для последующего парсинга.
+    По умолчанию semantic enrichment использует max_retries=0.
+
+    Обоснование:
+    - enrichment failure-isolated на уровне одного legal unit;
+    - повторные попытки одного unit непропорционально сжигают segment budget;
+    - downstream retrieval получает больше пользы от partial coverage многих units,
+      чем от повторных попыток одного проблемного unit.
     """
     try:
         from engine.llm.client import LLMClient
@@ -102,7 +109,7 @@ def call_semantic_enrichment_llm(
 async def call_semantic_enrichment_llm_async(
     *,
     prompt: str,
-    max_retries: int = 2,
+    max_retries: int = 0,
 ) -> str:
     """
     Async версия call_semantic_enrichment_llm().
@@ -114,6 +121,13 @@ async def call_semantic_enrichment_llm_async(
     - ollama/openai: реальный async I/O через httpx.AsyncClient.
 
     Возвращает raw string для parse_llm_enrichment_response().
+    По умолчанию semantic enrichment использует max_retries=0.
+
+    Это intentional policy:
+    - один unit не должен monopolize segment budget;
+    - enrichment already has per-unit failure isolation at orchestrator level;
+    - partial enrichment coverage is more valuable than deep retries
+      of a single failing unit.
 
     Raises:
         RuntimeError: LLM недоступна, call упал, пустой ответ.

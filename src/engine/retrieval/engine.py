@@ -61,6 +61,7 @@ class RetrievalEngine:
         excluded_unit_types: Iterable[str] | None = None,
         preferred_clause_functions: Iterable[str] | None = None,
         position_bias: Any | None = None,
+        retrieval_profile_id: str | None = None,
     ):
         """
         chunks: список чанков одного из форматов:
@@ -171,6 +172,9 @@ class RetrievalEngine:
         self.excluded_unit_types_lower = _normalize_labels(excluded_unit_types)
         self.preferred_clause_functions_lower = _normalize_labels(preferred_clause_functions)
         self.position_bias = position_bias
+        self.retrieval_profile_id: str | None = (
+            str(retrieval_profile_id).strip() if retrieval_profile_id else None
+        )
 
         # Если чанков нет — деградирующий режим (поиск ничего не вернёт).
         if not self.chunks:
@@ -338,8 +342,11 @@ class RetrievalEngine:
         section_title_boost = float(
             getattr(settings, "RUNNER_METADATA_SECTION_TITLE_BOOST", 1.0)
         )
-        position_mid_boost = float(
-            getattr(settings, "RUNNER_METADATA_POSITION_MID_BOOST", 0.3)
+        early_doc_boost = float(
+            getattr(settings, "RUNNER_METADATA_EARLY_DOC_BOOST", 0.2)
+        )
+        early_doc_threshold = float(
+            getattr(settings, "RUNNER_METADATA_EARLY_DOC_POSITION_THRESHOLD", 0.15)
         )
         path_titles_boost = float(
             getattr(settings, "RUNNER_METADATA_PATH_TITLES_BOOST", 0.5)
@@ -401,11 +408,41 @@ class RetrievalEngine:
             meta = ch.get("metadata", {}) or {}
             text = str(ch.get("text", "") or "").lower()
 
+            # Load retrieval profile for profile-aware scoring.
+            # Profile-based boosts are applied only when enriched metadata
+            # (topic_tags, clause_function) is available from legal unit enrichment.
+            profile_required_topics: frozenset[str] = frozenset()
+            if self.retrieval_profile_id:
+                try:
+                    from engine.playbook.retrieval_profiles import get_profile as _get_profile
+                    _profile = _get_profile(self.retrieval_profile_id)
+                    if _profile:
+                        profile_required_topics = frozenset(
+                            t.lower().strip() for t in (_profile.required_topics or [])
+                        )
+                except Exception:
+                    pass
+
             kind = str(meta.get("chunk_kind") or meta.get("kind") or "").lower()
             if kind in ("legal_unit", "subclause"):
                 scores[idx] += kind_bonus_subclause
             elif kind == "section":
                 scores[idx] -= kind_penalty_section
+
+            # Structural preamble prior.
+            #
+            # Обоснование:
+            # - effective_uid ending with __preamble__ — canonical structural identity,
+            #   созданная document parser/structure builder.
+            # - Преамбула является primary источником для party identification checks.
+            # - Это universal structural invariant, не language/document-specific.
+            # - Boost применяется только по structural identity, а не по тексту.
+            effective_uid = str(meta.get("effective_uid") or "").lower()
+            if effective_uid.endswith("__preamble__"):
+                preamble_boost = float(
+                    getattr(settings, "RUNNER_METADATA_PREAMBLE_BOOST", 1.0)
+                )
+                scores[idx] += preamble_boost
 
             title = str(meta.get("section_title", "") or "").lower()
             if title and important_terms and any(term in title for term in important_terms):
@@ -418,11 +455,28 @@ class RetrievalEngine:
                 if meta.get("position_ratio_within_file") is not None
                 else meta.get("position_ratio")
             )
+
+            # Structural preamble position fallback.
+            # If position is unavailable but unit carries canonical preamble identity,
+            # treat it as position 0.0 for ALL position-based scoring.
+            # This is a universal structural invariant: preamble is always
+            # the document's logical start regardless of physical page layout.
+            if pos is None and effective_uid.endswith("__preamble__"):
+                pos = 0.0
+
             try:
                 if pos is not None:
                     pos_f = float(pos)
-                    if 0.2 <= pos_f <= 0.8:
-                        scores[idx] += position_mid_boost
+                    # Early-document structural prior.
+                    # Legal documents open with identification clauses
+                    # (parties, subject matter, recitals) regardless of
+                    # language or document type.
+                    # Mild boost for early-document position, no penalty
+                    # for mid/late document — neutral treatment.
+                    # Replaces former position_mid_boost which systematically
+                    # advantaged mid-document Definitions over preamble.
+                    if pos_f <= early_doc_threshold:
+                        scores[idx] += early_doc_boost
             except (TypeError, ValueError):
                 pass
 
@@ -452,6 +506,23 @@ class RetrievalEngine:
                 clause_function = clause_function.replace("-", "_").replace(" ", "_")
                 if clause_function in preferred_clause_functions:
                     scores[idx] += clause_function_boost
+
+            # Profile-aware topic_tags boost.
+            # Если у chunk есть topic_tags (из legal units enrichment)
+            # и они совпадают с required_topics профиля —
+            # boost применяется как дополнительный retrieval signal.
+            # Работает только при наличии enrichment, поэтому не является
+            # fallback или heuristic, а честным semantic signal.
+            if profile_required_topics:
+                chunk_topic_tags = meta.get("topic_tags") or []
+                chunk_topics_lower = frozenset(
+                    str(t).strip().lower() for t in chunk_topic_tags if t
+                )
+                if profile_required_topics & chunk_topics_lower:
+                    topic_match_boost = float(
+                        getattr(settings, "RUNNER_METADATA_TOPIC_MATCH_BOOST", 0.6)
+                    )
+                    scores[idx] += topic_match_boost
 
             citability_band = str(
                 meta.get("citability_band")
@@ -489,21 +560,30 @@ class RetrievalEngine:
                     scores[idx] -= negative_keyword_penalty
 
             if position_range is not None and position_boost:
-                pos_candidate = None
-
+                # Определяем pos_candidate в зависимости от scope
                 if position_scope == "segment":
                     pos_candidate = meta.get("position_ratio_within_segment")
+                    if pos_candidate is None:
+                        pos_candidate = meta.get("position_ratio_within_file")
+                    if pos_candidate is None:
+                        pos_candidate = meta.get("position_ratio")
                 elif position_scope == "file":
                     pos_candidate = meta.get("position_ratio_within_file")
                     if pos_candidate is None:
                         pos_candidate = meta.get("position_ratio")
-                else:
+                else:  # auto
                     pos_candidate = meta.get("position_ratio_within_segment")
                     if pos_candidate is None:
                         pos_candidate = meta.get("position_ratio_within_file")
                     if pos_candidate is None:
                         pos_candidate = meta.get("position_ratio")
 
+                # Reuse global preamble position fallback for position_bias range check.
+                # pos was already resolved above (0.0 for preamble units without metadata).
+                if pos_candidate is None and pos is not None:
+                    pos_candidate = pos
+
+                # Применяем position_bias boost если chunk попадает в preferred_range
                 try:
                     if pos_candidate is not None:
                         pos_candidate_f = float(pos_candidate)

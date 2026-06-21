@@ -77,7 +77,8 @@ _MIN_EVIDENCE_LENGTH = 20
 
 # Max length of evidence snippet used as display_text fallback.
 _MAX_EVIDENCE_DISPLAY_LENGTH = 200
-
+# Max number of explicitly selected factual fields combined into compact DD Grid summary.
+_MAX_FACT_FIELDS_IN_DISPLAY = 3
 
 # ─── Result dataclass ─────────────────────────────────────────────────────────
 
@@ -427,6 +428,185 @@ def _get_field_unit(check: Any | None, field_name: str) -> str | None:
             return str(unit).strip()
     return None
 
+def _get_field_display_in_grid(check: Any | None, field_name: str) -> bool:
+    """
+    Return True if field is explicitly marked for compact DD Grid display.
+
+    This is a playbook-driven universal contract.
+    No guessing by field names, no document-specific logic.
+    """
+    field_cfg = _find_extraction_field_config(check, field_name)
+    if field_cfg is None:
+        return False
+    return bool(getattr(field_cfg, "display_in_grid", False))
+
+
+def _get_field_display_priority(check: Any | None, field_name: str) -> int:
+    """
+    Resolve explicit DD Grid display priority for a field.
+
+    Lower value = earlier in compact summary.
+    If not configured, fall back to extraction field declaration order.
+    """
+    field_cfg = _find_extraction_field_config(check, field_name)
+    if field_cfg is not None:
+        priority = getattr(field_cfg, "display_priority", None)
+        if isinstance(priority, int):
+            return priority
+    return _get_field_priority(check, field_name)
+
+
+def _iter_grid_factual_fields(
+    structured_data: dict[str, Any] | None,
+    check: Any | None = None,
+) -> list[tuple[str, Any]]:
+    """
+    Return meaningful factual fields explicitly marked for DD Grid display.
+
+    Rules:
+    - Only fields with display_in_grid=True are included.
+    - signal/diagnostic fields are already excluded by _iter_factual_fields().
+    """
+    factual = _iter_factual_fields(structured_data, check=check)
+    if not factual:
+        return []
+
+    return [
+        (field_name, value)
+        for field_name, value in factual
+        if _get_field_display_in_grid(check, field_name)
+    ]
+
+
+def _build_compact_grid_factual_summary(
+    check: Any | None,
+    structured_data: dict[str, Any] | None,
+) -> str | None:
+    """
+    Build compact DD Grid summary from explicitly selected factual fields.
+
+    Universal rules:
+    - Uses only playbook-selected factual fields (display_in_grid=True).
+    - Orders them by display_priority, then by extraction field order.
+    - Joins first N fields into one compact line separated by '; '.
+
+    If no fields are explicitly selected for grid display, returns None.
+    """
+    factual = _iter_grid_factual_fields(structured_data, check=check)
+    if not factual:
+        return None
+
+    factual.sort(
+        key=lambda pair: (
+            _get_field_display_priority(check, pair[0]),
+            _get_field_priority(check, pair[0]),
+        )
+    )
+
+    parts: list[str] = []
+    for field_name, raw_value in factual[:_MAX_FACT_FIELDS_IN_DISPLAY]:
+        label = _get_field_label(check, field_name)
+        unit = _get_field_unit(check, field_name)
+        value_str = _format_display_value(raw_value, unit)
+        parts.append(f"{label}: {value_str}")
+
+    if not parts:
+        return None
+
+    return "; ".join(parts)
+
+
+def _get_field_display_in_grid(check: Any | None, field_name: str) -> bool:
+    """
+    Return True if field is explicitly marked for compact DD Grid display.
+
+    This is an opt-in playbook-driven contract.
+    No guessing by field names, no document-specific logic.
+    """
+    field_cfg = _find_extraction_field_config(check, field_name)
+    if field_cfg is None:
+        return False
+    return bool(getattr(field_cfg, "display_in_grid", False))
+
+
+def _get_field_display_priority(check: Any | None, field_name: str) -> int:
+    """
+    Resolve explicit DD Grid display priority for a field.
+
+    Lower value = earlier in compact summary.
+    If not configured, fall back to extraction declaration order.
+    """
+    field_cfg = _find_extraction_field_config(check, field_name)
+    if field_cfg is not None:
+        priority = getattr(field_cfg, "display_priority", None)
+        if isinstance(priority, int):
+            return priority
+    return _get_field_priority(check, field_name)
+
+
+def _iter_grid_factual_fields(
+    structured_data: dict[str, Any] | None,
+    check: Any | None = None,
+) -> list[tuple[str, Any]]:
+    """
+    Return meaningful factual fields explicitly marked for DD Grid display.
+
+    Rules:
+    - Only fields with display_in_grid=True are included.
+    - signal/diagnostic fields are still excluded because _iter_factual_fields()
+      already filters them out.
+    - Preserves deterministic ordering later via display_priority / field order.
+    """
+    factual = _iter_factual_fields(structured_data, check=check)
+    if not factual:
+        return []
+
+    return [
+        (field_name, value)
+        for field_name, value in factual
+        if _get_field_display_in_grid(check, field_name)
+    ]
+
+
+def _build_compact_grid_factual_summary(
+    check: Any | None,
+    structured_data: dict[str, Any] | None,
+) -> str | None:
+    """
+    Build compact DD Grid summary from explicitly selected factual fields.
+
+    This is the universal multi-field display path for extraction-driven checks.
+
+    Priority contract:
+    - Playbook explicitly marks display_in_grid=True fields.
+    - display_priority controls order.
+    - Output is a single compact line joined by '; '.
+
+    If no fields are marked for grid display, returns None and caller falls back
+    to single-field display semantics.
+    """
+    factual = _iter_grid_factual_fields(structured_data, check=check)
+    if not factual:
+        return None
+
+    factual.sort(
+        key=lambda pair: (
+            _get_field_display_priority(check, pair[0]),
+            _get_field_priority(check, pair[0]),
+        )
+    )
+
+    parts: list[str] = []
+    for field_name, raw_value in factual:
+        label = _get_field_label(check, field_name)
+        unit = _get_field_unit(check, field_name)
+        value_str = _format_display_value(raw_value, unit)
+        parts.append(f"{label}: {value_str}")
+
+    if not parts:
+        return None
+
+    return "; ".join(parts)
 
 def _get_field_priority(check: Any | None, field_name: str) -> int:
     """
@@ -610,7 +790,18 @@ def _build_factual_display_text(
         if not _is_not_found_value(value):
             return str(value).strip()
 
-    # Priority 3: fact field fallback
+    # Priority 3: explicit compact DD Grid summary from multiple factual fields.
+    # This path is enabled only when playbook fields opt in via display_in_grid=True.
+    # It is universal and does not guess by field names.
+    compact_summary = _build_compact_grid_factual_summary(check, structured_data)
+    if compact_summary is not None:
+        logger.debug(
+            "result_semantics: display_text built from compact grid factual summary",
+            extra={"ui_mode": ui_mode},
+        )
+        return compact_summary
+
+    # Priority 4: single primary fact field fallback
     primary = _select_primary_factual_field(check, structured_data)
     if primary is None:
         return None

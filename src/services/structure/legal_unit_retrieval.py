@@ -141,25 +141,18 @@ def _compute_position_ratio_within_segment(
     """
     Нормализованная позиция legal unit внутри сегмента.
 
-    Используем page_start/page_end unit относительно page range сегмента.
-    Возвращаем значение в диапазоне [0.0, 1.0] или None если данных недостаточно.
+    Использует page_start/page_end unit относительно page range сегмента.
+    Возвращает значение в диапазоне [0.0, 1.0] или None если данных недостаточно.
+
+    Примечание:
+    LegalUnitsSnapshot не содержит полей segment_page_start/segment_page_end
+    в текущем контракте модели. Поэтому эта функция сейчас всегда возвращает None
+    для обычных units. Preamble-specific логика обрабатывается в
+    _compute_preamble_aware_position_ratio() независимо от этой функции.
+
+    Когда segment_page_start/segment_page_end будут добавлены в LegalUnitsSnapshot,
+    эта функция автоматически начнёт возвращать корректные значения без изменений в коде.
     """
-    segment = getattr(snapshot, "segment", None)
-
-    # В LegalUnitsSnapshot page range лежит на top-level segment fields
-    segment_page_start = getattr(snapshot, "segment_order", None)  # safety placeholder
-
-    seg_start = None
-    seg_end = None
-
-    # Snapshot хранит segment metadata отдельными полями, не вложенным объектом
-    try:
-        seg_start = int(getattr(snapshot, "segment_order", None))  # placeholder for mypy-safe branch
-    except Exception:
-        seg_start = None
-
-    # Правильные поля берём напрямую из snapshot segment contract
-    # page range сегмента не гарантирован в LegalUnitsSnapshot, поэтому если его нет — вернём None.
     snapshot_segment_page_start = getattr(snapshot, "segment_page_start", None)
     snapshot_segment_page_end = getattr(snapshot, "segment_page_end", None)
 
@@ -189,6 +182,30 @@ def _compute_position_ratio_within_segment(
     if relative > 1.0:
         return 1.0
     return relative
+
+
+def _compute_preamble_aware_position_ratio(
+    unit: LegalUnit,
+    snapshot: LegalUnitsSnapshot,
+    unit_id: str,
+) -> float | None:
+    """
+    Нормализованная позиция legal unit с учётом структурного приоритета преамбулы.
+
+    Structural invariant:
+    - effective_uid ending with __preamble__ — это canonical structural identity,
+      которую генерирует document parser/structure builder системно, не ad-hoc.
+    - Преамбула должна всегда иметь позицию 0.0 независимо от физической страницы,
+      потому что её юридическая роль — начало документа (party identification, recitals).
+    - Это не языковая эвристика и не подгонка под конкретный документ.
+      Это universal structural contract для любого типа документа любой юрисдикции.
+
+    Для остальных units используется стандартный page-based расчёт.
+    """
+    if str(unit_id or "").lower().endswith("__preamble__"):
+        return 0.0
+
+    return _compute_position_ratio_within_segment(unit, snapshot)
 
 
 
@@ -302,6 +319,12 @@ def build_retrieval_units_from_legal_units(
             except (TypeError, ValueError):
                 citability_score = None
 
+        position_ratio = _compute_preamble_aware_position_ratio(
+            unit=unit,
+            snapshot=snapshot,
+            unit_id=unit_id,
+        )
+
         metadata: dict[str, Any] = {
             "doc_id": str_doc_id,
             "chunk_kind": "legal_unit",
@@ -331,6 +354,10 @@ def build_retrieval_units_from_legal_units(
             "parent_unit_id": parent_unit_id,
             "children_unit_ids": children_unit_ids,
             "retrieval_safe": True,
+            # Позиция legal unit внутри сегмента.
+            # Для преамбулы принудительно 0.0 (structural invariant),
+            # для остальных units — page-based расчёт или None.
+            "position_ratio_within_segment": position_ratio,
         }
 
         # Убираем пустые значения для компактности и cleanliness snapshot.

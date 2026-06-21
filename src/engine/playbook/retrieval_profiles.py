@@ -224,6 +224,25 @@ ASSIGNMENT_PROFILE = RetrievalProfile(
 # ---------------------------------------------------------------------------
 
 # Все зарегистрированные профили.
+
+PARTY_IDENTIFICATION_PROFILE = RetrievalProfile(
+    profile_id="party_identification_check",
+    query_topic="party_identification",
+    required_topics=["preamble", "parties", "party_identification", "counterparty"],
+    supporting_topics=[
+        "definitions",
+        "representations",
+        "authority",
+        "signatory",
+        "corporate_approvals",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=5,
+    max_supporting_units=3,
+)
+
+
 # Используется для lookup по profile_id из YAML playbook конфигурации.
 ALL_PROFILES: dict[str, RetrievalProfile] = {
     profile.profile_id: profile
@@ -243,6 +262,7 @@ ALL_PROFILES: dict[str, RetrievalProfile] = {
         INDEMNIFICATION_PROFILE,
         TAX_PROFILE,
         ASSIGNMENT_PROFILE,
+        PARTY_IDENTIFICATION_PROFILE,
     ]
 }
 

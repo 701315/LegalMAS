@@ -876,7 +876,7 @@ checks_v8:
         - "в целях настоящего"
       position_bias:
         preferred_range: [0.0, 0.20]
-        boost: 0.25
+        boost: 0.4
         scope: segment
       context_k: 6
       max_chunks: 8
@@ -1237,6 +1237,8 @@ checks_v8:
         - name: "cadastral_number"
           type: "string"
           presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
           label: "Кадастровый номер"
           regex_patterns: ["(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"]
           description: "Кадастровый номер объекта."
@@ -1248,6 +1250,8 @@ checks_v8:
         - name: "address_details"
           type: "string"
           presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
           label: "Адрес"
           description: "Адрес объекта."
         - name: "area_status"
@@ -1268,6 +1272,8 @@ checks_v8:
         - name: "object_type_details"
           type: "string"
           presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
           label: "Вид объекта"
           description: "Вид объекта так, как он назван в договоре."
         - name: "egrn_extract_status"

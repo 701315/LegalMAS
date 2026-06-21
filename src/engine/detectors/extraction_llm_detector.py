@@ -177,6 +177,62 @@ EXTRACTION_FALLBACK_META_PATH = os.path.join(
     "extraction_fallback_meta_ru.txt",
 )
 
+def _salvage_partial_json(text: str) -> dict | None:
+    """
+    Attempt to recover field data from a truncated canonical JSON response.
+
+    LLM returns canonical format {"fields": {"field_name": {"value": ..., "confidence": ...}}}
+    but the JSON string can be cut off mid-way when the output token budget is exhausted.
+
+    This function recovers already-complete field blocks from truncated JSON text.
+
+    Strategy:
+    - Use regex to find syntactically complete {"value": ..., "confidence": ...} blocks.
+    - Reconstruct a valid {"fields": {...}} dict from recovered pairs only.
+    - Never guess or infer missing values.
+
+    This is a universal robustness measure for any extraction check with N > 6 fields.
+    Not specific to any document, language, or check type.
+
+    Returns:
+        dict with {"fields": {recovered_field_name: {...}}} if anything recovered, else None.
+    """
+    import re
+
+    # Matches a complete named field block:
+    # "field_name": {"value": <value>, "confidence": <float>}
+    # Handles string values (quoted), null, true, false, numbers.
+    _field_pattern = re.compile(
+        r'"(?P<name>[a-z_][a-z0-9_]*)"\s*:\s*\{'
+        r'\s*"value"\s*:\s*(?P<value>"(?:[^"\\]|\\.)*"|null|true|false|-?\d+(?:\.\d+)?)\s*,'
+        r'\s*"confidence"\s*:\s*(?P<confidence>\d+(?:\.\d+)?)\s*\}',
+        re.DOTALL,
+    )
+
+    recovered: dict[str, dict] = {}
+    for m in _field_pattern.finditer(text):
+        name = m.group("name")
+        raw_value = m.group("value")
+        raw_confidence = m.group("confidence")
+
+        try:
+            value = json.loads(raw_value)
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+        try:
+            confidence = float(raw_confidence)
+            confidence = max(0.0, min(confidence, 1.0))
+        except ValueError:
+            confidence = LLM_DEFAULT_CONFIDENCE
+
+        recovered[name] = {"value": value, "confidence": confidence}
+
+    if not recovered:
+        return None
+
+    return {"fields": recovered}
+
 
 def _load_prompt_template(path: str) -> str:
     """
@@ -414,7 +470,24 @@ class ExtractionLLMDetector:
                 "{EXAMPLE_JSON}": example_json,
             },
         )
-        return prompt
+
+        # Universal compactness contract appended to all extraction prompts.
+        #
+        # Rationale:
+        # - Extraction checks with N > 8 fields risk JSON truncation when
+        #   LLM writes verbose citations in *_details fields.
+        # - Presence/detection layer (LLMDetector + rules) already handles
+        #   evidence anchoring and full citations.
+        # - Extraction layer is responsible only for compact structured facts.
+        # - This instruction is universal: applies to any check, any language,
+        #   any document type. Not document-specific tuning.
+        _COMPACTNESS_FOOTER = (
+            "\n\nВАЖНО: В каждое поле пиши только краткое резюме "
+            "(не более 1–2 предложений). "
+            "Не цитируй весь пункт. "
+            "Не добавляй пояснений вне JSON-объекта."
+        )
+        return prompt + _COMPACTNESS_FOOTER
 
 
     def _build_custom_semantic_block(
@@ -596,10 +669,32 @@ class ExtractionLLMDetector:
             data = json.loads(text)
         except json.JSONDecodeError:
             candidate = _extract_json(text)
-            if not candidate:
-                logger.warning("Failed to parse LLM extraction JSON", raw=text[:500])
-                return {}
-            data = candidate
+            if candidate:
+                data = candidate
+            else:
+                # Full JSON parse and _extract_json both failed.
+                # JSON is likely truncated due to output token budget exhaustion.
+                # Attempt partial salvage: recover field blocks that are already
+                # syntactically complete in the truncated text.
+                # Only recovers fields that LLM already finished writing.
+                # Never invents or guesses missing values.
+                salvaged = _salvage_partial_json(text)
+                if salvaged:
+                    recovered_count = len(salvaged.get("fields", {}))
+                    logger.warning(
+                        "ExtractionLLMDetector: JSON truncated, "
+                        "partial salvage recovered %d field(s). "
+                        "Consider increasing llm_max_tokens for this check.",
+                        recovered_count,
+                        raw_preview=text[:300],
+                    )
+                    data = salvaged
+                else:
+                    logger.warning(
+                        "Failed to parse LLM extraction JSON",
+                        raw=text[:500],
+                    )
+                    return {}
 
         if not isinstance(data, dict):
             return {}
@@ -731,6 +826,13 @@ class ExtractionLLMDetector:
                     "confidence": confidence_f,
                 }
                 continue
+
+            # Universal string length cap for extraction field values.
+            # Prevents structured_data from bloating with full-paragraph citations.
+            # Applied universally: any check, any language, any document type.
+            _MAX_EXTRACTION_FIELD_CHARS = 500
+            if isinstance(value_cast, str) and len(value_cast) > _MAX_EXTRACTION_FIELD_CHARS:
+                value_cast = value_cast[:_MAX_EXTRACTION_FIELD_CHARS].rstrip() + "…"
 
             normalized[name] = {
                 "value": value_cast,

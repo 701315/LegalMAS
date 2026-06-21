@@ -643,6 +643,7 @@ class CheckExecutor:
         )
         raw_retrieval_query = getattr(retr_cfg, "retrieval_query", None)
         raw_position_bias = getattr(retr_cfg, "position_bias", None)
+        raw_retrieval_profile_id = getattr(retr_cfg, "retrieval_profile", None)
 
         def _normalize_retrieval_phrase(value: Any) -> str:
             if not isinstance(value, str):
@@ -683,6 +684,7 @@ class CheckExecutor:
             excluded_unit_types=raw_excluded_unit_types,
             preferred_clause_functions=raw_preferred_clause_functions,
             position_bias=raw_position_bias,
+            retrieval_profile_id=raw_retrieval_profile_id,
         )
 
         context_k = getattr(retr_cfg, "context_k", 5)

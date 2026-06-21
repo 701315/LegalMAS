@@ -429,6 +429,8 @@ class DocTypeCheckLoader:
                     type=field_type,
                     label=f.get("label"),
                     presentation=f.get("presentation", "fact"),
+                    display_in_grid=bool(f.get("display_in_grid", False)),
+                    display_priority=f.get("display_priority"),
                     description=f.get("description", ""),
                     regex_patterns=f.get("regex_patterns") or [],
                     keyword_hints=f.get("keyword_hints") or [],
@@ -468,6 +470,56 @@ class DocTypeCheckLoader:
             triggers=[TriggerCondition(name=t, state="on") for t in any_triggers]
         )
 
+
+    def _parse_retrieval_config(
+        self,
+        retrieval_raw: dict | None,
+    ) -> RetrievalConfig:
+        """
+        Parse retrieval block from YAML into RetrievalConfig.
+
+        Maps all RetrievalConfig fields supported by the runtime model.
+        This is the single authoritative parser for retrieval config across:
+        - checks_v8
+        - doc_type_checks
+        - compliance_rules
+
+        Failure-isolated:
+        - malformed or partial YAML -> log warning -> fall back to defaults
+        """
+        if not retrieval_raw or not isinstance(retrieval_raw, dict):
+            return RetrievalConfig()
+
+        try:
+            return RetrievalConfig(
+                context_k=retrieval_raw.get("context_k", 5),
+                max_chunks=retrieval_raw.get("max_chunks"),
+                retrieval_query=retrieval_raw.get("retrieval_query"),
+                boost_keywords=retrieval_raw.get("boost_keywords") or [],
+                negative_keywords=retrieval_raw.get("negative_keywords") or [],
+                preferred_unit_types=retrieval_raw.get("preferred_unit_types") or [],
+                excluded_unit_types=retrieval_raw.get("excluded_unit_types") or [],
+                preferred_clause_functions=(
+                    retrieval_raw.get("preferred_clause_functions") or []
+                ),
+                position_bias=retrieval_raw.get("position_bias"),
+                rerank=retrieval_raw.get("rerank", True),
+                filters=retrieval_raw.get("filters") or {},
+                levels=retrieval_raw.get("levels") or ["legal_unit", "section"],
+                required_kind=retrieval_raw.get("required_kind"),
+                retrieval_profile=retrieval_raw.get("retrieval_profile"),
+            )
+        except Exception as e:
+            logger.warning(
+                "DocTypeCheckLoader: cannot parse retrieval config, using defaults",
+                extra={
+                    "error": str(e),
+                    "retrieval_raw": str(retrieval_raw)[:500],
+                },
+            )
+            return RetrievalConfig()
+
+
     def _build_check_from_v8(
         self,
         item: dict,
@@ -500,14 +552,7 @@ class DocTypeCheckLoader:
                 max_tokens=llm_raw.get("max_tokens", 512),
             )
 
-            ret_raw = item.get("retrieval") or {}
-            retrieval = RetrievalConfig(
-                context_k=ret_raw.get("context_k", 5),
-                max_chunks=ret_raw.get("max_chunks"),
-                boost_keywords=ret_raw.get("boost_keywords") or [],
-                rerank=ret_raw.get("rerank", True),
-                filters=ret_raw.get("filters") or {},
-            )
+            retrieval = self._parse_retrieval_config(item.get("retrieval"))
 
             ev_raw = item.get("evidence") or {}
             evidence = EvidenceConfig(
@@ -635,7 +680,11 @@ class DocTypeCheckLoader:
                 detector_type=DetectorType.RULES,
                 rules=rules,
                 llm=LLMConfig(),
-                retrieval=RetrievalConfig(boost_keywords=boost_kw),
+                retrieval=(
+                    self._parse_retrieval_config(item.get("retrieval"))
+                    if item.get("retrieval")
+                    else RetrievalConfig(boost_keywords=boost_kw)
+                ),
                 evidence=EvidenceConfig(required=True),
                 extraction=extraction,
                 conditional=conditional,
@@ -683,12 +732,7 @@ class DocTypeCheckLoader:
                 )
                 return None
 
-            ret_raw = rule.get("retrieval") or {}
-            retrieval = RetrievalConfig(
-                context_k=ret_raw.get("context_k", 5),
-                boost_keywords=ret_raw.get("boost_keywords") or [],
-                rerank=ret_raw.get("rerank", True),
-            )
+            retrieval = self._parse_retrieval_config(rule.get("retrieval"))
 
             return CheckDefinition(
                 id=rule_id,

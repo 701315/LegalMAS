@@ -67,17 +67,80 @@ def _extract_units_from_snapshot(snapshot: Any) -> list[dict]:
     """
     Extract the list of unit dicts from enrichment snapshot.
 
-    Handles two possible snapshot shapes:
-    - {"units": [...], ...}   LegalUnitsSnapshot.to_dict() format
-    - [...]                   bare list (legacy/unexpected)
+    Поддерживает два формата:
+
+    Формат A — enrichment sidecar (legal_units_enrichment_v1.json):
+    {
+        "enrichments": [
+            {
+                "unit_id": "...",
+                "base": {"clause_function": "...", ...},
+                "effective": {"clause_function": "...", ...},
+                "applied_fields": [...],
+                ...
+            }
+        ]
+    }
+
+    Формат B — LegalUnitsSnapshot.to_dict():
+    {"units": [...], ...}
+
+    Формат C — bare list (legacy):
+    [...]
     """
     if isinstance(snapshot, list):
         return [u for u in snapshot if isinstance(u, dict)]
 
-    if isinstance(snapshot, dict):
-        units = snapshot.get("units")
-        if isinstance(units, list):
-            return [u for u in units if isinstance(u, dict)]
+    if not isinstance(snapshot, dict):
+        return []
+
+    # Формат A: enrichment sidecar — данные под ключом "enrichments"
+    enrichments = snapshot.get("enrichments")
+    if isinstance(enrichments, list) and enrichments:
+        # Каждый элемент имеет вид:
+        # {"unit_id": "...", "base": {...}, "effective": {...}, "applied_fields": [...]}
+        # Нормализуем в плоский dict с clause_function из effective слоя.
+        result: list[dict] = []
+        for item in enrichments:
+            if not isinstance(item, dict):
+                continue
+            unit_id = item.get("unit_id")
+            if not unit_id:
+                continue
+
+            effective = item.get("effective") or {}
+            base = item.get("base") or {}
+
+            # Берём clause_function из effective (post-enrichment),
+            # с fallback на base (pre-enrichment).
+            clause_function = (
+                effective.get("clause_function")
+                or base.get("clause_function")
+            )
+
+            unit_type = (
+                effective.get("unit_type")
+                or base.get("unit_type")
+            )
+
+            # topic_tags из proposal если есть
+            llm_proposal = item.get("llm_proposal") or {}
+            topic_tags = llm_proposal.get("topic_tags") or []
+
+            result.append({
+                "unit_id": unit_id,
+                "clause_function": clause_function,
+                "unit_type": unit_type,
+                "topic_tags": topic_tags,
+                "applied_fields": item.get("applied_fields") or [],
+                "status": item.get("status"),
+            })
+        return result
+
+    # Формат B: LegalUnitsSnapshot.to_dict()
+    units = snapshot.get("units")
+    if isinstance(units, list):
+        return [u for u in units if isinstance(u, dict)]
 
     return []
 

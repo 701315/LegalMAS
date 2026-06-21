@@ -75,6 +75,11 @@ from services.structure.semantic_enrichment._budget import (
     is_enrichment_budget_exhausted,
     resolve_segment_enrichment_timeout,
 )
+from services.structure.semantic_enrichment._types import (
+    LegalUnitEnrichment,
+    LegalUnitsEnrichmentResult,
+    SemanticEnrichmentPolicy,
+)
 from storage.artifact_store import ArtifactPath, ArtifactStore
 from workers._tenant_resolver import resolve_artifact_tenant_id
 
@@ -546,24 +551,60 @@ async def _build_legal_units_enrichment_async(
             )
             continue
 
-        # Вычислить таймаут сегмента (может быть обрезан до остатка бюджета)
+        # Вычислить таймаут сегмента (может быть обрезан до остатка бюджета).
+        # Primary segment получает гарантированный минимальный таймаут,
+        # независимый от остатка бюджета. Это критично потому что:
+        # - primary contract segment обычно самый большой,
+        # - без его enrichment retrieval не получает clause_function/unit_type,
+        # - дефолт из settings позволяет конфигурировать без деплоя кода.
         seg_timeout = resolve_segment_enrichment_timeout(
             deadline_monotonic=document_deadline,
             settings=settings,
         )
+
+        is_primary_seg = bool(getattr(seg, "is_primary", False))
+
+        if is_primary_seg:
+            primary_min_timeout = float(
+                getattr(
+                    settings,
+                    "SEMANTIC_ENRICHMENT_PRIMARY_SEGMENT_MIN_TIMEOUT_SECONDS",
+                    600,
+                )
+            )
+            if seg_timeout < primary_min_timeout:
+                logger.info(
+                    "Semantic enrichment stage: extending timeout for primary segment",
+                    extra={
+                        **log_base,
+                        "segment_id": seg.segment_id,
+                        "original_timeout": seg_timeout,
+                        "extended_timeout": primary_min_timeout,
+                    },
+                )
+                seg_timeout = primary_min_timeout
 
         if seg_timeout <= 0:
             budget_exhausted = True
             segments_skipped_budget += 1
             continue
 
-        # Запустить обогащение с ограничением по времени
+        # Запустить обогащение с ограничением по времени.
+        # on_unit_enriched callback накапливает обработанные units для partial persistence:
+        # при segment timeout уже готовые units не теряются.
+        _partial_enrichments: list[LegalUnitEnrichment] = []
+
+        def _on_unit_enriched(enrichment: LegalUnitEnrichment) -> None:
+            _partial_enrichments.append(enrichment)
+
         try:
             enrichment_result = await asyncio.wait_for(
                 enrich_legal_units_async(
                     legal_units_snapshot,
                     policy=enrichment_policy,
                     collector=None,
+                    segment_timeout_seconds=seg_timeout,
+                    on_unit_enriched=_on_unit_enriched,
                 ),
                 timeout=seg_timeout,
             )
@@ -574,10 +615,33 @@ async def _build_legal_units_enrichment_async(
                     **log_base,
                     "segment_id": seg.segment_id,
                     "timeout_seconds": seg_timeout,
+                    "partial_units_completed": len(_partial_enrichments),
+                    "total_units": len(legal_units_snapshot.units),
                 },
             )
-            segments_timed_out += 1
-            continue
+            if _partial_enrichments:
+                llm_provider_for_partial, llm_model_for_partial = _resolve_llm_info_for_partial()
+                enrichment_result = _build_partial_enrichment_result(
+                    snapshot=legal_units_snapshot,
+                    partial_enrichments=_partial_enrichments,
+                    policy=enrichment_policy,
+                    llm_provider=llm_provider_for_partial,
+                    llm_model=llm_model_for_partial,
+                )
+                logger.info(
+                    "Semantic enrichment stage: saving partial enrichment sidecar after timeout",
+                    extra={
+                        **log_base,
+                        "segment_id": seg.segment_id,
+                        "partial_units": len(_partial_enrichments),
+                        "total_units": len(legal_units_snapshot.units),
+                        "status_counts": enrichment_result.status_counts,
+                    },
+                )
+                # Fall through to sidecar save below.
+            else:
+                segments_timed_out += 1
+                continue
         except Exception as enrich_exc:
             logger.warning(
                 "Semantic enrichment stage: segment enrichment failed",
@@ -635,6 +699,29 @@ async def _build_legal_units_enrichment_async(
         segments_failed=segments_failed,
         segments_skipped_budget=segments_skipped_budget,
     )
+
+    # Проверить, получил ли primary segment enrichment.
+    # Отсутствие enrichment для primary = retrieval degradation для checks.
+    primary_segments_with_legal_units = [
+        seg for seg in ordered_segments
+        if bool(getattr(seg, "is_primary", False))
+        and _extract_legal_units_ref(seg.segment_meta)
+    ]
+    primary_segments_without_enrichment = [
+        seg for seg in primary_segments_with_legal_units
+        if not dict(seg.segment_meta or {}).get("legal_units_enrichment_ref")
+    ]
+    if primary_segments_without_enrichment:
+        missing_ids = [s.segment_id for s in primary_segments_without_enrichment]
+        logger.warning(
+            "Semantic enrichment stage: primary segment(s) missing enrichment — "
+            "retrieval will degrade to unknown clause_function for these segments",
+            extra={
+                **log_base,
+                "primary_segments_without_enrichment": missing_ids,
+                "outcome": outcome.value,
+            },
+        )
 
     return await _finalize_enrichment_stage(
         db=db,
@@ -847,4 +934,89 @@ def _derive_terminal_outcome(
 
     return SemanticEnrichmentStageOutcome.DEGRADED
 
+def _build_partial_enrichment_result(
+    *,
+    snapshot: LegalUnitsSnapshot,
+    partial_enrichments: list[LegalUnitEnrichment],
+    policy: SemanticEnrichmentPolicy,
+    llm_provider: str | None,
+    llm_model: str | None,
+) -> LegalUnitsEnrichmentResult:
+    """
+    Build a structurally complete LegalUnitsEnrichmentResult from partial enrichments.
 
+    When a segment times out, the enricher is cancelled before processing all units.
+    This function assembles a valid sidecar artifact from:
+    - units that were successfully processed (from partial_enrichments),
+    - units not yet reached — marked as skipped with reason 'segment_timeout_not_reached'.
+
+    Design invariant:
+    - The sidecar artifact is always structurally complete:
+      every unit in the snapshot has a corresponding enrichment entry.
+    - Downstream retrieval uses whatever metadata is available.
+    - Missing enrichments degrade gracefully to unknown clause_function.
+
+    Args:
+        snapshot: the original LegalUnitsSnapshot for this segment.
+        partial_enrichments: enrichments collected before timeout.
+        policy: the enrichment policy used for this segment.
+        llm_provider: LLM provider name for metadata.
+        llm_model: LLM model name for metadata.
+
+    Returns:
+        A complete LegalUnitsEnrichmentResult with all units accounted for.
+    """
+    from services.structure.semantic_enrichment._policy import build_skipped_enrichment
+
+    processed_unit_ids: set[str] = {e.unit_id for e in partial_enrichments}
+
+    result = LegalUnitsEnrichmentResult(
+        document_id=snapshot.document_id,
+        document_version_id=snapshot.document_version_id,
+        segment_id=snapshot.segment_id,
+        segment_type=snapshot.segment_type,
+        segment_order=snapshot.segment_order,
+        is_primary_segment=snapshot.is_primary_segment,
+        schema_version="1",
+        policy_version=policy.policy_version,
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+    )
+
+    result.build_warnings.append("partial_enrichment_segment_timeout")
+    result.enrichments.extend(partial_enrichments)
+
+    for unit in snapshot.units:
+        if unit.unit_id not in processed_unit_ids:
+            result.enrichments.append(
+                build_skipped_enrichment(
+                    unit,
+                    policy=policy,
+                    reason="segment_timeout_not_reached",
+                )
+            )
+
+    return result
+
+def _resolve_llm_info_for_partial() -> tuple[str | None, str | None]:
+    """
+    Resolve LLM provider and model for partial enrichment result metadata.
+
+    Reads from shared settings — same source as enricher uses.
+    Failure-isolated: returns (None, None) on any error.
+    """
+    try:
+        provider = str(getattr(settings, "LLM_PROVIDER", "") or "").strip() or None
+        model: str | None = None
+        if provider == "ollama":
+            model = str(getattr(settings, "LLM_OLLAMA_MODEL", "") or "").strip() or None
+        elif provider == "openai":
+            model = str(getattr(settings, "LLM_OPENAI_MODEL", "") or "").strip() or None
+        elif provider == "llamacpp":
+            raw_path = str(getattr(settings, "LLM_LOCAL_MODEL_PATH", "") or "").strip()
+            if raw_path:
+                model = raw_path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1] or None
+        return provider, model
+    except Exception:
+        return None, None
+    

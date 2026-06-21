@@ -275,10 +275,10 @@ class CheckRunner:
             return {"exec_result": None, "failed": False}
 
         if safe_chunks is None:
-            safe_chunks = await self._chunks.build_safe_chunks(
+            safe_chunks = await self._build_enriched_chunks_for_check(
                 session=session,
                 doc=doc_snap,
-                checks=[check],
+                check=check,
             )
 
         exec_result = self.executor.execute(doc_snap, check, safe_chunks)
@@ -334,6 +334,128 @@ class CheckRunner:
         return version, segments
 
     # ── Внутренние методы ──────────────────────────────────────────
+
+    async def _build_enriched_chunks_for_check(
+        self,
+        *,
+        session: AsyncSession,
+        doc: DocumentSnapshot,
+        check: Any,
+    ) -> list[dict]:
+        """
+        Build retrieval-safe chunks for a single check with enrichment projection.
+
+        Routing logic:
+        - Multi-document with primary segment → segment-level corpus with enrichment.
+        - Single-document or no segments → document-level corpus (no enrichment yet).
+
+        Failure-isolated at every step:
+        - DB error → fallback to document-level.
+        - Enrichment sidecar load error → proceed without enrichment.
+        - Segment not found → fallback to document-level.
+
+        This is the single authoritative method for building check corpus.
+        All execute_single_check paths must use this instead of build_safe_chunks.
+        """
+        try:
+            is_multi = await self._is_multi_document(
+                session=session,
+                document_id=doc.document_id,
+            )
+
+            if not is_multi:
+                # Single-document path: no segment-level enrichment yet.
+                return await self._chunks.build_safe_chunks(
+                    session=session,
+                    doc=doc,
+                    checks=[check],
+                )
+
+            _, segments = await self._iter_segments_for_document(
+                session=session,
+                document_id=doc.document_id,
+            )
+
+            if not segments:
+                return await self._chunks.build_safe_chunks(
+                    session=session,
+                    doc=doc,
+                    checks=[check],
+                )
+
+            # Find primary segment — it carries the main contract text.
+            primary_segments = [
+                s for s in segments
+                if bool(getattr(s, "is_primary", False))
+            ]
+
+            if not primary_segments:
+                logger.warning(
+                    "CheckRunner._build_enriched_chunks_for_check: "
+                    "no primary segment, falling back to document-level",
+                    extra={"doc_id": doc.document_id_str},
+                )
+                return await self._chunks.build_safe_chunks(
+                    session=session,
+                    doc=doc,
+                    checks=[check],
+                )
+
+            primary_segment = primary_segments[0]
+            segment_id = getattr(primary_segment, "segment_id", None)
+
+            if not segment_id:
+                return await self._chunks.build_safe_chunks(
+                    session=session,
+                    doc=doc,
+                    checks=[check],
+                )
+
+            # Load enrichment sidecar for runtime metadata projection.
+            # Failure-isolated: any error → None → no projection, no error.
+            _artifact_store = ArtifactStore()
+            _enrichment_sidecar: dict | None = None
+            try:
+                _segment_meta = dict(
+                    getattr(primary_segment, "segment_meta", None) or {}
+                )
+                _enrichment_ref = _segment_meta.get("legal_units_enrichment_ref")
+                if _enrichment_ref and isinstance(_enrichment_ref, str):
+                    _enrichment_sidecar = _artifact_store.get_json(_enrichment_ref)
+            except Exception as _enr_exc:
+                logger.warning(
+                    "CheckRunner._build_enriched_chunks_for_check: "
+                    "failed to load enrichment sidecar, proceeding without",
+                    extra={
+                        "doc_id": doc.document_id_str,
+                        "segment_id": segment_id,
+                        "error": str(_enr_exc),
+                    },
+                )
+                _enrichment_sidecar = None
+
+            return await self._chunks.build_safe_chunks_for_segment(
+                session=session,
+                doc=doc,
+                checks=[check],
+                segment_id=segment_id,
+                enrichment_sidecar=_enrichment_sidecar,
+            )
+
+        except Exception as exc:
+            logger.warning(
+                "CheckRunner._build_enriched_chunks_for_check: "
+                "unexpected error, falling back to document-level chunks",
+                extra={
+                    "doc_id": doc.document_id_str,
+                    "error": str(exc),
+                },
+            )
+            return await self._chunks.build_safe_chunks(
+                session=session,
+                doc=doc,
+                checks=[check],
+            )
 
     async def _run_checks_for_document(
         self,
@@ -544,19 +666,42 @@ class CheckRunner:
                     run_id=run_id,
                 )
 
+                # Load enrichment sidecar once per segment.
+                # Used for two purposes:
+                # 1. Runtime projection of enriched metadata onto legal_unit chunks
+                #    → passed into build_safe_chunks_for_segment → reader.
+                # 2. SemanticEnrichmentContext for executor segment-level hints.
+                # Loading once avoids duplicate MinIO I/O.
+                # Failure-isolated: any error → None → graceful degradation.
+                _artifact_store = ArtifactStore()
+                _enrichment_sidecar: dict | None = None
+                try:
+                    _segment_meta = dict(getattr(segment, "segment_meta", None) or {})
+                    _enrichment_ref = _segment_meta.get("legal_units_enrichment_ref")
+                    if _enrichment_ref and isinstance(_enrichment_ref, str):
+                        _enrichment_sidecar = _artifact_store.get_json(_enrichment_ref)
+                except Exception as _enr_exc:
+                    logger.warning(
+                        "CheckRunner: failed to load enrichment sidecar for chunk projection",
+                        extra={
+                            "doc_id": doc_snap.document_id_str,
+                            "segment_id": ctx.segment_id,
+                            "error": str(_enr_exc),
+                        },
+                    )
+                    _enrichment_sidecar = None
+
                 safe_chunks = await self._chunks.build_safe_chunks_for_segment(
                     session=uow.session,
                     doc=doc_snap,
                     checks=checks,
                     segment_id=ctx.segment_id,
+                    enrichment_sidecar=_enrichment_sidecar,
                 )
 
-                # ── Load semantic enrichment context for this segment ──────────
-                # Reads legal_units_enrichment_ref from segment_meta.
-                # Returns SemanticEnrichmentContext.unavailable() on any error:
-                # no exception propagates, pipeline degrades gracefully.
-                # ArtifactStore is synchronous — no await needed.
-                _artifact_store = ArtifactStore()
+                # SemanticEnrichmentContext построим из того же загруженного sidecar.
+                # Передаём _artifact_store чтобы load_enrichment_context_for_segment
+                # мог перечитать при необходимости (он сам проверит наличие ref).
                 _semantic_context = load_enrichment_context_for_segment(
                     document_id=doc_snap.document_id_str,
                     segment=segment,
