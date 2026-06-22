@@ -38,16 +38,18 @@ const PageSection: React.FC<PageSectionProps> = ({
     >
       {hasHeader ? (
         <div className="shrink-0 px-5">
-          <div className="flex items-start justify-between gap-4 py-4">
+          <div className="flex items-start justify-between gap-4 py-3">
             <div className="min-w-0">
               {title ? (
-                <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                // было: text-base, стало: text-sm
+                <h2 className="text-sm font-semibold text-[var(--text-primary)]">
                   {title}
                 </h2>
               ) : null}
 
               {subtitle ? (
-                <p className="mt-1 text-sm text-[var(--text-muted)]">
+                // было: text-sm mt-1, стало: text-[11px] mt-0.5
+                <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                   {subtitle}
                 </p>
               ) : null}
@@ -76,7 +78,6 @@ const PageSection: React.FC<PageSectionProps> = ({
 };
 
 export default PageSection;
-
 
 
 

@@ -116,6 +116,7 @@ QUEUE_HIGH_PRIORITY = "high_priority"
 QUEUE_DEFAULT = "default"
 QUEUE_SYSTEM = "system"
 QUEUE_HEAVY_LLM_ENRICHMENT = "heavy_llm_enrichment"
+QUEUE_HEAVY_LLM_SEGMENT_CLASSIFICATION = "heavy_llm_segment_classification"
 QUEUE_HEAVY_LLM_CHECKS = "heavy_llm_checks"
 QUEUE_LOW_PRIORITY = "low_priority"
 
@@ -253,6 +254,11 @@ celery_app.conf.update(
             routing_key=QUEUE_HEAVY_LLM_ENRICHMENT,
         ),
         Queue(
+            QUEUE_HEAVY_LLM_SEGMENT_CLASSIFICATION,
+            Exchange(QUEUE_HEAVY_LLM_SEGMENT_CLASSIFICATION),
+            routing_key=QUEUE_HEAVY_LLM_SEGMENT_CLASSIFICATION,
+        ),
+        Queue(
             QUEUE_HEAVY_LLM_CHECKS,
             Exchange(QUEUE_HEAVY_LLM_CHECKS),
             routing_key=QUEUE_HEAVY_LLM_CHECKS,
@@ -305,8 +311,8 @@ celery_app.conf.update(
             "routing_key": QUEUE_HEAVY_LLM_ENRICHMENT,
         },
         "workers.classify_document_segments": {
-            "queue": QUEUE_HEAVY_LLM_ENRICHMENT,
-            "routing_key": QUEUE_HEAVY_LLM_ENRICHMENT,
+            "queue": QUEUE_HEAVY_LLM_SEGMENT_CLASSIFICATION,
+            "routing_key": QUEUE_HEAVY_LLM_SEGMENT_CLASSIFICATION,
         },
     },
     # --- Периодические задачи Celery Beat ---

@@ -210,6 +210,28 @@ class RetrievalPositionBiasConfig(BaseModel):
 
         return [lo, hi]
 
+class RetrievalCorpusScope(str, Enum):
+    """
+    Определяет, по какому корпусу чанков строится retrieval для данного check.
+
+    PRIMARY_SEGMENT:
+        Только primary segment документа (главный договор).
+        Default для всех checks если не задано явно.
+
+    CURRENT_SEGMENT:
+        Только текущий сегмент в batch segment execution.
+        Используется для checks, которые должны работать строго
+        в рамках одного логического сегмента.
+
+    DOCUMENT:
+        Все сегменты документа (contract + appendices).
+        Используется для checks, где evidence может быть распределено
+        по основному договору и приложениям.
+    """
+
+    PRIMARY_SEGMENT = "primary_segment"
+    CURRENT_SEGMENT = "current_segment"
+    DOCUMENT = "document"
 
 class RetrievalConfig(BaseModel):
     """
@@ -290,6 +312,12 @@ class RetrievalConfig(BaseModel):
     # Это universal retrieval intent declaration, не check-specific heuristic.
     # Примеры: "party_identification_check", "governing_law_check".
     retrieval_profile: str | None = None
+
+    # Определяет, по какому корпусу строится retrieval.
+    # primary_segment — только основной договор (default).
+    # current_segment — только текущий сегмент в batch execution.
+    # document — весь документ включая appendices.
+    corpus_scope: RetrievalCorpusScope = RetrievalCorpusScope.PRIMARY_SEGMENT
 
     @field_validator("retrieval_query")
     @classmethod

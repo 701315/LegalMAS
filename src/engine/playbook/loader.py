@@ -259,6 +259,7 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
                 description=cfg.description or "",
                 doc_types=cfg.doc_types or [],
                 origin=origin,
+                ui_mode=getattr(cfg, "ui_mode", None),
                 severity=cfg.severity,
                 # severity_if_* пробрасываем если заданы в GlobalCheckConfig
                 severity_if_fail=getattr(cfg, "severity_if_fail", None),

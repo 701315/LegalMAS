@@ -76,7 +76,7 @@ from engine.content.document_content_service import (
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import (
-    QUEUE_HEAVY_LLM_ENRICHMENT,
+    QUEUE_HEAVY_LLM_SEGMENT_CLASSIFICATION,
     celery_app,
 )
 from ops.metrics import get_metrics
@@ -265,8 +265,9 @@ def _should_retrigger(result: dict) -> bool:
     base=MASBaseTask,
     bind=True,
     name="workers.classify_document_segments",
-    queue=QUEUE_HEAVY_LLM_ENRICHMENT,
+    queue=QUEUE_HEAVY_LLM_SEGMENT_CLASSIFICATION,
 )
+
 def classify_document_segments(self, document_id: str, **kwargs) -> dict:
     """
     Sync Celery entry point для segment-level классификации.

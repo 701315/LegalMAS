@@ -129,7 +129,7 @@ class _MetricStub:
 
 
 class _FakeRetrievalEngine:
-    def __init__(self, chunks, important_terms=None):
+    def __init__(self, chunks, important_terms=None, **kwargs):
         self.chunks = chunks
         self.important_terms = important_terms or []
 
@@ -277,7 +277,8 @@ class TestExecuteFieldExtraction:
         assert result["detector_method"] == "extraction_only"
         assert result["result"] == "pass"
         assert result["severity"] == "pass"
-        assert result["evidence"] == ""
+        assert result["evidence"] != ""
+        assert "This Agreement is governed by the laws of the Russian Federation." in result["evidence"]
         assert result["raw"]["llm_invoked"] is False
         assert result["raw"]["rules_llm_decision"] == "skip_presence_for_extraction"
 

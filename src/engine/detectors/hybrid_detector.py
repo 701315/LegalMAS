@@ -33,7 +33,7 @@ from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
 from engine.llm.client import LLMContextLimitError
 
-from ..playbook.models import CheckDefinition
+from ..playbook.models import CheckDefinition, DetectorType
 from .llm_detector import LLMDetector
 from .models import EvidenceChunk, RetrievedChunk
 from .rules_detector import RulesDetector
@@ -126,7 +126,133 @@ class HybridDetector:
                 rules_result["location"] = location
                 rules_result["sources"] = sources
 
-        # --- 2. Решаем, нужен ли LLM после rules ---
+        # --- 2. Уважаем detector_type до любого hybrid-routing ---
+        detector_type = getattr(check, "detector_type", DetectorType.RULES)
+
+        if detector_type == DetectorType.RULES:
+            rules_result["raw"]["source"] = "rules_only_detector_type"
+            rules_result["raw"]["rules_llm_decision"] = "rules_only_detector_type"
+            return rules_result
+
+        if detector_type == DetectorType.LLM:
+            llm_config = getattr(check, "llm", None)
+            if not llm_config:
+                rules_result["raw"]["source"] = "llm_only_no_llm_config"
+                rules_result["raw"]["rules_llm_decision"] = "llm_only_no_llm_config"
+                return rules_result
+
+            has_inline_prompt = bool(getattr(llm_config, "prompt_template", "").strip())
+            has_file_prompt = bool(getattr(llm_config, "prompt_file", None))
+
+            if not (has_inline_prompt or has_file_prompt):
+                rules_result["raw"]["source"] = "llm_only_no_llm_prompt"
+                rules_result["raw"]["rules_llm_decision"] = "llm_only_no_llm_prompt"
+                return rules_result
+
+            try:
+                cls_conf = float(classification_confidence or 0.0)
+            except (TypeError, ValueError):
+                cls_conf = 0.0
+
+            doc_type_for_llm = doc_type if cls_conf >= RULES_CONFIDENCE_THRESHOLD else ""
+            cls_conf_percent = f"{cls_conf:.0%}"
+
+            extra_variables = {
+                "condition_name": check.name,
+                "legal_base": check.description or "",
+                "check_id": check.id,
+                "check_description": check.description,
+                "severity": check.severity,
+                "severity_if_fail": check.severity_if_fail or "",
+                "severity_if_pass": check.severity_if_pass or "",
+                "severity_if_unclear": check.severity_if_unclear or "",
+                "doc_types": ", ".join(check.doc_types or []),
+                "current_doc_type": doc_type_for_llm,
+                "classification_confidence": cls_conf_percent,
+            }
+
+            try:
+                rules_result["raw"]["llm_invoked"] = True
+                llm_detection = self.llm.detect_with_variables(
+                    config=llm_config,
+                    chunks=chunks,
+                    extra_variables=extra_variables,
+                )
+            except LLMContextLimitError as e:
+                logger.warning(
+                    "HybridDetector: LLM-only context limit exceeded",
+                    extra={
+                        "check_id": getattr(check, "id", None),
+                        "error": str(e),
+                    },
+                )
+                rules_result["raw"]["source"] = "llm_only_context_limit"
+                rules_result["raw"]["rules_llm_decision"] = "llm_only_context_limit"
+                rules_result["raw"]["llm_error_type"] = "context_limit"
+                rules_result["raw"]["llm_error_message"] = str(e)
+                return rules_result
+
+            except PermanentError as e:
+                logger.warning(
+                    "HybridDetector: LLM-only permanent error",
+                    extra={
+                        "check_id": getattr(check, "id", None),
+                        "error": str(e),
+                    },
+                )
+                rules_result["raw"]["source"] = "llm_only_permanent_error"
+                rules_result["raw"]["rules_llm_decision"] = "llm_only_permanent_error"
+                rules_result["raw"]["llm_error_type"] = "permanent_error"
+                rules_result["raw"]["llm_error_message"] = str(e)
+                return rules_result
+
+            except TransientError as e:
+                logger.warning(
+                    "HybridDetector: LLM-only transient error",
+                    extra={
+                        "check_id": getattr(check, "id", None),
+                        "error": str(e),
+                    },
+                )
+                rules_result["raw"]["source"] = "llm_only_transient_error"
+                rules_result["raw"]["rules_llm_decision"] = "llm_only_transient_error"
+                rules_result["raw"]["llm_error_type"] = "transient_error"
+                rules_result["raw"]["llm_error_message"] = str(e)
+                return rules_result
+
+            except Exception as e:
+                logger.exception(
+                    "HybridDetector: unexpected LLM-only exception",
+                    extra={
+                        "check_id": getattr(check, "id", None),
+                        "error": str(e),
+                    },
+                )
+                rules_result["raw"]["source"] = "llm_only_exception"
+                rules_result["raw"]["rules_llm_decision"] = "llm_only_exception"
+                rules_result["raw"]["llm_error_type"] = "unexpected_exception"
+                rules_result["raw"]["llm_error_message"] = str(e)
+                return rules_result
+
+            if llm_detection is None:
+                rules_result["raw"]["source"] = "llm_only_unavailable"
+                rules_result["raw"]["rules_llm_decision"] = "llm_only_unavailable"
+                return rules_result
+
+            flat_llm = self._flatten_llm_result(
+                llm_result=llm_detection,
+                check=check,
+                fallback_chunks=chunks,
+            )
+            flat_llm.setdefault("raw", {})
+            flat_llm["method"] = "llm"
+            flat_llm["raw"]["source"] = "llm_only_detector_type"
+            flat_llm["raw"]["rules_llm_decision"] = "llm_only_detector_type"
+            flat_llm["raw"]["llm_invoked"] = True
+            return flat_llm
+
+
+        # --- 3. Решаем, нужен ли LLM после rules ---
         need_llm, decision_reason = self._should_run_llm(rules_result, check)
         rules_result["raw"]["rules_llm_decision"] = decision_reason
 

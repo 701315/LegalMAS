@@ -186,22 +186,39 @@ def _salvage_partial_json(text: str) -> dict | None:
 
     This function recovers already-complete field blocks from truncated JSON text.
 
-    Strategy:
-    - Use regex to find syntactically complete {"value": ..., "confidence": ...} blocks.
-    - Reconstruct a valid {"fields": {...}} dict from recovered pairs only.
-    - Never guess or infer missing values.
+    Strategy (three passes, in order):
 
-    This is a universal robustness measure for any extraction check with N > 6 fields.
+    Pass 1 — complete field blocks:
+        Find syntactically complete {"value": ..., "confidence": ...} blocks.
+        Handles short strings, null, bool, numbers.
+        Never recovers unclosed string values.
+
+    Pass 2 — partial long string values:
+        For fields whose string value was not closed (JSON truncated mid-string),
+        recover the partial text written so far and append a truncation marker.
+        Applied only to fields NOT already recovered in Pass 1.
+        Minimum partial value length: 30 characters (avoids junk fragments).
+
+    Pass 3 — short signal values without confidence key:
+        For very short string values (≤ 50 chars) where the confidence key
+        was not yet written before truncation.
+        Applied only to fields NOT already recovered in Pass 1 or 2.
+
+    This is a universal robustness measure for any extraction check with N > 6 fields,
+    and specifically for inventory-style checks where a single fact field
+    (e.g. asset_schedule_details) carries a long multi-line string value.
+
     Not specific to any document, language, or check type.
+    Never guesses or invents values.
 
     Returns:
         dict with {"fields": {recovered_field_name: {...}}} if anything recovered, else None.
     """
     import re
 
-    # Matches a complete named field block:
-    # "field_name": {"value": <value>, "confidence": <float>}
-    # Handles string values (quoted), null, true, false, numbers.
+    # ── Pass 1: syntactically complete field blocks ────────────────────────────
+    # Matches: "field_name": {"value": <complete_value>, "confidence": <float>}
+    # <complete_value> = quoted string | null | true | false | number
     _field_pattern = re.compile(
         r'"(?P<name>[a-z_][a-z0-9_]*)"\s*:\s*\{'
         r'\s*"value"\s*:\s*(?P<value>"(?:[^"\\]|\\.)*"|null|true|false|-?\d+(?:\.\d+)?)\s*,'
@@ -210,6 +227,7 @@ def _salvage_partial_json(text: str) -> dict | None:
     )
 
     recovered: dict[str, dict] = {}
+
     for m in _field_pattern.finditer(text):
         name = m.group("name")
         raw_value = m.group("value")
@@ -227,6 +245,74 @@ def _salvage_partial_json(text: str) -> dict | None:
             confidence = LLM_DEFAULT_CONFIDENCE
 
         recovered[name] = {"value": value, "confidence": confidence}
+
+    # ── Pass 2: partial long string values (truncated mid-string) ─────────────
+    # Matches: "field_name": {"value": "<partial text...  (no closing quote)
+    # Applied only to fields not already recovered in Pass 1.
+    #
+    # Rationale: inventory-style checks (e.g. asset_schedule_details) produce
+    # long multi-line string values. When LLM output is token-truncated, the
+    # closing quote and confidence key are missing. Pass 1 cannot match these.
+    # Pass 2 recovers the partial text and appends a truncation marker,
+    # so that has_meaningful_extraction() can still return True.
+    #
+    # Minimum partial length (30 chars) avoids recovering junk opening fragments
+    # like "Не" or "Дан" where truncation happened immediately after the quote.
+    _PARTIAL_MIN_CHARS = 30
+    _TRUNCATION_MARKER = "… [СПИСОК ОБРЕЗАН: вывод превысил лимит токенов]"
+
+    _partial_string_pattern = re.compile(
+        r'"(?P<name>[a-z_][a-z0-9_]*)"\s*:\s*\{\s*"value"\s*:\s*"(?P<partial>[^"]{30,})',
+        re.DOTALL,
+    )
+
+    for m in _partial_string_pattern.finditer(text):
+        name = m.group("name")
+        if name in recovered:
+            # Already recovered in Pass 1 — skip.
+            continue
+
+        partial_text = m.group("partial")
+
+        # Strip trailing whitespace / incomplete escape sequences.
+        partial_text = partial_text.rstrip()
+        if partial_text.endswith("\\"):
+            partial_text = partial_text[:-1].rstrip()
+
+        if len(partial_text) < _PARTIAL_MIN_CHARS:
+            continue
+
+        recovered[name] = {
+            "value": partial_text + _TRUNCATION_MARKER,
+            "confidence": 0.5,
+        }
+
+    # ── Pass 3: short signal values without confidence key ────────────────────
+    # Matches: "field_name": {"value": "<short_value>"  (confidence key missing)
+    # Applied only to fields not already recovered in Pass 1 or 2.
+    #
+    # Rationale: when truncation happens between the value and the confidence key,
+    # Pass 1 fails (no "confidence" key). Pass 3 catches these short values,
+    # which are typically signal fields (e.g. "defined", "not_defined").
+    # Long strings are already handled by Pass 2.
+    _short_no_confidence_pattern = re.compile(
+        r'"(?P<name>[a-z_][a-z0-9_]*)"\s*:\s*\{\s*"value"\s*:\s*"(?P<value>[^"]{1,50})"\s*(?!,\s*"confidence")',
+        re.DOTALL,
+    )
+
+    for m in _short_no_confidence_pattern.finditer(text):
+        name = m.group("name")
+        if name in recovered:
+            continue
+
+        raw_value = m.group("value").strip()
+        if not raw_value:
+            continue
+
+        recovered[name] = {
+            "value": raw_value,
+            "confidence": LLM_DEFAULT_CONFIDENCE,
+        }
 
     if not recovered:
         return None

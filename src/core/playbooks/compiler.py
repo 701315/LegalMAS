@@ -178,6 +178,15 @@ class GlobalCheckConfig(BaseModel):
         description="Severity, если результат проверки: unclear (опционально).",
     )
 
+    ui_mode: str | None = Field(
+        default=None,
+        description=(
+            "Semantic type of check for business-result mapping and UI display. "
+            "Supported values: 'clause_presence', 'risk_detection', 'field_extraction'. "
+            "None = legacy fallback behavior."
+        ),
+    )
+
     doc_types: list[str] = Field(
         default_factory=list,
         description="К каким типам документов чек применим.",

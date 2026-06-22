@@ -1,8 +1,6 @@
 // =============================================================
 // src/pages/tabs/grid/gridTab.sections.tsx
 // Презентационные UI-блоки для DD Grid workspace.
-// На текущем этапе содержит только StatCard — карточку KPI
-// для сводных метрик run-scoped review matrix.
 // =============================================================
 
 import React from "react";
@@ -24,13 +22,13 @@ export function StatCard({
         : "text-[var(--text-primary)]";
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-4 py-3">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+    <div className="flex min-w-0 flex-col gap-0.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 shadow-sm">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
         {label}
-      </div>
-      <div className={`mt-2 text-lg font-semibold tracking-tight ${valueClass}`}>
+      </p>
+      <p className={`truncate text-sm font-semibold tabular-nums leading-5 ${valueClass}`}>
         {value}
-      </div>
+      </p>
     </div>
   );
 }

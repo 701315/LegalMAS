@@ -60,6 +60,7 @@ from engine.playbook.models import (
     ExtractionMode,
     LLMConfig,
     RetrievalConfig,
+    RetrievalCorpusScope,
     RulesConfig,
     TriggerCondition,
 )
@@ -491,6 +492,18 @@ class DocTypeCheckLoader:
             return RetrievalConfig()
 
         try:
+            raw_corpus_scope = retrieval_raw.get("corpus_scope", "primary_segment")
+            try:
+                corpus_scope = RetrievalCorpusScope(raw_corpus_scope)
+            except ValueError:
+                logger.warning(
+                    "DocTypeCheckLoader: unknown corpus_scope value, using default",
+                    extra={
+                        "corpus_scope_raw": raw_corpus_scope,
+                    },
+                )
+                corpus_scope = RetrievalCorpusScope.PRIMARY_SEGMENT
+
             return RetrievalConfig(
                 context_k=retrieval_raw.get("context_k", 5),
                 max_chunks=retrieval_raw.get("max_chunks"),
@@ -508,6 +521,7 @@ class DocTypeCheckLoader:
                 levels=retrieval_raw.get("levels") or ["legal_unit", "section"],
                 required_kind=retrieval_raw.get("required_kind"),
                 retrieval_profile=retrieval_raw.get("retrieval_profile"),
+                corpus_scope=corpus_scope,
             )
         except Exception as e:
             logger.warning(
@@ -601,7 +615,11 @@ class DocTypeCheckLoader:
                 description=item.get("description", ""),
                 doc_types=[doc_type],
                 origin=item.get("origin", "DOCUMENT_TYPE"),
+                ui_mode=item.get("ui_mode"),
                 severity=item.get("severity", "medium"),
+                severity_if_fail=item.get("severity_if_fail"),
+                severity_if_pass=item.get("severity_if_pass"),
+                severity_if_unclear=item.get("severity_if_unclear"),
                 detector_type=detector_type,
                 rules=rules,
                 llm=llm,
@@ -676,7 +694,11 @@ class DocTypeCheckLoader:
                 description=item.get("legal_base", item.get("description", "")),
                 doc_types=[doc_type],
                 origin=item.get("origin", "DOCUMENT_TYPE"),
+                ui_mode=item.get("ui_mode"),
                 severity=item.get("severity", "medium"),
+                severity_if_fail=item.get("severity_if_fail"),
+                severity_if_pass=item.get("severity_if_pass"),
+                severity_if_unclear=item.get("severity_if_unclear"),
                 detector_type=DetectorType.RULES,
                 rules=rules,
                 llm=LLMConfig(),
@@ -740,7 +762,11 @@ class DocTypeCheckLoader:
                 description=rule.get("description", rule.get("legal_base", "")),
                 doc_types=[doc_type],
                 origin="DOCUMENT_TYPE",
+                ui_mode=rule.get("ui_mode"),
                 severity=rule.get("severity", "critical"),
+                severity_if_fail=rule.get("severity_if_fail"),
+                severity_if_pass=rule.get("severity_if_pass"),
+                severity_if_unclear=rule.get("severity_if_unclear"),
                 detector_type=DetectorType.RULES,
                 rules=rules,
                 llm=LLMConfig(),

@@ -336,9 +336,18 @@ class Settings(BaseSettings):
 
     # Per-unit timeout for semantic enrichment LLM calls.
     # Prevents a single slow/hanging LLM call from consuming the entire segment budget.
-    # If 0: timeout is derived as segment_timeout / max(eligible_unit_count, 1).
-    # On a faster GPU machine this value can be reduced without code changes.
-    SEMANTIC_ENRICHMENT_PER_UNIT_TIMEOUT_SECONDS: int = 180
+    #
+    # 0 = adaptive (recommended default):
+    #   timeout is derived as segment_timeout / max(eligible_unit_count, 1),
+    #   with floor at SEMANTIC_ENRICHMENT_PER_UNIT_MIN_TIMEOUT_SECONDS.
+    #   This ensures segment budget is distributed fairly across all eligible units.
+    #
+    # > 0 = explicit fixed cap per unit (use on fast GPU hardware to cap latency).
+    #
+    # Why 0 is the correct default for CPU-only inference:
+    #   With 47 eligible units and segment_timeout=900s, fixed 180s means only ~5 units
+    #   are processed. Adaptive gives each unit ~30s (floor), processing ~30 units instead.
+    SEMANTIC_ENRICHMENT_PER_UNIT_TIMEOUT_SECONDS: int = 0
 
     # Absolute minimum per-unit timeout regardless of budget arithmetic.
     # Ensures that even under tight budgets each unit gets at least this much time.

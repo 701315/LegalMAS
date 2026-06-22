@@ -1,6 +1,6 @@
 .PHONY: \
 	up down restart logs test lint format migrate seed clean \
-	worker worker-dev worker-system worker-heavy worker-heavy-enrichment worker-heavy-checks beat dev-help \
+	worker worker-dev worker-system worker-heavy worker-heavy-enrichment worker-heavy-segment-classification worker-heavy-checks beat dev-help \
 	test-pii test-pii-unit test-pii-integration pii-keygen pii-smoke
 
 
@@ -100,13 +100,20 @@ worker-system:
 		--queues=system \
 		--pool=solo
 
-# Отдельный worker для semantic enrichment heavy LLM задач.
-# Используем --pool=solo, чтобы убрать fork/native-runtime interaction
-# для embedded local llama runtime (устраняет класс SIGSEGV при prefork).
 worker-heavy-enrichment:
 	$(PYTHONPATH_ENV) celery -A $(CELERY_APP) worker \
 		--loglevel=info \
 		--queues=heavy_llm_enrichment \
+		--pool=solo \
+		--concurrency=1
+
+# Отдельный worker для segment-level classification.
+# Изолирован от enrichment чтобы исключить head-of-line blocking:
+# долгая segment classification не блокирует enrichment pipeline.
+worker-heavy-segment-classification:
+	$(PYTHONPATH_ENV) celery -A $(CELERY_APP) worker \
+		--loglevel=info \
+		--queues=heavy_llm_segment_classification \
 		--pool=solo \
 		--concurrency=1
 
@@ -139,8 +146,9 @@ ollama-warm:
 worker-heavy:
 	@echo ""
 	@echo "Heavy workers разделены на два target'а:"
-	@echo "  make worker-heavy-enrichment   — semantic enrichment LLM задачи"
-	@echo "  make worker-heavy-checks       — single-check LLM задачи"
+	@echo "  make worker-heavy-segment-classification — segment-level classification LLM задачи"
+	@echo "  make worker-heavy-enrichment             — semantic enrichment LLM задачи"
+	@echo "  make worker-heavy-checks                 — single-check LLM задачи"
 	@echo ""
 
 # Celery Beat:
@@ -159,8 +167,9 @@ dev-help:
 	@echo "  2) make worker"
 	@echo "  3) make worker-system"
 	@echo "  4) make beat"
-	@echo "  5) make worker-heavy-enrichment"
-	@echo "  6) make worker-heavy-checks"
+	@echo "  5) make worker-heavy-segment-classification"
+	@echo "  6) make worker-heavy-enrichment"
+	@echo "  7) make worker-heavy-checks"
 	@echo ""
 	@echo "Первоначальная настройка Ollama (один раз на машине):"
 	@echo "  curl -fsSL https://ollama.com/install.sh | sh"

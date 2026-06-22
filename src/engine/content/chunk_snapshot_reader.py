@@ -118,6 +118,7 @@ class ChunkCorpusReaderV2:
         levels: list[str],
         *,
         version_id: uuid.UUID | None = None,
+        enrichment_sidecars_by_segment: dict[str, dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Загрузить все чанки для документа в формате v2.
@@ -243,12 +244,23 @@ class ChunkCorpusReaderV2:
                 )
 
             # Загружаем snapshot сегмента и извлекаем нужные уровни чанков.
+            # Если передан enrichment_sidecars_by_segment, применяем
+            # runtime enrichment projection для каждого сегмента отдельно.
+            segment_enrichment_sidecar: dict[str, Any] | None = None
+            if enrichment_sidecars_by_segment:
+                segment_enrichment_sidecar = enrichment_sidecars_by_segment.get(segment_id)
+
+            segment_enrichment_index = self._build_enrichment_index(
+                segment_enrichment_sidecar
+            )
+
             segment_items = await self._load_segment_snapshot(
                 doc_id=doc_id,
                 version_id=version.id,
                 segment_id=segment_id,
                 segment_chunks_ref=segment_chunks_ref,
                 level_set=level_set,
+                enrichment_index=segment_enrichment_index,
             )
             out.extend(segment_items)
 

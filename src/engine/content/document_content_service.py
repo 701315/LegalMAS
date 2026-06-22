@@ -262,6 +262,7 @@ class DocumentContentService:
         self,
         doc_id: uuid.UUID,
         levels: list[str],
+        enrichment_sidecars_by_segment: dict[str, dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Прочитать чанки из сохранённых v2 snapshot'ов.
@@ -278,7 +279,11 @@ class DocumentContentService:
         )
 
         try:
-            v2_chunks = await v2_reader.load(doc_id=doc_id, levels=levels)
+            v2_chunks = await v2_reader.load(
+                doc_id=doc_id,
+                levels=levels,
+                enrichment_sidecars_by_segment=enrichment_sidecars_by_segment,
+            )
         except Exception as e:
             logger.warning(
                 "DocumentContentService._load_chunks_from_snapshot: v2 reader failed",
@@ -792,6 +797,7 @@ class DocumentContentService:
         levels: list[str] | None = None,
         *,
         filter_unsafe_chunks: bool = False,
+        enrichment_sidecars_by_segment: dict[str, dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Удобный фасад для CheckRunner: вернуть плоский retrieval corpus для checks.
@@ -857,7 +863,11 @@ class DocumentContentService:
             )
             return []
 
-        snapshot_chunks = await self._load_chunks_from_snapshot(doc_id, levels)
+        snapshot_chunks = await self._load_chunks_from_snapshot(
+            doc_id,
+            levels,
+            enrichment_sidecars_by_segment=enrichment_sidecars_by_segment,
+        )
 
         if not snapshot_chunks:
             logger.warning(

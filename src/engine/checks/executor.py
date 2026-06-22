@@ -43,7 +43,7 @@ from ops.metrics import METRICS
 from ..detectors.hybrid_detector import HybridDetector
 from engine.checks.semantic_context import SemanticEnrichmentContext
 from ..detectors.models import RetrievedChunk
-from ..playbook.models import CheckDefinition
+from ..playbook.models import CheckDefinition, DetectorType
 from ..retrieval.engine import RetrievalEngine
 from .extraction import ExtractionExecutor
 from .result_semantics import _NOT_FOUND_VALUES, _RESERVED_METADATA_FIELDS
@@ -954,9 +954,20 @@ class CheckExecutor:
                     ),
                 },
             )
+            # Pass the already-budgeted joined_text as evidence so that
+            # ExtractionExecutor._build_extraction_text() uses the same
+            # token-limited text that was built by _build_limited_context(),
+            # instead of re-joining raw context chunks without a budget.
+            #
+            # Invariant: joined_text is always a str at this point
+            # (_build_limited_context never returns None).
+            # For field_extraction checks the detector is skipped entirely,
+            # so evidence would otherwise be "" and _build_extraction_text()
+            # would fall back to re-concatenating all raw context chunks —
+            # bypassing the token budget computed above.
             detection = {
                 "found": True,
-                "evidence": "",
+                "evidence": joined_text,
                 "confidence": 1.0,
                 "method": "extraction_only",
                 "reason": "field_extraction_skip_presence",
@@ -1033,34 +1044,70 @@ class CheckExecutor:
 
         structured_data = None
         try:
-            extraction_contexts = [
-                {
-                    "id": rc.element_id,
-                    "text": rc.text or "",
-                    "metadata": {
-                        "clause_uid": rc.clause_uid,
-                        "effective_uid": rc.clause_uid,
+            extraction_contexts: list[dict[str, Any]] = []
 
-                        "page": rc.page,
-                        "start_page": rc.start_page,
-                        "end_page": rc.end_page,
+            for c, rc in zip(contexts, retrieved_chunks):
+                ctx_meta = dict(c.get("metadata") or {})
 
-                        "path_titles": rc.path_titles,
-                        "element_ids": rc.element_ids,
+                extraction_contexts.append(
+                    {
+                        "id": c.get("id") or rc.element_id,
+                        "text": c.get("text") or rc.text or "",
+                        "metadata": {
+                            "clause_uid": (
+                                ctx_meta.get("clause_uid")
+                                or ctx_meta.get("effective_uid")
+                                or rc.clause_uid
+                            ),
+                            "effective_uid": (
+                                ctx_meta.get("effective_uid")
+                                or ctx_meta.get("clause_uid")
+                                or rc.clause_uid
+                            ),
+                            "page": (
+                                ctx_meta.get("page")
+                                or ctx_meta.get("start_page")
+                                or rc.page
+                            ),
+                            "start_page": (
+                                ctx_meta.get("start_page")
+                                if ctx_meta.get("start_page") is not None
+                                else rc.start_page
+                            ),
+                            "end_page": (
+                                ctx_meta.get("end_page")
+                                if ctx_meta.get("end_page") is not None
+                                else rc.end_page
+                            ),
+                            "path_titles": ctx_meta.get("path_titles") or rc.path_titles,
+                            "element_ids": ctx_meta.get("element_ids") or rc.element_ids,
 
-                        # canonical retrieval provenance
-                        "chunk_id": getattr(rc, "chunk_id", None) or rc.element_id,
-                        "chunk_index": getattr(rc, "chunk_index", None),
+                            # canonical retrieval provenance
+                            "chunk_id": (
+                                ctx_meta.get("chunk_id")
+                                or c.get("id")
+                                or getattr(rc, "chunk_id", None)
+                                or rc.element_id
+                            ),
+                            "chunk_index": (
+                                ctx_meta.get("chunk_index")
+                                if ctx_meta.get("chunk_index") is not None
+                                else getattr(rc, "chunk_index", None)
+                            ),
 
-                        "segment_id": getattr(rc, "segment_id", None),
-                        "segment_type": getattr(rc, "segment_type", None),
-                        "segment_title": getattr(rc, "segment_title", None),
-                        "segment_order": getattr(rc, "segment_order", None),
-                        "is_primary_segment": getattr(rc, "is_primary_segment", None),
-                    },
-                }
-                for rc in retrieved_chunks
-            ]
+                            # IMPORTANT:
+                            # Preserve segment-aware provenance from the original retrieval chunk metadata.
+                            # RetrievedChunk currently does not carry full segment metadata,
+                            # so using only rc.* would lose segment_id/segment_type in context_trace
+                            # and extraction provenance.
+                            "segment_id": ctx_meta.get("segment_id"),
+                            "segment_type": ctx_meta.get("segment_type"),
+                            "segment_title": ctx_meta.get("segment_title"),
+                            "segment_order": ctx_meta.get("segment_order"),
+                            "is_primary_segment": ctx_meta.get("is_primary_segment"),
+                        },
+                    }
+                )
 
             context_trace = self._build_context_provenance_trace(
                 extraction_contexts,
@@ -1120,6 +1167,27 @@ class CheckExecutor:
                     "severity": severity,
                 },
             )
+        elif is_presence_check and found:
+            # Presence/compliance check: found=True means the required clause
+            # or factual element IS present → pass.
+            # This is the inverse of risk-detection logic.
+            result = "pass"
+            severity = check.severity_if_pass or "pass"
+        elif is_presence_check and not found:
+            # Presence check: required clause/element NOT found.
+            # For deterministic detectors (rules-only) this is a definitive absence.
+            # For hybrid/LLM detectors the absence certainty depends on
+            # whether the detector completed without degradation.
+            _detector_is_deterministic = (
+                detector_method == "rules"
+                or getattr(check, "detector_type", None) == DetectorType.RULES
+            )
+            if _detector_is_deterministic or is_presence_not_found:
+                result = "missing_required_clause"
+                severity = check.severity_if_fail or check.severity
+            else:
+                result = "unclear"
+                severity = check.severity_if_unclear or check.severity
         elif found:
             result = "fail"
             severity = check.severity_if_fail or check.severity

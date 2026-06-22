@@ -97,6 +97,7 @@ class PlaybookConverter:
             name=raw_check.get("name", ""),
             description=raw_check.get("description", ""),
             doc_types=raw_check.get("doc_types") or [],
+            ui_mode=raw_check.get("ui_mode"),
             severity=raw_check.get("severity", "medium"),
             severity_if_fail=raw_check.get("severity_if_fail"),
             severity_if_pass=raw_check.get("severity_if_pass"),

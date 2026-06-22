@@ -45,6 +45,7 @@ from engine.checks.planning.context import CheckContext, SegmentInfo
 from engine.checks.planning.planner import CheckPlanner
 from engine.checks.planning.scope import ScopeResolver
 from engine.checks.result_saver import save_check_result, save_not_applicable_result
+from engine.playbook.models import RetrievalCorpusScope
 
 logger = get_logger(__name__)
 
@@ -275,10 +276,16 @@ class CheckRunner:
             return {"exec_result": None, "failed": False}
 
         if safe_chunks is None:
-            safe_chunks = await self._build_enriched_chunks_for_check(
+            _, segments = await self._iter_segments_for_document(
+                session=session,
+                document_id=doc_snap.document_id,
+            )
+            safe_chunks = await self._build_corpus_for_check(
                 session=session,
                 doc=doc_snap,
                 check=check,
+                segments=segments,
+                current_segment=None,
             )
 
         exec_result = self.executor.execute(doc_snap, check, safe_chunks)
@@ -335,64 +342,56 @@ class CheckRunner:
 
     # ── Внутренние методы ──────────────────────────────────────────
 
-    async def _build_enriched_chunks_for_check(
+    async def _build_corpus_for_check(
         self,
         *,
         session: AsyncSession,
         doc: DocumentSnapshot,
         check: Any,
+        segments: list[Any] | None,
+        current_segment: Any | None,
     ) -> list[dict]:
         """
-        Build retrieval-safe chunks for a single check with enrichment projection.
+        Build retrieval corpus for a single check based on its corpus_scope policy.
 
         Routing logic:
-        - Multi-document with primary segment → segment-level corpus with enrichment.
-        - Single-document or no segments → document-level corpus (no enrichment yet).
+        - No segments (single-document) → document-level corpus, no enrichment.
+        - corpus_scope=primary_segment → primary segment corpus with enrichment.
+        - corpus_scope=current_segment → current segment corpus with enrichment.
+          Falls back to primary segment if current_segment is None.
+        - corpus_scope=document → full document corpus with per-segment enrichment.
+          ScopeResolver handles final scope filtering (default: primary + appendix).
 
         Failure-isolated at every step:
-        - DB error → fallback to document-level.
-        - Enrichment sidecar load error → proceed without enrichment.
-        - Segment not found → fallback to document-level.
-
-        This is the single authoritative method for building check corpus.
-        All execute_single_check paths must use this instead of build_safe_chunks.
+        - DB error → fallback to document-level without enrichment.
+        - Enrichment sidecar load error → proceed without enrichment projection.
+        - Segment not found → fallback to document-level without enrichment.
         """
-        try:
-            is_multi = await self._is_multi_document(
+        corpus_scope = getattr(
+            getattr(check, "retrieval", None),
+            "corpus_scope",
+            RetrievalCorpusScope.PRIMARY_SEGMENT,
+        )
+
+        # SINGLE-DOCUMENT PATH (no segments)
+        if not segments:
+            return await self._chunks.build_safe_chunks(
                 session=session,
-                document_id=doc.document_id,
+                doc=doc,
+                checks=[check],
             )
 
-            if not is_multi:
-                # Single-document path: no segment-level enrichment yet.
-                return await self._chunks.build_safe_chunks(
-                    session=session,
-                    doc=doc,
-                    checks=[check],
-                )
+        artifact_store = ArtifactStore()
 
-            _, segments = await self._iter_segments_for_document(
-                session=session,
-                document_id=doc.document_id,
-            )
-
-            if not segments:
-                return await self._chunks.build_safe_chunks(
-                    session=session,
-                    doc=doc,
-                    checks=[check],
-                )
-
-            # Find primary segment — it carries the main contract text.
+        # ── PRIMARY_SEGMENT ────────────────────────────────────────────────────
+        if corpus_scope == RetrievalCorpusScope.PRIMARY_SEGMENT:
             primary_segments = [
-                s for s in segments
-                if bool(getattr(s, "is_primary", False))
+                s for s in segments if bool(getattr(s, "is_primary", False))
             ]
-
             if not primary_segments:
                 logger.warning(
-                    "CheckRunner._build_enriched_chunks_for_check: "
-                    "no primary segment, falling back to document-level",
+                    "CheckRunner._build_corpus_for_check: "
+                    "no primary segment found, falling back to document-level",
                     extra={"doc_id": doc.document_id_str},
                 )
                 return await self._chunks.build_safe_chunks(
@@ -401,9 +400,8 @@ class CheckRunner:
                     checks=[check],
                 )
 
-            primary_segment = primary_segments[0]
-            segment_id = getattr(primary_segment, "segment_id", None)
-
+            primary = primary_segments[0]
+            segment_id = getattr(primary, "segment_id", None)
             if not segment_id:
                 return await self._chunks.build_safe_chunks(
                     session=session,
@@ -411,51 +409,130 @@ class CheckRunner:
                     checks=[check],
                 )
 
-            # Load enrichment sidecar for runtime metadata projection.
-            # Failure-isolated: any error → None → no projection, no error.
-            _artifact_store = ArtifactStore()
-            _enrichment_sidecar: dict | None = None
+            sidecar: dict | None = None
             try:
-                _segment_meta = dict(
-                    getattr(primary_segment, "segment_meta", None) or {}
-                )
-                _enrichment_ref = _segment_meta.get("legal_units_enrichment_ref")
-                if _enrichment_ref and isinstance(_enrichment_ref, str):
-                    _enrichment_sidecar = _artifact_store.get_json(_enrichment_ref)
-            except Exception as _enr_exc:
+                meta = dict(getattr(primary, "segment_meta", None) or {})
+                ref = meta.get("legal_units_enrichment_ref")
+                if ref and isinstance(ref, str):
+                    sidecar = artifact_store.get_json(ref)
+            except Exception as exc:
                 logger.warning(
-                    "CheckRunner._build_enriched_chunks_for_check: "
-                    "failed to load enrichment sidecar, proceeding without",
+                    "CheckRunner._build_corpus_for_check: "
+                    "failed to load primary segment enrichment sidecar",
                     extra={
                         "doc_id": doc.document_id_str,
                         "segment_id": segment_id,
-                        "error": str(_enr_exc),
+                        "error": str(exc),
                     },
                 )
-                _enrichment_sidecar = None
 
             return await self._chunks.build_safe_chunks_for_segment(
                 session=session,
                 doc=doc,
                 checks=[check],
                 segment_id=segment_id,
-                enrichment_sidecar=_enrichment_sidecar,
+                enrichment_sidecar=sidecar,
             )
 
-        except Exception as exc:
-            logger.warning(
-                "CheckRunner._build_enriched_chunks_for_check: "
-                "unexpected error, falling back to document-level chunks",
-                extra={
-                    "doc_id": doc.document_id_str,
-                    "error": str(exc),
-                },
+        # ── CURRENT_SEGMENT ────────────────────────────────────────────────────
+        if corpus_scope == RetrievalCorpusScope.CURRENT_SEGMENT:
+            target_segment = current_segment
+            if target_segment is None:
+                logger.warning(
+                    "CheckRunner._build_corpus_for_check: "
+                    "corpus_scope=current_segment but no current_segment provided, "
+                    "falling back to primary segment",
+                    extra={"doc_id": doc.document_id_str},
+                )
+                primary_segments = [
+                    s for s in segments if bool(getattr(s, "is_primary", False))
+                ]
+                target_segment = primary_segments[0] if primary_segments else None
+
+            if target_segment is None:
+                return await self._chunks.build_safe_chunks(
+                    session=session,
+                    doc=doc,
+                    checks=[check],
+                )
+
+            segment_id = getattr(target_segment, "segment_id", None)
+            if not segment_id:
+                return await self._chunks.build_safe_chunks(
+                    session=session,
+                    doc=doc,
+                    checks=[check],
+                )
+
+            sidecar = None
+            try:
+                meta = dict(getattr(target_segment, "segment_meta", None) or {})
+                ref = meta.get("legal_units_enrichment_ref")
+                if ref and isinstance(ref, str):
+                    sidecar = artifact_store.get_json(ref)
+            except Exception as exc:
+                logger.warning(
+                    "CheckRunner._build_corpus_for_check: "
+                    "failed to load current segment enrichment sidecar",
+                    extra={
+                        "doc_id": doc.document_id_str,
+                        "segment_id": segment_id,
+                        "error": str(exc),
+                    },
+                )
+
+            return await self._chunks.build_safe_chunks_for_segment(
+                session=session,
+                doc=doc,
+                checks=[check],
+                segment_id=segment_id,
+                enrichment_sidecar=sidecar,
             )
+
+        # ── DOCUMENT (cross-segment) ───────────────────────────────────────────
+        if corpus_scope == RetrievalCorpusScope.DOCUMENT:
+            sidecars_by_segment: dict[str, dict] = {}
+            for seg in segments:
+                seg_id = getattr(seg, "segment_id", None)
+                if not seg_id:
+                    continue
+                try:
+                    meta = dict(getattr(seg, "segment_meta", None) or {})
+                    ref = meta.get("legal_units_enrichment_ref")
+                    if ref and isinstance(ref, str):
+                        sidecars_by_segment[seg_id] = artifact_store.get_json(ref)
+                except Exception as exc:
+                    logger.warning(
+                        "CheckRunner._build_corpus_for_check: "
+                        "failed to load enrichment sidecar for segment, skipping",
+                        extra={
+                            "doc_id": doc.document_id_str,
+                            "segment_id": seg_id,
+                            "error": str(exc),
+                        },
+                    )
+
             return await self._chunks.build_safe_chunks(
                 session=session,
                 doc=doc,
                 checks=[check],
+                enrichment_sidecars_by_segment=sidecars_by_segment or None,
             )
+
+        # FALLBACK (unknown scope value)
+        logger.warning(
+            "CheckRunner._build_corpus_for_check: unknown corpus_scope, "
+            "falling back to document-level",
+            extra={
+                "doc_id": doc.document_id_str,
+                "corpus_scope": str(corpus_scope),
+            },
+        )
+        return await self._chunks.build_safe_chunks(
+            session=session,
+            doc=doc,
+            checks=[check],
+        )
 
     async def _run_checks_for_document(
         self,
@@ -673,6 +750,9 @@ class CheckRunner:
                 # 2. SemanticEnrichmentContext for executor segment-level hints.
                 # Loading once avoids duplicate MinIO I/O.
                 # Failure-isolated: any error → None → graceful degradation.
+                # Enrichment sidecar для semantic_context executor'а.
+                # Загружается отдельно от corpus building —
+                # corpus builder загружает sidecar'ы сам внутри _build_corpus_for_check.
                 _artifact_store = ArtifactStore()
                 _enrichment_sidecar: dict | None = None
                 try:
@@ -682,7 +762,7 @@ class CheckRunner:
                         _enrichment_sidecar = _artifact_store.get_json(_enrichment_ref)
                 except Exception as _enr_exc:
                     logger.warning(
-                        "CheckRunner: failed to load enrichment sidecar for chunk projection",
+                        "CheckRunner: failed to load enrichment sidecar for semantic_context",
                         extra={
                             "doc_id": doc_snap.document_id_str,
                             "segment_id": ctx.segment_id,
@@ -691,13 +771,10 @@ class CheckRunner:
                     )
                     _enrichment_sidecar = None
 
-                safe_chunks = await self._chunks.build_safe_chunks_for_segment(
-                    session=uow.session,
-                    doc=doc_snap,
-                    checks=checks,
-                    segment_id=ctx.segment_id,
-                    enrichment_sidecar=_enrichment_sidecar,
-                )
+                # Per-check corpus cache keyed by (corpus_scope, segment_id, levels).
+                # Checks with the same corpus policy reuse the same built corpus.
+                # This avoids redundant I/O while supporting mixed corpus policies.
+                corpus_cache: dict[tuple, list[dict]] = {}
 
                 # SemanticEnrichmentContext построим из того же загруженного sidecar.
                 # Передаём _artifact_store чтобы load_enrichment_context_for_segment
@@ -709,6 +786,34 @@ class CheckRunner:
                 )
 
                 for check in checks:
+                    # Build corpus per check, using corpus_scope policy.
+                    # Corpus is cached by (scope, segment_id, levels) key
+                    # to avoid redundant I/O for checks with identical policy.
+                    _corpus_scope = getattr(
+                        getattr(check, "retrieval", None),
+                        "corpus_scope",
+                        RetrievalCorpusScope.PRIMARY_SEGMENT,
+                    )
+                    _corpus_key = (
+                        _corpus_scope,
+                        ctx.segment_id,
+                        tuple(sorted(
+                            getattr(getattr(check, "retrieval", None), "levels", None)
+                            or ["legal_unit", "section"]
+                        )),
+                    )
+
+                    if _corpus_key not in corpus_cache:
+                        corpus_cache[_corpus_key] = await self._build_corpus_for_check(
+                            session=uow.session,
+                            doc=doc_snap,
+                            check=check,
+                            segments=segments,
+                            current_segment=segment,
+                        )
+
+                    safe_chunks = corpus_cache[_corpus_key]
+
                     exec_result = self.executor.execute(
                         doc_snap,
                         check,
@@ -716,11 +821,19 @@ class CheckRunner:
                         semantic_context=_semantic_context,
                     )
 
-                    exec_result["segment_id"] = getattr(segment, "segment_id", None)
-                    exec_result["segment_type"] = getattr(segment, "segment_type", None)
-                    exec_result["segment_title"] = getattr(segment, "segment_title", None)
-                    exec_result["segment_order"] = getattr(segment, "segment_order", None)
-                    exec_result["is_primary_segment"] = getattr(segment, "is_primary", None)
+                    # Provenance override policy:
+                    # For primary_segment / current_segment corpus checks:
+                    #   the execution segment IS the retrieval segment → safe to override.
+                    # For document corpus checks:
+                    #   evidence may come from any segment (e.g. appendix) →
+                    #   provenance already set correctly from chunk metadata by executor →
+                    #   do NOT override with current execution segment.
+                    if _corpus_scope != RetrievalCorpusScope.DOCUMENT:
+                        exec_result["segment_id"] = getattr(segment, "segment_id", None)
+                        exec_result["segment_type"] = getattr(segment, "segment_type", None)
+                        exec_result["segment_title"] = getattr(segment, "segment_title", None)
+                        exec_result["segment_order"] = getattr(segment, "segment_order", None)
+                        exec_result["is_primary_segment"] = getattr(segment, "is_primary", None)
 
                     await save_check_result(
                         repo=repo,

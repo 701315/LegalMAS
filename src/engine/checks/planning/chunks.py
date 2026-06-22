@@ -59,6 +59,7 @@ class ChunksPreparer:
         session: AsyncSession,
         doc,
         checks: list[Any],
+        enrichment_sidecars_by_segment: dict[str, dict[str, Any]] | None = None,
     ) -> list[dict]:
         """
         Собрать safe_chunks для одного документа и набора checks.
@@ -77,6 +78,7 @@ class ChunksPreparer:
         chunks = await content_service.get_retrieval_chunks_for_checks(
             doc_id=doc.id,
             levels=levels_for_doc,
+            enrichment_sidecars_by_segment=enrichment_sidecars_by_segment,
         )
 
         # Фильтрация по scope: оставляем только чанки из нужных сегментов

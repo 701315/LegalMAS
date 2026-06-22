@@ -1,13 +1,5 @@
 // =============================================================
 // src/pages/tabs/RequestsTab.tsx
-// Вкладка "Запросы": таблица DD‑запросов + embedded side panel деталей.
-// Панель открывается примерно на уровне выбранной строки, но не уходит
-// за нижнюю границу видимой рабочей области: если строка расположена низко,
-// панель автоматически сдвигается вверх.
-// Дополнительно выровнены внутренние gutters панели: слева, справа и снизу.
-// Позиционирование панели — гибридное: около строки, если строка недалеко
-// от центра видимой области; иначе панель центрируется относительно рабочей зоны.
-// Фон контейнера панели синхронизирован с цветом выделенной строки запроса.
 // =============================================================
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
@@ -54,6 +46,10 @@ const VIEWPORT_GUTTER = 12;
 const PANEL_GUTTER = 16;
 const PANEL_CENTER_THRESHOLD = 80;
 
+// -------------------------------------------------------------
+// InlineBanner
+// -------------------------------------------------------------
+
 const InlineBanner: React.FC<{
   tone: InlineMessageTone;
   title: string;
@@ -80,7 +76,6 @@ const InlineBanner: React.FC<{
           </div>
           <p className="mt-1 text-sm leading-6">{description}</p>
         </div>
-
         {onDismiss && (
           <Button variant="ghost" size="sm" onClick={onDismiss}>
             Закрыть
@@ -90,6 +85,10 @@ const InlineBanner: React.FC<{
     </div>
   );
 };
+
+// -------------------------------------------------------------
+// LoadingState
+// -------------------------------------------------------------
 
 const LoadingState: React.FC = () => (
   <section
@@ -123,6 +122,10 @@ const LoadingState: React.FC = () => (
   </section>
 );
 
+// -------------------------------------------------------------
+// Helpers
+// -------------------------------------------------------------
+
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max);
 
@@ -136,10 +139,7 @@ const computePanelPlacement = ({
   panelElement: HTMLDivElement | null;
 }) => {
   if (!layoutElement) {
-    return {
-      offsetTop: 0,
-      maxHeight: MIN_PANEL_HEIGHT,
-    };
+    return { offsetTop: 0, maxHeight: MIN_PANEL_HEIGHT };
   }
 
   const layoutRect = layoutElement.getBoundingClientRect();
@@ -154,16 +154,12 @@ const computePanelPlacement = ({
   const safeTop = visibleTop + PANEL_GUTTER;
   const safeBottom = visibleBottom - PANEL_GUTTER;
 
-  const availableHeight = Math.max(
-    MIN_PANEL_HEIGHT,
-    safeBottom - safeTop,
-  );
+  const availableHeight = Math.max(MIN_PANEL_HEIGHT, safeBottom - safeTop);
 
   const panelNaturalHeight = panelElement?.offsetHeight ?? MIN_PANEL_HEIGHT;
   const fittedPanelHeight = Math.min(panelNaturalHeight, availableHeight);
 
   const visibleCenter = safeTop + (safeBottom - safeTop) / 2;
-
   const rowCenter = rowRect
     ? rowRect.top + rowRect.height / 2
     : visibleCenter;
@@ -187,6 +183,10 @@ const computePanelPlacement = ({
   };
 };
 
+// -------------------------------------------------------------
+// RequestsTab
+// -------------------------------------------------------------
+
 export const RequestsTab: React.FC<Props> = ({
   dealId,
   runId,
@@ -201,19 +201,13 @@ export const RequestsTab: React.FC<Props> = ({
   const { canManageRequests } = useDealPermissions(dealId);
 
   const [selectedReq, setSelectedReq] = useState<DDRequest | null>(null);
-  const [selectedReviewReqKey, setSelectedReviewReqKey] = useState<string | null>(
-    null,
-  );
-  const [inlineMessage, setInlineMessage] = useState<InlineMessageState | null>(
-    null,
-  );
+  const [selectedReviewReqKey, setSelectedReviewReqKey] = useState<string | null>(null);
+  const [inlineMessage, setInlineMessage] = useState<InlineMessageState | null>(null);
 
   const [legacyPanelOffsetTop, setLegacyPanelOffsetTop] = useState(0);
   const [reviewPanelOffsetTop, setReviewPanelOffsetTop] = useState(0);
-  const [legacyPanelMaxHeight, setLegacyPanelMaxHeight] =
-    useState(MIN_PANEL_HEIGHT);
-  const [reviewPanelMaxHeight, setReviewPanelMaxHeight] =
-    useState(MIN_PANEL_HEIGHT);
+  const [legacyPanelMaxHeight, setLegacyPanelMaxHeight] = useState(MIN_PANEL_HEIGHT);
+  const [reviewPanelMaxHeight, setReviewPanelMaxHeight] = useState(MIN_PANEL_HEIGHT);
 
   const legacyLayoutRef = useRef<HTMLDivElement | null>(null);
   const reviewLayoutRef = useRef<HTMLDivElement | null>(null);
@@ -221,9 +215,7 @@ export const RequestsTab: React.FC<Props> = ({
   const reviewPanelRef = useRef<HTMLDivElement | null>(null);
 
   const { data: reviewRequests, isLoading: isLoadingReview } =
-    useDealReviewDdRequests(dealId, runId ?? null, {
-      enabled: !!runId,
-    });
+    useDealReviewDdRequests(dealId, runId ?? null, { enabled: !!runId });
 
   const isReviewMode =
     !!runId && !isLoadingReview && Array.isArray(reviewRequests);
@@ -234,18 +226,14 @@ export const RequestsTab: React.FC<Props> = ({
 
   const selectedReviewReq: DDRequestDTO | null = useMemo(() => {
     if (!selectedReviewReqKey || !Array.isArray(reviewRequests)) return null;
-
     const found = reviewRequests.find((req) => {
       const view = toRequestTableRowFromReview(req);
       return view.id === selectedReviewReqKey;
     });
-
     return found ?? null;
   }, [selectedReviewReqKey, reviewRequests]);
 
-  const clearInlineMessage = useCallback(() => {
-    setInlineMessage(null);
-  }, []);
+  const clearInlineMessage = useCallback(() => { setInlineMessage(null); }, []);
 
   const updateLegacyPanelPlacement = useCallback(
     (rowElement: HTMLElement | null) => {
@@ -254,7 +242,6 @@ export const RequestsTab: React.FC<Props> = ({
         layoutElement: legacyLayoutRef.current,
         panelElement: legacyPanelRef.current,
       });
-
       setLegacyPanelOffsetTop(placement.offsetTop);
       setLegacyPanelMaxHeight(placement.maxHeight);
     },
@@ -268,7 +255,6 @@ export const RequestsTab: React.FC<Props> = ({
         layoutElement: reviewLayoutRef.current,
         panelElement: reviewPanelRef.current,
       });
-
       setReviewPanelOffsetTop(placement.offsetTop);
       setReviewPanelMaxHeight(placement.maxHeight);
     },
@@ -281,12 +267,10 @@ export const RequestsTab: React.FC<Props> = ({
         setInlineMessage({
           tone: "warning",
           title: "Недостаточно прав",
-          description:
-            "Редактирование запросов доступно только редакторам и администраторам проекта.",
+          description: "Редактирование запросов доступно только редакторам и администраторам проекта.",
         });
         return;
       }
-
       setInlineMessage(null);
       await updateMutation.mutateAsync({ reqId, data });
     },
@@ -299,12 +283,10 @@ export const RequestsTab: React.FC<Props> = ({
         setInlineMessage({
           tone: "warning",
           title: "Недостаточно прав",
-          description:
-            "Удаление запросов доступно только редакторам и администраторам проекта.",
+          description: "Удаление запросов доступно только редакторам и администраторам проекта.",
         });
         return;
       }
-
       setInlineMessage(null);
       await deleteMutation.mutateAsync(reqId);
       setSelectedReq((current) => (current?.id === reqId ? null : current));
@@ -326,18 +308,14 @@ export const RequestsTab: React.FC<Props> = ({
   const handleExportWord = useCallback(async () => {
     try {
       setInlineMessage(null);
-      const blob = await exportRequestsMutation.mutateAsync({
-        dealId,
-        format: "word",
-      });
+      const blob = await exportRequestsMutation.mutateAsync({ dealId, format: "word" });
       downloadBlob(blob, `dd_requests_${dealId}.docx`);
     } catch (e) {
       console.error(e);
       setInlineMessage({
         tone: "error",
         title: "Не удалось экспортировать в Word",
-        description:
-          "Попробуйте повторить экспорт позже. Если ошибка сохраняется, проверьте состояние сервиса экспорта.",
+        description: "Попробуйте повторить экспорт позже. Если ошибка сохраняется, проверьте состояние сервиса экспорта.",
       });
     }
   }, [dealId, exportRequestsMutation, downloadBlob]);
@@ -345,18 +323,14 @@ export const RequestsTab: React.FC<Props> = ({
   const handleExportExcel = useCallback(async () => {
     try {
       setInlineMessage(null);
-      const blob = await exportRequestsMutation.mutateAsync({
-        dealId,
-        format: "excel",
-      });
+      const blob = await exportRequestsMutation.mutateAsync({ dealId, format: "excel" });
       downloadBlob(blob, `dd_requests_${dealId}.xlsx`);
     } catch (e) {
       console.error(e);
       setInlineMessage({
         tone: "error",
         title: "Не удалось экспортировать в Excel",
-        description:
-          "Попробуйте повторить экспорт позже. Если ошибка сохраняется, проверьте состояние сервиса экспорта.",
+        description: "Попробуйте повторить экспорт позже. Если ошибка сохраняется, проверьте состояние сервиса экспорта.",
       });
     }
   }, [dealId, exportRequestsMutation, downloadBlob]);
@@ -366,17 +340,14 @@ export const RequestsTab: React.FC<Props> = ({
       setInlineMessage({
         tone: "warning",
         title: "Создание недоступно",
-        description:
-          "Создание запросов доступно только редакторам и администраторам проекта.",
+        description: "Создание запросов доступно только редакторам и администраторам проекта.",
       });
       return;
     }
-
     setInlineMessage({
       tone: "info",
       title: "Создание нового запроса",
-      description:
-        "Функция создания нового DD-запроса пока не реализована в текущем интерфейсе.",
+      description: "Функция создания нового DD-запроса пока не реализована в текущем интерфейсе.",
     });
   }, [canManageRequests]);
 
@@ -406,14 +377,16 @@ export const RequestsTab: React.FC<Props> = ({
     >
       <header className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
         <div className="flex min-h-0 flex-1 flex-col px-5">
-          <div className="border-b border-[var(--border-subtle)] py-4">
+
+          {/* ── Заголовок — выровнен с PageSection ─────────── */}
+          <div className="border-b border-[var(--border-subtle)] py-3">
             <h2
               id="requests-tab-title"
-              className="text-base font-semibold text-[var(--text-primary)]"
+              className="text-sm font-semibold text-[var(--text-primary)]"
             >
               Запросы
             </h2>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
+            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
               {isReviewMode
                 ? visibleCount > 0
                   ? `Сформированы запросы по результатам анализа: ${visibleCount}`
@@ -425,7 +398,7 @@ export const RequestsTab: React.FC<Props> = ({
           </div>
 
           {!isReviewMode && (
-            <div className="flex flex-wrap items-center justify-end gap-2 border-b border-[var(--border-subtle)] py-4">
+            <div className="flex flex-wrap items-center justify-end gap-2 border-b border-[var(--border-subtle)] py-3">
               <Button
                 variant="outline"
                 size="sm"
@@ -587,5 +560,3 @@ export const RequestsTab: React.FC<Props> = ({
 };
 
 export default RequestsTab;
-
-

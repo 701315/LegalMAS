@@ -1,20 +1,5 @@
 // =============================================================
 // src/pages/tabs/DocumentsTab.tsx
-// Вкладка "Документы":
-// - единая карточка секции, как в RequestsTab
-// - header и summary встроены в тот же card
-// - toolbar расположен ниже header и отделён inset-divider
-// - таблица документов находится внутри той же секции
-// - при выборе документа справа открывается панель деталей (1/3 ширины)
-// - при открытии стадии pipeline таблица скрывается,
-//   preview занимает 2/3, детали документа — 1/3
-// - выбранная строка документа имеет синюю полоску слева
-// - панель деталей документа имеет full-height синюю полоску слева
-//
-// Архитектурный принцип:
-// - DocumentsTab работает от deal-level списка документов;
-// - current run не участвует напрямую в загрузке списка документов;
-// - поэтому runId не входит в контракт компонента.
 // =============================================================
 
 import React, { useMemo, useRef, useState } from "react";
@@ -60,16 +45,11 @@ interface PipelinePreviewState {
 function formatRiskLevel(risk: string | null | undefined): string {
   if (!risk) return "";
   switch (risk) {
-    case "low":
-      return "Низкий";
-    case "medium":
-      return "Средний";
-    case "high":
-      return "Высокий";
-    case "critical":
-      return "Критический";
-    default:
-      return risk;
+    case "low":      return "Низкий";
+    case "medium":   return "Средний";
+    case "high":     return "Высокий";
+    case "critical": return "Критический";
+    default:         return risk;
   }
 }
 
@@ -92,13 +72,14 @@ function hasProcessingError(doc: DocumentListItem): boolean {
 function getDocumentsCountLabel(count: number): string {
   const mod10 = count % 10;
   const mod100 = count % 100;
-
   if (mod10 === 1 && mod100 !== 11) return "документ";
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
-    return "документа";
-  }
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "документа";
   return "документов";
 }
+
+// -------------------------------------------------------------
+// ClassificationWarningBanner
+// -------------------------------------------------------------
 
 const ClassificationWarningBanner: React.FC<{
   count: number;
@@ -158,6 +139,10 @@ const ClassificationWarningBanner: React.FC<{
   </div>
 );
 
+// -------------------------------------------------------------
+// ColumnSelectorInlinePanel
+// -------------------------------------------------------------
+
 const ColumnSelectorInlinePanel: React.FC<{
   tempSelectedIds: DocumentColumnId[];
   hasChanges: boolean;
@@ -165,14 +150,7 @@ const ColumnSelectorInlinePanel: React.FC<{
   onApply: () => void;
   onReset: () => void;
   onCancel: () => void;
-}> = ({
-  tempSelectedIds,
-  hasChanges,
-  onToggle,
-  onApply,
-  onReset,
-  onCancel,
-}) => (
+}> = ({ tempSelectedIds, hasChanges, onToggle, onApply, onReset, onCancel }) => (
   <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-5 py-3">
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
       <div className="border-b border-[var(--border-subtle)] px-4 py-3">
@@ -188,7 +166,6 @@ const ColumnSelectorInlinePanel: React.FC<{
         <div className="flex flex-wrap gap-2">
           {ALL_DOCUMENT_COLUMNS.map((col) => {
             const isSelected = tempSelectedIds.includes(col.id);
-
             return (
               <Button
                 key={col.id}
@@ -215,12 +192,10 @@ const ColumnSelectorInlinePanel: React.FC<{
         <Button size="sm" variant="ghost" onClick={onReset}>
           По умолчанию
         </Button>
-
         <div className="flex gap-2">
           <Button size="sm" variant="secondary" onClick={onCancel}>
             Отмена
           </Button>
-
           <Button
             size="sm"
             variant="secondary"
@@ -245,6 +220,10 @@ const ColumnSelectorInlinePanel: React.FC<{
   </div>
 );
 
+// -------------------------------------------------------------
+// ExportMenu
+// -------------------------------------------------------------
+
 const ExportMenu: React.FC<{
   isOpen: boolean;
   onToggle: () => void;
@@ -252,14 +231,7 @@ const ExportMenu: React.FC<{
   onExportExcel: () => void;
   onExportWord: () => void;
   onExportPDF: () => void;
-}> = ({
-  isOpen,
-  onToggle,
-  onClose,
-  onExportExcel,
-  onExportWord,
-  onExportPDF,
-}) => {
+}> = ({ isOpen, onToggle, onClose, onExportExcel, onExportWord, onExportPDF }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -267,20 +239,15 @@ const ExportMenu: React.FC<{
 
     const handlePointerDown = (event: MouseEvent) => {
       if (!containerRef.current) return;
-      if (!containerRef.current.contains(event.target as Node)) {
-        onClose();
-      }
+      if (!containerRef.current.contains(event.target as Node)) onClose();
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
+      if (event.key === "Escape") onClose();
     };
 
     window.addEventListener("mousedown", handlePointerDown);
     window.addEventListener("keydown", handleKeyDown);
-
     return () => {
       window.removeEventListener("mousedown", handlePointerDown);
       window.removeEventListener("keydown", handleKeyDown);
@@ -323,20 +290,18 @@ const ExportMenu: React.FC<{
         aria-hidden={!isOpen}
       >
         <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-2 py-1.5 shadow-sm">
-          <Button size="sm" variant="secondary" onClick={onExportExcel}>
-            Excel
-          </Button>
-          <Button size="sm" variant="secondary" onClick={onExportWord}>
-            Word
-          </Button>
-          <Button size="sm" variant="secondary" onClick={onExportPDF}>
-            PDF
-          </Button>
+          <Button size="sm" variant="secondary" onClick={onExportExcel}>Excel</Button>
+          <Button size="sm" variant="secondary" onClick={onExportWord}>Word</Button>
+          <Button size="sm" variant="secondary" onClick={onExportPDF}>PDF</Button>
         </div>
       </div>
     </div>
   );
 };
+
+// -------------------------------------------------------------
+// DocumentsTab
+// -------------------------------------------------------------
 
 const DocumentsTab: React.FC<DocumentsTabProps> = ({
   deal,
@@ -350,8 +315,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
   const { data: classifiedPage } = useDocumentsWithClassification(deal.id);
 
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
-  const [pipelinePreview, setPipelinePreview] =
-    useState<PipelinePreviewState | null>(null);
+  const [pipelinePreview, setPipelinePreview] = useState<PipelinePreviewState | null>(null);
   const [isBannerExpanded, setIsBannerExpanded] = useState(false);
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
@@ -378,11 +342,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
     [],
   );
 
-  const [visibleColumnIds, setVisibleColumnIds] =
-    useState<DocumentColumnId[]>(defaultVisibleIds);
-
-  const [tempSelectedIds, setTempSelectedIds] =
-    useState<DocumentColumnId[]>(defaultVisibleIds);
+  const [visibleColumnIds, setVisibleColumnIds] = useState<DocumentColumnId[]>(defaultVisibleIds);
+  const [tempSelectedIds, setTempSelectedIds] = useState<DocumentColumnId[]>(defaultVisibleIds);
 
   const visibleColumns = useMemo<DocumentColumnDef[]>(
     () => ALL_DOCUMENT_COLUMNS.filter((col) => visibleColumnIds.includes(col.id)),
@@ -395,32 +356,24 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
     return tempSelectedIds.some((id) => !current.has(id));
   }, [tempSelectedIds, visibleColumnIds]);
 
-  const reviewDocs = useMemo(() => {
-    return classifiedDocs.filter(
-      (doc) => doc.classification_requires_review === true,
-    );
-  }, [classifiedDocs]);
+  const reviewDocs = useMemo(
+    () => classifiedDocs.filter((doc) => doc.classification_requires_review === true),
+    [classifiedDocs],
+  );
 
   React.useEffect(() => {
     if (!selectedDocId) return;
-
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (pipelinePreview) {
-          setPipelinePreview(null);
-          return;
-        }
+        if (pipelinePreview) { setPipelinePreview(null); return; }
         setSelectedDocId(null);
       }
     };
-
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedDocId, pipelinePreview]);
 
-  React.useEffect(() => {
-    setPipelinePreview(null);
-  }, [selectedDocId]);
+  React.useEffect(() => { setPipelinePreview(null); }, [selectedDocId]);
 
   React.useEffect(() => {
     if (!openViewerAt) return;
@@ -430,9 +383,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
 
   const handleToggleColumnSelection = (colId: DocumentColumnId) => {
     setTempSelectedIds((prev) =>
-      prev.includes(colId)
-        ? prev.filter((id) => id !== colId)
-        : [...prev, colId],
+      prev.includes(colId) ? prev.filter((id) => id !== colId) : [...prev, colId],
     );
   };
 
@@ -453,33 +404,18 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
   };
 
   const handleExportExcel = async () => {
-    try {
-      await exportDocumentsExcel(deal.id, visibleColumnIds);
-      setIsExportMenuOpen(false);
-    } catch (err) {
-      console.error(err);
-      alert("Не удалось экспортировать в Excel");
-    }
+    try { await exportDocumentsExcel(deal.id, visibleColumnIds); setIsExportMenuOpen(false); }
+    catch (err) { console.error(err); alert("Не удалось экспортировать в Excel"); }
   };
 
   const handleExportWord = async () => {
-    try {
-      await exportDocumentsWord(deal.id, visibleColumnIds);
-      setIsExportMenuOpen(false);
-    } catch (err) {
-      console.error(err);
-      alert("Не удалось экспортировать в Word");
-    }
+    try { await exportDocumentsWord(deal.id, visibleColumnIds); setIsExportMenuOpen(false); }
+    catch (err) { console.error(err); alert("Не удалось экспортировать в Word"); }
   };
 
   const handleExportPDF = async () => {
-    try {
-      await exportDocumentsPDF(deal.id, visibleColumnIds);
-      setIsExportMenuOpen(false);
-    } catch (err) {
-      console.error(err);
-      alert("Не удалось экспортировать в PDF");
-    }
+    try { await exportDocumentsPDF(deal.id, visibleColumnIds); setIsExportMenuOpen(false); }
+    catch (err) { console.error(err); alert("Не удалось экспортировать в PDF"); }
   };
 
   const handleSelectDocument = (docId: string) => {
@@ -517,19 +453,9 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
         </span>
       );
     }
-
-    if (typeof value === "boolean") {
-      return value ? "Да" : "Нет";
-    }
-
-    if (value === null || value === undefined) {
-      return "";
-    }
-
-    if (typeof value === "number" || typeof value === "string") {
-      return value;
-    }
-
+    if (typeof value === "boolean") return value ? "Да" : "Нет";
+    if (value === null || value === undefined) return "";
+    if (typeof value === "number" || typeof value === "string") return value;
     return String(value);
   };
 
@@ -549,27 +475,28 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
               : "grid-cols-1"
           }`}
         >
+          {/* ── Основная секция ─────────────────────────────── */}
           <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
             {!isPipelinePreviewOpen && (
               <div className="px-5">
-                <div className="py-4">
+                {/* Заголовок — выровнен с PageSection */}
+                <div className="py-3">
                   <h2
                     id="documents-tab-title"
-                    className="text-base font-semibold text-[var(--text-primary)]"
+                    className="text-sm font-semibold text-[var(--text-primary)]"
                   >
                     Документы
                   </h2>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                     {totalDocumentsCount > 0
-                      ? `В проекте анализируется ${totalDocumentsCount} ${getDocumentsCountLabel(
-                          totalDocumentsCount,
-                        )}`
+                      ? `В проекте анализируется ${totalDocumentsCount} ${getDocumentsCountLabel(totalDocumentsCount)}`
                       : "В проекте пока нет загруженных документов"}
                   </p>
                 </div>
 
                 <div className="border-t border-[var(--border-subtle)]" />
 
+                {/* Тулбар */}
                 <div className="flex min-h-10 flex-wrap items-center gap-2 py-3">
                   <Button
                     type="button"
@@ -669,9 +596,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
 
                           <tbody>
                             {documents.map((doc) => {
-                              const showReviewFlag =
-                                doc.classification_requires_review === true;
-
+                              const showReviewFlag = doc.classification_requires_review === true;
                               const isSelected = selectedDocId === doc.id;
 
                               return (
@@ -697,15 +622,12 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                     } else {
                                       switch (col.field) {
                                         case "applicable_triggers_count":
-                                          value =
-                                            doc.applicable_triggers?.length ?? 0;
+                                          value = doc.applicable_triggers?.length ?? 0;
                                           break;
                                         case "status": {
                                           const baseLabel =
-                                            doc.status &&
-                                            DOCUMENT_STATUS_CONFIG[doc.status]
-                                              ? DOCUMENT_STATUS_CONFIG[doc.status]
-                                                  .label
+                                            doc.status && DOCUMENT_STATUS_CONFIG[doc.status]
+                                              ? DOCUMENT_STATUS_CONFIG[doc.status].label
                                               : doc.status || "";
                                           value = hasProcessingError(doc)
                                             ? `${baseLabel} ⚠`
@@ -722,8 +644,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                           value = formatDateTime(doc.updated_at);
                                           break;
                                         default: {
-                                          type DocumentKey =
-                                            keyof DocumentListItem;
+                                          type DocumentKey = keyof DocumentListItem;
                                           value = doc[col.field as DocumentKey];
                                           break;
                                         }
@@ -732,39 +653,21 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
 
                                     let title: string | undefined;
 
-                                    if (
-                                      col.field === "status" &&
-                                      hasProcessingError(doc)
-                                    ) {
-                                      const details =
-                                        doc.processing_error_details;
-                                      const stageLabel =
-                                        getErrorStageLabel(details);
+                                    if (col.field === "status" && hasProcessingError(doc)) {
+                                      const details = doc.processing_error_details;
+                                      const stageLabel = getErrorStageLabel(details);
                                       const message = details?.message;
-
-                                      if (
-                                        message &&
-                                        stageLabel !== "Неизвестная стадия"
-                                      ) {
+                                      if (message && stageLabel !== "Неизвестная стадия") {
                                         title = `${stageLabel}: ${message}`;
                                       } else if (message) {
                                         title = message;
                                       } else {
-                                        title =
-                                          typeof value === "string"
-                                            ? value
-                                            : undefined;
+                                        title = typeof value === "string" ? value : undefined;
                                       }
-                                    } else if (
-                                      col.field === "status" &&
-                                      doc.status
-                                    ) {
+                                    } else if (col.field === "status" && doc.status) {
                                       title =
-                                        DOCUMENT_STATUS_CONFIG[doc.status]
-                                          ?.tooltip ??
-                                        (typeof value === "string"
-                                          ? value
-                                          : undefined);
+                                        DOCUMENT_STATUS_CONFIG[doc.status]?.tooltip ??
+                                        (typeof value === "string" ? value : undefined);
                                     } else if (typeof value === "string") {
                                       title = value;
                                     }
@@ -781,11 +684,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                         }`}
                                         title={title}
                                       >
-                                        {renderCellValue(
-                                          value,
-                                          isPrimaryCell,
-                                          showReviewFlag,
-                                        )}
+                                        {renderCellValue(value, isPrimaryCell, showReviewFlag)}
                                       </td>
                                     );
                                   })}
@@ -818,6 +717,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
             )}
           </section>
 
+          {/* ── Панель деталей документа ────────────────────── */}
           {isDetailsPanelOpen && (
             <aside className="relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
               <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[3px] bg-[var(--accent-primary)]" />
@@ -852,9 +752,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                   dealId={deal.id}
                   onNavigateToGrid={(dealId, docName) => {
                     navigate(
-                      `/projects/${dealId}?tab=dd_grid&document=${encodeURIComponent(
-                        docName,
-                      )}`,
+                      `/projects/${dealId}?tab=dd_grid&document=${encodeURIComponent(docName)}`,
                     );
                   }}
                   onOpenPipelineStagePreview={handleOpenPipelineStagePreview}
@@ -869,5 +767,4 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
 };
 
 export default DocumentsTab;
-
 

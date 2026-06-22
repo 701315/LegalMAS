@@ -1,22 +1,5 @@
 // =============================================================
 // src/pages/tabs/grid/GridTabPage.tsx
-// Review-only DD Grid workspace:
-// - run-scoped review matrix API via useDealReviewDdMatrix
-// - DDMatrixGrid for 2D matrix view
-// - DDReviewListGrid for flat findings list view
-// - unified DocumentViewerModal for evidence navigation
-// - review filters, export, selection state
-// - bulk QC actions for selected review findings
-//
-// Архитектурный принцип:
-// - dd-matrix — PRIMARY data source для вкладки Grid;
-// - useRun(...) — OPTIONAL metadata enrichment, не блокирует рендер;
-// - Grid рендерится как только готов dd-matrix, независимо от run metadata.
-//
-// Layout contract (P8.8d):
-// - Верхняя часть (stats, toolbar, filters) — shrink-0, не скроллится.
-// - Нижняя часть (grid) — flex-1, AG Grid скроллится внутри.
-// - Шапка таблицы AG Grid остаётся sticky наверху viewport.
 // =============================================================
 
 import React from "react";
@@ -376,7 +359,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                 Экспорт findings
               </p>
               <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
@@ -451,10 +434,6 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     [reviewDerived.rows, filteredReviewFindings],
   );
 
-  // Keys of exact findings that survive all active filters.
-  // Format: `${matrixRowId}::${checkId}` — matches FindingListRow.rowId.
-  // Passed to DDReviewListGrid so list mode filters by exact findings,
-  // not by surviving matrix rows (which would include sibling cells).
   const visibleListCellKeys = React.useMemo(
     () =>
       new Set(
@@ -620,11 +599,18 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       <div className="shrink-0">
         <RunMetaWarning visible={Boolean(runError)} />
 
+        {/*
+          PageSection получает уменьшенные размеры через явные классы.
+          Если PageSection принимает className-пропсы — передай их.
+          Если нет — оберни в div и переопредели через CSS-переменные
+          или дублируй заголовок прямо здесь (см. вариант ниже).
+        */}
         <PageSection
           title="DD Grid"
           subtitle="Матрица документов и проверок с фильтрацией, экспортом и навигацией по evidence."
         >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          {/* StatCard: text-sm для значений, text-[10px] для лейблов */}
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-6">
             <StatCard label="Документы" value={reviewSummary.documentsCount} />
             <StatCard
               label="Проверки"
@@ -649,10 +635,12 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
         <div className="shrink-0">
           <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-5">
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-[var(--text-primary)]">
+              {/* ↓ было text-base → text-sm */}
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
                 {matrixSectionTitle}
               </h2>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">
+              {/* ↓ было text-sm mt-1 → text-[11px] mt-0.5 */}
+              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                 {matrixSectionSubtitle}
               </p>
             </div>

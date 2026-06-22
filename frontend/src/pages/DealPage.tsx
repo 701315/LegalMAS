@@ -309,49 +309,55 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             className="flex h-full flex-col overflow-y-auto px-3 py-4"
             aria-label="Навигация по проекту"
           >
-            {/* ── Группа: Анализ документов по сделке ── */}
-            <div className="mb-1.5 px-3">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                Анализ документов по сделке
-              </span>
-            </div>
-            <div className="space-y-1">
+            {/* ── Обзор — отдельно вверху ── */}
+            <div className="mb-3">
               <SidebarItem
                 label={TAB_LABELS.overview}
                 tabKey="overview"
                 activeTab={activeTab}
                 onSelect={handleSetTab}
               />
-              <SidebarItem
-                label={TAB_LABELS.documents}
-                tabKey="documents"
-                activeTab={activeTab}
-                onSelect={handleSetTab}
-              />
-              <SidebarItem
-                label={TAB_LABELS.dd_grid}
-                tabKey="dd_grid"
-                activeTab={activeTab}
-                onSelect={handleSetTab}
-              />
-              <SidebarItem
-                label={TAB_LABELS.requests}
-                tabKey="requests"
-                activeTab={activeTab}
-                onSelect={handleSetTab}
-              />
-              <SidebarItem
-                label={TAB_LABELS.report}
-                tabKey="report"
-                activeTab={activeTab}
-                onSelect={handleSetTab}
-              />
-              <SidebarItem
-                label={TAB_LABELS.audit}
-                tabKey="audit"
-                activeTab={activeTab}
-                onSelect={handleSetTab}
-              />
+            </div>
+
+            {/* ── Группа: Анализ документов по сделке ── */}
+            <div className="border-t border-[var(--border)] pt-4">
+              <div className="mb-1.5 px-3">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  Анализ документов по сделке
+                </span>
+              </div>
+              <div className="space-y-1">
+                <SidebarItem
+                  label={TAB_LABELS.documents}
+                  tabKey="documents"
+                  activeTab={activeTab}
+                  onSelect={handleSetTab}
+                />
+                <SidebarItem
+                  label={TAB_LABELS.dd_grid}
+                  tabKey="dd_grid"
+                  activeTab={activeTab}
+                  onSelect={handleSetTab}
+                />
+                <SidebarItem
+                  label={TAB_LABELS.requests}
+                  tabKey="requests"
+                  activeTab={activeTab}
+                  onSelect={handleSetTab}
+                />
+                <SidebarItem
+                  label={TAB_LABELS.report}
+                  tabKey="report"
+                  activeTab={activeTab}
+                  onSelect={handleSetTab}
+                />
+                <SidebarItem
+                  label={TAB_LABELS.audit}
+                  tabKey="audit"
+                  activeTab={activeTab}
+                  onSelect={handleSetTab}
+                />
+              </div>
             </div>
 
             {/* ── Группа: Анализ выявленных контрагентов ── */}
@@ -608,7 +614,6 @@ const MobileTab: React.FC<MobileTabProps> = ({
 };
 
 export default DealPage;
-
 
 
 
