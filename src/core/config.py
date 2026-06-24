@@ -256,6 +256,7 @@ class Settings(BaseSettings):
     # Default LLM provider. Поддерживаемые значения: ollama | openai | llamacpp.
     # llamacpp — legacy embedded provider, оставлен для backward compatibility.
     LLM_PROVIDER: str = "ollama"
+
     LLM_TIMEOUT_SECONDS: int = 3600
     LLM_TEMPERATURE: float = 0.0
     LLM_MAX_TOKENS: int = 256
@@ -317,54 +318,56 @@ class Settings(BaseSettings):
     SEMANTIC_ENRICHMENT_MAX_TOPICS_FROM_LLM: int = 8
     SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS: int = 40
 
-    # --- Semantic Enrichment Runtime Budget ---
-    # Per-segment hard timeout. If enriching one segment's legal units
-    # exceeds this, the segment is skipped and pipeline continues.
-    SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS: int = 900
+# --- Semantic Enrichment Runtime Budget ---
 
-    SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS: int = 4
+    # Per-segment hard timeout.
+    # CPU-only Ollama (Qwen2.5 7B Q4_K_M): ~47 eligible units × ~300s/unit = ~14100s.
+    # 3 hours gives reasonable coverage without blocking pipeline indefinitely.
+    SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS: int = 10800  # было: 900
+
+    SEMANTIC_ENRICHMENT_MAX_INFLIGHT_LLM_CALLS: int = 1  # было: 4
+    # CPU-only: параллелизм не даёт выигрыша, только конкуренция за RAM/CPU.
+    # GPU: можно поднять до 4.
+
     # Minimum timeout in seconds for primary segment enrichment.
-    # Primary segments are typically the largest and most critical for retrieval quality.
-    SEMANTIC_ENRICHMENT_PRIMARY_SEGMENT_MIN_TIMEOUT_SECONDS: int = 600
+    SEMANTIC_ENRICHMENT_PRIMARY_SEGMENT_MIN_TIMEOUT_SECONDS: int = 600  # без изменений
+
     # Total wall-clock budget for enriching all segments of a document.
     # 0 = derive adaptively from worker soft limit minus cleanup margin.
-    SEMANTIC_ENRICHMENT_DOCUMENT_BUDGET_SECONDS: int = 3600
+    # Explicit value must be < SEMANTIC_ENRICHMENT_WORKER_SOFT_TIME_LIMIT_SECONDS.
+    SEMANTIC_ENRICHMENT_DOCUMENT_BUDGET_SECONDS: int = 14400  # было: 3600
 
     # Time reserved for post-enrichment commit / audit / retrigger.
-    # Not given to LLM enrichment.
-    SEMANTIC_ENRICHMENT_CLEANUP_MARGIN_SECONDS: int = 120
+    SEMANTIC_ENRICHMENT_CLEANUP_MARGIN_SECONDS: int = 120  # без изменений
 
     # Per-unit timeout for semantic enrichment LLM calls.
-    # Prevents a single slow/hanging LLM call from consuming the entire segment budget.
     #
-    # 0 = adaptive (recommended default):
-    #   timeout is derived as segment_timeout / max(eligible_unit_count, 1),
-    #   with floor at SEMANTIC_ENRICHMENT_PER_UNIT_MIN_TIMEOUT_SECONDS.
-    #   This ensures segment budget is distributed fairly across all eligible units.
+    # 0 = adaptive:
+    #   timeout = segment_timeout / max(eligible_unit_count, 1),
+    #   floor = SEMANTIC_ENRICHMENT_PER_UNIT_MIN_TIMEOUT_SECONDS.
+    #   Recommended for GPU inference where per-unit latency is low and
+    #   fair budget distribution matters more than absolute cap.
     #
-    # > 0 = explicit fixed cap per unit (use on fast GPU hardware to cap latency).
-    #
-    # Why 0 is the correct default for CPU-only inference:
-    #   With 47 eligible units and segment_timeout=900s, fixed 180s means only ~5 units
-    #   are processed. Adaptive gives each unit ~30s (floor), processing ~30 units instead.
-    SEMANTIC_ENRICHMENT_PER_UNIT_TIMEOUT_SECONDS: int = 0
+    # > 0 = explicit fixed cap per unit.
+    #   Recommended for CPU-only inference where prompt eval alone takes
+    #   200-300s per unit regardless of budget arithmetic.
+    #   Example: CPU Qwen2.5 7B Q4_K_M → set 360.
+    SEMANTIC_ENRICHMENT_PER_UNIT_TIMEOUT_SECONDS: int = 360  # было: 0
 
     # Absolute minimum per-unit timeout regardless of budget arithmetic.
-    # Ensures that even under tight budgets each unit gets at least this much time.
-    SEMANTIC_ENRICHMENT_PER_UNIT_MIN_TIMEOUT_SECONDS: int = 30
+    # Used only when PER_UNIT_TIMEOUT_SECONDS=0 (adaptive mode).
+    SEMANTIC_ENRICHMENT_PER_UNIT_MIN_TIMEOUT_SECONDS: int = 180  # было: 30
 
     # --- Dedicated Semantic Enrichment Worker Limits ---
-    SEMANTIC_ENRICHMENT_WORKER_SOFT_TIME_LIMIT_SECONDS: int = 4200
-    SEMANTIC_ENRICHMENT_WORKER_TIME_LIMIT_SECONDS: int = 4320
+    # hard > soft > doc_budget + margin (validator enforces this)
+    SEMANTIC_ENRICHMENT_WORKER_SOFT_TIME_LIMIT_SECONDS: int = 16200  # было: 4200
+    SEMANTIC_ENRICHMENT_WORKER_TIME_LIMIT_SECONDS: int = 16500       # было: 4320
 
     # --- Semantic Enrichment Cache (Phase 14.3.A) ---
     # Exact-match cache для raw LLM responses.
-    # Scope безопасности: document_version-scoped (в key строится выше по стеку).
-    # Важно:
-    # - cache process-local, in-memory;
-    # - не используется для shared межпроцессного reuse;
-    # - по умолчанию выключен до явного включения в .env.
-    SEMANTIC_ENRICHMENT_CACHE_ENABLED: bool = False
+    # Scope: document_version-scoped. Process-local, in-memory.
+    # Включён по умолчанию — критично для CPU inference где retry дорог.
+    SEMANTIC_ENRICHMENT_CACHE_ENABLED: bool = True   # было: False
     SEMANTIC_ENRICHMENT_CACHE_TTL_SECONDS: int = 86400
     SEMANTIC_ENRICHMENT_CACHE_MAX_ITEMS: int = 10000
 

@@ -557,16 +557,16 @@ class ExtractionLLMDetector:
             },
         )
 
-        # Universal compactness contract appended to all extraction prompts.
+        # Generic compactness footer is playbook-driven via ExtractionConfig.compact_output.
         #
-        # Rationale:
-        # - Extraction checks with N > 8 fields risk JSON truncation when
-        #   LLM writes verbose citations in *_details fields.
-        # - Presence/detection layer (LLMDetector + rules) already handles
-        #   evidence anchoring and full citations.
-        # - Extraction layer is responsible only for compact structured facts.
-        # - This instruction is universal: applies to any check, any language,
-        #   any document type. Not document-specific tuning.
+        # True  -> append compactness instruction (good for summary-style checks).
+        # False -> do not append footer (good for inventory/register-style checks
+        #          where long multi-line outputs are expected and explicitly requested
+        #          by the YAML prompt contract).
+        compact_output = getattr(extraction_cfg, "compact_output", True)
+        if not compact_output:
+            return prompt
+
         _COMPACTNESS_FOOTER = (
             "\n\nВАЖНО: В каждое поле пиши только краткое резюме "
             "(не более 1–2 предложений). "
@@ -913,12 +913,21 @@ class ExtractionLLMDetector:
                 }
                 continue
 
-            # Universal string length cap for extraction field values.
-            # Prevents structured_data from bloating with full-paragraph citations.
-            # Applied universally: any check, any language, any document type.
-            _MAX_EXTRACTION_FIELD_CHARS = 500
-            if isinstance(value_cast, str) and len(value_cast) > _MAX_EXTRACTION_FIELD_CHARS:
-                value_cast = value_cast[:_MAX_EXTRACTION_FIELD_CHARS].rstrip() + "…"
+            # String length cap for extraction field values.
+            #
+            # Default cap (500 chars) is suitable for summary-style factual fields.
+            # Inventory/register fields may override it via
+            # ExtractionFieldConfig.max_value_chars in playbook YAML.
+            #
+            # This keeps the policy universal and metadata-driven:
+            # code applies the cap, playbook declares the expected value size.
+            _DEFAULT_MAX_EXTRACTION_FIELD_CHARS = 500
+            max_chars = (
+                getattr(cfg, "max_value_chars", None)
+                or _DEFAULT_MAX_EXTRACTION_FIELD_CHARS
+            )
+            if isinstance(value_cast, str) and len(value_cast) > max_chars:
+                value_cast = value_cast[:max_chars].rstrip() + "…"
 
             normalized[name] = {
                 "value": value_cast,

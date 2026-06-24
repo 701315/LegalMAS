@@ -1,6 +1,7 @@
 type: contract_1.4_contract_farming
 name: "Договор контрактации"
-
+version: 6.0
+parent: class_1_transfer_of_ownership
 description: |
   Специализированный вид купли-продажи сельскохозяйственной продукции,
   регулируемый § 5 Главы 30 ГК РФ. Характеризуется особым субъектным составом
@@ -8,10 +9,6 @@ description: |
   производства от природных факторов, повышенной защитой производителя при форс-мажоре
   и субсидиарным применением норм о договоре поставки (§ 3 Главы 30 ГК РФ).
   Заготовитель — лицо, закупающее продукцию для последующей переработки или продажи.
-
-version: 5.0
-parent: class_1_transfer_of_ownership
-
 metadata:
   category: contract
   subcategory: ownership_transfer
@@ -683,7 +680,11 @@ checks_v8:
       и заготовителе — реквизиты, тип производителя (КФХ/ИП/юрлицо),
       подписанты и документы, подтверждающие полномочия.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -811,6 +812,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "производитель заготовитель стороны договора контрактации КФХ крестьянское фермерское хозяйство глава КФХ ИНН ОГРН ОГРНИП в лице действующего на основании устава доверенности реквизиты подписант"
       preferred_unit_types:
         - obligation
@@ -844,10 +850,17 @@ checks_v8:
       max_chunks: 8
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
-        - "definitions"
+        - "representations"
         - "boilerplate"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.15
     evidence:
       required: true
       min_snippet_length: 40
@@ -855,6 +868,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 500
       llm_prompt_extraction: |
         <role>
@@ -882,48 +896,90 @@ checks_v8:
         </task>
 
         <rules>
-        - Только текст договора.
-        - КФХ (крестьянское фермерское хозяйство) -> kfh.
-        - Подписание главой КФХ -> kfh_head.
-        - Пиши кратко. Только JSON.
+        - Используй только текст договора.
+        - Для producer_type используй только:
+          - "kfh" — если прямо указано КФХ или крестьянское (фермерское) хозяйство
+          - "individual_entrepreneur" — если прямо указан ИП
+          - "legal_entity" — если прямо указано ООО, АО, ПАО или иное юридическое лицо
+          - "individual" — если прямо указано физическое лицо без ИП или КФХ
+          - "not_defined" — если тип производителя прямо не указан
+        - Для producer_signatory_basis используй только:
+          - "charter" — если прямо указано "на основании устава"
+          - "poa" — если прямо указано "по доверенности" или "на основании доверенности"
+          - "order" — если прямо указано "на основании приказа"
+          - "kfh_head" — если подписантом является глава КФХ, действующий без иного основания
+          - "other" — если прямо указано иное основание
+          - "not_defined" — если основание прямо не указано
+        - Для purchaser_signatory_basis используй только:
+          - "charter" — устав
+          - "poa" — доверенность
+          - "order" — приказ
+          - "other" — иное прямое основание
+          - "not_defined" — если не указано
+        - Не смешивай сведения о производителе и заготовителе.
+        - Пиши кратко. Верни только JSON.
         </rules>
       fields:
         - name: "producer_details_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
+          description: "Статус определённости реквизитов производителя."
+          required: true
         - name: "producer_details"
           type: "string"
           presentation: "fact"
           label: "Производитель"
+          description: "Полное наименование и реквизиты производителя (ИНН, ОГРН/ОГРНИП)."
+          required: true
+          display_in_grid: true
+          display_priority: 1
         - name: "producer_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["legal_entity", "individual_entrepreneur", "kfh", "individual", "not_defined"]
+          description: "Организационно-правовая форма производителя."
+          required: true
         - name: "producer_signatory"
           type: "string"
           presentation: "fact"
           label: "Подписант производителя"
+          description: "ФИО и должность подписанта со стороны производителя."
+          required: false
+          display_in_grid: false
         - name: "producer_signatory_basis"
           type: "string"
           presentation: "signal"
           allowed_values: ["charter", "poa", "order", "kfh_head", "other", "not_defined"]
+          description: "Документ-основание полномочий подписанта производителя."
+          required: false
         - name: "purchaser_details_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
+          description: "Статус определённости реквизитов заготовителя."
+          required: true
         - name: "purchaser_details"
           type: "string"
           presentation: "fact"
           label: "Заготовитель"
+          description: "Полное наименование и реквизиты заготовителя (ИНН, ОГРН)."
+          required: true
+          display_in_grid: true
+          display_priority: 2
         - name: "purchaser_signatory"
           type: "string"
           presentation: "fact"
           label: "Подписант заготовителя"
+          description: "ФИО и должность подписанта со стороны заготовителя."
+          required: false
+          display_in_grid: false
         - name: "purchaser_signatory_basis"
           type: "string"
           presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
+          description: "Документ-основание полномочий подписанта заготовителя."
+          required: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -935,7 +991,11 @@ checks_v8:
       Фактографическая проверка наличия в договоре предмета (вид и наименование
       продукции), количества, цены, механизма пересмотра цены и порядка расчётов.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1026,6 +1086,7 @@ checks_v8:
           "vat_status": "defined",
           "vat_details": "без НДС, ЕСХН",
           "price_change_mechanism_status": "not_defined",
+          "price_change_mechanism_details": "Данные не определены",
           "payment_deadline_status": "defined",
           "payment_deadline_details": "в течение 5 рабочих дней после приёмки",
           "advance_status": "defined",
@@ -1053,6 +1114,7 @@ checks_v8:
           "vat_status": "not_defined",
           "vat_details": "Данные не определены",
           "price_change_mechanism_status": "not_defined",
+          "price_change_mechanism_details": "Данные не определены",
           "payment_deadline_status": "not_defined",
           "payment_deadline_details": "Данные не определены",
           "advance_status": "not_defined",
@@ -1084,6 +1146,7 @@ checks_v8:
           "vat_status": "<defined / not_defined>",
           "vat_details": "<с НДС / без НДС / ЕСХН или 'Данные не определены'>",
           "price_change_mechanism_status": "<defined / not_defined>",
+          "price_change_mechanism_details": "<механизм или 'Данные не определены'>",
           "payment_deadline_status": "<defined / not_defined>",
           "payment_deadline_details": "<срок или 'Данные не определены'>",
           "advance_status": "<defined / not_defined>",
@@ -1094,6 +1157,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "наименование продукции вид продукции сельскохозяйственная продукция выращенная продукция количество объём поставки цена стоимость тонна килограмм центнер литр рублей за тонну рыночная цена оплата срок оплаты после приёмки авансирование предоплата аванс корректировка цены пересмотр цены индексация биржевые котировки НДС ЕСХН"
       preferred_unit_types:
         - payment_term
@@ -1135,10 +1203,17 @@ checks_v8:
       max_chunks: 12
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
-        - "definitions"
+        - "procedures"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -1146,6 +1221,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 560
       llm_prompt_extraction: |
         <role>
@@ -1195,71 +1271,95 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения предмета договора."
+          required: true
         - name: "subject_details"
           type: "string"
           presentation: "fact"
           label: "Предмет договора"
           description: "Наименование и вид сельскохозяйственной продукции."
+          required: true
+          display_in_grid: true
+          display_priority: 1
         - name: "quantity_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения количества."
+          required: true
         - name: "quantity_details"
           type: "string"
           presentation: "fact"
           label: "Количество продукции"
           description: "Количество с единицей измерения."
+          required: false
+          display_in_grid: false
         - name: "price_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения цены."
+          required: true
         - name: "price_details"
           type: "string"
           presentation: "fact"
           label: "Цена за единицу"
           description: "Цена за единицу продукции."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "vat_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус налоговой оговорки."
+          required: false
         - name: "vat_details"
           type: "string"
           presentation: "fact"
           label: "Налоговый режим"
           description: "Налоговая оговорка (с НДС / без НДС / ЕСХН)."
+          required: false
+          display_in_grid: false
         - name: "price_change_mechanism_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус механизма изменения цены."
+          required: false
         - name: "price_change_mechanism_details"
           type: "string"
           presentation: "fact"
           label: "Механизм изменения цены"
           description: "Механизм пересмотра цены (индексация, биржа и т.п.)."
+          required: false
+          display_in_grid: false
         - name: "payment_deadline_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока оплаты."
+          required: true
         - name: "payment_deadline_details"
           type: "string"
           presentation: "fact"
           label: "Срок оплаты"
           description: "Срок оплаты после приёмки продукции."
+          required: false
+          display_in_grid: true
+          display_priority: 3
         - name: "advance_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия об авансировании."
+          required: false
         - name: "advance_details"
           type: "string"
           presentation: "fact"
           label: "Условия аванса"
           description: "Размер и срок аванса производителю."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1271,7 +1371,11 @@ checks_v8:
       Фактографическая проверка наличия условий о сроке и графике сдачи продукции,
       месте приёмки, обязанности заготовителя принять продукцию, транспорте и таре.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1438,6 +1542,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "срок сдачи срок поставки период сдачи не позднее в течение график сдачи по мере созревания уборочная кампания сезон сбора приёмка продукции порядок приёмки место приёмки пункт приёмки акт приёмки весовая лаборатория отбор проб ТТН транспортировка перевозка доставка самовывоз тара упаковка обязан принять продукцию не вправе отказаться обеспечить тарой обеспечить транспортом вывоз продукции"
       preferred_unit_types:
         - obligation
@@ -1481,10 +1590,17 @@ checks_v8:
       max_chunks: 12
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "procedures"
         - "obligations"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -1492,6 +1608,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 560
       llm_prompt_extraction: |
         <role>
@@ -1516,13 +1633,16 @@ checks_v8:
         5. acceptance_place_status — "defined" или "not_defined".
         6. acceptance_place — одно из: producer_location / purchaser_warehouse / elevator / other / not_defined.
         7. acceptance_place_details — конкретное место (адрес, название элеватора и т.п.).
-        8. acceptance_obligation_status — "defined" или "not_defined".
-        9. packaging_provision_status — "defined" или "not_defined".
-        10. packaging_provision — одно из: purchaser / producer / not_defined.
-        11. transport_provision_status — "defined" или "not_defined".
-        12. transport_provision — одно из: purchaser / producer / shared / not_defined.
-        13. acceptance_documents_status — "defined" или "not_defined".
-        14. acceptance_documents_details — документы при приёмке (ТТН, акт и т.п.).
+        8. acceptance_obligation_status — "defined" если прямо указана обязанность
+           заготовителя принять продукцию (или прямо запрещено отказываться от приёмки),
+           иначе "not_defined".
+        9. acceptance_obligation_details — формулировка об обязанности заготовителя принять продукцию.
+        10. packaging_provision_status — "defined" или "not_defined".
+        11. packaging_provision — одно из: purchaser / producer / not_defined.
+        12. transport_provision_status — "defined" или "not_defined".
+        13. transport_provision — одно из: purchaser / producer / shared / not_defined.
+        14. acceptance_documents_status — "defined" или "not_defined".
+        15. acceptance_documents_details — документы при приёмке (ТТН, акт и т.п.).
 
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
@@ -1542,71 +1662,98 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока сдачи."
+          required: true
         - name: "delivery_term_details"
           type: "string"
           presentation: "fact"
           label: "Срок сдачи продукции"
           description: "Конкретный срок сдачи (дата или период)."
+          required: true
+          display_in_grid: true
+          display_priority: 1
         - name: "delivery_schedule_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения графика поставок."
+          required: false
         - name: "delivery_schedule_details"
           type: "string"
           presentation: "fact"
           label: "График поставок"
           description: "График сдачи продукции по периодам или партиям."
+          required: false
+          display_in_grid: false
         - name: "acceptance_place_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения места приёмки."
+          required: false
         - name: "acceptance_place"
           type: "string"
           presentation: "signal"
           allowed_values: ["producer_location", "purchaser_warehouse", "elevator", "other", "not_defined"]
           description: "Тип места приёмки."
+          required: false
         - name: "acceptance_place_details"
           type: "string"
           presentation: "fact"
           label: "Место приёмки"
           description: "Конкретное место приёмки (адрес, название элеватора)."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "acceptance_obligation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обязанности заготовителя принять продукцию."
+          required: false
         - name: "packaging_provision_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения ответственного за тару."
+          required: false
         - name: "packaging_provision"
           type: "string"
           presentation: "signal"
           allowed_values: ["purchaser", "producer", "not_defined"]
           description: "Кто обеспечивает тару и упаковку."
+          required: false
         - name: "transport_provision_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения ответственного за транспорт."
+          required: false
         - name: "transport_provision"
           type: "string"
           presentation: "signal"
           allowed_values: ["purchaser", "producer", "shared", "not_defined"]
           description: "Кто обеспечивает транспорт."
+          required: false
         - name: "acceptance_documents_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения документов при приёмке."
+          required: false
         - name: "acceptance_documents_details"
           type: "string"
           presentation: "fact"
           label: "Документы при приёмке"
           description: "Документы, оформляемые при приёмке (ТТН, акт приёмки и т.п.)."
+          required: false
+          display_in_grid: false
+        - name: "acceptance_obligation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Обязанность принять продукцию"
+          description: "Формулировка об обязанности заготовителя принять продукцию."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1619,7 +1766,11 @@ checks_v8:
       ссылок на стандарты, ветеринарных/фитосанитарных документов,
       порядка приёмки по качеству и претензионного механизма.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1782,6 +1933,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "качество продукции требования к качеству стандарты качества соответствие ГОСТ технические условия параметры качества сертификат качества декларация соответствия лабораторный анализ влажность сорность жирность кислотность пестициды ПДК безопасность продукции ТР ТС ветеринарный сертификат ВСД Меркурий фитосанитарный сертификат Россельхознадзор экспертиза качества рекламация арбитражный образец"
       preferred_unit_types:
         - warranty
@@ -1825,11 +1981,18 @@ checks_v8:
       max_chunks: 12
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "representations"
         - "obligations"
         - "procedures"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
     evidence:
       required: true
       min_snippet_length: 40
@@ -1837,6 +2000,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 500
       llm_prompt_extraction: |
         <role>
@@ -1860,13 +2024,22 @@ checks_v8:
         4. quality_parameters_details — конкретные параметры (влажность, сорность, жирность и т.п.).
         5. tr_ts_status — "defined" или "not_defined".
         6. tr_ts_details — технический регламент (ТР ТС с номером).
-        7. veterinary_docs_status — "defined" или "not_defined".
-        8. phytosanitary_docs_status — "defined" или "not_defined".
-        9. claims_period_status — "defined" или "not_defined".
-        10. claims_period_details — срок предъявления претензий по качеству.
-        11. dispute_mechanism_status — "defined" или "not_defined".
-        12. dispute_mechanism_details — механизм разрешения споров о качестве (экспертиза, арбитражный образец).
+        7. veterinary_docs_status — "defined" если прямо требуются ветеринарные документы
+           (ВСД, Меркурий, ветсвидетельство), иначе "not_defined".
+        8. phytosanitary_docs_status — "defined" если прямо требуется фитосанитарный
+           сертификат или иное заключение Россельхознадзора, иначе "not_defined".
+        9. quality_check_procedure_status — "defined" если прямо описан порядок
+           определения качества при приёмке (лаборатория, отбор проб), иначе "not_defined".
+        10. quality_check_procedure_details — порядок лабораторного контроля или отбора проб.
+        11. claims_period_status — "defined" или "not_defined".
+        12. claims_period_details — срок предъявления претензий по качеству.
+        13. dispute_mechanism_status — "defined" или "not_defined".
+        14. dispute_mechanism_details — механизм разрешения споров о качестве
+            (экспертиза аккредитованной лаборатории, арбитражный образец и т.п.).
 
+        Если данные отсутствуют в тексте:
+        - статус = "not_defined"
+        - текстовое поле = "Данные не определены"
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
         - текстовое поле = "Данные не определены"
@@ -1886,61 +2059,93 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения стандарта качества."
+          required: true
         - name: "quality_standard_details"
           type: "string"
           presentation: "fact"
           label: "Стандарт качества"
           description: "Применяемый ГОСТ, ТУ или иной стандарт."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "quality_parameters_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения параметров качества."
+          required: false
         - name: "quality_parameters_details"
           type: "string"
           presentation: "fact"
           label: "Параметры качества"
           description: "Конкретные показатели качества (влажность, сорность и т.п.)."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "tr_ts_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус ссылки на технический регламент ТР ТС."
+          required: false
         - name: "tr_ts_details"
           type: "string"
           presentation: "fact"
           label: "Технический регламент"
           description: "Применяемый ТР ТС с номером."
+          required: false
+          display_in_grid: false
         - name: "veterinary_docs_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус требования ветеринарных документов."
+          required: false
         - name: "phytosanitary_docs_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус требования фитосанитарных документов."
+          required: false
+        - name: "quality_check_procedure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения порядка лабораторного контроля при приёмке."
+          required: false
+        - name: "quality_check_procedure_details"
+          type: "string"
+          presentation: "fact"
+          label: "Порядок контроля качества"
+          description: "Порядок определения качества при приёмке (лаборатория, отбор проб)."
+          required: false
+          display_in_grid: false
         - name: "claims_period_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока претензий по качеству."
+          required: false
         - name: "claims_period_details"
           type: "string"
           presentation: "fact"
           label: "Срок претензий по качеству"
           description: "Срок предъявления претензий по качеству после приёмки."
+          required: false
+          display_in_grid: false
         - name: "dispute_mechanism_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения механизма разрешения споров о качестве."
+          required: false
         - name: "dispute_mechanism_details"
           type: "string"
           presentation: "fact"
           label: "Механизм споров о качестве"
           description: "Порядок разрешения споров о качестве (экспертиза, арбитражный образец)."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1952,7 +2157,11 @@ checks_v8:
       Фактографическая проверка наличия условий о моменте перехода риска
       случайной гибели/повреждения продукции и условиях хранения до передачи.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -2076,6 +2285,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "риск гибели риск повреждения случайная гибель риск порчи несёт риск момент перехода риска условия хранения температурный режим склад элеватор зернохранилище холодильник ответственное хранение порча при хранении частичная гибель продукции пересчёт объёма"
       preferred_unit_types:
         - obligation
@@ -2114,10 +2328,17 @@ checks_v8:
       max_chunks: 8
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "procedures"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
     evidence:
       required: true
       min_snippet_length: 30
@@ -2125,6 +2346,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 480
       llm_prompt_extraction: |
         <role>
@@ -2162,9 +2384,12 @@ checks_v8:
         - Используй только текст договора.
         - Не выводи момент перехода риска из общих норм ГК — только из прямой цитаты.
         - Не подставляй нормы закона.
-        - upon_act = переход риска при подписании акта приёмки.
-        - upon_weighing = при взвешивании / замере.
-        - upon_shipping = при отгрузке / передаче перевозчику.
+        - upon_act — переход риска при подписании акта приёмки или приёмо-сдаточного акта.
+        - upon_weighing — при взвешивании / замере количества продукции.
+        - upon_shipping — при отгрузке / передаче продукции перевозчику или заготовителю
+          без дополнительного акта.
+        - custom — любой иной явно указанный момент, не совпадающий с перечисленными.
+        - not_defined — если момент прямо не указан в тексте.
         - Пиши кратко. Верни только JSON.
         </rules>
       fields:
@@ -2173,46 +2398,60 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения момента перехода риска."
+          required: true
         - name: "risk_transfer_moment"
           type: "string"
           presentation: "signal"
           allowed_values: ["upon_act", "upon_weighing", "upon_shipping", "custom", "not_defined"]
           description: "Момент перехода риска случайной гибели."
+          required: false
         - name: "risk_transfer_details"
           type: "string"
           presentation: "fact"
           label: "Переход риска гибели"
           description: "Формулировка договора о моменте перехода риска."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "risk_bearer_before_transfer_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения носителя риска до передачи."
+          required: false
         - name: "risk_bearer_before_transfer"
           type: "string"
           presentation: "signal"
           allowed_values: ["producer", "purchaser", "not_defined"]
           description: "Кто несёт риск до момента передачи."
+          required: false
         - name: "storage_conditions_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения условий хранения."
+          required: false
         - name: "storage_conditions_details"
           type: "string"
           presentation: "fact"
           label: "Условия хранения до вывоза"
           description: "Требования к хранению продукции до вывоза заготовителем."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "partial_loss_procedure_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка при частичной гибели."
+          required: false
         - name: "partial_loss_procedure_details"
           type: "string"
           presentation: "fact"
           label: "Порядок при частичной гибели"
           description: "Порядок действий при частичной гибели урожая (пересчёт, перенос сроков)."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2224,7 +2463,11 @@ checks_v8:
       Фактографическая проверка наличия условий об ответственности производителя
       (виновная, ст. 538 ГК), неустоек, оснований расторжения и возврата аванса.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -2252,10 +2495,6 @@ checks_v8:
         - "возврат аванса"
         - "существенное нарушение"
       keyword_mode: "any"
-      negative_keywords:
-        - "независимо от вины производителя"
-        - "вне зависимости от вины"
-        - "безусловная ответственность производителя"
       regex_patterns:
         - "(?i)производитель.*несёт.*ответственность.*при.*наличии.*вин"
         - "(?i)производитель.*освобождается.*от.*ответственности"
@@ -2391,6 +2630,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 800
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "ответственность производителя при наличии вины виновное неисполнение освобождается от ответственности независимо от вины безусловная ответственность неустойка за недопоставку пеня за просрочку сдачи штраф за нарушение сроков отказ от приёмки необоснованный отказ уклонение от приёмки неустойка за отказ просрочка оплаты ст. 395 ключевая ставка расторжение отказ от договора возврат аванса существенное нарушение ст. 538"
       preferred_unit_types:
         - liability_provision
@@ -2432,11 +2676,18 @@ checks_v8:
       max_chunks: 12
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "remedies"
         - "procedures"
         - "limitations"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.12
     evidence:
       required: true
       min_snippet_length: 40
@@ -2444,6 +2695,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 560
       llm_prompt_extraction: |
         <role>
@@ -2495,66 +2747,88 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения характера ответственности производителя."
+          required: true
         - name: "producer_liability_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["fault_based", "strict_liability", "not_defined"]
           description: "Тип ответственности производителя: виновная или безвиновная."
+          required: false
         - name: "violation_of_art_538"
           type: "string"
-          presentation: "diagnostic"
+          presentation: "signal"
           allowed_values: ["yes", "no"]
           description: "Маркер нарушения ст. 538 ГК РФ: безвиновная ответственность производителя."
+          required: false
+          display_in_grid: true
+          display_priority: 3
         - name: "producer_delivery_penalty_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения неустойки за просрочку сдачи."
+          required: false
         - name: "producer_delivery_penalty_details"
           type: "string"
           presentation: "fact"
           label: "Неустойка за просрочку сдачи"
           description: "Ставка и база неустойки производителя за просрочку сдачи."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "purchaser_non_acceptance_penalty_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения ответственности заготовителя за отказ от приёмки."
+          required: false
         - name: "purchaser_non_acceptance_penalty_details"
           type: "string"
           presentation: "fact"
           label: "Ответственность за отказ от приёмки"
           description: "Условия ответственности заготовителя за необоснованный отказ от приёмки."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "purchaser_late_payment_penalty_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения неустойки за просрочку оплаты."
+          required: false
         - name: "purchaser_late_payment_penalty_details"
           type: "string"
           presentation: "fact"
           label: "Неустойка за просрочку оплаты"
           description: "Ставка неустойки заготовителя за просрочку оплаты."
+          required: false
+          display_in_grid: false
         - name: "termination_grounds_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения оснований расторжения."
+          required: false
         - name: "termination_grounds_details"
           type: "string"
           presentation: "fact"
           label: "Основания расторжения"
           description: "Основания расторжения договора для каждой стороны."
+          required: false
+          display_in_grid: false
         - name: "advance_return_on_termination_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия о возврате аванса при расторжении."
+          required: false
         - name: "advance_return_on_termination_details"
           type: "string"
           presentation: "fact"
           label: "Возврат аванса при расторжении"
           description: "Условия и срок возврата аванса при расторжении договора."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2564,10 +2838,14 @@ checks_v8:
     name: "Общие условия: срок, НДС/ЕСХН, уступка, конфиденциальность, споры"
     description: >
       Фактографическая проверка стандартных условий договора контрактации:
-      срок действия, налоговые оговорки, ограничения уступки прав,
-      конфиденциальность, претензионный порядок и подсудность.
+      срок действия договора (включая сезонную привязку), автоматическая пролонгация,
+      налоговые оговорки (НДС / ЕСХН) и ограничения уступки прав.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -2669,13 +2947,13 @@ checks_v8:
         }
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли конкретный срок действия (дата или привязка к сезону)?
-        2. Есть ли автоматическая пролонгация явно?
+        1. Есть ли конкретный срок действия (дата или привязка к сезону/урожаю)?
+        2. Есть ли автоматическая пролонгация прямо указана?
         3. Указано ли явно: с НДС / без НДС / ЕСХН?
-        4. Есть ли условие об уступке (с согласия / без / запрет)?
-        5. Есть ли условие о конфиденциальности?
-        6. Указаны ли конкретные сроки претензионного порядка?
-        7. Назван ли конкретный суд?
+        4. Есть ли прямое условие об уступке (с согласия / запрет / свободно)?
+        5. Если прямого текста нет — возвращай "not_defined" и "Данные не определены".
+        6. Не анализируй конфиденциальность, претензионный порядок и подсудность
+           — они выходят за рамки этого check.
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -2695,6 +2973,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "срок действия договора действует до вступает в силу на сезон на урожай пролонгация автоматически продлевается НДС ЕСХН единый сельскохозяйственный налог освобождение от НДС уступка переуступка перевод долга без согласия с согласия другой стороны не разглашать претензионный порядок"
       preferred_unit_types:
         - general_provision
@@ -2734,10 +3017,17 @@ checks_v8:
       max_chunks: 10
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "boilerplate"
         - "procedures"
       confidence_bonus_on_match: 0.06
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 30
@@ -2745,6 +3035,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 420
       llm_prompt_extraction: |
         <role>
@@ -2788,36 +3079,48 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока действия договора."
+          required: true
         - name: "contract_term_details"
           type: "string"
           presentation: "fact"
           label: "Срок действия договора"
           description: "Срок действия договора (дата или сезонная привязка)."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "auto_renewal_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия об автоматической пролонгации."
+          required: false
         - name: "vat_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус налоговой оговорки."
+          required: false
         - name: "vat_details"
           type: "string"
           presentation: "fact"
           label: "Налоговый режим"
           description: "Налоговая оговорка: с НДС / без НДС / ЕСХН."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "assignment_restriction_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус ограничения на уступку прав."
+          required: false
         - name: "assignment_restriction_details"
           type: "string"
           presentation: "fact"
           label: "Уступка прав"
           description: "Условие об уступке прав требования по договору."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2830,7 +3133,11 @@ checks_v8:
       сельскохозяйственного производства — перечень с/х рисков, уведомление,
       доказательства, последствия для обязательств.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -2981,6 +3288,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "форс-мажор непреодолимая сила неблагоприятные погодные условия засуха наводнение заморозки град эпидемия эпизоотия нашествие вредителей стихийные бедствия гибель урожая освобождается от ответственности производитель уведомляет ТПП Гидрометцентр Россельхознадзор справка о форс-мажоре перенос сроков пересчёт объёма"
       preferred_unit_types:
         - liability_provision
@@ -3017,10 +3329,17 @@ checks_v8:
       max_chunks: 8
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "boilerplate"
         - "limitations"
       confidence_bonus_on_match: 0.06
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 50
@@ -3028,6 +3347,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 500
       llm_prompt_extraction: |
         <role>
@@ -3066,8 +3386,13 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - Только "форс-мажор" без деталей → force_majeure_type: general_only.
-        - Засуха / заморозки / градобой / эпизоотия → agricultural_specific.
+        - Для force_majeure_type используй только:
+          - "agricultural_specific" — если прямо перечислены специфические с/х риски:
+            засуха, заморозки, наводнение, градобой, эпизоотия, нашествие вредителей
+            или иные явно сельскохозяйственные события
+          - "general_only" — если оговорка есть, но перечень событий отсутствует
+            или содержит только общие формулировки ("чрезвычайные обстоятельства")
+          - "not_defined" — если форс-мажорная оговорка отсутствует
         - Не делай предположений о с/х специфике без прямого текста.
         - Пиши кратко. Верни только JSON.
         </rules>
@@ -3077,51 +3402,67 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия форс-мажорной оговорки."
+          required: true
         - name: "force_majeure_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["agricultural_specific", "general_only", "not_defined"]
           description: "Тип форс-мажорной оговорки."
+          required: false
         - name: "specific_events_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус перечня конкретных с/х событий."
+          required: false
         - name: "specific_events_details"
           type: "string"
           presentation: "fact"
           label: "Перечень с/х рисков форс-мажора"
           description: "Конкретные сельскохозяйственные события форс-мажора."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "notification_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка уведомления."
+          required: false
         - name: "notification_details"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления о форс-мажоре"
           description: "Срок уведомления контрагента о наступлении форс-мажора."
+          required: false
+          display_in_grid: false
         - name: "proof_requirements_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус требований к доказательствам форс-мажора."
+          required: false
         - name: "proof_requirements_details"
           type: "string"
           presentation: "fact"
           label: "Доказательства форс-мажора"
           description: "Документы, подтверждающие форс-мажор (ТПП, Гидрометцентр и т.п.)."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "consequences_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения последствий форс-мажора."
+          required: false
         - name: "consequences_details"
           type: "string"
           presentation: "fact"
           label: "Последствия форс-мажора"
           description: "Последствия для обязательств при форс-мажоре."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3134,7 +3475,11 @@ checks_v8:
       обязанной стороны, распределения расходов и выгодоприобретателя.
     triggers:
       any: ["crop_insurance", "high_value_crops"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -3247,6 +3592,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "страхование урожая страхование сельскохозяйственных рисков агрострахование страховой полис страховая сумма страховой случай гибель урожая выгодоприобретатель застраховать обязан застраховать страховая компания расходы на страхование"
       preferred_unit_types:
         - obligation
@@ -3282,10 +3632,17 @@ checks_v8:
       max_chunks: 6
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "boilerplate"
       confidence_bonus_on_match: 0.06
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 30
@@ -3293,6 +3650,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 460
       llm_prompt_extraction: |
         <role>
@@ -3318,7 +3676,9 @@ checks_v8:
         6. beneficiary_status — "defined" или "not_defined".
         7. beneficiary — одно из: producer / purchaser / both / not_defined.
         8. beneficiary_details — уточнение о выгодоприобретателе (в части аванса и т.п.).
-        9. insurance_event_procedure_status — "defined" или "not_defined".
+        9. insurance_event_procedure_status — "defined" если прямо описан порядок
+           действий сторон при наступлении страхового случая, иначе "not_defined".
+           Это status-only поле — детали не извлекаются.
 
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
@@ -3327,8 +3687,10 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - "Рекомендуется застраховать" → insurance_status: not_defined.
-        - Только прямая обязанность ("обязан застраховать") → insurance_status: defined.
+        - "Рекомендуется застраховать" или "вправе застраховать" → insurance_status: not_defined.
+        - Только прямая обязанность ("обязан застраховать", "производитель страхует") → insurance_status: defined.
+        - insurance_event_procedure_status — возвращай только status, без дополнительных details.
+        - Не подставляй нормы закона.
         - Пиши кратко. Верни только JSON.
         </rules>
       fields:
@@ -3337,46 +3699,59 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обязательства по страхованию урожая."
+          required: true
         - name: "insurance_obligated_party_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения обязанной стороны."
+          required: false
         - name: "insurance_obligated_party"
           type: "string"
           presentation: "signal"
           allowed_values: ["producer", "purchaser", "both", "not_defined"]
           description: "Кто обязан застраховать урожай."
+          required: false
         - name: "insurance_cost_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения ответственного за расходы."
+          required: false
         - name: "insurance_cost_details"
           type: "string"
           presentation: "fact"
           label: "Расходы на страхование"
           description: "Кто несёт расходы на страхование урожая."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "beneficiary_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения выгодоприобретателя."
+          required: false
         - name: "beneficiary"
           type: "string"
           presentation: "signal"
           allowed_values: ["producer", "purchaser", "both", "not_defined"]
           description: "Выгодоприобретатель по договору страхования."
+          required: false
         - name: "beneficiary_details"
           type: "string"
           presentation: "fact"
           label: "Выгодоприобретатель"
           description: "Уточнение о выгодоприобретателе (в части аванса и т.п.)."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "insurance_event_procedure_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка действий при страховом случае."
+          required: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3390,7 +3765,11 @@ checks_v8:
       и механизм компенсации затрат.
     triggers:
       any: ["perennial_crops"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -3418,7 +3797,7 @@ checks_v8:
         1. Наличие специального условия для многолетних насаждений.
         2. Распределение рисков гибели насаждений (кто несёт).
         3. Механизм компенсации затрат производителя при гибели насаждений.
-        4. Порядок пересчёта объёмов при частичной гибели насаждений.
+        4. Предусмотрен ли прямо механизм пересчёта объёмов при частичной гибели насаждений.
 
         [ПРАВИЛА]
         1. Только текст документа.
@@ -3449,6 +3828,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "многолетние насаждения плодовые деревья виноградник многолетние культуры гибель насаждений компенсация затрат на насаждения восстановление насаждений капитальные затраты пересчёт объёма при гибели насаждений риск насаждений"
       preferred_unit_types:
         - obligation
@@ -3482,10 +3866,17 @@ checks_v8:
       max_chunks: 6
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "procedures"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
     evidence:
       required: true
       min_snippet_length: 30
@@ -3493,15 +3884,17 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 420
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации
         условия о многолетних насаждениях (виноградники, сады, плантации):
         распределение рисков гибели насаждений, механизм компенсации капитальных
-        затрат и пересчёт объёмов при частичной гибели.
-        Не анализируй риск гибели урожая (сезонной продукции), форс-мажор,
+        затрат и наличие механизма пересчёта объёмов при частичной гибели насаждений.
+        Не анализируй риск гибели урожая как сезонной продукции, форс-мажор,
         страхование или ответственность за нарушение договора.
+        Не оценивай риски.
         </role>
 
         <context>
@@ -3511,14 +3904,23 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. perennial_clause_status — "defined" или "not_defined".
-           "defined" только если есть специальное условие именно о насаждениях
-           (не просто об урожае).
-        2. risk_allocation_status — "defined" или "not_defined".
-        3. risk_allocation — одно из: producer / purchaser / shared / insured / not_defined.
-        4. compensation_mechanism_status — "defined" или "not_defined".
-        5. compensation_mechanism_details — механизм компенсации затрат на насаждения.
-        6. partial_loss_recalculation_status — "defined" или "not_defined".
+        1. perennial_clause_status — "defined" если есть специальное условие именно
+           о многолетних насаждениях (не просто об урожае), иначе "not_defined".
+        2. risk_allocation_status — "defined" если прямо указано распределение рисков
+           гибели насаждений, иначе "not_defined".
+        3. risk_allocation — одно из:
+           - "producer" — если риск несёт производитель
+           - "purchaser" — если риск несёт заготовитель
+           - "shared" — если риск распределён между сторонами
+           - "insured" — если риск прямо покрывается страховым механизмом
+           - "not_defined" — если распределение риска прямо не указано
+        4. compensation_mechanism_status — "defined" если прямо предусмотрен
+           механизм компенсации затрат на насаждения, иначе "not_defined".
+        5. compensation_mechanism_details — механизм компенсации капитальных затрат
+           производителя при гибели насаждений.
+        6. partial_loss_recalculation_status — "defined" если прямо предусмотрен
+           механизм пересчёта объёмов при частичной гибели насаждений, иначе "not_defined".
+           Это status-only поле: дополнительные details не извлекаются.
 
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
@@ -3527,9 +3929,10 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - Условие об урожае (сезонная продукция) ≠ условие о насаждениях.
+        - Условие об урожае (сезонная продукция) не равно условию о насаждениях.
         - Только прямое упоминание "насаждений", "плодовых деревьев",
-          "виноградника" → perennial_clause_status: defined.
+          "виноградника", "сада", "плантации" может быть основанием для perennial_clause_status = "defined".
+        - Не делай предположений.
         - Пиши кратко. Верни только JSON.
         </rules>
       fields:
@@ -3538,31 +3941,39 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия специального условия о многолетних насаждениях."
+          required: true
         - name: "risk_allocation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения распределения рисков гибели насаждений."
+          required: false
         - name: "risk_allocation"
           type: "string"
           presentation: "signal"
           allowed_values: ["producer", "purchaser", "shared", "insured", "not_defined"]
           description: "Кто несёт риск гибели многолетних насаждений."
+          required: false
         - name: "compensation_mechanism_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения механизма компенсации затрат."
+          required: false
         - name: "compensation_mechanism_details"
           type: "string"
           presentation: "fact"
           label: "Компенсация затрат на насаждения"
           description: "Механизм компенсации капитальных затрат производителя при гибели насаждений."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "partial_loss_recalculation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения пересчёта объёмов при частичной гибели насаждений."
+          required: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3576,7 +3987,11 @@ checks_v8:
       распределения расходов и ответственности за непредоставление.
     triggers:
       any: ["production_support"]
+    ui_mode: "field_extraction"
     severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "medium"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -3607,7 +4022,7 @@ checks_v8:
         1. Наличие обязанности заготовителя предоставлять ресурсы.
         2. Перечень предоставляемых ресурсов.
         3. Кто несёт расходы на ресурсы.
-        4. Ответственность за непредоставление ресурсов.
+        4. Предусмотрена ли прямо ответственность за непредоставление ресурсов.
 
         [ПРАВИЛА]
         1. Только текст документа.
@@ -3617,9 +4032,11 @@ checks_v8:
         5. Верни только один JSON-объект.
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
-        1. Есть ли прямая обязанность (не рекомендация) предоставить ресурсы?
-        2. Перечислены ли конкретные ресурсы (семена / удобрения / СЗР / техника)?
+        1. Есть ли прямая обязанность (не рекомендация и не право) предоставить ресурсы?
+        2. Перечислены ли конкретные ресурсы (семена / удобрения / СЗР / техника / ГСМ)?
         3. Кто платит за ресурсы — прямо ли указано?
+        4. Есть ли прямое условие об ответственности за непредоставление ресурсов?
+        5. Если прямого текста нет — верни "not_defined" и "Данные не определены".
 
         Не выводи шаги проверки. Верни только JSON.
 
@@ -3638,6 +4055,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "предоставление семян обеспечение удобрениями средства защиты растений предоставление техники агрономическое сопровождение обеспечение производственного процесса семенной материал ГСМ горюче-смазочные материалы заготовитель обязуется предоставить ст. 536 ГК РФ расходы на ресурсы зачёт в счёт цены ответственность за непредоставление"
       preferred_unit_types:
         - obligation
@@ -3673,10 +4095,17 @@ checks_v8:
       max_chunks: 6
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "procedures"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 30
@@ -3684,15 +4113,18 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 420
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора контрактации
         условия об обязанностях заготовителя обеспечивать производителя ресурсами
-        (семена, удобрения, СЗР, техника, ГСМ, агросопровождение): перечень ресурсов,
-        распределение расходов и ответственность за непредоставление.
-        Не анализируй цену продукции, качество, сроки сдачи или ответственность за
-        нарушение сроков поставки.
+        (семена, удобрения, СЗР, техника, ГСМ, агрономическое сопровождение):
+        перечень ресурсов, распределение расходов и наличие ответственности
+        за непредоставление.
+        Не анализируй цену продукции, качество, сроки сдачи, неустойки за просрочку
+        или иные темы.
+        Не оценивай риски.
         </role>
 
         <context>
@@ -3702,14 +4134,21 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. production_support_status — "defined" или "not_defined".
-           "defined" только если есть ОБЯЗАННОСТЬ (не право) заготовителя
-           предоставить ресурсы.
-        2. resources_list_status — "defined" или "not_defined".
+        1. production_support_status — "defined" только если есть прямая обязанность
+           заготовителя предоставить ресурсы, иначе "not_defined".
+        2. resources_list_status — "defined" если перечень ресурсов прямо указан,
+           иначе "not_defined".
         3. resources_list_details — перечень предоставляемых ресурсов.
-        4. cost_allocation_status — "defined" или "not_defined".
-        5. cost_allocation — одно из: purchaser / producer / offset_against_price / not_defined.
-        6. liability_for_non_provision_status — "defined" или "not_defined".
+        4. cost_allocation_status — "defined" если прямо указано, кто несёт расходы
+           на ресурсы, иначе "not_defined".
+        5. cost_allocation — одно из:
+           - "purchaser" — расходы несёт заготовитель
+           - "producer" — расходы несёт производитель
+           - "offset_against_price" — стоимость ресурсов зачитывается в счёт цены продукции
+           - "not_defined" — если распределение расходов прямо не указано
+        6. liability_for_non_provision_status — "defined" если прямо предусмотрена
+           ответственность за непредоставление ресурсов, иначе "not_defined".
+           Это status-only поле: дополнительные details не извлекаются.
 
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
@@ -3718,9 +4157,11 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - "Вправе предоставить" / "может предоставить" → production_support_status: not_defined.
-        - Только "обязан предоставить" / "обязуется предоставить" → defined.
-        - offset_against_price = стоимость ресурсов вычитается из цены продукции.
+        - "Вправе предоставить" / "может предоставить" / "оказывает содействие"
+          не являются достаточным основанием для production_support_status = "defined".
+        - Только "обязан предоставить" / "обязуется предоставить" / "обеспечивает"
+          как договорная обязанность → production_support_status = "defined".
+        - Не делай предположений.
         - Пиши кратко. Верни только JSON.
         </rules>
       fields:
@@ -3729,33 +4170,40 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обязанности заготовителя предоставлять ресурсы производителю."
+          required: true
         - name: "resources_list_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения перечня ресурсов."
+          required: false
         - name: "resources_list_details"
           type: "string"
           presentation: "fact"
           label: "Ресурсы от заготовителя"
           description: "Перечень ресурсов, предоставляемых заготовителем производителю."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "cost_allocation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения распределения расходов на ресурсы."
+          required: false
         - name: "cost_allocation"
           type: "string"
           presentation: "signal"
           allowed_values: ["purchaser", "producer", "offset_against_price", "not_defined"]
           description: "Кто несёт расходы на предоставляемые ресурсы."
+          required: false
         - name: "liability_for_non_provision_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения ответственности за непредоставление ресурсов."
+          required: false
       store_payload: true
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES

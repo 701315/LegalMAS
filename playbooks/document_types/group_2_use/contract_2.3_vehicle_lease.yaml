@@ -1,6 +1,7 @@
 type: contract_2.3_vehicle_lease
 name: "Договор аренды транспортного средства"
-
+version: 6.0
+parent: class_2_transfer_for_use
 description: |
   Специальный вид договора аренды, предметом которого является транспортное средство:
   автомобиль, спецтехника, судно, воздушное судно и иные транспортные средства,
@@ -13,10 +14,6 @@ description: |
   Правильная квалификация вида аренды критична, поскольку от нее зависит распределение
   расходов, ремонтных обязанностей, страхования, риска случайной гибели, ответственности
   за вред третьим лицам и статуса арендатора как владельца источника повышенной опасности.
-
-version: 4.0
-parent: class_2_transfer_for_use
-
 metadata:
   category: contract
   subcategory: use_transfer
@@ -60,13 +57,6 @@ metadata:
     - "aircraft lease agreement"
     - "wet lease agreement"
     - "dry lease agreement"
-
-engine_expectations:
-  evidence_required: true
-  evidence_style: "pinpoint"
-  allow_not_found: true
-  output_style: "dd_grid"
-  prefer_structured_outputs: true
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
@@ -233,7 +223,6 @@ classification_runtime_v1:
         kind: context
         weight: 0.18
         # Vehicle без lease/rental/аренда слишком широкий маркер
-
 
     folder_patterns:
       - pattern: "(?i)аренд[а-я]*[_\\s-]*(?:тс|транспортн[а-я]*[_\\s-]*средств|автомобил|спецтехник|судн|воздушн)"
@@ -713,290 +702,2153 @@ shared_patterns:
   percentage: "(?i)\\b\\d+[,.]?\\d*\\s*%"
   plate_number: "(?i)[А-ЯA-Z]\\d{3}[А-ЯA-Z]{2}\\d{2,3}"
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 4: COMPLIANCE RULES
-#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
-# ════════════════════════════════════════════════════════════════════════════
-
-compliance_rules:
-
-  - id: "consumer_short_term_reclassification_to_rental"
-    name: "Риск переквалификации в прокат"
-    description: >
-      Если аренда ТС носит краткосрочный потребительский характер и оформляется
-      как сервис для гражданина для личных нужд, документ может требовать анализа
-      в логике проката/consumer-rental, а не общей коммерческой аренды ТС.
-    legal_base: "§ 2 и § 3 Главы 34 ГК РФ"
-    required_triggers: ["consumer_short_term_hint"]
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "бытовые нужды"
-        - "гражданин"
-        - "посуточная аренда"
-        - "почасовая аренда"
-        - "каршеринг"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "бытовые нужды"
-        - "каршеринг"
-        - "посуточная аренда"
-      rerank: true
-
-  - id: "purchase_option_reclassification_to_leasing"
-    name: "Риск переквалификации в лизинг"
-    description: >
-      Если договор аренды ТС содержит investment-like purchase option и purchase leg,
-      он может требовать анализа в логике лизинга, а не обычной аренды ТС.
-    legal_base: "§ 3 и § 6 Главы 34 ГК РФ"
-    required_triggers: ["purchase_option_present"]
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "выкуп"
-        - "выкупная цена"
-        - "остаточная стоимость"
-        - "переход права собственности"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "выкупная цена"
-        - "остаточная стоимость"
-        - "переход права собственности"
-      rerank: true
-
-  - id: "mandatory_vehicle_insurance_context"
-    name: "ТС: обязательный учет страхового и регистрационного контура"
-    description: >
-      Эксплуатация ТС без надлежащего страхового и регистрационного оформления
-      создает критические operational и liability risks.
-    legal_base: "ФЗ № 40-ФЗ «Об ОСАГО», регистрационные акты МВД, ст. 1079 ГК РФ"
-    required_triggers: ["road_vehicle"]
-    severity: "critical"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "ОСАГО"
-        - "ПТС"
-        - "СТС"
-        - "регистрация в ГИБДД"
-        - "страхование"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "ОСАГО"
-        - "ГИБДД"
-        - "ПТС"
-        - "СТС"
-      rerank: true
-
-  - id: "vessel_aircraft_special_regime"
-    name: "Суда и ВС: специальный регистрационный и разрешительный режим"
-    description: >
-      Аренда морских/речных судов и воздушных судов подчиняется специальным
-      транспортным кодексам (КТМ, КВВТ, ВзК РФ), требует регистрации в соответствующих
-      реестрах, наличия свидетельств годности, лицензий на эксплуатацию и специфического
-      страхования (P&I, Hull). Применение только § 3 Гл. 34 ГК РФ недостаточно.
-    legal_base: "КТМ РФ (Гл. X), КВВТ РФ (Гл. X), Воздушный кодекс РФ (Гл. IX), ФЗ-261"
-    required_triggers: ["vessel_or_aircraft"]
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "судно"
-        - "морское судно"
-        - "речное судно"
-        - "воздушное судно"
-        - "тайм-чартер"
-        - "авиационный"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "тайм-чартер"
-        - "судовой реестр"
-        - "свидетельство о годности"
-        - "воздушное судно"
-      rerank: true
+compliance_rules: []
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  БЛОК 4: CHECKS_V8 — LLM/hybrid проверки
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 
 checks_v8:
 
-  - id: vehicle_lease_type_extraction
-    name: "Аренда ТС: извлечение типа договора и предмета"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 1: Стороны договора
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_lease_parties_and_authority
+    name: "Стороны договора аренды ТС: арендодатель, арендатор, полномочия"
     description: >
-      Извлекает вид аренды (с экипажем / без экипажа), тип ТС,
-      идентификаторы, срок и базовые условия пользования.
-    triggers: {}
+      Фактографическая проверка идентификации сторон договора аренды
+      транспортного средства: арендодатель (фрахтовщик), арендатор
+      (фрахтователь), реквизиты, подписанты и основания полномочий.
+    triggers: ~
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
-        - "транспортное средство"
-        - "аренда автомобиля"
-        - "с экипажем"
-        - "без экипажа"
-        - "VIN"
-        - "госномер"
-        - "арендная плата"
+        - "арендодатель"
+        - "арендатор"
+        - "фрахтовщик"
+        - "фрахтователь"
+        - "в лице"
+        - "действующего на основании"
+        - "ИНН"
+        - "ОГРН"
+        - "ОГРНИП"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
-        - "(?i)[А-ЯA-Z]\\d{3}[А-ЯA-Z]{2}\\d{2,3}"
-        - "(?i)с\\s+экипажем|без\\s+экипажа"
+        - "(?i)(арендодатель|арендатор|фрахтовщик|фрахтователь).*именуем"
+        - "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"
+        - "(?i)действующ[а-я]+\\s+на\\s+основании"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор аренды транспортного средства.
-        Извлеки ключевые параметры договора.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ
+        (ст. 632–649).
+        Проверяется только один вопрос: идентификация арендодателя (фрахтовщика)
+        и арендатора (фрахтователя), полномочия подписантов.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 432 ГК РФ — идентификация сторон
+        - ст. 182–185 ГК РФ — полномочия представителя
+
+        Важно:
+        - Не оценивай серьёзность риска.
+        - Устанавливай только то, что прямо есть в тексте.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Кто указан как Арендодатель / Фрахтовщик (наименование/ФИО, ИНН, ОГРН).
+        2. Кто указан как Арендатор / Фрахтователь (наименование/ФИО, ИНН, ОГРН).
+        3. Кто подписывает договор от каждой стороны и на каком основании.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined" / "Данные не определены".
+        3. Не используй "None", "null", "not_found" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — стороны определены:
+        Фрагмент:
+        "ООО «АвтоПрокат» (ИНН 7700000001, ОГРН 1027700000001), именуемое
+        «Арендодатель», в лице директора Иванова И.И., действующего на основании
+        Устава, и Петров П.П. (паспорт серия 4500 № 123456), именуемый «Арендатор»."
+
+        Ответ:
         {
-          "lease_type": "<with_crew / without_crew / unclear / not_found>",
-          "vehicle_type": "<road_vehicle / vessel / aircraft / other / mixed / not_found>",
-          "vehicle_description": "<описание ТС или not_found>",
-          "vin_or_identifier": "<VIN/идентификатор или not_found>",
-          "state_number": "<госномер или not_found>",
-          "lease_term": "<срок аренды или not_found>"
+          "landlord_details_status": "defined",
+          "landlord_details": "ООО «АвтоПрокат», ИНН 7700000001, ОГРН 1027700000001",
+          "landlord_type": "legal_entity",
+          "landlord_signatory_status": "defined",
+          "landlord_signatory": "директор Иванов И.И.",
+          "landlord_signatory_basis": "charter",
+          "tenant_details_status": "defined",
+          "tenant_details": "Петров П.П., паспорт серия 4500 № 123456",
+          "tenant_type": "individual",
+          "tenant_signatory_status": "defined",
+          "tenant_signatory": "Петров П.П.",
+          "tenant_signatory_basis": "not_defined",
+          "evidence": [
+            {
+              "clause_ref": "Преамбула",
+              "quote": "ООО «АвтоПрокат» (ИНН 7700000001, ОГРН 1027700000001), именуемое «Арендодатель», в лице директора Иванова И.И., действующего на основании Устава."
+            }
+          ]
         }
 
-        ВАЖНО: Возвращай only_found_in_text.
-      prompt_file: null
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Стороны заключили настоящий договор аренды ТС."
+
+        Ответ:
+        {
+          "landlord_details_status": "not_defined",
+          "landlord_details": "Данные не определены",
+          "landlord_type": "not_defined",
+          "landlord_signatory_status": "not_defined",
+          "landlord_signatory": "Данные не определены",
+          "landlord_signatory_basis": "not_defined",
+          "tenant_details_status": "not_defined",
+          "tenant_details": "Данные не определены",
+          "tenant_type": "not_defined",
+          "tenant_signatory_status": "not_defined",
+          "tenant_signatory": "Данные не определены",
+          "tenant_signatory_basis": "not_defined",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с идентификацией Арендодателя.
+        2. Найди прямую цитату с идентификацией Арендатора.
+        3. Найди прямую цитату о подписантах и полномочиях.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "landlord_details_status": "<defined / not_defined>",
+          "landlord_details": "<текст или 'Данные не определены'>",
+          "landlord_type": "<legal_entity / individual / individual_entrepreneur / not_defined>",
+          "landlord_signatory_status": "<defined / not_defined>",
+          "landlord_signatory": "<текст или 'Данные не определены'>",
+          "landlord_signatory_basis": "<charter / poa / order / other / not_defined>",
+          "tenant_details_status": "<defined / not_defined>",
+          "tenant_details": "<текст или 'Данные не определены'>",
+          "tenant_type": "<legal_entity / individual / individual_entrepreneur / not_defined>",
+          "tenant_signatory_status": "<defined / not_defined>",
+          "tenant_signatory": "<текст или 'Данные не определены'>",
+          "tenant_signatory_basis": "<charter / poa / order / other / not_defined>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
-      max_tokens: 430
+      max_tokens: 750
+
     retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
-        - "с экипажем"
-        - "без экипажа"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "арендодатель арендатор фрахтовщик фрахтователь в лице действующего на основании ИНН ОГРН ОГРНИП реквизиты паспорт"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - boilerplate
+      negative_keywords:
         - "VIN"
         - "госномер"
-        - "транспортное средство"
+        - "ОСАГО"
+        - "КАСКО"
+        - "арендная плата"
+        - "ремонт"
+        - "штрафы"
+        - "ДТП"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.20]
+        boost: 0.25
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "definitions"
+        - "boilerplate"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.15
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 560
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС сведения
+        об Арендодателе (Фрахтовщике), Арендаторе (Фрахтователе), подписантах
+        и основаниях полномочий.
+        Не анализируй предмет аренды, плату, страхование или ДТП.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. landlord_details_status — "defined" если Арендодатель прямо идентифицирован,
+           иначе "not_defined".
+        2. landlord_details — наименование/ФИО и реквизиты.
+        3. landlord_type — "legal_entity" / "individual" / "individual_entrepreneur" /
+           "not_defined".
+        4. landlord_signatory_status — "defined" если подписант прямо указан,
+           иначе "not_defined".
+        5. landlord_signatory — подписант Арендодателя.
+        6. landlord_signatory_basis — "charter" / "poa" / "order" / "other" /
+           "not_defined".
+        7. tenant_details_status — "defined" если Арендатор прямо идентифицирован,
+           иначе "not_defined".
+        8. tenant_details — наименование/ФИО и реквизиты.
+        9. tenant_type — "legal_entity" / "individual" / "individual_entrepreneur" /
+           "not_defined".
+        10. tenant_signatory_status — "defined" если подписант прямо указан,
+            иначе "not_defined".
+        11. tenant_signatory — подписант Арендатора.
+        12. tenant_signatory_basis — "charter" / "poa" / "order" / "other" /
+            "not_defined".
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - landlord_type / tenant_type:
+            - "legal_entity" — ООО, АО и иные юрлица.
+            - "individual" — физическое лицо.
+            - "individual_entrepreneur" — ИП.
+            - "not_defined" — не указано.
+        - landlord_signatory_basis / tenant_signatory_basis:
+            - "charter" — устав.
+            - "poa" — доверенность.
+            - "order" — приказ.
+            - "other" — иное.
+            - "not_defined" — не указано.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "landlord_details_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус идентификации Арендодателя."
+          required: true
+        - name: "landlord_details"
+          type: "string"
+          presentation: "fact"
+          label: "Арендодатель: реквизиты"
+          description: "Наименование/ФИО и реквизиты Арендодателя."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+        - name: "landlord_type"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
+          description: "Тип Арендодателя."
+          required: false
+        - name: "landlord_signatory_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания подписанта Арендодателя."
+          required: false
+        - name: "landlord_signatory"
+          type: "string"
+          presentation: "fact"
+          label: "Арендодатель: подписант"
+          description: "Подписант от Арендодателя."
+          required: false
+          display_in_grid: false
+        - name: "landlord_signatory_basis"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["charter", "poa", "order", "other", "not_defined"]
+          description: "Основание полномочий подписанта Арендодателя."
+          required: false
+        - name: "tenant_details_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус идентификации Арендатора."
+          required: true
+        - name: "tenant_details"
+          type: "string"
+          presentation: "fact"
+          label: "Арендатор: реквизиты"
+          description: "Наименование/ФИО и реквизиты Арендатора."
+          required: true
+          display_in_grid: true
+          display_priority: 2
+        - name: "tenant_type"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
+          description: "Тип Арендатора."
+          required: false
+        - name: "tenant_signatory_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания подписанта Арендатора."
+          required: false
+        - name: "tenant_signatory"
+          type: "string"
+          presentation: "fact"
+          label: "Арендатор: подписант"
+          description: "Подписант от Арендатора."
+          required: false
+          display_in_grid: false
+        - name: "tenant_signatory_basis"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["charter", "poa", "order", "other", "not_defined"]
+          description: "Основание полномочий подписанта Арендатора."
+          required: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 2: Тип аренды ТС
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_lease_type_and_subject
+    name: "Тип аренды ТС (с экипажем / без экипажа), предмет и срок"
+    description: >
+      Фактографическая проверка вида аренды ТС, описания транспортного
+      средства, типа ТС, срока аренды и арендной платы.
+    triggers: ~
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "с экипажем"
+        - "без экипажа"
+        - "фрахтование на время"
+        - "транспортное средство"
+        - "автомобиль"
+        - "срок аренды"
+        - "арендная плата"
+        - "фрахт"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)с\\s+экипажем|без\\s+экипажа"
+        - "(?i)фрахтовани(е|я)\\s+на\\s+время"
+        - "(?i)срок\\s+аренд"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ.
+        Проверяется только один вопрос: вид аренды (с экипажем / без экипажа),
+        описание ТС, срок и арендная плата.
+
+        Нормативный ориентир:
+        - ст. 632 ГК РФ — аренда с экипажем
+        - ст. 642 ГК РФ — аренда без экипажа
+        - ст. 607, 610, 614 ГК РФ
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Указан ли вид аренды (с экипажем / без экипажа).
+        2. Какой тип ТС указан.
+        3. Как описано транспортное средство.
+        4. Какой срок аренды.
+        5. Какой размер арендной платы / фрахта.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Не используй "None", "null", "not_found" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — данные определены:
+        Фрагмент:
+        "Арендодатель предоставляет Арендатору во временное владение и пользование
+        без экипажа легковой автомобиль Toyota Camry. Срок аренды — 6 месяцев.
+        Арендная плата — 50 000 рублей в месяц."
+
+        Ответ:
+        {
+          "lease_type_status": "defined",
+          "lease_type": "without_crew",
+          "lease_type_details": "без экипажа",
+          "vehicle_type": "road_vehicle",
+          "vehicle_description_status": "defined",
+          "vehicle_description": "легковой автомобиль Toyota Camry",
+          "lease_term_status": "defined",
+          "lease_term": "6 месяцев",
+          "rent_amount_status": "defined",
+          "rent_amount": "50 000 рублей в месяц",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.1",
+              "quote": "Арендодатель предоставляет Арендатору во временное владение и пользование без экипажа легковой автомобиль Toyota Camry."
+            }
+          ]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Стороны заключили договор аренды транспортного средства."
+
+        Ответ:
+        {
+          "lease_type_status": "not_defined",
+          "lease_type": "not_defined",
+          "lease_type_details": "Данные не определены",
+          "vehicle_type": "not_defined",
+          "vehicle_description_status": "not_defined",
+          "vehicle_description": "Данные не определены",
+          "lease_term_status": "not_defined",
+          "lease_term": "Данные не определены",
+          "rent_amount_status": "not_defined",
+          "rent_amount": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о виде аренды.
+        2. Найди прямую цитату с описанием ТС.
+        3. Найди прямую цитату о сроке.
+        4. Найди прямую цитату о плате.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "lease_type_status": "<defined / not_defined>",
+          "lease_type": "<with_crew / without_crew / not_defined>",
+          "lease_type_details": "<текст или 'Данные не определены'>",
+          "vehicle_type": "<road_vehicle / vessel / aircraft / other / not_defined>",
+          "vehicle_description_status": "<defined / not_defined>",
+          "vehicle_description": "<текст или 'Данные не определены'>",
+          "lease_term_status": "<defined / not_defined>",
+          "lease_term": "<текст или 'Данные не определены'>",
+          "rent_amount_status": "<defined / not_defined>",
+          "rent_amount": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 700
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "с экипажем без экипажа фрахтование на время транспортное средство автомобиль срок аренды арендная плата фрахт"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "VIN"
+        - "госномер"
+        - "ОСАГО"
+        - "КАСКО"
+        - "штрафы"
+        - "ДТП"
+        - "ремонт"
+        - "возврат"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.35]
+        boost: 0.20
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС вид аренды,
+        описание ТС, тип ТС, срок и арендную плату.
+        Не анализируй страхование, ДТП, штрафы или ремонт.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. lease_type_status — "defined" если вид аренды прямо указан,
+           иначе "not_defined".
+        2. lease_type — "with_crew" / "without_crew" / "not_defined".
+        3. lease_type_details — формулировка.
+        4. vehicle_type — "road_vehicle" / "vessel" / "aircraft" / "other" /
+           "not_defined".
+        5. vehicle_description_status — "defined" если ТС прямо описано,
+           иначе "not_defined".
+        6. vehicle_description — описание ТС.
+        7. lease_term_status — "defined" если срок прямо указан,
+           иначе "not_defined".
+        8. lease_term — срок аренды.
+        9. rent_amount_status — "defined" если плата прямо указана,
+           иначе "not_defined".
+        10. rent_amount — размер платы.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - lease_type:
+            - "with_crew" — аренда с экипажем / с услугами по управлению.
+            - "without_crew" — аренда без экипажа.
+            - "not_defined" — вид не определён.
+        - vehicle_type:
+            - "road_vehicle" — автомобиль, грузовик, автобус, спецтехника.
+            - "vessel" — морское или речное судно.
+            - "aircraft" — воздушное судно.
+            - "other" — иное ТС.
+            - "not_defined" — не определено.
+        - Верни только JSON.
+        </rules>
       fields:
+        - name: "lease_type_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус определения вида аренды."
+          required: true
         - name: "lease_type"
           type: "string"
-          allowed_values: ["with_crew", "without_crew", "unclear", "not_found"]
-          description: "Вид аренды ТС"
+          presentation: "signal"
+          allowed_values: ["with_crew", "without_crew", "not_defined"]
+          description: "Вид аренды ТС."
+          required: true
+        - name: "lease_type_details"
+          type: "string"
+          presentation: "fact"
+          label: "Вид аренды"
+          description: "Формулировка о виде аренды."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "vehicle_type"
           type: "string"
-          allowed_values: ["road_vehicle", "vessel", "aircraft", "other", "mixed", "not_found"]
-          description: "Тип ТС"
+          presentation: "signal"
+          allowed_values: ["road_vehicle", "vessel", "aircraft", "other", "not_defined"]
+          description: "Тип транспортного средства."
+          required: false
+        - name: "vehicle_description_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус описания ТС."
+          required: true
+        - name: "vehicle_description"
+          type: "string"
+          presentation: "fact"
+          label: "Транспортное средство"
+          description: "Описание транспортного средства."
+          required: true
+          display_in_grid: true
+          display_priority: 2
+        - name: "lease_term_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания срока аренды."
+          required: true
         - name: "lease_term"
           type: "string"
-          description: "Срок аренды"
+          presentation: "fact"
+          label: "Срок аренды"
+          description: "Срок аренды ТС."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "rent_amount_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания арендной платы."
+          required: true
+        - name: "rent_amount"
+          type: "string"
+          presentation: "fact"
+          label: "Арендная плата"
+          description: "Размер арендной платы / фрахта."
+          required: false
+          display_in_grid: true
+          display_priority: 4
       store_payload: true
 
-  - id: vehicle_identification_and_condition_check
-    name: "Идентификация ТС и состояние на момент передачи"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 3: Идентификация ТС
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_identification_check
+    name: "Идентификация ТС: VIN, госномер, ПТС, СТС, марка, модель"
     description: >
-      Проверяет VIN/регистрационные данные, документы на ТС,
-      состояние, пробег, фотофиксацию и акт приема-передачи.
-    triggers: {}
+      Фактографическая проверка достаточности идентификации транспортного
+      средства: VIN, государственный номер, марка, модель, год выпуска,
+      ПТС, СТС.
+    triggers: ~
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "VIN"
         - "госномер"
+        - "государственный регистрационный номер"
+        - "марка"
+        - "модель"
+        - "год выпуска"
         - "ПТС"
         - "СТС"
-        - "пробег"
-        - "акт приема-передачи"
-        - "техническое состояние"
-        - "фотофиксация"
+        - "цвет"
+        - "номер кузова"
+        - "номер двигателя"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
         - "(?i)[А-ЯA-Z]\\d{3}[А-ЯA-Z]{2}\\d{2,3}"
         - "(?i)ПТС|СТС"
-        - "(?i)пробег"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор аренды ТС.
-        Проверь идентификацию транспортного средства и процедуру передачи.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ.
+        Проверяется только один вопрос: достаточность идентификации ТС.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 607 ГК РФ — определённость предмета аренды
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли VIN.
+        2. Есть ли государственный регистрационный номер.
+        3. Есть ли марка и модель.
+        4. Есть ли год выпуска.
+        5. Есть ли ссылка на ПТС / СТС.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если данные не указаны прямо — возвращай "not_defined" / "Данные не определены".
+        3. Не используй "None", "null", "not_found" или пустые строки.
+        4. В evidence включай только текст договора.
+        5. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — ТС идентифицировано:
+        Фрагмент:
+        "Транспортное средство: Toyota Camry, 2022 г.в., VIN XW7BF4FK70S000001,
+        госномер А123БВ77, ПТС 77 УС 123456."
+
+        Ответ:
         {
-          "vehicle_identified": "<yes / partial / no>",
-          "technical_condition_recorded": "<yes / no / partial>",
-          "handover_act": "<yes / no / not_found>",
-          "photo_fixation": "<yes / no / not_found>",
-          "document_pack": "<complete / partial / not_found>",
-          "snippet": "<цитата из договора или not_found>"
+          "vin_status": "defined",
+          "vin_details": "XW7BF4FK70S000001",
+          "state_number_status": "defined",
+          "state_number_details": "А123БВ77",
+          "make_model_status": "defined",
+          "make_model_details": "Toyota Camry",
+          "year_status": "defined",
+          "year_details": "2022 г.в.",
+          "pts_sts_status": "defined",
+          "pts_sts_details": "ПТС 77 УС 123456",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.2",
+              "quote": "Транспортное средство: Toyota Camry, 2022 г.в., VIN XW7BF4FK70S000001, госномер А123БВ77, ПТС 77 УС 123456."
+            }
+          ]
         }
-      prompt_file: null
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Арендодатель передаёт автомобиль Арендатору."
+
+        Ответ:
+        {
+          "vin_status": "not_defined",
+          "vin_details": "Данные не определены",
+          "state_number_status": "not_defined",
+          "state_number_details": "Данные не определены",
+          "make_model_status": "not_defined",
+          "make_model_details": "Данные не определены",
+          "year_status": "not_defined",
+          "year_details": "Данные не определены",
+          "pts_sts_status": "not_defined",
+          "pts_sts_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с VIN.
+        2. Найди прямую цитату с госномером.
+        3. Найди прямую цитату с маркой и моделью.
+        4. Найди прямую цитату с годом выпуска.
+        5. Найди прямую цитату с ПТС / СТС.
+        6. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "vin_status": "<defined / not_defined>",
+          "vin_details": "<текст или 'Данные не определены'>",
+          "state_number_status": "<defined / not_defined>",
+          "state_number_details": "<текст или 'Данные не определены'>",
+          "make_model_status": "<defined / not_defined>",
+          "make_model_details": "<текст или 'Данные не определены'>",
+          "year_status": "<defined / not_defined>",
+          "year_details": "<текст или 'Данные не определены'>",
+          "pts_sts_status": "<defined / not_defined>",
+          "pts_sts_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
-      max_tokens: 420
+      max_tokens: 650
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "VIN госномер государственный регистрационный номер марка модель год выпуска ПТС СТС цвет номер кузова номер двигателя"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+      negative_keywords:
+        - "арендная плата"
+        - "срок аренды"
+        - "ОСАГО"
+        - "КАСКО"
+        - "штрафы"
+        - "ДТП"
+        - "ремонт"
+        - "возврат"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.30]
+        boost: 0.25
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "VIN"
-        - "ПТС"
-        - "СТС"
-        - "акт приема-передачи"
-        - "пробег"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 460
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС
+        идентифицирующие данные: VIN, госномер, марку, модель, год выпуска,
+        ПТС и СТС.
+        Не анализируй плату, страхование, ДТП или ремонт.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. vin_status — "defined" если VIN прямо указан, иначе "not_defined".
+        2. vin_details — VIN.
+        3. state_number_status — "defined" если госномер прямо указан, иначе "not_defined".
+        4. state_number_details — госномер.
+        5. make_model_status — "defined" если марка и модель прямо указаны, иначе "not_defined".
+        6. make_model_details — марка и модель.
+        7. year_status — "defined" если год выпуска прямо указан, иначе "not_defined".
+        8. year_details — год выпуска.
+        9. pts_sts_status — "defined" если ПТС или СТС прямо указаны, иначе "not_defined".
+        10. pts_sts_details — реквизиты ПТС / СТС.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - vin_status = "defined" только если VIN прямо воспроизведён в тексте.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "vehicle_identified"
+        - name: "vin_status"
           type: "string"
-          allowed_values: ["yes", "partial", "no"]
-          description: "Достаточно ли индивидуализировано ТС"
-        - name: "handover_act"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания VIN."
+          required: true
+        - name: "vin_details"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Есть ли акт передачи"
-        - name: "document_pack"
+          presentation: "fact"
+          label: "VIN"
+          description: "VIN транспортного средства."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "state_number_status"
           type: "string"
-          allowed_values: ["complete", "partial", "not_found"]
-          description: "Полнота документации по ТС"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания госномера."
+          required: false
+        - name: "state_number_details"
+          type: "string"
+          presentation: "fact"
+          label: "Госномер"
+          description: "Государственный регистрационный номер."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "make_model_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания марки и модели."
+          required: true
+        - name: "make_model_details"
+          type: "string"
+          presentation: "fact"
+          label: "Марка и модель"
+          description: "Марка и модель ТС."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "year_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания года выпуска."
+          required: false
+        - name: "year_details"
+          type: "string"
+          presentation: "fact"
+          label: "Год выпуска"
+          description: "Год выпуска ТС."
+          required: false
+          display_in_grid: false
+        - name: "pts_sts_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус ссылки на ПТС / СТС."
+          required: false
+        - name: "pts_sts_details"
+          type: "string"
+          presentation: "fact"
+          label: "ПТС / СТС"
+          description: "Реквизиты ПТС или СТС."
+          required: false
+          display_in_grid: false
       store_payload: true
 
-  - id: liability_allocation_by_crew_type_check
-    name: "Распределение ответственности по модели с экипажем / без экипажа"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 4: Передача ТС
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_handover_check
+    name: "Передача ТС: акт, состояние, пробег, фотофиксация, документы"
     description: >
-      Проверяет, соответствует ли распределение ответственности
-      выбранному виду аренды ТС.
-    triggers:
-      any: ["with_crew", "without_crew"]
-    severity: "critical"
+      Фактографическая проверка порядка передачи ТС: акт приёма-передачи,
+      техническое состояние, пробег, фотофиксация, комплект документов.
+    triggers: ~
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "акт приема-передачи"
+        - "техническое состояние"
+        - "пробег"
+        - "фотофиксация"
+        - "существующие повреждения"
+        - "комплект документов"
+        - "ключи"
+        - "уровень топлива"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт\\s+(приема|приёма|передач)"
+        - "(?i)пробег"
+        - "(?i)фотофиксац"
+        - "(?i)уровень\\s+топлив"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ.
+        Проверяется только один вопрос: порядок передачи ТС арендатору.
+
+        Нормативный ориентир:
+        - ст. 611 ГК РФ — передача имущества
+        - судебная практика по фиксации состояния ТС
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Предусмотрен ли акт приёма-передачи.
+        2. Фиксируется ли техническое состояние при передаче.
+        3. Фиксируется ли пробег при передаче.
+        4. Предусмотрена ли фотофиксация.
+        5. Фиксируются ли существующие повреждения.
+        6. Указан ли комплект передаваемых документов и ключей.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Не используй "None", "null", "not_found" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — передача урегулирована:
+        Фрагмент:
+        "ТС передаётся по двустороннему акту приёма-передачи с указанием
+        технического состояния, пробега (одометр) и перечня существующих
+        повреждений. Стороны фиксируют состояние фотографиями. Арендатору
+        передаются: ПТС, СТС, полис ОСАГО, 2 комплекта ключей."
+
+        Ответ:
+        {
+          "handover_act_status": "defined",
+          "handover_act_details": "двусторонний акт приёма-передачи",
+          "condition_recorded_status": "defined",
+          "condition_recorded_details": "с указанием технического состояния",
+          "mileage_recorded_status": "defined",
+          "mileage_recorded_details": "пробег (одометр)",
+          "photo_fixation_status": "defined",
+          "photo_fixation_details": "фиксируют состояние фотографиями",
+          "existing_damage_status": "defined",
+          "existing_damage_details": "перечень существующих повреждений",
+          "document_pack_status": "defined",
+          "document_pack_details": "ПТС, СТС, полис ОСАГО, 2 комплекта ключей",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "ТС передаётся по двустороннему акту приёма-передачи с указанием технического состояния, пробега (одометр) и перечня существующих повреждений."
+            }
+          ]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Арендодатель передаёт ТС Арендатору."
+
+        Ответ:
+        {
+          "handover_act_status": "not_defined",
+          "handover_act_details": "Данные не определены",
+          "condition_recorded_status": "not_defined",
+          "condition_recorded_details": "Данные не определены",
+          "mileage_recorded_status": "not_defined",
+          "mileage_recorded_details": "Данные не определены",
+          "photo_fixation_status": "not_defined",
+          "photo_fixation_details": "Данные не определены",
+          "existing_damage_status": "not_defined",
+          "existing_damage_details": "Данные не определены",
+          "document_pack_status": "not_defined",
+          "document_pack_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об акте приёма-передачи.
+        2. Найди прямую цитату о фиксации состояния.
+        3. Найди прямую цитату о пробеге.
+        4. Найди прямую цитату о фотофиксации.
+        5. Найди прямую цитату о существующих повреждениях.
+        6. Найди прямую цитату о документах и ключах.
+        7. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "handover_act_status": "<defined / not_defined>",
+          "handover_act_details": "<текст или 'Данные не определены'>",
+          "condition_recorded_status": "<defined / not_defined>",
+          "condition_recorded_details": "<текст или 'Данные не определены'>",
+          "mileage_recorded_status": "<defined / not_defined>",
+          "mileage_recorded_details": "<текст или 'Данные не определены'>",
+          "photo_fixation_status": "<defined / not_defined>",
+          "photo_fixation_details": "<текст или 'Данные не определены'>",
+          "existing_damage_status": "<defined / not_defined>",
+          "existing_damage_details": "<текст или 'Данные не определены'>",
+          "document_pack_status": "<defined / not_defined>",
+          "document_pack_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 750
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "акт приёма-передачи техническое состояние пробег фотофиксация существующие повреждения комплект документов ключи уровень топлива"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "арендная плата"
+        - "VIN"
+        - "госномер"
+        - "ОСАГО"
+        - "штрафы"
+        - "ДТП"
+        - "возврат ТС"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.10, 0.45]
+        boost: 0.18
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "procedures"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 500
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС порядок
+        передачи: акт, состояние, пробег, фотофиксация, повреждения и документы.
+        Не анализируй плату, страхование, ДТП или возврат.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. handover_act_status — "defined" если акт прямо предусмотрен, иначе "not_defined".
+        2. handover_act_details — формулировка.
+        3. condition_recorded_status — "defined" если состояние фиксируется, иначе "not_defined".
+        4. condition_recorded_details — формулировка.
+        5. mileage_recorded_status — "defined" если пробег фиксируется, иначе "not_defined".
+        6. mileage_recorded_details — формулировка.
+        7. photo_fixation_status — "defined" если фотофиксация предусмотрена, иначе "not_defined".
+        8. photo_fixation_details — формулировка.
+        9. existing_damage_status — "defined" если повреждения фиксируются, иначе "not_defined".
+        10. existing_damage_details — формулировка.
+        11. document_pack_status — "defined" если комплект документов указан, иначе "not_defined".
+        12. document_pack_details — формулировка.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "handover_act_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия акта приёма-передачи."
+          required: true
+        - name: "handover_act_details"
+          type: "string"
+          presentation: "fact"
+          label: "Акт приёма-передачи"
+          description: "Формулировка об акте приёма-передачи."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "condition_recorded_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус фиксации технического состояния."
+          required: false
+        - name: "condition_recorded_details"
+          type: "string"
+          presentation: "fact"
+          label: "Состояние при передаче"
+          description: "Формулировка о фиксации состояния."
+          required: false
+          display_in_grid: false
+        - name: "mileage_recorded_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус фиксации пробега."
+          required: false
+        - name: "mileage_recorded_details"
+          type: "string"
+          presentation: "fact"
+          label: "Пробег при передаче"
+          description: "Формулировка о фиксации пробега."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "photo_fixation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус фотофиксации."
+          required: false
+        - name: "photo_fixation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Фотофиксация"
+          description: "Формулировка о фотофиксации."
+          required: false
+          display_in_grid: false
+        - name: "existing_damage_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус фиксации существующих повреждений."
+          required: false
+        - name: "existing_damage_details"
+          type: "string"
+          presentation: "fact"
+          label: "Существующие повреждения"
+          description: "Формулировка о фиксации повреждений."
+          required: false
+          display_in_grid: false
+        - name: "document_pack_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания комплекта документов."
+          required: false
+        - name: "document_pack_details"
+          type: "string"
+          presentation: "fact"
+          label: "Комплект документов"
+          description: "Перечень документов и ключей."
+          required: false
+          display_in_grid: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 5: Титул арендодателя на ТС
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_title_and_fitness_check
+    name: "Титул арендодателя на ТС, исправность и отсутствие обременений"
+    description: >
+      Фактографическая проверка подтверждения права собственности на ТС,
+      технической исправности, действующего техосмотра и отсутствия
+      залога / ареста / прав третьих лиц.
+    triggers: ~
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "принадлежит на праве собственности"
+        - "исправное техническое состояние"
+        - "не в залоге"
+        - "не под арестом"
+        - "свободно от обременений"
+        - "действующий техосмотр"
+        - "диагностическая карта"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)принадлеж(ит|ат)\\s+на\\s+праве"
+        - "(?i)исправн(ое|ого)\\s+техническ(ое|ого)"
+        - "(?i)не\\s+(в\\s+)?залоге|не\\s+под\\s+арестом"
+        - "(?i)диагностическ(ая|ой)\\s+карт"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ.
+        Проверяется только один вопрос: титул арендодателя на ТС, исправность
+        и отсутствие обременений.
+
+        Нормативный ориентир:
+        - ст. 608 ГК РФ — право сдачи имущества в аренду
+        - ст. 612 ГК РФ — ответственность за недостатки
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли подтверждение права собственности на ТС.
+        2. Есть ли заверение о технической исправности.
+        3. Есть ли заверение об отсутствии залога.
+        4. Есть ли заверение об отсутствии ареста.
+        5. Есть ли указание на действующий техосмотр / диагностическую карту.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Не используй "None", "null", "not_found" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — титул подтверждён:
+        Фрагмент:
+        "Арендодатель подтверждает, что ТС принадлежит ему на праве собственности,
+        находится в исправном техническом состоянии, не в залоге, не под арестом.
+        Диагностическая карта действительна до 31.12.2025."
+
+        Ответ:
+        {
+          "title_confirmation_status": "defined",
+          "title_confirmation_details": "принадлежит на праве собственности",
+          "fitness_warranty_status": "defined",
+          "fitness_warranty_details": "в исправном техническом состоянии",
+          "no_pledge_status": "defined",
+          "no_pledge_details": "не в залоге",
+          "no_arrest_status": "defined",
+          "no_arrest_details": "не под арестом",
+          "tech_inspection_status": "defined",
+          "tech_inspection_details": "диагностическая карта действительна до 31.12.2025",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.5",
+              "quote": "Арендодатель подтверждает, что ТС принадлежит ему на праве собственности, находится в исправном техническом состоянии, не в залоге, не под арестом."
+            }
+          ]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Арендодатель передаёт ТС."
+
+        Ответ:
+        {
+          "title_confirmation_status": "not_defined",
+          "title_confirmation_details": "Данные не определены",
+          "fitness_warranty_status": "not_defined",
+          "fitness_warranty_details": "Данные не определены",
+          "no_pledge_status": "not_defined",
+          "no_pledge_details": "Данные не определены",
+          "no_arrest_status": "not_defined",
+          "no_arrest_details": "Данные не определены",
+          "tech_inspection_status": "not_defined",
+          "tech_inspection_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о праве собственности.
+        2. Найди прямую цитату об исправности.
+        3. Найди прямую цитату об отсутствии залога.
+        4. Найди прямую цитату об отсутствии ареста.
+        5. Найди прямую цитату о техосмотре / диагностической карте.
+        6. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "title_confirmation_status": "<defined / not_defined>",
+          "title_confirmation_details": "<текст или 'Данные не определены'>",
+          "fitness_warranty_status": "<defined / not_defined>",
+          "fitness_warranty_details": "<текст или 'Данные не определены'>",
+          "no_pledge_status": "<defined / not_defined>",
+          "no_pledge_details": "<текст или 'Данные не определены'>",
+          "no_arrest_status": "<defined / not_defined>",
+          "no_arrest_details": "<текст или 'Данные не определены'>",
+          "tech_inspection_status": "<defined / not_defined>",
+          "tech_inspection_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "принадлежит на праве собственности исправное техническое состояние не в залоге не под арестом свободно от обременений действующий техосмотр диагностическая карта"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - definitions
+      negative_keywords:
+        - "арендная плата"
+        - "срок аренды"
+        - "ОСАГО"
+        - "КАСКО"
+        - "штрафы"
+        - "ДТП"
+        - "ремонт"
+        - "возврат"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.35]
+        boost: 0.20
+        scope: segment
+      context_k: 5
+      max_chunks: 7
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "representations"
+        - "definitions"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 450
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС подтверждение
+        титула, техническую исправность, отсутствие залога / ареста и техосмотр.
+        Не анализируй плату, страхование, ДТП или возврат.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. title_confirmation_status — "defined" если право собственности прямо
+           подтверждено, иначе "not_defined".
+        2. title_confirmation_details — формулировка.
+        3. fitness_warranty_status — "defined" если исправность прямо подтверждена,
+           иначе "not_defined".
+        4. fitness_warranty_details — формулировка.
+        5. no_pledge_status — "defined" если отсутствие залога прямо указано,
+           иначе "not_defined".
+        6. no_pledge_details — формулировка.
+        7. no_arrest_status — "defined" если отсутствие ареста прямо указано,
+           иначе "not_defined".
+        8. no_arrest_details — формулировка.
+        9. tech_inspection_status — "defined" если техосмотр / диагностическая карта
+           прямо указаны, иначе "not_defined".
+        10. tech_inspection_details — формулировка.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - title_confirmation_status = "defined" только если право собственности
+          прямо подтверждено; не выводи из факта заключения договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "title_confirmation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус подтверждения титула на ТС."
+          required: true
+        - name: "title_confirmation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Титул на ТС"
+          description: "Формулировка о праве собственности."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "fitness_warranty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об исправности."
+          required: false
+        - name: "fitness_warranty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Техническая исправность"
+          description: "Формулировка об исправности ТС."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "no_pledge_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии залога."
+          required: false
+        - name: "no_pledge_details"
+          type: "string"
+          presentation: "fact"
+          label: "Отсутствие залога"
+          description: "Формулировка об отсутствии залога."
+          required: false
+          display_in_grid: false
+        - name: "no_arrest_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус заверения об отсутствии ареста."
+          required: false
+        - name: "no_arrest_details"
+          type: "string"
+          presentation: "fact"
+          label: "Отсутствие ареста"
+          description: "Формулировка об отсутствии ареста."
+          required: false
+          display_in_grid: false
+        - name: "tech_inspection_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус техосмотра / диагностической карты."
+          required: false
+        - name: "tech_inspection_details"
+          type: "string"
+          presentation: "fact"
+          label: "Техосмотр"
+          description: "Формулировка о техосмотре / диагностической карте."
+          required: false
+          display_in_grid: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 6: Страхование ТС
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_insurance_check
+    name: "Страхование ТС: ОСАГО, КАСКО, распределение обязанностей"
+    description: >
+      Фактографическая проверка наличия ОСАГО, КАСКО, распределения
+      обязанностей по страхованию и условий при страховом случае.
+    triggers: ~
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "ОСАГО"
+        - "КАСКО"
+        - "страховой полис"
+        - "страхование гражданской ответственности"
+        - "выгодоприобретатель"
+        - "страховой случай"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ОСАГО|КАСКО"
+        - "(?i)страхов(ой|ого)\\s+полис"
+        - "(?i)выгодоприобретател"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ.
+        Проверяется только один вопрос: страхование ТС.
+
+        Нормативный ориентир:
+        - ФЗ-40 — ОСАГО
+        - ст. 637, 646 ГК РФ — страхование при аренде ТС
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли ОСАГО и кто оформляет.
+        2. Есть ли КАСКО и кто оформляет.
+        3. Кто несёт расходы на страхование.
+        4. Указан ли выгодоприобретатель.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "ОСАГО оформлено Арендодателем, полис передаётся Арендатору. КАСКО
+        оформляется Арендатором за свой счёт. Выгодоприобретатель — Арендодатель."
+
+        Ответ:
+        {
+          "osago_status": "defined",
+          "osago_details": "оформлено Арендодателем, полис передаётся Арендатору",
+          "casco_status": "defined",
+          "casco_details": "оформляется Арендатором за свой счёт",
+          "insurance_cost_allocation_status": "defined",
+          "insurance_cost_allocation_details": "КАСКО за счёт Арендатора",
+          "beneficiary_status": "defined",
+          "beneficiary_details": "Арендодатель",
+          "evidence": [
+            {
+              "clause_ref": "п. 5.1",
+              "quote": "ОСАГО оформлено Арендодателем, полис передаётся Арендатору."
+            }
+          ]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Стороны самостоятельно решают вопросы страхования."
+
+        Ответ:
+        {
+          "osago_status": "not_defined",
+          "osago_details": "Данные не определены",
+          "casco_status": "not_defined",
+          "casco_details": "Данные не определены",
+          "insurance_cost_allocation_status": "not_defined",
+          "insurance_cost_allocation_details": "Данные не определены",
+          "beneficiary_status": "not_defined",
+          "beneficiary_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об ОСАГО.
+        2. Найди прямую цитату о КАСКО.
+        3. Найди прямую цитату о расходах на страхование.
+        4. Найди прямую цитату о выгодоприобретателе.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "osago_status": "<defined / not_defined>",
+          "osago_details": "<текст или 'Данные не определены'>",
+          "casco_status": "<defined / not_defined>",
+          "casco_details": "<текст или 'Данные не определены'>",
+          "insurance_cost_allocation_status": "<defined / not_defined>",
+          "insurance_cost_allocation_details": "<текст или 'Данные не определены'>",
+          "beneficiary_status": "<defined / not_defined>",
+          "beneficiary_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "ОСАГО КАСКО страховой полис страхование гражданской ответственности выгодоприобретатель страховой случай расходы на страхование"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "арендная плата"
+        - "VIN"
+        - "госномер"
+        - "штрафы"
+        - "ремонт"
+        - "возврат"
+        - "ДТП"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.65]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 440
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС условия
+        страхования: ОСАГО, КАСКО, расходы и выгодоприобретатель.
+        Не анализируй плату, ремонт, ДТП или возврат.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. osago_status — "defined" если ОСАГО прямо упомянуто, иначе "not_defined".
+        2. osago_details — формулировка.
+        3. casco_status — "defined" если КАСКО прямо упомянуто, иначе "not_defined".
+        4. casco_details — формулировка.
+        5. insurance_cost_allocation_status — "defined" если расходы распределены, иначе "not_defined".
+        6. insurance_cost_allocation_details — формулировка.
+        7. beneficiary_status — "defined" если выгодоприобретатель указан, иначе "not_defined".
+        8. beneficiary_details — формулировка.
+
+        Если данные отсутствуют: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "osago_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус ОСАГО."
+          required: true
+        - name: "osago_details"
+          type: "string"
+          presentation: "fact"
+          label: "ОСАГО"
+          description: "Формулировка об ОСАГО."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "casco_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус КАСКО."
+          required: false
+        - name: "casco_details"
+          type: "string"
+          presentation: "fact"
+          label: "КАСКО"
+          description: "Формулировка о КАСКО."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "insurance_cost_allocation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус распределения расходов на страхование."
+          required: false
+        - name: "insurance_cost_allocation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Расходы на страхование"
+          description: "Формулировка о распределении расходов."
+          required: false
+          display_in_grid: false
+        - name: "beneficiary_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус указания выгодоприобретателя."
+          required: false
+        - name: "beneficiary_details"
+          type: "string"
+          presentation: "fact"
+          label: "Выгодоприобретатель"
+          description: "Выгодоприобретатель по полису."
+          required: false
+          display_in_grid: false
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 7: Порядок действий при ДТП
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_accident_procedure_check
+    name: "Порядок действий при ДТП и уведомление арендодателя"
+    description: >
+      Фактографическая проверка наличия регламента действий при ДТП:
+      уведомление арендодателя, вызов ГИБДД, европротокол,
+      запрет ремонта без согласия.
+    triggers: ~
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "действия при ДТП"
+        - "уведомление арендодателя"
+        - "европротокол"
+        - "вызов ГИБДД"
+        - "ремонт без согласия запрещен"
+        - "справка о ДТП"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)в\\s+случае\\s+ДТП"
+        - "(?i)уведомить\\s+арендодателя"
+        - "(?i)европротокол"
+        - "(?i)ремонт.*без\\s+соглас.*запрещ"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ.
+        Проверяется только один вопрос: порядок действий при ДТП.
+
+        Нормативный ориентир:
+        - ФЗ-40 — ОСАГО, порядок оформления ДТП
+        - ст. 1079 ГК РФ — ответственность владельца ИПО
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли регламент действий при ДТП.
+        2. Есть ли обязанность уведомить арендодателя.
+        3. Есть ли указание на вызов ГИБДД / европротокол.
+        4. Есть ли запрет ремонта без согласия арендодателя.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "В случае ДТП Арендатор обязан немедленно уведомить Арендодателя,
+        вызвать сотрудников ГИБДД, не перемещать ТС до приезда инспектора.
+        Ремонт без письменного согласия Арендодателя запрещён."
+
+        Ответ:
+        {
+          "accident_procedure_status": "defined",
+          "accident_procedure_details": "немедленно уведомить Арендодателя, вызвать ГИБДД, не перемещать ТС",
+          "landlord_notification_status": "defined",
+          "landlord_notification_details": "немедленно уведомить Арендодателя",
+          "police_europrotocol_status": "defined",
+          "police_europrotocol_details": "вызвать сотрудников ГИБДД",
+          "repair_consent_required_status": "defined",
+          "repair_consent_required_details": "ремонт без письменного согласия запрещён",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.1",
+              "quote": "В случае ДТП Арендатор обязан немедленно уведомить Арендодателя, вызвать сотрудников ГИБДД."
+            }
+          ]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Арендатор пользуется ТС с соблюдением ПДД."
+
+        Ответ:
+        {
+          "accident_procedure_status": "not_defined",
+          "accident_procedure_details": "Данные не определены",
+          "landlord_notification_status": "not_defined",
+          "landlord_notification_details": "Данные не определены",
+          "police_europrotocol_status": "not_defined",
+          "police_europrotocol_details": "Данные не определены",
+          "repair_consent_required_status": "not_defined",
+          "repair_consent_required_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о порядке при ДТП.
+        2. Найди прямую цитату об уведомлении арендодателя.
+        3. Найди прямую цитату о ГИБДД / европротоколе.
+        4. Найди прямую цитату о запрете ремонта.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "accident_procedure_status": "<defined / not_defined>",
+          "accident_procedure_details": "<текст или 'Данные не определены'>",
+          "landlord_notification_status": "<defined / not_defined>",
+          "landlord_notification_details": "<текст или 'Данные не определены'>",
+          "police_europrotocol_status": "<defined / not_defined>",
+          "police_europrotocol_details": "<текст или 'Данные не определены'>",
+          "repair_consent_required_status": "<defined / not_defined>",
+          "repair_consent_required_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "в случае ДТП уведомить арендодателя вызвать ГИБДД европротокол ремонт без согласия запрещён справка о ДТП"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "арендная плата"
+        - "VIN"
+        - "ОСАГО"
+        - "КАСКО"
+        - "штрафы ГИБДД"
+        - "возврат ТС"
+        - "ремонт и содержание"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.30, 0.75]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "procedures"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 440
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС порядок
+        действий при ДТП: уведомление, ГИБДД, европротокол и запрет ремонта.
+        Не анализируй плату, страхование, штрафы или возврат.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. accident_procedure_status — "defined" если порядок при ДТП прямо описан, иначе "not_defined".
+        2. accident_procedure_details — формулировка.
+        3. landlord_notification_status — "defined" если уведомление прямо предусмотрено.
+        4. landlord_notification_details — формулировка.
+        5. police_europrotocol_status — "defined" если ГИБДД / европротокол прямо упомянуты.
+        6. police_europrotocol_details — формулировка.
+        7. repair_consent_required_status — "defined" если запрет ремонта без согласия прямо указан.
+        8. repair_consent_required_details — формулировка.
+
+        Если данные отсутствуют: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "accident_procedure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус регламента действий при ДТП."
+          required: true
+        - name: "accident_procedure_details"
+          type: "string"
+          presentation: "fact"
+          label: "Порядок при ДТП"
+          description: "Формулировка о порядке действий при ДТП."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "landlord_notification_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус уведомления арендодателя."
+          required: false
+        - name: "landlord_notification_details"
+          type: "string"
+          presentation: "fact"
+          label: "Уведомление арендодателя"
+          description: "Формулировка об уведомлении."
+          required: false
+          display_in_grid: false
+        - name: "police_europrotocol_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус вызова ГИБДД / европротокола."
+          required: false
+        - name: "police_europrotocol_details"
+          type: "string"
+          presentation: "fact"
+          label: "ГИБДД / европротокол"
+          description: "Формулировка о ГИБДД или европротоколе."
+          required: false
+          display_in_grid: false
+        - name: "repair_consent_required_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус запрета ремонта без согласия."
+          required: false
+        - name: "repair_consent_required_details"
+          type: "string"
+          presentation: "fact"
+          label: "Запрет ремонта без согласия"
+          description: "Формулировка о запрете ремонта без согласия."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+      store_payload: true
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 8: Ответственность перед третьими лицами
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_liability_allocation_check
+    name: "Ответственность перед третьими лицами по модели аренды ТС"
+    description: >
+      Фактографическая проверка распределения ответственности за вред
+      третьим лицам с учётом вида аренды: с экипажем (арендодатель)
+      или без экипажа (арендатор).
+    triggers: ~
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
     rules:
       keywords:
         - "ответственность за вред третьим лицам"
@@ -1004,140 +2856,605 @@ checks_v8:
         - "несет арендатор"
         - "несет арендодатель"
         - "экипаж"
-        - "управление ТС"
+        - "ответственность за действия экипажа"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)вред.*третьим\\s+лицам"
         - "(?i)источник\\s+повышенн(ой|ого)\\s+опасност"
         - "(?i)несет\\s+арендатор|несет\\s+арендодатель"
+        - "(?i)действи(я|е)\\s+экипаж"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор аренды ТС.
-        Проверь распределение ответственности с учетом типа аренды.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ.
+        Проверяется только один вопрос: распределение ответственности за вред
+        третьим лицам с учётом вида аренды.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 640 ГК РФ — ответственность при аренде без экипажа (арендатор)
+        - ст. 634–635 ГК РФ — ответственность при аренде с экипажем (арендодатель)
+        - ст. 1079 ГК РФ — ответственность владельца ИПО
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Кто несёт ответственность за вред третьим лицам.
+        2. Есть ли ссылка на источник повышенной опасности.
+        3. Есть ли указание на ответственность за действия экипажа.
+        4. Есть ли условие о ремонте и содержании по модели аренды.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Ответственность за вред, причинённый третьим лицам транспортным средством
+        как источником повышенной опасности, несёт Арендатор. Арендатор обязан
+        поддерживать ТС в исправном состоянии, осуществлять текущий и капитальный ремонт."
+
+        Ответ:
         {
-          "lease_type": "<with_crew / without_crew / unclear / not_found>",
-          "third_party_liability_holder": "<lessor / lessee / unclear / not_found>",
-          "risk_allocation_consistent": "<yes / no / unclear>",
-          "maintenance_holder": "<lessor / lessee / mixed / not_found>",
-          "snippet": "<цитата из договора или not_found>"
+          "third_party_liability_holder_status": "defined",
+          "third_party_liability_holder": "tenant",
+          "third_party_liability_details": "ответственность за вред третьим лицам несёт Арендатор",
+          "hazardous_source_reference_status": "defined",
+          "hazardous_source_reference_details": "транспортным средством как источником повышенной опасности",
+          "crew_liability_status": "not_defined",
+          "crew_liability_details": "Данные не определены",
+          "maintenance_allocation_status": "defined",
+          "maintenance_allocation_details": "Арендатор обязан осуществлять текущий и капитальный ремонт",
+          "evidence": [
+            {
+              "clause_ref": "п. 7.1",
+              "quote": "Ответственность за вред, причинённый третьим лицам транспортным средством как источником повышенной опасности, несёт Арендатор."
+            }
+          ]
         }
-      prompt_file: null
+
+        Пример 2:
+        Фрагмент:
+        "Стороны несут ответственность по закону."
+
+        Ответ:
+        {
+          "third_party_liability_holder_status": "not_defined",
+          "third_party_liability_holder": "not_defined",
+          "third_party_liability_details": "Данные не определены",
+          "hazardous_source_reference_status": "not_defined",
+          "hazardous_source_reference_details": "Данные не определены",
+          "crew_liability_status": "not_defined",
+          "crew_liability_details": "Данные не определены",
+          "maintenance_allocation_status": "not_defined",
+          "maintenance_allocation_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об ответственности перед третьими лицами.
+        2. Найди прямую цитату об ИПО.
+        3. Найди прямую цитату об ответственности за действия экипажа.
+        4. Найди прямую цитату о ремонте и содержании.
+        5. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "third_party_liability_holder_status": "<defined / not_defined>",
+          "third_party_liability_holder": "<landlord / tenant / not_defined>",
+          "third_party_liability_details": "<текст или 'Данные не определены'>",
+          "hazardous_source_reference_status": "<defined / not_defined>",
+          "hazardous_source_reference_details": "<текст или 'Данные не определены'>",
+          "crew_liability_status": "<defined / not_defined>",
+          "crew_liability_details": "<текст или 'Данные не определены'>",
+          "maintenance_allocation_status": "<defined / not_defined>",
+          "maintenance_allocation_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
-      max_tokens: 430
+      max_tokens: 700
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "ответственность за вред третьим лицам источник повышенной опасности несёт арендатор несёт арендодатель экипаж действия экипажа текущий и капитальный ремонт содержание ТС"
+      preferred_unit_types:
+        - liability_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - limitations
+        - obligations
+        - remedies
+      negative_keywords:
+        - "арендная плата"
+        - "VIN"
+        - "ОСАГО"
+        - "КАСКО"
+        - "штрафы ГИБДД"
+        - "ДТП порядок"
+        - "возврат ТС"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.30, 0.80]
+        boost: 0.15
+        scope: segment
       context_k: 6
       max_chunks: 8
-      boost_keywords:
-        - "вред третьим лицам"
-        - "источник повышенной опасности"
-        - "с экипажем"
-        - "без экипажа"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "limitations"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 480
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС распределение
+        ответственности за вред третьим лицам, ссылку на ИПО, ответственность
+        за действия экипажа и обязанности по ремонту.
+        Не анализируй плату, страхование, штрафы или возврат.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. third_party_liability_holder_status — "defined" если ответственность перед
+           третьими лицами прямо распределена, иначе "not_defined".
+        2. third_party_liability_holder — "landlord" / "tenant" / "not_defined".
+        3. third_party_liability_details — формулировка.
+        4. hazardous_source_reference_status — "defined" если ИПО прямо упомянут.
+        5. hazardous_source_reference_details — формулировка.
+        6. crew_liability_status — "defined" если ответственность за экипаж прямо указана.
+        7. crew_liability_details — формулировка.
+        8. maintenance_allocation_status — "defined" если ремонт / содержание распределены.
+        9. maintenance_allocation_details — формулировка.
+
+        Если данные отсутствуют: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - third_party_liability_holder:
+            - "landlord" — ответственность на арендодателе.
+            - "tenant" — ответственность на арендаторе.
+            - "not_defined" — не определено.
+        - Верни только JSON.
+        </rules>
       fields:
+        - name: "third_party_liability_holder_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус распределения ответственности перед третьими лицами."
+          required: true
         - name: "third_party_liability_holder"
           type: "string"
-          allowed_values: ["lessor", "lessee", "unclear", "not_found"]
-          description: "Кто несет ответственность перед третьими лицами"
-        - name: "risk_allocation_consistent"
+          presentation: "signal"
+          allowed_values: ["landlord", "tenant", "not_defined"]
+          description: "Кто несёт ответственность перед третьими лицами."
+          required: false
+        - name: "third_party_liability_details"
           type: "string"
-          allowed_values: ["yes", "no", "unclear"]
-          description: "Соответствует ли логика ответственности виду аренды"
+          presentation: "fact"
+          label: "Ответственность перед третьими лицами"
+          description: "Формулировка об ответственности."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "hazardous_source_reference_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус ссылки на ИПО."
+          required: false
+        - name: "hazardous_source_reference_details"
+          type: "string"
+          presentation: "fact"
+          label: "Источник повышенной опасности"
+          description: "Формулировка об ИПО."
+          required: false
+          display_in_grid: false
+        - name: "crew_liability_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус ответственности за действия экипажа."
+          required: false
+        - name: "crew_liability_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ответственность за экипаж"
+          description: "Формулировка об ответственности за действия экипажа."
+          required: false
+          display_in_grid: false
+        - name: "maintenance_allocation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус распределения обязанностей по ремонту."
+          required: false
+        - name: "maintenance_allocation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ремонт и содержание"
+          description: "Формулировка о ремонте и содержании ТС."
+          required: false
+          display_in_grid: true
+          display_priority: 2
       store_payload: true
 
-  - id: insurance_and_accident_procedure_check
-    name: "Страхование, ДТП и нестраховые случаи"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 9: Возврат ТС
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_return_and_termination_check
+    name: "Возврат ТС, досрочное расторжение и штрафы за невозврат"
     description: >
-      Проверяет ОСАГО/КАСКО, порядок действий при ДТП, страховые исключения,
-      уведомление арендодателя и ремонт после происшествия.
-    triggers:
-      any: ["insurance_related", "road_vehicle", "vessel_or_aircraft"]    
-    severity: "critical"
+      Фактографическая проверка порядка возврата ТС, допустимого состояния,
+      топлива, оснований досрочного расторжения, срока уведомления
+      и штрафов за просрочку возврата.
+    triggers: ~
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
-        - "ОСАГО"
-        - "КАСКО"
-        - "страховой случай"
-        - "действия при ДТП"
-        - "уведомление арендодателя"
-        - "европротокол"
-        - "нестраховые случаи"
-        - "ремонт без согласия запрещен"
+        - "возврат ТС"
+        - "возврат транспортного средства"
+        - "акт возврата"
+        - "нормальный износ"
+        - "штраф за невозврат"
+        - "уровень топлива"
+        - "место возврата"
+        - "досрочное расторжение"
+        - "отказ от договора"
+        - "уведомление о расторжении"
       keyword_mode: "any"
       regex_patterns:
-        - "(?i)ОСАГО|КАСКО"
-        - "(?i)в\\s+случае\\s+ДТП"
-        - "(?i)уведомить\\s+арендодателя"
-        - "(?i)европротокол"
+        - "(?i)возвра(т|тить)\\s+(ТС|транспортн|автомобиль)"
+        - "(?i)нормальн(ый|ого)\\s+износ"
+        - "(?i)досрочн(ое|ого)\\s+расторж"
+        - "(?i)отказ.*от.*договор"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор аренды ТС.
-        Проверь страховой блок и действия при ДТП.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ.
+        Проверяется только один вопрос: возврат ТС и досрочное расторжение.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 622 ГК РФ — возврат арендованного имущества
+        - ст. 619–620 ГК РФ — досрочное расторжение
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли порядок возврата ТС.
+        2. Указано ли допустимое состояние при возврате.
+        3. Есть ли условие об уровне топлива.
+        4. Есть ли штрафы за просрочку возврата.
+        5. Есть ли основания досрочного расторжения.
+        6. Есть ли срок уведомления о расторжении.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "ТС возвращается по акту возврата с уровнем топлива не ниже ½ бака.
+        Нормальный износ не является основанием для удержания. За просрочку
+        возврата — 3 000 руб./сутки. Любая сторона вправе расторгнуть договор,
+        уведомив другую за 14 дней."
+
+        Ответ:
         {
-          "osago_present": "<yes / no / not_found>",
-          "casco_present": "<yes / no / not_found>",
-          "accident_procedure": "<described / partial / not_found>",
-          "non_insured_events_listed": "<yes / no / not_found>",
-          "repair_consent_required": "<yes / no / not_found>",
-          "snippet": "<цитата из договора или not_found>"
+          "return_procedure_status": "defined",
+          "return_procedure_details": "возвращается по акту возврата",
+          "return_condition_status": "defined",
+          "return_condition_details": "нормальный износ не является основанием для удержания",
+          "fuel_level_status": "defined",
+          "fuel_level_details": "уровень топлива не ниже ½ бака",
+          "late_return_penalty_status": "defined",
+          "late_return_penalty_details": "3 000 руб./сутки",
+          "termination_grounds_status": "defined",
+          "termination_grounds_details": "любая сторона вправе расторгнуть договор",
+          "termination_notice_status": "defined",
+          "termination_notice_details": "уведомив за 14 дней",
+          "evidence": [
+            {
+              "clause_ref": "п. 8.1",
+              "quote": "ТС возвращается по акту возврата с уровнем топлива не ниже ½ бака."
+            }
+          ]
         }
-      prompt_file: null
+
+        Пример 2:
+        Фрагмент:
+        "По окончании аренды ТС подлежит возврату."
+
+        Ответ:
+        {
+          "return_procedure_status": "not_defined",
+          "return_procedure_details": "Данные не определены",
+          "return_condition_status": "not_defined",
+          "return_condition_details": "Данные не определены",
+          "fuel_level_status": "not_defined",
+          "fuel_level_details": "Данные не определены",
+          "late_return_penalty_status": "not_defined",
+          "late_return_penalty_details": "Данные не определены",
+          "termination_grounds_status": "not_defined",
+          "termination_grounds_details": "Данные не определены",
+          "termination_notice_status": "not_defined",
+          "termination_notice_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1–6. Найди прямые цитаты по каждому пункту задачи.
+        7. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "return_procedure_status": "<defined / not_defined>",
+          "return_procedure_details": "<текст или 'Данные не определены'>",
+          "return_condition_status": "<defined / not_defined>",
+          "return_condition_details": "<текст или 'Данные не определены'>",
+          "fuel_level_status": "<defined / not_defined>",
+          "fuel_level_details": "<текст или 'Данные не определены'>",
+          "late_return_penalty_status": "<defined / not_defined>",
+          "late_return_penalty_details": "<текст или 'Данные не определены'>",
+          "termination_grounds_status": "<defined / not_defined>",
+          "termination_grounds_details": "<текст или 'Данные не определены'>",
+          "termination_notice_status": "<defined / not_defined>",
+          "termination_notice_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
-      max_tokens: 430
+      max_tokens: 750
+
     retrieval:
-      context_k: 6
-      max_chunks: 8
-      boost_keywords:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "возврат ТС акт возврата нормальный износ штраф за невозврат уровень топлива место возврата досрочное расторжение отказ от договора уведомление о расторжении"
+      preferred_unit_types:
+        - termination_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - remedies
+        - obligations
+      negative_keywords:
+        - "арендная плата"
+        - "VIN"
         - "ОСАГО"
         - "КАСКО"
-        - "в случае ДТП"
-        - "европротокол"
-        - "нестраховые случаи"
+        - "штрафы ГИБДД"
+        - "ДТП"
+        - "ремонт"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.55, 0.95]
+        boost: 0.18
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "procedures"
+        - "remedies"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 650
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС порядок
+        возврата, допустимое состояние, топливо, штрафы, основания расторжения
+        и срок уведомления.
+        Не анализируй плату, страхование, ДТП или ремонт.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        1. return_procedure_status — "defined" если порядок возврата прямо описан.
+        2. return_procedure_details — формулировка.
+        3. return_condition_status — "defined" если допустимое состояние описано.
+        4. return_condition_details — формулировка.
+        5. fuel_level_status — "defined" если уровень топлива указан.
+        6. fuel_level_details — формулировка.
+        7. late_return_penalty_status — "defined" если штраф прямо указан.
+        8. late_return_penalty_details — формулировка.
+        9. termination_grounds_status — "defined" если основания расторжения указаны.
+        10. termination_grounds_details — формулировка.
+        11. termination_notice_status — "defined" если срок уведомления указан.
+        12. termination_notice_details — формулировка.
+
+        Если данные отсутствуют: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "osago_present"
+        - name: "return_procedure_status"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Есть ли ОСАГО-блок"
-        - name: "accident_procedure"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка возврата ТС."
+          required: true
+        - name: "return_procedure_details"
           type: "string"
-          allowed_values: ["described", "partial", "not_found"]
-          description: "Описан ли порядок действий при ДТП"
+          presentation: "fact"
+          label: "Порядок возврата"
+          description: "Формулировка о порядке возврата ТС."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "return_condition_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус допустимого состояния при возврате."
+          required: false
+        - name: "return_condition_details"
+          type: "string"
+          presentation: "fact"
+          label: "Состояние при возврате"
+          description: "Формулировка о допустимом состоянии."
+          required: false
+          display_in_grid: false
+        - name: "fuel_level_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус условия об уровне топлива."
+          required: false
+        - name: "fuel_level_details"
+          type: "string"
+          presentation: "fact"
+          label: "Уровень топлива"
+          description: "Формулировка об уровне топлива при возврате."
+          required: false
+          display_in_grid: false
+        - name: "late_return_penalty_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус штрафа за просрочку возврата."
+          required: false
+        - name: "late_return_penalty_details"
+          type: "string"
+          presentation: "fact"
+          label: "Штраф за просрочку возврата"
+          description: "Формулировка и размер штрафа."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "termination_grounds_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус оснований досрочного расторжения."
+          required: false
+        - name: "termination_grounds_details"
+          type: "string"
+          presentation: "fact"
+          label: "Основания расторжения"
+          description: "Основания досрочного расторжения."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "termination_notice_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус срока уведомления о расторжении."
+          required: false
+        - name: "termination_notice_details"
+          type: "string"
+          presentation: "fact"
+          label: "Срок уведомления"
+          description: "Срок уведомления о расторжении."
+          required: false
+          display_in_grid: false
       store_payload: true
 
-  - id: fines_and_regress_check
-    name: "Штрафы с камер, административные взыскания и регресс"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 10: Штрафы
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_fines_and_regress_check
+    name: "Штрафы ГИБДД, административные взыскания и регресс к арендатору"
     description: >
-      Проверяет механизм компенсации штрафов, пришедших собственнику,
-      уведомление арендатора и порядок регресса.
-    triggers:
-      any: ["fines_and_traffic_risk"]
+      Фактографическая проверка наличия в тексте механизма компенсации
+      штрафов с камер, административных взысканий, порядка уведомления
+      арендатора и регрессного механизма.
+    triggers: ~
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "штрафы ГИБДД"
@@ -1146,66 +3463,311 @@ checks_v8:
         - "обязан возместить"
         - "срок возмещения"
         - "штрафы с камер"
+        - "регресс"
+        - "компенсация штрафов"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)штраф(ы|ов)\\s+ГИБДД"
         - "(?i)письм(а|о)\\s+счаст"
         - "(?i)возместит.*штраф"
+        - "(?i)регресс"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор аренды ТС.
-        Проверь, как урегулированы штрафы с камер и иные административные штрафы.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ.
+        Проверяется только один вопрос: механизм компенсации штрафов ГИБДД
+        и административных взысканий.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - КоАП РФ — штрафы с камер приходят собственнику ТС
+        - ст. 1081 ГК РФ — право регресса
+
+        Важно:
+        - Не оценивай серьёзность риска.
+        - Устанавливай только то, что прямо есть в тексте.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли обязанность арендатора компенсировать штрафы.
+        2. Есть ли порядок уведомления арендатора о штрафах.
+        3. Есть ли срок компенсации / возмещения.
+        4. Есть ли регрессный механизм.
+        5. Есть ли удержание штрафов из депозита.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Не используй "None", "null", "not_found" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — механизм описан:
+        Фрагмент:
+        "Арендатор обязан компенсировать Арендодателю все штрафы ГИБДД,
+        зафиксированные камерами в период аренды, в течение 5 рабочих дней
+        с момента получения уведомления. Арендодатель уведомляет Арендатора
+        о штрафе в течение 3 дней. При неоплате штраф удерживается из депозита."
+
+        Ответ:
         {
-          "fines_reimbursement": "<clear / weak / not_found>",
-          "regress_mechanism": "<yes / no / not_found>",
-          "notification_procedure": "<described / not_found>",
-          "payment_deadline": "<specified / not_found>",
-          "snippet": "<цитата из договора или not_found>"
+          "fines_reimbursement_status": "defined",
+          "fines_reimbursement_details": "Арендатор обязан компенсировать все штрафы ГИБДД в течение 5 рабочих дней",
+          "notification_procedure_status": "defined",
+          "notification_procedure_details": "Арендодатель уведомляет в течение 3 дней",
+          "reimbursement_deadline_status": "defined",
+          "reimbursement_deadline_details": "5 рабочих дней с момента получения уведомления",
+          "regress_mechanism_status": "not_defined",
+          "regress_mechanism_details": "Данные не определены",
+          "deposit_retention_for_fines_status": "defined",
+          "deposit_retention_for_fines_details": "при неоплате штраф удерживается из депозита",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.5",
+              "quote": "Арендатор обязан компенсировать Арендодателю все штрафы ГИБДД, зафиксированные камерами в период аренды, в течение 5 рабочих дней."
+            }
+          ]
         }
-      prompt_file: null
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Арендатор обязан соблюдать ПДД."
+
+        Ответ:
+        {
+          "fines_reimbursement_status": "not_defined",
+          "fines_reimbursement_details": "Данные не определены",
+          "notification_procedure_status": "not_defined",
+          "notification_procedure_details": "Данные не определены",
+          "reimbursement_deadline_status": "not_defined",
+          "reimbursement_deadline_details": "Данные не определены",
+          "regress_mechanism_status": "not_defined",
+          "regress_mechanism_details": "Данные не определены",
+          "deposit_retention_for_fines_status": "not_defined",
+          "deposit_retention_for_fines_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об обязанности компенсировать штрафы.
+        2. Найди прямую цитату о порядке уведомления.
+        3. Найди прямую цитату о сроке компенсации.
+        4. Найди прямую цитату о регрессе.
+        5. Найди прямую цитату об удержании из депозита.
+        6. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "fines_reimbursement_status": "<defined / not_defined>",
+          "fines_reimbursement_details": "<текст или 'Данные не определены'>",
+          "notification_procedure_status": "<defined / not_defined>",
+          "notification_procedure_details": "<текст или 'Данные не определены'>",
+          "reimbursement_deadline_status": "<defined / not_defined>",
+          "reimbursement_deadline_details": "<текст или 'Данные не определены'>",
+          "regress_mechanism_status": "<defined / not_defined>",
+          "regress_mechanism_details": "<текст или 'Данные не определены'>",
+          "deposit_retention_for_fines_status": "<defined / not_defined>",
+          "deposit_retention_for_fines_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 5
       temperature: 0.0
-      max_tokens: 380
+      max_tokens: 700
+
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "штрафы ГИБДД письма счастья административные штрафы обязан возместить срок возмещения штрафы с камер регресс компенсация штрафов удержание из депозита"
+      preferred_unit_types:
+        - obligation
+        - liability_provision
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - remedies
+        - procedures
+      negative_keywords:
+        - "арендная плата"
+        - "VIN"
+        - "ОСАГО"
+        - "КАСКО"
+        - "ДТП"
+        - "ремонт"
+        - "возврат ТС"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.35, 0.80]
+        boost: 0.15
+        scope: segment
       context_k: 5
       max_chunks: 7
-      boost_keywords:
-        - "штрафы ГИБДД"
-        - "письма счастья"
-        - "возместить"
-        - "срок возмещения"
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "remedies"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
     evidence:
       required: true
       min_snippet_length: 35
-      max_snippet_length: 550
+      max_snippet_length: 600
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 480
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС механизм
+        компенсации штрафов ГИБДД: обязанность, уведомление, сроки, регресс
+        и удержание из депозита.
+        Не анализируй плату, страхование, ДТП или возврат.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. fines_reimbursement_status — "defined" если обязанность компенсировать
+           штрафы прямо указана, иначе "not_defined".
+        2. fines_reimbursement_details — формулировка.
+        3. notification_procedure_status — "defined" если порядок уведомления
+           прямо описан, иначе "not_defined".
+        4. notification_procedure_details — формулировка.
+        5. reimbursement_deadline_status — "defined" если срок компенсации
+           прямо указан, иначе "not_defined".
+        6. reimbursement_deadline_details — формулировка.
+        7. regress_mechanism_status — "defined" если регрессный механизм
+           прямо предусмотрен, иначе "not_defined".
+        8. regress_mechanism_details — формулировка.
+        9. deposit_retention_for_fines_status — "defined" если удержание штрафов
+           из депозита прямо предусмотрено, иначе "not_defined".
+        10. deposit_retention_for_fines_details — формулировка.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "fines_reimbursement"
+        - name: "fines_reimbursement_status"
           type: "string"
-          allowed_values: ["clear", "weak", "not_found"]
-          description: "Проработанность механизма компенсации штрафов"
-        - name: "regress_mechanism"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус обязанности компенсировать штрафы."
+          required: true
+        - name: "fines_reimbursement_details"
           type: "string"
-          allowed_values: ["yes", "no", "not_found"]
-          description: "Есть ли регрессный механизм"
+          presentation: "fact"
+          label: "Компенсация штрафов"
+          description: "Формулировка об обязанности компенсировать штрафы."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "notification_procedure_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка уведомления о штрафах."
+          required: false
+        - name: "notification_procedure_details"
+          type: "string"
+          presentation: "fact"
+          label: "Уведомление о штрафах"
+          description: "Формулировка о порядке уведомления."
+          required: false
+          display_in_grid: false
+        - name: "reimbursement_deadline_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус срока компенсации."
+          required: false
+        - name: "reimbursement_deadline_details"
+          type: "string"
+          presentation: "fact"
+          label: "Срок компенсации"
+          description: "Срок компенсации штрафов."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "regress_mechanism_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус регрессного механизма."
+          required: false
+        - name: "regress_mechanism_details"
+          type: "string"
+          presentation: "fact"
+          label: "Регресс"
+          description: "Формулировка о регрессном механизме."
+          required: false
+          display_in_grid: false
+        - name: "deposit_retention_for_fines_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус удержания штрафов из депозита."
+          required: false
+        - name: "deposit_retention_for_fines_details"
+          type: "string"
+          presentation: "fact"
+          label: "Удержание штрафов из депозита"
+          description: "Формулировка об удержании штрафов из депозита."
+          required: false
+          display_in_grid: false
       store_payload: true
 
-  - id: usage_restrictions_and_driver_control_check
-    name: "Ограничения использования, территория и допущенные водители"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 11: Ограничения использования
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_usage_restrictions_check
+    name: "Ограничения использования ТС: водители, территория, запрет передачи"
     description: >
-      Проверяет территориальные ограничения, запрет на передачу управления,
-      требования к водителям, стажу и категориям прав.
-    triggers:
-      any: ["driver_restrictions", "territory_limits"]
+      Фактографическая проверка требований к допущенным водителям,
+      территориальных ограничений, запрета передачи управления третьим
+      лицам и субаренды.
+    triggers: ~
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
+
     rules:
       keywords:
         - "водительское удостоверение"
@@ -1215,577 +3777,614 @@ checks_v8:
         - "запрет на передачу управления"
         - "территория эксплуатации"
         - "выезд за пределы"
+        - "субаренда"
+        - "без права передачи"
       keyword_mode: "any"
       regex_patterns:
         - "(?i)водительск(ое|ого)\\s+удостоверен"
         - "(?i)стаж\\s+вожден"
         - "(?i)территори(я|и)\\s+эксплуатац"
         - "(?i)выезд\\s+за\\s+пределы"
+        - "(?i)субаренд"
+        - "(?i)без\\s+права\\s+передач"
+
     llm:
       prompt_template: |
-        Ты — юридический ассистент, анализирующий договор аренды ТС.
-        Проверь ограничения использования и контроль водителей.
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ.
+        Проверяется только один вопрос: ограничения использования ТС.
 
-        Ответь строго в JSON:
+        Нормативный ориентир:
+        - ст. 615 ГК РФ — использование арендованного имущества
+        - страховая практика — допущенные водители
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли требования к водителям (стаж, категория, возраст).
+        2. Есть ли перечень допущенных водителей.
+        3. Есть ли запрет передачи управления третьим лицам.
+        4. Есть ли территориальные ограничения.
+        5. Есть ли запрет выезда за пределы РФ.
+        6. Есть ли запрет субаренды.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Не используй "None", "null", "not_found" или пустые строки.
+        5. В evidence включай только текст договора.
+        6. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — ограничения указаны:
+        Фрагмент:
+        "Управление ТС допускается только лицами, указанными в Приложении № 2,
+        со стажем вождения не менее 3 лет и категорией «B». Передача управления
+        третьим лицам запрещена. ТС эксплуатируется только на территории г. Москвы
+        и Московской области. Субаренда запрещена."
+
+        Ответ:
         {
-          "driver_requirements": "<detailed / general / not_found>",
-          "management_transfer_prohibited": "<yes / no / not_found>",
-          "territorial_limits": "<present / absent / not_found>",
-          "cross_border_use_control": "<yes / no / not_found>",
-          "snippet": "<цитата из договора или not_found>"
+          "driver_requirements_status": "defined",
+          "driver_requirements_details": "стаж не менее 3 лет, категория «B»",
+          "allowed_drivers_list_status": "defined",
+          "allowed_drivers_list_details": "лица, указанные в Приложении № 2",
+          "transfer_prohibition_status": "defined",
+          "transfer_prohibition_details": "передача управления третьим лицам запрещена",
+          "territorial_limits_status": "defined",
+          "territorial_limits_details": "территория г. Москвы и Московской области",
+          "cross_border_restriction_status": "not_defined",
+          "cross_border_restriction_details": "Данные не определены",
+          "sublease_prohibition_status": "defined",
+          "sublease_prohibition_details": "субаренда запрещена",
+          "evidence": [
+            {
+              "clause_ref": "п. 4.1",
+              "quote": "Управление ТС допускается только лицами, указанными в Приложении № 2, со стажем вождения не менее 3 лет и категорией «B»."
+            }
+          ]
         }
-      prompt_file: null
-      context_k: 5
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Арендатор использует ТС по назначению."
+
+        Ответ:
+        {
+          "driver_requirements_status": "not_defined",
+          "driver_requirements_details": "Данные не определены",
+          "allowed_drivers_list_status": "not_defined",
+          "allowed_drivers_list_details": "Данные не определены",
+          "transfer_prohibition_status": "not_defined",
+          "transfer_prohibition_details": "Данные не определены",
+          "territorial_limits_status": "not_defined",
+          "territorial_limits_details": "Данные не определены",
+          "cross_border_restriction_status": "not_defined",
+          "cross_border_restriction_details": "Данные не определены",
+          "sublease_prohibition_status": "not_defined",
+          "sublease_prohibition_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о требованиях к водителям.
+        2. Найди прямую цитату о перечне допущенных водителей.
+        3. Найди прямую цитату о запрете передачи управления.
+        4. Найди прямую цитату о территориальных ограничениях.
+        5. Найди прямую цитату о запрете выезда за пределы РФ.
+        6. Найди прямую цитату о запрете субаренды.
+        7. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "driver_requirements_status": "<defined / not_defined>",
+          "driver_requirements_details": "<текст или 'Данные не определены'>",
+          "allowed_drivers_list_status": "<defined / not_defined>",
+          "allowed_drivers_list_details": "<текст или 'Данные не определены'>",
+          "transfer_prohibition_status": "<defined / not_defined>",
+          "transfer_prohibition_details": "<текст или 'Данные не определены'>",
+          "territorial_limits_status": "<defined / not_defined>",
+          "territorial_limits_details": "<текст или 'Данные не определены'>",
+          "cross_border_restriction_status": "<defined / not_defined>",
+          "cross_border_restriction_details": "<текст или 'Данные не определены'>",
+          "sublease_prohibition_status": "<defined / not_defined>",
+          "sublease_prohibition_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
       temperature: 0.0
-      max_tokens: 390
+      max_tokens: 750
+
     retrieval:
-      context_k: 5
-      max_chunks: 7
-      boost_keywords:
-        - "водительское удостоверение"
-        - "допущенные водители"
-        - "территория эксплуатации"
-        - "выезд за пределы"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "водительское удостоверение категория стаж вождения допущенные водители запрет передачи управления территория эксплуатации выезд за пределы субаренда без права передачи"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - limitations
+        - obligations
+      negative_keywords:
+        - "арендная плата"
+        - "VIN"
+        - "ОСАГО"
+        - "штрафы"
+        - "ДТП"
+        - "ремонт"
+        - "возврат"
+        - "депозит"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.25, 0.70]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
       rerank: true
-      filters: {}
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "limitations"
+        - "obligations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
     evidence:
       required: true
       min_snippet_length: 35
-      max_snippet_length: 550
+      max_snippet_length: 600
+
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 520
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС ограничения
+        использования: водители, территория, передача управления, субаренда.
+        Не анализируй плату, страхование, ДТП или возврат.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. driver_requirements_status — "defined" если требования к водителям прямо
+           указаны, иначе "not_defined".
+        2. driver_requirements_details — формулировка.
+        3. allowed_drivers_list_status — "defined" если перечень допущенных водителей
+           прямо указан, иначе "not_defined".
+        4. allowed_drivers_list_details — формулировка.
+        5. transfer_prohibition_status — "defined" если запрет передачи управления
+           прямо указан, иначе "not_defined".
+        6. transfer_prohibition_details — формулировка.
+        7. territorial_limits_status — "defined" если территориальные ограничения
+           прямо указаны, иначе "not_defined".
+        8. territorial_limits_details — формулировка.
+        9. cross_border_restriction_status — "defined" если запрет выезда за пределы
+           РФ прямо указан, иначе "not_defined".
+        10. cross_border_restriction_details — формулировка.
+        11. sublease_prohibition_status — "defined" если субаренда прямо запрещена,
+            иначе "not_defined".
+        12. sublease_prohibition_details — формулировка.
+
+        Если данные отсутствуют:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
       fields:
-        - name: "driver_requirements"
+        - name: "driver_requirements_status"
           type: "string"
-          allowed_values: ["detailed", "general", "not_found"]
-          description: "Проработанность требований к водителям"
-        - name: "territorial_limits"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус требований к водителям."
+          required: true
+        - name: "driver_requirements_details"
           type: "string"
-          allowed_values: ["present", "absent", "not_found"]
-          description: "Есть ли территориальные ограничения"
+          presentation: "fact"
+          label: "Требования к водителям"
+          description: "Формулировка о требованиях к водителям."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "allowed_drivers_list_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус перечня допущенных водителей."
+          required: false
+        - name: "allowed_drivers_list_details"
+          type: "string"
+          presentation: "fact"
+          label: "Допущенные водители"
+          description: "Формулировка о перечне допущенных водителей."
+          required: false
+          display_in_grid: false
+        - name: "transfer_prohibition_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус запрета передачи управления."
+          required: false
+        - name: "transfer_prohibition_details"
+          type: "string"
+          presentation: "fact"
+          label: "Запрет передачи управления"
+          description: "Формулировка о запрете передачи управления."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "territorial_limits_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус территориальных ограничений."
+          required: false
+        - name: "territorial_limits_details"
+          type: "string"
+          presentation: "fact"
+          label: "Территория эксплуатации"
+          description: "Формулировка о территориальных ограничениях."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+        - name: "cross_border_restriction_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус запрета выезда за пределы РФ."
+          required: false
+        - name: "cross_border_restriction_details"
+          type: "string"
+          presentation: "fact"
+          label: "Запрет выезда за рубеж"
+          description: "Формулировка о запрете выезда за пределы РФ."
+          required: false
+          display_in_grid: false
+        - name: "sublease_prohibition_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус запрета субаренды."
+          required: false
+        - name: "sublease_prohibition_details"
+          type: "string"
+          presentation: "fact"
+          label: "Запрет субаренды"
+          description: "Формулировка о запрете субаренды."
+          required: false
+          display_in_grid: false
       store_payload: true
 
-  - id: "vessel_aircraft_special_regime"
-    name: "Суда и ВС: специальный регистрационный и разрешительный режим"
+  # ──────────────────────────────────────────────────────────────────────────
+  # CHECK 12: Залог / депозит
+  # ──────────────────────────────────────────────────────────────────────────
+  - id: vehicle_deposit_and_mileage_check
+    name: "Залог / депозит, лимит пробега и плата за превышение"
     description: >
-      Аренда морских/речных судов и воздушных судов подчиняется специальным
-      транспортным кодексам (КТМ, КВВТ, ВзК РФ), требует регистрации в соответствующих
-      реестрах, наличия свидетельств годности, лицензий на эксплуатацию и специфического
-      страхования (P&I, Hull). Применение только § 3 Гл. 34 ГК РФ недостаточно.
-    legal_base: "КТМ РФ (Гл. X), КВВТ РФ (Гл. X), Воздушный кодекс РФ (Гл. IX), ФЗ-261"
-    required_triggers: ["vessel_or_aircraft"]
+      Фактографическая проверка наличия обеспечительного платежа,
+      порядка его возврата / удержания, лимита пробега / моточасов
+      и платы за сверхнормативный пробег.
+    triggers: ~
+    ui_mode: "field_extraction"
     severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "судно"
-        - "морское судно"
-        - "речное судно"
-        - "воздушное судно"
-        - "тайм-чартер"
-        - "авиационный"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "тайм-чартер"
-        - "судовой реестр"
-        - "свидетельство о годности"
-        - "воздушное судно"
-      rerank: true
-
-    triggers:
-      any: ["insurance_related", "road_vehicle", "vessel_or_aircraft"]
-
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
-#  Читается: DocTypeCheckConverter
-# ════════════════════════════════════════════════════════════════════════════
-
-doc_type_checks:
-
-  - id: "parties_identification"
-    name: "Стороны договора и статус фрахтовщика/фрахтователя"
-    description: "Проверяет идентификацию арендодателя и арендатора"
-    legal_base: "ст. 432, 632, 636 ГК РФ"
-    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "арендодатель"
-        - "арендатор"
-        - "фрахтовщик"
-        - "фрахтователь"
-        - "в лице"
-        - "действующего на основании"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)(арендодатель|арендатор|фрахтовщик|фрахтователь).*именуем"
-        - "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"
+    detector_type: "hybrid"
 
-  - id: "vehicle_identification"
-    name: "Индивидуализация транспортного средства"
-    description: "Проверяет VIN, госномер, марку, модель и иные идентификаторы"
-    legal_base: "ст. 607 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "VIN"
-        - "госномер"
-        - "марка"
-        - "модель"
-        - "ПТС"
-        - "СТС"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
-        - "(?i)[А-ЯA-Z]\\d{3}[А-ЯA-Z]{2}\\d{2,3}"
-        - "(?i)ПТС|СТС"
-
-  - id: "crew_status_declaration"
-    name: "Определение вида аренды: с экипажем или без экипажа"
-    description: "Проверяет, четко ли указан вид аренды ТС"
-    legal_base: "ст. 632-641 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "с экипажем"
-        - "без экипажа"
-        - "фрахтование на время"
-        - "услуги управления"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)с\\s+экипажем|без\\s+экипажа"
-        - "(?i)фрахтовани(е|я)\\s+на\\s+время"
-
-  - id: "rent_payment_terms"
-    name: "Арендная плата / фрахт"
-    description: "Проверяет размер платы и порядок ее внесения"
-    legal_base: "ст. 614, 635, 639 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "арендная плата"
-        - "фрахт"
-        - "ежемесячно"
-        - "стоимость аренды"
-        - "срок оплаты"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)арендн(ая|ой)\\s+плат|фрахт"
-        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
-
-  - id: "term_of_lease"
-    name: "Срок аренды ТС"
-    description: "Проверяет наличие срока аренды"
-    legal_base: "ст. 610 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "срок аренды"
-        - "срок действия договора"
-        - "до"
-        - "с"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)срок\\s+аренд"
-        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
-
-  - id: "detailed_handover_protocol"
-    name: "Детальный акт приема-передачи ТС"
-    description: "Проверяет наличие акта, пробега, состояния и повреждений"
-    legal_base: "судебная практика, общие положения об аренде"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "акт приема-передачи"
-        - "пробег"
-        - "техническое состояние"
-        - "существующие повреждения"
-        - "фотофиксация"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)акт\\s+(приема|приёма|передач)"
-        - "(?i)пробег"
-        - "(?i)фотофиксац"
-
-  - id: "insurance_requirements"
-    name: "Страхование ТС (ОСАГО / КАСКО)"
-    description: "Проверяет страховой режим и распределение страховых обязанностей"
-    legal_base: "ФЗ-40, ст. 637, 646 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["insurance_related"]
-    rules:
-      keywords:
-        - "ОСАГО"
-        - "КАСКО"
-        - "страховой полис"
-        - "страхование гражданской ответственности"
-        - "выгодоприобретатель"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)ОСАГО|КАСКО"
-        - "(?i)страхов(ой|ого)\\s+полис"
-
-  - id: "traffic_fines_reimbursement"
-    name: "Компенсация штрафов и административных взысканий"
-    description: "Проверяет механизм возмещения штрафов, приходящих собственнику"
-    legal_base: "КоАП РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["fines_and_traffic_risk"]
-    rules:
-      keywords:
-        - "штрафы ГИБДД"
-        - "административные штрафы"
-        - "обязан возместить"
-        - "письма счастья"
-        - "срок возмещения"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)штраф(ы|ов)\\s+ГИБДД"
-        - "(?i)возместит.*штраф"
-
-  - id: "usage_territory_limits"
-    name: "Ограничение территории использования"
-    description: "Проверяет наличие географических ограничений использования ТС"
-    legal_base: "ст. 615 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["territory_limits"]
-    rules:
-      keywords:
-        - "территория эксплуатации"
-        - "в пределах региона"
-        - "выезд за пределы РФ"
-        - "географические ограничения"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)территори(я|и)\\s+эксплуатац"
-        - "(?i)выезд\\s+за\\s+пределы"
-
-  - id: "security_deposit_mechanism"
-    name: "Залог / депозит"
-    description: "Проверяет обеспечительный платеж и правила его удержания/возврата"
-    legal_base: "ст. 329, 334, 381.1 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["security_deposit_related"]
     rules:
       keywords:
         - "залог"
         - "депозит"
         - "обеспечительный платеж"
-        - "возвращается при отсутствии претензий"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)залог|депозит|обеспечительн(ый|ого)\\s+плат"
-
-  - id: "vehicle_fitness_warranty"
-    name: "Техническая исправность и юридическая чистота ТС"
-    description: "Проверяет заверения об исправности и отсутствии обременений"
-    legal_base: "ст. 612 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "исправное техническое состояние"
-        - "отсутствие обременений"
-        - "не в залоге"
-        - "не под арестом"
-        - "действующий техосмотр"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)исправн(ое|ого)\\s+техническ(ое|ого)\\s+состояни"
-        - "(?i)не\\s+обременен|не\\s+в\\s+залоге|не\\s+под\\s+арестом"
-
-  - id: "accident_procedure_clear"
-    name: "Порядок действий при ДТП"
-    description: "Проверяет регламент действий арендатора/экипажа при ДТП"
-    legal_base: "ФЗ-40, ст. 1079 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "действия при ДТП"
-        - "уведомление арендодателя"
-        - "европротокол"
-        - "вызов сотрудников ГИБДД"
-        - "ремонт только с согласия"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)в\\s+случае\\s+ДТП"
-        - "(?i)уведомлени(е|я)\\s+арендодател"
-        - "(?i)европротокол"
-
-  - id: "maintenance_duty_tenant"
-    name: "Без экипажа: ремонт и содержание на стороне арендатора"
-    description: "Проверяет соответствие режиму без экипажа"
-    legal_base: "ст. 641 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["without_crew"]
-    rules:
-      keywords:
-        - "текущий и капитальный ремонт"
-        - "расходы на ремонт несет арендатор"
-        - "поддерживать в исправном состоянии"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)текущ(ий|его)\\s+и\\s+капитальн(ый|ого)\\s+ремонт"
-        - "(?i)несет\\s+арендатор"
-
-  - id: "liability_for_third_party_damage_tenant"
-    name: "Без экипажа: ответственность арендатора перед третьими лицами"
-    description: "Проверяет правило об ответственности арендатора как владельца ИПО"
-    legal_base: "ст. 640 ГК РФ, ст. 1079 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["without_crew"]
-    rules:
-      keywords:
-        - "ответственность за вред третьим лицам"
-        - "несет арендатор"
-        - "источник повышенной опасности"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)вред.*третьим\\s+лицам"
-        - "(?i)источник\\s+повышенн(ой|ого)\\s+опасност"
-        - "(?i)несет\\s+арендатор"
-
-  - id: "liability_for_accidents_lessor"
-    name: "С экипажем: ответственность арендодателя за действия экипажа"
-    description: "Проверяет соответствие режиму аренды ТС с экипажем"
-    legal_base: "ст. 634-635 ГК РФ"
-    severity: "critical"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["with_crew"]
-    rules:
-      keywords:
-        - "ответственность несет арендодатель"
-        - "вред возмещает арендодатель"
-        - "ответственность за действия экипажа"
-        - "экипаж"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)ответственность.*несет.*арендодатель"
-        - "(?i)действи(я|е)\\s+экипаж"
-
-  - id: "crew_qualification_guarantee"
-    name: "С экипажем: квалификация экипажа"
-    description: "Проверяет наличие условий о квалификации, правах и статусе экипажа"
-    legal_base: "ст. 635 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["with_crew"]
-    rules:
-      keywords:
-        - "квалификация водителя"
-        - "соответствующие права"
-        - "экипаж имеет необходимую квалификацию"
-        - "трудовые отношения с арендодателем"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)квалификац"
-        - "(?i)экипаж.*имеет.*необходим"
-
-  - id: "driver_verification_protection"
-    name: "Без экипажа: ограничения по водителям"
-    description: "Проверяет требования к водителям, стажу, возрасту и запрет передачи управления"
-    legal_base: "свобода договора, страховая практика"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["without_crew", "driver_restrictions"]
-    rules:
-      keywords:
-        - "только указанные водители"
-        - "копия водительского удостоверения"
-        - "стаж вождения"
-        - "возрастные ограничения"
-        - "запрет на передачу управления"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)водительск(ое|ого)\\s+удостоверен"
-        - "(?i)стаж\\s+вожден"
-        - "(?i)передач(а|и)\\s+управлен"
-
-  - id: "sublease_and_transfer_control"
-    name: "Субаренда и передача управления третьим лицам"
-    description: "Проверяет ограничения на передачу ТС/управления третьим лицам"
-    legal_base: "ст. 615 ГК РФ, спецрежим аренды ТС"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "субаренда"
-        - "передача управления третьим лицам"
-        - "без права передачи"
-        - "запрещена передача"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)субаренд"
-        - "(?i)передач.*управлен.*третьим\\s+лицам"
-        - "(?i)без\\s+права\\s+передач"
-
-  - id: "dispute_resolution_jurisdiction"
-    name: "Подсудность и порядок разрешения споров"
-    description: "Проверяет наличие forum / court / претензионного порядка"
-    legal_base: "АПК РФ, ГПК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "подсудность"
-        - "арбитражный суд"
-        - "претензионный порядок"
-        - "досудебный порядок"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)арбитражн(ый|ого)\\s+суд"
-        - "(?i)претензионн(ый|ого)\\s+поряд"
-
-  - id: "termination_and_early_exit"
-    name: "Досрочное расторжение и порядок прекращения"
-    description: "Проверяет основания, сроки уведомления и последствия досрочного расторжения"
-    legal_base: "ст. 619, 620 ГК РФ, § 3 Гл. 34 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "досрочное расторжение"
-        - "отказ от договора"
-        - "уведомление о расторжении"
-        - "за дней"
-        - "за месяц"
-        - "последствия расторжения"
-        - "возврат при расторжении"
-        - "неустойка за досрочное расторжение"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)досрочн(ое|ого)\\s+расторж"
-        - "(?i)уведомлени(е|я).*за\\s+\\d+\\s*(дней|рабочих|календарн)"
-        - "(?i)отказ.*от.*договор"
-
-  - id: "force_majeure_clause"
-    name: "Форс-мажор и обстоятельства непреодолимой силы"
-    description: "Проверяет наличие оговорки о форс-мажоре"
-    legal_base: "ст. 401 ГК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "форс-мажор"
-        - "непреодолимая сила"
-        - "обстоятельства непреодолимой силы"
-        - "освобождение от ответственности"
-        - "чрезвычайные обстоятельства"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)форс[- ]?мажор"
-        - "(?i)непреодолим(ая|ой)\\s+сил"
-
-  - id: "vehicle_return_conditions"
-    name: "Условия возврата ТС по окончании аренды"
-    description: "Проверяет наличие условий возврата, допустимого состояния и санкций за невозврат"
-    legal_base: "ст. 622 ГК РФ"
-    severity: "high"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "возврат ТС"
-        - "возврат транспортного средства"
-        - "акт возврата"
-        - "нормальный износ"
-        - "штраф за невозврат"
-        - "уровень топлива"
-        - "в том же состоянии"
-        - "место возврата"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)возвра(т|тить)\\s+(ТС|транспортн|автомобиль)"
-        - "(?i)нормальн(ый|ого)\\s+износ"
-
-  - id: "mileage_limit_and_excess"
-    name: "Лимит пробега/моточасов и плата за превышение"
-    description: "Проверяет наличие ограничений пробега и санкций за превышение"
-    legal_base: "Свобода договора (ст. 421 ГК РФ)"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers:
-      any: ["mileage_limits_present"]
-    rules:
-      keywords:
+        - "возврат залога"
+        - "удержание"
         - "лимит пробега"
         - "ограничение пробега"
-        - "км в месяц"
         - "сверхнормативный пробег"
         - "плата за превышение"
         - "моточасы"
-        - "лимит моточасов"
       keyword_mode: "any"
       regex_patterns:
+        - "(?i)залог|депозит|обеспечительн(ый|ого)\\s+плат"
         - "(?i)лимит.*пробег"
         - "(?i)сверхнормативн(ый|ого)\\s+пробег"
         - "(?i)\\d+\\s*(км|километр)\\s*(в\\s+месяц|ежемесячн)"
 
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор аренды транспортного средства по §3 Главы 34 ГК РФ.
+        Проверяется только один вопрос: депозит и лимит пробега.
+
+        Нормативный ориентир:
+        - ст. 381.1 ГК РФ — обеспечительный платёж
+        - ст. 421 ГК РФ — свобода договора (лимит пробега)
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Есть ли залог / депозит и его размер.
+        2. Есть ли порядок возврата депозита.
+        3. Есть ли критерии удержания из депозита.
+        4. Есть ли лимит пробега / моточасов.
+        5. Есть ли плата за сверхнормативный пробег.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Если условие не указано прямо — возвращай "not_defined".
+        3. Если текстового значения нет — возвращай "Данные не определены".
+        4. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Обеспечительный платёж — 30 000 рублей. Возвращается в течение 5 дней
+        после возврата ТС без повреждений. Лимит пробега — 3 000 км в месяц.
+        За каждый километр сверх лимита — 10 руб."
+
+        Ответ:
+        {
+          "deposit_status": "defined",
+          "deposit_details": "30 000 рублей",
+          "deposit_refund_status": "defined",
+          "deposit_refund_details": "возвращается в течение 5 дней после возврата без повреждений",
+          "retention_criteria_status": "defined",
+          "retention_criteria_details": "при отсутствии повреждений",
+          "mileage_limit_status": "defined",
+          "mileage_limit_details": "3 000 км в месяц",
+          "excess_mileage_fee_status": "defined",
+          "excess_mileage_fee_details": "10 руб. за каждый километр сверх лимита",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.5",
+              "quote": "Обеспечительный платёж — 30 000 рублей. Лимит пробега — 3 000 км в месяц."
+            }
+          ]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Арендатор оплачивает аренду ежемесячно."
+
+        Ответ:
+        {
+          "deposit_status": "not_defined",
+          "deposit_details": "Данные не определены",
+          "deposit_refund_status": "not_defined",
+          "deposit_refund_details": "Данные не определены",
+          "retention_criteria_status": "not_defined",
+          "retention_criteria_details": "Данные не определены",
+          "mileage_limit_status": "not_defined",
+          "mileage_limit_details": "Данные не определены",
+          "excess_mileage_fee_status": "not_defined",
+          "excess_mileage_fee_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о депозите / залоге.
+        2. Найди прямую цитату о порядке возврата.
+        3. Найди прямую цитату о критериях удержания.
+        4. Найди прямую цитату о лимите пробега.
+        5. Найди прямую цитату о плате за превышение.
+        6. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "deposit_status": "<defined / not_defined>",
+          "deposit_details": "<текст или 'Данные не определены'>",
+          "deposit_refund_status": "<defined / not_defined>",
+          "deposit_refund_details": "<текст или 'Данные не определены'>",
+          "retention_criteria_status": "<defined / not_defined>",
+          "retention_criteria_details": "<текст или 'Данные не определены'>",
+          "mileage_limit_status": "<defined / not_defined>",
+          "mileage_limit_details": "<текст или 'Данные не определены'>",
+          "excess_mileage_fee_status": "<defined / not_defined>",
+          "excess_mileage_fee_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 700
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "залог депозит обеспечительный платёж возврат залога удержание лимит пробега ограничение пробега сверхнормативный пробег плата за превышение моточасы"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - limitations
+      negative_keywords:
+        - "арендная плата"
+        - "VIN"
+        - "ОСАГО"
+        - "штрафы ГИБДД"
+        - "ДТП"
+        - "ремонт"
+        - "возврат ТС"
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.65]
+        boost: 0.15
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+      preferred_clause_functions:
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      compact_output: true
+      llm_max_tokens: 480
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора аренды ТС депозит,
+        порядок возврата, критерии удержания, лимит пробега и плату за превышение.
+        Не анализируй плату, страхование, ДТП или возврат ТС.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        1. deposit_status — "defined" если депозит прямо предусмотрен, иначе "not_defined".
+        2. deposit_details — размер и условия.
+        3. deposit_refund_status — "defined" если возврат прямо описан, иначе "not_defined".
+        4. deposit_refund_details — формулировка.
+        5. retention_criteria_status — "defined" если критерии удержания указаны.
+        6. retention_criteria_details — формулировка.
+        7. mileage_limit_status — "defined" если лимит пробега указан.
+        8. mileage_limit_details — формулировка.
+        9. excess_mileage_fee_status — "defined" если плата за превышение указана.
+        10. excess_mileage_fee_details — формулировка.
+
+        Если данные отсутствуют: статус = "not_defined", текст = "Данные не определены".
+        </task>
+
+        <rules>
+        - Используй только текст договора.
+        - Верни только JSON.
+        </rules>
+      fields:
+        - name: "deposit_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия депозита."
+          required: true
+        - name: "deposit_details"
+          type: "string"
+          presentation: "fact"
+          label: "Залог / депозит"
+          description: "Размер и условия депозита."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+        - name: "deposit_refund_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус порядка возврата депозита."
+          required: false
+        - name: "deposit_refund_details"
+          type: "string"
+          presentation: "fact"
+          label: "Возврат депозита"
+          description: "Формулировка о порядке возврата."
+          required: false
+          display_in_grid: false
+        - name: "retention_criteria_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус критериев удержания."
+          required: false
+        - name: "retention_criteria_details"
+          type: "string"
+          presentation: "fact"
+          label: "Критерии удержания"
+          description: "Формулировка о критериях удержания."
+          required: false
+          display_in_grid: false
+        - name: "mileage_limit_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус лимита пробега."
+          required: false
+        - name: "mileage_limit_details"
+          type: "string"
+          presentation: "fact"
+          label: "Лимит пробега"
+          description: "Формулировка о лимите пробега / моточасов."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+        - name: "excess_mileage_fee_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус платы за сверхнормативный пробег."
+          required: false
+        - name: "excess_mileage_fee_details"
+          type: "string"
+          presentation: "fact"
+          label: "Плата за превышение пробега"
+          description: "Формулировка о плате за сверхнормативный пробег."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+      store_payload: true
+
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 7: DD_REQUEST_TEMPLATES
-#  Читается: DDRequestTemplateLoader
-#  Ключи = check_id из checks_v8 и doc_type_checks выше.
-#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# БЛОК 5: DD_REQUEST_TEMPLATES
+# Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
 
 dd_request_templates:

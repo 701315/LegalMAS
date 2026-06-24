@@ -1,16 +1,13 @@
 type: contract_1.5_energy_supply
 name: "Договор энергоснабжения"
-
+version: 6.0
+parent: class_1_transfer_of_ownership
 description: |
   Специализированный вид купли-продажи, регулируемый § 6 Главы 30 ГК РФ, для поставки энергии
   (электрической, тепловой, газа, воды) через присоединённую сеть. Является публичным договором,
   характеризуется особым способом передачи товара и специальными правилами учёта потребления.
   Для граждан дополнительно применяются Правила предоставления коммунальных услуг
   (ПП РФ № 354) и Закон о защите прав потребителей.
-
-version: 5.0
-parent: class_1_transfer_of_ownership
-
 metadata:
   category: contract
   subcategory: ownership_transfer
@@ -737,7 +734,11 @@ checks_v8:
       организации и абоненте — реквизиты, тип ЭСО, подписанты и документы,
       подтверждающие полномочия.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -870,8 +871,13 @@ checks_v8:
         }
       context_k: 6
       temperature: 0.0
-      max_tokens: 700
+      max_tokens: 600
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "энергоснабжающая организация сбытовая компания сетевая организация гарантирующий поставщик абонент потребитель ИНН ОГРН именуем в лице действующего на основании устава доверенности реквизиты подписант лицензия"
       preferred_unit_types:
         - obligation
@@ -906,10 +912,17 @@ checks_v8:
       max_chunks: 8
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
-        - "definitions"
+        - "representations"
         - "boilerplate"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.15
     evidence:
       required: true
       min_snippet_length: 40
@@ -917,6 +930,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 500
       llm_prompt_extraction: |
         <role>
@@ -962,51 +976,67 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов энергоснабжающей организации."
+          required: true
         - name: "eso_details"
           type: "string"
           presentation: "fact"
           label: "Энергоснабжающая организация"
           description: "Наименование и реквизиты энергоснабжающей организации."
+          required: true
+          display_in_grid: true
+          display_priority: 1
         - name: "eso_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["guaranteeing_supplier", "sales_company", "network_org", "unclear", "not_defined"]
           description: "Тип энергоснабжающей организации."
+          required: false
         - name: "eso_signatory"
           type: "string"
           presentation: "fact"
           label: "Подписант ЭСО"
           description: "Подписант от энергоснабжающей организации."
+          required: false
+          display_in_grid: false
         - name: "eso_signatory_basis"
           type: "string"
           presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта ЭСО."
+          required: false
         - name: "subscriber_details_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов абонента."
+          required: true
         - name: "subscriber_details"
           type: "string"
           presentation: "fact"
           label: "Абонент"
           description: "Наименование и реквизиты абонента."
+          required: true
+          display_in_grid: true
+          display_priority: 2
         - name: "subscriber_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["legal_entity", "individual", "ip", "tszh", "uk", "not_defined"]
           description: "Тип абонента."
+          required: false
         - name: "subscriber_signatory"
           type: "string"
           presentation: "fact"
           label: "Подписант абонента"
           description: "Подписант от абонента."
+          required: false
+          display_in_grid: false
         - name: "subscriber_signatory_basis"
           type: "string"
           presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта абонента."
+          required: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1019,7 +1049,11 @@ checks_v8:
       акта разграничения балансовой принадлежности, согласованного объёма
       и максимальной мощности.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1168,8 +1202,13 @@ checks_v8:
         }
       context_k: 7
       temperature: 0.0
-      max_tokens: 750
+      max_tokens: 650
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "электрическая энергия тепловая энергия природный газ вид энергии подача энергии точка поставки граница балансовой принадлежности граница эксплуатационной ответственности граница раздела вводное устройство количество энергии объём потребления плановое потребление лимит потребления максимальная мощность присоединённая мощность договорной объём сверхдоговорное потребление превышение лимита энергопринимающее устройство через присоединённую сеть"
       preferred_unit_types:
         - obligation
@@ -1210,10 +1249,17 @@ checks_v8:
       max_chunks: 10
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
-        - "definitions"
         - "obligations"
+        - "definitions"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
     evidence:
       required: true
       min_snippet_length: 40
@@ -1221,6 +1267,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 540
       llm_prompt_extraction: |
         <role>
@@ -1268,61 +1315,81 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения вида энергии."
+          required: true
         - name: "energy_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["electricity", "heat", "gas", "water", "other", "not_defined"]
           description: "Вид энергии."
+          required: true
         - name: "delivery_point_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения точки поставки."
+          required: true
         - name: "delivery_point_details"
           type: "string"
           presentation: "fact"
           label: "Точка поставки"
           description: "Конкретная точка поставки энергии."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "boundary_act_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания акта разграничения балансовой принадлежности."
+          required: false
         - name: "boundary_act_details"
           type: "string"
           presentation: "fact"
           label: "Акт разграничения"
           description: "Ссылка на акт разграничения балансовой принадлежности."
+          required: false
+          display_in_grid: false
         - name: "agreed_volume_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения согласованного объёма."
+          required: true
         - name: "agreed_volume"
           type: "string"
           presentation: "fact"
           label: "Согласованный объём"
           description: "Согласованный объём потребления с единицей измерения."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "max_capacity_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения максимальной мощности."
+          required: false
         - name: "max_capacity"
           type: "string"
           presentation: "fact"
           label: "Максимальная мощность"
           description: "Максимальная или присоединённая мощность."
+          required: false
+          display_in_grid: true
+          display_priority: 3
         - name: "excess_consumption_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения последствий превышения объёма или мощности."
+          required: false
         - name: "excess_consumption_details"
           type: "string"
           presentation: "fact"
           label: "Последствия превышения лимита"
           description: "Последствия превышения согласованного объёма или мощности."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1334,7 +1401,11 @@ checks_v8:
       Фактографическая проверка наличия в договоре тарифа или ссылки на регулятора,
       типа тарифа, срока оплаты, пеней за просрочку и права на ограничение при неоплате.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1465,8 +1536,13 @@ checks_v8:
         }
       context_k: 7
       temperature: 0.0
-      max_tokens: 750
+      max_tokens: 650
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "тариф цена стоимость рублей за киловатт кВт гигакалория Гкал кубометр одноставочный тариф двухставочный тариф плата за мощность обязанность оплачивать срок оплаты ежемесячная оплата расчётный период пени за просрочку неустойка за неоплату энергосбытовая надбавка"
       preferred_unit_types:
         - payment_term
@@ -1507,10 +1583,17 @@ checks_v8:
       max_chunks: 10
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
-        - "definitions"
+        - "procedures"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -1518,6 +1601,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 520
       llm_prompt_extraction: |
         <role>
@@ -1564,56 +1648,74 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения тарифа."
+          required: true
         - name: "tariff_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["fixed_amount", "regulatory_reference", "not_defined"]
           description: "Тип указания тарифа."
+          required: false
         - name: "tariff_details"
           type: "string"
           presentation: "fact"
           label: "Тариф"
           description: "Тариф или ссылка на регулирующий орган."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "tariff_rate_type_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения тарифной структуры."
+          required: false
         - name: "tariff_rate_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["single_rate", "two_rate", "three_rate", "not_defined"]
           description: "Тип тарифной структуры."
+          required: false
         - name: "payment_deadline_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока оплаты."
+          required: true
         - name: "payment_deadline_details"
           type: "string"
           presentation: "fact"
           label: "Срок оплаты"
           description: "Срок оплаты потреблённой энергии."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "penalty_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения пени за просрочку оплаты."
+          required: false
         - name: "penalty_details"
           type: "string"
           presentation: "fact"
           label: "Пени за просрочку"
           description: "Ставка пени за просрочку оплаты."
+          required: false
+          display_in_grid: true
+          display_priority: 3
         - name: "disconnection_on_non_payment_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения права ограничения или отключения при неоплате."
+          required: false
         - name: "disconnection_on_non_payment_details"
           type: "string"
           presentation: "fact"
           label: "Ограничение при неоплате"
           description: "Условие ограничения или отключения при неоплате."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1626,7 +1728,11 @@ checks_v8:
       реквизитах прибора учёта, порядке расчёта при его отсутствии/неисправности
       и обязанностях абонента по поверке.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1753,8 +1859,13 @@ checks_v8:
         }
       context_k: 7
       temperature: 0.0
-      max_tokens: 700
+      max_tokens: 600
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "прибор учёта счётчик учёт потребления показания прибора поверка пломба расчёт по нормативу содержание приборов учёта поверка счётчиков исправность приборов учёта обеспечение доступа к счётчикам замена приборов учёта АСКУЭ передача показаний дата поверки следующая поверка"
       preferred_unit_types:
         - obligation
@@ -1791,10 +1902,17 @@ checks_v8:
       max_chunks: 10
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "procedures"
         - "obligations"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -1802,6 +1920,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 520
       llm_prompt_extraction: |
         <role>
@@ -1838,6 +1957,8 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
+        - Если пломба упоминается как нарушение (безучётное потребление, хищение),
+          не включай это в ответ — такие случаи анализируются отдельно.
         - Не подставляй правила коммерческого учёта, если их нет в тексте.
         - normative = расчёт по нормативу.
         - calculated = расчётным способом по формуле, мощности, среднему потреблению и т.п.
@@ -1849,51 +1970,73 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка учёта потребления."
+          required: true
         - name: "meter_details_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания реквизитов прибора учёта."
+          required: false
         - name: "meter_details"
           type: "string"
           presentation: "fact"
           label: "Прибор учёта"
           description: "Тип, номер и иные реквизиты прибора учёта."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "reading_submission_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка передачи показаний."
+          required: false
         - name: "reading_submission_details"
           type: "string"
           presentation: "fact"
           label: "Передача показаний"
           description: "Срок или порядок передачи показаний прибора учёта."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "calculation_without_meter_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения расчёта при отсутствии или неисправности прибора."
+          required: false
         - name: "calculation_without_meter"
           type: "string"
           presentation: "signal"
           allowed_values: ["normative", "calculated", "not_defined"]
           description: "Метод расчёта при отсутствии или неисправности прибора учёта."
+          required: false
         - name: "verification_obligation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обязанности по поверке прибора учёта."
+          required: false
+        - name: "verification_obligation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Условия поверки прибора учёта"
+          description: "Текст обязанности абонента по поверке прибора учёта."
+          required: false
+          display_in_grid: false
         - name: "seal_tampering_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения последствий повреждения пломбы."
+          required: false
         - name: "seal_tampering_details"
           type: "string"
           presentation: "fact"
           label: "Последствия повреждения пломбы"
           description: "Последствия повреждения пломбы или несанкционированного вмешательства."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1906,7 +2049,11 @@ checks_v8:
       оборудование, уведомлять об авариях и запрете/порядке передачи энергии
       субабонентам без согласия ЭСО.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -1958,6 +2105,47 @@ checks_v8:
         4. В evidence — только текст договора.
         5. Верни только один JSON-объект.
 
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "Абонент обязан поддерживать в надлежащем техническом состоянии
+        энергопринимающее оборудование и внутренние электрические сети.
+        При обнаружении аварии абонент обязан немедленно уведомить ЭСО.
+        Передача энергии третьим лицам допускается только с письменного согласия ЭСО."
+
+        Ответ:
+        {
+          "network_maintenance_status": "defined",
+          "network_maintenance_details": "поддерживать в надлежащем техническом состоянии энергопринимающее оборудование и внутренние электрические сети",
+          "accident_notification_status": "defined",
+          "accident_notification_deadline": "немедленно",
+          "eso_inspection_right_status": "not_defined",
+          "sub_subscriber_status": "defined",
+          "sub_subscriber_regime": "permitted_with_consent",
+          "sub_subscriber_penalty_status": "not_defined",
+          "sub_subscriber_penalty_details": "Данные не определены",
+          "evidence": []
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Стороны обязуются соблюдать действующее законодательство."
+
+        Ответ:
+        {
+          "network_maintenance_status": "not_defined",
+          "network_maintenance_details": "Данные не определены",
+          "accident_notification_status": "not_defined",
+          "accident_notification_deadline": "Данные не определены",
+          "eso_inspection_right_status": "not_defined",
+          "sub_subscriber_status": "not_defined",
+          "sub_subscriber_regime": "not_defined",
+          "sub_subscriber_penalty_status": "not_defined",
+          "sub_subscriber_penalty_details": "Данные не определены",
+          "evidence": []
+        }
+
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         1. Есть ли прямая фраза об обязанности содержать оборудование?
         2. Указан ли срок уведомления числом (часов / немедленно)?
@@ -1981,8 +2169,13 @@ checks_v8:
         }
       context_k: 7
       temperature: 0.0
-      max_tokens: 650
+      max_tokens: 560
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "надлежащее техническое состояние энергопринимающее оборудование энергопринимающие устройства соблюдение режима потребления немедленно сообщить уведомить об аварии неисправность оборудования авария содержание внутренних сетей субабонент передача энергии третьим лицам подключение третьих лиц с согласия энергоснабжающей транзит энергии запрещается передача энергии"
       preferred_unit_types:
         - obligation
@@ -2018,10 +2211,17 @@ checks_v8:
       max_chunks: 10
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "procedures"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -2029,6 +2229,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 500
       llm_prompt_extraction: |
         <role>
@@ -2073,46 +2274,60 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обязанности абонента содержать сети и оборудование."
+          required: false
         - name: "network_maintenance_details"
           type: "string"
           presentation: "fact"
           label: "Содержание сетей и оборудования"
           description: "Обязанности абонента по содержанию энергопринимающего оборудования и внутренних сетей."
+          required: false
+          display_in_grid: false
         - name: "accident_notification_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока уведомления об аварии."
+          required: false
         - name: "accident_notification_deadline"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления об аварии"
           description: "Срок или порядок уведомления ЭСО об аварии."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "eso_inspection_right_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус права ЭСО на проверку оборудования абонента."
+          required: false
         - name: "sub_subscriber_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия о субабоненте."
+          required: false
         - name: "sub_subscriber_regime"
           type: "string"
           presentation: "signal"
           allowed_values: ["prohibited", "permitted_with_consent", "not_defined"]
           description: "Режим субабонентского подключения."
+          required: false
         - name: "sub_subscriber_penalty_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения последствий несогласованного субабонентского подключения."
+          required: false
         - name: "sub_subscriber_penalty_details"
           type: "string"
           presentation: "fact"
           label: "Последствия несогласованного субабонента"
           description: "Последствия передачи энергии третьим лицам без согласия ЭСО."
+          required: false
+          display_in_grid: true
+          display_priority: 2
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2125,7 +2340,11 @@ checks_v8:
       условий расторжения (с учётом асимметрии прав гражданина и юрлица), форс-мажора,
       претензионного порядка.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -2236,6 +2455,11 @@ checks_v8:
       temperature: 0.0
       max_tokens: 800
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "срок действия договора пролонгация автоматически продлевается возобновляется на тот же срок на неопределённый срок расторжение договора односторонний отказ право на отказ прекращение договора досрочное расторжение уведомление о расторжении форс-мажор непреодолимая сила авария в сетях внеплановый ремонт освобождение от ответственности"
       preferred_unit_types:
         - termination_provision
@@ -2273,11 +2497,18 @@ checks_v8:
       max_chunks: 12
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "boilerplate"
         - "procedures"
         - "remedies"
       confidence_bonus_on_match: 0.06
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -2285,7 +2516,8 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 500
+      compact_output: true
+      llm_max_tokens: 560
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -2332,51 +2564,67 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока действия договора."
+          required: true
         - name: "contract_term_details"
           type: "string"
           presentation: "fact"
           label: "Срок действия договора"
           description: "Срок действия договора или указание на неопределённый срок."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "auto_renewal_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения автоматической пролонгации."
+          required: false
         - name: "auto_renewal_notice_period"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления о непролонгации"
           description: "Срок уведомления о непролонгации договора."
+          required: false
+          display_in_grid: false
         - name: "subscriber_termination_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения права абонента на расторжение."
+          required: false
         - name: "subscriber_termination_regime"
           type: "string"
           presentation: "signal"
           allowed_values: ["unilateral", "mutual_consent", "court_only", "unilateral_for_individual_court_for_legal", "not_defined"]
           description: "Режим расторжения договора для абонента."
+          required: false
         - name: "eso_termination_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения права ЭСО на расторжение."
+          required: false
         - name: "eso_termination_details"
           type: "string"
           presentation: "fact"
           label: "Расторжение со стороны ЭСО"
           description: "Условия расторжения договора со стороны энергоснабжающей организации."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "force_majeure_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия форс-мажорной оговорки."
+          required: false
         - name: "force_majeure_details"
           type: "string"
           presentation: "fact"
           label: "Форс-мажор"
           description: "Текст форс-мажорной оговорки."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2389,7 +2637,11 @@ checks_v8:
       (напряжение, частота, температура, давление, ссылка на ГОСТ).
     triggers:
       any: ["energy_supply_contract"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -2454,8 +2706,13 @@ checks_v8:
         }
       context_k: 6
       temperature: 0.0
-      max_tokens: 650
+      max_tokens: 560
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "качество энергии параметры качества соответствие ГОСТ напряжение частота температура давление технические условия ГОСТ 32144 ГОСТ 30491 надлежащее качество энергии ответственность за нарушение качества перепады напряжения отклонение частоты"
       preferred_unit_types:
         - warranty
@@ -2491,10 +2748,17 @@ checks_v8:
       max_chunks: 8
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "representations"
         - "obligations"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
     evidence:
       required: true
       min_snippet_length: 40
@@ -2502,6 +2766,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 480
       llm_prompt_extraction: |
         <role>
@@ -2547,46 +2812,57 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия требований к качеству энергии."
+          required: true
         - name: "quality_requirements_level"
           type: "string"
           presentation: "signal"
           allowed_values: ["detailed", "basic", "not_defined"]
           description: "Уровень детализации требований к качеству энергии."
+          required: false
         - name: "voltage_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания напряжения."
+          required: false
         - name: "frequency_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания частоты."
+          required: false
         - name: "temperature_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания температуры."
+          required: false
         - name: "pressure_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания давления."
+          required: false
         - name: "gost_reference_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус ссылки на ГОСТ или иной нормативный документ."
+          required: false
         - name: "gost_reference_details"
           type: "string"
           presentation: "fact"
           label: "Норматив по качеству энергии"
           description: "ГОСТ или иной нормативный документ, указанный в договоре."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "liability_for_poor_quality_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия об ответственности за нарушение качества энергии."
+          required: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2599,7 +2875,11 @@ checks_v8:
       основания, срок уведомления, поэтапность, порядок возобновления подачи.
     triggers:
       any: ["energy_supply_contract"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -2662,8 +2942,13 @@ checks_v8:
         }
       context_k: 6
       temperature: 0.0
-      max_tokens: 650
+      max_tokens: 560
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "ограничение подачи прекращение подачи отключение энергии предварительное уведомление срок для устранения нарушений при неоплате порядок отключения возобновление подачи поэтапное ограничение частичное ограничение полное прекращение расходы на возобновление основания ограничения"
       preferred_unit_types:
         - liability_provision
@@ -2700,11 +2985,18 @@ checks_v8:
       max_chunks: 8
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "procedures"
         - "remedies"
         - "limitations"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -2712,6 +3004,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 520
       llm_prompt_extraction: |
         <role>
@@ -2758,46 +3051,59 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия процедуры ограничения или прекращения подачи."
+          required: true
         - name: "limitation_procedure_level"
           type: "string"
           presentation: "signal"
           allowed_values: ["detailed", "basic", "not_defined"]
           description: "Уровень детализации процедуры ограничения или прекращения подачи."
+          required: false
         - name: "grounds_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения оснований ограничения или отключения."
+          required: false
         - name: "grounds_details"
           type: "string"
           presentation: "fact"
           label: "Основания ограничения/отключения"
           description: "Основания для ограничения или прекращения подачи энергии."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "notice_period_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока предварительного уведомления."
+          required: false
         - name: "notice_period_days"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления об ограничении"
           description: "Срок предварительного уведомления перед ограничением или отключением."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "phased_limitation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения поэтапности ограничения подачи."
+          required: false
         - name: "restoration_procedure_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка возобновления подачи энергии."
+          required: false
         - name: "restoration_cost_allocation"
           type: "string"
           presentation: "signal"
           allowed_values: ["subscriber", "supplier", "not_defined"]
           description: "Кто несёт расходы на возобновление подачи энергии."
+          required: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2810,7 +3116,11 @@ checks_v8:
       исключений и правильного ограничения реальным ущербом (без упущенной выгоды).
     triggers:
       any: ["energy_supply_contract"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -2868,8 +3178,13 @@ checks_v8:
         }
       context_k: 5
       temperature: 0.0
-      max_tokens: 600
+      max_tokens: 520
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "ответственность за перерывы в подаче возмещение ущерба простой оборудования несанкционированное отключение компенсация убытков прерывание подачи неподача энергии реальный ущерб упущенная выгода исключение упущенной выгоды авария в сетях фиксация перерыва акт о перерыве"
       preferred_unit_types:
         - liability_provision
@@ -2904,10 +3219,17 @@ checks_v8:
       max_chunks: 6
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "remedies"
         - "limitations"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -2915,7 +3237,8 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 500
+      compact_output: true
+      llm_max_tokens: 480
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора энергоснабжения
@@ -2960,46 +3283,61 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия условия об ответственности за перерывы."
+          required: true
         - name: "liability_type_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения вида ответственности за перерывы."
+          required: false
         - name: "liability_type"
           type: "string"
           presentation: "signal"
+          label: "Вид ответственности за перерывы"
           allowed_values: ["real_damage", "penalty", "both", "not_defined"]
           description: "Вид ответственности за перерывы в подаче энергии."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "lost_profit_excluded_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус прямого условия об упущенной выгоде."
+          required: false
         - name: "lost_profit_excluded"
           type: "string"
           presentation: "signal"
+          label: "Упущенная выгода исключена"
           allowed_values: ["yes", "no", "not_defined"]
           description: "Исключена ли упущенная выгода."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "exclusions_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия исключений из ответственности за перерывы."
+          required: false
         - name: "force_majeure_exclusion_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания форс-мажора как исключения."
+          required: false
         - name: "grid_accident_exclusion_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания аварии в сетях как исключения."
+          required: false
         - name: "interruption_fixation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка фиксации перерыва в подаче."
+          required: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3012,7 +3350,11 @@ checks_v8:
       методики расчёта, санкций и права немедленного отключения.
     triggers:
       any: ["energy_supply_contract"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -3074,8 +3416,13 @@ checks_v8:
         }
       context_k: 6
       temperature: 0.0
-      max_tokens: 650
+      max_tokens: 560
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "бездоговорное потребление безучётное потребление несанкционированное подключение хищение энергии взыскание ущерба расчёт объёма потребления неучтённое потребление методика расчёта при нарушении санкции за нарушение учёта немедленное отключение акт о нарушении безучётного потребления"
       preferred_unit_types:
         - liability_provision
@@ -3111,11 +3458,18 @@ checks_v8:
       max_chunks: 8
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "remedies"
         - "procedures"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -3123,6 +3477,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 520
       llm_prompt_extraction: |
         <role>
@@ -3168,46 +3523,57 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия условия о бездоговорном или безучётном потреблении."
+          required: true
         - name: "unauthorized_clause_level"
           type: "string"
           presentation: "signal"
           allowed_values: ["detailed", "basic", "not_defined"]
           description: "Уровень детализации условий о несанкционированном потреблении."
+          required: false
         - name: "non_contracted_defined_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия определения бездоговорного потребления."
+          required: false
         - name: "unmetered_defined_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия определения безучётного потребления."
+          required: false
         - name: "calculation_method_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения методики расчёта при выявлении нарушения."
+          required: false
         - name: "calculation_method_details"
           type: "string"
           presentation: "fact"
           label: "Методика расчёта нарушения"
           description: "Методика расчёта объёма или начислений при нарушении."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "penalty_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения санкций за нарушение."
+          required: false
         - name: "immediate_disconnection_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус права немедленного отключения."
+          required: false
         - name: "act_procedure_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка оформления акта о нарушении."
+          required: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3220,7 +3586,11 @@ checks_v8:
       питанию, приоритетного восстановления и компенсации убытков от простоя.
     triggers:
       any: ["industrial_consumer", "critical_infrastructure"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -3272,7 +3642,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "reliability_category_status": "<defined / not_defined>",
-          "reliability_category": "<первая / вторая / третья / not_defined>",
+          "reliability_category": "<I / II / III / not_defined>",
           "backup_power_status": "<defined / not_defined>",
           "backup_power_details": "<требования или 'Данные не определены'>",
           "priority_restoration_status": "<defined / not_defined>",
@@ -3283,8 +3653,13 @@ checks_v8:
         }
       context_k: 5
       temperature: 0.0
-      max_tokens: 600
+      max_tokens: 520
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "промышленный потребитель надёжность энергоснабжения бесперебойная подача резервные источники питания убытки от простоя первая категория надёжности вторая категория надёжности особый режим потребления приоритетное восстановление резервное энергоснабжение запрет полного отключения критическая инфраструктура объекты жизнеобеспечения"
       preferred_unit_types:
         - obligation
@@ -3319,11 +3694,18 @@ checks_v8:
       max_chunks: 6
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "remedies"
         - "limitations"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -3331,6 +3713,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 460
       llm_prompt_extraction: |
         <role>
@@ -3350,7 +3733,8 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. reliability_category_status — "defined" или "not_defined".
-        2. reliability_category — первая / вторая / третья / not_defined.
+        2. reliability_category — I / II / III / not_defined.
+          (I = первая категория, II = вторая, III = третья)
         3. backup_power_status — "defined" или "not_defined".
         4. backup_power_details — требования к резервному питанию.
         5. priority_restoration_status — "defined" или "not_defined".
@@ -3377,41 +3761,53 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения категории надёжности."
+          required: true
         - name: "reliability_category"
           type: "string"
           presentation: "signal"
-          allowed_values: ["первая", "вторая", "третья", "not_defined"]
-          description: "Категория надёжности энергоснабжения."
+          allowed_values: ["I", "II", "III", "not_defined"]
+          description: "Категория надёжности энергоснабжения (I, II или III)."
+          required: false
         - name: "backup_power_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия требований к резервному питанию."
+          required: false
         - name: "backup_power_details"
           type: "string"
           presentation: "fact"
           label: "Резервное питание"
           description: "Требования к резервному источнику или резервному энергоснабжению."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "priority_restoration_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия о приоритетном восстановлении подачи."
+          required: false
         - name: "downtime_compensation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения компенсации убытков от простоя."
+          required: false
         - name: "downtime_compensation_details"
           type: "string"
           presentation: "fact"
           label: "Компенсация убытков от простоя"
           description: "Условия компенсации убытков от простоя из-за перерыва энергоснабжения."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "disconnection_prohibition_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус запрета полного отключения для специальных объектов."
+          required: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3424,7 +3820,11 @@ checks_v8:
       порядка расчёта ОДН и ответственности УК/ТСЖ за внутридомовые сети.
     triggers:
       any: ["mcd_subscriber"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -3461,6 +3861,55 @@ checks_v8:
         3. В evidence — только текст договора.
         4. Верни только один JSON-объект.
 
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1:
+        Фрагмент:
+        "В многоквартирном доме граница балансовой принадлежности устанавливается
+        по вводному устройству. Общедомовой прибор учёта электрической энергии
+        расположен в ВРУ. Расчёт ОДН осуществляется на основании показаний ОДПУ
+        и распределяется в порядке, предусмотренном действующим законодательством.
+        Ответственность за внутридомовые сети несёт управляющая компания."
+
+        Ответ:
+        {
+          "mcd_clause_status": "defined",
+          "boundary_status": "defined",
+          "boundary_details": "граница балансовой принадлежности устанавливается по вводному устройству",
+          "collective_meter_status": "defined",
+          "collective_meter_details": "Общедомовой прибор учёта электрической энергии расположен в ВРУ",
+          "odn_calculation_status": "defined",
+          "odn_calculation_details": "расчёт ОДН осуществляется на основании показаний ОДПУ и распределяется в порядке, предусмотренном действующим законодательством",
+          "maintenance_responsibility_status": "defined",
+          "maintenance_responsibility": "tszh_uk",
+          "maintenance_responsibility_details": "Ответственность за внутридомовые сети несёт управляющая компания",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.1",
+              "quote": "В многоквартирном доме граница балансовой принадлежности устанавливается по вводному устройству."
+            }
+          ]
+        }
+
+        Пример 2:
+        Фрагмент:
+        "Поставка электроэнергии осуществляется абоненту в соответствии с условиями настоящего договора."
+
+        Ответ:
+        {
+          "mcd_clause_status": "not_defined",
+          "boundary_status": "not_defined",
+          "boundary_details": "Данные не определены",
+          "collective_meter_status": "not_defined",
+          "collective_meter_details": "Данные не определены",
+          "odn_calculation_status": "not_defined",
+          "odn_calculation_details": "Данные не определены",
+          "maintenance_responsibility_status": "not_defined",
+          "maintenance_responsibility": "not_defined",
+          "maintenance_responsibility_details": "Данные не определены",
+          "evidence": []
+        }
+
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         1. Есть ли раздел или пункт специально про МКД?
         2. Прямо ли описана граница балансовой принадлежности?
@@ -3474,15 +3923,23 @@ checks_v8:
           "boundary_status": "<defined / not_defined>",
           "boundary_details": "<описание границы или 'Данные не определены'>",
           "collective_meter_status": "<defined / not_defined>",
+          "collective_meter_details": "<описание ОДПУ или 'Данные не определены'>",
           "odn_calculation_status": "<defined / not_defined>",
+          "odn_calculation_details": "<порядок расчёта ОДН или 'Данные не определены'>",
           "maintenance_responsibility_status": "<defined / not_defined>",
           "maintenance_responsibility": "<eso / tszh_uk / not_defined>",
+          "maintenance_responsibility_details": "<текст условия или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 5
       temperature: 0.0
-      max_tokens: 600
+      max_tokens: 520
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "многоквартирный дом внутридомовые сети общедомовые нужды ОДН обслуживание общедомового имущества граница балансовой принадлежности МКД граница эксплуатационной ответственности МКД общедомовой прибор учёта ОДПУ ТСЖ управляющая компания расчёт ОДН ответственность за внутридомовые сети"
       preferred_unit_types:
         - obligation
@@ -3515,10 +3972,17 @@ checks_v8:
       max_chunks: 6
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "procedures"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
@@ -3526,6 +3990,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      compact_output: true
       llm_max_tokens: 460
       llm_prompt_extraction: |
         <role>
@@ -3548,9 +4013,12 @@ checks_v8:
         2. boundary_status — "defined" или "not_defined".
         3. boundary_details — описание границы балансовой принадлежности.
         4. collective_meter_status — "defined" или "not_defined".
-        5. odn_calculation_status — "defined" или "not_defined".
-        6. maintenance_responsibility_status — "defined" или "not_defined".
-        7. maintenance_responsibility — eso / tszh_uk / not_defined.
+        5. collective_meter_details — описание коллективного (общедомового) прибора учёта или ссылка на ОДПУ.
+        6. odn_calculation_status — "defined" или "not_defined".
+        7. odn_calculation_details — порядок расчёта ОДН.
+        8. maintenance_responsibility_status — "defined" или "not_defined".
+        9. maintenance_responsibility — eso / tszh_uk / not_defined.
+        10. maintenance_responsibility_details — текст условия об ответственности за внутридомовые сети.
 
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
@@ -3562,6 +4030,9 @@ checks_v8:
         - Учитывай только прямые специальные условия для МКД, ТСЖ, ЖСК, управляющей компании
           или общедомового имущества.
         - Не делай вывод о применимости к МКД без прямого текста.
+        - Если за внутридомовые сети отвечает ТСЖ, ЖСК или управляющая компания, используй "tszh_uk".
+        - Если ответственность прямо возложена на энергоснабжающую организацию, используй "eso".
+        - Если ответственная сторона прямо не определена, используй "not_defined".
         - Верни только JSON.
         </rules>
       fields:
@@ -3570,36 +4041,72 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия специальных условий для многоквартирного дома."
+          required: true
         - name: "boundary_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения границы балансовой принадлежности."
+          required: false
         - name: "boundary_details"
           type: "string"
           presentation: "fact"
           label: "Граница балансовой принадлежности"
           description: "Описание границы балансовой принадлежности или эксплуатационной ответственности."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "collective_meter_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания коллективного (общедомового) прибора учёта."
+          required: false
+        - name: "collective_meter_details"
+          type: "string"
+          presentation: "fact"
+          label: "Общедомовой прибор учёта"
+          description: "Описание коллективного (общедомового) прибора учёта или ссылка на ОДПУ."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "odn_calculation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка расчёта ОДН."
+          required: false
+        - name: "odn_calculation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Порядок расчёта ОДН"
+          description: "Порядок расчёта общедомовых нужд (ОДН), если он указан в договоре."
+          required: false
+          display_in_grid: true
+          display_priority: 3
         - name: "maintenance_responsibility_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения ответственного за внутридомовые сети."
+          required: false
         - name: "maintenance_responsibility"
           type: "string"
           presentation: "signal"
+          label: "Ответственный за внутридомовые сети"
           allowed_values: ["eso", "tszh_uk", "not_defined"]
           description: "Кто отвечает за внутридомовые сети."
+          required: false
+          display_in_grid: true
+          display_priority: 5
+        - name: "maintenance_responsibility_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ответственность за внутридомовые сети"
+          description: "Текст условия об ответственности УК/ТСЖ или иной стороны за внутридомовые сети."
+          required: false
+          display_in_grid: true
+          display_priority: 4
       store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════

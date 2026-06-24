@@ -1,6 +1,7 @@
 type: contract_1.12_accord
 name: "Соглашение об отступном"
-
+version: 6.0
+parent: class_1_transfer_of_ownership
 description: |
   Соглашение, по которому существующее обязательство прекращается полностью или частично
   путём предоставления кредитору иного исполнения взамен первоначального:
@@ -11,13 +12,9 @@ description: |
   Отступное необходимо чётко отличать от новации, прощения долга, зачёта и купли-продажи.
   Особое значение имеют идентификация первоначального обязательства, описание предмета отступного,
   объём прекращения долга, момент прекращения обязательства, налоговые и банкротные риски.
-
-version: 5.0
-parent: class_2_modification_of_obligations
-
 metadata:
   category: contract
-  subcategory: obligation_termination
+  subcategory: ownership_transfer
   complexity: high
   risk_level: critical
   jurisdiction: RU
@@ -554,10 +551,13 @@ checks_v8:
       на корпоративное одобрение или на отсутствие необходимости такого одобрения.
       Результат предназначен для табличного сравнения нескольких документов.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "должник"
@@ -707,6 +707,11 @@ checks_v8:
       max_tokens: 750
 
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "должник кредитор именуем в лице действующего на основании ИНН ОГРН крупная сделка сделка с заинтересованностью одобрение общего собрания решение единственного участника одобрение не требуется"
       preferred_unit_types:
         - obligation
@@ -741,10 +746,17 @@ checks_v8:
       rerank: true
 
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
-        - "definitions"
+        - "representations"
         - "boilerplate"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.15
 
     evidence:
       required: true
@@ -754,11 +766,13 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 520
+      compact_output: true
+      llm_max_tokens: 580
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста соглашения об отступном
-        сведения о Должнике, Кредиторе, подписантах и корпоративном одобрении.
+        сведения о Должнике, Кредиторе, подписантах, основаниях полномочий
+        и корпоративном одобрении.
         Не анализируй предмет отступного, стоимость, прекращение обязательства,
         налоги или споры.
         </role>
@@ -770,29 +784,52 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. debtor_details_status — "defined" если Должник прямо идентифицирован, иначе "not_defined".
+        1. debtor_details_status — "defined" если Должник прямо идентифицирован,
+           иначе "not_defined".
         2. debtor_details — наименование/ФИО и реквизиты Должника.
-        3. debtor_type — "legal_entity" / "individual" / "individual_entrepreneur" / "not_defined".
-        4. debtor_signatory_status — "defined" если подписант Должника указан, иначе "not_defined".
+        3. debtor_type — "legal_entity" / "individual" / "individual_entrepreneur" /
+           "not_defined".
+        4. debtor_signatory_status — "defined" если подписант Должника прямо указан,
+           иначе "not_defined".
         5. debtor_signatory — подписант Должника.
         6. debtor_signatory_basis — "charter" / "poa" / "order" / "other" / "not_defined".
-        7. creditor_details_status — "defined" если Кредитор прямо идентифицирован, иначе "not_defined".
+        7. creditor_details_status — "defined" если Кредитор прямо идентифицирован,
+           иначе "not_defined".
         8. creditor_details — наименование/ФИО и реквизиты Кредитора.
-        9. creditor_type — "legal_entity" / "individual" / "individual_entrepreneur" / "not_defined".
-        10. creditor_signatory_status — "defined" если подписант Кредитора указан, иначе "not_defined".
+        9. creditor_type — "legal_entity" / "individual" / "individual_entrepreneur" /
+           "not_defined".
+        10. creditor_signatory_status — "defined" если подписант Кредитора прямо указан,
+            иначе "not_defined".
         11. creditor_signatory — подписант Кредитора.
-        12. creditor_signatory_basis — "charter" / "poa" / "order" / "other" / "not_defined".
-        13. corporate_approval_status — "defined" если корпоративное одобрение или указание на его ненужность прямо указано, иначе "not_defined".
-        14. corporate_approval_details — текст о корпоративном одобрении или его ненужности.
+        12. creditor_signatory_basis — "charter" / "poa" / "order" / "other" /
+            "not_defined".
+        13. corporate_approval_status — "defined" если корпоративное одобрение или
+            прямое указание на его ненужность присутствует в тексте, иначе "not_defined".
+        14. corporate_approval_details — формулировка о корпоративном одобрении
+            или его ненужности.
 
-        Если данных нет:
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <rules>
         - Используй только текст соглашения.
-        - Не выводи необходимость одобрения самостоятельно.
+        - debtor_type и creditor_type:
+            - "legal_entity" — ООО, АО, ПАО и иные юридические лица.
+            - "individual" — физическое лицо без статуса ИП.
+            - "individual_entrepreneur" — физическое лицо со статусом ИП
+              (указан ОГРНИП).
+            - "not_defined" — тип прямо не указан или не определяем из текста.
+        - debtor_signatory_basis и creditor_signatory_basis:
+            - "charter" — действует на основании устава.
+            - "poa" — действует на основании доверенности.
+            - "order" — действует на основании приказа.
+            - "other" — иное основание, прямо указанное в тексте.
+            - "not_defined" — основание полномочий не указано.
+        - corporate_approval_status = "defined" как при наличии одобрения,
+          так и при прямом указании, что одобрение не требуется.
+        - Не делай самостоятельный вывод о необходимости одобрения по закону.
         - Верни только JSON.
         </rules>
       fields:
@@ -801,71 +838,92 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Должника."
+          required: true
         - name: "debtor_details"
           type: "string"
           presentation: "fact"
           label: "Должник: реквизиты"
           description: "Наименование/ФИО и реквизиты Должника."
+          required: true
+          display_in_grid: true
+          display_priority: 1
         - name: "debtor_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
           description: "Тип Должника."
+          required: false
         - name: "debtor_signatory_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта Должника."
+          required: false
         - name: "debtor_signatory"
           type: "string"
           presentation: "fact"
           label: "Должник: подписант"
           description: "Подписант от Должника."
+          required: false
+          display_in_grid: false
         - name: "debtor_signatory_basis"
           type: "string"
           presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта Должника."
+          required: false
         - name: "creditor_details_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Кредитора."
+          required: true
         - name: "creditor_details"
           type: "string"
           presentation: "fact"
           label: "Кредитор: реквизиты"
           description: "Наименование/ФИО и реквизиты Кредитора."
+          required: true
+          display_in_grid: true
+          display_priority: 2
         - name: "creditor_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
           description: "Тип Кредитора."
+          required: false
         - name: "creditor_signatory_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта Кредитора."
+          required: false
         - name: "creditor_signatory"
           type: "string"
           presentation: "fact"
           label: "Кредитор: подписант"
           description: "Подписант от Кредитора."
+          required: false
+          display_in_grid: false
         - name: "creditor_signatory_basis"
           type: "string"
           presentation: "signal"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта Кредитора."
+          required: false
         - name: "corporate_approval_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на корпоративное одобрение."
+          required: false
         - name: "corporate_approval_details"
           type: "string"
           presentation: "fact"
           label: "Корпоративное одобрение"
           description: "Формулировка о корпоративном одобрении или его ненужности."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -878,10 +936,13 @@ checks_v8:
       реквизиты основания, сумма долга, состав задолженности,
       полное или частичное прекращение, остаток долга.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "первоначальное обязательство"
@@ -1021,6 +1082,11 @@ checks_v8:
       max_tokens: 800
 
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "первоначальное обязательство договор задолженность основной долг проценты неустойка в счет погашения прекращается обязательство в полном объёме частично остаток долга обеспеченное обязательство реквизиты основания"
       preferred_unit_types:
         - obligation
@@ -1056,10 +1122,17 @@ checks_v8:
       rerank: true
 
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "definitions"
         - "obligations"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
 
     evidence:
       required: true
@@ -1069,11 +1142,13 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 560
+      compact_output: true
+      llm_max_tokens: 600
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста соглашения об отступном
-        сведения о первоначальном обязательстве и объёме его прекращения.
+        сведения о первоначальном обязательстве: основание, реквизиты, сумма,
+        состав долга, объём прекращения, остаток долга и обеспечение.
         Не анализируй предмет отступного, титул имущества, налоги или споры.
         </role>
 
@@ -1082,29 +1157,51 @@ checks_v8:
         </context>
 
         <task>
-        1. original_obligation_basis_status — "defined" если основание обязательства указано, иначе "not_defined".
-        2. original_obligation_basis — "contract" / "court_act" / "other" / "not_defined".
-        3. original_obligation_details_status — "defined" если реквизиты обязательства указаны, иначе "not_defined".
-        4. original_obligation_details — реквизиты первоначального обязательства.
-        5. debt_amount_status — "defined" если сумма долга указана, иначе "not_defined".
-        6. debt_amount — сумма задолженности.
-        7. principal_status — "defined" если основной долг отдельно упомянут, иначе "not_defined".
-        8. interest_status — "defined" если проценты отдельно упомянуты, иначе "not_defined".
-        9. penalty_status — "defined" если неустойка отдельно упомянута, иначе "not_defined".
-        10. termination_scope — "full" / "partial" / "not_defined".
-        11. remaining_debt_status — "defined" если остаток долга указан, иначе "not_defined".
-        12. remaining_debt — остаток долга после частичного прекращения.
-        13. secured_obligation_status — "defined" если указано, что обязательство обеспечено, иначе "not_defined".
-        14. secured_obligation — описание обеспечения или указание на обеспеченный характер обязательства.
+        Заполни строго следующие поля:
 
-        Если данных нет:
+        1. original_obligation_basis_status — "defined" если основание первоначального
+           обязательства прямо указано, иначе "not_defined".
+        2. original_obligation_basis — "contract" / "court_act" / "other" / "not_defined".
+        3. original_obligation_details_status — "defined" если реквизиты обязательства
+           (номер, дата, стороны) прямо указаны, иначе "not_defined".
+        4. original_obligation_details — реквизиты первоначального обязательства.
+        5. debt_amount_status — "defined" если общая сумма задолженности прямо указана,
+           иначе "not_defined".
+        6. debt_amount — сумма задолженности.
+        7. principal_status — "defined" если основной долг выделен отдельно,
+           иначе "not_defined".
+        8. interest_status — "defined" если проценты выделены отдельно,
+           иначе "not_defined".
+        9. penalty_status — "defined" если неустойка выделена отдельно,
+           иначе "not_defined".
+        10. termination_scope — "full" / "partial" / "not_defined".
+        11. remaining_debt_status — "defined" если остаток долга прямо указан,
+            иначе "not_defined".
+        12. remaining_debt — остаток долга после частичного прекращения.
+        13. secured_obligation_status — "defined" если прямо указано, что обязательство
+            обеспечено залогом, поручительством или иным способом, иначе "not_defined".
+        14. secured_obligation — описание обеспечения.
+
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <rules>
         - Используй только текст соглашения.
-        - Не достраивай состав долга по умолчанию.
+        - original_obligation_basis:
+            - "contract" — прекращаемое обязательство возникло из договора
+              (указан номер, дата, наименование договора).
+            - "court_act" — прекращаемое обязательство установлено судебным актом
+              (решение, определение суда).
+            - "other" — иное основание, прямо названное в тексте.
+            - "not_defined" — основание не указано.
+        - termination_scope:
+            - "full" — обязательство прекращается полностью.
+            - "partial" — обязательство прекращается частично.
+            - "not_defined" — объём прекращения прямо не определён.
+        - Не достраивай состав долга по умолчанию: если основной долг, проценты
+          или неустойка прямо не выделены — ставь "not_defined".
         - Верни только JSON.
         </rules>
       fields:
@@ -1113,71 +1210,91 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения основания первоначального обязательства."
+          required: true
         - name: "original_obligation_basis"
           type: "string"
           presentation: "signal"
           allowed_values: ["contract", "court_act", "other", "not_defined"]
           description: "Тип основания первоначального обязательства."
+          required: false
         - name: "original_obligation_details_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус реквизитов первоначального обязательства."
+          required: true
         - name: "original_obligation_details"
           type: "string"
           presentation: "fact"
           label: "Первоначальное обязательство"
           description: "Реквизиты договора, судебного акта или иного основания обязательства."
+          required: true
+          display_in_grid: true
+          display_priority: 1
         - name: "debt_amount_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания суммы долга."
+          required: true
         - name: "debt_amount"
           type: "string"
           presentation: "fact"
           label: "Сумма долга"
           description: "Сумма задолженности по первоначальному обязательству."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "principal_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Указан ли основной долг отдельно."
+          required: false
         - name: "interest_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Указаны ли проценты отдельно."
+          required: false
         - name: "penalty_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Указана ли неустойка отдельно."
+          required: false
         - name: "termination_scope"
           type: "string"
           presentation: "signal"
           allowed_values: ["full", "partial", "not_defined"]
           description: "Объём прекращения обязательства."
+          required: false
         - name: "remaining_debt_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания остатка долга."
+          required: false
         - name: "remaining_debt"
           type: "string"
           presentation: "fact"
           label: "Остаток долга"
           description: "Остаток долга после частичного прекращения обязательства."
+          required: false
+          display_in_grid: false
         - name: "secured_obligation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на обеспеченный характер обязательства."
+          required: false
         - name: "secured_obligation"
           type: "string"
           presentation: "fact"
           label: "Обеспеченное обязательство"
           description: "Описание обеспечения или указание на обеспеченный характер обязательства."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1190,10 +1307,13 @@ checks_v8:
       недвижимость, право требования, ценные бумаги; механизма передачи;
       срока предоставления; необходимости регистрации.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "отступное"
@@ -1322,6 +1442,11 @@ checks_v8:
       max_tokens: 800
 
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "отступное предмет отступного передача имущества акт приёма-передачи право требования денежные средства недвижимость автомобиль в течение не позднее срок передачи срок предоставления VIN кадастровый номер регистрация"
       preferred_unit_types:
         - obligation
@@ -1356,10 +1481,17 @@ checks_v8:
       rerank: true
 
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "procedures"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
 
     evidence:
       required: true
@@ -1369,11 +1501,13 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 560
+      compact_output: true
+      llm_max_tokens: 600
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста соглашения об отступном
-        предмет отступного, механизм его передачи, срок предоставления и необходимость регистрации.
+        предмет отступного, механизм его передачи, срок предоставления,
+        последствия просрочки и необходимость регистрации.
         Не анализируй первоначальный долг, банкротный контекст, налоги или споры.
         </role>
 
@@ -1382,26 +1516,52 @@ checks_v8:
         </context>
 
         <task>
-        1. otsupnoe_type — "money" / "movable_property" / "real_estate" / "claim" / "securities" / "mixed" / "not_defined".
-        2. otsupnoe_description_status — "defined" если предмет отступного описан, иначе "not_defined".
+        Заполни строго следующие поля:
+
+        1. otsupnoe_type — "money" / "movable_property" / "real_estate" / "claim" /
+           "securities" / "mixed" / "not_defined".
+        2. otsupnoe_description_status — "defined" если предмет отступного прямо описан,
+           иначе "not_defined".
         3. otsupnoe_description — описание предмета отступного.
-        4. identifying_features_status — "defined" если индивидуализирующие признаки указаны, иначе "not_defined".
-        5. identifying_features — VIN, кадастровый номер, номер бумаги и т.п.
-        6. transfer_document — "payment" / "act" / "assignment_docs" / "registration" / "mixed" / "not_defined".
-        7. transfer_deadline_status — "defined" если срок предоставления указан, иначе "not_defined".
+        4. identifying_features_status — "defined" если индивидуализирующие признаки
+           прямо указаны, иначе "not_defined".
+        5. identifying_features — VIN, кадастровый номер, номер ценной бумаги и т.п.
+        6. transfer_document — "payment" / "act" / "assignment_docs" / "registration" /
+           "mixed" / "not_defined".
+        7. transfer_deadline_status — "defined" если срок предоставления прямо указан,
+           иначе "not_defined".
         8. transfer_deadline — срок передачи/предоставления отступного.
-        9. late_transfer_consequences_status — "defined" если последствия просрочки указаны, иначе "not_defined".
-        10. late_transfer_consequences — последствия просрочки.
+        9. late_transfer_consequences_status — "defined" если последствия просрочки
+           прямо указаны, иначе "not_defined".
+        10. late_transfer_consequences — последствия просрочки передачи.
         11. registration_required — "yes" / "no" / "not_defined".
 
-        Если данных нет:
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <rules>
         - Используй только текст соглашения.
-        - registration_required = "yes" только если это прямо следует из предмета и текста.
+        - otsupnoe_type:
+            - "money" — денежные средства.
+            - "movable_property" — движимое имущество (автомобиль, оборудование и т.п.).
+            - "real_estate" — недвижимое имущество (квартира, здание, земельный участок).
+            - "claim" — право требования к третьему лицу.
+            - "securities" — ценные бумаги (акции, облигации, векселя).
+            - "mixed" — несколько разнотипных объектов одновременно.
+            - "not_defined" — тип предмета прямо не определён.
+        - transfer_document:
+            - "payment" — безналичный платёж (для денег).
+            - "act" — акт приёма-передачи (для движимого имущества).
+            - "assignment_docs" — акт и документы уступки (для прав требования).
+            - "registration" — государственная регистрация (для недвижимости).
+            - "mixed" — несколько механизмов одновременно.
+            - "not_defined" — механизм передачи прямо не определён.
+        - registration_required:
+            - "yes" — регистрация прямо предусмотрена текстом соглашения.
+            - "no" — прямо указано, что регистрация не требуется.
+            - "not_defined" — вопрос регистрации в тексте прямо не урегулирован.
         - Не смешивай механизм передачи с моментом прекращения обязательства.
         - Верни только JSON.
         </rules>
@@ -1411,56 +1571,73 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["money", "movable_property", "real_estate", "claim", "securities", "mixed", "not_defined"]
           description: "Тип отступного."
+          required: true
         - name: "otsupnoe_description_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус описания предмета отступного."
+          required: true
         - name: "otsupnoe_description"
           type: "string"
           presentation: "fact"
           label: "Предмет отступного"
           description: "Описание предмета отступного."
+          required: true
+          display_in_grid: true
+          display_priority: 1
         - name: "identifying_features_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания индивидуализирующих признаков."
+          required: false
         - name: "identifying_features"
           type: "string"
           presentation: "fact"
           label: "Идентификаторы предмета"
           description: "Индивидуализирующие признаки предмета отступного."
+          required: false
+          display_in_grid: false
         - name: "transfer_document"
           type: "string"
           presentation: "signal"
           allowed_values: ["payment", "act", "assignment_docs", "registration", "mixed", "not_defined"]
           description: "Механизм оформления передачи отступного."
+          required: false
         - name: "transfer_deadline_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания срока предоставления отступного."
+          required: true
         - name: "transfer_deadline"
           type: "string"
           presentation: "fact"
           label: "Срок предоставления отступного"
           description: "Срок передачи/предоставления отступного."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "late_transfer_consequences_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания последствий просрочки передачи."
+          required: false
         - name: "late_transfer_consequences"
           type: "string"
           presentation: "fact"
           label: "Последствия просрочки передачи"
           description: "Последствия просрочки передачи отступного."
+          required: false
+          display_in_grid: false
         - name: "registration_required"
           type: "string"
           presentation: "signal"
           allowed_values: ["yes", "no", "not_defined"]
           description: "Требуется ли регистрация для передачи отступного."
+          required: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1473,10 +1650,13 @@ checks_v8:
       привязывает прекращение обязательства: к фактическому предоставлению,
       к регистрации, к зачислению денег или к подписанию соглашения.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "с момента передачи отступного"
@@ -1587,6 +1767,11 @@ checks_v8:
       max_tokens: 650
 
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "с момента передачи отступного с момента фактической передачи после предоставления отступного с момента зачисления денежных средств с момента государственной регистрации с даты подписания реальная сделка обязательство считается прекращённым"
       preferred_unit_types:
         - obligation
@@ -1619,10 +1804,17 @@ checks_v8:
       rerank: true
 
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "procedures"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
 
     evidence:
       required: true
@@ -1632,11 +1824,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 420
+      compact_output: true
+      llm_max_tokens: 480
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста соглашения об отступном
-        момент прекращения обязательства и указание на сохранение прав кредитора
+        момент прекращения обязательства и указание на сохранение права кредитора
         до фактического предоставления отступного.
         Не анализируй предмет отступного, стоимость, налоги или споры.
         </role>
@@ -1646,20 +1839,37 @@ checks_v8:
         </context>
 
         <task>
-        1. termination_moment — "upon_actual_transfer" / "upon_registration" / "upon_payment_receipt" / "upon_signing" / "not_defined".
-        2. termination_moment_status — "defined" если момент прекращения прямо указан, иначе "not_defined".
-        3. termination_moment_details — формулировка о моменте прекращения обязательства.
-        4. creditor_right_preserved_until_transfer_status — "defined" если прямо указано, что кредитор сохраняет право требовать исполнение до фактического предоставления, иначе "not_defined".
-        5. creditor_right_preserved_until_transfer_details — соответствующая формулировка.
+        Заполни строго следующие поля:
 
-        Если данных нет:
+        1. termination_moment — "upon_actual_transfer" / "upon_registration" /
+           "upon_payment_receipt" / "upon_signing" / "not_defined".
+        2. termination_moment_status — "defined" если момент прекращения прямо указан
+           в тексте соглашения, иначе "not_defined".
+        3. termination_moment_details — формулировка о моменте прекращения обязательства.
+        4. creditor_right_preserved_until_transfer_status — "defined" если прямо указано,
+           что кредитор сохраняет право требовать исполнение первоначального обязательства
+           до фактического предоставления отступного, иначе "not_defined".
+        5. creditor_right_preserved_until_transfer_details — формулировка о сохранении
+           права кредитора.
+
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <rules>
         - Используй только текст соглашения.
-        - Не выводи момент прекращения из закона.
+        - termination_moment:
+            - "upon_actual_transfer" — обязательство прекращается с момента фактической
+              передачи предмета отступного (акт, фактическая передача имущества).
+            - "upon_registration" — обязательство прекращается с момента государственной
+              регистрации перехода права (для недвижимости).
+            - "upon_payment_receipt" — обязательство прекращается с момента зачисления
+              денежных средств на счёт кредитора (для денежного отступного).
+            - "upon_signing" — обязательство прекращается с даты подписания соглашения.
+            - "not_defined" — момент прекращения прямо не определён.
+        - Не выводи момент прекращения из нормы ст. 409 ГК РФ или иных норм закона —
+          только из текста соглашения.
         - Верни только JSON.
         </rules>
       fields:
@@ -1668,26 +1878,34 @@ checks_v8:
           presentation: "signal"
           allowed_values: ["upon_actual_transfer", "upon_registration", "upon_payment_receipt", "upon_signing", "not_defined"]
           description: "Момент прекращения обязательства по тексту соглашения."
+          required: true
         - name: "termination_moment_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания момента прекращения обязательства."
+          required: true
         - name: "termination_moment_details"
           type: "string"
           presentation: "fact"
           label: "Момент прекращения обязательства"
           description: "Формулировка о моменте прекращения обязательства."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "creditor_right_preserved_until_transfer_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания, что право кредитора сохраняется до предоставления отступного."
+          required: false
         - name: "creditor_right_preserved_until_transfer_details"
           type: "string"
           presentation: "fact"
           label: "Сохранение права кредитора до предоставления"
           description: "Формулировка о сохранении права кредитора до фактического предоставления отступного."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1701,7 +1919,11 @@ checks_v8:
       а также оговорок об окончательности урегулирования.
     triggers:
       any: ["partial_termination", "tax_sensitive_structure"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
 
@@ -1830,6 +2052,11 @@ checks_v8:
       max_tokens: 750
 
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "стоимость отступного оценивается сторонами в полном объёме частично остаток долга полное погашение согласованная стоимость стороны не имеют претензий долг считается погашенным прекращаются все обязательства без права на дальнейшие требования"
       preferred_unit_types:
         - payment_term
@@ -1864,10 +2091,17 @@ checks_v8:
       rerank: true
 
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "definitions"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
 
     evidence:
       required: true
@@ -1877,12 +2111,13 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 480
+      compact_output: true
+      llm_max_tokens: 520
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста соглашения об отступном
-        согласованную стоимость отступного, объём погашения долга, остаток долга
-        и оговорки об окончательности урегулирования.
+        согласованную стоимость отступного, метод её определения, объём погашения долга,
+        остаток долга и оговорки об окончательности урегулирования.
         Не анализируй титул, банкротство, налоги или споры.
         </role>
 
@@ -1891,72 +2126,114 @@ checks_v8:
         </context>
 
         <task>
-        1. agreed_value_status — "defined" если согласованная стоимость отступного указана, иначе "not_defined".
+        Заполни строго следующие поля:
+
+        1. agreed_value_status — "defined" если согласованная стоимость отступного прямо
+           указана, иначе "not_defined".
         2. agreed_value_details — стоимость отступного.
         3. valuation_method — "contractual" / "market" / "appraiser" / "not_defined".
         4. debt_termination_scope — "full" / "partial" / "not_defined".
-        5. remaining_debt_status — "defined" если остаток долга указан, иначе "not_defined".
-        6. remaining_debt_details — остаток долга.
-        7. full_and_final_settlement_status — "defined" если указана окончательность урегулирования, иначе "not_defined".
+        5. remaining_debt_status — "defined" если остаток долга прямо указан,
+           иначе "not_defined".
+        6. remaining_debt_details — остаток долга после частичного прекращения.
+        7. full_and_final_settlement_status — "defined" если прямо указана окончательность
+           урегулирования (долг считается погашенным, прекращаются все обязательства),
+           иначе "not_defined".
         8. full_and_final_settlement_details — формулировка об окончательности.
-        9. no_further_claims_status — "defined" если есть отказ от дальнейших претензий, иначе "not_defined".
+        9. no_further_claims_status — "defined" если прямо указан отказ от дальнейших
+           претензий, иначе "not_defined".
         10. no_further_claims_details — формулировка об отсутствии дальнейших претензий.
 
-        Если данных нет:
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
+
+        <rules>
+        - Используй только текст соглашения.
+        - valuation_method:
+            - "contractual" — стоимость определена соглашением сторон (прямо зафиксирована
+              в тексте как договорённость).
+            - "market" — стоимость определена по рыночной оценке, на которую есть прямая
+              ссылка в тексте.
+            - "appraiser" — стоимость определена независимым оценщиком, отчёт которого
+              прямо упомянут.
+            - "not_defined" — метод определения стоимости прямо не указан.
+        - debt_termination_scope:
+            - "full" — обязательство прекращается в полном объёме.
+            - "partial" — обязательство прекращается частично.
+            - "not_defined" — объём прекращения прямо не определён.
+        - full_and_final_settlement_status = "defined" только если это явно следует из
+          текста (формулировка об окончательности, о том что долг считается погашенным).
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "agreed_value_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания согласованной стоимости отступного."
+          required: false
         - name: "agreed_value_details"
           type: "string"
           presentation: "fact"
           label: "Стоимость отступного"
           description: "Согласованная стоимость отступного."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "valuation_method"
           type: "string"
           presentation: "signal"
           allowed_values: ["contractual", "market", "appraiser", "not_defined"]
           description: "Метод определения стоимости отступного."
+          required: false
         - name: "debt_termination_scope"
           type: "string"
           presentation: "signal"
           allowed_values: ["full", "partial", "not_defined"]
           description: "Полное или частичное погашение долга."
+          required: false
         - name: "remaining_debt_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания остатка долга."
+          required: false
         - name: "remaining_debt_details"
           type: "string"
           presentation: "fact"
           label: "Остаток долга"
           description: "Остаток долга после частичного прекращения."
+          required: false
+          display_in_grid: false
         - name: "full_and_final_settlement_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус оговорки об окончательности урегулирования."
+          required: false
         - name: "full_and_final_settlement_details"
           type: "string"
           presentation: "fact"
           label: "Окончательность урегулирования"
           description: "Формулировка об окончательности урегулирования."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "no_further_claims_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус отказа от дальнейших претензий."
+          required: false
         - name: "no_further_claims_details"
           type: "string"
           presentation: "fact"
           label: "Отказ от дальнейших претензий"
           description: "Формулировка об отсутствии дальнейших претензий."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -1969,7 +2246,11 @@ checks_v8:
       указания, что соглашение является отступным, а также оговорок о том,
       что конструкция не является новацией, прощением долга или зачётом.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
 
@@ -2099,6 +2380,11 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "не является новацией прощение долга зачёт отступное ст. 409 ГК РФ вместо исполнения замена обязательства квалификация как отступное прекращение обязательства отступным не является куплей-продажей"
       preferred_unit_types:
         - general_provision
@@ -2130,10 +2416,17 @@ checks_v8:
       rerank: true
 
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "definitions"
         - "boilerplate"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
 
     evidence:
       required: true
@@ -2143,13 +2436,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 450
+      compact_output: true
+      llm_max_tokens: 500
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста соглашения об отступном
-        квалифицирующие формулировки: ссылка на ст. 409 ГК РФ, указание на отступное,
-        отсутствие новации, прощения долга и зачёта.
-        Не анализируй фактический риск переквалификации, а только извлекай текстовые формулировки.
+        квалифицирующие формулировки: ссылка на ст. 409 ГК РФ, прямое указание
+        на отступное, оговорки об отсутствии новации, прощения долга, зачёта,
+        а также формулировку «вместо исполнения».
+        Не анализируй фактический риск переквалификации — только извлекай
+        текстовые формулировки.
         </role>
 
         <context>
@@ -2157,84 +2453,122 @@ checks_v8:
         </context>
 
         <task>
-        1. st409_reference_status — "defined" если есть прямая ссылка на ст. 409 ГК РФ.
-        2. st409_reference_details — такая ссылка.
-        3. qualification_as_otsupnoe_status — "defined" если соглашение прямо названо отступным.
-        4. qualification_as_otsupnoe_details — формулировка.
-        5. novation_clause_status — "defined" если сказано, что это не новация.
-        6. novation_clause_details — формулировка.
-        7. debt_forgiveness_clause_status — "defined" если сказано, что это не прощение долга.
-        8. debt_forgiveness_clause_details — формулировка.
-        9. setoff_clause_status — "defined" если сказано, что это не зачёт.
-        10. setoff_clause_details — формулировка.
-        11. instead_of_performance_status — "defined" если есть формулировка "вместо исполнения" или аналог.
+        Заполни строго следующие поля:
+
+        1. st409_reference_status — "defined" если прямая ссылка на ст. 409 ГК РФ
+           присутствует в тексте, иначе "not_defined".
+        2. st409_reference_details — формулировка со ссылкой на ст. 409 ГК РФ.
+        3. qualification_as_otsupnoe_status — "defined" если соглашение прямо названо
+           соглашением об отступном, иначе "not_defined".
+        4. qualification_as_otsupnoe_details — такая формулировка.
+        5. novation_clause_status — "defined" если прямо указано, что соглашение
+           не является новацией, иначе "not_defined".
+        6. novation_clause_details — формулировка об отсутствии новации.
+        7. debt_forgiveness_clause_status — "defined" если прямо указано, что соглашение
+           не является прощением долга, иначе "not_defined".
+        8. debt_forgiveness_clause_details — формулировка об отсутствии прощения долга.
+        9. setoff_clause_status — "defined" если прямо указано, что соглашение
+           не является зачётом, иначе "not_defined".
+        10. setoff_clause_details — формулировка об отсутствии зачёта.
+        11. instead_of_performance_status — "defined" если в тексте есть формулировка
+            «вместо исполнения» или аналогичная, иначе "not_defined".
         12. instead_of_performance_details — такая формулировка.
 
-        Если данных нет:
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
+
+        <rules>
+        - Используй только текст соглашения.
+        - st409_reference_status = "defined" только если статья 409 ГК РФ прямо
+          упомянута; не считай достаточным просто слово «отступное» без ссылки.
+        - qualification_as_otsupnoe_status = "defined" только если соглашение прямо
+          поименовано как «соглашение об отступном» или аналогично.
+        - Не делай самостоятельного вывода о риске переквалификации.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "st409_reference_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия прямой ссылки на ст. 409 ГК РФ."
+          required: false
         - name: "st409_reference_details"
           type: "string"
           presentation: "fact"
           label: "Ссылка на ст. 409 ГК РФ"
           description: "Прямая ссылка на ст. 409 ГК РФ."
+          required: false
+          display_in_grid: false
         - name: "qualification_as_otsupnoe_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус прямого указания на отступное."
+          required: true
         - name: "qualification_as_otsupnoe_details"
           type: "string"
           presentation: "fact"
           label: "Квалификация как отступное"
           description: "Формулировка, что соглашение является отступным."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "novation_clause_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус оговорки об отсутствии новации."
+          required: false
         - name: "novation_clause_details"
           type: "string"
           presentation: "fact"
           label: "Отсутствие новации"
           description: "Формулировка, что соглашение не является новацией."
+          required: false
+          display_in_grid: false
         - name: "debt_forgiveness_clause_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус оговорки об отсутствии прощения долга."
+          required: false
         - name: "debt_forgiveness_clause_details"
           type: "string"
           presentation: "fact"
           label: "Отсутствие прощения долга"
           description: "Формулировка, что соглашение не является прощением долга."
+          required: false
+          display_in_grid: false
         - name: "setoff_clause_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус оговорки об отсутствии зачёта."
+          required: false
         - name: "setoff_clause_details"
           type: "string"
           presentation: "fact"
           label: "Отсутствие зачёта"
           description: "Формулировка, что соглашение не является зачётом."
+          required: false
+          display_in_grid: false
         - name: "instead_of_performance_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус формулировки 'вместо исполнения' или аналогичной."
+          required: false
         - name: "instead_of_performance_details"
           type: "string"
           presentation: "fact"
           label: "Формулировка 'вместо исполнения'"
           description: "Формулировка о предоставлении отступного вместо исполнения."
+          required: false
+          display_in_grid: true
+          display_priority: 2
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2247,7 +2581,11 @@ checks_v8:
       залога, ареста, прав третьих лиц, а также условий о качестве предмета
       отступного и распределении риска до момента передачи.
     triggers: {}
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
 
@@ -2382,6 +2720,11 @@ checks_v8:
       max_tokens: 750
 
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "свободно от прав третьих лиц не заложено не арестовано право собственности принадлежит надлежащее качество отсутствие скрытых недостатков риск случайной гибели риск повреждения до момента передачи несёт должник"
       preferred_unit_types:
         - warranty
@@ -2414,10 +2757,17 @@ checks_v8:
       rerank: true
 
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "representations"
         - "obligations"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
 
     evidence:
       required: true
@@ -2427,12 +2777,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 500
+      compact_output: true
+      llm_max_tokens: 560
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста соглашения об отступном
-        заверения о титуле, отсутствии залога, ареста, прав третьих лиц,
-        качестве предмета и распределении риска до передачи.
+        заверения о титуле должника на предмет отступного, отсутствии залога,
+        ареста и прав третьих лиц, гарантии качества предмета и распределение
+        риска случайной гибели до передачи.
         Не анализируй стоимость, банкротство, налоги или споры.
         </role>
 
@@ -2441,96 +2793,138 @@ checks_v8:
         </context>
 
         <task>
-        1. title_warranty_status — "defined" если титул прямо подтверждён.
-        2. title_warranty_details — формулировка о титуле.
-        3. no_pledge_status — "defined" если отсутствие залога прямо указано.
-        4. no_pledge_details — формулировка об отсутствии залога.
-        5. no_arrest_status — "defined" если отсутствие ареста прямо указано.
-        6. no_arrest_details — формулировка об отсутствии ареста.
-        7. no_third_party_rights_status — "defined" если отсутствие прав третьих лиц прямо указано.
-        8. no_third_party_rights_details — формулировка.
-        9. quality_warranty_status — "defined" если качество или отсутствие скрытых недостатков прямо указаны.
-        10. quality_warranty_details — формулировка.
-        11. risk_allocation — "debtor" / "creditor" / "not_defined".
-        12. risk_allocation_status — "defined" если распределение риска прямо указано.
-        13. risk_allocation_details — формулировка о риске до передачи.
+        Заполни строго следующие поля:
 
-        Если данных нет:
+        1. title_warranty_status — "defined" если право собственности или иной
+           правовой титул Должника на предмет отступного прямо подтверждён,
+           иначе "not_defined".
+        2. title_warranty_details — формулировка о праве собственности / титуле.
+        3. no_pledge_status — "defined" если отсутствие залога прямо указано,
+           иначе "not_defined".
+        4. no_pledge_details — формулировка об отсутствии залога.
+        5. no_arrest_status — "defined" если отсутствие ареста или запрета распоряжения
+           прямо указано, иначе "not_defined".
+        6. no_arrest_details — формулировка об отсутствии ареста.
+        7. no_third_party_rights_status — "defined" если отсутствие прав третьих лиц
+           прямо указано, иначе "not_defined".
+        8. no_third_party_rights_details — формулировка об отсутствии прав третьих лиц.
+        9. quality_warranty_status — "defined" если качество предмета или отсутствие
+           скрытых недостатков прямо указаны, иначе "not_defined".
+        10. quality_warranty_details — формулировка о качестве предмета.
+        11. risk_allocation_status — "defined" если распределение риска случайной гибели
+            или повреждения до момента передачи прямо указано, иначе "not_defined".
+        12. risk_allocation — "debtor" / "creditor" / "not_defined".
+        13. risk_allocation_details — формулировка о распределении риска до передачи.
+
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
+
+        <rules>
+        - Используй только текст соглашения.
+        - title_warranty_status = "defined" только если право собственности или иной
+          прямо названный правовой титул подтверждён в тексте.
+        - no_pledge_status = "defined" как при отсутствии залога, так и при наличии
+          залога, если оба варианта прямо указаны в тексте (в details отразить факт).
+        - risk_allocation:
+            - "debtor" — риск случайной гибели/повреждения до передачи несёт Должник.
+            - "creditor" — риск несёт Кредитор.
+            - "not_defined" — распределение риска прямо не определено.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "title_warranty_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус подтверждения титула на предмет отступного."
+          required: true
         - name: "title_warranty_details"
           type: "string"
           presentation: "fact"
           label: "Титул на предмет отступного"
           description: "Формулировка о праве собственности/титуле на предмет отступного."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "no_pledge_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на отсутствие залога."
+          required: false
         - name: "no_pledge_details"
           type: "string"
           presentation: "fact"
           label: "Отсутствие залога"
           description: "Формулировка об отсутствии залога."
+          required: false
+          display_in_grid: false
         - name: "no_arrest_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на отсутствие ареста."
+          required: false
         - name: "no_arrest_details"
           type: "string"
           presentation: "fact"
           label: "Отсутствие ареста"
           description: "Формулировка об отсутствии ареста."
+          required: false
+          display_in_grid: false
         - name: "no_third_party_rights_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на отсутствие прав третьих лиц."
+          required: false
         - name: "no_third_party_rights_details"
           type: "string"
           presentation: "fact"
           label: "Отсутствие прав третьих лиц"
           description: "Формулировка об отсутствии прав третьих лиц."
+          required: false
+          display_in_grid: false
         - name: "quality_warranty_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на качество предмета отступного."
+          required: false
         - name: "quality_warranty_details"
           type: "string"
           presentation: "fact"
           label: "Качество предмета отступного"
           description: "Формулировка о качестве или отсутствии скрытых недостатков."
+          required: false
+          display_in_grid: false
         - name: "risk_allocation"
           type: "string"
           presentation: "signal"
           allowed_values: ["debtor", "creditor", "not_defined"]
           description: "Кто несёт риск случайной гибели до передачи."
+          required: false
         - name: "risk_allocation_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус распределения риска до передачи."
+          required: false
         - name: "risk_allocation_details"
           type: "string"
           presentation: "fact"
           label: "Риск до передачи"
           description: "Формулировка о распределении риска до передачи предмета отступного."
+          required: false
+          display_in_grid: true
+          display_priority: 2
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
   # CHECK 8: СПЕЦИФИКА НЕДВИЖИМОСТИ / УСТУПКИ ПРАВА
   # ──────────────────────────────────────────────────────────────────────────
-
   - id: real_estate_otsupnoe_specifics_check
     name: "Специальные условия для недвижимости как отступного"
     description: >
@@ -2538,7 +2932,11 @@ checks_v8:
       отступного: кадастровый номер, регистрация, ЕГРН, расходы на регистрацию.
     triggers:
       any: ["real_estate_as_otsupnoe"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -2557,13 +2955,114 @@ checks_v8:
     llm:
       prompt_template: |
         [КОНТЕКСТ]
-        Анализируется соглашение об отступном. Проверяется только специальная
-        логика для недвижимости как предмета отступного.
-        {context}
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение об отступном по ст. 409 ГК РФ, где предметом
+        отступного является недвижимое имущество.
+        Проверяется только один вопрос: специальные условия для недвижимости
+        как предмета отступного.
+
+        Нормативный ориентир:
+        - ст. 409 ГК РФ — прекращение обязательства отступным
+        - ст. 131, 551 ГК РФ — государственная регистрация прав на недвижимость
+        - ФЗ-218 — сведения ЕГРН и регистрационные действия
+
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Твоя задача — только установить, что прямо есть в тексте соглашения,
+          а чего прямо нет.
+        - Не подменяй текст договора нормами закона.
+
+        [ЗАДАЧА]
+        Найди в тексте соглашения:
+        1. Кадастровый номер недвижимого имущества, передаваемого как отступное.
+        2. Есть ли ссылка на выписку из ЕГРН или сведения ЕГРН.
+        3. Есть ли описание порядка государственной регистрации перехода права.
+        4. Есть ли распределение расходов на государственную регистрацию / госпошлину.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Кадастровый номер считай определённым только если он прямо указан в тексте.
+        3. Не выводи наличие ЕГРН или регистрации из того, что предмет — недвижимость.
+        4. Если условие не указано прямо — возвращай "not_defined".
+        5. Если текстового значения нет — возвращай строго "Данные не определены".
+        6. Не используй "None", "null", "not_specified" или пустые строки.
+        7. В evidence включай только цитаты из соглашения.
+        8. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — условия определены:
+        Фрагмент:
+        "В качестве отступного Должник передает Кредитору квартиру,
+        кадастровый номер 77:06:0001001:123. Переход права собственности
+        подлежит государственной регистрации в Росреестре. Расходы по регистрации
+        стороны несут поровну. Выписка из ЕГРН от 01.03.2024 прилагается."
+
+        Ответ:
+        {
+          "cadastral_number_status": "defined",
+          "cadastral_number": "77:06:0001001:123",
+          "egrn_extract_status": "defined",
+          "egrn_extract_details": "выписка из ЕГРН от 01.03.2024 прилагается",
+          "registration_procedure_status": "defined",
+          "registration_procedure_details": "переход права собственности подлежит государственной регистрации в Росреестре",
+          "registration_costs_status": "defined",
+          "registration_costs_details": "расходы по регистрации стороны несут поровну",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "В качестве отступного Должник передает Кредитору квартиру, кадастровый номер 77:06:0001001:123."
+            }
+          ]
+        }
+
+        Пример 2 — условия не определены:
+        Фрагмент:
+        "В качестве отступного передается недвижимое имущество."
+
+        Ответ:
+        {
+          "cadastral_number_status": "not_defined",
+          "cadastral_number": "Данные не определены",
+          "egrn_extract_status": "not_defined",
+          "egrn_extract_details": "Данные не определены",
+          "registration_procedure_status": "not_defined",
+          "registration_procedure_details": "Данные не определены",
+          "registration_costs_status": "not_defined",
+          "registration_costs_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату с кадастровым номером.
+        2. Найди прямую цитату о выписке ЕГРН.
+        3. Найди прямую цитату о государственной регистрации перехода права.
+        4. Найди прямую цитату о распределении расходов на регистрацию.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай реквизиты.
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "cadastral_number_status": "<defined / not_defined>",
+          "cadastral_number": "<текст или 'Данные не определены'>",
+          "egrn_extract_status": "<defined / not_defined>",
+          "egrn_extract_details": "<текст или 'Данные не определены'>",
+          "registration_procedure_status": "<defined / not_defined>",
+          "registration_procedure_details": "<текст или 'Данные не определены'>",
+          "registration_costs_status": "<defined / not_defined>",
+          "registration_costs_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "государственная регистрация ЕГРН Росреестр кадастровый номер расходы на регистрацию переход права собственности на недвижимость"
       preferred_unit_types:
         - obligation
@@ -2593,9 +3092,16 @@ checks_v8:
       max_chunks: 8
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "procedures"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 30
@@ -2603,12 +3109,14 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 360
+      compact_output: true
+      llm_max_tokens: 430
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки специальные условия для недвижимости как отступного:
-        кадастровый номер, регистрация, ЕГРН, расходы на регистрацию.
-        Не анализируй уступку требований, титул, стоимость или споры.
+        Ты — российский юрист. Извлеки специальные условия для недвижимости
+        как предмета отступного: кадастровый номер, сведения ЕГРН, порядок
+        государственной регистрации и распределение расходов на регистрацию.
+        Не анализируй уступку требований, качество имущества, стоимость или споры.
         </role>
 
         <context>
@@ -2616,66 +3124,99 @@ checks_v8:
         </context>
 
         <task>
-        1. cadastral_number_status — "defined" если кадастровый номер прямо указан.
-        2. cadastral_number — кадастровый номер.
-        3. egrn_extract_status — "defined" если выписка ЕГРН прямо упомянута.
-        4. egrn_extract_details — формулировка об ЕГРН.
-        5. registration_procedure_status — "defined" если порядок регистрации прямо описан.
-        6. registration_procedure_details — формулировка о регистрации.
-        7. registration_costs_status — "defined" если расходы на регистрацию распределены.
-        8. registration_costs_details — формулировка о расходах.
+        Заполни строго следующие поля:
 
-        Если данных нет:
+        1. cadastral_number_status — "defined" если кадастровый номер прямо указан
+           в тексте соглашения, иначе "not_defined".
+        2. cadastral_number — кадастровый номер недвижимого имущества.
+        3. egrn_extract_status — "defined" если выписка из ЕГРН или сведения ЕГРН
+           прямо упомянуты, иначе "not_defined".
+        4. egrn_extract_details — формулировка об ЕГРН или выписке из ЕГРН.
+        5. registration_procedure_status — "defined" если порядок государственной
+           регистрации перехода права прямо описан, иначе "not_defined".
+        6. registration_procedure_details — формулировка о государственной регистрации.
+        7. registration_costs_status — "defined" если распределение расходов на
+           государственную регистрацию или государственную пошлину прямо указано,
+           иначе "not_defined".
+        8. registration_costs_details — формулировка о расходах на регистрацию.
+
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
+
+        <rules>
+        - Используй только текст соглашения.
+        - cadastral_number_status = "defined" только если кадастровый номер прямо
+          воспроизведён в тексте соглашения; не считай достаточным упоминание
+          объекта без номера.
+        - egrn_extract_status = "defined" только если ЕГРН или выписка из ЕГРН
+          прямо упомянуты; не выводи наличие ЕГРН из факта, что предмет —
+          недвижимость.
+        - registration_procedure_status = "defined" только если прямо описан порядок
+          действий по регистрации (кто подаёт, в какой орган, в какой срок).
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "cadastral_number_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания кадастрового номера."
+          required: true
         - name: "cadastral_number"
           type: "string"
           presentation: "fact"
           label: "Кадастровый номер"
           description: "Кадастровый номер недвижимого имущества."
+          required: true
+          display_in_grid: true
+          display_priority: 1
         - name: "egrn_extract_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания ЕГРН."
+          required: false
         - name: "egrn_extract_details"
           type: "string"
           presentation: "fact"
           label: "ЕГРН / выписка"
           description: "Формулировка о ЕГРН или выписке из ЕГРН."
+          required: false
+          display_in_grid: false
         - name: "registration_procedure_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус описания регистрационной процедуры."
+          required: false
         - name: "registration_procedure_details"
           type: "string"
           presentation: "fact"
           label: "Порядок регистрации"
           description: "Формулировка о государственной регистрации перехода права."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "registration_costs_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус распределения расходов на регистрацию."
+          required: false
         - name: "registration_costs_details"
           type: "string"
           presentation: "fact"
           label: "Расходы на регистрацию"
           description: "Формулировка о распределении расходов на регистрацию."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
   # CHECK 9: Специальные условия
   # ──────────────────────────────────────────────────────────────────────────
-
   - id: claim_as_otsupnoe_specifics_check
     name: "Специальные условия для права требования как отступного"
     description: >
@@ -2684,7 +3225,11 @@ checks_v8:
       уведомление должника.
     triggers:
       any: ["claim_assignment_as_otsupnoe"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
     rules:
@@ -2704,13 +3249,114 @@ checks_v8:
     llm:
       prompt_template: |
         [КОНТЕКСТ]
-        Анализируется соглашение об отступном. Проверяется только специальная
-        логика для права требования как предмета отступного.
-        {context}
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение об отступном по ст. 409 ГК РФ, где предметом
+        отступного является право требования.
+        Проверяется только один вопрос: специальные условия для права требования
+        как предмета отступного.
+
+        Нормативный ориентир:
+        - ст. 409 ГК РФ — прекращение обязательства отступным
+        - ст. 382–390 ГК РФ — уступка права требования
+        - ст. 385 ГК РФ — документы и уведомление должника
+
+        Важно:
+        - Твоя задача — не оценивать серьёзность риска.
+        - Твоя задача — только установить, что прямо есть в тексте соглашения,
+          а чего прямо нет.
+        - Не подменяй текст договора нормами закона.
+
+        [ЗАДАЧА]
+        Найди в тексте соглашения:
+        1. Основание права требования, передаваемого как отступное.
+        2. Идентификацию должника по передаваемому требованию.
+        3. Есть ли условие о передаче документов, подтверждающих требование.
+        4. Есть ли условие об уведомлении должника по требованию.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не выводи наличие уведомления или передачи документов по умолчанию из закона.
+        3. Если условие не указано прямо — возвращай "not_defined".
+        4. Если текстового значения нет — возвращай строго "Данные не определены".
+        5. Не используй "None", "null", "not_specified" или пустые строки.
+        6. В evidence включай только цитаты из соглашения.
+        7. Верни только один JSON-объект.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — условия определены:
+        Фрагмент:
+        "В качестве отступного Должник передает Кредитору право требования
+        к ООО «Гамма», возникшее из Договора поставки № 15 от 10.01.2024.
+        Должник передает Кредитору оригиналы документов, подтверждающих требование,
+        и обязуется уведомить ООО «Гамма» о передаче права требования в течение
+        5 рабочих дней."
+
+        Ответ:
+        {
+          "claim_basis_status": "defined",
+          "claim_basis_details": "Договор поставки № 15 от 10.01.2024",
+          "claim_debtor_identified_status": "defined",
+          "claim_debtor_identified_details": "ООО «Гамма»",
+          "documents_transfer_status": "defined",
+          "documents_transfer_details": "передает Кредитору оригиналы документов, подтверждающих требование",
+          "debtor_notification_status": "defined",
+          "debtor_notification_details": "обязуется уведомить ООО «Гамма» о передаче права требования в течение 5 рабочих дней",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.1",
+              "quote": "В качестве отступного Должник передает Кредитору право требования к ООО «Гамма», возникшее из Договора поставки № 15 от 10.01.2024."
+            }
+          ]
+        }
+
+        Пример 2 — условия не определены:
+        Фрагмент:
+        "В качестве отступного передается право требования."
+
+        Ответ:
+        {
+          "claim_basis_status": "not_defined",
+          "claim_basis_details": "Данные не определены",
+          "claim_debtor_identified_status": "not_defined",
+          "claim_debtor_identified_details": "Данные не определены",
+          "documents_transfer_status": "not_defined",
+          "documents_transfer_details": "Данные не определены",
+          "debtor_notification_status": "not_defined",
+          "debtor_notification_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об основании права требования.
+        2. Найди прямую цитату о должнике по требованию.
+        3. Найди прямую цитату о передаче подтверждающих документов.
+        4. Найди прямую цитату об уведомлении должника.
+        5. Если прямой цитаты нет — верни "not_defined". Не додумывай условия уступки.
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        {
+          "claim_basis_status": "<defined / not_defined>",
+          "claim_basis_details": "<текст или 'Данные не определены'>",
+          "claim_debtor_identified_status": "<defined / not_defined>",
+          "claim_debtor_identified_details": "<текст или 'Данные не определены'>",
+          "documents_transfer_status": "<defined / not_defined>",
+          "documents_transfer_details": "<текст или 'Данные не определены'>",
+          "debtor_notification_status": "<defined / not_defined>",
+          "debtor_notification_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
       context_k: 6
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "право требования уступка должник по требованию передача документов уведомление должника основание требования акт передачи прав документы подтверждающие"
       preferred_unit_types:
         - obligation
@@ -2740,10 +3386,17 @@ checks_v8:
       max_chunks: 8
       rerank: true
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "procedures"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 30
@@ -2751,12 +3404,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 380
+      compact_output: true
+      llm_max_tokens: 440
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки специальные условия для права требования как отступного:
-        основание требования, должник, передача документов, уведомление должника.
-        Не анализируй недвижимость, титул, стоимость или споры.
+        Ты — российский юрист. Извлеки специальные условия для права требования
+        как предмета отступного: основание уступаемого требования, идентификация
+        должника по требованию, передача подтверждающих документов и условие
+        об уведомлении должника.
+        Не анализируй недвижимость, качество имущества, стоимость отступного или споры.
         </role>
 
         <context>
@@ -2764,62 +3420,96 @@ checks_v8:
         </context>
 
         <task>
-        1. claim_basis_status — "defined" если основание требования указано.
-        2. claim_basis_details — основание требования.
-        3. claim_debtor_identified_status — "defined" если должник по требованию идентифицирован.
-        4. claim_debtor_identified_details — должник по требованию.
-        5. documents_transfer_status — "defined" если передача документов прямо предусмотрена.
+        Заполни строго следующие поля:
+
+        1. claim_basis_status — "defined" если основание права требования, передаваемого
+           как отступное, прямо указано, иначе "not_defined".
+        2. claim_basis_details — основание права требования (договор, судебный акт и т.п.).
+        3. claim_debtor_identified_status — "defined" если должник по уступаемому
+           требованию прямо идентифицирован в тексте, иначе "not_defined".
+        4. claim_debtor_identified_details — наименование / ФИО должника по требованию.
+        5. documents_transfer_status — "defined" если передача подтверждающих документов
+           прямо предусмотрена, иначе "not_defined".
         6. documents_transfer_details — формулировка о передаче документов.
-        7. debtor_notification_status — "defined" если уведомление должника прямо предусмотрено.
+        7. debtor_notification_status — "defined" если условие об уведомлении должника
+           по требованию прямо предусмотрено, иначе "not_defined".
         8. debtor_notification_details — формулировка об уведомлении должника.
 
-        Если данных нет:
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
+
+        <rules>
+        - Используй только текст соглашения.
+        - claim_basis_status = "defined" только если основание требования прямо
+          названо в тексте (договор с реквизитами, судебный акт и т.п.).
+        - claim_debtor_identified_status = "defined" только если должник по
+          уступаемому требованию прямо идентифицирован (наименование, ИНН и т.п.);
+          не путай с Должником по соглашению об отступном.
+        - documents_transfer_status = "defined" только если передача документов,
+          подтверждающих требование, прямо предусмотрена в тексте; не выводи
+          из общего смысла или нормы ст. 385 ГК РФ.
+        - debtor_notification_status = "defined" только если уведомление должника
+          прямо предусмотрено; не выводи из нормы закона.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "claim_basis_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания основания права требования."
+          required: true
         - name: "claim_basis_details"
           type: "string"
           presentation: "fact"
           label: "Основание права требования"
           description: "Основание права требования, передаваемого в качестве отступного."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "claim_debtor_identified_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации должника по требованию."
+          required: false
         - name: "claim_debtor_identified_details"
           type: "string"
           presentation: "fact"
           label: "Должник по требованию"
           description: "Идентификация должника по уступаемому требованию."
+          required: false
+          display_in_grid: false
         - name: "documents_transfer_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия о передаче документов по требованию."
+          required: false
         - name: "documents_transfer_details"
           type: "string"
           presentation: "fact"
           label: "Передача документов по требованию"
           description: "Формулировка о передаче документов, подтверждающих требование."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "debtor_notification_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия об уведомлении должника по требованию."
+          required: false
         - name: "debtor_notification_details"
           type: "string"
           presentation: "fact"
           label: "Уведомление должника по требованию"
           description: "Формулировка об уведомлении должника по требованию."
+          required: false
+          display_in_grid: false
       store_payload: true
-
 
   # ──────────────────────────────────────────────────────────────────────────
   # CHECK 10: СУДЬБА ОБЕСПЕЧЕНИЙ
@@ -2832,7 +3522,11 @@ checks_v8:
       возврат закладной, уведомление поручителей.
     triggers:
       any: ["secured_original_obligation"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
 
@@ -2970,6 +3664,11 @@ checks_v8:
       max_tokens: 850
 
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "залог ипотека поручительство обеспечение прекращается снятие залога погашение записи об ипотеке закладная залогодержатель поручитель освобождение от обеспечения возврат закладной снятие обременения расходы на снятие обеспечения"
       preferred_unit_types:
         - obligation
@@ -3003,10 +3702,17 @@ checks_v8:
       rerank: true
 
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "procedures"
         - "obligations"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
 
     evidence:
       required: true
@@ -3016,13 +3722,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 500
+      compact_output: true
+      llm_max_tokens: 580
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из текста соглашения об отступном судьбу обеспечений
-        после прекращения основного обязательства: залог, ипотека, поручительство,
-        документы и расходы на снятие обеспечения.
-        Не анализируй стоимость, банкротство, налоги или споры.
+        Ты — российский юрист. Извлеки из текста соглашения об отступном
+        формулировки о судьбе обеспечений после прекращения основного обязательства:
+        тип обеспечения, его прекращение, процедура снятия ипотечной записи,
+        уведомление поручителей, возврат документов и расходы на снятие обеспечения.
+        Не анализируй стоимость, банкротный контекст, налоги или споры.
         </role>
 
         <context>
@@ -3030,90 +3738,137 @@ checks_v8:
         </context>
 
         <task>
-        1. secured_obligation_identified_status — "defined" если наличие обеспеченного обязательства прямо указано.
+        Заполни строго следующие поля:
+
+        1. secured_obligation_identified_status — "defined" если наличие обеспеченного
+           обязательства прямо указано в тексте, иначе "not_defined".
         2. secured_obligation_identified_details — описание обеспеченного обязательства.
         3. security_type — "pledge" / "mortgage" / "surety" / "mixed" / "not_defined".
-        4. security_termination_status — "defined" если прекращение обеспечения прямо описано.
+        4. security_termination_status — "defined" если прекращение обеспечения прямо
+           описано в тексте, иначе "not_defined".
         5. security_termination_details — формулировка о прекращении обеспечения.
-        6. mortgage_release_procedure_status — "defined" если процедура погашения ипотечной записи описана.
-        7. mortgage_release_procedure_details — формулировка.
-        8. surety_notification_status — "defined" если уведомление поручителей предусмотрено.
-        9. surety_notification_details — формулировка.
-        10. pledge_document_return_status — "defined" если возврат закладной или документов по залогу предусмотрен.
-        11. pledge_document_return_details — формулировка.
-        12. security_release_costs_status — "defined" если расходы на снятие обеспечения распределены.
-        13. security_release_costs_details — формулировка о расходах.
+        6. mortgage_release_procedure_status — "defined" если процедура погашения
+           ипотечной записи прямо описана, иначе "not_defined".
+        7. mortgage_release_procedure_details — формулировка о процедуре погашения
+           ипотечной записи.
+        8. surety_notification_status — "defined" если уведомление поручителей прямо
+           предусмотрено, иначе "not_defined".
+        9. surety_notification_details — формулировка об уведомлении поручителей.
+        10. pledge_document_return_status — "defined" если возврат закладной или
+            документов по залогу прямо предусмотрен, иначе "not_defined".
+        11. pledge_document_return_details — формулировка о возврате документов.
+        12. security_release_costs_status — "defined" если расходы на снятие
+            обеспечения прямо распределены между сторонами, иначе "not_defined".
+        13. security_release_costs_details — формулировка о распределении расходов.
 
-        Если данных нет:
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
+
+        <rules>
+        - Используй только текст соглашения.
+        - security_type:
+            - "pledge" — залог движимого имущества (кроме ипотеки).
+            - "mortgage" — залог недвижимого имущества (ипотека).
+            - "surety" — поручительство.
+            - "mixed" — несколько видов обеспечения одновременно.
+            - "not_defined" — вид обеспечения прямо не указан.
+        - security_termination_status = "defined" только если прекращение обеспечения
+          прямо сформулировано в тексте; не выводи из общей нормы ст. 329 ГК РФ.
+        - mortgage_release_procedure_status = "defined" только если описаны конкретные
+          действия по погашению ипотечной записи в ЕГРН.
+        - pledge_document_return_status = "defined" только если возврат закладной
+          или иных документов по залогу прямо предусмотрен.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "secured_obligation_identified_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации обеспеченного обязательства."
+          required: true
         - name: "secured_obligation_identified_details"
           type: "string"
           presentation: "fact"
           label: "Обеспеченное обязательство"
           description: "Описание обеспеченного обязательства."
+          required: false
+          display_in_grid: false
         - name: "security_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["pledge", "mortgage", "surety", "mixed", "not_defined"]
           description: "Вид обеспечения."
+          required: false
         - name: "security_termination_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на прекращение обеспечения."
+          required: true
         - name: "security_termination_details"
           type: "string"
           presentation: "fact"
           label: "Прекращение обеспечения"
           description: "Формулировка о прекращении залога, ипотеки или поручительства."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "mortgage_release_procedure_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус описания процедуры погашения ипотечной записи."
+          required: false
         - name: "mortgage_release_procedure_details"
           type: "string"
           presentation: "fact"
           label: "Погашение ипотечной записи"
           description: "Формулировка о погашении записи об ипотеке."
+          required: false
+          display_in_grid: false
         - name: "surety_notification_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на уведомление поручителей."
+          required: false
         - name: "surety_notification_details"
           type: "string"
           presentation: "fact"
           label: "Уведомление поручителей"
           description: "Формулировка об уведомлении поручителей."
+          required: false
+          display_in_grid: false
         - name: "pledge_document_return_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус возврата документов по залогу / закладной."
+          required: false
         - name: "pledge_document_return_details"
           type: "string"
           presentation: "fact"
           label: "Возврат документов по обеспечению"
           description: "Формулировка о возврате закладной или документов по залогу."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "security_release_costs_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус распределения расходов на снятие обеспечения."
+          required: false
         - name: "security_release_costs_details"
           type: "string"
           presentation: "fact"
           label: "Расходы на снятие обеспечения"
           description: "Формулировка о распределении расходов на снятие обеспечения."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3127,7 +3882,11 @@ checks_v8:
       аффилированность сторон, отсутствие предпочтения.
     triggers:
       any: ["bankruptcy_risk_context", "tax_sensitive_structure"]
+    ui_mode: "field_extraction"
     severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
 
@@ -3260,6 +4019,11 @@ checks_v8:
       max_tokens: 800
 
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "отсутствие признаков банкротства платежеспособность не является сделкой с предпочтением рыночная стоимость соразмерность аффилированность кредиторы подозрительная сделка не находится в процедуре банкротства ст. 61.2 ст. 61.3"
       preferred_unit_types:
         - warranty
@@ -3293,10 +4057,17 @@ checks_v8:
       rerank: true
 
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "representations"
         - "obligations"
       confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
 
     evidence:
       required: true
@@ -3306,13 +4077,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 480
+      compact_output: true
+      llm_max_tokens: 560
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из текста соглашения формулировки,
-        касающиеся банкротного контекста, признаков неплатёжеспособности,
-        соразмерности стоимости и аффилированности.
-        Не оценивай реальный уровень риска и не подменяй текст правовым анализом.
+        Ты — российский юрист. Извлеки из текста соглашения об отступном формулировки,
+        касающиеся банкротного статуса должника, признаков неплатёжеспособности,
+        обоснования стоимости предмета отступного, аффилированности сторон и
+        отсутствия сделки с предпочтением.
+        Не оценивай реальный уровень банкротного риска и не подменяй текст
+        правовым анализом.
         </role>
 
         <context>
@@ -3320,78 +4094,126 @@ checks_v8:
         </context>
 
         <task>
-        1. bankruptcy_status_status — "defined" если отсутствие процедуры банкротства прямо подтверждено.
-        2. bankruptcy_status_details — формулировка.
-        3. insolvency_signs_status — "defined" если отсутствие признаков неплатёжеспособности прямо подтверждено.
-        4. insolvency_signs_details — формулировка.
-        5. fair_value_support_status — "defined" если есть указание на рыночную/согласованную/оценочную стоимость.
-        6. fair_value_support_details — формулировка о стоимости.
-        7. valuation_method — "appraiser" / "market_reference" / "contractual" / "not_defined".
-        8. affiliate_risk_status — "defined" если аффилированность сторон прямо упомянута.
-        9. affiliate_risk_details — формулировка.
-        10. preference_risk_addressed_status — "defined" если есть формулировка о том, что сделка не является предпочтительной.
+        Заполни строго следующие поля:
+
+        1. bankruptcy_status_status — "defined" если отсутствие процедуры банкротства
+           прямо подтверждено в тексте соглашения, иначе "not_defined".
+        2. bankruptcy_status_details — формулировка об отсутствии процедуры банкротства.
+        3. insolvency_signs_status — "defined" если отсутствие признаков
+           неплатёжеспособности прямо подтверждено в тексте, иначе "not_defined".
+        4. insolvency_signs_details — формулировка об отсутствии признаков
+           неплатёжеспособности.
+        5. fair_value_support_status — "defined" если в тексте есть ссылка
+           на рыночную, оценочную или согласованную стоимость предмета отступного,
+           иначе "not_defined".
+        6. fair_value_support_details — формулировка о стоимости и её основании.
+        7. valuation_method — "appraiser" / "market_reference" / "contractual" /
+           "not_defined".
+        8. affiliate_risk_status — "defined" если аффилированность или связанность
+           сторон прямо упомянута в тексте, иначе "not_defined".
+        9. affiliate_risk_details — формулировка об аффилированности.
+        10. preference_risk_addressed_status — "defined" если в тексте прямо указано,
+            что сделка не является предпочтительной или содержится аналогичная
+            формулировка, иначе "not_defined".
         11. preference_risk_addressed_details — такая формулировка.
 
-        Если данных нет:
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
+
+        <rules>
+        - Используй только текст соглашения.
+        - Не оценивай реальный банкротный риск и не подменяй текст анализом
+          по ст. 61.2 или 61.3 ФЗ-127.
+        - valuation_method:
+            - "appraiser" — стоимость определена независимым оценщиком,
+              отчёт которого прямо упомянут в тексте.
+            - "market_reference" — стоимость определена со ссылкой на рыночные
+              данные, котировки или сравнимые сделки, прямо упомянутые в тексте.
+            - "contractual" — стоимость определена соглашением сторон без
+              привязки к внешним данным.
+            - "not_defined" — метод определения стоимости прямо не указан.
+        - bankruptcy_status_status = "defined" только если отсутствие процедуры
+          банкротства прямо подтверждено; не выводи из отсутствия упоминания.
+        - preference_risk_addressed_status = "defined" только если соответствующая
+          формулировка прямо присутствует в тексте.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "bankruptcy_status_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на отсутствие процедуры банкротства."
+          required: true
         - name: "bankruptcy_status_details"
           type: "string"
           presentation: "fact"
           label: "Отсутствие процедуры банкротства"
           description: "Формулировка об отсутствии процедуры банкротства."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "insolvency_signs_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на отсутствие признаков неплатёжеспособности."
+          required: false
         - name: "insolvency_signs_details"
           type: "string"
           presentation: "fact"
           label: "Отсутствие признаков неплатёжеспособности"
           description: "Формулировка об отсутствии признаков неплатёжеспособности."
+          required: false
+          display_in_grid: false
         - name: "fair_value_support_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия формулировки о соразмерной/рыночной стоимости."
+          required: false
         - name: "fair_value_support_details"
           type: "string"
           presentation: "fact"
           label: "Подтверждение стоимости"
           description: "Формулировка о рыночной, оценочной или согласованной стоимости."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "valuation_method"
           type: "string"
           presentation: "signal"
           allowed_values: ["appraiser", "market_reference", "contractual", "not_defined"]
           description: "Метод оценки стоимости."
+          required: false
         - name: "affiliate_risk_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания аффилированности сторон."
+          required: false
         - name: "affiliate_risk_details"
           type: "string"
           presentation: "fact"
           label: "Аффилированность сторон"
           description: "Формулировка об аффилированности сторон."
+          required: false
+          display_in_grid: false
         - name: "preference_risk_addressed_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус формулировки о предпочтении."
+          required: false
         - name: "preference_risk_addressed_details"
           type: "string"
           presentation: "fact"
           label: "Отсутствие сделки с предпочтением"
           description: "Формулировка о том, что сделка не является предпочтительной."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3405,7 +4227,11 @@ checks_v8:
       и формулировки о возмездном характере сделки.
     triggers:
       any: ["tax_sensitive_structure"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
 
@@ -3535,6 +4361,11 @@ checks_v8:
       max_tokens: 750
 
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "НДС налоговые обязательства доход кредитора расход должника первичные документы акт приёма-передачи стоимость для целей налогообложения рыночная стоимость для налога не является дарением экономическая цель налог на прибыль"
       preferred_unit_types:
         - obligation
@@ -3567,10 +4398,17 @@ checks_v8:
       rerank: true
 
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "obligations"
         - "boilerplate"
       confidence_bonus_on_match: 0.06
+      confidence_penalty_on_excluded_segment: 0.10
 
     evidence:
       required: true
@@ -3580,13 +4418,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 470
+      compact_output: true
+      llm_max_tokens: 540
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из текста соглашения налоговые и учётные
-        формулировки: НДС, стоимость для налоговых целей, первичные документы,
-        отсутствие дарения, экономическая цель.
-        Не анализируй фактические налоговые последствия по НК РФ, если они не указаны в тексте.
+        Ты — российский юрист. Извлеки из текста соглашения об отступном
+        налоговые и учётные формулировки: НДС-оговорку, стоимость для
+        налоговых целей, перечень первичных документов, оговорку об отсутствии
+        дарения, упоминание налога на прибыль и экономической цели сделки.
+        Не анализируй фактические налоговые последствия по НК РФ, если они
+        прямо не воспроизведены в тексте соглашения.
         </role>
 
         <context>
@@ -3594,84 +4435,129 @@ checks_v8:
         </context>
 
         <task>
-        1. vat_clause_status — "defined" если НДС-оговорка прямо присутствует.
-        2. vat_clause_details — формулировка о НДС.
-        3. tax_value_defined_status — "defined" если стоимость для налоговых целей прямо определена.
-        4. tax_value_defined_details — такая стоимость.
-        5. primary_documents_status — "defined" если первичные документы прямо упомянуты.
-        6. primary_documents_details — формулировка о первичных документах.
-        7. gift_risk_addressed_status — "defined" если прямо указано, что сделка не является дарением.
-        8. gift_risk_addressed_details — соответствующая формулировка.
-        9. profit_tax_status — "defined" если налог на прибыль или иные налоговые последствия прямо упомянуты.
-        10. profit_tax_details — формулировка.
-        11. economic_purpose_status — "defined" если экономическая цель сделки прямо упомянута.
-        12. economic_purpose_details — формулировка об экономической цели.
+        Заполни строго следующие поля:
 
-        Если данных нет:
+        1. vat_clause_status — "defined" если НДС-оговорка прямо присутствует
+           в тексте соглашения, иначе "not_defined".
+        2. vat_clause_details — формулировка о НДС.
+        3. tax_value_defined_status — "defined" если стоимость предмета отступного
+           для целей налогообложения прямо определена, иначе "not_defined".
+        4. tax_value_defined_details — такая стоимость.
+        5. primary_documents_status — "defined" если первичные документы или акт
+           приёма-передачи прямо упомянуты как подлежащие оформлению,
+           иначе "not_defined".
+        6. primary_documents_details — формулировка о первичных документах.
+        7. gift_risk_addressed_status — "defined" если прямо указано, что сделка
+           не является дарением или носит возмездный характер, иначе "not_defined".
+        8. gift_risk_addressed_details — соответствующая формулировка.
+        9. profit_tax_status — "defined" если налог на прибыль или иные
+           налоговые последствия прямо упомянуты в тексте, иначе "not_defined".
+        10. profit_tax_details — формулировка о налоге на прибыль или иных
+            налоговых последствиях.
+        11. economic_purpose_status — "defined" если экономическая цель сделки
+            прямо упомянута в тексте, иначе "not_defined".
+        12. economic_purpose_details — формулировка об экономической цели сделки.
+
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
+
+        <rules>
+        - Используй только текст соглашения.
+        - Не выводи налоговые последствия из норм НК РФ, если они прямо
+          не воспроизведены в тексте соглашения.
+        - vat_clause_status = "defined" как при наличии оговорки о начислении НДС,
+          так и при прямом указании, что передача НДС не облагается.
+        - primary_documents_status = "defined" только если первичные документы
+          или акт приёма-передачи прямо упомянуты как подлежащие оформлению;
+          не выводи из факта передачи имущества.
+        - gift_risk_addressed_status = "defined" только если соответствующая
+          формулировка прямо присутствует в тексте.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "vat_clause_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия НДС-оговорки."
+          required: true
         - name: "vat_clause_details"
           type: "string"
           presentation: "fact"
           label: "НДС-оговорка"
           description: "Формулировка о НДС."
+          required: false
+          display_in_grid: true
+          display_priority: 2
         - name: "tax_value_defined_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания стоимости для налоговых целей."
+          required: false
         - name: "tax_value_defined_details"
           type: "string"
           presentation: "fact"
           label: "Стоимость для налоговых целей"
           description: "Стоимость предмета отступного для целей налогообложения."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "primary_documents_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на первичные документы."
+          required: false
         - name: "primary_documents_details"
           type: "string"
           presentation: "fact"
           label: "Первичные документы"
           description: "Формулировка о первичных документах или акте приёма-передачи."
+          required: false
+          display_in_grid: false
         - name: "gift_risk_addressed_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус формулировки о том, что сделка не является дарением."
+          required: false
         - name: "gift_risk_addressed_details"
           type: "string"
           presentation: "fact"
           label: "Не является дарением"
           description: "Формулировка о том, что сделка не является дарением."
+          required: false
+          display_in_grid: true
+          display_priority: 3
         - name: "profit_tax_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания налога на прибыль или иных налоговых последствий."
+          required: false
         - name: "profit_tax_details"
           type: "string"
           presentation: "fact"
           label: "Налоговые последствия"
           description: "Формулировка о налоге на прибыль или иных налоговых последствиях."
+          required: false
+          display_in_grid: false
         - name: "economic_purpose_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания экономической цели сделки."
+          required: false
         - name: "economic_purpose_details"
           type: "string"
           presentation: "fact"
           label: "Экономическая цель сделки"
           description: "Формулировка об экономической цели сделки."
+          required: false
+          display_in_grid: false
       store_payload: true
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3685,7 +4571,11 @@ checks_v8:
       если должник — физическое лицо.
     triggers:
       any: ["individual_party"]
+    ui_mode: "field_extraction"
     severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
 
@@ -3797,6 +4687,11 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
       retrieval_query: "согласие супруга нотариальное согласие не состоит в браке совместно нажитое имущество личная собственность брачный договор семейный режим имущества личный режим имущества"
       preferred_unit_types:
         - warranty
@@ -3836,10 +4731,17 @@ checks_v8:
       rerank: true
 
     enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
       preferred_clause_functions:
         - "representations"
         - "boilerplate"
       confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
 
     evidence:
       required: true
@@ -3849,13 +4751,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 430
+      compact_output: true
+      llm_max_tokens: 480
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из текста соглашения формулировки
-        о согласии супруга, отсутствии брака, личной собственности или брачном договоре,
-        если Должник — физическое лицо.
-        Не анализируй семейный статус самостоятельно, а только то, что прямо написано.
+        Ты — российский юрист. Извлеки из текста соглашения об отступном
+        формулировки о согласии супруга, отсутствии брака, личном характере
+        имущества или наличии брачного договора, если Должник является
+        физическим лицом.
+        Не анализируй семейный статус самостоятельно — только то, что прямо
+        написано в тексте соглашения.
         </role>
 
         <context>
@@ -3863,56 +4768,96 @@ checks_v8:
         </context>
 
         <task>
-        1. individual_party_as_debtor_status — "defined" если Должник прямо указан как физическое лицо.
-        2. individual_party_as_debtor_details — формулировка о том, что Должник является физическим лицом.
-        3. spousal_consent_status — "present" / "not_married" / "personal_property" / "not_defined".
-        4. spousal_consent_details — формулировка о согласии супруга / отсутствии брака / личной собственности.
-        5. consent_document_type — "notarized" / "statement" / "not_defined".
-        6. marital_regime_confirmed_status — "defined" если режим имущества или брака прямо подтвержден.
-        7. marital_regime_confirmed_details — соответствующая формулировка.
+        Заполни строго следующие поля:
 
-        Если данных нет:
+        1. individual_party_as_debtor_status — "defined" если Должник прямо указан
+           как физическое лицо (гражданин, физическое лицо, ИП), иначе "not_defined".
+        2. individual_party_as_debtor_details — формулировка, подтверждающая,
+           что Должник является физическим лицом.
+        3. spousal_consent_status — "present" / "not_married" / "personal_property" /
+           "not_defined".
+        4. spousal_consent_details — формулировка о согласии супруга, отсутствии
+           брака, личной собственности или брачном договоре.
+        5. consent_document_type — "notarized" / "statement" / "not_defined".
+        6. marital_regime_confirmed_status — "defined" если режим имущества или
+           семейный статус должника прямо подтверждён, иначе "not_defined".
+        7. marital_regime_confirmed_details — формулировка о семейном статусе
+           или режиме имущества.
+
+        Если данные отсутствуют:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
+
+        <rules>
+        - Используй только текст соглашения.
+        - spousal_consent_status:
+            - "present" — нотариальное согласие супруга прямо упомянуто или приложено.
+            - "not_married" — должник прямо подтверждает, что не состоит в браке.
+            - "personal_property" — прямо указано, что имущество является личной
+              собственностью должника и не относится к совместно нажитому.
+            - "not_defined" — ни одна из перечисленных ситуаций прямо не указана.
+        - consent_document_type:
+            - "notarized" — прямо указано, что согласие нотариально удостоверено.
+            - "statement" — согласие оформлено в иной форме (заявление, подтверждение
+              в тексте соглашения), не упомянутой как нотариальное.
+            - "not_defined" — тип подтверждающего документа прямо не указан
+              или согласие не упомянуто.
+        - individual_party_as_debtor_status = "defined" только если из текста
+          прямо следует, что Должник является физическим лицом; не выводи из
+          наличия имени и отчества.
+        - Не делай самостоятельного вывода о необходимости согласия супруга.
+        - Верни только JSON.
+        </rules>
       fields:
         - name: "individual_party_as_debtor_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания, что Должник является физическим лицом."
+          required: true
         - name: "individual_party_as_debtor_details"
           type: "string"
           presentation: "fact"
           label: "Должник-физическое лицо"
           description: "Формулировка о том, что Должник является физическим лицом."
+          required: false
+          display_in_grid: false
         - name: "spousal_consent_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "not_married", "personal_property", "not_defined"]
           description: "Статус согласия супруга или личного режима имущества."
+          required: true
         - name: "spousal_consent_details"
           type: "string"
           presentation: "fact"
           label: "Согласие супруга / личный режим"
           description: "Формулировка о согласии супруга, отсутствии брака или личной собственности."
+          required: false
+          display_in_grid: true
+          display_priority: 1
         - name: "consent_document_type"
           type: "string"
           presentation: "signal"
           allowed_values: ["notarized", "statement", "not_defined"]
           description: "Тип подтверждающего документа или заявления."
+          required: false
         - name: "marital_regime_confirmed_status"
           type: "string"
           presentation: "signal"
           allowed_values: ["defined", "not_defined"]
           description: "Статус подтверждения семейного или имущественного режима."
+          required: false
         - name: "marital_regime_confirmed_details"
           type: "string"
           presentation: "fact"
           label: "Подтверждение семейного режима"
           description: "Формулировка о браке, брачном договоре или личной собственности."
+          required: false
+          display_in_grid: true
+          display_priority: 2
       store_payload: true
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES

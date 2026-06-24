@@ -35,7 +35,6 @@ import type {
   DealPlaybookHistoryItem,
   ModelConfig,
 } from "../../types";
-import AdminPlaybookLinesPage from "../../pages/AdminPlaybookLinesPage";
 
 export interface DealPlaybookSelectorPanelProps {
   dealId: string;
@@ -45,6 +44,7 @@ export interface DealPlaybookSelectorPanelProps {
   onCancel?: () => void;
   onDealPatched?: (patch: Partial<Deal>) => void;
   headerActions?: React.ReactNode;
+  onEditTemplate?: (templateId: string) => void;
 }
 
 const selectClassName =
@@ -70,6 +70,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   onCancel,
   onDealPatched,
   headerActions,
+  onEditTemplate,
 }) => {
   const navigate = useNavigate();
 
@@ -109,9 +110,6 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   const [isModelConfigsLoading, setIsModelConfigsLoading] = useState(false);
 
   const [isApplyConfirmOpen, setIsApplyConfirmOpen] = useState(false);
-
-  const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
-  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
 
   const effectiveDeal = useMemo(
     () => dealDetail ?? deal ?? null,
@@ -169,17 +167,6 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     }
   }, [dealId]);
 
-  const loadLineDetail = useCallback(async (lineId: string) => {
-    try {
-      const res = await client.get<PlaybookLineDetail>(
-        `/api/v1/playbooks/lines/${lineId}`,
-      );
-      setSelectedLineDetail(res.data);
-    } catch {
-      setSelectedLineDetail(null);
-    }
-  }, []);
-
   const handleSelectLine = useCallback(
     (lineId: string) => {
       if (isUiLocked) return;
@@ -189,12 +176,8 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
       setSelectedVersionId(null);
       setVersionDetail(null);
       setCreateVersionError(null);
-
-      if (isTemplateEditorOpen && editingTemplateId !== lineId) {
-        setEditingTemplateId(lineId);
-      }
     },
-    [clearMessages, editingTemplateId, isTemplateEditorOpen, isUiLocked],
+    [clearMessages, isUiLocked],
   );
 
   const handleSelectVersion = useCallback(
@@ -337,23 +320,8 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
   const handleEditSelectedLine = useCallback(() => {
     if (!selectedLineId) return;
-
-    setEditingTemplateId(selectedLineId);
-    setIsTemplateEditorOpen(true);
-  }, [selectedLineId]);
-
-  const handleCloseTemplateEditor = useCallback(() => {
-    setIsTemplateEditorOpen(false);
-    setEditingTemplateId(null);
-  }, []);
-
-  const handleTemplateEditorFinished = useCallback(async () => {
-    if (editingTemplateId) {
-      await loadLineDetail(editingTemplateId);
-    }
-
-    setSuccessText("Шаблон обновлён.");
-  }, [editingTemplateId, loadLineDetail]);
+    onEditTemplate?.(selectedLineId);
+  }, [selectedLineId, onEditTemplate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -974,26 +942,6 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
           </PageSection>
         </div>
       </div>
-
-      {isTemplateEditorOpen && editingTemplateId ? (
-        <div className="mt-4">
-          <AdminPlaybookLinesPage
-            mode="embedded"
-            initialPlaybookId={editingTemplateId}
-            headerActions={
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleCloseTemplateEditor}
-              >
-                Скрыть редактор
-              </Button>
-            }
-            onCancel={handleCloseTemplateEditor}
-            onFinished={handleTemplateEditorFinished}
-          />
-        </div>
-      ) : null}
     </>
   );
 

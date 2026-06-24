@@ -438,6 +438,7 @@ class DocTypeCheckLoader:
                     allowed_values=f.get("allowed_values") or [],
                     unit=f.get("unit"),
                     required=f.get("required", False),
+                    max_value_chars=f.get("max_value_chars"),
                 )
             )
 
@@ -451,6 +452,7 @@ class DocTypeCheckLoader:
             store_payload=extraction_cfg.get("store_payload", True),
             llm_prompt_extraction=extraction_cfg.get("llm_prompt_extraction"),
             llm_max_tokens=extraction_cfg.get("llm_max_tokens"),
+            compact_output=extraction_cfg.get("compact_output", True),
         )
 
     def _parse_conditional(self, triggers_cfg: dict | None) -> ConditionalConfig | None:

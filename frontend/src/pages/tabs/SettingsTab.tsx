@@ -30,7 +30,7 @@ interface SettingsTabProps {
   canManageProject: boolean;
 }
 
-type SettingsSubview = "overview" | "members" | "playbook" | "templates";
+type SettingsSubview = "overview" | "members" | "playbook" | "playbook_template_editor" | "templates";
 
 const SettingsCard: React.FC<{
   eyebrow: string;
@@ -75,6 +75,19 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
 
   const handleBackToSettings = React.useCallback(() => {
     setActiveSubview("overview");
+  }, []);
+
+  const [editingTemplateId, setEditingTemplateId] =
+    React.useState<string | null>(null);
+
+  const handleEditTemplate = React.useCallback((templateId: string) => {
+    setEditingTemplateId(templateId);
+    setActiveSubview("playbook_template_editor");
+  }, []);
+
+  const handleBackToPlaybook = React.useCallback(() => {
+    setEditingTemplateId(null);
+    setActiveSubview("playbook");
   }, []);
 
   const headerActions = (
@@ -125,6 +138,28 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
     );
   }
 
+  if (activeSubview === "playbook_template_editor") {
+    return (
+      <AdminPlaybookLinesPage
+        mode="embedded"
+        initialPlaybookId={editingTemplateId}
+        headerActions={
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            leftIcon={<ArrowLeft size={14} />}
+            onClick={handleBackToPlaybook}
+          >
+            Назад к playbook
+          </Button>
+        }
+        onCancel={handleBackToPlaybook}
+        onDeleted={undefined}
+      />
+    );
+  }
+
   if (activeSubview === "playbook") {
     return (
       <DealPlaybookSelectorPanel
@@ -132,6 +167,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
         mode="embedded"
         onCancel={handleBackToSettings}
         onFinished={handleBackToSettings}
+        onEditTemplate={handleEditTemplate}
         headerActions={headerActions}
       />
     );
@@ -142,7 +178,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
       <AdminPlaybookLinesPage
         mode="embedded"
         onCancel={handleBackToSettings}
-        onFinished={handleBackToSettings}
         headerActions={headerActions}
       />
     );

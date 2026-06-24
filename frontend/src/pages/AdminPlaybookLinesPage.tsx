@@ -52,6 +52,7 @@ interface AdminPlaybookLinesPageProps {
   headerActions?: React.ReactNode;
   onCancel?: () => void;
   onFinished?: () => void;
+  onDeleted?: () => void;
   initialPlaybookId?: string | null;
 }
 
@@ -60,6 +61,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
   headerActions,
   onCancel,
   onFinished,
+  onDeleted,
   initialPlaybookId = null,
 }) => {
   const navigate = useNavigate();
@@ -438,7 +440,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
       resetForm();
       await loadLines();
       setSuccessText("Шаблон удалён.");
-      onFinished?.();
+      onDeleted?.();
     } catch (err) {
       if (isApiErrorStatus(err, 409)) {
         setErrorText(
@@ -455,6 +457,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
         setSelectedLineId(null);
         resetForm();
         await loadLines();
+        onDeleted?.();
       } else {
         setErrorText(
           getApiErrorMessage(err, "Не удалось удалить шаблон playbook."),

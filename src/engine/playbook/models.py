@@ -430,18 +430,7 @@ class ExtractionFieldType(str, Enum):
 class ExtractionFieldConfig(BaseModel):
     """
     Описание одного извлекаемого поля.
-
-    Разделение ответственности:
-    - name:         технический machine-readable идентификатор поля.
-    - label:        краткая user-facing метка для UI / DD Grid / export.
-                    Обязательна для полей с presentation='fact'.
-    - presentation: роль поля в системе отображения.
-                    summary    — готовый итоговый текст для DD Grid ячейки.
-                    fact       — осмысленный пользовательский факт: Label: Value.
-                    signal     — машинный/routing признак, не идёт в primary display.
-                    diagnostic — reason / red_flags / evidence, не для display.
-    - description:  инструкция / смысл для extraction engine и LLM.
-                    НИКОГДА не использовать как user-facing label.
+    ...
     """
 
     name: str
@@ -480,6 +469,21 @@ class ExtractionFieldConfig(BaseModel):
     min_value: float | None = None
     max_value: float | None = None
 
+    # Maximum number of characters allowed for the final normalized string value.
+    #
+    # Purpose:
+    # - protects summary/fact fields from runaway paragraph-sized payloads;
+    # - can be raised explicitly for inventory/schedule fields that are
+    #   expected to contain long multi-line lists.
+    #
+    # Semantics:
+    # - None  -> use runtime default cap (currently 500 chars)
+    # - int>0 -> field-specific override, declared in playbook YAML
+    #
+    # This is a playbook-driven contract: output size expectations belong
+    # to the field definition, not to hardcoded check-specific logic in code.
+    max_value_chars: int | None = None
+
 
 class ExtractionMode(str, Enum):
     """Режим извлечения значений."""
@@ -515,6 +519,19 @@ class ExtractionConfig(BaseModel):
 
     # Per-check override для max_tokens в extraction LLM call.
     llm_max_tokens: int | None = None
+
+    # Whether runtime should append the generic "compact 1-2 sentences" footer
+    # to the extraction prompt.
+    #
+    # True  (default):
+    #   Good for summary-style checks where each field is expected to be short.
+    #
+    # False:
+    #   Use for inventory / schedule / register-style checks where a field may
+    #   legitimately contain a long multi-line list of items.
+    #
+    # This is playbook-driven: the check declares its output style contract.
+    compact_output: bool = True
 
     @field_validator("fields")
     @classmethod

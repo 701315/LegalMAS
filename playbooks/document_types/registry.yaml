@@ -69,11 +69,6 @@ document_types:
     category: "contract"
     group: "group_1_ownership"
 
-  - type: "contract_1.13_asset_sale"
-    name: "Договор продажи предприятия"
-    category: "contract"
-    group: "group_1_ownership"
-
   # group_2_use
   - type: "contract_2.1_lease"
     name: "Договор аренды (общая коммерческая)"
@@ -92,16 +87,6 @@ document_types:
 
   - type: "contract_2.4_leasing"
     name: "Договор лизинга (финансовой аренды)"
-    category: "contract"
-    group: "group_2_use"
-
-  - type: "contract_2.5_residential_lease"
-    name: "Договор найма жилого помещения"
-    category: "contract"
-    group: "group_2_use"
-
-  - type: "contract_2.6_gratuitous_use"
-    name: "Договор безвозмездного пользования"
     category: "contract"
     group: "group_2_use"
 
@@ -247,18 +232,4 @@ document_types:
     category: "contract"
     group: "group_9_special"
 
-  - type: "contract_9.3_prenuptial_agreement"
-    name: "Брачный договор (брачный контракт)"
-    category: "contract"
-    group: "group_9_special"
-
-  - type: "contract_9.4_alimony_agreement"
-    name: "Алиментное соглашение (соглашение об уплате алиментов)"
-    category: "contract"
-    group: "group_9_special"
-
-  - type: "contract_9.5_founders_agreement"
-    name: "Договор об учреждении общества (Учредительный договор)"
-    category: "contract"
-    group: "group_9_special"
     

@@ -25,6 +25,14 @@ import {
   normalizeLang,
 } from "../../utils/languageDiscovery";
 
+// ↓ ВАЖНО:
+// Для этого файла предполагается, что эти константы экспортируются
+// из соответствующих tab-файлов:
+// export const DEMO_AGGREGATES = [...];
+// export const DEMO_OBJECTS = [...];
+import { DEMO_AGGREGATES } from "./CounterpartiesTab";
+import { DEMO_OBJECTS } from "./RealEstateTab";
+
 export type ChecksMode =
   | "global_only"
   | "doc_type_only"
@@ -116,10 +124,101 @@ function isTerminalRunStatus(status: RunStatus | null | undefined): boolean {
   );
 }
 
+function buildCounterpartiesActivitySummary() {
+  const total = DEMO_AGGREGATES.length;
+
+  const countryMap = new Map<string, number>();
+  for (const item of DEMO_AGGREGATES) {
+    countryMap.set(item.country, (countryMap.get(item.country) ?? 0) + 1);
+  }
+
+  const topCountries = [...countryMap.entries()]
+    .map(([country, count]) => ({ country, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
+  const critical = DEMO_AGGREGATES.filter(
+    (item) => item.reviewStatus === "critical",
+  );
+  const needsReview = DEMO_AGGREGATES.filter(
+    (item) => item.reviewStatus === "needs_review",
+  );
+  const sanctions = DEMO_AGGREGATES.filter((item) => item.sanctionsFlag);
+  const bankruptcy = DEMO_AGGREGATES.filter((item) => item.bankruptcyFlag);
+  const legalEntities = DEMO_AGGREGATES.filter(
+    (item) => item.type === "legal_entity",
+  );
+  const individuals = DEMO_AGGREGATES.filter(
+    (item) => item.type === "individual",
+  );
+
+  const highExposure = DEMO_AGGREGATES
+    .filter((item) => item.contractValueUsdM > item.annualRevenueUsdM)
+    .sort(
+      (a, b) =>
+        b.contractValueUsdM / b.annualRevenueUsdM -
+        a.contractValueUsdM / a.annualRevenueUsdM,
+    )
+    .slice(0, 2);
+
+  return {
+    total,
+    topCountries,
+    critical,
+    needsReview,
+    sanctions,
+    bankruptcy,
+    legalEntities,
+    individuals,
+    highExposure,
+  };
+}
+
+function buildRealEstateActivitySummary() {
+  const total = DEMO_OBJECTS.length;
+  const encumbered = DEMO_OBJECTS.filter((item) => item.encumbrance === true);
+  const reviewOwnership = DEMO_OBJECTS.filter(
+    (item) =>
+      item.ownership_status === "review" ||
+      item.ownership_status === "not_confirmed",
+  );
+
+  const land = DEMO_OBJECTS.filter((item) => item.object_type === "land").length;
+  const buildingsAndPremises = DEMO_OBJECTS.filter(
+    (item) =>
+      item.object_type === "building" || item.object_type === "premises",
+  ).length;
+
+  const regionMap = new Map<string, number>();
+  for (const item of DEMO_OBJECTS) {
+    regionMap.set(item.region, (regionMap.get(item.region) ?? 0) + 1);
+  }
+
+  const topRegions = [...regionMap.entries()]
+    .map(([region, count]) => ({ region, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
+  const criticalAssets = DEMO_OBJECTS.filter(
+    (item) =>
+      item.risk === "high" ||
+      item.encumbrance === true ||
+      item.ownership_status === "not_confirmed",
+  ).slice(0, 2);
+
+  return {
+    total,
+    encumbered,
+    reviewOwnership,
+    land,
+    buildingsAndPremises,
+    topRegions,
+    criticalAssets,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // KpiCard
-// ── value: text-sm (было text-xl — слишком крупно для плотного UI)
-// ── px/py чуть компактнее
 // ---------------------------------------------------------------------------
 
 const KpiCard: React.FC<{
@@ -142,7 +241,6 @@ const KpiCard: React.FC<{
       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
         {label}
       </p>
-      {/* ↓ было text-xl → text-sm: значение читается чётко, но не доминирует */}
       <p className={`truncate text-sm font-semibold tabular-nums leading-5 ${valueClass}`}>
         {value}
       </p>
@@ -328,8 +426,6 @@ const TimelineEvent: React.FC<{
 
 // ---------------------------------------------------------------------------
 // DealInfoCard
-// ── textarea: max-h-40 + overflow-y-auto — при большом тексте скролл внутри
-// ── блок не растягивается бесконечно
 // ---------------------------------------------------------------------------
 
 const DealInfoCard: React.FC<{
@@ -379,16 +475,6 @@ const DealInfoCard: React.FC<{
 
 // ---------------------------------------------------------------------------
 // ActivitySummarySection
-//
-// Ключевые изменения по сравнению с предыдущей версией:
-//
-// 1. Враппер-grid больше НЕ имеет md:max-h-* и md:overflow-hidden —
-//    блок растёт до естественной высоты содержимого.
-//
-// 2. Каждая колонка имеет max-h-[22rem] и overflow-y-auto — скролл
-//    изолирован внутри колонки, не «вылезает» из карточки.
-//
-// 3. Секция получает pb-5 снизу — стандартный отступ от нижней границы.
 // ---------------------------------------------------------------------------
 
 const ActivitySummarySection: React.FC<{
@@ -402,6 +488,9 @@ const ActivitySummarySection: React.FC<{
 
   const auditEntries = auditPage?.items ?? [];
   const auditAgg = buildProjectTimelineFromAudit(auditEntries);
+
+  const counterpartiesSummary = buildCounterpartiesActivitySummary();
+  const realEstateSummary = buildRealEstateActivitySummary();
 
   const firstRun = React.useMemo(() => {
     if (!allRuns || allRuns.length === 0) return null;
@@ -436,7 +525,6 @@ const ActivitySummarySection: React.FC<{
 
   return (
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-      {/* Заголовок */}
       <div className="px-5">
         <div className="py-3">
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -449,24 +537,13 @@ const ActivitySummarySection: React.FC<{
         <div className="border-t border-[var(--border-subtle)]" />
       </div>
 
-      {/*
-        grid-враппер: НЕТ max-h и overflow-hidden на уровне враппера.
-        Высота определяется содержимым колонок.
-        pb-5 — стандартный отступ снизу внутри карточки.
-      */}
       <div className="grid grid-cols-1 divide-y divide-[var(--border-subtle)] px-5 pb-5 pt-4 md:grid-cols-3 md:divide-x md:divide-y-0">
-
         {/* ── Колонка 1: Документы ── */}
         <div className="flex flex-col pb-5 md:pb-0 md:pr-5">
           <p className="mb-3 shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Документы
           </p>
-          {/*
-            max-h-[22rem] + overflow-y-auto: если событий много —
-            колонка ограничена по высоте и скроллится внутри себя.
-            Все три колонки имеют одинаковый max-h, поэтому блок
-            выглядит выровненным по высоте.
-          */}
+
           <ol className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
             <TimelineEvent
               icon="🗂"
@@ -581,47 +658,95 @@ const ActivitySummarySection: React.FC<{
           <p className="mb-3 shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Контрагенты
           </p>
-          <div className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-xs">
-                🏢
-              </span>
-              <div className="h-2.5 w-36 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-            </div>
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-xs">
-                👤
-              </span>
-              <div className="h-2.5 w-28 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-            </div>
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-xs">
-                🔗
-              </span>
-              <div className="h-2.5 w-32 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-            </div>
 
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-3 py-2.5">
-              <p className="text-[11px] font-medium text-[var(--text-primary)]">
-                Раздел в разработке
+          <div className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
+            <TimelineEvent
+              icon="🏢"
+              label={`Выявлено контрагентов: ${counterpartiesSummary.total}`}
+            >
+              <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
+                Данные синхронизированы с вкладкой анализа контрагентов.
               </p>
-              <p className="mt-0.5 text-[10px] leading-[1.6] text-[var(--text-secondary)]">
-                После запуска анализа здесь появятся выявленные контрагенты
-                с типами и уровнями риска.
-              </p>
-            </div>
+            </TimelineEvent>
+
+            {counterpartiesSummary.topCountries.length > 0 && (
+              <TimelineEvent icon="🌍" label="Основная география">
+                <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
+                  {counterpartiesSummary.topCountries
+                    .map((item) => `${item.country} (${item.count})`)
+                    .join(" · ")}
+                </p>
+              </TimelineEvent>
+            )}
+
+            <TimelineEvent
+              icon="⚠️"
+              label={`Требуют внимания: ${counterpartiesSummary.critical.length + counterpartiesSummary.needsReview.length}`}
+            >
+              <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
+                <span className="text-[var(--color-error)]">
+                  critical: {counterpartiesSummary.critical.length}
+                </span>
+                <span className="text-[var(--color-warning)]">
+                  needs review: {counterpartiesSummary.needsReview.length}
+                </span>
+              </div>
+            </TimelineEvent>
+
+            {(counterpartiesSummary.sanctions.length > 0 ||
+              counterpartiesSummary.bankruptcy.length > 0) && (
+              <TimelineEvent icon="🛡️" label="Комплаенс-сигналы">
+                <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
+                  {counterpartiesSummary.sanctions.length > 0 && (
+                    <span className="text-[var(--color-error)]">
+                      sanctions: {counterpartiesSummary.sanctions.length}
+                    </span>
+                  )}
+                  {counterpartiesSummary.bankruptcy.length > 0 && (
+                    <span className="text-[var(--color-error)]">
+                      bankruptcy: {counterpartiesSummary.bankruptcy.length}
+                    </span>
+                  )}
+                </div>
+              </TimelineEvent>
+            )}
+
+            {counterpartiesSummary.highExposure.map((item) => (
+              <TimelineEvent
+                key={item.id}
+                icon="💼"
+                label={item.name}
+                date={item.country}
+              >
+                <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
+                  Контрактная нагрузка: ${item.contractValueUsdM}m при выручке ${item.annualRevenueUsdM}m.
+                </p>
+              </TimelineEvent>
+            ))}
 
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-[var(--border)] px-3 py-2">
                 <p className="text-[10px] text-[var(--text-muted)]">Юрлиц</p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                  —
+                  {counterpartiesSummary.legalEntities.length}
                 </p>
               </div>
               <div className="rounded-xl border border-[var(--border)] px-3 py-2">
                 <p className="text-[10px] text-[var(--text-muted)]">Физлиц</p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                  —
+                  {counterpartiesSummary.individuals.length}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] px-3 py-2">
+                <p className="text-[10px] text-[var(--text-muted)]">Critical</p>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--color-error)]">
+                  {counterpartiesSummary.critical.length}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] px-3 py-2">
+                <p className="text-[10px] text-[var(--text-muted)]">Санкции / банкротство</p>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
+                  {counterpartiesSummary.sanctions.length + counterpartiesSummary.bankruptcy.length}
                 </p>
               </div>
             </div>
@@ -633,62 +758,91 @@ const ActivitySummarySection: React.FC<{
           <p className="mb-3 shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Имущество
           </p>
-          <div className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-xs">
-                🏗
-              </span>
-              <div className="h-2.5 w-40 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-            </div>
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-xs">
-                📍
-              </span>
-              <div className="h-2.5 w-32 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-            </div>
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-xs">
-                ⚖️
-              </span>
-              <div className="h-2.5 w-36 animate-pulse rounded bg-[var(--bg-elevated-soft)]" />
-            </div>
 
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-3 py-2.5">
-              <p className="text-[11px] font-medium text-[var(--text-primary)]">
-                Раздел в разработке
+          <div className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
+            <TimelineEvent
+              icon="🏗"
+              label={`Выявлено объектов: ${realEstateSummary.total}`}
+            >
+              <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
+                Данные синхронизированы с вкладкой анализа недвижимого имущества.
               </p>
-              <p className="mt-0.5 text-[10px] leading-[1.6] text-[var(--text-secondary)]">
-                После запуска анализа здесь появятся объекты недвижимости
-                с адресами, кадастровыми номерами и статусом обременений.
-              </p>
-            </div>
+            </TimelineEvent>
+
+            {realEstateSummary.topRegions.length > 0 && (
+              <TimelineEvent icon="📍" label="Основные регионы">
+                <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
+                  {realEstateSummary.topRegions
+                    .map((item) => `${item.region} (${item.count})`)
+                    .join(" · ")}
+                </p>
+              </TimelineEvent>
+            )}
+
+            <TimelineEvent icon="⚖️" label="Структура периметра">
+              <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
+                <span className="text-[var(--text-secondary)]">
+                  земля: {realEstateSummary.land}
+                </span>
+                <span className="text-[var(--text-secondary)]">
+                  здания / помещения: {realEstateSummary.buildingsAndPremises}
+                </span>
+              </div>
+            </TimelineEvent>
+
+            <TimelineEvent
+              icon="🔒"
+              label={`С обременением: ${realEstateSummary.encumbered.length}`}
+            >
+              <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
+                <span className="text-[var(--color-warning)]">
+                  ownership review: {realEstateSummary.reviewOwnership.length}
+                </span>
+              </div>
+            </TimelineEvent>
+
+            {realEstateSummary.criticalAssets.map((item) => (
+              <TimelineEvent
+                key={item.id}
+                icon="🏢"
+                label={item.address ?? "Объект без адреса"}
+                date={item.region}
+              >
+                <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
+                  {item.area_sqm
+                    ? `${item.area_sqm.toLocaleString("ru-RU")} м²`
+                    : "Площадь не указана"}
+                  {item.encumbrance === true ? " · есть признаки обременения" : ""}
+                  {item.ownership_status !== "registered"
+                    ? " · право требует верификации"
+                    : ""}
+                </p>
+              </TimelineEvent>
+            ))}
 
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-[var(--border)] px-3 py-2">
                 <p className="text-[10px] text-[var(--text-muted)]">Объектов</p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                  —
+                  {realEstateSummary.total}
                 </p>
               </div>
               <div className="rounded-xl border border-[var(--border)] px-3 py-2">
-                <p className="text-[10px] text-[var(--text-muted)]">
-                  С обременением
-                </p>
-                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                  —
+                <p className="text-[10px] text-[var(--text-muted)]">С обременением</p>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--color-error)]">
+                  {realEstateSummary.encumbered.length}
                 </p>
               </div>
             </div>
           </div>
         </div>
-
       </div>
     </section>
   );
 };
 
 // ---------------------------------------------------------------------------
-// OverviewTab — без изменений в логике
+// OverviewTab
 // ---------------------------------------------------------------------------
 
 const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
@@ -947,6 +1101,5 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
 };
 
 export default OverviewTab;
-
 
 
