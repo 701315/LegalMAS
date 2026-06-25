@@ -1,5 +1,7 @@
+// src/components/marketing/landing/ContactModal.tsx
+
 import React from "react";
-import { ArrowRight, Mail, Shield, X } from "lucide-react";
+import { ArrowRight, Mail, X } from "lucide-react";
 import { landingContent } from "../../../content/landingContent";
 
 interface ContactModalProps {
@@ -11,6 +13,12 @@ interface ContactModalProps {
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
 }
+
+const DEMO_STEPS = [
+  "Обсудим сценарий: M&A, DD, contract review или внутренний аудит.",
+  "Покажем document flow: загрузка, checks, source-linked results и export.",
+  "При необходимости разберём security model, local-first режим и архитектуру.",
+] as const;
 
 const ContactModal: React.FC<ContactModalProps> = ({
   open,
@@ -25,49 +33,53 @@ const ContactModal: React.FC<ContactModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(32,27,22,0.48)] px-4 backdrop-blur-md"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#111827]/60 px-4 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full max-w-6xl overflow-hidden rounded-[36px] border border-stone-900/10 bg-[#f7f3ea] shadow-[0_32px_120px_rgba(28,25,23,0.18)]">
+      <div className="relative w-full max-w-5xl overflow-hidden rounded-[28px] border border-[#E5E2DA] bg-[#F8F7F4]">
+
+        {/* Кнопка закрытия */}
         <button
           onClick={onClose}
           aria-label="Закрыть"
-          className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-900/10 bg-white/80 text-stone-700 transition-colors hover:bg-white hover:text-stone-950"
+          className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E2DA] bg-white text-stone-500 transition-colors hover:text-stone-950"
         >
-          <X className="h-5 w-5" />
+          <X className="h-4 w-4" />
         </button>
 
         <div className="grid lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="border-b border-stone-900/10 bg-[#ece5d8] p-8 lg:border-b-0 lg:border-r lg:p-10">
-            <div className="inline-flex items-center gap-2 rounded-full border border-stone-900/10 bg-white/70 px-3 py-1.5 text-xs text-stone-700">
-              <Shield className="h-3.5 w-3.5" />
-              Enterprise demo request
-            </div>
 
-            <h3 className="mt-6 max-w-md font-serif text-4xl leading-tight tracking-[-0.03em] text-stone-950">
+          {/* Левая панель */}
+          <div className="border-b border-[#E5E2DA] bg-[#F1EFEA] p-8 lg:border-b-0 lg:border-r lg:p-10">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400">
+              Enterprise demo request
+            </p>
+
+            <h3 className="mt-5 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] text-stone-950">
               {landingContent.finalCta.title}
             </h3>
 
-            <p className="mt-4 max-w-md text-sm leading-7 text-stone-700 lg:text-base">
-              Расскажи о типах документов, playbooks и текущем процессе review — так демо можно сделать предметным, а не общим.
+            <p className="mt-4 max-w-md text-sm leading-7 text-stone-600 lg:text-base">
+              Расскажи о типах документов, playbooks и текущем процессе review —
+              так демо можно сделать предметным, а не общим.
             </p>
 
-            <div className="mt-8 rounded-[28px] border border-stone-900/10 bg-white/75 p-5">
-              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-500">
+            {/* Demo path */}
+            <div className="mt-7 rounded-[20px] border border-[#E5E2DA] bg-white p-5">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400">
                 Demo path
-              </div>
-              <div className="mt-4 space-y-3">
-                {[
-                  "Обсудим сценарий: M&A, DD, contract review или внутренний аудит.",
-                  "Покажем document flow: загрузка, checks, source-linked results и export.",
-                  "При необходимости отдельно разберём security model, local-first режим и архитектуру.",
-                ].map((item, index) => (
-                  <div key={item} className="rounded-2xl bg-[#f7f3ea] px-4 py-4">
+              </p>
+              <div className="mt-4 space-y-2.5">
+                {DEMO_STEPS.map((item, index) => (
+                  <div
+                    key={item}
+                    className="rounded-[14px] border border-[#E5E2DA] bg-[#F8F7F4] px-4 py-3.5"
+                  >
                     <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-950 text-xs font-semibold text-[#f7f3ea]">
+                      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#111827] text-[11px] font-medium text-white">
                         0{index + 1}
                       </div>
-                      <p className="text-sm leading-6 text-stone-700">{item}</p>
+                      <p className="text-sm leading-6 text-stone-600">{item}</p>
                     </div>
                   </div>
                 ))}
@@ -75,16 +87,17 @@ const ContactModal: React.FC<ContactModalProps> = ({
             </div>
           </div>
 
+          {/* Правая панель — форма */}
           <div className="p-8 lg:p-10">
             <div className="max-w-xl">
-              <div className="inline-flex items-center gap-2 text-sm text-stone-600">
+              <div className="inline-flex items-center gap-2 text-sm text-stone-500">
                 <Mail className="h-4 w-4" />
                 Ответ придёт на указанный рабочий email
               </div>
 
-              <form onSubmit={onSubmit} className="mt-8 space-y-5">
+              <form onSubmit={onSubmit} className="mt-7 space-y-4">
                 <div>
-                  <label className="mb-2 block text-xs uppercase tracking-[0.14em] text-stone-500">
+                  <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-stone-400">
                     Рабочий email
                   </label>
                   <input
@@ -93,41 +106,43 @@ const ContactModal: React.FC<ContactModalProps> = ({
                     value={email}
                     onChange={(e) => onEmailChange(e.target.value)}
                     placeholder="name@company.com"
-                    className="w-full rounded-[22px] border border-stone-900/10 bg-white/80 px-4 py-3.5 text-sm text-stone-950 outline-none transition-colors placeholder:text-stone-400 focus:border-stone-900/20 focus:bg-white"
+                    className="w-full rounded-[16px] border border-[#E5E2DA] bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors placeholder:text-stone-400 focus:border-stone-300"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-xs uppercase tracking-[0.14em] text-stone-500">
+                  <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-stone-400">
                     Сценарий, типы документов, объём
                   </label>
                   <textarea
                     required
-                    rows={7}
+                    rows={6}
                     value={message}
                     onChange={(e) => onMessageChange(e.target.value)}
                     placeholder="Например: DD для пакета SPA / SHA / NDA, 300+ документов, нужен source-linked результат и экспорт в Excel."
-                    className="w-full resize-none rounded-[22px] border border-stone-900/10 bg-white/80 px-4 py-3.5 text-sm text-stone-950 outline-none transition-colors placeholder:text-stone-400 focus:border-stone-900/20 focus:bg-white"
+                    className="w-full resize-none rounded-[16px] border border-[#E5E2DA] bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors placeholder:text-stone-400 focus:border-stone-300"
                   />
                 </div>
 
-                <div className="rounded-[22px] border border-emerald-900/10 bg-emerald-950 px-4 py-3 text-xs leading-relaxed text-emerald-50/90">
-                  Если у тебя чувствительный сценарий, можно сразу указать требования к local-first обработке, ограничения по cloud LLM и ожидания по security review.
+                {/* Security note — зелёный акцент строго по брифу */}
+                <div className="rounded-[14px] border border-[#2F5A4A]/20 bg-[#2F5A4A]/6 px-4 py-3 text-xs leading-relaxed text-[#2F5A4A]">
+                  Если у тебя чувствительный сценарий, можно сразу указать требования
+                  к local-first обработке, ограничения по cloud LLM и ожидания по security review.
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex flex-col gap-2.5 pt-1 sm:flex-row sm:items-center">
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center rounded-full bg-stone-950 px-5 py-3.5 text-sm font-semibold text-[#f7f3ea] transition-colors hover:bg-stone-800"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#111827] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[#1f2937]"
                   >
                     Отправить запрос
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" />
                   </button>
 
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex items-center justify-center rounded-full border border-stone-900/10 bg-white/70 px-5 py-3.5 text-sm font-medium text-stone-800 transition-colors hover:bg-white"
+                    className="inline-flex items-center justify-center rounded-full border border-[#E5E2DA] bg-white px-5 py-3 text-sm text-stone-600 transition-colors hover:text-stone-950"
                   >
                     Закрыть
                   </button>
@@ -135,6 +150,7 @@ const ContactModal: React.FC<ContactModalProps> = ({
               </form>
             </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -142,4 +158,3 @@ const ContactModal: React.FC<ContactModalProps> = ({
 };
 
 export default ContactModal;
-

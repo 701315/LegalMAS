@@ -1,25 +1,44 @@
+// src/components/marketing/landing/ArchitectureVisualPanel.tsx
+
 import React from "react";
+
+const PIPELINE_STEPS = [
+  {
+    num: "01",
+    title: "Input boundary",
+    text: "Upload, classification and package-level grouping.",
+  },
+  {
+    num: "02",
+    title: "Evidence layer",
+    text: "Source fragments, clause mapping and cross-document references.",
+  },
+  {
+    num: "03",
+    title: "Decision layer",
+    text: "Risk scoring, structured findings and export-ready outputs.",
+  },
+] as const;
 
 const ArchitectureVisualPanel: React.FC = () => {
   return (
-    <div className="rounded-[28px] border border-stone-900/10 bg-white/75 p-5">
-      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-stone-500">
+    <div className="rounded-[24px] border border-[#E5E2DA] bg-white p-5">
+      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-stone-400">
         Pipeline view
-      </div>
-      <div className="mt-4 grid gap-3">
-        {[
-          ["01", "Input boundary", "Upload, classification and package-level grouping."],
-          ["02", "Evidence layer", "Source fragments, clause mapping and cross-document references."],
-          ["03", "Decision layer", "Risk scoring, structured findings and export-ready outputs."],
-        ].map(([num, title, text]) => (
-          <div key={title} className="rounded-[22px] bg-[#f7f3ea] px-4 py-4">
+      </p>
+      <div className="mt-4 grid gap-2.5">
+        {PIPELINE_STEPS.map(({ num, title, text }) => (
+          <div
+            key={title}
+            className="rounded-[16px] border border-[#E5E2DA] bg-[#F8F7F4] px-4 py-4"
+          >
             <div className="flex items-start gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-950 text-xs font-semibold text-[#f7f3ea]">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#111827] text-[11px] font-medium text-white">
                 {num}
               </div>
               <div>
-                <div className="text-sm font-semibold text-stone-950">{title}</div>
-                <div className="mt-1 text-sm leading-6 text-stone-700">{text}</div>
+                <p className="text-sm font-medium text-stone-950">{title}</p>
+                <p className="mt-1 text-sm leading-6 text-stone-600">{text}</p>
               </div>
             </div>
           </div>

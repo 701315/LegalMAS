@@ -1,3 +1,5 @@
+// frontend/src/components/marketing/demo/DemoFormSection.tsx
+
 import React, { useState } from "react";
 import { demoContent } from "../../../content/demoContent";
 
@@ -9,99 +11,85 @@ const DemoFormSection: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const subject = encodeURIComponent("Запрос демо LegalMAS");
+    const subject = encodeURIComponent("Запрос демо Steloom");
     const body = encodeURIComponent(
       `Имя: ${name}\nКомпания: ${company}\nEmail: ${email}\n\nСценарий:\n${useCase}`
     );
-
-    window.location.href =
-      `mailto:vladimir.gorelov.mail@gmail.com?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:vladimir.gorelov.mail@gmail.com?subject=${subject}&body=${body}`;
   };
 
+  const inputClass =
+    "w-full rounded-[14px] border border-[#E5E2DA] bg-white px-4 py-3 text-sm text-stone-900 placeholder:text-stone-400 outline-none transition-colors focus:border-stone-400";
+
   return (
-    <section className="mt-16 grid lg:grid-cols-[1fr_0.8fr] gap-8 items-start">
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 lg:p-10">
-        <h2 className="text-2xl font-semibold">{demoContent.form.title}</h2>
-        <p className="mt-4 text-sm text-slate-400 leading-relaxed max-w-2xl">
-          {demoContent.form.subtitle}
-        </p>
+    <section className="mt-12 grid gap-6 lg:grid-cols-[1fr_0.75fr] lg:items-start">
+
+      {/* Форма */}
+      <div className="rounded-[28px] border border-[#E5E2DA] bg-white p-7 lg:p-9">
+        <h2 className="font-serif text-2xl tracking-[-0.03em] text-stone-950">
+          {demoContent.form.title}
+        </h2>
+        <p className="mt-3 text-sm leading-7 text-stone-600">{demoContent.form.subtitle}</p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">
+            <label className="mb-1.5 block text-xs font-medium text-stone-500">
               {demoContent.form.fields.name}
             </label>
-            <input
-              type="text"
-              required
-              value={name}
+            <input type="text" required value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={demoContent.form.placeholders.name}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-white/30"
-            />
+              className={inputClass} />
           </div>
-
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">
+            <label className="mb-1.5 block text-xs font-medium text-stone-500">
               {demoContent.form.fields.company}
             </label>
-            <input
-              type="text"
-              value={company}
+            <input type="text" value={company}
               onChange={(e) => setCompany(e.target.value)}
               placeholder={demoContent.form.placeholders.company}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-white/30"
-            />
+              className={inputClass} />
           </div>
-
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">
+            <label className="mb-1.5 block text-xs font-medium text-stone-500">
               {demoContent.form.fields.email}
             </label>
-            <input
-              type="email"
-              required
-              value={email}
+            <input type="email" required value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={demoContent.form.placeholders.email}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-white/30"
-            />
+              className={inputClass} />
           </div>
-
           <div>
-            <label className="block text-xs text-slate-400 mb-1.5">
+            <label className="mb-1.5 block text-xs font-medium text-stone-500">
               {demoContent.form.fields.useCase}
             </label>
-            <textarea
-              required
-              rows={6}
-              value={useCase}
+            <textarea required rows={5} value={useCase}
               onChange={(e) => setUseCase(e.target.value)}
               placeholder={demoContent.form.placeholders.useCase}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-white/30 resize-none"
-            />
+              className={`${inputClass} resize-none`} />
           </div>
-
-          <div className="text-xs text-slate-500">{demoContent.form.note}</div>
-
-          <button
-            type="submit"
-            className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-slate-200 transition-colors"
-          >
+          <p className="text-xs text-stone-400">{demoContent.form.note}</p>
+          <button type="submit"
+            className="inline-flex items-center gap-2 rounded-full bg-[#111827] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#1f2937]">
             {demoContent.form.submit}
           </button>
         </form>
       </div>
 
-      <aside className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
-        <h3 className="text-xl font-semibold">{demoContent.aside.title}</h3>
-        <ul className="mt-6 space-y-4 text-sm text-slate-400">
+      {/* Aside */}
+      <aside className="rounded-[28px] border border-[#E5E2DA] bg-[#F1EFEA] p-7">
+        <h3 className="font-serif text-xl tracking-[-0.02em] text-stone-950">
+          {demoContent.aside.title}
+        </h3>
+        <ul className="mt-6 space-y-3">
           {demoContent.aside.items.map((item) => (
-            <li key={item}>- {item}</li>
+            <li key={item} className="flex items-start gap-2.5 text-sm leading-6 text-stone-600">
+              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-stone-400" />
+              {item}
+            </li>
           ))}
         </ul>
-        <div className="mt-8 text-sm text-slate-500">{demoContent.aside.time}</div>
+        <p className="mt-8 text-xs text-stone-400">{demoContent.aside.time}</p>
       </aside>
     </section>
   );

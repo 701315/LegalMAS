@@ -1,18 +1,19 @@
 /* src/index.css */
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap");
 @import "tailwindcss";
 
 :root {
   /* Typography */
   --font-body: "Inter", system-ui, sans-serif;
+  --font-display: "Instrument Serif", Georgia, serif;
 
-  --font-size-ui-xs: 0.75rem; /* 12px */
-  --font-size-ui-sm: 0.8125rem; /* 13px */
-  --font-size-body-sm: 0.875rem; /* 14px */
-  --font-size-body-md: 1rem; /* 16px */
-  --font-size-title-sm: 1rem; /* 16px */
-  --font-size-title-md: 1.125rem; /* 18px */
+  --font-size-ui-xs: 0.75rem;      /* 12px */
+  --font-size-ui-sm: 0.8125rem;    /* 13px */
+  --font-size-body-sm: 0.875rem;   /* 14px */
+  --font-size-body-md: 1rem;       /* 16px */
+  --font-size-title-sm: 1rem;      /* 16px */
+  --font-size-title-md: 1.125rem;  /* 18px */
 
   --line-height-ui-xs: 1rem;
   --line-height-ui-sm: 1.125rem;
@@ -24,32 +25,34 @@
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
-  --font-weight-bold: 700;
+  /* --font-weight-bold убран: бриф запрещает 700+ */
 
   /* Base surfaces */
-  --bg-base: #f5f7fb;
-  --bg-surface: #eef2f7;
+  --bg-base: #F8F7F4;
+  --bg-secondary: #F1EFEA;
+  --bg-surface: #F1EFEA;
   --bg-card: #ffffff;
-  --bg-card-hover: #f8fafc;
-  --bg-elevated-soft: #f3f6fb;
+  --bg-card-hover: #faf9f7;
+  --bg-elevated-soft: #F1EFEA;
 
   /* Borders */
-  --border: rgba(15, 23, 42, 0.1);
-  --border-soft: rgba(15, 23, 42, 0.06);
-  --border-strong: rgba(15, 23, 42, 0.16);
-  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border: rgba(17, 24, 39, 0.08);
+  --border-soft: rgba(17, 24, 39, 0.05);
+  --border-strong: rgba(17, 24, 39, 0.14);
+  --border-subtle: rgba(17, 24, 39, 0.06);
+  --border-color: #E5E2DA;
 
   /* Brand / accents */
-  --accent: #4f46e5;
-  --accent-primary: #4f46e5;
-  --accent-hover: #4338ca;
-  --accent-muted: rgba(79, 70, 229, 0.14);
+  --accent: #2F5A4A;
+  --accent-primary: #2F5A4A;
+  --accent-hover: #3F735F;
+  --accent-muted: rgba(47, 90, 74, 0.12);
 
   /* Text */
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --text-faint: #cbd5e1;
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --text-muted: #9CA3AF;
+  --text-faint: #D1D5DB;
   --text-inverse: #ffffff;
 
   /* Semantic */
@@ -57,7 +60,7 @@
   --warning: #d97706;
   --danger: #dc2626;
 
-  /* Status palette for badges / chips */
+  /* Status palette для badges / chips */
   --color-error: #be123c;
   --color-error-highlight: #fff1f2;
 
@@ -74,7 +77,6 @@
   --color-warning: #d97706;
   --color-warning-highlight: #fffbeb;
 
-  /* Optional semantic token hooks */
   --color-success-text: var(--success);
   --color-success-bg: transparent;
   --color-success-border: transparent;
@@ -84,18 +86,18 @@
   --radius-md: 12px;
   --radius-lg: 16px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.06);
-  --shadow-lg: 0 18px 40px rgba(15, 23, 42, 0.1);
+  /* Shadows — только для app-shell, не для marketing-карточек */
+  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
+  --shadow-md: 0 10px 30px rgba(17, 24, 39, 0.06);
+  --shadow-lg: 0 18px 40px rgba(17, 24, 39, 0.08);
 }
 
-/* ─── Reset / base layout ────────────────────────────────────────────────────
+/* ─── Reset / base layout ─────────────────────────────────────────────────
  *
  * Намеренно НЕ ставим height: 100% на html/body/#root.
- * Это позволяет landing page расти в высоту без ограничений,
- * а AppShell для dashboard управляет своим scroll-контекстом сам
- * через собственный h-screen / overflow-hidden контейнер.
+ * Landing page растёт в высоту без ограничений.
+ * AppShell для dashboard управляет своим scroll-контекстом сам
+ * через h-screen / overflow-hidden.
  */
 
 html,
@@ -111,6 +113,8 @@ body,
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+  scroll-padding-top: 4rem;
 }
 
 body {
@@ -118,33 +122,17 @@ body {
   font-family: var(--font-body);
   font-size: var(--font-size-body-sm);
   line-height: var(--line-height-body-sm);
-  background:
-    radial-gradient(
-      circle at top left,
-      rgba(79, 70, 229, 0.035),
-      transparent 28%
-    ),
-    linear-gradient(180deg, #f8fafc 0%, var(--bg-base) 100%);
+  background: var(--bg-base);
   color: var(--text-primary);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   position: relative;
-
-  /*
-   * overflow-x: hidden  — скрываем горизонтальный выход контента за края.
-   * overflow-y: auto    — вертикальный скролл разрешён.
-   *
-   * Раньше здесь было overflow: hidden, которое ломало прокрутку
-   * landing page целиком. Dashboard управляет своим скроллом через
-   * AppShell (h-screen + overflow-hidden на его собственном контейнере),
-   * поэтому глобальный body-lock здесь не нужен.
-   */
   overflow-x: hidden;
   overflow-y: auto;
 }
 
 /*
- * Декоративный grain-оверлей поверх фона.
- * pointer-events: none — не мешает взаимодействию со страницей.
+ * Декоративный grain-оверлей.
+ * pointer-events: none — не мешает взаимодействию.
  */
 body::after {
   content: "";
@@ -156,19 +144,13 @@ body::after {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
 
-/*
- * #root — корневой контейнер React.
- * z-index: 1 поднимает контент над декоративным ::after.
- * Намеренно нет overflow: hidden — это позволяет landing page скроллиться.
- * Dashboard сам управляет своим overflow через AppShell.
- */
 #root {
   position: relative;
   z-index: 1;
   min-height: 100%;
 }
 
-/* ─── Box model ──────────────────────────────────────────────────────────── */
+/* ─── Box model ───────────────────────────────────────────────────────────── */
 
 *,
 *::before,
@@ -180,7 +162,7 @@ body::after {
   border-color: var(--border);
 }
 
-/* ─── Typography / links / forms ─────────────────────────────────────────── */
+/* ─── Typography / links / forms ──────────────────────────────────────────── */
 
 a {
   text-decoration: none;
@@ -203,19 +185,20 @@ table {
   font-variant-numeric: tabular-nums;
 }
 
-/* ─── Selection / focus ──────────────────────────────────────────────────── */
+/* ─── Selection / focus ───────────────────────────────────────────────────── */
 
 ::selection {
-  background: rgba(79, 70, 229, 0.14);
+  background: rgba(47, 90, 74, 0.15);
   color: var(--text-primary);
 }
 
 :focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
-/* ─── Animations ─────────────────────────────────────────────────────────── */
+/* ─── Animations ──────────────────────────────────────────────────────────── */
 
 @keyframes fadeInUp {
   from {
@@ -233,22 +216,34 @@ table {
 }
 
 @keyframes shimmer {
-  from {
-    background-position: -200% 0;
-  }
-  to {
-    background-position: 200% 0;
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+
+@keyframes scrollBounce {
+  0%, 100% { transform: translateY(0);   opacity: 0.4; }
+  50%       { transform: translateY(6px); opacity: 0.85; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
-/* ─── Component tokens ───────────────────────────────────────────────────── */
+/* ─── Component tokens ────────────────────────────────────────────────────── */
 
 .skeleton {
   background: linear-gradient(
     90deg,
-    #eef2f7 25%,
-    #e2e8f0 50%,
-    #eef2f7 75%
+    #ede9e2 25%,
+    #e5e1d9 50%,
+    #ede9e2 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
@@ -276,7 +271,7 @@ table {
 }
 
 .input-base:hover {
-  background: #fcfdff;
+  background: #fdfcfa;
   border-color: var(--border-strong);
 }
 
@@ -288,9 +283,10 @@ table {
 .input-base:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background: #f8fafc;
+  background: var(--bg-surface);
 }
 
+/* card-surface — только для app-shell компонентов, не для marketing-карточек */
 .card-surface {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -318,20 +314,9 @@ table {
   border-radius: calc(var(--radius-lg) - 2px);
 }
 
-/* ─── Status helpers ─────────────────────────────────────────────────────── */
+/* ─── Status helpers ──────────────────────────────────────────────────────── */
 
-.status-success {
-  color: var(--success);
-}
-
-.status-warning {
-  color: var(--warning);
-}
-
-.status-danger {
-  color: var(--danger);
-}
-
-
-
+.status-success { color: var(--success); }
+.status-warning { color: var(--warning); }
+.status-danger  { color: var(--danger);  }
 

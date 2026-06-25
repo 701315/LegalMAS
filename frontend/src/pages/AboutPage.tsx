@@ -18,7 +18,7 @@ const AboutPage: React.FC = () => {
     {
       icon: <Scale className="h-5 w-5 text-stone-700" />,
       title: "Юридическая логика",
-      text: "LegalMAS проектируется вокруг playbooks, review-процессов и реальных требований due diligence, а не вокруг одного промпта.",
+      text: "Steloom проектируется вокруг playbooks, review-процессов и реальных требований due diligence, а не вокруг одного промпта.",
     },
     {
       icon: <FileText className="h-5 w-5 text-stone-700" />,
@@ -33,22 +33,22 @@ const AboutPage: React.FC = () => {
   ];
 
   const team = [
-    { name: "Vladimir Gorelov", role: "Founder & Product / Engineering Lead", description: "Отвечает за продуктовую логику LegalMAS, архитектуру document pipeline и интеграцию AI в юридические сценарии.", linkedin: "https://www.linkedin.com/in/example-vladimir", photo: photoVladimir },
-    { name: "Anna Kuznetsova", role: "Head of Legal Workflows", description: "Конструирует юридические playbooks для M&A, VC и корпоративных сценариев, чтобы выводы LegalMAS были пригодны для review.", linkedin: "https://www.linkedin.com/in/example-anna", photo: photoAnna },
+    { name: "Vladimir Gorelov", role: "Founder & Product / Engineering Lead", description: "Отвечает за продуктовую логику Steloom, архитектуру document pipeline и интеграцию AI в юридические сценарии.", linkedin: "https://www.linkedin.com/in/example-vladimir", photo: photoVladimir },
+    { name: "Anna Kuznetsova", role: "Head of Legal Workflows", description: "Конструирует юридические playbooks для M&A, VC и корпоративных сценариев, чтобы выводы Steloom были пригодны для review.", linkedin: "https://www.linkedin.com/in/example-anna", photo: photoAnna },
     { name: "Dmitry Morozov", role: "Lead ML / NLP Engineer", description: "Разрабатывает модели для извлечения сущностей, связки выводов с источниками и анализа больших массивов договоров.", linkedin: "https://www.linkedin.com/in/example-dmitry", photo: photoDmitry },
     { name: "Irina Sokolova", role: "Document Processing Engineer", description: "Отвечает за стабильный пайплайн загрузки, OCR, нормализации и разметки документов в Data Room.", linkedin: "https://www.linkedin.com/in/example-irina", photo: photoIrina },
     { name: "Pavel Kravchenko", role: "Security & Infrastructure", description: "Проектирует privacy-first архитектуру, модели доступа и контролируемое подключение облачных LLM.", linkedin: "https://www.linkedin.com/in/example-pavel", photo: photoPavel },
-    { name: "Elena Novikova", role: "Product & UX Design", description: "Делает интерфейс LegalMAS пригодным для длительной работы юристов и аналитиков, а не только демо.", linkedin: "https://www.linkedin.com/in/example-elena", photo: photoElena },
-    { name: "Maxim Sergeev", role: "Customer Success", description: "Помогает командам интегрировать LegalMAS в их процессы, запускать пилоты и масштабировать сценарии.", linkedin: "https://www.linkedin.com/in/example-maxim", photo: photoMaxim },
+    { name: "Elena Novikova", role: "Product & UX Design", description: "Делает интерфейс Steloom пригодным для длительной работы юристов и аналитиков, а не только демо.", linkedin: "https://www.linkedin.com/in/example-elena", photo: photoElena },
+    { name: "Maxim Sergeev", role: "Customer Success", description: "Помогает командам интегрировать Steloom в их процессы, запускать пилоты и масштабировать сценарии.", linkedin: "https://www.linkedin.com/in/example-maxim", photo: photoMaxim },
     { name: "Olga Petrova", role: "Data Analyst", description: "Собирает и анализирует метрики использования, помогает улучшать качество проверок и выводов.", linkedin: "https://www.linkedin.com/in/example-olga", photo: photoOlga },
-    { name: "Sergey Ivanov", role: "Backend Engineer", description: "Разрабатывает backend LegalMAS, API для document pipeline и интеграцию с внешними системами.", linkedin: "https://www.linkedin.com/in/example-sergey", photo: photoSergey },
+    { name: "Sergey Ivanov", role: "Backend Engineer", description: "Разрабатывает backend Steloom, API для document pipeline и интеграцию с внешними системами.", linkedin: "https://www.linkedin.com/in/example-sergey", photo: photoSergey },
   ];
 
   return (
     <MarketingEditorialShell
       eyebrow="About"
-      title="Команда, которая строит LegalMAS как enterprise product"
-      description="LegalMAS создаётся как инфраструктурный продукт для юридического анализа документов, Data Room и due diligence-сценариев, где важны проверяемость выводов, управляемость пайплайна и аккуратная работа с чувствительными данными."
+      title="Команда, которая строит Steloom как enterprise product"
+      description="Steloom создаётся как инфраструктурный продукт для юридического анализа документов, Data Room и due diligence-сценариев, где важны проверяемость выводов, управляемость пайплайна и аккуратная работа с чувствительными данными."
       primaryLink={{ label: "Посмотреть возможности", to: "/capabilities" }}
       secondaryLink={{ label: "Изучить архитектуру", to: "/tech" }}
     >

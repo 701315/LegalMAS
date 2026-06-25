@@ -1,24 +1,34 @@
+// frontend/src/components/marketing/security/SecurityControlsSection.tsx
+
 import React from "react";
 import { securityContent } from "../../../content/securityContent";
-import SectionHeader from "../SectionHeader";
 
 const SecurityControlsSection: React.FC = () => {
   const { controls } = securityContent;
-
   return (
-    <section className="mt-16">
-      <SectionHeader title={controls.title} subtitle={controls.subtitle} align="left" />
-      <div className="mt-10 grid md:grid-cols-2 gap-6">
+    <section className="mt-12">
+      <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500">
+        Controls
+      </p>
+      <h2 className="mt-4 font-serif text-3xl tracking-[-0.03em] text-stone-950 lg:text-4xl">
+        {controls.title}
+      </h2>
+      {controls.subtitle && (
+        <p className="mt-4 max-w-2xl text-base leading-8 text-stone-600">{controls.subtitle}</p>
+      )}
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
         {controls.items.map((item) => (
           <div
             key={item.title}
-            className="rounded-3xl border border-white/10 bg-white/[0.03] p-8"
+            className="rounded-[24px] border border-[#E5E2DA] bg-white p-7"
           >
-            <div className="w-11 h-11 rounded-xl bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center">
-              <item.icon className="w-5 h-5 text-emerald-300" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#E5E2DA] bg-[#F1EFEA]">
+              <item.icon className="h-5 w-5 text-stone-600" />
             </div>
-            <h2 className="mt-6 text-2xl font-semibold">{item.title}</h2>
-            <p className="mt-4 text-sm text-slate-400 leading-relaxed">{item.description}</p>
+            <h3 className="mt-6 text-xl font-semibold tracking-tight text-stone-950">
+              {item.title}
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-stone-600">{item.description}</p>
           </div>
         ))}
       </div>

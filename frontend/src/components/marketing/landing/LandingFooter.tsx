@@ -1,99 +1,143 @@
+// src/components/marketing/landing/LandingFooter.tsx
+
 import React from "react";
 import { Link } from "react-router-dom";
-import { Shield } from "lucide-react";
-import { landingContent } from "../../../content/landingContent";
+import SteloomWordmark from "../primitives/SteloomWordmark";
 
 const LandingFooter: React.FC = () => {
   return (
-    <footer className="border-t border-stone-900/10 bg-[#efe8db]">
-      <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-10 px-4 py-10 sm:px-6 lg:px-10 xl:px-12 lg:py-14">
-        <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
-          <div className="max-w-xl">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-stone-900/10 bg-white/80 text-stone-950 shadow-sm">
-                <Shield className="h-5 w-5" />
-              </div>
+    <footer
+      className="flex items-center border-t border-[#E5E2DA] bg-[#F1EFEA]"
+      style={{ minHeight: "100vh" }}
+    >
+      <div className="mx-auto w-full max-w-[1280px] px-6 py-16 lg:px-10 xl:px-12">
 
-              <div>
-                <div className="text-sm font-semibold text-stone-950">
-                  {landingContent.brand.name}
-                </div>
-                <div className="text-xs text-stone-500">
-                  {landingContent.brand.tagline}
-                </div>
-              </div>
-            </div>
+        {/* Основная сетка */}
+        <div className="grid gap-12 lg:grid-cols-[1.4fr_0.6fr] lg:items-start">
 
-            <p className="mt-6 text-sm leading-7 text-stone-700 lg:text-base">
-              Privacy-first legal document analysis for M&A, due diligence and corporate legal teams:
-              playbook-driven review, source-linked outputs and controllable document workflows.
+          {/* Левая — описание + контакты */}
+          <div className="max-w-lg">
+            <p className="text-base leading-8 text-stone-600">
+              Интеллектуальный слой для юридической работы. Анализ документов
+              по вашему Playbook, выводы с привязкой к источнику и управляемые
+              рабочие процессы для M&A и корпоративных команд.
             </p>
+
+            {/* Контакты */}
+            <div className="mt-10 space-y-4">
+
+              <div className="flex items-start gap-4">
+                <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400 pt-0.5">
+                  Company
+                </span>
+                <span className="text-sm text-stone-600">Steloom.com</span>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400 pt-0.5">
+                  Address
+                </span>
+                <span className="text-sm text-stone-600">Земля</span>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400 pt-0.5">
+                  Phone
+                </span>
+                <a
+                  href="tel:+79219125351"
+                  className="text-sm text-stone-600 transition-colors hover:text-stone-950"
+                >
+                  +7 921 912 53 51
+                </a>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400 pt-0.5">
+                  Email
+                </span>
+                <a
+                  href="mailto:hello@steloom.com"
+                  className="text-sm text-stone-600 transition-colors hover:text-stone-950"
+                >
+                  hello@steloom.com
+                </a>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <span className="w-24 shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400 pt-0.5">
+                  LinkedIn
+                </span>
+                <a
+                  href="https://linkedin.com/company/steloom"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-stone-600 transition-colors hover:text-stone-950"
+                >
+                  linkedin.com/company/steloom
+                </a>
+              </div>
+
+            </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:justify-self-end lg:min-w-[460px]">
-            <div className="rounded-[28px] border border-stone-900/10 bg-white/65 p-6">
-              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-500">
-                Product
-              </div>
-              <div className="mt-4 flex flex-col gap-3">
-                <a
-                  href="#capabilities"
-                  className="text-sm text-stone-700 transition-colors hover:text-stone-950"
-                >
-                  Возможности
-                </a>
-                <a
-                  href="#use-cases"
-                  className="text-sm text-stone-700 transition-colors hover:text-stone-950"
-                >
-                  Сценарии
-                </a>
-                <Link
-                  to="/tech#pipeline"
-                  className="text-sm text-stone-700 transition-colors hover:text-stone-950"
-                >
-                  Архитектура
-                </Link>
-                <Link
-                  to="/about"
-                  className="text-sm text-stone-700 transition-colors hover:text-stone-950"
-                >
-                  О нас
-                </Link>
-              </div>
-            </div>
+          {/* Правая — крупный логотип */}
+          <div className="flex lg:items-start lg:justify-end">
+            <Link
+              to="/"
+              className="inline-flex text-stone-900 transition-opacity hover:opacity-50"
+              aria-label="steloom — на главную"
+            >
+              <SteloomWordmark height={100} />
+            </Link>
+          </div>
 
-            <div className="rounded-[28px] border border-stone-900/10 bg-[#f7f3ea] p-6">
-              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-500">
-                Trust
-              </div>
-              <div className="mt-4 flex flex-col gap-3">
-                <Link
-                  to="/security#privacy"
-                  className="text-sm text-stone-700 transition-colors hover:text-stone-950"
-                >
-                  Безопасность
-                </Link>
-                <Link
-                  to="/solutions"
-                  className="text-sm text-stone-700 transition-colors hover:text-stone-950"
-                >
-                  Use cases
-                </Link>
-              </div>
-            </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div className="mt-16 flex flex-col gap-4 border-t border-[#E5E2DA] pt-8 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-stone-400">
+            © 2026 Steloom. All rights reserved.
+          </div>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <a
+              href="https://legora.com/legal"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-stone-400 transition-colors hover:text-stone-700"
+            >
+              Terms of Use
+            </a>
+            <a
+              href="https://legora.com/legal/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-stone-400 transition-colors hover:text-stone-700"
+            >
+              Privacy Policy
+            </a>
+            <a
+              href="https://legora.com/legal/cookie-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-stone-400 transition-colors hover:text-stone-700"
+            >
+              Cookie Policy
+            </a>
+            <a
+              href="https://legora.com/legal/security"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-stone-400 transition-colors hover:text-stone-700"
+            >
+              Security Policy
+            </a>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-stone-900/10 pt-6 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between">
-          <div>© 2026 LegalMAS. All rights reserved.</div>
-          <div>Built for sensitive legal workflows.</div>
-        </div>
       </div>
     </footer>
   );
 };
 
 export default LandingFooter;
-
-
