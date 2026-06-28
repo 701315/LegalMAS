@@ -1,36 +1,89 @@
-// src/pages/LandingPage.tsx
-
 import React, { useState, useEffect, useRef } from "react";
 import { ScrollProvider, useScroll } from "../context/ScrollContext";
 import LandingHeader from "../components/marketing/landing/LandingHeader";
 import PremiumHeroSection from "../components/marketing/landing/PremiumHeroSection";
 import ConceptTagsSection from "../components/marketing/landing/ConceptTagsSection";
-import SolutionsSection from "../components/marketing/landing/SolutionsSection";
-import CapabilitiesSection from "../components/marketing/landing/CapabilitiesSection";
+import KnowledgeGrowthSection from "../components/marketing/landing/KnowledgeGrowthSection";
+import SecurityFoundationSection from "../components/marketing/landing/SecurityFoundationSection";
+import { ApplicationSection } from "../components/marketing/landing/ApplicationSection";
 import ArchitecturePreviewSection from "../components/marketing/landing/ArchitecturePreviewSection";
-import SecuritySection from "../components/marketing/landing/SecuritySection";
 import FaqSection from "../components/marketing/landing/FaqSection";
 import PremiumFinalCtaSection from "../components/marketing/landing/PremiumFinalCtaSection";
 import LandingFooter from "../components/marketing/landing/LandingFooter";
 import ContactModal from "../components/marketing/landing/ContactModal";
 
+const getClosestSnapSection = (container: HTMLElement): HTMLElement | null => {
+  const sections = Array.from(
+    container.querySelectorAll<HTMLElement>("[data-snap]")
+  );
+
+  if (sections.length === 0) return null;
+
+  const scrollTop = container.scrollTop;
+  let currentSection: HTMLElement | null = null;
+  let minDistance = Infinity;
+
+  for (const section of sections) {
+    const distance = Math.abs(section.offsetTop - scrollTop);
+    if (distance < minDistance) {
+      minDistance = distance;
+      currentSection = section;
+    }
+  }
+
+  return currentSection;
+};
+
+const resolveHeaderTheme = (
+  section: HTMLElement | null
+): "light" | "dark" => {
+  return section?.dataset.headerTheme === "dark" ? "dark" : "light";
+};
+
 const LandingPageInner: React.FC = () => {
-  const { scrollContainerRef, setScrolled } = useScroll();
+  const { scrollContainerRef, setScrolled, setHeaderTheme } = useScroll();
   const [contactOpen, setContactOpen] = useState(false);
   const [formEmail, setFormEmail] = useState("");
   const [formMessage, setFormMessage] = useState("");
   const isScrolling = useRef(false);
 
-  // Следим за скроллом → обновляем контекст
+  // Следим за скроллом → обновляем контекст scroll state + header theme
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    const handleScroll = () => setScrolled(container.scrollTop > 32);
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [scrollContainerRef, setScrolled]);
 
-  // Wheel snap хелпер — правильный алгоритм поиска текущего блока
+    let rafId: number | null = null;
+
+    const updateScrollState = () => {
+      setScrolled(container.scrollTop > 32);
+
+      const currentSection = getClosestSnapSection(container);
+      const nextTheme = resolveHeaderTheme(currentSection);
+      setHeaderTheme(nextTheme);
+    };
+
+    const handleScroll = () => {
+      if (rafId !== null) return;
+
+      rafId = requestAnimationFrame(() => {
+        updateScrollState();
+        rafId = null;
+      });
+    };
+
+    updateScrollState();
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
+  }, [scrollContainerRef, setScrolled, setHeaderTheme]);
+
+  // Wheel snap helper
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -47,9 +100,9 @@ const LandingPageInner: React.FC = () => {
       const scrollTop = container.scrollTop;
       const direction = e.deltaY > 0 ? 1 : -1;
 
-      // Находим блок с offsetTop ближайшим к текущей позиции скролла
       let currentIndex = 0;
       let minDistance = Infinity;
+
       for (let i = 0; i < sections.length; i++) {
         const distance = Math.abs(sections[i].offsetTop - scrollTop);
         if (distance < minDistance) {
@@ -62,9 +115,11 @@ const LandingPageInner: React.FC = () => {
         0,
         Math.min(sections.length - 1, currentIndex + direction)
       );
+
       if (nextIndex === currentIndex) return;
 
       isScrolling.current = true;
+
       container.scrollTo({
         top: sections[nextIndex].offsetTop,
         behavior: "smooth",
@@ -101,39 +156,67 @@ const LandingPageInner: React.FC = () => {
         }}
       >
         {/* 1. Hero + теги */}
-        <div data-snap style={{ scrollSnapAlign: "start" }}>
+        <div
+          data-snap
+          data-header-theme="dark"
+          style={{ scrollSnapAlign: "start" }}
+        >
           <PremiumHeroSection />
           <ConceptTagsSection />
         </div>
 
-        {/* 2. Возможности */}
-        <div data-snap style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}>
-          <CapabilitiesSection />
+        {/* 2. Возможности — Растущее знание */}
+        <div
+          data-snap
+          data-header-theme="light"
+          style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
+        >
+          <KnowledgeGrowthSection />
         </div>
 
-        {/* 3. Для кого */}
-        <div data-snap style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}>
-          <SolutionsSection />
+        {/* 3. Безопасность — Основание */}
+        <div
+          data-snap
+          data-header-theme="light"
+          style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
+        >
+          <SecurityFoundationSection />
         </div>
 
-        {/* 4. Безопасность */}
-        <div data-snap style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}>
-          <SecuritySection />
+        {/* 4. Применение — Сценарии */}
+        <div
+          data-snap
+          data-header-theme="dark"
+          style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
+        >
+          <ApplicationSection />
         </div>
 
         {/* 5. Архитектура */}
-        <div data-snap style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}>
+        <div
+          data-snap
+          data-header-theme="light"
+          style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
+        >
           <ArchitecturePreviewSection />
         </div>
 
-        {/* 6. FAQ (50vh) + CTA (50vh) = один экран */}
-        <div data-snap style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}>
+        {/* 6. FAQ + CTA */}
+        <div
+          data-snap
+          data-header-theme="light"
+          style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
+        >
           <FaqSection />
           <PremiumFinalCtaSection onOpenContact={() => setContactOpen(true)} />
         </div>
 
-        {/* 7. Футер — отдельный snap-блок, виден полностью */}
-        <div data-snap style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}>
+        {/* 7. Футер */}
+        <div
+          data-snap
+          data-header-theme="dark"
+          style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
+        >
           <LandingFooter />
         </div>
       </div>
@@ -158,4 +241,5 @@ const LandingPage: React.FC = () => (
 );
 
 export default LandingPage;
+
 

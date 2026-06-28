@@ -61,7 +61,7 @@ const SolutionsSection: React.FC = () => {
               <br />
               для ключевых контуров
               <br />
-              legal work.
+              юридической работы
             </h2>
           </div>
           <p className="max-w-sm text-base leading-8 text-stone-500 lg:pb-2">

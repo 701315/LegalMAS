@@ -1,5 +1,3 @@
-// src/components/marketing/landing/LandingHeader.tsx
-
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
@@ -9,33 +7,81 @@ import { useScroll } from "../../../context/ScrollContext";
 
 const LandingHeader: React.FC = () => {
   const navigate = useNavigate();
-  const { scrolled, scrollToTop } = useScroll();
+  const { scrolled, scrollToTop, headerTheme } = useScroll();
+
+  const isDarkSection = headerTheme === "dark";
+  const showLightSurface = !isDarkSection && scrolled;
+  const showDarkSurface = isDarkSection && scrolled;
+
+  const headerStyle: React.CSSProperties = {
+    background: showLightSurface
+      ? "rgba(248,247,244,0.92)"
+      : showDarkSurface
+        ? "rgba(0,0,0,0.65)"
+        : "transparent",
+    backdropFilter: showLightSurface || showDarkSurface
+      ? "blur(20px) saturate(160%)"
+      : "none",
+    WebkitBackdropFilter: showLightSurface || showDarkSurface
+      ? "blur(20px) saturate(160%)"
+      : "none",
+    borderBottom: showLightSurface
+      ? "1px solid rgba(229,226,218,0.8)"
+      : showDarkSurface
+        ? "1px solid rgba(255,255,255,0.1)"
+        : "1px solid transparent",
+  };
+
+  const logoColor = isDarkSection ? "#ffffff" : "#111827";
+
+  const navLinkStyle: React.CSSProperties = isDarkSection
+    ? { color: "rgba(255,255,255,0.9)" }
+    : { color: "rgb(120 113 108)" };
+
+  const navLinkHoverColor = isDarkSection ? "#ffffff" : "#111827";
+  const navLinkBaseColor = isDarkSection
+    ? "rgba(255,255,255,0.9)"
+    : "rgb(120 113 108)";
+
+  const loginStyle: React.CSSProperties = isDarkSection
+    ? {
+        border: "1px solid rgba(255,255,255,0.3)",
+        background: "rgba(255,255,255,0.12)",
+        color: "rgba(255,255,255,0.95)",
+      }
+    : {
+        border: "1px solid #E5E2DA",
+        background: "white",
+        color: "rgb(87 83 78)",
+      };
+
+  const demoStyle: React.CSSProperties = isDarkSection
+    ? {
+        background: "rgba(255,255,255,0.18)",
+        color: "#ffffff",
+        border: "1px solid rgba(255,255,255,0.3)",
+      }
+    : {
+        background: "#111827",
+        color: "white",
+        border: "1px solid transparent",
+      };
 
   return (
     <header
       className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
-      style={{
-        background: scrolled ? "rgba(248,247,244,0.92)" : "transparent",
-        backdropFilter: scrolled ? "blur(20px) saturate(160%)" : "none",
-        WebkitBackdropFilter: scrolled ? "blur(20px) saturate(160%)" : "none",
-        borderBottom: scrolled
-          ? "1px solid rgba(229,226,218,0.8)"
-          : "1px solid transparent",
-      }}
+      style={headerStyle}
     >
       <div className="mx-auto flex h-[68px] w-full max-w-[1280px] items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-12">
-
         {/* Логотип */}
         <button
           type="button"
           onClick={scrollToTop}
           aria-label="steloom — наверх"
-          className="flex min-w-0 items-center transition-opacity hover:opacity-60"
+          className="flex min-w-0 items-center bg-transparent p-0 transition-opacity hover:opacity-60"
           style={{
-            color: scrolled ? "#111827" : "white",
-            background: "none",
+            color: logoColor,
             border: "none",
-            padding: 0,
             cursor: "pointer",
           }}
         >
@@ -49,34 +95,27 @@ const LandingHeader: React.FC = () => {
               key={item.label}
               to={item.href}
               className="text-sm transition-colors"
-              style={{
-                color: scrolled ? "rgb(120 113 108)" : "rgba(255,255,255,0.65)",
-              }}
+              style={navLinkStyle}
               onMouseEnter={(e) =>
-                (e.currentTarget.style.color = scrolled ? "#111827" : "white")
+                (e.currentTarget.style.color = navLinkHoverColor)
               }
               onMouseLeave={(e) =>
-                (e.currentTarget.style.color = scrolled
-                  ? "rgb(120 113 108)"
-                  : "rgba(255,255,255,0.65)")
+                (e.currentTarget.style.color = navLinkBaseColor)
               }
             >
               {item.label}
             </Link>
           ))}
+
           <Link
             to="/about"
             className="text-sm transition-colors"
-            style={{
-              color: scrolled ? "rgb(120 113 108)" : "rgba(255,255,255,0.65)",
-            }}
+            style={navLinkStyle}
             onMouseEnter={(e) =>
-              (e.currentTarget.style.color = scrolled ? "#111827" : "white")
+              (e.currentTarget.style.color = navLinkHoverColor)
             }
             onMouseLeave={(e) =>
-              (e.currentTarget.style.color = scrolled
-                ? "rgb(120 113 108)"
-                : "rgba(255,255,255,0.65)")
+              (e.currentTarget.style.color = navLinkBaseColor)
             }
           >
             О нас
@@ -85,64 +124,60 @@ const LandingHeader: React.FC = () => {
 
         {/* Кнопки */}
         <div className="flex items-center gap-2 sm:gap-3">
-
-          {/* Войти */}
           <button
             type="button"
             onClick={() => navigate("/login")}
             className="hidden rounded-full px-4 py-2 text-sm transition-all sm:inline-flex"
-            style={{
-              border: scrolled
-                ? "1px solid #E5E2DA"
-                : "1px solid rgba(255,255,255,0.20)",
-              background: scrolled ? "white" : "rgba(255,255,255,0.08)",
-              color: scrolled ? "rgb(87 83 78)" : "rgba(255,255,255,0.70)",
-            }}
+            style={loginStyle}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = scrolled ? "#111827" : "white";
-              e.currentTarget.style.borderColor = scrolled
-                ? "#d6d3d1"
-                : "rgba(255,255,255,0.35)";
+              if (isDarkSection) {
+                e.currentTarget.style.color = "#ffffff";
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.45)";
+                e.currentTarget.style.background = "rgba(255,255,255,0.18)";
+              } else {
+                e.currentTarget.style.color = "#111827";
+                e.currentTarget.style.borderColor = "#d6d3d1";
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = scrolled
-                ? "rgb(87 83 78)"
-                : "rgba(255,255,255,0.70)";
-              e.currentTarget.style.borderColor = scrolled
-                ? "#E5E2DA"
-                : "rgba(255,255,255,0.20)";
+              if (isDarkSection) {
+                e.currentTarget.style.color = "rgba(255,255,255,0.95)";
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)";
+                e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+              } else {
+                e.currentTarget.style.color = "rgb(87 83 78)";
+                e.currentTarget.style.borderColor = "#E5E2DA";
+              }
             }}
           >
             Войти
           </button>
 
-          {/* Запросить демо */}
           <Link
             to="/demo"
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all sm:px-5"
-            style={{
-              background: scrolled ? "#111827" : "rgba(255,255,255,0.12)",
-              color: "white",
-              border: scrolled
-                ? "1px solid transparent"
-                : "1px solid rgba(255,255,255,0.20)",
-            }}
+            style={demoStyle}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = scrolled
-                ? "#1f2937"
-                : "rgba(255,255,255,0.22)";
+              if (isDarkSection) {
+                e.currentTarget.style.background = "rgba(255,255,255,0.28)";
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.45)";
+              } else {
+                e.currentTarget.style.background = "#1f2937";
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = scrolled
-                ? "#111827"
-                : "rgba(255,255,255,0.12)";
+              if (isDarkSection) {
+                e.currentTarget.style.background = "rgba(255,255,255,0.18)";
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)";
+              } else {
+                e.currentTarget.style.background = "#111827";
+              }
             }}
           >
             <span className="hidden sm:inline">Запросить демо</span>
             <span className="sm:hidden">Демо</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
-
         </div>
       </div>
     </header>
@@ -150,4 +185,5 @@ const LandingHeader: React.FC = () => {
 };
 
 export default LandingHeader;
+
 

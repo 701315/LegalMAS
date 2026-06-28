@@ -77,7 +77,7 @@ const PremiumFinalCtaSection: React.FC<PremiumFinalCtaSectionProps> = ({ onOpenC
           style={{ maxWidth: 480, ...fadeIn(200) }}
         >
           Steloom даёт команде проверяемое и пригодное к действию знание
-          из любого набора документов — быстро и без потери контроля.
+          из любого набора документов - быстро и без потери контроля.
         </p>
 
         <div style={fadeIn(300)} className="mt-7">

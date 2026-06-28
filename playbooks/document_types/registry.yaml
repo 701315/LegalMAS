@@ -96,11 +96,6 @@ document_types:
     category: "contract"
     group: "group_3_works"
 
-  - type: "contract_3.2_service_contract"
-    name: "Договор бытового подряда"
-    category: "contract"
-    group: "group_3_works"
-
   - type: "contract_3.3_construction_contract"
     name: "Договор строительного подряда"
     category: "contract"
@@ -108,16 +103,6 @@ document_types:
 
   - type: "contract_3.4_design_survey"
     name: "Договор на выполнение проектных и изыскательских работ"
-    category: "contract"
-    group: "group_3_works"
-
-  - type: "contract_3.5_research_development"
-    name: "Договор на выполнение НИОКР"
-    category: "contract"
-    group: "group_3_works"
-
-  - type: "contract_3.6_off_plan_contract"
-    name: "Договор участия в долевом строительстве (ДДУ)"
     category: "contract"
     group: "group_3_works"
 
@@ -144,11 +129,6 @@ document_types:
 
   - type: "contract_4.5_insurance"
     name: "Договор страхования"
-    category: "contract"
-    group: "group_4_services"
-
-  - type: "contract_4.6_trust_management"
-    name: "Договор доверительного управления имуществом"
     category: "contract"
     group: "group_4_services"
 

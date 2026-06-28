@@ -1,0 +1,235 @@
+/* src/components/marketing/landing/ApplicationSection/ApplicationSection.module.css */
+
+/* ─── Section ─── */
+.section {
+  position: relative;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #000000;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* ─── Title Overlay (black screen) ─── */
+.titleOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000000;
+  transition: opacity 800ms ease;
+  pointer-events: none;
+}
+
+.titleVisible {
+  opacity: 1;
+}
+
+.titleHidden {
+  opacity: 0;
+}
+
+.sectionTitle {
+  font-family: 'Instrument Serif', 'Georgia', serif;
+  font-size: 3.75rem;
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  text-align: center;
+  margin: 0;
+  padding: 0 32px;
+}
+
+@media (max-width: 1024px) {
+  .sectionTitle {
+    font-size: 2.5rem;
+  }
+}
+
+/* ─── Panels Row ─── */
+.panelsRow {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  padding-top: 68px;
+  padding-bottom: 72px;
+  min-height: 0;
+}
+
+/* ─── Single Panel (1/3) ─── */
+.panel {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  outline: none;
+  border-right: 1px solid transparent;
+  transition: border-color 300ms ease;
+}
+
+.panel:last-child {
+  border-right: none;
+}
+
+.panelDormant,
+.panelActive {
+  border-right-color: rgba(255, 255, 255, 0.06);
+}
+
+.panelDormant:last-child,
+.panelActive:last-child {
+  border-right-color: transparent;
+}
+
+/* ─── Video Container ─── */
+.videoContainer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 500ms ease;
+  will-change: opacity;
+}
+
+.panelDormant .videoContainer {
+  opacity: 1;
+}
+
+.panelActive .videoContainer {
+  opacity: 1;
+}
+
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ─── Video Overlay ─── */
+.videoOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: background 500ms ease;
+}
+
+/* Hidden */
+.panel .videoOverlay {
+  background: rgba(0, 0, 0, 1);
+}
+
+/* Dormant: video almost disappears into background */
+.panelDormant .videoOverlay {
+  background: rgba(0, 0, 0, 0.88);
+}
+
+/* Active: still strongly dimmed so text stays readable */
+.panelActive .videoOverlay {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+/* ─── Panel Content ─── */
+.panelContent {
+  position: relative;
+  z-index: 2;
+  max-width: 380px;
+  padding: 40px 32px;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 400ms ease, transform 400ms ease;
+  will-change: opacity, transform;
+}
+
+.panelDormant .panelContent {
+  opacity: 0.35;
+  transform: translateY(0);
+}
+
+.panelActive .panelContent {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─── Bottom CTA ─── */
+.bottomCta {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  padding: 20px 32px 24px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.55) 55%,
+    rgba(0, 0, 0, 0.18) 82%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.bottomCtaVisible {
+  opacity: 1;
+  transition: opacity 500ms ease 300ms;
+}
+
+.bottomCtaHidden {
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.ctaLink {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  padding: 10px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.04);
+  transition: color 200ms ease, border-color 200ms ease, background 200ms ease;
+}
+
+.ctaLink:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Focus Visible ─── */
+.panel:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(99, 102, 241, 0.6);
+}
+
+.ctaLink:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.6);
+  outline-offset: 2px;
+}
+
+/* ─── Reduced Motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .videoContainer,
+  .videoOverlay,
+  .panelContent,
+  .panel,
+  .titleOverlay,
+  .bottomCtaVisible,
+  .bottomCtaHidden {
+    transition: none;
+  }
+}
+

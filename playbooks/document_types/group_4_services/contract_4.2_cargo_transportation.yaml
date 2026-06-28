@@ -1,6 +1,7 @@
 type: contract_4.2_cargo_transportation
 name: "Договор перевозки груза"
-
+version: 6.0
+parent: class_4_service_provision
 description: |
   Соглашение, по которому перевозчик обязуется доставить вверенный ему грузоотправителем
   груз в пункт назначения и выдать его управомоченному лицу (грузополучателю),
@@ -10,10 +11,6 @@ description: |
   (договор подтверждается транспортной накладной/коносаментом), ограниченной ответственностью
   перевозчика (независимо от вины) и обязательным претензионным порядком.
   Срок исковой давности — 1 год (ст. 797 ГК РФ).
-
-version: 4.0
-parent: class_4_service_provision
-
 metadata:
   category: contract
   subcategory: logistics_transport
@@ -53,13 +50,6 @@ metadata:
     - "CMR agreement"
     - "multimodal transport contract"
     - "charterparty agreement"
-
-engine_expectations:
-  evidence_required: true
-  evidence_style: "pinpoint"
-  allow_not_found: true
-  output_style: "dd_grid"
-  prefer_structured_outputs: true
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
@@ -864,220 +854,10 @@ shared_patterns:
   time_hours: "(?i)\\b\\d+\\s*(?:час|ч\\.|hours|hrs)"
   vehicle_reg: "(?i)\\b[А-Я]{1}\\d{3}[А-Я]{2}\\d{2,3}\\b"
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 4: COMPLIANCE RULES
-#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
-# ════════════════════════════════════════════════════════════════════════════
-
-compliance_rules:
-
-  - id: "carrier_license_absent"
-    name: "Отсутствие лицензии/разрешения перевозчика"
-    description: |
-      Для отдельных видов перевозок (пассажирские автобусные, ж/д, авиа, морские)
-      требуется лицензия. Для грузовых автомобильных — допуск к международным
-      перевозкам. Отсутствие необходимых разрешений делает деятельность незаконной.
-    legal_base: "ФЗ от 04.05.2011 № 99-ФЗ, ФЗ от 08.11.2007 № 259-ФЗ (УАТ)"
-    required_triggers: ["legal_entity_party"]
-    severity: "critical"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "лицензия"
-        - "разрешение на перевозку"
-        - "допуск"
-        - "свидетельство"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "лицензия перевозчика"
-        - "разрешение"
-        - "допуск к перевозкам"
-      rerank: true
-
-  - id: "dangerous_cargo_without_dopog"
-    name: "Опасные грузы без документов ДОПОГ (ADR)"
-    description: |
-      Перевозка опасных грузов без свидетельства ДОПОГ, аварийной карточки
-      и специального разрешения — административное правонарушение (ст. 12.21.2 КоАП)
-      и уголовно наказуемое деяние при тяжких последствиях.
-    legal_base: "ДОПОГ (ADR), ФЗ-259 (УАТ), ст. 12.21.2 КоАП РФ"
-    required_triggers: ["dangerous_cargo"]
-    severity: "critical"
-    result_if_triggered: "fail"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "опасный груз"
-        - "ДОПОГ"
-        - "ADR"
-        - "класс опасности"
-        - "свидетельство ДОПОГ"
-        - "аварийная карточка"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "опасный груз"
-        - "ДОПОГ"
-        - "свидетельство"
-        - "аварийная карточка"
-      rerank: true
-
-  - id: "international_transport_without_convention"
-    name: "Международная перевозка без ссылки на применимую конвенцию"
-    description: |
-      При международных перевозках автоматически применяются конвенции
-      (КДПГ/CMR для автотранспорта, Монреальская для авиа, Гаагско-Висбийские
-      правила для морских). Без ссылки на конвенцию — неопределённость
-      в применимом праве и лимитах ответственности.
-    legal_base: "КДПГ (CMR), Монреальская конвенция 1999, Гамбургские правила"
-    required_triggers: ["international_transport"]
-    severity: "critical"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "международная перевозка"
-        - "CMR"
-        - "КДПГ"
-        - "Монреальская конвенция"
-        - "инкотермс"
-        - "применимое право"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "международная перевозка"
-        - "конвенция"
-        - "CMR"
-        - "КДПГ"
-      rerank: true
-
-  - id: "mandatory_pretension_procedure_missing"
-    name: "Обязательный претензионный порядок не предусмотрен (ст. 797 ГК РФ)"
-    description: |
-      До подачи иска к перевозчику ОБЯЗАТЕЛЬНО предъявление претензии.
-      Пропуск срока (30 дней — недостача/повреждение, 45 дней — просрочка по УАТ)
-      лишает права на иск. Без явного указания на претензионный порядок
-      стороны рискуют пропустить сроки.
-    legal_base: "ст. 797 ГК РФ, транспортные уставы"
-    required_triggers: []
-    severity: "critical"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "претензионный порядок"
-        - "претензия"
-        - "досудебный порядок"
-        - "срок предъявления претензии"
-      keyword_mode: "any"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "претензионный порядок"
-        - "претензия"
-        - "ст. 797"
-      rerank: true
-
-  - id: "shipper_false_cargo_info"
-    name: "Ответственность грузоотправителя за недостоверные сведения о грузе"
-    description: |
-      Грузоотправитель обязан предоставить достоверные сведения о грузе 
-      (наименование, вес, свойства, опасность). За убытки от недостоверных 
-      сведений отвечает грузоотправитель (ст. 10 УАТ, ст. 27 УЖТ).
-      Отсутствие этого условия лишает перевозчика защиты.
-    legal_base: "ст. 10 ФЗ-259 (УАТ), ст. 27 УЖТ, ст. 25 КДПГ (CMR)"
-    required_triggers: []
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "достоверность сведений"
-        - "сведения о грузе"
-        - "информация о свойствах"
-        - "ответственность грузоотправителя"
-      keyword_mode: "any"
-      negative_keywords:
-        - "грузоотправитель несёт ответственность за достоверность"
-        - "грузоотправитель гарантирует"
-        - "ответственность за предоставление недостоверных"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "достоверность сведений"
-        - "ответственность грузоотправителя"
-        - "свойства груза"
-      rerank: true
-
-  - id: "subcontracting_without_consent"
-    name: "Привлечение субперевозчика без согласия грузоотправителя"
-    description: |
-      Если перевозчик привлекает субперевозчика без согласия или 
-      уведомления, грузоотправитель лишается контроля над качеством 
-      и безопасностью перевозки. Необходимо урегулировать право 
-      привлечения и ответственность за субперевозчика.
-    legal_base: "ст. 785, 313 ГК РФ"
-    required_triggers: ["subcontracting_carrier"]
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "привлечение третьих лиц"
-        - "субподряд"
-        - "субперевозчик"
-      keyword_mode: "any"
-      negative_keywords:
-        - "с согласия грузоотправителя"
-        - "с письменного согласия"
-        - "перевозчик отвечает за субперевозчика"
-        - "запрещается привлечение"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "субперевозчик"
-        - "привлечение"
-        - "согласие"
-      rerank: true
-
-  - id: "no_cargo_acceptance_procedure"
-    name: "Отсутствие порядка приёмки груза при выдаче"
-    description: |
-      Без чёткого порядка приёмки и фиксации повреждений при выдаче 
-      грузополучателю сложно доказать факт и момент повреждения. 
-      Коммерческий акт и сроки предъявления замечаний критичны.
-    legal_base: "ст. 796 ГК РФ, транспортные уставы"
-    required_triggers: []
-    severity: "high"
-    result_if_triggered: "warning"
-    detector_type: "rules"
-    rules:
-      keywords:
-        - "приёмка груза"
-        - "осмотр при получении"
-        - "коммерческий акт"
-        - "акт о повреждении"
-      keyword_mode: "any"
-      negative_keywords:
-        - "порядок приёмки"
-        - "осмотр груза при выдаче"
-        - "коммерческий акт составляется"
-        - "акт о недостаче"
-    retrieval:
-      context_k: 5
-      boost_keywords:
-        - "приёмка"
-        - "осмотр"
-        - "коммерческий акт"
-      rerank: true
+compliance_rules: []
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  БЛОК 4: CHECKS_V8 — LLM/hybrid проверки
 #  Читается: DocTypeCheckLoader._load_doc_type_checks()
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -2053,13 +1833,6 @@ checks_v8:
           description: "Распределение расходов"
       store_payload: true
 
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
-#  Читается: DocTypeCheckConverter
-# ════════════════════════════════════════════════════════════════════════════
-
-doc_type_checks:
-
   - id: "freight_charge"
     name: "Провозная плата и порядок расчётов (ст. 790 ГК РФ)"
     description: "Проверяет наличие размера провозной платы, тарифов, порядка оплаты"
@@ -2368,24 +2141,6 @@ doc_type_checks:
         - "(?i)исков(ая|ой)\\s+давност"
         - "(?i)(1\\s+год|один\\s+год|12\\s+месяц)"
 
-  - id: "dispute_resolution"
-    name: "Подсудность и разрешение споров"
-    description: "Проверяет подсудность, арбитражную оговорку"
-    legal_base: "АПК РФ, ГПК РФ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "разрешение споров"
-        - "подсудность"
-        - "арбитражный суд"
-        - "претензионный порядок"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)арбитражн(ый|ого)\\s+суд"
-
   - id: "cargo_insurance_clause"
     name: "Страхование груза"
     description: "Проверяет условия страхования груза"
@@ -2419,23 +2174,6 @@ doc_type_checks:
           keyword_hints: ["грузоотправитель страхует", "перевозчик страхует"]
           description: "Кто страхует груз"
       store_payload: true
-
-  - id: "confidentiality"
-    name: "Конфиденциальность"
-    description: "Проверяет наличие условий о конфиденциальности"
-    legal_base: "ст. 421 ГК РФ"
-    severity: "low"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "конфиденциальность"
-        - "неразглашение"
-        - "коммерческая тайна"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)конфиденциал"
 
   - id: "vat_and_tax"
     name: "НДС и налоговые оговорки"
@@ -2475,24 +2213,6 @@ doc_type_checks:
       keyword_mode: "any"
       regex_patterns:
         - "(?i)автоматическ(и|ое)\\s+продлева"
-
-  - id: "anticorruption_clause"
-    name: "Антикоррупционная оговорка"
-    description: "Проверяет наличие антикоррупционных заверений"
-    legal_base: "ФЗ № 273-ФЗ"
-    severity: "medium"
-    origin: "DOCUMENT_TYPE"
-    detector_type: "rules"
-    triggers: {}
-    rules:
-      keywords:
-        - "антикоррупционная оговорка"
-        - "противодействие коррупции"
-        - "взятка"
-        - "коммерческий подкуп"
-      keyword_mode: "any"
-      regex_patterns:
-        - "(?i)антикоррупц"
 
   - id: "carrier_license_check"
     name: "Лицензия / разрешение перевозчика"
@@ -2692,10 +2412,8 @@ doc_type_checks:
         - "(?i)(весенн|сезонн|временн).*ограничен"
 
 # ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 7: DD_REQUEST_TEMPLATES
-#  Читается: DDRequestTemplateLoader
-#  Ключи = check_id из checks_v8 и doc_type_checks выше.
-#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# БЛОК 5: DD_REQUEST_TEMPLATES
+# Читается: DDRequestTemplateLoader
 # ════════════════════════════════════════════════════════════════════════════
 
 dd_request_templates:
