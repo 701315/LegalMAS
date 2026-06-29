@@ -1,12 +1,20 @@
-// src/components/marketing/landing/ApplicationSection/constants.ts
+// src/marketing/components/home/ApplicationSection/constants.ts
 
-/** How long the title shows on black screen before panels start (ms) */
-export const SEQUENCE_START_DELAY = 2500;
+/** Задержка перед первым reveal (показ заголовка) */
+export const INTRO_DELAY_MS = 2500;
 
-/** Duration each panel stays as lead during intro (ms) */
-export const SEQUENCE_STEP_DURATION = 5000;
+/** Сколько панель остаётся active, если пользователь не скроллит */
+export const PHASE_AUTO_DURATION_MS = 5000;
 
-/** Transition duration for panel animations (ms) */
-export const PANEL_TRANSITION_MS = 500;
+/** Границы scroll-progress для каждой фазы */
+export const PHASE_THRESHOLDS = {
+  intro: 0,
+  left: 0.15,
+  center: 0.40,
+  right: 0.65,
+  outro: 0.88,
+} as const;
+
+
 
 

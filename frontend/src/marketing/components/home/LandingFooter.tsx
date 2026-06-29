@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Link } from "react-router-dom";
-import SteloomWordmark from "../primitives/SteloomWordmark";
+import SteloomWordmark from "../shared/primitives/SteloomWordmark";
 
 const LandingFooter: React.FC = () => {
   return (

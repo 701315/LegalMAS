@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ScrollProvider, useScroll } from "../context/ScrollContext";
-import LandingHeader from "../components/marketing/landing/LandingHeader";
-import PremiumHeroSection from "../components/marketing/landing/PremiumHeroSection";
-import ConceptTagsSection from "../components/marketing/landing/ConceptTagsSection";
-import KnowledgeGrowthSection from "../components/marketing/landing/KnowledgeGrowthSection";
-import SecurityFoundationSection from "../components/marketing/landing/SecurityFoundationSection";
-import { ApplicationSection } from "../components/marketing/landing/ApplicationSection";
-import ArchitecturePreviewSection from "../components/marketing/landing/ArchitecturePreviewSection";
-import FaqSection from "../components/marketing/landing/FaqSection";
-import PremiumFinalCtaSection from "../components/marketing/landing/PremiumFinalCtaSection";
-import LandingFooter from "../components/marketing/landing/LandingFooter";
-import ContactModal from "../components/marketing/landing/ContactModal";
+import LandingHeader from "../components/home/LandingHeader";
+import PremiumHeroSection from "../components/home/PremiumHeroSection";
+import ConceptTagsSection from "../components/home/ConceptTagsSection";
+import KnowledgeGrowthSection from "../components/home/KnowledgeGrowthSection";
+import SecurityFoundationSection from "../components/home/SecurityFoundationSection";
+import { ApplicationSection } from "../components/home/ApplicationSection";
+import ArchitecturePreviewSection from "../components/home/ArchitecturePreviewSection";
+import FaqSection from "../components/home/FaqSection";
+import PremiumFinalCtaSection from "../components/home/PremiumFinalCtaSection";
+import LandingFooter from "../components/home/LandingFooter";
+import ContactModal from "../components/home/ContactModal";
 
 const getClosestSnapSection = (container: HTMLElement): HTMLElement | null => {
   const sections = Array.from(
@@ -186,7 +186,7 @@ const LandingPageInner: React.FC = () => {
         {/* 4. Применение — Сценарии */}
         <div
           data-snap
-          data-header-theme="dark"
+          data-header-theme="light"
           style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
         >
           <ApplicationSection />
@@ -214,7 +214,7 @@ const LandingPageInner: React.FC = () => {
         {/* 7. Футер */}
         <div
           data-snap
-          data-header-theme="dark"
+          data-header-theme="light"
           style={{ scrollSnapAlign: "start", scrollSnapStop: "always" }}
         >
           <LandingFooter />

@@ -1,4 +1,4 @@
-// src/components/marketing/landing/ApplicationSection/layout/RolePanel.tsx
+// src/marketing/components/home/ApplicationSection/layout/RolePanel.tsx
 
 import React, { useRef, useEffect } from 'react';
 import type { RoleData, PanelState } from '../types';
@@ -57,7 +57,6 @@ const RolePanel: React.FC<RolePanelProps> = ({
       className={[styles.panel, stateClass].filter(Boolean).join(' ')}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      role="button"
       tabIndex={0}
       aria-label={role.title}
       onFocus={onMouseEnter}

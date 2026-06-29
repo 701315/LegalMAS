@@ -1,17 +1,28 @@
+// frontend/src/marketing/components/home/LandingHeader.tsx
+
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import SteloomWordmark from "../primitives/SteloomWordmark";
-import { landingContent } from "../../../content/landingContent";
-import { useScroll } from "../../../context/ScrollContext";
+import SteloomWordmark from "../shared/primitives/SteloomWordmark";
+import { landingContent } from "../../content/landingContent";
+import { useScroll } from "../../context/ScrollContext";
 
 const LandingHeader: React.FC = () => {
   const navigate = useNavigate();
   const { scrolled, scrollToTop, headerTheme } = useScroll();
 
-  const isDarkSection = headerTheme === "dark";
-  const showLightSurface = !isDarkSection && scrolled;
-  const showDarkSurface = isDarkSection && scrolled;
+  /**
+   * Важно:
+   * на первом экране лендинга фон тёмный, а ScrollContext может ещё не успеть
+   * выставить тему секции. Поэтому до момента скролла считаем header "dark".
+   */
+  const effectiveTheme: "light" | "dark" =
+    scrolled ? (headerTheme === "dark" ? "dark" : "light") : "dark";
+
+  const isDarkTheme = effectiveTheme === "dark";
+
+  const showLightSurface = scrolled && !isDarkTheme;
+  const showDarkSurface = scrolled && isDarkTheme;
 
   const headerStyle: React.CSSProperties = {
     background: showLightSurface
@@ -19,12 +30,14 @@ const LandingHeader: React.FC = () => {
       : showDarkSurface
         ? "rgba(0,0,0,0.65)"
         : "transparent",
-    backdropFilter: showLightSurface || showDarkSurface
-      ? "blur(20px) saturate(160%)"
-      : "none",
-    WebkitBackdropFilter: showLightSurface || showDarkSurface
-      ? "blur(20px) saturate(160%)"
-      : "none",
+    backdropFilter:
+      showLightSurface || showDarkSurface
+        ? "blur(20px) saturate(160%)"
+        : "none",
+    WebkitBackdropFilter:
+      showLightSurface || showDarkSurface
+        ? "blur(20px) saturate(160%)"
+        : "none",
     borderBottom: showLightSurface
       ? "1px solid rgba(229,226,218,0.8)"
       : showDarkSurface
@@ -32,18 +45,18 @@ const LandingHeader: React.FC = () => {
         : "1px solid transparent",
   };
 
-  const logoColor = isDarkSection ? "#ffffff" : "#111827";
+  const logoColor = isDarkTheme ? "#ffffff" : "#111827";
 
-  const navLinkStyle: React.CSSProperties = isDarkSection
+  const navLinkStyle: React.CSSProperties = isDarkTheme
     ? { color: "rgba(255,255,255,0.9)" }
     : { color: "rgb(120 113 108)" };
 
-  const navLinkHoverColor = isDarkSection ? "#ffffff" : "#111827";
-  const navLinkBaseColor = isDarkSection
+  const navLinkHoverColor = isDarkTheme ? "#ffffff" : "#111827";
+  const navLinkBaseColor = isDarkTheme
     ? "rgba(255,255,255,0.9)"
     : "rgb(120 113 108)";
 
-  const loginStyle: React.CSSProperties = isDarkSection
+  const loginStyle: React.CSSProperties = isDarkTheme
     ? {
         border: "1px solid rgba(255,255,255,0.3)",
         background: "rgba(255,255,255,0.12)",
@@ -55,7 +68,7 @@ const LandingHeader: React.FC = () => {
         color: "rgb(87 83 78)",
       };
 
-  const demoStyle: React.CSSProperties = isDarkSection
+  const demoStyle: React.CSSProperties = isDarkTheme
     ? {
         background: "rgba(255,255,255,0.18)",
         color: "#ffffff",
@@ -73,7 +86,6 @@ const LandingHeader: React.FC = () => {
       style={headerStyle}
     >
       <div className="mx-auto flex h-[68px] w-full max-w-[1280px] items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-12">
-        {/* Логотип */}
         <button
           type="button"
           onClick={scrollToTop}
@@ -88,7 +100,6 @@ const LandingHeader: React.FC = () => {
           <SteloomWordmark height={40} />
         </button>
 
-        {/* Навигация */}
         <nav className="hidden items-center gap-7 lg:flex">
           {landingContent.nav.map((item) => (
             <Link
@@ -96,12 +107,12 @@ const LandingHeader: React.FC = () => {
               to={item.href}
               className="text-sm transition-colors"
               style={navLinkStyle}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.color = navLinkHoverColor)
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.color = navLinkBaseColor)
-              }
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = navLinkHoverColor;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = navLinkBaseColor;
+              }}
             >
               {item.label}
             </Link>
@@ -111,18 +122,17 @@ const LandingHeader: React.FC = () => {
             to="/about"
             className="text-sm transition-colors"
             style={navLinkStyle}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.color = navLinkHoverColor)
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = navLinkBaseColor)
-            }
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = navLinkHoverColor;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = navLinkBaseColor;
+            }}
           >
             О нас
           </Link>
         </nav>
 
-        {/* Кнопки */}
         <div className="flex items-center gap-2 sm:gap-3">
           <button
             type="button"
@@ -130,7 +140,7 @@ const LandingHeader: React.FC = () => {
             className="hidden rounded-full px-4 py-2 text-sm transition-all sm:inline-flex"
             style={loginStyle}
             onMouseEnter={(e) => {
-              if (isDarkSection) {
+              if (isDarkTheme) {
                 e.currentTarget.style.color = "#ffffff";
                 e.currentTarget.style.borderColor = "rgba(255,255,255,0.45)";
                 e.currentTarget.style.background = "rgba(255,255,255,0.18)";
@@ -140,13 +150,14 @@ const LandingHeader: React.FC = () => {
               }
             }}
             onMouseLeave={(e) => {
-              if (isDarkSection) {
+              if (isDarkTheme) {
                 e.currentTarget.style.color = "rgba(255,255,255,0.95)";
                 e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)";
                 e.currentTarget.style.background = "rgba(255,255,255,0.12)";
               } else {
                 e.currentTarget.style.color = "rgb(87 83 78)";
                 e.currentTarget.style.borderColor = "#E5E2DA";
+                e.currentTarget.style.background = "white";
               }
             }}
           >
@@ -158,7 +169,7 @@ const LandingHeader: React.FC = () => {
             className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all sm:px-5"
             style={demoStyle}
             onMouseEnter={(e) => {
-              if (isDarkSection) {
+              if (isDarkTheme) {
                 e.currentTarget.style.background = "rgba(255,255,255,0.28)";
                 e.currentTarget.style.borderColor = "rgba(255,255,255,0.45)";
               } else {
@@ -166,7 +177,7 @@ const LandingHeader: React.FC = () => {
               }
             }}
             onMouseLeave={(e) => {
-              if (isDarkSection) {
+              if (isDarkTheme) {
                 e.currentTarget.style.background = "rgba(255,255,255,0.18)";
                 e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)";
               } else {
@@ -185,5 +196,7 @@ const LandingHeader: React.FC = () => {
 };
 
 export default LandingHeader;
+
+
 
 

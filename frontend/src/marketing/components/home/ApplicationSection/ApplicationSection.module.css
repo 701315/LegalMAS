@@ -1,17 +1,27 @@
-/* src/components/marketing/landing/ApplicationSection/ApplicationSection.module.css */
+/* src/marketing/components/home/ApplicationSection/ApplicationSection.module.css */
 
-/* ─── Section ─── */
 .section {
   position: relative;
-  height: 100vh;
+  background: #000000;
+}
+
+.scrollTrack {
+  position: relative;
+  min-height: 280vh;
+  min-height: 280svh;
+}
+
+.stickyStage {
+  position: sticky;
+  top: var(--landing-header-height, 72px);
+  height: calc(100vh - var(--landing-header-height, 72px));
+  height: calc(100svh - var(--landing-header-height, 72px));
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: #000000;
-  overflow: hidden;
-  box-sizing: border-box;
 }
 
-/* ─── Title Overlay (black screen) ─── */
 .titleOverlay {
   position: absolute;
   inset: 0;
@@ -20,16 +30,18 @@
   align-items: center;
   justify-content: center;
   background: #000000;
-  transition: opacity 800ms ease;
   pointer-events: none;
+  transition: opacity 500ms ease;
 }
 
 .titleVisible {
   opacity: 1;
+  visibility: visible;
 }
 
 .titleHidden {
   opacity: 0;
+  visibility: hidden;
 }
 
 .sectionTitle {
@@ -43,23 +55,13 @@
   padding: 0 32px;
 }
 
-@media (max-width: 1024px) {
-  .sectionTitle {
-    font-size: 2.5rem;
-  }
-}
-
-/* ─── Panels Row ─── */
 .panelsRow {
   display: flex;
   flex: 1;
   width: 100%;
-  padding-top: 68px;
-  padding-bottom: 72px;
   min-height: 0;
 }
 
-/* ─── Single Panel (1/3) ─── */
 .panel {
   position: relative;
   flex: 1;
@@ -67,7 +69,6 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  cursor: pointer;
   outline: none;
   border-right: 1px solid transparent;
   transition: border-color 300ms ease;
@@ -87,7 +88,6 @@
   border-right-color: transparent;
 }
 
-/* ─── Video Container ─── */
 .videoContainer {
   position: absolute;
   inset: 0;
@@ -96,10 +96,7 @@
   will-change: opacity;
 }
 
-.panelDormant .videoContainer {
-  opacity: 1;
-}
-
+.panelDormant .videoContainer,
 .panelActive .videoContainer {
   opacity: 1;
 }
@@ -112,7 +109,6 @@
   object-fit: cover;
 }
 
-/* ─── Video Overlay ─── */
 .videoOverlay {
   position: absolute;
   inset: 0;
@@ -120,22 +116,18 @@
   transition: background 500ms ease;
 }
 
-/* Hidden */
 .panel .videoOverlay {
   background: rgba(0, 0, 0, 1);
 }
 
-/* Dormant: video almost disappears into background */
 .panelDormant .videoOverlay {
   background: rgba(0, 0, 0, 0.88);
 }
 
-/* Active: still strongly dimmed so text stays readable */
 .panelActive .videoOverlay {
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.64);
 }
 
-/* ─── Panel Content ─── */
 .panelContent {
   position: relative;
   z-index: 2;
@@ -157,7 +149,6 @@
   transform: translateY(0);
 }
 
-/* ─── Bottom CTA ─── */
 .bottomCta {
   position: absolute;
   bottom: 0;
@@ -179,7 +170,7 @@
 
 .bottomCtaVisible {
   opacity: 1;
-  transition: opacity 500ms ease 300ms;
+  transition: opacity 500ms ease;
 }
 
 .bottomCtaHidden {
@@ -210,7 +201,6 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* ─── Focus Visible ─── */
 .panel:focus-visible {
   box-shadow: inset 0 0 0 2px rgba(99, 102, 241, 0.6);
 }
@@ -220,16 +210,37 @@
   outline-offset: 2px;
 }
 
-/* ─── Reduced Motion ─── */
+@media (max-width: 1024px) {
+  .scrollTrack {
+    min-height: auto;
+  }
+
+  .stickyStage {
+    position: relative;
+    top: auto;
+    height: auto;
+  }
+
+  .panelsRow {
+    flex-direction: column;
+  }
+
+  .sectionTitle {
+    font-size: 2.5rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .titleOverlay,
   .videoContainer,
   .videoOverlay,
   .panelContent,
   .panel,
-  .titleOverlay,
   .bottomCtaVisible,
-  .bottomCtaHidden {
+  .bottomCtaHidden,
+  .ctaLink {
     transition: none;
   }
 }
+
 

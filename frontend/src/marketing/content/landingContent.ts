@@ -15,9 +15,9 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
-import localFirstImage from "../components/marketing/photo/Local-first.jpg";
-import controlledCloudImage from "../components/marketing/photo/Controlled cloud.jpg";
-import sourceLinkedImage from "../components/marketing/photo/Source-linked.jpg";
+import localFirstImage from "../components/assets/photos/Local-first.jpg";
+import controlledCloudImage from "../components/assets/photos/Controlled cloud.jpg";
+import sourceLinkedImage from "../components/assets/photos/Source-linked.jpg";
 
 export const landingContent = {
   brand: {

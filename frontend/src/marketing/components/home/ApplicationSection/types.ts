@@ -1,8 +1,8 @@
-// src/components/marketing/landing/ApplicationSection/types.ts
+// src/marketing/components/home/ApplicationSection/types.ts
 
 export type RoleId = 'left' | 'center' | 'right';
 
-export type SequenceStep = 'black' | 'left' | 'center' | 'right' | 'idle';
+export type StoryPhase = 'intro' | 'left' | 'center' | 'right' | 'outro';
 
 export type PanelState = 'hidden' | 'active' | 'dormant';
 

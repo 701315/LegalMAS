@@ -1,17 +1,17 @@
 import React from "react";
-import MarketingPageHeader from "../components/marketing/MarketingPageHeader";
-import DemoHeroSection from "../components/marketing/demo/DemoHeroSection";
-import DemoAudienceSection from "../components/marketing/demo/DemoAudienceSection";
-import DemoWhatYouSeeSection from "../components/marketing/demo/DemoWhatYouSeeSection";
-import DemoFormSection from "../components/marketing/demo/DemoFormSection";
-import DemoFaqSection from "../components/marketing/demo/DemoFaqSection";
+import MarketingPageHeader from "../components/shared/MarketingPageHeader";
+import DemoHeroSection from "../components/demo/DemoHeroSection";
+import DemoAudienceSection from "../components/demo/DemoAudienceSection";
+import DemoWhatYouSeeSection from "../components/demo/DemoWhatYouSeeSection";
+import DemoFormSection from "../components/demo/DemoFormSection";
+import DemoFaqSection from "../components/demo/DemoFaqSection";
 
 const DemoPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <MarketingPageHeader />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
+      <main className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
         <DemoHeroSection />
         <DemoAudienceSection />
         <DemoWhatYouSeeSection />

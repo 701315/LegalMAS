@@ -1,16 +1,13 @@
-// src/components/marketing/landing/ApplicationSection/hooks/useApplicationSequence.ts
+// src/marketing/components/home/ApplicationSection/hooks/useApplicationSequence.ts
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { SequenceStep, RoleId, PanelState } from '../types';
 import { SEQUENCE_STEP_DURATION, SEQUENCE_START_DELAY } from '../constants';
 
 interface UseApplicationSequenceReturn {
-  step: SequenceStep;
-  hoverTarget: RoleId | null;
   getPanelState: (id: RoleId) => PanelState;
   onPanelEnter: (id: RoleId) => void;
   onPanelLeave: () => void;
-  /** Whether we're in the initial black screen with title */
   showTitle: boolean;
 }
 
@@ -119,8 +116,6 @@ export function useApplicationSequence(
   const showTitle = step === 'black';
 
   return {
-    step,
-    hoverTarget,
     getPanelState,
     onPanelEnter,
     onPanelLeave,

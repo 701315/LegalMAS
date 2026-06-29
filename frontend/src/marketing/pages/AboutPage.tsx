@@ -1,17 +1,17 @@
 import React from "react";
 import { Scale, FileText, Lock, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import MarketingEditorialShell from "../components/marketing/landing/MarketingEditorialShell";
+import MarketingEditorialShell from "../components/shared/MarketingEditorialShell";
 
-import photoVladimir from "../components/marketing/photo/vladimir.jpg";
-import photoAnna from "../components/marketing/photo/anna.jpg";
-import photoDmitry from "../components/marketing/photo/dmitry.jpg";
-import photoIrina from "../components/marketing/photo/irina.jpg";
-import photoPavel from "../components/marketing/photo/pavel.jpg";
-import photoElena from "../components/marketing/photo/elena.jpg";
-import photoMaxim from "../components/marketing/photo/maxim.jpg";
-import photoOlga from "../components/marketing/photo/olga.jpg";
-import photoSergey from "../components/marketing/photo/sergey.jpg";
+import photoVladimir from "../components/assets/photos/vladimir.jpg";
+import photoAnna from "../components/assets/photos/anna.jpg";
+import photoDmitry from "../components/assets/photos/dmitry.jpg";
+import photoIrina from "../components/assets/photos/irina.jpg";
+import photoPavel from "../components/assets/photos/pavel.jpg";
+import photoElena from "../components/assets/photos/elena.jpg";
+import photoMaxim from "../components/assets/photos/maxim.jpg";
+import photoOlga from "../components/assets/photos/olga.jpg";
+import photoSergey from "../components/assets/photos/sergey.jpg";
 
 const AboutPage: React.FC = () => {
   const cards = [

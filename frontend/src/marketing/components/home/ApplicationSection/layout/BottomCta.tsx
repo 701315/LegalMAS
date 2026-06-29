@@ -1,4 +1,4 @@
-// src/components/marketing/landing/ApplicationSection/layout/BottomCta.tsx
+// src/marketing/components/home/ApplicationSection/layout/BottomCta.tsx
 
 import React from 'react';
 import { Link } from 'react-router-dom';

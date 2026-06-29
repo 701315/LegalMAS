@@ -8,7 +8,7 @@ import {
   Network,
   Sparkles,
 } from "lucide-react";
-import MarketingEditorialShell from "../components/marketing/landing/MarketingEditorialShell";
+import MarketingEditorialShell from "../components/shared/MarketingEditorialShell";
 import { landingContent } from "../content/landingContent";
 
 const TechOverviewPage: React.FC = () => {

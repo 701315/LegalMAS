@@ -1,5 +1,5 @@
 import React from "react";
-import MarketingEditorialShell from "../components/marketing/landing/MarketingEditorialShell";
+import MarketingEditorialShell from "../components/shared/MarketingEditorialShell";
 import { landingContent } from "../content/landingContent";
 
 const CapabilitiesPage: React.FC = () => {

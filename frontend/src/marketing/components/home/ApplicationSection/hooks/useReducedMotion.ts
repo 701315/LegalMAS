@@ -1,4 +1,4 @@
-// src/components/marketing/landing/ApplicationSection/hooks/useReducedMotion.ts
+// src/marketing/components/home/ApplicationSection/hooks/useReducedMotion.ts
 
 import { useState, useEffect } from 'react';
 

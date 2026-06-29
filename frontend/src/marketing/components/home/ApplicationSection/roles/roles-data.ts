@@ -1,6 +1,6 @@
-// src/components/marketing/landing/ApplicationSection/roles/roles-data.ts
+// src/marketing/components/home/ApplicationSection/roles/roles-data.ts
 
-import type { RoleData, RoleId } from './types';
+import type { RoleData, RoleId } from '../types';
 
 export const ROLES: Record<RoleId, RoleData> = {
   left: {

@@ -1,4 +1,4 @@
-// src/components/marketing/landing/ApplicationSection/index.ts
+// src/marketing/components/home/ApplicationSection/index.ts
 
 export { default as ApplicationSection } from './ApplicationSection';
 

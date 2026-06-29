@@ -1,4 +1,4 @@
-// src/components/marketing/landing/ApplicationSection/hooks/useIntersection.ts
+// src/marketing/components/home/ApplicationSection/hooks/useIntersection.ts
 
 import { useState, useEffect } from 'react';
 import type { RefObject } from 'react';

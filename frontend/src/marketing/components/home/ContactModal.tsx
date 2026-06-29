@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ArrowRight, Mail, X } from "lucide-react";
-import { landingContent } from "../../../content/landingContent";
+import { landingContent } from "../../content/landingContent";
 
 interface ContactModalProps {
   open: boolean;
