@@ -101,8 +101,8 @@ def build_legal_units_enrichment(
     tenant_id: str,
     run_id: str | None = None,
     stage_execution_id: str | None = None,
-    orchestration_strategy: str | None = None,  # ← добавить
-    **kwargs: Any,                               # ← добавить
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     """
     Синхронная точка входа Celery для формальной стадии семантического обогащения.
@@ -399,25 +399,21 @@ async def _build_legal_units_enrichment_async(
     segments = await seg_repo.list_by_version(version_uuid)
 
     # ── Пометить execution как STARTED ───────────────────────────────────────
-    # Guarded: не регрессим execution из terminal status назад в STARTED.
-    # MASBaseTask.before_start() тоже вызывает mark_started через отдельный UoW,
-    # поэтому здесь — второй шанс в рамках бизнес-сессии, но только если
-    # execution ещё не завершён.
+    # После фикса orchestrator (commit PLANNED execution до send_task)
+    # отсутствие stage_execution в БД здесь является нарушением контракта,
+    # а не допустимой ситуацией.
     if stage_execution_id and current_execution is not None:
         if current_execution.status not in _stale_execution_terminal_statuses:
-            try:
-                await dse_repo.mark_started(uuid.UUID(stage_execution_id))
-            except Exception as exc:
-                logger.warning(
-                    "Semantic enrichment stage: failed to mark execution STARTED",
-                    extra={**log_base, "error": str(exc)},
+            started_execution = await dse_repo.mark_started(uuid.UUID(stage_execution_id))
+            if started_execution is None:
+                raise PermanentError(
+                    f"Stage execution {stage_execution_id} not found while marking STARTED "
+                    f"for document {document_id}"
                 )
     elif stage_execution_id and current_execution is None:
-        # execution не найден в БД — возможно, был создан и уже удалён.
-        # Не падаем, просто пропускаем mark_started.
-        logger.warning(
-            "Semantic enrichment stage: stage_execution not found, skipping mark_started",
-            extra={**log_base, "stage_execution_id": stage_execution_id},
+        raise PermanentError(
+            f"Stage execution {stage_execution_id} is missing before enrichment start "
+            f"for document {document_id}"
         )
 
     # ── Ранние терминальные исходы ────────────────────────────────────────────
@@ -813,17 +809,17 @@ async def _finalize_enrichment_stage(
         )
 
     # ── Пометить execution как SUCCEEDED (войдёт в тот же commit) ────────────
-    # Best-effort: ошибка не должна прерывать стадию — документ уже ENRICHED.
+    # Это НЕ best-effort. Если execution не закрылась в SUCCEEDED,
+    # stage ledger становится неконсистентным и блокирует повторное планирование.
     if stage_execution_id:
-        try:
-            await dse_repo.mark_succeeded(
-                uuid.UUID(stage_execution_id),
-                result_details=result_details,
-            )
-        except Exception as exc:
-            logger.warning(
-                "Semantic enrichment stage: failed to mark execution SUCCEEDED",
-                extra={**log_base, "error": str(exc)},
+        succeeded_execution = await dse_repo.mark_succeeded(
+            uuid.UUID(stage_execution_id),
+            result_details=result_details,
+        )
+        if succeeded_execution is None:
+            raise PermanentError(
+                f"Stage execution {stage_execution_id} not found while marking SUCCEEDED "
+                f"for document {log_base['document_id']}"
             )
 
     # ── Commit: статус ENRICHED + execution SUCCEEDED ─────────────────────────

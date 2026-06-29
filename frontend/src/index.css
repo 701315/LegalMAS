@@ -48,6 +48,12 @@
   --accent-hover: #3F735F;
   --accent-muted: rgba(47, 90, 74, 0.12);
 
+  /* Primary CTA */
+  --cta-bg: #2F5A4A;
+  --cta-bg-hover: #3F735F;
+  --cta-text: #ffffff;
+  --cta-ring: rgba(47, 90, 74, 0.25);
+
   /* Text */
   --text-primary: #111827;
   --text-secondary: #4B5563;
@@ -319,4 +325,41 @@ table {
 .status-success { color: var(--success); }
 .status-warning { color: var(--warning); }
 .status-danger  { color: var(--danger);  }
+
+/* ─── Marketing CTA ──────────────────────────────────────────────────────── */
+
+@layer components {
+  .cta-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--cta-text);
+    background: var(--cta-bg);
+    border: 1px solid var(--cta-bg);
+    border-radius: 9999px;
+    cursor: pointer;
+    text-decoration: none;
+    transition:
+      background-color 200ms ease,
+      border-color 200ms ease,
+      box-shadow 200ms ease,
+      color 200ms ease;
+  }
+
+  .cta-primary:hover {
+    background: var(--cta-bg-hover);
+    border-color: var(--cta-bg-hover);
+    color: var(--cta-text);
+  }
+
+  .cta-primary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--cta-ring);
+  }
+}
 

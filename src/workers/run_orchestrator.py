@@ -112,9 +112,11 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import DocumentStatus, RunStatus
+from core.exceptions import TransientError
 from core.logging import get_logger
 from core.pipeline_snapshots import (
     DocumentSnapshot,
@@ -339,20 +341,15 @@ def start_run_pipeline(
     deal_id: str | None = None,
     tenant_id: str | None = None,
     force_reclassify: bool = False,
-    stage_execution_id: str | None = None,      # ← добавить
-    orchestration_strategy: str | None = None,  # ← добавить
-    **kwargs: Any,                               # ← добавить
+    stage_execution_id: str | None = None,
+    orchestration_strategy: str | None = None,
+    **kwargs: Any,
 ) -> dict:
     """
     Sync Celery entrypoint для оркестрации Run.
 
-    Шаги:
-    1) по run_id находим Run и его deal_id;
-    2) при первом входе стартуем Run из PENDING в RUNNING;
-    3) обходим все документы сделки;
-    4) для каждого документа по статусу и артефактам выбираем следующую стадию;
-    5) для выбранной стадии пытаемся создать execution-запись и поставить задачу;
-    6) после планирования вызываем maybe_start_run_checks().
+    Soft timeout для orchestration трактуется как transient infra issue,
+    а не как permanent business failure.
     """
 
     async def _wrapper() -> dict:
@@ -365,7 +362,12 @@ def start_run_pipeline(
                 db=uow.session,
             )
 
-    return run_async(_wrapper())
+    try:
+        return run_async(_wrapper())
+    except SoftTimeLimitExceeded as exc:
+        raise TransientError(
+            f"Task 'workers.start_run_pipeline' exceeded soft time limit"
+        ) from exc
 
 
 # ─── Tenant resolver ──────────────────────────────────────────────────────────
@@ -790,9 +792,13 @@ async def _start_run_pipeline_async(
             )
             continue
 
-        # Снимаем execution.id до следующего await
         execution_id: uuid.UUID = execution.id
         execution_id_str = str(execution_id)
+
+        # КРИТИЧЕСКИ ВАЖНО:
+        # execution должна быть зафиксирована в БД ДО того, как worker увидит task в Celery.
+        await db.flush()
+        await db.commit()
 
         logger.info(
             "Scheduling next document stage",
@@ -809,18 +815,66 @@ async def _start_run_pipeline_async(
             },
         )
 
-        celery_task_id = _send_task(
-            plan=plan,
-            stage_execution_id=execution_id_str,
-            run_id=run_id,
-            deal_id=deal_id_str,
-            tenant_id=tenant_id_str,
-            document_id=doc_id_str,
-            document_version_id=ver_snap.version_id_str,
-            orchestration_strategy=orchestration_strategy,
-        )
+        try:
+            celery_task_id = _send_task(
+                plan=plan,
+                stage_execution_id=execution_id_str,
+                run_id=run_id,
+                deal_id=deal_id_str,
+                tenant_id=tenant_id_str,
+                document_id=doc_id_str,
+                document_version_id=ver_snap.version_id_str,
+                orchestration_strategy=orchestration_strategy,
+            )
+        except Exception as send_exc:
+            logger.exception(
+                "Failed to enqueue next document stage",
+                extra={
+                    "run_id": run_id,
+                    "document_id": doc_id_str,
+                    "document_version_id": ver_snap.version_id_str,
+                    "task_name": plan.task_name,
+                    "stage": plan.stage,
+                    "stage_execution_id": execution_id_str,
+                },
+            )
+            try:
+                await dse_repo.mark_failed(
+                    execution_id,
+                    error_details={
+                        "stage": plan.stage,
+                        "type": "dispatch_failed",
+                        "reason": "send_task_exception",
+                        "message": str(send_exc),
+                        "run_id": run_id,
+                    },
+                )
+                await db.flush()
+                await db.commit()
+            except Exception:
+                logger.exception(
+                    "Failed to mark execution FAILED after send_task exception",
+                    extra={
+                        "run_id": run_id,
+                        "document_id": doc_id_str,
+                        "stage_execution_id": execution_id_str,
+                    },
+                )
+            raise TransientError(
+                f"Failed to dispatch stage task '{plan.task_name}' for document {doc_id_str}"
+            ) from send_exc
 
-        await dse_repo.mark_dispatched(execution_id, celery_task_id=celery_task_id)
+        updated_execution = await dse_repo.mark_dispatched(
+            execution_id,
+            celery_task_id=celery_task_id,
+        )
+        if updated_execution is None:
+            raise TransientError(
+                f"Execution {execution_id_str} not found while marking DISPATCHED"
+            )
+
+        await db.flush()
+        await db.commit()
 
         tasks_scheduled += 1
         documents_with_plan += 1

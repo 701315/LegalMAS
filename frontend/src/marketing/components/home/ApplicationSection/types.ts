@@ -8,10 +8,15 @@ export type PanelState = 'hidden' | 'active' | 'dormant';
 
 export interface RoleData {
   id: RoleId;
+  indexLabel: string;
+  eyebrow: string;
   title: string;
   subtitle: string;
   description: string;
-  features: string[];
+  capabilities: string[];
+  outcome: string;
   videoSrc: string;
 }
+
+
 

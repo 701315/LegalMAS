@@ -10,12 +10,7 @@ import styles from './ApplicationSection.module.css';
 const ApplicationSection: React.FC = () => {
   const sectionRef = useRef<HTMLElement | null>(null);
 
-  const {
-    phase,
-    getPanelState,
-    showTitle,
-    showCta,
-  } = useApplicationStory(sectionRef);
+  const { getPanelState, showTitle, showCta } = useApplicationStory(sectionRef);
 
   return (
     <section
@@ -26,7 +21,6 @@ const ApplicationSection: React.FC = () => {
     >
       <div className={styles.scrollTrack}>
         <div className={styles.stickyStage}>
-          {/* Title overlay */}
           <div
             className={[
               styles.titleOverlay,
@@ -42,7 +36,6 @@ const ApplicationSection: React.FC = () => {
             </h2>
           </div>
 
-          {/* Panels */}
           <div className={styles.panelsRow}>
             {ROLE_ORDER.map((roleId) => (
               <RolePanel
@@ -53,7 +46,6 @@ const ApplicationSection: React.FC = () => {
             ))}
           </div>
 
-          {/* Bottom CTA */}
           <BottomCta hidden={!showCta} />
         </div>
       </div>

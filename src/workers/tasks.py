@@ -55,6 +55,7 @@ from workers.language_discovery_orchestrator import start_language_discovery  # 
 
 # system / infrastructure workers
 from workers.outbox_dispatcher import outbox_dispatcher  # noqa: F401
+from workers.stale_execution_reaper import reap_stale_stage_executions  # noqa: F401
 from workers.pii_sanitizer import sanitize_document  # noqa: F401
 from workers.prepare_document_for_language_discovery import (
     prepare_document_for_language_discovery,  # noqa: F401

@@ -219,6 +219,7 @@ async def maybe_start_run_checks(
             "run_id": run_id_str,
             "deal_id": deal_id_str,
             "tenant_id": None,
+            "job_id": job_id_str,
         },
     )
 

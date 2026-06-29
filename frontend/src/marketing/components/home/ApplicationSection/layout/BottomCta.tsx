@@ -9,18 +9,19 @@ interface BottomCtaProps {
   hidden: boolean;
 }
 
-const BottomCta: React.FC<BottomCtaProps> = ({ hidden }) => (
-  <div
-    className={[
-      styles.bottomCta,
-      hidden ? styles.bottomCtaHidden : styles.bottomCtaVisible,
-    ].join(' ')}
-  >
-    <Link to="/solutions" className={styles.ctaLink}>
-      Подробности о сценариях использования платформы
-      <ArrowUpRight size={14} />
-    </Link>
-  </div>
-);
+const BottomCta: React.FC<BottomCtaProps> = ({ hidden }) => {
+  if (hidden) return null;
+
+  return (
+    <div className={[styles.bottomCta, styles.bottomCtaVisible].join(' ')}>
+      <Link to="/solutions" className={styles.ctaLink}>
+        Подробности о сценариях использования платформы
+        <ArrowUpRight size={14} />
+      </Link>
+    </div>
+  );
+};
 
 export default BottomCta;
+
+

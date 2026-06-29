@@ -47,6 +47,7 @@ from core.pipeline_snapshots import (
 )
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
 from db.repositories.run_repo import RunRepository
@@ -74,13 +75,14 @@ _shared_llm_client = LLMClient()
     base=MASBaseTask,
     bind=True,
     name="workers.run_deal_checks",
-    track_job=False,
+    track_job=True,
 )
 def run_deal_checks(
     self,
     run_id: str,
     deal_id: str,
     tenant_id: str | None = None,
+    job_id: str | None = None,
     stage_execution_id: str | None = None,
     orchestration_strategy: str | None = None,
     **kwargs: Any,
@@ -99,6 +101,7 @@ def run_deal_checks(
             "run_id": run_id,
             "deal_id": deal_id,
             "tenant_id": tenant_id,
+            "job_id": job_id,
         },
     )
 
@@ -702,6 +705,7 @@ def finalize_run_if_ready(
             run_repo = RunRepository(uow.session)
             result_repo = ResultRepository(uow.session)
             audit_repo = AuditRepository(uow.session)
+            dse_repo = DocumentStageExecutionRepository(uow.session)
 
             run_obj = await run_repo.get(run_uuid)
             if run_obj is None:
@@ -712,6 +716,25 @@ def finalize_run_if_ready(
 
             finished_checks = await result_repo.count_finished_checks_for_run(run_uuid)
             materialized_checks = await result_repo.count_distinct_checks_for_run(run_uuid)
+
+            active_stage_executions = await dse_repo.count_active_for_run(run_uuid)
+            if active_stage_executions > 0:
+                logger.info(
+                    "finalize_run_if_ready: active document stage executions remain, postponing run finalization",
+                    extra={
+                        "run_id": run_id,
+                        "active_stage_executions": active_stage_executions,
+                        "finished_checks": finished_checks,
+                        "materialized_checks": materialized_checks,
+                    },
+                )
+                return {
+                    "status": "WAITING_FOR_STAGE_EXECUTIONS",
+                    "active_stage_executions": active_stage_executions,
+                    "finished_checks": finished_checks,
+                    "materialized_checks": materialized_checks,
+                    "run_status": run_snap.status,
+                }
 
             updated_run = await run_repo.finalize_run_if_finished(run_uuid)
             if updated_run is None:

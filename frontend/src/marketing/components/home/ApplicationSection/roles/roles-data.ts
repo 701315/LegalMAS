@@ -5,37 +5,52 @@ import type { RoleData, RoleId } from '../types';
 export const ROLES: Record<RoleId, RoleData> = {
   left: {
     id: 'left',
+    indexLabel: '01',
+    eyebrow: 'M&A',
     title: 'M&A-команды',
     subtitle: 'Скорость и контроль в data room.',
     description:
-      'Steloom обрабатывает data room против вашего playbook — каждое положение, ' +
-      'риск и перекрёстная ссылка структурированы за часы, а не недели. ' +
-      'Ни одно условие не теряется на странице 47.',
-    features: ['Due Diligence', 'Data Room', 'Risk Extraction', 'Playbook Review'],
+      'Проверка идёт против playbook, а риски и связи собираются в структурированную картину за часы.',
+    capabilities: [
+      'Playbook review',
+      'Risk extraction',
+      'Cross-reference mapping',
+    ],
+    outcome: 'Часы вместо недель',
     videoSrc: '/left-video.mp4',
   },
 
   center: {
     id: 'center',
+    indexLabel: '02',
+    eyebrow: 'Operations',
     title: 'Legal Ops',
-    subtitle: 'Операционная прозрачность правовой функции.',
+    subtitle: 'Прозрачность правовой функции.',
     description:
-      'Steloom превращает разрозненные процессы в единый поток: от входящего запроса ' +
-      'до финального документа. Метрики, сроки и узкие места видны в реальном времени — ' +
-      'без ручных отчётов.',
-    features: ['Workflow Automation', 'SLA Tracking', 'Template Management', 'Reporting'],
+      'Запросы, документы и SLA собираются в единый операционный поток без ручных отчётов.',
+    capabilities: [
+      'Workflow orchestration',
+      'SLA visibility',
+      'Template control',
+    ],
+    outcome: 'Один поток вместо разрозненных процессов',
     videoSrc: '/center-video.mp4',
   },
 
   right: {
     id: 'right',
+    indexLabel: '03',
+    eyebrow: 'Leadership',
     title: 'General Counsel',
-    subtitle: 'Стратегический контроль всей правовой вертикали.',
+    subtitle: 'Контроль правовой вертикали.',
     description:
-      'Steloom даёт полную картину правовой функции: риски, обязательства, ' +
-      'регуляторные изменения и их влияние на бизнес. Решения принимаются на основе ' +
-      'структурированного знания, а не интуиции.',
-    features: ['Risk Overview', 'Regulatory Monitoring', 'Board Reporting', 'Compliance Map'],
+      'Риски, обязательства и регуляторные изменения становятся видны в едином decision-ready представлении.',
+    capabilities: [
+      'Risk overview',
+      'Board reporting',
+      'Compliance visibility',
+    ],
+    outcome: 'Единая картина вместо ручного контроля',
     videoSrc: '/right-video.mp4',
   },
 };

@@ -137,6 +137,12 @@ RUN_SINGLE_CHECK_TIME_LIMIT_SEC = 3600
 # документ может содержать много сегментов.
 CLASSIFY_DOCUMENT_SEGMENTS_SOFT_TIME_LIMIT_SEC = 3600
 CLASSIFY_DOCUMENT_SEGMENTS_TIME_LIMIT_SEC = 3900
+
+# Orchestration pass — должен быть коротким.
+# В норме это секунды, не минуты.
+RUN_PIPELINE_ORCHESTRATOR_SOFT_TIME_LIMIT_SEC = 180
+RUN_PIPELINE_ORCHESTRATOR_TIME_LIMIT_SEC = 240
+
 # visibility_timeout должен быть больше максимального hard limit с запасом.
 BROKER_VISIBILITY_TIMEOUT_SEC = 7200
 
@@ -294,6 +300,10 @@ celery_app.conf.update(
             "queue": QUEUE_SYSTEM,
             "routing_key": QUEUE_SYSTEM,
         },
+        "workers.reap_stale_stage_executions": {
+            "queue": QUEUE_SYSTEM,
+            "routing_key": QUEUE_SYSTEM,
+        },
         "workers.run_deal_checks": {
             "queue": QUEUE_DEFAULT,
             "routing_key": QUEUE_DEFAULT,
@@ -335,9 +345,21 @@ celery_app.conf.update(
                 "routing_key": QUEUE_SYSTEM,
             },
         },
+        "reap-stale-stage-executions-every-10-minutes": {
+            "task": "workers.reap_stale_stage_executions",
+            "schedule": 600.0,
+            "options": {
+                "queue": QUEUE_SYSTEM,
+                "routing_key": QUEUE_SYSTEM,
+            },
+        },
     },
     # --- Task-level overrides ---
     task_annotations={
+        "workers.start_run_pipeline": {
+            "soft_time_limit": RUN_PIPELINE_ORCHESTRATOR_SOFT_TIME_LIMIT_SEC,
+            "time_limit": RUN_PIPELINE_ORCHESTRATOR_TIME_LIMIT_SEC,
+        },
         "workers.run_single_check": {
             "soft_time_limit": RUN_SINGLE_CHECK_SOFT_TIME_LIMIT_SEC,
             "time_limit": RUN_SINGLE_CHECK_TIME_LIMIT_SEC,

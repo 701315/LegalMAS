@@ -7,10 +7,10 @@ import {
   INTRO_DELAY_MS,
   PHASE_AUTO_DURATION_MS,
   PHASE_THRESHOLDS,
+  SCROLL_IDLE_MS,
 } from '../constants';
 
 interface UseApplicationStoryReturn {
-  phase: StoryPhase;
   getPanelState: (id: RoleId) => PanelState;
   showTitle: boolean;
   showCta: boolean;
@@ -34,13 +34,27 @@ function phaseIndex(phase: StoryPhase): number {
   return PHASE_ORDER.indexOf(phase);
 }
 
-/** Какие панели уже "раскрыты" на данной фазе */
+function getNextPhase(phase: StoryPhase): StoryPhase | null {
+  const idx = phaseIndex(phase);
+  if (idx < 0 || idx >= PHASE_ORDER.length - 1) return null;
+  return PHASE_ORDER[idx + 1];
+}
+
 function getRevealedPanels(phase: StoryPhase): Set<RoleId> {
   const revealed = new Set<RoleId>();
-  const idx = phaseIndex(phase);
-  if (idx >= 1) revealed.add('left');
-  if (idx >= 2) revealed.add('center');
-  if (idx >= 3) revealed.add('right');
+
+  if (phase === 'left' || phase === 'center' || phase === 'right' || phase === 'outro') {
+    revealed.add('left');
+  }
+
+  if (phase === 'center' || phase === 'right' || phase === 'outro') {
+    revealed.add('center');
+  }
+
+  if (phase === 'right' || phase === 'outro') {
+    revealed.add('right');
+  }
+
   return revealed;
 }
 
@@ -48,15 +62,46 @@ export function useApplicationStory(
   trackRef: RefObject<HTMLElement | null>,
 ): UseApplicationStoryReturn {
   const [scrollPhase, setScrollPhase] = useState<StoryPhase>('intro');
-  const [timerPhase, setTimerPhase] = useState<StoryPhase>('intro');
+  const [autoPhase, setAutoPhase] = useState<StoryPhase>('intro');
   const [isInView, setIsInView] = useState(false);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastScrollProgressRef = useRef(0);
-  const userScrolledRef = useRef(false);
-  const prevProgressRef = useRef(0);
+  const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hadScrollControlRef = useRef(false);
 
-  // ── Scroll progress tracking ──
+  const clearAutoTimer = useCallback(() => {
+    if (autoTimerRef.current !== null) {
+      clearTimeout(autoTimerRef.current);
+      autoTimerRef.current = null;
+    }
+  }, []);
+
+  const clearScrollIdleTimer = useCallback(() => {
+    if (scrollIdleTimerRef.current !== null) {
+      clearTimeout(scrollIdleTimerRef.current);
+      scrollIdleTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleAutoAdvance = useCallback(
+    (fromPhase: StoryPhase) => {
+      clearAutoTimer();
+
+      const nextPhase = getNextPhase(fromPhase);
+      if (!nextPhase) return;
+
+      const delay =
+        fromPhase === 'intro' ? INTRO_DELAY_MS : PHASE_AUTO_DURATION_MS;
+
+      autoTimerRef.current = setTimeout(() => {
+        setAutoPhase(nextPhase);
+      }, delay);
+    },
+    [clearAutoTimer],
+  );
+
+  // ── Scroll tracking ──
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -64,7 +109,10 @@ export function useApplicationStory(
 
     const update = () => {
       const el = trackRef.current;
-      if (!el) return;
+      if (!el) {
+        rafId = null;
+        return;
+      }
 
       const rect = el.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
@@ -72,125 +120,106 @@ export function useApplicationStory(
       const passed = clamp(-rect.top, 0, totalScrollable);
       const progress = clamp(passed / totalScrollable, 0, 1);
 
-      // Определяем, в видимой ли зоне секция
-      const sectionInView = rect.top < viewportHeight && rect.bottom > 0;
-      setIsInView(sectionInView);
-
-      // Детектируем реальный scroll пользователя
-      const delta = Math.abs(progress - prevProgressRef.current);
-      if (delta > 0.005) {
-        userScrolledRef.current = true;
-      }
-      prevProgressRef.current = progress;
-
-      lastScrollProgressRef.current = progress;
+      const visible = rect.top < viewportHeight && rect.bottom > 0;
+      setIsInView(visible);
       setScrollPhase(phaseFromProgress(progress));
 
       rafId = null;
     };
 
     const onScroll = () => {
+      setIsUserScrolling(true);
+      hadScrollControlRef.current = true;
+      clearScrollIdleTimer();
+
+      scrollIdleTimerRef.current = setTimeout(() => {
+        setIsUserScrolling(false);
+      }, SCROLL_IDLE_MS);
+
       if (rafId !== null) return;
-      rafId = requestAnimationFrame(update);
+      rafId = window.requestAnimationFrame(update);
     };
 
     update();
+
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', update);
 
     return () => {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', update);
-      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+      clearScrollIdleTimer();
     };
-  }, [trackRef]);
+  }, [trackRef, clearScrollIdleTimer]);
 
-  // ── Auto-advance timer ──
-  const clearTimer = useCallback(() => {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const scheduleNext = useCallback(
-    (currentPhase: StoryPhase) => {
-      clearTimer();
-
-      const idx = phaseIndex(currentPhase);
-      if (idx >= PHASE_ORDER.length - 1) return; // уже outro
-
-      const delay = currentPhase === 'intro' ? INTRO_DELAY_MS : PHASE_AUTO_DURATION_MS;
-
-      timerRef.current = setTimeout(() => {
-        const nextPhase = PHASE_ORDER[idx + 1];
-        setTimerPhase(nextPhase);
-      }, delay);
-    },
-    [clearTimer],
-  );
-
-  // Запуск / сброс таймера
+  // ── Reset when section leaves viewport ──
   useEffect(() => {
     if (!isInView) {
-      clearTimer();
-      setTimerPhase('intro');
-      userScrolledRef.current = false;
+      clearAutoTimer();
+      clearScrollIdleTimer();
+      setIsUserScrolling(false);
+      setAutoPhase('intro');
+      hadScrollControlRef.current = false;
+    }
+  }, [isInView, clearAutoTimer, clearScrollIdleTimer]);
+
+  // ── While scrolling: scroll fully controls the story ──
+  useEffect(() => {
+    if (!isInView) return;
+
+    if (isUserScrolling) {
+      clearAutoTimer();
+      setAutoPhase(scrollPhase);
+    }
+  }, [isInView, isUserScrolling, scrollPhase, clearAutoTimer]);
+
+  // ── When user stopped scrolling: continue auto-sequence from current scroll phase ──
+  useEffect(() => {
+    if (!isInView || isUserScrolling) return;
+
+    if (hadScrollControlRef.current) {
+      setAutoPhase(scrollPhase);
+      hadScrollControlRef.current = false;
       return;
     }
 
-    // Если пользователь не скроллил (или scroll progress ≈ 0) — запускаем таймер
-    if (!userScrolledRef.current || lastScrollProgressRef.current < 0.02) {
-      scheduleNext(timerPhase);
-    }
+    scheduleAutoAdvance(autoPhase);
 
-    return clearTimer;
-  }, [isInView, timerPhase, scheduleNext, clearTimer]);
+    return clearAutoTimer;
+  }, [
+    isInView,
+    isUserScrolling,
+    scrollPhase,
+    autoPhase,
+    scheduleAutoAdvance,
+    clearAutoTimer,
+  ]);
 
-  // При scroll — сбрасываем таймер и перезапускаем от текущей scroll-фазы
   useEffect(() => {
-    if (userScrolledRef.current && isInView) {
-      clearTimer();
-      // Перезапускаем таймер от текущей scroll-фазы
-      // Это значит: если пользователь остановился, через 5 сек пойдёт следующая
-      const restartTimer = setTimeout(() => {
-        scheduleNext(scrollPhase);
-      }, 300); // небольшая задержка чтобы не дёргать при быстром scroll
+    return () => {
+      clearAutoTimer();
+      clearScrollIdleTimer();
+    };
+  }, [clearAutoTimer, clearScrollIdleTimer]);
 
-      return () => clearTimeout(restartTimer);
-    }
-  }, [scrollPhase, isInView, clearTimer, scheduleNext]);
+  const effectivePhase: StoryPhase =
+    !isInView ? 'intro' : isUserScrolling ? scrollPhase : autoPhase;
 
-  // Очистка при unmount
-  useEffect(() => clearTimer, [clearTimer]);
-
-  // ── Итоговая фаза: берём максимальную из scroll и timer ──
-  const effectivePhase: StoryPhase = (() => {
-    const si = phaseIndex(scrollPhase);
-    const ti = phaseIndex(timerPhase);
-    return si >= ti ? scrollPhase : timerPhase;
-  })();
-
-  // ── Panel state logic ──
   const getPanelState = useCallback(
     (id: RoleId): PanelState => {
       const revealed = getRevealedPanels(effectivePhase);
 
       if (!revealed.has(id)) return 'hidden';
-
-      // Активная панель — та, что соответствует текущей фазе
       if (effectivePhase === id) return 'active';
-
-      // Outro — все dormant
-      if (effectivePhase === 'outro') return 'dormant';
-
       return 'dormant';
     },
     [effectivePhase],
   );
 
   return {
-    phase: effectivePhase,
     getPanelState,
     showTitle: effectivePhase === 'intro',
     showCta: effectivePhase === 'outro',

@@ -27,7 +27,7 @@ Repository for DocumentStageExecution lifecycle operations.
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -114,6 +114,56 @@ class DocumentStageExecutionRepository:
             )
         )
         return result.scalar_one_or_none()
+
+    async def count_active_for_run(
+        self,
+        run_id: uuid.UUID,
+    ) -> int:
+        """
+        Count active stage executions for the entire Run.
+
+        Активными считаются статусы:
+        planned / dispatched / started.
+
+        Используется finalize_run_if_ready:
+        Run нельзя финализировать, пока есть активные document-stage executions.
+        """
+        result = await self.session.execute(
+            select(func.count()).select_from(DocumentStageExecution).where(
+                DocumentStageExecution.run_id == run_id,
+                DocumentStageExecution.status.in_(
+                    [
+                        DocumentStageExecutionStatus.PLANNED.value,
+                        DocumentStageExecutionStatus.DISPATCHED.value,
+                        DocumentStageExecutionStatus.STARTED.value,
+                    ]
+                ),
+            )
+        )
+        return int(result.scalar_one() or 0)
+    
+    async def list_stale_active_executions(
+        self,
+        older_than: datetime,
+    ) -> list[DocumentStageExecution]:
+        """
+        Return active executions older than the given timestamp.
+
+        Используется periodic reaper-task для очистки stale executions.
+        """
+        result = await self.session.execute(
+            select(DocumentStageExecution).where(
+                DocumentStageExecution.status.in_(
+                    [
+                        DocumentStageExecutionStatus.PLANNED.value,
+                        DocumentStageExecutionStatus.DISPATCHED.value,
+                        DocumentStageExecutionStatus.STARTED.value,
+                    ]
+                ),
+                DocumentStageExecution.created_at < older_than,
+            )
+        )
+        return list(result.scalars().all())
 
     async def mark_dispatched(
         self,
