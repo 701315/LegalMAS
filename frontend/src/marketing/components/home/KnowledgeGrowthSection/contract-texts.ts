@@ -1,4 +1,4 @@
-// src/components/marketing/landing/KnowledgeGrowthSection/contract-texts.ts
+// src/marketing/components/home/KnowledgeGrowthSection/contract-texts.ts
 
 import type { Fragment, FragmentBucket } from "./types";
 

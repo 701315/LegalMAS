@@ -2,11 +2,13 @@
 
 import React, { useRef, useEffect } from 'react';
 import type { RoleData, PanelState } from '../types';
+import { ACTIVE_VIDEO_PLAY_MS } from '../constants';
 import styles from '../ApplicationSection.module.css';
 
 interface RolePanelProps {
   role: RoleData;
   panelState: PanelState;
+  onMouseEnter: () => void;
 }
 
 const stateClassMap: Record<PanelState, string> = {
@@ -15,19 +17,36 @@ const stateClassMap: Record<PanelState, string> = {
   dormant: styles.panelDormant,
 };
 
-const RolePanel: React.FC<RolePanelProps> = ({ role, panelState }) => {
+const RolePanel: React.FC<RolePanelProps> = ({
+  role,
+  panelState,
+  onMouseEnter,
+}) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const prevStateRef = useRef<PanelState>('hidden');
+  const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
+    if (playTimerRef.current) {
+      clearTimeout(playTimerRef.current);
+      playTimerRef.current = null;
+    }
+
     if (panelState === 'active') {
+      // При любой новой активации — старт с начала
       if (prevStateRef.current !== 'active') {
         video.currentTime = 0;
       }
+
       video.play().catch(() => {});
+
+      playTimerRef.current = setTimeout(() => {
+        video.pause();
+        playTimerRef.current = null;
+      }, ACTIVE_VIDEO_PLAY_MS);
     } else if (panelState === 'dormant') {
       video.pause();
     } else {
@@ -36,6 +55,13 @@ const RolePanel: React.FC<RolePanelProps> = ({ role, panelState }) => {
     }
 
     prevStateRef.current = panelState;
+
+    return () => {
+      if (playTimerRef.current) {
+        clearTimeout(playTimerRef.current);
+        playTimerRef.current = null;
+      }
+    };
   }, [panelState]);
 
   const stateClass = stateClassMap[panelState];
@@ -45,49 +71,41 @@ const RolePanel: React.FC<RolePanelProps> = ({ role, panelState }) => {
       className={[styles.panel, stateClass].filter(Boolean).join(' ')}
       tabIndex={0}
       aria-label={role.title}
+      onMouseEnter={onMouseEnter}
     >
-      {/* Video background */}
       <div className={styles.videoContainer}>
         <video
           ref={videoRef}
           className={styles.video}
           src={role.videoSrc}
           muted
-          loop
           playsInline
           preload="auto"
         />
         <div className={styles.videoOverlay} />
       </div>
 
-      {/* Content */}
       <div className={styles.panelContent}>
-        {/* Eyebrow */}
         <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500">
           <span className="text-stone-400">{role.indexLabel}</span>
           <span className="mx-1.5 text-stone-600">/</span>
           <span>{role.eyebrow}</span>
         </div>
 
-        {/* Title */}
         <h3 className="mt-5 font-serif text-5xl leading-[1.06] tracking-[-0.03em] text-stone-50 lg:text-[3.75rem]">
           {role.title}
         </h3>
 
-        {/* Subtitle */}
         <p className="mt-4 text-base font-medium leading-8 text-stone-300 lg:text-[1.05rem] lg:leading-9">
           {role.subtitle}
         </p>
 
-        {/* Description */}
         <p className="mt-3 text-base leading-8 text-stone-400 lg:text-[1.05rem] lg:leading-9">
           {role.description}
         </p>
 
-        {/* Divider */}
         <div className={styles.panelDivider} aria-hidden="true" />
 
-        {/* Capabilities */}
         <ul className="flex flex-col gap-2.5">
           {role.capabilities.map((cap) => (
             <li
@@ -103,7 +121,6 @@ const RolePanel: React.FC<RolePanelProps> = ({ role, panelState }) => {
           ))}
         </ul>
 
-        {/* Outcome */}
         <div className="mt-6">
           <div className="text-[10px] font-medium uppercase tracking-[0.15em] text-stone-600">
             Outcome

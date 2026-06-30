@@ -1,7 +1,7 @@
 // frontend/src/components/marketing/demo/DemoFormSection.tsx
 
 import React, { useState } from "react";
-import { demoContent } from "../../../content/demoContent";
+import { demoContent } from "../../content/demoContent";
 
 const DemoFormSection: React.FC = () => {
   const [name, setName] = useState("");

@@ -1,4 +1,4 @@
-// src/components/marketing/landing/ContactModal.tsx
+// src/marketing/components/home/ContactModal.tsx
 
 import React from "react";
 import { ArrowRight, Mail, X } from "lucide-react";
@@ -37,8 +37,6 @@ const ContactModal: React.FC<ContactModalProps> = ({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="relative w-full max-w-5xl overflow-hidden rounded-[28px] border border-[#E5E2DA] bg-[#F8F7F4]">
-
-        {/* Кнопка закрытия */}
         <button
           onClick={onClose}
           aria-label="Закрыть"
@@ -48,11 +46,10 @@ const ContactModal: React.FC<ContactModalProps> = ({
         </button>
 
         <div className="grid lg:grid-cols-[0.95fr_1.05fr]">
-
           {/* Левая панель */}
           <div className="border-b border-[#E5E2DA] bg-[#F1EFEA] p-8 lg:border-b-0 lg:border-r lg:p-10">
             <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400">
-              Enterprise demo request
+              Запрос enterprise-демо
             </p>
 
             <h3 className="mt-5 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] text-stone-950">
@@ -64,11 +61,11 @@ const ContactModal: React.FC<ContactModalProps> = ({
               так демо можно сделать предметным, а не общим.
             </p>
 
-            {/* Demo path */}
             <div className="mt-7 rounded-[20px] border border-[#E5E2DA] bg-white p-5">
               <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400">
-                Demo path
+                Как пройдёт демо
               </p>
+
               <div className="mt-4 space-y-2.5">
                 {DEMO_STEPS.map((item, index) => (
                   <div
@@ -124,7 +121,6 @@ const ContactModal: React.FC<ContactModalProps> = ({
                   />
                 </div>
 
-                {/* Security note — зелёный акцент строго по брифу */}
                 <div className="rounded-[14px] border border-[#2F5A4A]/20 bg-[#2F5A4A]/6 px-4 py-3 text-xs leading-relaxed text-[#2F5A4A]">
                   Если у тебя чувствительный сценарий, можно сразу указать требования
                   к local-first обработке, ограничения по cloud LLM и ожидания по security review.
@@ -150,7 +146,6 @@ const ContactModal: React.FC<ContactModalProps> = ({
               </form>
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -158,3 +153,5 @@ const ContactModal: React.FC<ContactModalProps> = ({
 };
 
 export default ContactModal;
+
+

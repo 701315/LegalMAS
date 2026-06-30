@@ -1,21 +1,19 @@
 // src/marketing/components/shared/SiteHeader.tsx
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, Menu } from "lucide-react";
 import SteloomWordmark from "./primitives/SteloomWordmark";
 import MobileMenu from "./MobileMenu";
 import { SITE_NAV, SITE_CTA } from "../../content/siteNav";
 
-// ─── Типы ────────────────────────────────────────────────────
 type Theme = "light" | "dark";
 
 interface SiteHeaderProps {
-  /** Принудительная тема. Если не задана — определяется автоматически по скроллу и секции. */
   forcedTheme?: Theme;
+  hideLogin?: boolean;
 }
 
-// ─── Hook: следим за window scroll ───────────────────────────
 function useWindowScroll(threshold = 32) {
   const [scrolled, setScrolled] = useState(false);
 
@@ -29,7 +27,6 @@ function useWindowScroll(threshold = 32) {
   return scrolled;
 }
 
-// ─── Hook: определяем тему по видимой секции ─────────────────
 function useSectionTheme(): Theme {
   const [theme, setTheme] = useState<Theme>("dark");
 
@@ -39,14 +36,15 @@ function useSectionTheme(): Theme {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        // Берём секцию с наибольшим intersectionRatio
         let best: { ratio: number; theme: Theme } = { ratio: 0, theme: "dark" };
+
         entries.forEach((entry) => {
           if (entry.intersectionRatio > best.ratio) {
             const t = (entry.target as HTMLElement).dataset.headerTheme as Theme;
             best = { ratio: entry.intersectionRatio, theme: t ?? "dark" };
           }
         });
+
         if (best.ratio > 0) setTheme(best.theme);
       },
       {
@@ -62,7 +60,6 @@ function useSectionTheme(): Theme {
   return theme;
 }
 
-// ─── Palettes ─────────────────────────────────────────────────
 const PALETTE = {
   dark: {
     logo: "#ffffff",
@@ -74,10 +71,6 @@ const PALETTE = {
     loginColor: "rgba(255,255,255,0.90)",
     loginHoverBg: "rgba(255,255,255,0.18)",
     loginHoverBorder: "rgba(255,255,255,0.40)",
-    demoBg: "rgba(255,255,255,0.15)",
-    demoBorder: "rgba(255,255,255,0.25)",
-    demoColor: "#ffffff",
-    demoHoverBg: "rgba(255,255,255,0.25)",
     menuIcon: "rgba(255,255,255,0.80)",
     menuBorder: "rgba(255,255,255,0.20)",
     menuBg: "rgba(255,255,255,0.08)",
@@ -92,18 +85,16 @@ const PALETTE = {
     loginColor: "rgb(87,83,78)",
     loginHoverBg: "white",
     loginHoverBorder: "#d6d3d1",
-    demoBg: "#111827",
-    demoBorder: "transparent",
-    demoColor: "white",
-    demoHoverBg: "#1f2937",
     menuIcon: "rgb(87,83,78)",
     menuBorder: "#E5E2DA",
     menuBg: "white",
   },
 } as const;
 
-// ─── Компонент ────────────────────────────────────────────────
-const SiteHeader: React.FC<SiteHeaderProps> = ({ forcedTheme }) => {
+const SiteHeader: React.FC<SiteHeaderProps> = ({
+  forcedTheme,
+  hideLogin = false,
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const scrolled = useWindowScroll(32);
@@ -113,21 +104,24 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({ forcedTheme }) => {
   const theme: Theme = forcedTheme ?? sectionTheme;
   const p = PALETTE[theme];
 
-  // Surface стилизация
   const surface: React.CSSProperties = (() => {
-    if (!scrolled) return {
-      background: "transparent",
-      backdropFilter: "none",
-      WebkitBackdropFilter: "none",
-      borderBottom: "1px solid transparent",
-    };
+    if (!scrolled) {
+      return {
+        background: "transparent",
+        backdropFilter: "none",
+        WebkitBackdropFilter: "none",
+        borderBottom: "1px solid transparent",
+      };
+    }
 
-    if (theme === "dark") return {
-      background: "rgba(17,24,39,0.80)",
-      backdropFilter: "blur(20px) saturate(160%)",
-      WebkitBackdropFilter: "blur(20px) saturate(160%)",
-      borderBottom: "1px solid rgba(255,255,255,0.08)",
-    };
+    if (theme === "dark") {
+      return {
+        background: "rgba(17,24,39,0.80)",
+        backdropFilter: "blur(20px) saturate(160%)",
+        WebkitBackdropFilter: "blur(20px) saturate(160%)",
+        borderBottom: "1px solid rgba(255,255,255,0.08)",
+      };
+    }
 
     return {
       background: "rgba(248,247,244,0.92)",
@@ -144,40 +138,38 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({ forcedTheme }) => {
         style={surface}
       >
         <div className="mx-auto flex h-[68px] w-full max-w-[1280px] items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-12">
-
-          {/* ── Logo ───────────────────────────────────────── */}
           <Link
             to="/"
-            aria-label="Steloom — home"
+            aria-label="Steloom — главная"
             className="flex items-center transition-opacity hover:opacity-60"
             style={{ color: p.logo }}
           >
             <SteloomWordmark height={36} />
           </Link>
 
-          {/* ── Desktop nav ────────────────────────────────── */}
           <nav
             className="hidden items-center gap-6 lg:flex"
-            aria-label="Main navigation"
+            aria-label="Основная навигация"
           >
             {SITE_NAV.map((item) => {
               const isActive = location.pathname === item.href;
+
               return (
                 <Link
                   key={item.href}
                   to={item.href}
                   className="relative text-sm transition-colors"
                   style={{ color: isActive ? p.navActive : p.navBase }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.color = p.navHover)
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.color =
-                      isActive ? p.navActive : p.navBase)
-                  }
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = p.navHover;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = isActive
+                      ? p.navActive
+                      : p.navBase;
+                  }}
                 >
                   {item.label}
-                  {/* Active underline */}
                   {isActive && (
                     <span
                       className="absolute -bottom-1 left-0 right-0 h-px rounded-full"
@@ -189,70 +181,49 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({ forcedTheme }) => {
             })}
           </nav>
 
-          {/* ── Desktop actions ────────────────────────────── */}
           <div className="hidden items-center gap-2 lg:flex">
-            {/* Log in — контракт не меняется: всегда /login */}
-            <button
-              type="button"
-              onClick={() => navigate(SITE_CTA.login.href)}
-              className="rounded-full px-4 py-2 text-sm transition-all"
-              style={{
-                background: p.loginBg,
-                border: `1px solid ${p.loginBorder}`,
-                color: p.loginColor,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = p.loginHoverBg;
-                e.currentTarget.style.borderColor = p.loginHoverBorder;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = p.loginBg;
-                e.currentTarget.style.borderColor = p.loginBorder;
-              }}
-            >
-              {SITE_CTA.login.label}
-            </button>
+            {!hideLogin && (
+              <button
+                type="button"
+                onClick={() => navigate(SITE_CTA.login.href)}
+                className="rounded-full px-4 py-2 text-sm transition-all"
+                style={{
+                  background: p.loginBg,
+                  border: `1px solid ${p.loginBorder}`,
+                  color: p.loginColor,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = p.loginHoverBg;
+                  e.currentTarget.style.borderColor = p.loginHoverBorder;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = p.loginBg;
+                  e.currentTarget.style.borderColor = p.loginBorder;
+                }}
+              >
+                {SITE_CTA.login.label}
+              </button>
+            )}
 
-            {/* Request demo */}
-            <Link
-              to={SITE_CTA.demo.href}
-              className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium transition-all"
-              style={{
-                background: p.demoBg,
-                border: `1px solid ${p.demoBorder}`,
-                color: p.demoColor,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = p.demoHoverBg;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = p.demoBg;
-              }}
-            >
-              Request demo
+            <Link to={SITE_CTA.demo.href} className="cta-primary">
+              {SITE_CTA.demo.label}
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
 
-          {/* ── Mobile: demo + burger ──────────────────────── */}
           <div className="flex items-center gap-2 lg:hidden">
             <Link
               to={SITE_CTA.demo.href}
-              className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all"
-              style={{
-                background: p.demoBg,
-                border: `1px solid ${p.demoBorder}`,
-                color: p.demoColor,
-              }}
+              className="cta-primary gap-1.5 px-4 py-2 text-sm"
             >
-              Demo
+              Демо
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
 
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              aria-label="Open menu"
+              aria-label="Открыть меню"
               className="inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors"
               style={{
                 background: p.menuBg,
@@ -263,11 +234,9 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({ forcedTheme }) => {
               <Menu className="h-4 w-4" />
             </button>
           </div>
-
         </div>
       </header>
 
-      {/* Mobile menu drawer */}
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
   );

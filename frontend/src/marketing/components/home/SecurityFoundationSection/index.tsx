@@ -1,4 +1,4 @@
-// src/components/marketing/landing/SecurityFoundationSection/index.tsx
+// src/marketing/components/home/SecurityFoundationSection/index.tsx
 
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";

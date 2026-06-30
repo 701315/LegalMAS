@@ -5,31 +5,30 @@ import { Routes, Route, Navigate, useParams } from "react-router-dom";
 import "./App.css";
 
 // ── Marketing pages ───────────────────────────────────────────
-import HomePage       from "./marketing/pages/HomePage";
-import SecurityPage   from "./marketing/pages/SecurityPage";
-import SolutionsPage  from "./marketing/pages/SolutionsPage";
+import HomePage from "./marketing/pages/HomePage";
+import SecurityPage from "./marketing/pages/SecurityPage";
+import SolutionsPage from "./marketing/pages/SolutionsPage";
 import CapabilitiesPage from "./marketing/pages/CapabilitiesPage";
-import TechOverviewPage from "./marketing/pages/TechOverviewPage";
-import DemoPage       from "./marketing/pages/DemoPage";
-import AboutPage      from "./marketing/pages/AboutPage";
+import DemoPage from "./marketing/pages/DemoPage";
+import AboutPage from "./marketing/pages/AboutPage";
 
 // ── App pages ─────────────────────────────────────────────────
-import LoginPage      from "./pages/LoginPage";
-import DashboardPage  from "./pages/DashboardPage";
-import DealPage       from "./pages/DealPage";
-import DealListPage   from "./pages/DealListPage";
+import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import DealPage from "./pages/DealPage";
+import DealListPage from "./pages/DealListPage";
 import NewProjectPage from "./pages/NewProjectPage";
-import ProjectUploadPage  from "./pages/ProjectUploadPage";
+import ProjectUploadPage from "./pages/ProjectUploadPage";
 import ProjectMembersPage from "./pages/ProjectMembersPage";
-import DealPlaybookSelectorPage  from "./pages/DealPlaybookSelectorPage";
-import AdminPlaybookLinesPage    from "./pages/AdminPlaybookLinesPage";
-import ModelConfigsAdminPage     from "./pages/ModelConfigsAdminPage";
+import DealPlaybookSelectorPage from "./pages/DealPlaybookSelectorPage";
+import AdminPlaybookLinesPage from "./pages/AdminPlaybookLinesPage";
+import ModelConfigsAdminPage from "./pages/ModelConfigsAdminPage";
 import AdminPlaybookVersionsPage from "./pages/AdminPlaybookVersionsPage";
 
 // ── Utilities ─────────────────────────────────────────────────
 import { shouldPollDealLanguageDiscovery } from "./utils/languageDiscovery";
-import { useDeal }   from "./api/deals";
-import { useAuth }   from "./hooks/useAuth";
+import { useDeal } from "./api/deals";
+import { useAuth } from "./hooks/useAuth";
 import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
 import ScrollToAnchor from "./components/routing/ScrollToAnchor";
 import AppShell from "./components/layout/AppShell";
@@ -115,21 +114,19 @@ function App() {
       <Routes>
 
         {/* ── Public marketing routes ──────────────────────── */}
-        <Route path="/"         element={<HomePage />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/platform" element={<CapabilitiesPage />} />
         <Route path="/security" element={<SecurityPage />} />
-        <Route path="/demo"     element={<DemoPage />} />
-        <Route path="/about"    element={<AboutPage />} />
+        <Route path="/use-cases" element={<SolutionsPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/demo" element={<DemoPage />} />
 
-        {/* Legacy routes → redirect to new IA */}
+        {/* Legacy redirects */}
         <Route path="/capabilities" element={<Navigate to="/platform" replace />} />
-        <Route path="/tech"         element={<Navigate to="/platform" replace />} />
-        <Route path="/solutions"    element={<Navigate to="/use-cases" replace />} />
+        <Route path="/tech" element={<Navigate to="/platform" replace />} />
+        <Route path="/solutions" element={<Navigate to="/use-cases" replace />} />
 
-        {/* Placeholder routes — страницы будут собраны следующим этапом */}
-        <Route path="/platform"   element={<CapabilitiesPage />} />
-        <Route path="/use-cases"  element={<SolutionsPage />} />
-
-        {/* Auth entry point — контракт не меняется */}
+        {/* Auth */}
         <Route path="/login" element={<LoginPage />} />
 
         {/* ── Protected app routes ─────────────────────────── */}
@@ -208,7 +205,5 @@ function App() {
 }
 
 export default App;
-
-
 
 

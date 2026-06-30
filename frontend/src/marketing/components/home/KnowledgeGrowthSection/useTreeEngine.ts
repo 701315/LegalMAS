@@ -1,4 +1,4 @@
-// src/components/marketing/landing/KnowledgeGrowthSection/useTreeEngine.ts
+// src/marketing/components/home/KnowledgeGrowthSection/useTreeEngine.ts
 
 import { useEffect, useState } from "react";
 import { pickFragmentForWidth } from "./contract-texts";

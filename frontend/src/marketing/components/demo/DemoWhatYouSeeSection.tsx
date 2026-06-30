@@ -1,7 +1,7 @@
 // frontend/src/components/marketing/demo/DemoWhatYouSeeSection.tsx
 
 import React from "react";
-import { demoContent } from "../../../content/demoContent";
+import { demoContent } from "../../content/demoContent";
 
 const DemoWhatYouSeeSection: React.FC = () => {
   const { whatYouSee } = demoContent;

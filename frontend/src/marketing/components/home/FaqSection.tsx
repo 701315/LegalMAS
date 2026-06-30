@@ -1,4 +1,4 @@
-// src/components/marketing/landing/FaqSection.tsx
+// src/marketing/components/home/FaqSection.tsx
 
 import React, { useState } from "react";
 

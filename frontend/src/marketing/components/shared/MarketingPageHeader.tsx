@@ -1,3 +1,5 @@
+// src/marketing/components/shared/MarketingPageHeader.tsx
+
 import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
@@ -28,10 +30,7 @@ const MarketingPageHeader: React.FC<MarketingPageHeaderProps> = ({
           </Link>
         )}
 
-        <Link
-          to={ctaHref}
-          className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-950"
-        >
+        <Link to={ctaHref} className="cta-primary">
           {ctaLabel}
         </Link>
       </div>
@@ -40,3 +39,5 @@ const MarketingPageHeader: React.FC<MarketingPageHeaderProps> = ({
 };
 
 export default MarketingPageHeader;
+
+

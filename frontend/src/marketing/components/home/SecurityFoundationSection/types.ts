@@ -1,4 +1,4 @@
-// src/components/marketing/landing/SecurityFoundationSection/types.ts
+// src/marketing/components/home/SecurityFoundationSection/types.ts
 
 export type ClauseType =
   | "mac"

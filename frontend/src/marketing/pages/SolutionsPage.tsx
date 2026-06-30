@@ -1,62 +1,69 @@
 import React from "react";
 import MarketingEditorialShell from "../components/shared/MarketingEditorialShell";
 import { landingContent } from "../content/landingContent";
-import { SearchCheck } from "lucide-react";
+import {
+  Handshake,
+  FileText,
+  Scale,
+  ClipboardCheck,
+  SearchCheck,
+} from "lucide-react";
+
+const TAB_ICONS = [Handshake, FileText, Scale, ClipboardCheck];
 
 const SolutionsPage: React.FC = () => {
   const { useCases } = landingContent;
 
-  const extendedUseCases = [
-    ...useCases.items,
+  const items = [
+    ...useCases.tabs.map((tab, i) => ({
+      icon: TAB_ICONS[i] ?? FileText,
+      title: tab.label,
+      description: tab.body,
+    })),
     {
       icon: SearchCheck,
-      title: "Проверка активов \\ партнеров",
+      title: "Проверка активов / партнёров",
       description:
-        "Проведение дополнительной проверки активов \\ контрагентов из анализируемых документов по выбранным критериям через сторонние сервисы и агрегирование результатов их проверки в основной отчет.",
+        "Проведение дополнительной проверки активов / контрагентов из анализируемых документов по выбранным критериям через сторонние сервисы и агрегирование результатов их проверки в основной отчёт.",
     },
   ];
 
-  // Схема цветов для левого блока по порядку сценариев
   const leftToneByIndex: string[] = [
-    "bg-white/70",      // 1. M&A и Due Diligence
-    "bg-[#efe9dd]",     // 2. Корпоративные правовые отделы (бежевый)
-    "bg-white/75",      // 3. Контрактный review (белый)
-    "bg-[#efe9dd]",     // 4. Аудит и расследования (бежевый)
-    "bg-white/70",      // 5. Проверка активов \ партнеров (белый)
+    "bg-white/70",
+    "bg-[#efe9dd]",
+    "bg-white/75",
+    "bg-[#efe9dd]",
+    "bg-white/70",
   ];
 
-  // Для правых блоков: по умолчанию белый, но те, что напротив
-  // "Корпоративные правовые отделы" и "Аудит и расследования" — бежевые
   const rightToneByIndex: string[] = [
-    "bg-white/60",      // 1. M&A
-    "bg-[#efe9dd]",     // 2. Корпоративные правовые отделы (бежевый)
-    "bg-white/60",      // 3. Контрактный review
-    "bg-[#efe9dd]",     // 4. Аудит и расследования (бежевый)
-    "bg-white/60",      // 5. Проверка активов \ партнеров
+    "bg-white/60",
+    "bg-[#efe9dd]",
+    "bg-white/60",
+    "bg-[#efe9dd]",
+    "bg-white/60",
   ];
 
   return (
     <MarketingEditorialShell
-      eyebrow="Solutions"
-      title="Сценарии, в которых LegalMAS даёт прикладной юридический результат"
+      title="Сценарии, в которых Steloom даёт прикладной юридический результат"
       description="Платформа подходит для M&A, due diligence, contract review, аудита и внутреннего расследования, когда нужен не общий summary, а проверяемый structured output."
-      primaryLink={{ label: "Открыть возможности", to: "/capabilities" }}
-      secondaryLink={{ label: "Посмотреть security", to: "/security" }}
     >
       <div className="grid gap-5">
-        {extendedUseCases.map((item, index) => {
+        {items.map((item, index) => {
           const Icon = item.icon;
           const leftTone =
-            leftToneByIndex[index] ?? leftToneByIndex[leftToneByIndex.length - 1];
+            leftToneByIndex[index] ??
+            leftToneByIndex[leftToneByIndex.length - 1];
           const rightTone =
-            rightToneByIndex[index] ?? rightToneByIndex[rightToneByIndex.length - 1];
+            rightToneByIndex[index] ??
+            rightToneByIndex[rightToneByIndex.length - 1];
 
           return (
             <div
               key={item.title}
               className="grid gap-4 lg:grid-cols-12 lg:gap-5"
             >
-              {/* Левый блок сценария */}
               <div
                 className={`rounded-[28px] border border-stone-900/10 p-6 lg:col-span-6 lg:p-7 ${leftTone}`}
               >
@@ -69,7 +76,6 @@ const SolutionsPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Правый блок описания */}
               <div
                 className={`rounded-[28px] border border-stone-900/10 p-6 lg:col-span-6 lg:p-7 ${rightTone}`}
               >
@@ -89,5 +95,3 @@ const SolutionsPage: React.FC = () => {
 };
 
 export default SolutionsPage;
-
-

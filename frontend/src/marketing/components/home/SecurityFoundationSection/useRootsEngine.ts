@@ -1,4 +1,4 @@
-// src/components/marketing/landing/SecurityFoundationSection/useRootsEngine.ts
+// src/marketing/components/home/SecurityFoundationSection/useRootsEngine.ts
 
 import { useEffect, useState } from "react";
 import { pickFragmentForWidth } from "./infrastructure-texts";

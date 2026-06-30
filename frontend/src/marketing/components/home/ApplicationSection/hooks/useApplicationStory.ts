@@ -6,38 +6,15 @@ import type { PanelState, RoleId, StoryPhase } from '../types';
 import {
   INTRO_DELAY_MS,
   PHASE_AUTO_DURATION_MS,
-  PHASE_THRESHOLDS,
-  SCROLL_IDLE_MS,
+  STORY_TOP_OFFSET_PX,
 } from '../constants';
 
 interface UseApplicationStoryReturn {
   getPanelState: (id: RoleId) => PanelState;
   showTitle: boolean;
   showCta: boolean;
-}
-
-const PHASE_ORDER: StoryPhase[] = ['intro', 'left', 'center', 'right', 'outro'];
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function phaseFromProgress(progress: number): StoryPhase {
-  if (progress >= PHASE_THRESHOLDS.outro) return 'outro';
-  if (progress >= PHASE_THRESHOLDS.right) return 'right';
-  if (progress >= PHASE_THRESHOLDS.center) return 'center';
-  if (progress >= PHASE_THRESHOLDS.left) return 'left';
-  return 'intro';
-}
-
-function phaseIndex(phase: StoryPhase): number {
-  return PHASE_ORDER.indexOf(phase);
-}
-
-function getNextPhase(phase: StoryPhase): StoryPhase | null {
-  const idx = phaseIndex(phase);
-  if (idx < 0 || idx >= PHASE_ORDER.length - 1) return null;
-  return PHASE_ORDER[idx + 1];
+  onPanelEnter: (id: RoleId) => void;
+  onPanelLeave: () => void;
 }
 
 function getRevealedPanels(phase: StoryPhase): Set<RoleId> {
@@ -58,17 +35,30 @@ function getRevealedPanels(phase: StoryPhase): Set<RoleId> {
   return revealed;
 }
 
+function getNextPhase(phase: StoryPhase): StoryPhase | null {
+  switch (phase) {
+    case 'intro':
+      return 'left';
+    case 'left':
+      return 'center';
+    case 'center':
+      return 'right';
+    case 'right':
+      return 'outro';
+    default:
+      return null;
+  }
+}
+
 export function useApplicationStory(
   trackRef: RefObject<HTMLElement | null>,
 ): UseApplicationStoryReturn {
-  const [scrollPhase, setScrollPhase] = useState<StoryPhase>('intro');
   const [autoPhase, setAutoPhase] = useState<StoryPhase>('intro');
-  const [isInView, setIsInView] = useState(false);
-  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const [hoveredPanel, setHoveredPanel] = useState<RoleId | null>(null);
+  const [isStoryActive, setIsStoryActive] = useState(false);
 
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hadScrollControlRef = useRef(false);
+  const wasActiveRef = useRef(false);
 
   const clearAutoTimer = useCallback(() => {
     if (autoTimerRef.current !== null) {
@@ -77,31 +67,7 @@ export function useApplicationStory(
     }
   }, []);
 
-  const clearScrollIdleTimer = useCallback(() => {
-    if (scrollIdleTimerRef.current !== null) {
-      clearTimeout(scrollIdleTimerRef.current);
-      scrollIdleTimerRef.current = null;
-    }
-  }, []);
-
-  const scheduleAutoAdvance = useCallback(
-    (fromPhase: StoryPhase) => {
-      clearAutoTimer();
-
-      const nextPhase = getNextPhase(fromPhase);
-      if (!nextPhase) return;
-
-      const delay =
-        fromPhase === 'intro' ? INTRO_DELAY_MS : PHASE_AUTO_DURATION_MS;
-
-      autoTimerRef.current = setTimeout(() => {
-        setAutoPhase(nextPhase);
-      }, delay);
-    },
-    [clearAutoTimer],
-  );
-
-  // ── Scroll tracking ──
+  // Определяем, что sticky-сцена реально "включилась"
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -116,26 +82,15 @@ export function useApplicationStory(
 
       const rect = el.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
-      const totalScrollable = Math.max(el.offsetHeight - viewportHeight, 1);
-      const passed = clamp(-rect.top, 0, totalScrollable);
-      const progress = clamp(passed / totalScrollable, 0, 1);
 
-      const visible = rect.top < viewportHeight && rect.bottom > 0;
-      setIsInView(visible);
-      setScrollPhase(phaseFromProgress(progress));
+      const stickyStartReached = rect.top <= STORY_TOP_OFFSET_PX + 1;
+      const sectionStillPinned = rect.bottom >= viewportHeight;
 
+      setIsStoryActive(stickyStartReached && sectionStillPinned);
       rafId = null;
     };
 
     const onScroll = () => {
-      setIsUserScrolling(true);
-      hadScrollControlRef.current = true;
-      clearScrollIdleTimer();
-
-      scrollIdleTimerRef.current = setTimeout(() => {
-        setIsUserScrolling(false);
-      }, SCROLL_IDLE_MS);
-
       if (rafId !== null) return;
       rafId = window.requestAnimationFrame(update);
     };
@@ -151,78 +106,94 @@ export function useApplicationStory(
       if (rafId !== null) {
         window.cancelAnimationFrame(rafId);
       }
-      clearScrollIdleTimer();
     };
-  }, [trackRef, clearScrollIdleTimer]);
+  }, [trackRef]);
 
-  // ── Reset when section leaves viewport ──
+  // Сброс / старт последовательности
   useEffect(() => {
-    if (!isInView) {
+    if (!isStoryActive) {
       clearAutoTimer();
-      clearScrollIdleTimer();
-      setIsUserScrolling(false);
       setAutoPhase('intro');
-      hadScrollControlRef.current = false;
-    }
-  }, [isInView, clearAutoTimer, clearScrollIdleTimer]);
-
-  // ── While scrolling: scroll fully controls the story ──
-  useEffect(() => {
-    if (!isInView) return;
-
-    if (isUserScrolling) {
-      clearAutoTimer();
-      setAutoPhase(scrollPhase);
-    }
-  }, [isInView, isUserScrolling, scrollPhase, clearAutoTimer]);
-
-  // ── When user stopped scrolling: continue auto-sequence from current scroll phase ──
-  useEffect(() => {
-    if (!isInView || isUserScrolling) return;
-
-    if (hadScrollControlRef.current) {
-      setAutoPhase(scrollPhase);
-      hadScrollControlRef.current = false;
+      setHoveredPanel(null);
+      wasActiveRef.current = false;
       return;
     }
 
-    scheduleAutoAdvance(autoPhase);
+    // если только что вошли в active-zone — стартуем заново
+    if (!wasActiveRef.current) {
+      setAutoPhase('intro');
+      setHoveredPanel(null);
+      wasActiveRef.current = true;
+    }
+  }, [isStoryActive, clearAutoTimer]);
+
+  // Авто-сценарий: intro 3s, далее по 5s на каждую колонку
+  useEffect(() => {
+    if (!isStoryActive) return;
+
+    // hover полностью ставит авто-сценарий на паузу
+    if (hoveredPanel) {
+      clearAutoTimer();
+      return;
+    }
+
+    clearAutoTimer();
+
+    const nextPhase = getNextPhase(autoPhase);
+    if (!nextPhase) return;
+
+    const delay =
+      autoPhase === 'intro' ? INTRO_DELAY_MS : PHASE_AUTO_DURATION_MS;
+
+    autoTimerRef.current = setTimeout(() => {
+      setAutoPhase(nextPhase);
+    }, delay);
 
     return clearAutoTimer;
-  }, [
-    isInView,
-    isUserScrolling,
-    scrollPhase,
-    autoPhase,
-    scheduleAutoAdvance,
-    clearAutoTimer,
-  ]);
+  }, [isStoryActive, autoPhase, hoveredPanel, clearAutoTimer]);
 
   useEffect(() => {
-    return () => {
-      clearAutoTimer();
-      clearScrollIdleTimer();
-    };
-  }, [clearAutoTimer, clearScrollIdleTimer]);
+    return () => clearAutoTimer();
+  }, [clearAutoTimer]);
 
-  const effectivePhase: StoryPhase =
-    !isInView ? 'intro' : isUserScrolling ? scrollPhase : autoPhase;
+  const onPanelEnter = useCallback((id: RoleId) => {
+    setHoveredPanel(id);
+  }, []);
+
+  const onPanelLeave = useCallback(() => {
+    setHoveredPanel(null);
+  }, []);
 
   const getPanelState = useCallback(
     (id: RoleId): PanelState => {
-      const revealed = getRevealedPanels(effectivePhase);
+      const autoRevealed = getRevealedPanels(autoPhase);
 
-      if (!revealed.has(id)) return 'hidden';
-      if (effectivePhase === id) return 'active';
+      // Hover override
+      if (hoveredPanel) {
+        if (id === hoveredPanel) return 'active';
+        if (autoRevealed.has(id)) return 'dormant';
+        return 'hidden';
+      }
+
+      // Авто-сценарий
+      if (!autoRevealed.has(id)) return 'hidden';
+
+      if (autoPhase === id) return 'active';
+
       return 'dormant';
     },
-    [effectivePhase],
+    [autoPhase, hoveredPanel],
   );
+
+  const showTitle = !hoveredPanel && autoPhase === 'intro';
+  const showCta = !hoveredPanel && autoPhase === 'outro';
 
   return {
     getPanelState,
-    showTitle: effectivePhase === 'intro',
-    showCta: effectivePhase === 'outro',
+    showTitle,
+    showCta,
+    onPanelEnter,
+    onPanelLeave,
   };
 }
 

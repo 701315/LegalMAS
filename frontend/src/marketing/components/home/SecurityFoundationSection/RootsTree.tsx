@@ -1,4 +1,4 @@
-// src/components/marketing/landing/SecurityFoundationSection/RootsTree.tsx
+// src/marketing/components/home/SecurityFoundationSection/RootsTree.tsx
 
 import React, { useEffect, useRef, type RefObject } from "react";
 import { useRootsEngine } from "./useRootsEngine";

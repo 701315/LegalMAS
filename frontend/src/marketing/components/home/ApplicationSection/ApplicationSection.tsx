@@ -10,7 +10,13 @@ import styles from './ApplicationSection.module.css';
 const ApplicationSection: React.FC = () => {
   const sectionRef = useRef<HTMLElement | null>(null);
 
-  const { getPanelState, showTitle, showCta } = useApplicationStory(sectionRef);
+  const {
+    getPanelState,
+    showTitle,
+    showCta,
+    onPanelEnter,
+    onPanelLeave,
+  } = useApplicationStory(sectionRef);
 
   return (
     <section
@@ -36,12 +42,13 @@ const ApplicationSection: React.FC = () => {
             </h2>
           </div>
 
-          <div className={styles.panelsRow}>
+          <div className={styles.panelsRow} onMouseLeave={onPanelLeave}>
             {ROLE_ORDER.map((roleId) => (
               <RolePanel
                 key={roleId}
                 role={ROLES[roleId]}
                 panelState={getPanelState(roleId)}
+                onMouseEnter={() => onPanelEnter(roleId)}
               />
             ))}
           </div>

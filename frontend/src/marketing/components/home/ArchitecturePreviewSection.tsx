@@ -1,4 +1,4 @@
-// src/components/marketing/landing/ArchitecturePreviewSection.tsx
+// src/marketing/components/home/ArchitecturePreviewSection.tsx
 
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";

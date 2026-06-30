@@ -1,22 +1,20 @@
 // src/marketing/components/home/ApplicationSection/constants.ts
 
-/** Задержка перед первым reveal после входа в секцию */
-export const INTRO_DELAY_MS = 2500;
+/** Чёрный экран с заголовком */
+export const INTRO_DELAY_MS = 3000;
 
-/** Сколько панель остаётся active, если пользователь не скроллит */
+/** Сколько колонка остаётся active в авто-сценарии */
 export const PHASE_AUTO_DURATION_MS = 5000;
 
-/** Через сколько ms после остановки scroll считаем что пользователь не скроллит */
-export const SCROLL_IDLE_MS = 180;
+/** Сколько максимум играет видео при одной активации */
+export const ACTIVE_VIDEO_PLAY_MS = 5000;
 
-/** Границы scroll-progress для фаз */
-export const PHASE_THRESHOLDS = {
-  intro: 0,
-  left: 0.15,
-  center: 0.4,
-  right: 0.65,
-  outro: 0.88,
-} as const;
+/** Верхняя граница sticky stage = высота header */
+export const STORY_TOP_OFFSET_PX = 68;
+
+
+
+
 
 
 

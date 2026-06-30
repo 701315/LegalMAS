@@ -1,41 +1,38 @@
-// frontend/src/components/marketing/landing/ConceptTagsSection.tsx
+// src/marketing/components/home/ConceptTagsSection.tsx
 
 import React from "react";
-
-// Установить: npm install react-fast-marquee
-// Если не хочешь пакет — используем CSS-анимацию ниже как fallback
 import Marquee from "react-fast-marquee";
-
-const ROW_1 = [
-  "Due Diligence", "Clause Extraction", "Risk Mapping", "M&A",
-  "Data Room Analysis", "Playbook Review", "Obligation Tracking", "Deal Structuring",
-];
-const ROW_2 = [
-  "Knowledge Graph", "Document Intelligence", "Structure Analysis",
-  "Contract Review", "Audit Trail", "Source-linked Outputs", "Legal Ops", "Cross-reference",
-];
+import { landingContent } from "../../content/landingContent";
 
 function Tag({ label }: { label: string }) {
   return (
-    <span className="mx-2.5 inline-flex items-center rounded-full border border-[#E5E2DA] bg-white px-4 py-1.5 text-xs font-medium text-stone-500 whitespace-nowrap">
+    <span className="mx-3 inline-flex items-center rounded-full border border-[#E5E2DA] bg-white px-5 py-2.5 text-sm font-medium leading-none text-stone-600 whitespace-nowrap shadow-[0_1px_2px_rgba(17,24,39,0.03)]">
       {label}
     </span>
   );
 }
 
-const ConceptTagsSection: React.FC = () => (
-  <section className="overflow-hidden border-y border-[#E5E2DA] bg-[#F8F7F4] py-7">
-    <div className="mb-3">
-      <Marquee speed={28} gradient={false} pauseOnHover>
-        {ROW_1.map((tag) => <Tag key={tag} label={tag} />)}
+const ConceptTagsSection: React.FC = () => {
+  const { row1, row2 } = landingContent.conceptTags;
+
+  return (
+    <section className="overflow-hidden border-y border-[#E5E2DA] bg-[#F8F7F4] py-10 sm:py-12">
+      <div className="mb-4">
+        <Marquee speed={24} gradient={false} pauseOnHover>
+          {row1.map((tag) => (
+            <Tag key={tag} label={tag} />
+          ))}
+        </Marquee>
+      </div>
+
+      <Marquee speed={18} gradient={false} direction="right" pauseOnHover>
+        {row2.map((tag) => (
+          <Tag key={tag} label={tag} />
+        ))}
       </Marquee>
-    </div>
-    <Marquee speed={22} gradient={false} direction="right" pauseOnHover>
-      {ROW_2.map((tag) => <Tag key={tag} label={tag} />)}
-    </Marquee>
-  </section>
-);
+    </section>
+  );
+};
 
 export default ConceptTagsSection;
-
 

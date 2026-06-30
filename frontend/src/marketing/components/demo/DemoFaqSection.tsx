@@ -1,7 +1,7 @@
 // frontend/src/components/marketing/demo/DemoFaqSection.tsx
 
 import React, { useState } from "react";
-import { demoContent } from "../../../content/demoContent";
+import { demoContent } from "../../content/demoContent";
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);

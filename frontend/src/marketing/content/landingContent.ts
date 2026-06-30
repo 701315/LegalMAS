@@ -22,7 +22,7 @@ import sourceLinkedImage from "../components/assets/photos/Source-linked.jpg";
 export const landingContent = {
   brand: {
     name: "Steloom",
-    tagline: "The intelligence layer for legal work",
+    tagline: "Интеллектуальный слой для юридической работы",
   },
 
   nav: [
@@ -34,17 +34,17 @@ export const landingContent = {
 
   // ─── HERO ────────────────────────────────────────────────────────────────────
   hero: {
-    eyebrow: "Intelligence layer for legal work",
+    eyebrow: "Интеллектуальный слой для юридической работы",
     title: "Превращайте документы\nв структурированное знание.",
     description:
       "Steloom превращает массивы юридических документов в связанную, проверяемую и пригодную для работы интеллектуальную систему. Команда тратит меньше времени на ручное чтение, поиск и сверку — больше на выводы и решения.",
     primaryCta: "Запросить демо",
     secondaryCta: "Посмотреть сценарии",
     chips: [
-      "Playbook-driven review",
-      "Source-linked outputs",
+      "Проверка по playbook",
+      "Выводы с привязкой к источнику",
       "Local-first LLM",
-      "Audit-ready workflow",
+      "Аудитируемый workflow",
     ],
     panelTitle: "Это не document viewer, не репозиторий и не чат",
     panelItems: [
@@ -57,13 +57,13 @@ export const landingContent = {
 
   // ─── TRUST STRIP ─────────────────────────────────────────────────────────────
   trustStrip: [
-    "Built for DD & M&A",
-    "Source-linked outputs",
-    "Privacy-first by design",
-    "Hybrid retrieval + rule-based checks",
-    "Audit-ready workflow",
-    "Playbook-driven review",
-    "Enterprise security",
+    "Создан для DD и M&A",
+    "Выводы с привязкой к источнику",
+    "Privacy-first по умолчанию",
+    "Гибридный поиск + rule-based проверки",
+    "Аудитируемый workflow",
+    "Проверка по playbook",
+    "Enterprise-безопасность",
   ],
 
   // ─── CONCEPT TAGS ────────────────────────────────────────────────────────────
@@ -74,23 +74,23 @@ export const landingContent = {
       "Due diligence, clause extraction, risk mapping, obligation tracking, source-linked outputs, structure analysis — Steloom собирает разрозненные задачи в единый и управляемый процесс.",
     row1: [
       "Due Diligence",
-      "Clause Extraction",
-      "Risk Mapping",
+      "Извлечение положений",
+      "Карта рисков",
       "M&A",
-      "Data Room Analysis",
-      "Playbook Review",
-      "Obligation Tracking",
-      "Deal Structuring",
+      "Анализ Data Room",
+      "Проверка по playbook",
+      "Отслеживание обязательств",
+      "Структурирование сделки",
     ],
     row2: [
-      "Knowledge Graph",
+      "Граф знаний",
       "Document Intelligence",
-      "Structure Analysis",
+      "Анализ структуры",
       "Contract Review",
       "Audit Trail",
-      "Source-linked Outputs",
+      "Выводы с источниками",
       "Legal Ops",
-      "Cross-reference",
+      "Перекрёстные ссылки",
     ],
   },
 
@@ -106,21 +106,21 @@ export const landingContent = {
         title: "M&A-команды",
         headline: "Скорость и контроль в data room.",
         body: "Структурированный review против playbook, автоматическое извлечение положений и рисков, прозрачный путь от документа к выводу. Сделка движется быстрее — без потери качества.",
-        tags: ["Due Diligence", "Data Room", "Risk Extraction", "Playbook Review"],
+        tags: ["Due Diligence", "Data Room", "Извлечение рисков", "Проверка playbook"],
       },
       {
         icon: Building2,
         title: "Legal Ops",
         headline: "Повторяемость, прозрачность и масштабирование.",
         body: "Стандартизированный процесс review, который не зависит от конкретного юриста. Steloom фиксирует методологию команды в playbook и воспроизводит её на каждом новом документном массиве.",
-        tags: ["Process Standardization", "Audit Trail", "Workflow Automation"],
+        tags: ["Стандартизация процессов", "Audit Trail", "Автоматизация workflow"],
       },
       {
         icon: Scale,
         title: "General Counsel",
         headline: "Управляемый риск и доказуемость выводов.",
         body: "Каждый вывод привязан к источнику. Решения принимаются на основе проверяемых данных, а не пересказа. Steloom даёт ясность для управленческих решений и снижает цену пропущенного риска.",
-        tags: ["Risk Management", "Decision Support", "Explainable Outputs"],
+        tags: ["Управление рисками", "Поддержка решений", "Объяснимые выводы"],
       },
     ],
   },
@@ -135,21 +135,21 @@ export const landingContent = {
       {
         value: 10,
         suffix: "×",
-        label: "Faster due diligence",
-        sub: "vs. manual document review",
+        label: "Быстрее due diligence",
+        sub: "vs. ручной проверки документов",
       },
       {
         value: 40,
-        suffix: "h",
-        label: "Saved per transaction",
-        sub: "average across M&A workflows",
+        suffix: "ч",
+        label: "Экономия на сделку",
+        sub: "в среднем по M&A-процессам",
       },
       {
         value: 2,
-        suffix: "M",
+        suffix: "М",
         prefix: "$",
-        label: "Cost per missed clause",
-        sub: "industry benchmark, top-tier deals",
+        label: "Цена пропущенного условия",
+        sub: "отраслевой ориентир для крупных сделок",
       },
     ],
     quote:
@@ -165,7 +165,7 @@ export const landingContent = {
     featured: [
       {
         icon: FileSearch,
-        title: "Playbook-driven analysis",
+        title: "Анализ по playbook",
         description:
           "Платформа применяет юридические проверки по настраиваемым playbooks — команда получает единый, повторяемый и контролируемый подход к review. Шаблон — только отправная точка, ядро — ваша логика.",
       },
@@ -179,19 +179,19 @@ export const landingContent = {
     support: [
       {
         icon: Lock,
-        title: "Privacy-first architecture",
+        title: "Privacy-first архитектура",
         description:
           "Local-first обработка и PII-gateway перед внешними моделями. Документы не покидают контур без явного решения администратора.",
       },
       {
         icon: CheckCircle2,
-        title: "Source-linked outputs",
+        title: "Выводы с привязкой к источнику",
         description:
           "Каждый вывод связан с конкретным фрагментом текста — пунктом, страницей, документом. Проверяем в одно касание.",
       },
       {
         icon: FileSpreadsheet,
-        title: "Structured reporting",
+        title: "Структурированная отчётность",
         description:
           "Результаты готовы к экспорту в рабочие таблицы, DD-отчёт и дальнейшую работу команды.",
       },
@@ -207,31 +207,31 @@ export const landingContent = {
     steps: [
       {
         icon: ScanSearch,
-        title: "Ingest",
+        title: "Загрузка",
         text: "Загрузка PDF, DOCX, XLSX и сканов в единый поток обработки.",
       },
       {
         icon: Workflow,
-        title: "Normalize",
-        text: "OCR, language detection, structure parsing и semantic chunking.",
+        title: "Нормализация",
+        text: "OCR, определение языка, разбор структуры и семантическая разбивка.",
       },
       {
         icon: Layers3,
-        title: "Evaluate",
-        text: "Hybrid retrieval, playbook checks, LLM + rules logic и risk detection.",
+        title: "Оценка",
+        text: "Гибридный поиск, проверки по playbook, логика LLM + rules и детекция рисков.",
       },
       {
         icon: ArrowUpRight,
-        title: "Report",
-        text: "Структурированный результат с source links, статусами и export-ready форматом.",
+        title: "Отчёт",
+        text: "Структурированный результат с ссылками на источники, статусами и форматом для экспорта.",
       },
     ],
     bullets: [
-      "OCR и text extraction",
-      "Language detection",
-      "PII sanitization",
-      "Document structure parsing",
-      "Hybrid retrieval + checks",
+      "OCR и извлечение текста",
+      "Определение языка",
+      "Санация PII",
+      "Разбор структуры документа",
+      "Гибридный поиск + проверки",
       "Event-driven pipeline",
     ],
     linkLabel: "Открыть архитектуру и пайплайн",
@@ -239,7 +239,7 @@ export const landingContent = {
 
   // ─── USE CASES ───────────────────────────────────────────────────────────────
   useCases: {
-    eyebrow: "Use cases",
+    eyebrow: "Сценарии",
     title: "Интеллектуальная обработка\nна каждом этапе сделки.",
     description:
       "От due diligence до drafting, review и pre-closing — Steloom встроен в реальный рабочий цикл команды.",
@@ -249,31 +249,31 @@ export const landingContent = {
         label: "Due Diligence",
         headline: "Извлеките каждое обязательство до первого красного флага.",
         body: "Steloom обрабатывает data room против вашего playbook — каждое положение, риск и перекрёстная ссылка структурированы и доступны за часы, а не недели. Ни одно условие не теряется на странице 47.",
-        tags: ["Clause extraction", "Risk mapping", "Playbook review"],
+        tags: ["Извлечение положений", "Карта рисков", "Проверка playbook"],
         video: "/video/workflow-process.mp4",
       },
       {
         id: "drafting",
-        label: "Drafting",
+        label: "Подготовка документов",
         headline: "Формируйте структуру договора на основе проверенных шаблонов.",
         body: "Интеллектуальная база сохраняет выверенные формулировки, связанные с источником. При разработке нового документа команда опирается на институциональную память, а не на личные заметки.",
-        tags: ["Template intelligence", "Clause library", "Source-linked"],
+        tags: ["Template intelligence", "Библиотека положений", "Привязка к источнику"],
         video: "/video/workflow-process.mp4",
       },
       {
         id: "review",
-        label: "Review",
+        label: "Проверка",
         headline: "Видите различия, риски и отступления — быстро и без пропусков.",
         body: "Steloom выделяет отклонения от стандартных позиций, автоматически связывает похожие положения в разных документах и показывает контекст каждого вывода через прямую ссылку на источник.",
-        tags: ["Redline intelligence", "Cross-reference", "Deviation flags"],
+        tags: ["Анализ правок", "Перекрёстные ссылки", "Флаги отклонений"],
         video: "/video/workflow-process.mp4",
       },
       {
         id: "closing",
-        label: "Pre-Closing",
+        label: "Преддоговорный этап",
         headline: "Проверьте выполнение условий и закройте сделку уверенно.",
         body: "Трекер обязательств показывает статус каждого условия сделки в реальном времени. Команда видит что выполнено, что открыто и что требует эскалации — до подписания.",
-        tags: ["Obligation tracking", "Closing checklist", "Audit trail"],
+        tags: ["Отслеживание обязательств", "Чеклист закрытия", "Audit trail"],
         video: "/video/workflow-process.mp4",
       },
     ],
@@ -286,9 +286,9 @@ export const landingContent = {
     description:
       "Роли и права доступа, контуры работы с чувствительными данными, source-linked outputs и audit trail делают Steloom понятным не только юристам, но и security / IT-функции. Продукт проходит enterprise security review.",
     badges: [
-      "Local-first processing",
+      "Local-first обработка",
       "PII sanitization gateway",
-      "Role-based access",
+      "Разграничение доступа",
       "Audit trail",
     ],
     cards: [
@@ -298,12 +298,12 @@ export const landingContent = {
         image: localFirstImage,
       },
       {
-        title: "Controlled cloud mode",
+        title: "Контролируемый cloud-режим",
         text: "Внешние LLM подключаются в управляемом режиме с предварительной санацией данных.",
         image: controlledCloudImage,
       },
       {
-        title: "Source-linked + audit-ready",
+        title: "Source-linked и аудитируемый",
         text: "Результаты подходят для review, внутреннего контроля и объяснимого анализа.",
         image: sourceLinkedImage,
       },
@@ -319,7 +319,6 @@ export const landingContent = {
       "Впервые за годы работы с data room у нас есть инструмент, который не просто ищет по тексту, а понимает структуру сделки. Steloom — это то, что мы искали под DD-процесс.",
     author: "Партнёр, M&A практика",
     company: "Крупная международная юрфирма",
-    // Заглушка — заменить на реальные данные при появлении social proof
     placeholder: true,
   },
 
@@ -365,7 +364,7 @@ export const landingContent = {
 
   // ─── FINAL CTA ───────────────────────────────────────────────────────────────
   finalCta: {
-    eyebrow: "The intelligence layer for legal work",
+    eyebrow: "Интеллектуальный слой для юридической работы",
     title: "Превращайте документы\nв структурированное знание.",
     description:
       "Steloom даёт команде структурированное, проверяемое и пригодное к действию знание из любого набора документов — быстро, спокойно и без потери контроля.",
@@ -376,9 +375,9 @@ export const landingContent = {
 
   // ─── FOOTER ──────────────────────────────────────────────────────────────────
   footer: {
-    tagline: "The intelligence layer for legal work.",
+    tagline: "Интеллектуальный слой для юридической работы.",
     description:
-      "Intelligence layer for legal work. Playbook-driven review, source-linked outputs and controllable document workflows for M&A and corporate legal teams.",
+      "Интеллектуальный слой для юридической работы. Проверка по playbook, выводы с привязкой к источникам и управляемые document workflows для M&A и корпоративных юридических команд.",
     nav: {
       product: [
         { label: "Возможности", href: "/capabilities" },
@@ -388,12 +387,13 @@ export const landingContent = {
       ],
       trust: [
         { label: "Безопасность", href: "/security" },
-        { label: "Use cases", href: "/solutions" },
+        { label: "Сценарии", href: "/solutions" },
         { label: "Запросить демо", href: "/demo" },
       ],
     },
-    legal: "© 2026 Steloom. All rights reserved.",
-    built: "Built for sensitive legal workflows.",
+    legal: "© 2026 Steloom. Все права защищены.",
+    built: "Создан для работы с чувствительными юридическими документами.",
   },
 } as const;
+
 

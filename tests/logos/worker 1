@@ -1,0 +1,538 @@
+=== Worker Checks ===
+Waiting 5 sec...
+2026-06-29 20:06:25 [info     ] EmbeddingService: loading model cache_dir=.cache/embeddings model=intfloat/multilingual-e5-small
+2026-06-29 20:06:42 [info     ] EmbeddingService: model ready  dim=384 model=intfloat/multilingual-e5-small
+
+ -------------- worker-heavy-checks@LAPTOP-70V01FA5 v5.4.0 (opalescent)
+--- ***** -----
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39 2026-06-29 20:06:44
+- *** --- * ---
+- ** ---------- [config]
+- ** ---------- .> app:         mas_dd:0x723b932f2ed0
+- ** ---------- .> transport:   redis://localhost:6379/0
+- ** ---------- .> results:     redis://localhost:6379/1
+- *** --- * --- .> concurrency: 1 (solo)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** -----
+ -------------- [queues]
+                .> heavy_llm_checks exchange=heavy_llm_checks(direct) key=heavy_llm_checks
+
+
+[tasks]
+  . debug.always_fail_permanent
+  . debug.always_fail_transient
+  . export.process_pending
+  . pii.sanitize_document
+  . workers.build_chunks
+  . workers.build_legal_units_enrichment
+  . workers.build_primary_language_source
+  . workers.build_relations
+  . workers.build_structure
+  . workers.classify_document
+  . workers.classify_document_segments
+  . workers.convert_document_for_language_discovery
+  . workers.convert_to_pdf
+  . workers.detect_document_languages_native
+  . workers.detect_document_languages_ocr
+  . workers.export_by_id
+  . workers.export_results
+  . workers.extract_document
+  . workers.finalize_run_if_ready
+  . workers.import_bundle
+  . workers.outbox_dispatcher
+  . workers.prepare_document_for_language_discovery
+  . workers.run_deal_checks
+  . workers.run_single_check
+  . workers.start_language_discovery
+  . workers.start_run_pipeline
+
+[2026-06-29 20:06:44,972: INFO/MainProcess] Connected to redis://localhost:6379/0
+[2026-06-29 20:06:45,003: INFO/MainProcess] mingle: searching for neighbors
+[2026-06-29 20:06:46,056: INFO/MainProcess] mingle: all alone
+[2026-06-29 20:06:46,083: INFO/MainProcess] worker-heavy-checks@LAPTOP-70V01FA5 ready.
+[2026-06-29 20:06:49,370: INFO/MainProcess] sync with worker-default@LAPTOP-70V01FA5
+[2026-06-29 20:18:54,483: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 20:39:00,707: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 21:44:34,950: INFO/MainProcess] Task workers.run_single_check[ecdb7b58-7d89-4508-9e42-e38325cc5eea] received
+[2026-06-29 21:44:35,068: WARNING/MainProcess] 2026-06-29 21:44:35 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=ecdb7b58-7d89-4508-9e42-e38325cc5eea task_name=workers.run_single_check
+[2026-06-29 21:44:35,074: WARNING/MainProcess] 2026-06-29 21:44:35 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'confidentiality_and_trade_secrets', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 21:44:36,189: WARNING/MainProcess] 2026-06-29 21:44:36 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 21:44:36,547: WARNING/MainProcess] 2026-06-29 21:44:36 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 21:44:46,512: WARNING/MainProcess] 2026-06-29 21:44:46 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'confidentiality_and_trade_secrets', 'ui_mode': None, 'extraction_enabled': True}
+[2026-06-29 21:44:46,514: WARNING/MainProcess] 2026-06-29 21:44:46 [debug    ] ExtractionExecutor.run started check_id=confidentiality_and_trade_secrets doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 21:44:46,516: WARNING/MainProcess] 2026-06-29 21:44:46 [debug    ] ExtractionLLMDetector: context_text sample check_id=confidentiality_and_trade_secrets context_preview=[Пункт 7.3.3, В течение 7 (семь) лет с момента заключения Договора Стороны обязуются, стр. 6]
+ЗАКЛЮЧИТЕЛЬНЫЕ ПОЛОЖЕНИЯ
+Прочее
+
+7.3.3 В течение 7 (семь) лет с момента заключения Договора Стороны обязуются
+
+сохранять конфиденциальность и не разглашать без предварительного письменного согласия другой
+
+Стороны информацию, затрагивающую отношения Сторон в рамках Договора, за
+
+исключением случаев, когда context_words=305
+[2026-06-29 21:44:46,520: WARNING/MainProcess] 2026-06-29 21:44:46 [info     ] LLM call                       effective_max_tokens=380 grammar_requested=True max_tokens=380 prompt_preview=<role>
+Ты — юрист по коммерческим договорам.
+Твоя задача — точно извлечь из текста:
+1) есть ли в договоре требования к конфиденциальности;
+2) если есть — какой срок конфиденциальности установлен.
+
+Не  prompt_tokens=5430 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 380, 'prompt_tokens': 5430, 'effective_max_tokens': 380, 'safety_margin': 256}
+[2026-06-29 21:50:38,317: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:50:38,369: WARNING/MainProcess] 2026-06-29 21:50:38 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'confidentiality_and_trade_secrets', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 21:50:38,475: WARNING/MainProcess] 2026-06-29 21:50:38 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'confidentiality_and_trade_secrets', 'result': 'pass', 'severity': 'pass', 'duration_sec': 363.4}
+[2026-06-29 21:50:38,522: WARNING/MainProcess] 2026-06-29 21:50:38 [info     ] Task completed                 task_id=ecdb7b58-7d89-4508-9e42-e38325cc5eea task_name=workers.run_single_check
+[2026-06-29 21:50:38,522: INFO/MainProcess] Task workers.run_single_check[ecdb7b58-7d89-4508-9e42-e38325cc5eea] succeeded in 354.9992012330331s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'confidentiality_and_trade_secrets', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 21:50:38,532: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 21:50:38,533: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 21:50:38,533: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 21:50:38,533: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 21:50:38,535: WARNING/MainProcess] Substantial drift from worker-default@LAPTOP-70V01FA5 may mean clocks are out of sync.  Current drift is 363 seconds.  [orig: 2026-06-29 21:50:38.535525 recv: 2026-06-29 21:44:35.006514]
+[2026-06-29 21:50:38,536: WARNING/MainProcess] Substantial drift from worker-heavy-enrichment@LAPTOP-70V01FA5 may mean clocks are out of sync.  Current drift is 363 seconds.  [orig: 2026-06-29 21:50:38.536005 recv: 2026-06-29 21:44:35.772337]
+[2026-06-29 21:50:38,536: WARNING/MainProcess] Substantial drift from worker-system@LAPTOP-70V01FA5 may mean clocks are out of sync.  Current drift is 363 seconds.  [orig: 2026-06-29 21:50:38.536277 recv: 2026-06-29 21:44:35.830408]
+[2026-06-29 21:50:38,536: WARNING/MainProcess] Substantial drift from worker-heavy-segment-classification@LAPTOP-70V01FA5 may mean clocks are out of sync.  Current drift is 363 seconds.  [orig: 2026-06-29 21:50:38.536522 recv: 2026-06-29 21:44:35.831910]
+[2026-06-29 21:50:38,613: INFO/MainProcess] Task workers.run_single_check[98a75407-d900-4fe0-b2ff-9f6435c1cfa6] received
+[2026-06-29 21:50:38,615: WARNING/MainProcess] 2026-06-29 21:50:38 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=98a75407-d900-4fe0-b2ff-9f6435c1cfa6 task_name=workers.run_single_check
+[2026-06-29 21:50:38,615: WARNING/MainProcess] 2026-06-29 21:50:38 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'governing_law_and_forum', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 21:50:38,625: WARNING/MainProcess] 2026-06-29 21:50:38 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 21:50:39,010: WARNING/MainProcess] 2026-06-29 21:50:39 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 21:50:39,350: WARNING/MainProcess] 2026-06-29 21:50:39 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'governing_law_and_forum', 'ui_mode': None, 'extraction_enabled': True}
+[2026-06-29 21:50:39,351: WARNING/MainProcess] 2026-06-29 21:50:39 [debug    ] ExtractionExecutor.run started check_id=governing_law_and_forum doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 21:50:39,352: WARNING/MainProcess] 2026-06-29 21:50:39 [debug    ] ExtractionLLMDetector: context_text sample check_id=governing_law_and_forum context_preview=[Пункт 7, ЗАКЛЮЧИТЕЛЬНЫЕ ПОЛОЖЕНИЯ, стр. 5–8]
+7 ЗАКЛЮЧИТЕЛЬНЫЕ ПОЛОЖЕНИЯ
+
+7.1 Законодательство и разрешение
+
+споров
+
+7.1.1 Отношения Сторон, связанные с заключением, изменением, исполнением и
+
+расторжением Договора подлежат толкованию и регулированию в соответствии с Законодательством.
+
+7.1.2 Все споры и разногласия, возникшие между Сторонами в связи с
+
+Договором, рассмотрение передается в Арбитра context_words=621
+[2026-06-29 21:50:39,353: WARNING/MainProcess] 2026-06-29 21:50:39 [info     ] LLM call                       effective_max_tokens=420 grammar_requested=True max_tokens=420 prompt_preview=<role>
+Ты — юрист по международным контрактам и разрешению споров.
+Твоя задача — извлечь из текста договора:
+1) применимое право;
+2) форум разрешения споров;
+3) верхнеуровневый факт наличия обязательн prompt_tokens=6475 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 420, 'prompt_tokens': 6475, 'effective_max_tokens': 420, 'safety_margin': 256}
+[2026-06-29 22:00:55,372: WARNING/MainProcess] 2026-06-29 22:00:55 [warning  ] LLM call timed out             provider=ollama
+[2026-06-29 22:00:55,378: WARNING/MainProcess] 2026-06-29 22:00:55 [warning  ] LLMClient transient error, will retry if attempts left attempt=1 error=LLM timeout (ollama) max_retries=2 provider=ollama
+[2026-06-29 22:00:55,379: WARNING/MainProcess] 2026-06-29 22:00:55 [info     ] LLM call                       effective_max_tokens=420 grammar_requested=True max_tokens=420 prompt_preview=<role>
+Ты — юрист по международным контрактам и разрешению споров.
+Твоя задача — извлечь из текста договора:
+1) применимое право;
+2) форум разрешения споров;
+3) верхнеуровневый факт наличия обязательн prompt_tokens=6475 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 420, 'prompt_tokens': 6475, 'effective_max_tokens': 420, 'safety_margin': 256}
+[2026-06-29 22:02:45,336: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:02:45,352: WARNING/MainProcess] 2026-06-29 22:02:45 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'governing_law_and_forum', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 22:02:45,389: WARNING/MainProcess] 2026-06-29 22:02:45 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'governing_law_and_forum', 'result': 'pass', 'severity': 'pass', 'duration_sec': 726.77}
+[2026-06-29 22:02:45,405: WARNING/MainProcess] 2026-06-29 22:02:45 [info     ] Task completed                 task_id=98a75407-d900-4fe0-b2ff-9f6435c1cfa6 task_name=workers.run_single_check
+[2026-06-29 22:02:45,405: INFO/MainProcess] Task workers.run_single_check[98a75407-d900-4fe0-b2ff-9f6435c1cfa6] succeeded in 707.6674312539981s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'governing_law_and_forum', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:02:45,410: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:02:45,410: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:02:45,410: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:02:45,410: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:02:45,589: INFO/MainProcess] Task workers.run_single_check[525edf0e-2864-4c6f-9f59-9b3bce43c744] received
+[2026-06-29 22:02:45,590: WARNING/MainProcess] 2026-06-29 22:02:45 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=525edf0e-2864-4c6f-9f59-9b3bce43c744 task_name=workers.run_single_check
+[2026-06-29 22:02:45,590: WARNING/MainProcess] 2026-06-29 22:02:45 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'parties_and_authority', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:02:45,604: WARNING/MainProcess] 2026-06-29 22:02:45 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:02:50,018: WARNING/MainProcess] 2026-06-29 22:02:50 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:02:50,325: WARNING/MainProcess] 2026-06-29 22:02:50 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'parties_and_authority', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:02:50,325: WARNING/MainProcess] 2026-06-29 22:02:50 [debug    ] ExtractionExecutor.run started check_id=parties_and_authority doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:02:50,326: WARNING/MainProcess] 2026-06-29 22:02:50 [debug    ] ExtractionLLMDetector: context_text sample check_id=parties_and_authority context_preview=[Пункт __preamble__, стр. 3]
+ИМУЩЕСТВА
+
+Настоящий Договор купли-продажи имущества заключен 15 Декабря 2014 года между:
+
+(1) Обществом с ограниченной ответственностью Гриффин-Автосервис ,
+
+зарегистрированным в соответствии с законодательством Российской Федерации 04 марта
+
+1999 года, наименование органа, зарегистрировавшего создание: Регистрационная палата
+
+Администрации Санкт-Петербурга, ОГРН: 103 context_words=452
+[2026-06-29 22:02:50,330: WARNING/MainProcess] 2026-06-29 22:02:50 [info     ] LLM call                       effective_max_tokens=450 grammar_requested=True max_tokens=450 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь идентификационные данные сторон и сведения о полномочиях подписантов из текста договора.
+Анализируй только стороны, их реквизиты, подписантов и осно prompt_tokens=4240 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 450, 'prompt_tokens': 4240, 'effective_max_tokens': 450, 'safety_margin': 256}
+[2026-06-29 22:09:49,218: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:09:49,221: WARNING/MainProcess] 2026-06-29 22:09:49 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'parties_and_authority', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 22:09:49,223: WARNING/MainProcess] 2026-06-29 22:09:49 [debug    ] result_semantics: display_text built from compact grid factual summary extra={'ui_mode': 'field_extraction'}
+[2026-06-29 22:09:49,235: WARNING/MainProcess] 2026-06-29 22:09:49 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'parties_and_authority', 'result': 'pass', 'severity': 'pass', 'duration_sec': 423.64}
+[2026-06-29 22:09:49,246: WARNING/MainProcess] 2026-06-29 22:09:49 [info     ] Task completed                 task_id=525edf0e-2864-4c6f-9f59-9b3bce43c744 task_name=workers.run_single_check
+[2026-06-29 22:09:49,250: INFO/MainProcess] Task workers.run_single_check[525edf0e-2864-4c6f-9f59-9b3bce43c744] succeeded in 411.92230248299893s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'parties_and_authority', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:09:49,254: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:09:49,254: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:09:49,254: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:09:49,254: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:09:49,360: INFO/MainProcess] Task workers.run_single_check[b94006c3-55f7-44ef-90ee-e3926f4a5e09] received
+[2026-06-29 22:09:49,363: WARNING/MainProcess] 2026-06-29 22:09:49 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=b94006c3-55f7-44ef-90ee-e3926f4a5e09 task_name=workers.run_single_check
+[2026-06-29 22:09:49,363: WARNING/MainProcess] 2026-06-29 22:09:49 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'subject_quantity_price', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:09:49,374: WARNING/MainProcess] 2026-06-29 22:09:49 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:09:49,615: WARNING/MainProcess] 2026-06-29 22:09:49 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:09:49,747: WARNING/MainProcess] 2026-06-29 22:09:49 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'subject_quantity_price', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:09:49,747: WARNING/MainProcess] 2026-06-29 22:09:49 [debug    ] ExtractionExecutor.run started check_id=subject_quantity_price doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:09:49,748: WARNING/MainProcess] 2026-06-29 22:09:49 [debug    ] ExtractionLLMDetector: context_text sample check_id=subject_quantity_price context_preview=[Пункт 2.1, В соответствии с Договором, Продавец обязуется передать в собственность, стр. 3]
+ПРЕДМЕТ ДОГОВОРА
+
+2.1 В соответствии с Договором, Продавец обязуется передать в собственность
+
+Покупателя Имущество, а Покупатель обязуется принять Имущество и уплатить за них Покупную цену.
+
+---
+
+[Пункт 1.4, Имущество, стр. 3]
+1.4 Имущество означает движимое имущество (включая оборудование,
+
+запасные прин context_words=390
+[2026-06-29 22:09:49,749: WARNING/MainProcess] 2026-06-29 22:09:49 [info     ] LLM call                       effective_max_tokens=380 grammar_requested=True max_tokens=380 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о предмете, количестве и цене товара.
+Не анализируй порядок оплаты, НДС, просрочку оплаты или иные темы.
+Не оцени prompt_tokens=3423 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 380, 'prompt_tokens': 3423, 'effective_max_tokens': 380, 'safety_margin': 256}
+[2026-06-29 22:15:10,937: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:15:10,945: WARNING/MainProcess] 2026-06-29 22:15:10 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'subject_quantity_price', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 22:15:10,948: WARNING/MainProcess] 2026-06-29 22:15:10 [debug    ] result_semantics: display_text built from compact grid factual summary extra={'ui_mode': 'field_extraction'}
+[2026-06-29 22:15:10,968: WARNING/MainProcess] 2026-06-29 22:15:10 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'subject_quantity_price', 'result': 'pass', 'severity': 'pass', 'duration_sec': 321.6}
+[2026-06-29 22:15:10,982: WARNING/MainProcess] 2026-06-29 22:15:10 [info     ] Task completed                 task_id=b94006c3-55f7-44ef-90ee-e3926f4a5e09 task_name=workers.run_single_check
+[2026-06-29 22:15:10,983: INFO/MainProcess] Task workers.run_single_check[b94006c3-55f7-44ef-90ee-e3926f4a5e09] succeeded in 313.15789166803006s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'subject_quantity_price', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:15:10,990: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:15:10,990: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:15:10,990: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:15:10,990: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:15:11,059: INFO/MainProcess] Task workers.run_single_check[822f5b16-7ccc-4f8b-adb7-36186ec6a567] received
+[2026-06-29 22:15:11,062: WARNING/MainProcess] 2026-06-29 22:15:11 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=822f5b16-7ccc-4f8b-adb7-36186ec6a567 task_name=workers.run_single_check
+[2026-06-29 22:15:11,062: WARNING/MainProcess] 2026-06-29 22:15:11 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'payment_terms', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:15:11,074: WARNING/MainProcess] 2026-06-29 22:15:11 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:15:11,317: WARNING/MainProcess] 2026-06-29 22:15:11 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:15:11,608: WARNING/MainProcess] 2026-06-29 22:15:11 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'payment_terms', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:15:11,608: WARNING/MainProcess] 2026-06-29 22:15:11 [debug    ] ExtractionExecutor.run started check_id=payment_terms doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:15:11,609: WARNING/MainProcess] 2026-06-29 22:15:11 [debug    ] ExtractionLLMDetector: context_text sample check_id=payment_terms context_preview=[Пункт 3.1, Покупная цена, уплачиваемая Покупателем по настоящему Договору, стр. 4]
+ПОКУПНАЯ ЦЕНА
+
+3.1 Покупная цена, уплачиваемая Покупателем по настоящему Договору
+
+составляет эквивалент рублевый 25 960 000 (двадцать пять миллионов девятьсот шестьдесят тысяч) рублей ,
+
+включая применимый НДС в размере 3 960 000 (три миллиона девятьсот шестьдесят тысяч)
+
+рублей
+
+.
+
+---
+
+[Пункт 3, ПОКУПНАЯ ЦЕНА, с context_words=347
+[2026-06-29 22:15:11,610: WARNING/MainProcess] 2026-06-29 22:15:11 [info     ] LLM call                       effective_max_tokens=380 grammar_requested=True max_tokens=380 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о порядке оплаты, модели расчётов, НДС и наличии прямых последствий просрочки оплаты.
+Не анализируй предмет, коли prompt_tokens=3541 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 380, 'prompt_tokens': 3541, 'effective_max_tokens': 380, 'safety_margin': 256}
+[2026-06-29 22:20:51,461: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:20:51,466: WARNING/MainProcess] 2026-06-29 22:20:51 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'payment_terms', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 22:20:51,469: WARNING/MainProcess] 2026-06-29 22:20:51 [debug    ] result_semantics: display_text built from compact grid factual summary extra={'ui_mode': 'field_extraction'}
+[2026-06-29 22:20:51,488: WARNING/MainProcess] 2026-06-29 22:20:51 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'payment_terms', 'result': 'pass', 'severity': 'pass', 'duration_sec': 340.43}
+[2026-06-29 22:20:51,502: WARNING/MainProcess] 2026-06-29 22:20:51 [info     ] Task completed                 task_id=822f5b16-7ccc-4f8b-adb7-36186ec6a567 task_name=workers.run_single_check
+[2026-06-29 22:20:51,503: INFO/MainProcess] Task workers.run_single_check[822f5b16-7ccc-4f8b-adb7-36186ec6a567] succeeded in 330.88789194100536s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'payment_terms', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:20:51,505: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:20:51,505: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:20:51,506: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:20:51,506: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:20:51,592: INFO/MainProcess] Task workers.run_single_check[3bec7202-74ae-48de-b2e6-dff21e6dd483] received
+[2026-06-29 22:20:51,596: WARNING/MainProcess] 2026-06-29 22:20:51 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=3bec7202-74ae-48de-b2e6-dff21e6dd483 task_name=workers.run_single_check
+[2026-06-29 22:20:51,596: WARNING/MainProcess] 2026-06-29 22:20:51 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'delivery_and_transfer_docs', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:20:51,606: WARNING/MainProcess] 2026-06-29 22:20:51 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:20:51,897: WARNING/MainProcess] 2026-06-29 22:20:51 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:20:52,051: WARNING/MainProcess] 2026-06-29 22:20:52 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'delivery_and_transfer_docs', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:20:52,052: WARNING/MainProcess] 2026-06-29 22:20:52 [debug    ] ExtractionExecutor.run started check_id=delivery_and_transfer_docs doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:20:52,052: WARNING/MainProcess] 2026-06-29 22:20:52 [debug    ] ExtractionLLMDetector: context_text sample check_id=delivery_and_transfer_docs context_preview=[Пункт 1.1, Акт, стр. 3]
+1.1 Акт означает акт приема-передачи Имущества, составленный по форме,
+
+указанной Приложении в 1 к Договору, подписываемый уполномоченными представителями Сторон.
+
+---
+
+[Пункт 4.3, При подписании Акта Продавец передает Покупателю всю имеющуюся у, стр. 4]
+ПОРЯДОК ПЕРЕДАЧИ И ИМУЩЕСТВА
+
+4.3 При подписании Акта Продавец передает Покупателю всю имеющуюся у
+
+него документацию в  context_words=515
+[2026-06-29 22:20:52,053: WARNING/MainProcess] 2026-06-29 22:20:52 [info     ] LLM call                       effective_max_tokens=520 grammar_requested=True max_tokens=520 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь из текста договора сведения о передаче товара, сроках, месте, способе передачи и сопутствующих документах.
+Анализируй только тему передачи товара.
+Н prompt_tokens=4567 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 520, 'prompt_tokens': 4567, 'effective_max_tokens': 520, 'safety_margin': 256}
+[2026-06-29 22:26:18,958: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:26:18,960: WARNING/MainProcess] 2026-06-29 22:26:18 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'delivery_and_transfer_docs', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 22:26:18,960: WARNING/MainProcess] 2026-06-29 22:26:18 [debug    ] result_semantics: display_text built from compact grid factual summary extra={'ui_mode': 'field_extraction'}
+[2026-06-29 22:26:18,972: WARNING/MainProcess] 2026-06-29 22:26:18 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'delivery_and_transfer_docs', 'result': 'pass', 'severity': 'pass', 'duration_sec': 327.38}
+[2026-06-29 22:26:18,980: WARNING/MainProcess] 2026-06-29 22:26:18 [info     ] Task completed                 task_id=3bec7202-74ae-48de-b2e6-dff21e6dd483 task_name=workers.run_single_check
+[2026-06-29 22:26:18,980: INFO/MainProcess] Task workers.run_single_check[3bec7202-74ae-48de-b2e6-dff21e6dd483] succeeded in 317.592036674032s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'delivery_and_transfer_docs', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:26:18,982: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:26:18,983: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:26:18,983: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:26:18,983: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:26:19,028: INFO/MainProcess] Task workers.run_single_check[f5a5ea6f-6ee1-4ff1-b0b9-0f9e549803f5] received
+[2026-06-29 22:26:19,030: WARNING/MainProcess] 2026-06-29 22:26:19 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=f5a5ea6f-6ee1-4ff1-b0b9-0f9e549803f5 task_name=workers.run_single_check
+[2026-06-29 22:26:19,030: WARNING/MainProcess] 2026-06-29 22:26:19 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'title_risk_retention', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:26:19,037: WARNING/MainProcess] 2026-06-29 22:26:19 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:26:19,243: WARNING/MainProcess] 2026-06-29 22:26:19 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:26:19,322: WARNING/MainProcess] 2026-06-29 22:26:19 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'title_risk_retention', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:26:19,322: WARNING/MainProcess] 2026-06-29 22:26:19 [debug    ] ExtractionExecutor.run started check_id=title_risk_retention doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:26:19,323: WARNING/MainProcess] 2026-06-29 22:26:19 [debug    ] ExtractionLLMDetector: context_text sample check_id=title_risk_retention context_preview=[Пункт 6.3.1, В случае выявления факта наличия прав третьих лиц в отношении, стр. 5]
+ОТВЕТСТВЕННОСТЬ СТОРОН
+В случае нарушения Продавцом заявлений и гарантий, Продавец обязан
+
+6.3.1 В случае выявления факта наличия прав третьих лиц в отношении
+
+Имущества предъявления или третьими лицами обоснованных претензий к Покупателю о наличии у них
+
+прав на Имущество, основания для возникновения которых отно context_words=332
+[2026-06-29 22:26:19,323: WARNING/MainProcess] 2026-06-29 22:26:19 [info     ] LLM call                       effective_max_tokens=480 grammar_requested=True max_tokens=480 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь из текста договора сведения о моменте перехода риска случайной гибели, моменте перехода права собственности и наличии оговорки об удержании титула.
+ prompt_tokens=4130 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 480, 'prompt_tokens': 4130, 'effective_max_tokens': 480, 'safety_margin': 256}
+[2026-06-29 22:30:24,251: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:30:24,252: WARNING/MainProcess] 2026-06-29 22:30:24 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'title_risk_retention', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 22:30:24,253: WARNING/MainProcess] 2026-06-29 22:30:24 [debug    ] result_semantics: display_text built from compact grid factual summary extra={'ui_mode': 'field_extraction'}
+[2026-06-29 22:30:24,260: WARNING/MainProcess] 2026-06-29 22:30:24 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'title_risk_retention', 'result': 'pass', 'severity': 'pass', 'duration_sec': 245.23}
+[2026-06-29 22:30:24,277: WARNING/MainProcess] 2026-06-29 22:30:24 [info     ] Task completed                 task_id=f5a5ea6f-6ee1-4ff1-b0b9-0f9e549803f5 task_name=workers.run_single_check
+[2026-06-29 22:30:24,277: INFO/MainProcess] Task workers.run_single_check[f5a5ea6f-6ee1-4ff1-b0b9-0f9e549803f5] succeeded in 238.00531679799315s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'title_risk_retention', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:30:24,280: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:30:24,280: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:30:24,280: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:30:24,280: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:30:24,317: INFO/MainProcess] Task workers.run_single_check[a05aa467-ab3a-4587-a80c-1e3c509ec1ab] received
+[2026-06-29 22:30:24,318: WARNING/MainProcess] 2026-06-29 22:30:24 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=a05aa467-ab3a-4587-a80c-1e3c509ec1ab task_name=workers.run_single_check
+[2026-06-29 22:30:24,318: WARNING/MainProcess] 2026-06-29 22:30:24 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'quality_completeness_warranty', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:30:24,324: WARNING/MainProcess] 2026-06-29 22:30:24 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:30:24,490: WARNING/MainProcess] 2026-06-29 22:30:24 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:30:24,566: WARNING/MainProcess] 2026-06-29 22:30:24 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'quality_completeness_warranty', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:30:24,567: WARNING/MainProcess] 2026-06-29 22:30:24 [debug    ] ExtractionExecutor.run started check_id=quality_completeness_warranty doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:30:24,567: WARNING/MainProcess] 2026-06-29 22:30:24 [debug    ] ExtractionLLMDetector: context_text sample check_id=quality_completeness_warranty context_preview=[Пункт 6.3, В случае нарушения Продавцом заявлений и гарантий, Продавец обязан, стр. 5]
+ОТВЕТСТВЕННОСТЬ СТОРОН
+
+6.3 В случае нарушения Продавцом заявлений и гарантий, Продавец обязан
+
+незамедлительно по получению соответствующего письменного требования от Покупателя, возместить
+
+последнему убытки, причиненные несоблюдением заявлений и гарантий (их
+
+несоответствием действительности), в том числе:
+
+ context_words=172
+[2026-06-29 22:30:24,568: WARNING/MainProcess] 2026-06-29 22:30:24 [info     ] LLM call                       effective_max_tokens=360 grammar_requested=True max_tokens=360 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о качестве товара, комплектности и гарантии.
+Не анализируй приёмку, претензии, цену, передачу или иные темы.
+Не о prompt_tokens=2584 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 360, 'prompt_tokens': 2584, 'effective_max_tokens': 360, 'safety_margin': 256}
+[2026-06-29 22:33:02,448: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:33:02,450: WARNING/MainProcess] 2026-06-29 22:33:02 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'quality_completeness_warranty', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 22:33:02,450: WARNING/MainProcess] 2026-06-29 22:33:02 [debug    ] result_semantics: display_text built from compact grid factual summary extra={'ui_mode': 'field_extraction'}
+[2026-06-29 22:33:02,458: WARNING/MainProcess] 2026-06-29 22:33:02 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'quality_completeness_warranty', 'result': 'pass', 'severity': 'pass', 'duration_sec': 158.14}
+[2026-06-29 22:33:02,467: WARNING/MainProcess] 2026-06-29 22:33:02 [info     ] Task completed                 task_id=a05aa467-ab3a-4587-a80c-1e3c509ec1ab task_name=workers.run_single_check
+[2026-06-29 22:33:02,467: INFO/MainProcess] Task workers.run_single_check[a05aa467-ab3a-4587-a80c-1e3c509ec1ab] succeeded in 153.5941277219681s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'quality_completeness_warranty', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:33:02,471: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:33:02,471: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:33:02,471: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:33:02,471: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:33:02,518: INFO/MainProcess] Task workers.run_single_check[2d8af04a-8e57-403e-8de3-7c4c6a261667] received
+[2026-06-29 22:33:02,520: WARNING/MainProcess] 2026-06-29 22:33:02 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=2d8af04a-8e57-403e-8de3-7c4c6a261667 task_name=workers.run_single_check
+[2026-06-29 22:33:02,521: WARNING/MainProcess] 2026-06-29 22:33:02 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'acceptance_and_claims', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:33:02,530: WARNING/MainProcess] 2026-06-29 22:33:02 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:33:02,764: WARNING/MainProcess] 2026-06-29 22:33:02 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:33:02,873: WARNING/MainProcess] 2026-06-29 22:33:02 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'acceptance_and_claims', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:33:02,874: WARNING/MainProcess] 2026-06-29 22:33:02 [debug    ] ExtractionExecutor.run started check_id=acceptance_and_claims doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:33:02,875: WARNING/MainProcess] 2026-06-29 22:33:02 [debug    ] ExtractionLLMDetector: context_text sample check_id=acceptance_and_claims context_preview=[Пункт 6.3, В случае нарушения Продавцом заявлений и гарантий, Продавец обязан, стр. 5]
+ОТВЕТСТВЕННОСТЬ СТОРОН
+
+6.3 В случае нарушения Продавцом заявлений и гарантий, Продавец обязан
+
+незамедлительно по получению соответствующего письменного требования от Покупателя, возместить
+
+последнему убытки, причиненные несоблюдением заявлений и гарантий (их
+
+несоответствием действительности), в том числе:
+
+ context_words=589
+[2026-06-29 22:33:02,875: WARNING/MainProcess] 2026-06-29 22:33:02 [info     ] LLM call                       effective_max_tokens=320 grammar_requested=True max_tokens=320 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о порядке приёмки товара и порядке предъявления претензий по качеству.
+Не анализируй качество товара, гарантию, ц prompt_tokens=4058 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 320, 'prompt_tokens': 4058, 'effective_max_tokens': 320, 'safety_margin': 256}
+[2026-06-29 22:36:49,958: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:36:49,959: WARNING/MainProcess] 2026-06-29 22:36:49 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'acceptance_and_claims', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 22:36:49,960: WARNING/MainProcess] 2026-06-29 22:36:49 [debug    ] result_semantics: display_text built from compact grid factual summary extra={'ui_mode': 'field_extraction'}
+[2026-06-29 22:36:49,968: WARNING/MainProcess] 2026-06-29 22:36:49 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'acceptance_and_claims', 'result': 'pass', 'severity': 'pass', 'duration_sec': 227.45}
+[2026-06-29 22:36:49,977: WARNING/MainProcess] 2026-06-29 22:36:49 [info     ] Task completed                 task_id=2d8af04a-8e57-403e-8de3-7c4c6a261667 task_name=workers.run_single_check
+[2026-06-29 22:36:49,977: INFO/MainProcess] Task workers.run_single_check[2d8af04a-8e57-403e-8de3-7c4c6a261667] succeeded in 221.03561668400653s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'acceptance_and_claims', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:36:49,979: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:36:49,980: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:36:49,980: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:36:49,980: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:36:50,017: INFO/MainProcess] Task workers.run_single_check[b2a06d12-5ca0-4a30-8e42-31f5c74de42d] received
+[2026-06-29 22:36:50,018: WARNING/MainProcess] 2026-06-29 22:36:50 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=b2a06d12-5ca0-4a30-8e42-31f5c74de42d task_name=workers.run_single_check
+[2026-06-29 22:36:50,018: WARNING/MainProcess] 2026-06-29 22:36:50 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'encumbrance_third_party_rights', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:36:50,026: WARNING/MainProcess] 2026-06-29 22:36:50 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:36:50,245: WARNING/MainProcess] 2026-06-29 22:36:50 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:36:50,333: WARNING/MainProcess] 2026-06-29 22:36:50 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'encumbrance_third_party_rights', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:36:50,333: WARNING/MainProcess] 2026-06-29 22:36:50 [debug    ] ExtractionExecutor.run started check_id=encumbrance_third_party_rights doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:36:50,334: WARNING/MainProcess] 2026-06-29 22:36:50 [debug    ] ExtractionLLMDetector: context_text sample check_id=encumbrance_third_party_rights context_preview=[Пункт 6.3.1, В случае выявления факта наличия прав третьих лиц в отношении, стр. 5]
+ОТВЕТСТВЕННОСТЬ СТОРОН
+В случае нарушения Продавцом заявлений и гарантий, Продавец обязан
+
+6.3.1 В случае выявления факта наличия прав третьих лиц в отношении
+
+Имущества предъявления или третьими лицами обоснованных претензий к Покупателю о наличии у них
+
+прав на Имущество, основания для возникновения которых отно context_words=305
+[2026-06-29 22:36:50,337: WARNING/MainProcess] 2026-06-29 22:36:50 [info     ] LLM call                       effective_max_tokens=500 grammar_requested=True max_tokens=500 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь из текста договора заверения продавца о свободе товара от прав третьих лиц, залога, ареста и иных обременений.
+Анализируй только тему обременений и  prompt_tokens=4088 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 500, 'prompt_tokens': 4088, 'effective_max_tokens': 500, 'safety_margin': 256}
+[2026-06-29 22:41:37,712: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:41:37,714: WARNING/MainProcess] 2026-06-29 22:41:37 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'encumbrance_third_party_rights', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 22:41:37,716: WARNING/MainProcess] 2026-06-29 22:41:37 [debug    ] result_semantics: display_text built from compact grid factual summary extra={'ui_mode': 'field_extraction'}
+[2026-06-29 22:41:37,736: WARNING/MainProcess] 2026-06-29 22:41:37 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'encumbrance_third_party_rights', 'result': 'pass', 'severity': 'pass', 'duration_sec': 287.72}
+[2026-06-29 22:41:37,745: WARNING/MainProcess] 2026-06-29 22:41:37 [info     ] Task completed                 task_id=b2a06d12-5ca0-4a30-8e42-31f5c74de42d task_name=workers.run_single_check
+[2026-06-29 22:41:37,745: INFO/MainProcess] Task workers.run_single_check[b2a06d12-5ca0-4a30-8e42-31f5c74de42d] succeeded in 279.4308253400377s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'encumbrance_third_party_rights', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:41:37,747: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:41:37,748: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:41:37,748: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:41:37,748: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:41:37,801: INFO/MainProcess] Task workers.run_single_check[ac8f300a-4479-4bd2-9e36-cb83b17f3275] received
+[2026-06-29 22:41:37,802: WARNING/MainProcess] 2026-06-29 22:41:37 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=ac8f300a-4479-4bd2-9e36-cb83b17f3275 task_name=workers.run_single_check
+[2026-06-29 22:41:37,803: WARNING/MainProcess] 2026-06-29 22:41:37 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'liability_sanctions', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:41:37,809: WARNING/MainProcess] 2026-06-29 22:41:37 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:41:38,039: WARNING/MainProcess] 2026-06-29 22:41:38 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:41:38,112: WARNING/MainProcess] 2026-06-29 22:41:38 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'liability_sanctions', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:41:38,113: WARNING/MainProcess] 2026-06-29 22:41:38 [debug    ] ExtractionExecutor.run started check_id=liability_sanctions doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:41:38,114: WARNING/MainProcess] 2026-06-29 22:41:38 [debug    ] ExtractionLLMDetector: context_text sample check_id=liability_sanctions context_preview=[Пункт 2.3, Продавец несет ответственность перед Покупателем в случае, если, стр. 3]
+ПРЕДМЕТ ДОГОВОРА
+
+2.3 Продавец несет ответственность перед Покупателем в случае, если
+
+какое-либо переданное имущество, в составе Имущества, находится в состоянии, не позволяющем его
+
+использование Покупателем для соответствующей хозяйственной деятельности.
+
+3
+
+(15)
+
+---
+
+[Пункт 6.1, Стороны несут ответственность  context_words=258
+[2026-06-29 22:41:38,114: WARNING/MainProcess] 2026-06-29 22:41:38 [info     ] LLM call                       effective_max_tokens=280 grammar_requested=True max_tokens=280 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о специальных санкциях:
+- продавца за просрочку передачи товара
+- покупателя за просрочку оплаты
+Не анализируй ра prompt_tokens=2884 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 280, 'prompt_tokens': 2884, 'effective_max_tokens': 280, 'safety_margin': 256}
+[2026-06-29 22:43:56,642: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:43:56,643: WARNING/MainProcess] 2026-06-29 22:43:56 [warning  ] ExtractionLLMDetector: required field has empty value after normalization extra={'field_name': 'seller_penalty_details', 'raw_value': 'None'}
+[2026-06-29 22:43:56,643: WARNING/MainProcess] 2026-06-29 22:43:56 [warning  ] ExtractionLLMDetector: required field has empty value after normalization extra={'field_name': 'buyer_penalty_details', 'raw_value': 'None'}
+[2026-06-29 22:43:56,644: WARNING/MainProcess] 2026-06-29 22:43:56 [debug    ] LLM returned null-like value for field, skipping check_id=liability_sanctions field_name=seller_penalty_details value_raw=None
+[2026-06-29 22:43:56,644: WARNING/MainProcess] 2026-06-29 22:43:56 [debug    ] LLM returned null-like value for field, skipping check_id=liability_sanctions field_name=buyer_penalty_details value_raw=None
+[2026-06-29 22:43:56,644: WARNING/MainProcess] 2026-06-29 22:43:56 [warning  ] ExtractionExecutor: required field has empty value check_id=liability_sanctions field_name=seller_penalty_details source=none
+[2026-06-29 22:43:56,644: WARNING/MainProcess] 2026-06-29 22:43:56 [warning  ] ExtractionExecutor: required field has empty value check_id=liability_sanctions field_name=buyer_penalty_details source=none
+[2026-06-29 22:43:56,644: WARNING/MainProcess] 2026-06-29 22:43:56 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'liability_sanctions', 'has_meaningful_extraction': False, 'result': 'unclear', 'severity': 'medium'}
+[2026-06-29 22:43:56,652: WARNING/MainProcess] 2026-06-29 22:43:56 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'liability_sanctions', 'result': 'unclear', 'severity': 'medium', 'duration_sec': 138.85}
+[2026-06-29 22:43:56,659: WARNING/MainProcess] 2026-06-29 22:43:56 [info     ] Task completed                 task_id=ac8f300a-4479-4bd2-9e36-cb83b17f3275 task_name=workers.run_single_check
+[2026-06-29 22:43:56,659: INFO/MainProcess] Task workers.run_single_check[ac8f300a-4479-4bd2-9e36-cb83b17f3275] succeeded in 134.1838452219963s: {'status': 'SUCCESS', 'result': 'unclear', 'severity': 'medium', 'check_id': 'liability_sanctions', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:43:56,662: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:43:56,663: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:43:56,663: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:43:56,663: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:43:56,688: INFO/MainProcess] Task workers.run_single_check[729648d2-4d4e-4f92-8745-2fd95ddea282] received
+[2026-06-29 22:43:56,690: WARNING/MainProcess] 2026-06-29 22:43:56 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=729648d2-4d4e-4f92-8745-2fd95ddea282 task_name=workers.run_single_check
+[2026-06-29 22:43:56,690: WARNING/MainProcess] 2026-06-29 22:43:56 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'termination_and_restitution', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:43:56,697: WARNING/MainProcess] 2026-06-29 22:43:56 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:43:56,921: WARNING/MainProcess] 2026-06-29 22:43:56 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:43:57,002: WARNING/MainProcess] 2026-06-29 22:43:57 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'termination_and_restitution', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:43:57,002: WARNING/MainProcess] 2026-06-29 22:43:57 [debug    ] ExtractionExecutor.run started check_id=termination_and_restitution doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:43:57,003: WARNING/MainProcess] 2026-06-29 22:43:57 [debug    ] ExtractionLLMDetector: context_text sample check_id=termination_and_restitution context_preview=[Пункт 5.1, В том случае Покупателем будет обнаружено, что Продавец не выполнил, стр. 4]
+ЗАЯВЛЕНИЯ И ГАРАНТИИ ПРОДАВЦА
+
+5.1 В том случае Покупателем будет обнаружено, что Продавец не выполнил
+
+какие-либо обязательств, из принятых на себя в соответствии с нижеизложенными заявлениями и
+
+гарантиями или Покупателем будет обнаружено, что какие-либо из этих заявлений и
+
+гарантий не соответствуют действи context_words=491
+[2026-06-29 22:43:57,003: WARNING/MainProcess] 2026-06-29 22:43:57 [info     ] LLM call                       effective_max_tokens=340 grammar_requested=True max_tokens=340 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о расторжении / одностороннем отказе и последствиях в виде возврата товара и денег.
+Не анализируй неустойки, форс prompt_tokens=3959 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 340, 'prompt_tokens': 3959, 'effective_max_tokens': 340, 'safety_margin': 256}
+[2026-06-29 22:47:50,014: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:47:50,015: WARNING/MainProcess] 2026-06-29 22:47:50 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'termination_and_restitution', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 22:47:50,016: WARNING/MainProcess] 2026-06-29 22:47:50 [debug    ] result_semantics: display_text built from compact grid factual summary extra={'ui_mode': 'field_extraction'}
+[2026-06-29 22:47:50,038: WARNING/MainProcess] 2026-06-29 22:47:50 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'termination_and_restitution', 'result': 'pass', 'severity': 'pass', 'duration_sec': 233.35}
+[2026-06-29 22:47:50,047: WARNING/MainProcess] 2026-06-29 22:47:50 [info     ] Task completed                 task_id=729648d2-4d4e-4f92-8745-2fd95ddea282 task_name=workers.run_single_check
+[2026-06-29 22:47:50,047: INFO/MainProcess] Task workers.run_single_check[729648d2-4d4e-4f92-8745-2fd95ddea282] succeeded in 226.75424074701732s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'termination_and_restitution', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:47:50,050: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:47:50,050: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:47:50,050: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:47:50,050: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:47:50,483: INFO/MainProcess] Task workers.run_single_check[e266f1af-95a7-4d00-bb6c-55b1b8877fff] received
+[2026-06-29 22:47:50,485: WARNING/MainProcess] 2026-06-29 22:47:50 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=e266f1af-95a7-4d00-bb6c-55b1b8877fff task_name=workers.run_single_check
+[2026-06-29 22:47:50,485: WARNING/MainProcess] 2026-06-29 22:47:50 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'force_majeure_clause', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:47:50,492: WARNING/MainProcess] 2026-06-29 22:47:50 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:47:51,266: WARNING/MainProcess] 2026-06-29 22:47:51 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:47:51,335: WARNING/MainProcess] 2026-06-29 22:47:51 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'force_majeure_clause', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:47:51,335: WARNING/MainProcess] 2026-06-29 22:47:51 [debug    ] ExtractionExecutor.run started check_id=force_majeure_clause doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:47:51,336: WARNING/MainProcess] 2026-06-29 22:47:51 [debug    ] ExtractionLLMDetector: context_text sample check_id=force_majeure_clause context_preview=[Пункт 6.4, Стороны освобождаются от ответственности за частичное или полное, стр. 5]
+ОТВЕТСТВЕННОСТЬ СТОРОН
+
+6.4 Стороны освобождаются от ответственности за частичное или полное
+
+неисполнение обязательств по Договору, если такое неисполнение явилось следствием обстоятельств
+
+непреодолимой силы, возникших после заключения Договора в результате событий
+
+чрезвычайного характера, которые Стороны не м context_words=401
+[2026-06-29 22:47:51,336: WARNING/MainProcess] 2026-06-29 22:47:51 [info     ] LLM call                       effective_max_tokens=220 grammar_requested=True max_tokens=220 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о форс-мажорной оговорке.
+Не анализируй неустойку, расторжение, цену, качество или иные темы.
+Не оценивай риски.
+ prompt_tokens=3089 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 220, 'prompt_tokens': 3089, 'effective_max_tokens': 220, 'safety_margin': 256}
+[2026-06-29 22:50:42,678: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:50:42,680: WARNING/MainProcess] 2026-06-29 22:50:42 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'force_majeure_clause', 'has_meaningful_extraction': True, 'result': 'pass', 'severity': 'pass'}
+[2026-06-29 22:50:42,681: WARNING/MainProcess] 2026-06-29 22:50:42 [debug    ] result_semantics: display_text built from compact grid factual summary extra={'ui_mode': 'field_extraction'}
+[2026-06-29 22:50:42,692: WARNING/MainProcess] 2026-06-29 22:50:42 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'force_majeure_clause', 'result': 'pass', 'severity': 'pass', 'duration_sec': 172.21}
+[2026-06-29 22:50:42,702: WARNING/MainProcess] 2026-06-29 22:50:42 [info     ] Task completed                 task_id=e266f1af-95a7-4d00-bb6c-55b1b8877fff task_name=workers.run_single_check
+[2026-06-29 22:50:42,702: INFO/MainProcess] Task workers.run_single_check[e266f1af-95a7-4d00-bb6c-55b1b8877fff] succeeded in 166.90876021701843s: {'status': 'SUCCESS', 'result': 'pass', 'severity': 'pass', 'check_id': 'force_majeure_clause', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:50:42,706: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:50:42,706: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:50:42,706: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:50:42,706: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 22:50:42,744: INFO/MainProcess] Task workers.run_single_check[0ffba565-a83c-44ae-aa13-b36e2f4093a2] received
+[2026-06-29 22:50:42,746: WARNING/MainProcess] 2026-06-29 22:50:42 [info     ] Task starting                  retry=0 stage_execution_id=None task_id=0ffba565-a83c-44ae-aa13-b36e2f4093a2 task_name=workers.run_single_check
+[2026-06-29 22:50:42,746: WARNING/MainProcess] 2026-06-29 22:50:42 [info     ] Run single check task received extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'dispute_resolution_and_governing_law', 'playbook_version_id': '8272a927-f030-4289-aafd-01abf112b266', 'checks_mode': 'global_and_doc_type', 'force': False}
+[2026-06-29 22:50:42,752: WARNING/MainProcess] 2026-06-29 22:50:42 [info     ] Playbook loaded from dict      checks=2 name=build_compiled_checks version=1
+[2026-06-29 22:50:43,520: WARNING/MainProcess] 2026-06-29 22:50:43 [info     ] DocTypeCheckLoader: loaded doc-type checks extra={'doc_type': 'contract_1.1_general_sale', 'count': 12, 'triggers': ['legal_entity_party', 'general_sale_subject', 'individual_party', 'installment_or_deferred_payment', 'warranty_goods', 'movable_goods_sale', 'advance_payment', 'delivery_included']}
+[2026-06-29 22:50:43,593: WARNING/MainProcess] 2026-06-29 22:50:43 [debug    ] CheckExecutor: skipping presence detection for field_extraction check extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'dispute_resolution_and_governing_law', 'ui_mode': 'field_extraction', 'extraction_enabled': True}
+[2026-06-29 22:50:43,593: WARNING/MainProcess] 2026-06-29 22:50:43 [debug    ] ExtractionExecutor.run started check_id=dispute_resolution_and_governing_law doc_id=87880e0b-2d6f-472b-bd6a-544940653856 mode=ExtractionMode.HYBRID
+[2026-06-29 22:50:43,593: WARNING/MainProcess] 2026-06-29 22:50:43 [debug    ] ExtractionLLMDetector: context_text sample check_id=dispute_resolution_and_governing_law context_preview=[Пункт 7, ЗАКЛЮЧИТЕЛЬНЫЕ ПОЛОЖЕНИЯ, стр. 5–7]
+7 ЗАКЛЮЧИТЕЛЬНЫЕ ПОЛОЖЕНИЯ
+
+7.1 Законодательство и разрешение
+
+споров
+
+---
+
+[Пункт 7.1.2, Все споры и разногласия, возникшие между Сторонами в связи с, стр. 5]
+ЗАКЛЮЧИТЕЛЬНЫЕ ПОЛОЖЕНИЯ
+
+7.1.2 Все споры и разногласия, возникшие между Сторонами в связи с
+
+Договором, рассмотрение передается в Арбитражный на суд Санкт-Петербурга и Ленинградской области.
+
+- context_words=177
+[2026-06-29 22:50:43,594: WARNING/MainProcess] 2026-06-29 22:50:43 [info     ] LLM call                       effective_max_tokens=450 grammar_requested=True max_tokens=450 prompt_preview=<role>
+Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о претензионном порядке и сроке ответа на претензию.
+Не анализируй орган разрешения споров, применимое право, отв prompt_tokens=2587 provider=ollama reserved_output_tokens=None temperature=0.0 token_budget={'model_limit': 32768, 'requested_max_tokens': 450, 'prompt_tokens': 2587, 'effective_max_tokens': 450, 'safety_margin': 256}
+[2026-06-29 22:53:05,551: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 22:53:05,552: WARNING/MainProcess] 2026-06-29 22:53:05 [debug    ] CheckExecutor: field_extraction business result mapped from structured_data extra={'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'dispute_resolution_and_governing_law', 'has_meaningful_extraction': False, 'result': 'unclear', 'severity': 'low'}
+[2026-06-29 22:53:05,575: WARNING/MainProcess] 2026-06-29 22:53:05 [info     ] run_single_check completed     extra={'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'check_id': 'dispute_resolution_and_governing_law', 'result': 'unclear', 'severity': 'low', 'duration_sec': 142.83}
+[2026-06-29 22:53:05,582: WARNING/MainProcess] 2026-06-29 22:53:05 [info     ] Task completed                 task_id=0ffba565-a83c-44ae-aa13-b36e2f4093a2 task_name=workers.run_single_check
+[2026-06-29 22:53:05,582: INFO/MainProcess] Task workers.run_single_check[0ffba565-a83c-44ae-aa13-b36e2f4093a2] succeeded in 137.97845564899035s: {'status': 'SUCCESS', 'result': 'unclear', 'severity': 'low', 'check_id': 'dispute_resolution_and_governing_law', 'doc_id': '87880e0b-2d6f-472b-bd6a-544940653856'}
+[2026-06-29 22:53:05,585: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 22:53:05,585: INFO/MainProcess] missed heartbeat from worker-heavy-enrichment@LAPTOP-70V01FA5
+[2026-06-29 22:53:05,585: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 22:53:05,585: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+

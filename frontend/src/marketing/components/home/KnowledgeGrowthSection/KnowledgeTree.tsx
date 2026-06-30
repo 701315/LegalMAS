@@ -1,4 +1,4 @@
-// src/components/marketing/landing/KnowledgeGrowthSection/KnowledgeTree.tsx
+// src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx
 
 import React, { useEffect, useRef, type RefObject } from "react";
 import { useTreeEngine } from "./useTreeEngine";

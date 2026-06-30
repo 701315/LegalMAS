@@ -1,4 +1,4 @@
-// src/components/marketing/landing/SecurityFoundationSection/infrastructure-texts.ts
+// src/marketing/components/home/SecurityFoundationSection/infrastructure-texts.ts
 //
 // Тексты для корневой системы безопасности.
 //

@@ -1,0 +1,415 @@
+=== Worker Enrichment ===
+Waiting 5 sec...
+2026-06-29 20:06:25 [info     ] EmbeddingService: loading model cache_dir=.cache/embeddings model=intfloat/multilingual-e5-small
+2026-06-29 20:06:42 [info     ] EmbeddingService: model ready  dim=384 model=intfloat/multilingual-e5-small
+
+ -------------- worker-heavy-enrichment@LAPTOP-70V01FA5 v5.4.0 (opalescent)
+--- ***** -----
+-- ******* ---- Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39 2026-06-29 20:06:44
+- *** --- * ---
+- ** ---------- [config]
+- ** ---------- .> app:         mas_dd:0x77a7080daf00
+- ** ---------- .> transport:   redis://localhost:6379/0
+- ** ---------- .> results:     redis://localhost:6379/1
+- *** --- * --- .> concurrency: 1 (solo)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** -----
+ -------------- [queues]
+                .> heavy_llm_enrichment exchange=heavy_llm_enrichment(direct) key=heavy_llm_enrichment
+
+
+[tasks]
+  . debug.always_fail_permanent
+  . debug.always_fail_transient
+  . export.process_pending
+  . pii.sanitize_document
+  . workers.build_chunks
+  . workers.build_legal_units_enrichment
+  . workers.build_primary_language_source
+  . workers.build_relations
+  . workers.build_structure
+  . workers.classify_document
+  . workers.classify_document_segments
+  . workers.convert_document_for_language_discovery
+  . workers.convert_to_pdf
+  . workers.detect_document_languages_native
+  . workers.detect_document_languages_ocr
+  . workers.export_by_id
+  . workers.export_results
+  . workers.extract_document
+  . workers.finalize_run_if_ready
+  . workers.import_bundle
+  . workers.outbox_dispatcher
+  . workers.prepare_document_for_language_discovery
+  . workers.run_deal_checks
+  . workers.run_single_check
+  . workers.start_language_discovery
+  . workers.start_run_pipeline
+
+[2026-06-29 20:06:44,971: INFO/MainProcess] Connected to redis://localhost:6379/0
+[2026-06-29 20:06:44,994: INFO/MainProcess] mingle: searching for neighbors
+[2026-06-29 20:06:46,035: INFO/MainProcess] mingle: all alone
+[2026-06-29 20:06:46,063: INFO/MainProcess] worker-heavy-enrichment@LAPTOP-70V01FA5 ready.
+[2026-06-29 20:06:49,370: INFO/MainProcess] sync with worker-default@LAPTOP-70V01FA5
+[2026-06-29 20:18:54,472: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 20:38:53,954: INFO/MainProcess] Task workers.build_legal_units_enrichment[bc0eafb7-8258-4f5d-b790-8436117d9384] received
+[2026-06-29 20:38:53,978: WARNING/MainProcess] 2026-06-29 20:38:53 [info     ] Task starting                  retry=0 stage_execution_id=b83147d3-8798-4f19-9c3a-284060e06520 task_id=bc0eafb7-8258-4f5d-b790-8436117d9384 task_name=workers.build_legal_units_enrichment
+[2026-06-29 20:38:54,378: WARNING/MainProcess] 2026-06-29 20:38:54 [warning  ] Using payload tenant_id for artifact writes because deal.tenant_id is missing or zero extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'payload_tenant_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'db_tenant_id': '00000000-0000-0000-0000-000000000000'}
+[2026-06-29 20:38:54,379: WARNING/MainProcess] 2026-06-29 20:38:54 [info     ] Semantic enrichment stage: starting extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'document_version_id': '6e5b05ad-484f-4f07-9448-6e778c1e3481', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'tenant_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93'}
+[2026-06-29 20:38:54,474: WARNING/MainProcess] 2026-06-29 20:38:54 [info     ] STRUCTURE semantic_enrichment_start (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'segment_id': '46a30205-7f4a-5f82-9aa7-a0bc6308f655', 'total_units': 55, 'eligible_units': 35, 'skipped_units_pre_llm': 20, 'skip_reason_counts': {'heading_only': 1, 'text_too_short': 7, 'already_semantically_complete': 12}, 'eligible_reason_counts': {'type_unknown': 27, 'type_known_non_deterministic_source': 8}, 'policy_version': 'phase12_v1', 'llm_provider': 'ollama', 'llm_model': 'qwen25-legal', 'llm_execution_mode': 'sequential', 'max_inflight_llm_calls': 1, 'per_unit_timeout_seconds': 360.0, 'effective_segment_timeout_seconds': 10800.0, 'cache_enabled': True}
+[2026-06-29 20:38:54,480: WARNING/MainProcess] 2026-06-29 20:38:54 [debug    ] Prompt loaded from file        length=4572 path=/home/vladi/projects/LegalMAS/prompts/classification/legal_unit_semantic_enrichment_ru_v1.txt prompt=classification/legal_unit_semantic_enrichment_ru_v1
+[2026-06-29 20:38:54,482: WARNING/MainProcess] 2026-06-29 20:38:54 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4506 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 20:43:36,491: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 20:43:36,505: WARNING/MainProcess] 2026-06-29 20:43:36 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:__preamble__', 'status': 'rejected', 'applied_fields': [], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 20:43:36,507: WARNING/MainProcess] 2026-06-29 20:43:36 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4180 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 20:45:37,998: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 20:45:38,001: WARNING/MainProcess] 2026-06-29 20:45:38 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:1.1', 'status': 'no_change', 'applied_fields': [], 'llm_confidence': 0.9, 'cache_hit': False}
+[2026-06-29 20:45:38,003: WARNING/MainProcess] 2026-06-29 20:45:38 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=3990 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 20:47:09,152: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 20:47:09,155: WARNING/MainProcess] 2026-06-29 20:47:09 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:1.2', 'status': 'no_change', 'applied_fields': [], 'llm_confidence': 0.9, 'cache_hit': False}
+[2026-06-29 20:47:09,157: WARNING/MainProcess] 2026-06-29 20:47:09 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4016 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 20:48:31,975: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 20:48:31,977: WARNING/MainProcess] 2026-06-29 20:48:31 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:1.3', 'status': 'no_change', 'applied_fields': [], 'llm_confidence': 0.9, 'cache_hit': False}
+[2026-06-29 20:48:31,977: WARNING/MainProcess] 2026-06-29 20:48:31 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4001 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 20:50:18,928: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 20:50:18,933: WARNING/MainProcess] 2026-06-29 20:50:18 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:1.4', 'status': 'no_change', 'applied_fields': [], 'llm_confidence': 0.9, 'cache_hit': False}
+[2026-06-29 20:50:18,935: WARNING/MainProcess] 2026-06-29 20:50:18 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4058 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 20:51:58,826: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 20:51:58,830: WARNING/MainProcess] 2026-06-29 20:51:58 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:1.5', 'status': 'no_change', 'applied_fields': [], 'llm_confidence': 0.9, 'cache_hit': False}
+[2026-06-29 20:51:58,831: WARNING/MainProcess] 2026-06-29 20:51:58 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=3986 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 20:53:30,581: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 20:53:30,584: WARNING/MainProcess] 2026-06-29 20:53:30 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:1.6', 'status': 'no_change', 'applied_fields': [], 'llm_confidence': 0.9, 'cache_hit': False}
+[2026-06-29 20:53:30,586: WARNING/MainProcess] 2026-06-29 20:53:30 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4005 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 20:55:04,564: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 20:55:04,566: WARNING/MainProcess] 2026-06-29 20:55:04 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:1.7', 'status': 'no_change', 'applied_fields': [], 'llm_confidence': 0.9, 'cache_hit': False}
+[2026-06-29 20:55:04,568: WARNING/MainProcess] 2026-06-29 20:55:04 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=3940 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 20:56:33,749: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 20:56:33,752: WARNING/MainProcess] 2026-06-29 20:56:33 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:1.8', 'status': 'no_change', 'applied_fields': [], 'llm_confidence': 0.9, 'cache_hit': False}
+[2026-06-29 20:56:33,753: WARNING/MainProcess] 2026-06-29 20:56:33 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4157 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 20:58:19,371: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 20:58:19,374: WARNING/MainProcess] 2026-06-29 20:58:19 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:2.1', 'status': 'applied', 'applied_fields': ['unit_type', 'topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 20:58:19,375: WARNING/MainProcess] 2026-06-29 20:58:19 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4278 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:00:34,261: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:00:34,264: WARNING/MainProcess] 2026-06-29 21:00:34 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:2.2', 'status': 'applied', 'applied_fields': ['topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:00:34,266: WARNING/MainProcess] 2026-06-29 21:00:34 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4438 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:02:42,837: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:02:42,840: WARNING/MainProcess] 2026-06-29 21:02:42 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:2.4', 'status': 'applied', 'applied_fields': ['topic_tags'], 'llm_confidence': 0.85, 'cache_hit': False}
+[2026-06-29 21:02:42,841: WARNING/MainProcess] 2026-06-29 21:02:42 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4115 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:04:18,968: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:04:18,970: WARNING/MainProcess] 2026-06-29 21:04:18 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:3.2', 'status': 'applied', 'applied_fields': ['unit_type', 'clause_function', 'topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:04:18,971: WARNING/MainProcess] 2026-06-29 21:04:18 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4069 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:05:41,338: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:05:41,340: WARNING/MainProcess] 2026-06-29 21:05:41 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:3.5', 'status': 'applied', 'applied_fields': ['topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:05:41,342: WARNING/MainProcess] 2026-06-29 21:05:41 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4134 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:07:19,393: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:07:19,397: WARNING/MainProcess] 2026-06-29 21:07:19 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:4.1', 'status': 'applied', 'applied_fields': ['unit_type', 'clause_function'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:07:19,400: WARNING/MainProcess] 2026-06-29 21:07:19 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4191 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:09:07,968: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:09:07,971: WARNING/MainProcess] 2026-06-29 21:09:07 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:4.2', 'status': 'applied', 'applied_fields': ['clause_function', 'topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:09:07,972: WARNING/MainProcess] 2026-06-29 21:09:07 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4191 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:10:36,478: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:10:36,482: WARNING/MainProcess] 2026-06-29 21:10:36 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:4.3', 'status': 'applied', 'applied_fields': ['clause_function', 'topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:10:36,483: WARNING/MainProcess] 2026-06-29 21:10:36 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4164 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:12:10,560: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:12:10,563: WARNING/MainProcess] 2026-06-29 21:12:10 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:4.4', 'status': 'rejected', 'applied_fields': [], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:12:10,564: WARNING/MainProcess] 2026-06-29 21:12:10 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4107 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:13:33,874: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:13:33,877: WARNING/MainProcess] 2026-06-29 21:13:33 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:4.5', 'status': 'applied', 'applied_fields': ['clause_function', 'topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:13:33,878: WARNING/MainProcess] 2026-06-29 21:13:33 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4411 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:15:29,646: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:15:29,649: WARNING/MainProcess] 2026-06-29 21:15:29 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:5.1', 'status': 'applied', 'applied_fields': ['unit_type', 'clause_function', 'topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:15:29,650: WARNING/MainProcess] 2026-06-29 21:15:29 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4461 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:17:22,214: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:17:22,218: WARNING/MainProcess] 2026-06-29 21:17:22 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:5.2', 'status': 'applied', 'applied_fields': ['clause_function', 'topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:17:22,219: WARNING/MainProcess] 2026-06-29 21:17:22 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4301 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:19:11,222: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:19:11,225: WARNING/MainProcess] 2026-06-29 21:19:11 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:5.3', 'status': 'applied', 'applied_fields': ['topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:19:11,226: WARNING/MainProcess] 2026-06-29 21:19:11 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4240 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:21:00,884: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:21:00,886: WARNING/MainProcess] 2026-06-29 21:21:00 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:5.4', 'status': 'applied', 'applied_fields': ['topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:21:00,887: WARNING/MainProcess] 2026-06-29 21:21:00 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4176 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:22:39,070: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:22:39,073: WARNING/MainProcess] 2026-06-29 21:22:39 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:5.5', 'status': 'applied', 'applied_fields': ['topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:22:39,074: WARNING/MainProcess] 2026-06-29 21:22:39 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4275 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:24:12,250: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:24:12,253: WARNING/MainProcess] 2026-06-29 21:24:12 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:5.6', 'status': 'applied', 'applied_fields': ['topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:24:12,254: WARNING/MainProcess] 2026-06-29 21:24:12 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4161 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:26:02,250: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:26:02,254: WARNING/MainProcess] 2026-06-29 21:26:02 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:5.7', 'status': 'applied', 'applied_fields': ['topic_tags'], 'llm_confidence': 0.85, 'cache_hit': False}
+[2026-06-29 21:26:02,255: WARNING/MainProcess] 2026-06-29 21:26:02 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4233 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:28:03,579: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:28:03,581: WARNING/MainProcess] 2026-06-29 21:28:03 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:6.2', 'status': 'applied', 'applied_fields': ['unit_type', 'clause_function'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:28:03,582: WARNING/MainProcess] 2026-06-29 21:28:03 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4351 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:30:15,909: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:30:15,913: WARNING/MainProcess] 2026-06-29 21:30:15 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:6.4', 'status': 'applied', 'applied_fields': ['clause_function', 'topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:30:15,914: WARNING/MainProcess] 2026-06-29 21:30:15 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4100 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:32:14,535: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:32:14,539: WARNING/MainProcess] 2026-06-29 21:32:14 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:7.1.1', 'status': 'applied', 'applied_fields': ['unit_type', 'clause_function', 'topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:32:14,540: WARNING/MainProcess] 2026-06-29 21:32:14 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4081 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:33:40,040: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:33:40,044: WARNING/MainProcess] 2026-06-29 21:33:40 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:7.1.2', 'status': 'applied', 'applied_fields': ['clause_function', 'topic_tags'], 'llm_confidence': 0.85, 'cache_hit': False}
+[2026-06-29 21:33:40,045: WARNING/MainProcess] 2026-06-29 21:33:40 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4062 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:35:05,611: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:35:05,613: WARNING/MainProcess] 2026-06-29 21:35:05 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:7.3.1', 'status': 'applied', 'applied_fields': ['clause_function', 'topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:35:05,615: WARNING/MainProcess] 2026-06-29 21:35:05 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4320 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:37:03,879: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:37:03,884: WARNING/MainProcess] 2026-06-29 21:37:03 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:7.3.2', 'status': 'applied', 'applied_fields': ['topic_tags'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:37:03,885: WARNING/MainProcess] 2026-06-29 21:37:03 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4434 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:39:31,023: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:39:31,026: WARNING/MainProcess] 2026-06-29 21:39:31 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:7.3.5', 'status': 'applied', 'applied_fields': ['clause_function', 'topic_tags'], 'llm_confidence': 0.85, 'cache_hit': False}
+[2026-06-29 21:39:31,027: WARNING/MainProcess] 2026-06-29 21:39:31 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4351 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:42:13,076: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:42:13,083: WARNING/MainProcess] 2026-06-29 21:42:13 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:8.1', 'status': 'applied', 'applied_fields': ['clause_function'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:42:13,085: WARNING/MainProcess] 2026-06-29 21:42:13 [info     ] LLM async call                 effective_max_tokens=512 grammar_requested=False max_tokens=512 prompt_preview=Ты выполняешь semantic enrichment юридической клаузы.
+
+Верни ТОЛЬКО JSON-объект без markdown, без пояснительного текста до JSON и после JSON.
+
+Формат ответа:
+{
+  "suggested_unit_type": "one_of_allowed prompt_tokens=4221 provider=ollama response_format_requested=json_object structured_output_strategy=ollama_json_mode temperature=0.0
+[2026-06-29 21:44:32,522: INFO/MainProcess] HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+[2026-06-29 21:44:32,525: WARNING/MainProcess] 2026-06-29 21:44:32 [debug    ] STRUCTURE semantic_enrichment_unit_processed (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'unit_id': 'main_contract:8.2', 'status': 'applied', 'applied_fields': ['clause_function'], 'llm_confidence': 0.8, 'cache_hit': False}
+[2026-06-29 21:44:32,546: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] STRUCTURE semantic_enrichment_complete (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'segment_id': '46a30205-7f4a-5f82-9aa7-a0bc6308f655', 'total_units': 55, 'status_counts': {'applied': 25, 'no_change': 8, 'rejected': 2, 'skipped': 20}, 'llm_model': 'qwen25-legal'}
+[2026-06-29 21:44:32,626: WARNING/MainProcess] 2026-06-29 21:44:32 [debug    ] Stored JSON artifact           path=tenants/3454318e-51e1-4ad8-b327-0b1f19d12ea0/deals/3454318e-51e1-4ad8-b327-0b1f19d12ea0/structures/87880e0b-2d6f-472b-bd6a-544940653856/legal_units_enrichment_46a30205.json size_bytes=99529
+[2026-06-29 21:44:32,628: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] Semantic enrichment stage: segment enriched extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'document_version_id': '6e5b05ad-484f-4f07-9448-6e778c1e3481', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'tenant_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'segment_id': '46a30205-7f4a-5f82-9aa7-a0bc6308f655', 'sidecar_ref': 's3://mas-artifacts/tenants/3454318e-51e1-4ad8-b327-0b1f19d12ea0/deals/3454318e-51e1-4ad8-b327-0b1f19d12ea0/structures/87880e0b-2d6f-472b-bd6a-544940653856/legal_units_enrichment_46a30205.json', 'status_counts': {'applied': 25, 'no_change': 8, 'rejected': 2, 'skipped': 20}}
+[2026-06-29 21:44:32,648: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] STRUCTURE semantic_enrichment_start (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'segment_id': 'b7d9ee58-b472-546e-b723-301072f9bfc5', 'total_units': 23, 'eligible_units': 0, 'skipped_units_pre_llm': 23, 'skip_reason_counts': {'already_semantically_complete': 23}, 'eligible_reason_counts': {}, 'policy_version': 'phase12_v1', 'llm_provider': 'ollama', 'llm_model': 'qwen25-legal', 'llm_execution_mode': 'sequential', 'max_inflight_llm_calls': 1, 'per_unit_timeout_seconds': 360.0, 'effective_segment_timeout_seconds': 10515.070524813025, 'cache_enabled': True}
+[2026-06-29 21:44:32,650: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] STRUCTURE semantic_enrichment_complete (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'segment_id': 'b7d9ee58-b472-546e-b723-301072f9bfc5', 'total_units': 23, 'status_counts': {'skipped': 23}, 'llm_model': 'qwen25-legal'}
+[2026-06-29 21:44:32,664: WARNING/MainProcess] 2026-06-29 21:44:32 [debug    ] Stored JSON artifact           path=tenants/3454318e-51e1-4ad8-b327-0b1f19d12ea0/deals/3454318e-51e1-4ad8-b327-0b1f19d12ea0/structures/87880e0b-2d6f-472b-bd6a-544940653856/legal_units_enrichment_b7d9ee58.json size_bytes=14747
+[2026-06-29 21:44:32,664: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] Semantic enrichment stage: segment enriched extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'document_version_id': '6e5b05ad-484f-4f07-9448-6e778c1e3481', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'tenant_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'segment_id': 'b7d9ee58-b472-546e-b723-301072f9bfc5', 'sidecar_ref': 's3://mas-artifacts/tenants/3454318e-51e1-4ad8-b327-0b1f19d12ea0/deals/3454318e-51e1-4ad8-b327-0b1f19d12ea0/structures/87880e0b-2d6f-472b-bd6a-544940653856/legal_units_enrichment_b7d9ee58.json', 'status_counts': {'skipped': 23}}
+[2026-06-29 21:44:32,670: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] STRUCTURE semantic_enrichment_start (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'segment_id': '42cbb26c-8e6d-5937-9db1-48370df05c23', 'total_units': 22, 'eligible_units': 0, 'skipped_units_pre_llm': 22, 'skip_reason_counts': {'already_semantically_complete': 3, 'text_too_short': 19}, 'eligible_reason_counts': {}, 'policy_version': 'phase12_v1', 'llm_provider': 'ollama', 'llm_model': 'qwen25-legal', 'llm_execution_mode': 'sequential', 'max_inflight_llm_calls': 1, 'per_unit_timeout_seconds': 360.0, 'effective_segment_timeout_seconds': 10515.047114762012, 'cache_enabled': True}
+[2026-06-29 21:44:32,671: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] STRUCTURE semantic_enrichment_complete (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'segment_id': '42cbb26c-8e6d-5937-9db1-48370df05c23', 'total_units': 22, 'status_counts': {'skipped': 22}, 'llm_model': 'qwen25-legal'}
+[2026-06-29 21:44:32,683: WARNING/MainProcess] 2026-06-29 21:44:32 [debug    ] Stored JSON artifact           path=tenants/3454318e-51e1-4ad8-b327-0b1f19d12ea0/deals/3454318e-51e1-4ad8-b327-0b1f19d12ea0/structures/87880e0b-2d6f-472b-bd6a-544940653856/legal_units_enrichment_42cbb26c.json size_bytes=13807
+[2026-06-29 21:44:32,683: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] Semantic enrichment stage: segment enriched extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'document_version_id': '6e5b05ad-484f-4f07-9448-6e778c1e3481', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'tenant_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'segment_id': '42cbb26c-8e6d-5937-9db1-48370df05c23', 'sidecar_ref': 's3://mas-artifacts/tenants/3454318e-51e1-4ad8-b327-0b1f19d12ea0/deals/3454318e-51e1-4ad8-b327-0b1f19d12ea0/structures/87880e0b-2d6f-472b-bd6a-544940653856/legal_units_enrichment_42cbb26c.json', 'status_counts': {'skipped': 22}}
+[2026-06-29 21:44:32,689: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] STRUCTURE semantic_enrichment_start (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'segment_id': '4bf68389-3d80-584a-b442-25041fbfe53a', 'total_units': 23, 'eligible_units': 0, 'skipped_units_pre_llm': 23, 'skip_reason_counts': {'already_semantically_complete': 23}, 'eligible_reason_counts': {}, 'policy_version': 'phase12_v1', 'llm_provider': 'ollama', 'llm_model': 'qwen25-legal', 'llm_execution_mode': 'sequential', 'max_inflight_llm_calls': 1, 'per_unit_timeout_seconds': 360.0, 'effective_segment_timeout_seconds': 10515.028302630992, 'cache_enabled': True}
+[2026-06-29 21:44:32,690: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] STRUCTURE semantic_enrichment_complete (async) extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'segment_id': '4bf68389-3d80-584a-b442-25041fbfe53a', 'total_units': 23, 'status_counts': {'skipped': 23}, 'llm_model': 'qwen25-legal'}
+[2026-06-29 21:44:32,707: WARNING/MainProcess] 2026-06-29 21:44:32 [debug    ] Stored JSON artifact           path=tenants/3454318e-51e1-4ad8-b327-0b1f19d12ea0/deals/3454318e-51e1-4ad8-b327-0b1f19d12ea0/structures/87880e0b-2d6f-472b-bd6a-544940653856/legal_units_enrichment_4bf68389.json size_bytes=14739
+[2026-06-29 21:44:32,707: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] Semantic enrichment stage: segment enriched extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'document_version_id': '6e5b05ad-484f-4f07-9448-6e778c1e3481', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'tenant_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'segment_id': '4bf68389-3d80-584a-b442-25041fbfe53a', 'sidecar_ref': 's3://mas-artifacts/tenants/3454318e-51e1-4ad8-b327-0b1f19d12ea0/deals/3454318e-51e1-4ad8-b327-0b1f19d12ea0/structures/87880e0b-2d6f-472b-bd6a-544940653856/legal_units_enrichment_4bf68389.json', 'status_counts': {'skipped': 23}}
+[2026-06-29 21:44:32,876: WARNING/MainProcess] 2026-06-29 21:44:32 [info     ] Semantic enrichment stage: terminal outcome reached extra={'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'document_version_id': '6e5b05ad-484f-4f07-9448-6e778c1e3481', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'tenant_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'run_id': 'b8f059d2-ee87-4385-9acd-0ccd619d0c93', 'terminal_outcome': 'completed', 'segments_total': 4, 'segments_with_legal_units_ref': 4, 'segments_enriched': 4, 'segments_timed_out': 0, 'segments_failed': 0, 'segments_skipped_budget': 0, 'budget_exhausted': False, 'document_budget_seconds': 14400, 'segment_timeout_seconds': 10800}
+[2026-06-29 21:44:33,024: WARNING/MainProcess] 2026-06-29 21:44:33 [info     ] Task completed                 task_id=bc0eafb7-8258-4f5d-b790-8436117d9384 task_name=workers.build_legal_units_enrichment
+[2026-06-29 21:44:33,033: INFO/MainProcess] Task workers.build_legal_units_enrichment[bc0eafb7-8258-4f5d-b790-8436117d9384] succeeded in 3885.7272115289816s: {'document_id': '87880e0b-2d6f-472b-bd6a-544940653856', 'document_version_id': '6e5b05ad-484f-4f07-9448-6e778c1e3481', 'deal_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'tenant_id': '3454318e-51e1-4ad8-b327-0b1f19d12ea0', 'terminal_outcome': 'completed', 'segments_total': 4, 'segments_with_legal_units_ref': 4, 'segments_enriched': 4, 'segments_timed_out': 0, 'segments_failed': 0, 'segments_skipped_budget': 0, 'budget_exhausted': False, 'committed': True, 'stage_execution_result_details': {'terminal_outcome': 'completed', 'segments_total': 4, 'segments_with_legal_units_ref': 4, 'segments_enriched': 4, 'segments_timed_out': 0, 'segments_failed': 0, 'segments_skipped_budget': 0, 'budget_exhausted': False, 'document_budget_seconds': 14400, 'segment_timeout_seconds': 10800}}
+[2026-06-29 21:44:33,048: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 21:44:33,049: INFO/MainProcess] missed heartbeat from worker-system@LAPTOP-70V01FA5
+[2026-06-29 21:44:33,049: INFO/MainProcess] missed heartbeat from worker-default@LAPTOP-70V01FA5
+[2026-06-29 21:44:33,049: INFO/MainProcess] missed heartbeat from worker-heavy-segment-classification@LAPTOP-70V01FA5
+[2026-06-29 21:44:33,054: WARNING/MainProcess] Substantial drift from worker-system@LAPTOP-70V01FA5 may mean clocks are out of sync.  Current drift is 3939 seconds.  [orig: 2026-06-29 21:44:33.054163 recv: 2026-06-29 20:38:54.198200]
+[2026-06-29 21:44:33,055: WARNING/MainProcess] Substantial drift from worker-default@LAPTOP-70V01FA5 may mean clocks are out of sync.  Current drift is 3939 seconds.  [orig: 2026-06-29 21:44:33.055251 recv: 2026-06-29 20:38:54.966738]
+[2026-06-29 21:44:33,055: WARNING/MainProcess] Substantial drift from worker-heavy-checks@LAPTOP-70V01FA5 may mean clocks are out of sync.  Current drift is 3938 seconds.  [orig: 2026-06-29 21:44:33.055502 recv: 2026-06-29 20:38:55.307488]
+[2026-06-29 21:44:33,055: WARNING/MainProcess] Substantial drift from worker-heavy-segment-classification@LAPTOP-70V01FA5 may mean clocks are out of sync.  Current drift is 3938 seconds.  [orig: 2026-06-29 21:44:33.055781 recv: 2026-06-29 20:38:55.897350]
+[2026-06-29 21:44:38,775: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 21:50:48,146: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:02:51,897: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:09:53,746: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:15:17,346: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:20:57,145: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:26:27,012: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:30:29,304: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:33:08,904: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:36:55,385: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:41:44,688: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:44:03,457: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:47:56,059: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5
+[2026-06-29 22:50:50,852: INFO/MainProcess] missed heartbeat from worker-heavy-checks@LAPTOP-70V01FA5

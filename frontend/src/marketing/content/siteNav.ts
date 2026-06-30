@@ -6,14 +6,16 @@ export interface NavItem {
 }
 
 export const SITE_NAV: NavItem[] = [
-  { label: "Platform",  href: "/platform"  },
-  { label: "Security",  href: "/security"  },
-  { label: "Use Cases", href: "/use-cases" },
-  { label: "About",     href: "/about"     },
+  { label: "Платформа", href: "/platform" },
+  { label: "Безопасность", href: "/security" },
+  { label: "Сценарии", href: "/use-cases" },
+  { label: "О нас", href: "/about" },
 ];
 
 export const SITE_CTA = {
-  demo:  { label: "Request demo", href: "/demo"  },
-  login: { label: "Log in",       href: "/login" },
+  demo: { label: "Запросить демо", href: "/demo" },
+  login: { label: "Войти", href: "/login" },
 } as const;
+
+
 

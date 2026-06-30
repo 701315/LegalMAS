@@ -1,4 +1,4 @@
-// src/components/marketing/landing/KnowledgeGrowthSection/index.tsx
+// src/marketing/components/home/KnowledgeGrowthSection/index.tsx
 
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
