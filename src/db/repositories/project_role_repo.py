@@ -1,156 +1,255 @@
 # src/db/repositories/project_role_repo.py
 
 """
-Репозиторий для работы с ролями участников проектов (сделок).
+Репозиторий для работы с project memberships (deal_members).
 
-Назначение:
-- Инкапсулирует доступ к таблице deal_members.
-- Предоставляет методы:
-  - get_role(user_id, deal_id)     — получить проектную роль пользователя;
-  - set_role(user_id, deal_id, ..) — установить/обновить проектную роль;
-  - list_members(deal_id)          — список участников сделки;
-  - create_member(...)             — создать участника проекта;
-  - update_member(member_id, ...)  — обновить данные участника;
-  - remove_member(member_id)       — удалить участника.
-
-Роль в архитектуре RBAC:
-- Используется:
-  - в require_project_role для проверки прав на уровне одной сделки;
-  - в эндпоинтах project_members для CRUD участников проекта.
-- Не содержит бизнес-логики UI или глобальных ролей (GlobalRole),
-  только работу с данными deal_members.
+Чистая модель:
+- deal_members хранит только связь User ↔ Deal и project role;
+- все display-поля (email, full_name, system_role) берутся через JOIN users;
+- никакого login/password/name на уровне membership больше нет.
 """
 
 from __future__ import annotations
 
-from uuid import UUID
+import uuid
+from dataclasses import dataclass
+from datetime import datetime
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.roles import ProjectRole  # Literal["admin", "editor", "viewer"]
+from core.roles import ProjectRole
+from db.models.deal import Deal
 from db.models.deal_member import DealMember
+from db.models.user import User
+
+
+@dataclass(frozen=True)
+class ProjectMemberView:
+    """
+    Обогащённое представление участника проекта для API/UI.
+    """
+
+    member_id: uuid.UUID
+    user_id: uuid.UUID
+    email: str
+    full_name: str | None
+    system_role: str
+    role: ProjectRole
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class AvailableProjectUserView:
+    """
+    Пользователь tenant'а, которого можно добавить в проект.
+    """
+
+    user_id: uuid.UUID
+    email: str
+    full_name: str | None
+    system_role: str
 
 
 class ProjectRoleRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_role(self, user_id: str, deal_id: UUID) -> ProjectRole | None:
+    @staticmethod
+    def _coerce_user_id(user_id: str | uuid.UUID) -> uuid.UUID:
+        if isinstance(user_id, uuid.UUID):
+            return user_id
+        return uuid.UUID(str(user_id))
+
+    async def get_role(
+        self,
+        user_id: str | uuid.UUID,
+        deal_id: uuid.UUID,
+    ) -> ProjectRole | None:
         """
-        Вернуть проектную роль пользователя в сделке или None, если записи нет.
+        Вернуть project role пользователя в проекте или None.
         """
+        uid = self._coerce_user_id(user_id)
+
         stmt = select(DealMember.role).where(
-            DealMember.user_id == user_id,
+            DealMember.user_id == uid,
             DealMember.deal_id == deal_id,
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def set_role(self, user_id: str, deal_id: UUID, role: ProjectRole) -> None:
+    async def list_deals_for_user(
+        self,
+        user_id: str | uuid.UUID,
+    ) -> list[DealMember]:
         """
-        Установить/обновить проектную роль пользователя в сделке.
-
-        Поведение:
-        - если запись (deal_id, user_id) существует — обновляет поле role;
-        - если записи нет — создаёт новую запись с минимально заполненными
-          name/login (name="", login=user_id).
-
-        Используется в low-level сценариях, когда нужно именно задать роль,
-        а не управлять участниками через UI-форму.
+        Вернуть memberships пользователя во всех проектах.
+        Используется в user_projects.py.
         """
-        stmt = (
-            update(DealMember)
-            .where(
-                DealMember.user_id == user_id,
-                DealMember.deal_id == deal_id,
-            )
-            .values(role=role)
-            .execution_options(synchronize_session="fetch")
-        )
-        result = await self.db.execute(stmt)
+        uid = self._coerce_user_id(user_id)
 
-        if result.rowcount == 0:
-            stmt_insert = insert(DealMember).values(
-                user_id=user_id,
-                deal_id=deal_id,
-                role=role,
-                name="",  # при чистом set_role пока не трогаем name/login
-                login=user_id,
-            )
-            await self.db.execute(stmt_insert)
-
-        await self.db.flush()
-
-    async def list_members(self, deal_id: UUID) -> list[DealMember]:
-        """
-        Вернуть всех участников сделки с их ролями.
-        """
         stmt = (
             select(DealMember)
-            .where(DealMember.deal_id == deal_id)
+            .where(DealMember.user_id == uid)
             .order_by(DealMember.created_at.asc())
         )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+    async def list_members(
+        self,
+        deal_id: uuid.UUID,
+    ) -> list[ProjectMemberView]:
+        """
+        Вернуть обогащённый список участников проекта через JOIN users.
+        """
+        stmt = (
+            select(
+                DealMember.id.label("member_id"),
+                User.id.label("user_id"),
+                User.email.label("email"),
+                User.full_name.label("full_name"),
+                User.system_role.label("system_role"),
+                DealMember.role.label("role"),
+                DealMember.created_at.label("created_at"),
+            )
+            .join(User, User.id == DealMember.user_id)
+            .where(DealMember.deal_id == deal_id)
+            .order_by(DealMember.created_at.asc())
+        )
+
+        result = await self.db.execute(stmt)
+        rows = result.mappings().all()
+
+        return [
+            ProjectMemberView(
+                member_id=row["member_id"],
+                user_id=row["user_id"],
+                email=row["email"],
+                full_name=row["full_name"],
+                system_role=row["system_role"],
+                role=row["role"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    async def get_member_view(
+        self,
+        member_id: uuid.UUID,
+    ) -> ProjectMemberView | None:
+        """
+        Вернуть одного участника проекта в обогащённом виде.
+        """
+        stmt = (
+            select(
+                DealMember.id.label("member_id"),
+                User.id.label("user_id"),
+                User.email.label("email"),
+                User.full_name.label("full_name"),
+                User.system_role.label("system_role"),
+                DealMember.role.label("role"),
+                DealMember.created_at.label("created_at"),
+            )
+            .join(User, User.id == DealMember.user_id)
+            .where(DealMember.id == member_id)
+        )
+
+        result = await self.db.execute(stmt)
+        row = result.mappings().one_or_none()
+
+        if row is None:
+            return None
+
+        return ProjectMemberView(
+            member_id=row["member_id"],
+            user_id=row["user_id"],
+            email=row["email"],
+            full_name=row["full_name"],
+            system_role=row["system_role"],
+            role=row["role"],
+            created_at=row["created_at"],
+        )
+
+    async def list_available_users(
+        self,
+        deal_id: uuid.UUID,
+    ) -> list[AvailableProjectUserView]:
+        """
+        Вернуть активных пользователей tenant'а сделки,
+        которые ещё не добавлены в этот проект.
+        """
+        deal_tenant_subquery = (
+            select(Deal.tenant_id)
+            .where(Deal.id == deal_id)
+            .scalar_subquery()
+        )
+
+        assigned_users_subquery = (
+            select(DealMember.user_id)
+            .where(DealMember.deal_id == deal_id)
+        )
+
+        stmt = (
+            select(
+                User.id.label("user_id"),
+                User.email.label("email"),
+                User.full_name.label("full_name"),
+                User.system_role.label("system_role"),
+            )
+            .where(
+                User.tenant_id == deal_tenant_subquery,
+                User.is_active.is_(True),
+                User.id.not_in(assigned_users_subquery),
+            )
+            .order_by(User.created_at.asc())
+        )
+
+        result = await self.db.execute(stmt)
+        rows = result.mappings().all()
+
+        return [
+            AvailableProjectUserView(
+                user_id=row["user_id"],
+                email=row["email"],
+                full_name=row["full_name"],
+                system_role=row["system_role"],
+            )
+            for row in rows
+        ]
+
     async def create_member(
         self,
-        deal_id: UUID,
-        name: str,
-        login: str,
+        deal_id: uuid.UUID,
+        user_id: str | uuid.UUID,
         role: ProjectRole,
     ) -> DealMember:
         """
-        Создать нового участника проекта.
-
-        В текущем dev-варианте:
-        - user_id равен login (до появления реальной таблицы users).
+        Создать membership пользователя в проекте.
         """
+        uid = self._coerce_user_id(user_id)
+
         member = DealMember(
             deal_id=deal_id,
-            name=name,
-            login=login,
-            user_id=login,
+            user_id=uid,
             role=role,
         )
         self.db.add(member)
         await self.db.flush()
         return member
 
-    async def update_member(
+    async def update_member_role(
         self,
-        member_id: UUID,
-        *,
-        name: str | None = None,
-        login: str | None = None,
-        role: ProjectRole | None = None,
+        member_id: uuid.UUID,
+        role: ProjectRole,
     ) -> DealMember | None:
         """
-        Обновить данные участника проекта по его идентификатору.
-
-        - Если указаны name/login/role — обновляет только их.
-        - Если ничего не указано — просто возвращает текущую запись.
-        - При смене login синхронизирует и user_id (пока user_id=login).
+        Обновить только project role участника.
         """
-        values: dict = {}
-        if name is not None:
-            values["name"] = name
-        if login is not None:
-            values["login"] = login
-            values["user_id"] = login
-        if role is not None:
-            values["role"] = role
-
-        if not values:
-            stmt = select(DealMember).where(DealMember.id == member_id)
-            result = await self.db.execute(stmt)
-            return result.scalar_one_or_none()
-
         stmt = (
             update(DealMember)
             .where(DealMember.id == member_id)
-            .values(**values)
+            .values(role=role)
             .returning(DealMember)
         )
         result = await self.db.execute(stmt)
@@ -159,13 +258,9 @@ class ProjectRoleRepository:
             await self.db.flush()
         return member
 
-    async def remove_member(self, member_id: UUID) -> bool:
+    async def remove_member(self, member_id: uuid.UUID) -> bool:
         """
-        Удалить участника проекта по его идентификатору.
-
-        Возвращает:
-        - True, если участник был удалён;
-        - False, если записи с таким id не было.
+        Удалить membership по member_id.
         """
         stmt = delete(DealMember).where(DealMember.id == member_id)
         result = await self.db.execute(stmt)
@@ -173,3 +268,6 @@ class ProjectRoleRepository:
         if deleted:
             await self.db.flush()
         return deleted
+    
+
+    

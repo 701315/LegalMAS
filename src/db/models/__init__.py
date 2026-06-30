@@ -10,6 +10,8 @@ from .check_result_persist_error import CheckResultPersistError
 from .dd_request import DDRequest
 from .deal import Deal
 from .deal_member import DealMember
+from .tenant import Tenant
+from .user import User
 from .document import Document, DocumentSegment, DocumentStageExecution, DocumentVersion
 from .document_type_instruction import DocumentTypeInstructionVersion
 from .export import Export
@@ -30,6 +32,8 @@ __all__ = [
     "DLQRecord",
     "Deal",
     "DealMember",
+    "Tenant",
+    "User",
     "Document",
     "DocumentSegment",
     "DocumentStageExecution",

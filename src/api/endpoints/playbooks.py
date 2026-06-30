@@ -49,11 +49,11 @@ async def require_playbook_admin(
     """
     Проверка прав на управление шаблонами playbook.
 
-    Разрешаем только пользователям с глобальной ролью 'superadmin' или 'admin'.
-    В dev-режиме get_current_user возвращает global_role='admin', поэтому
-    проверки будут проходить.
+    Разрешено: superadmin и tenant_admin.
+    superadmin управляет шаблонами всей платформы.
+    tenant_admin управляет шаблонами в рамках своего tenant'а.
     """
-    if user.global_role not in ("superadmin", "admin"):
+    if user.global_role not in ("superadmin", "tenant_admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions to manage playbook templates.",

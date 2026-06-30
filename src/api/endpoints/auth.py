@@ -1,31 +1,29 @@
 # src/api/endpoints/auth.py
 
 """
-Эндпоинты авторизации / аутентификации для FastAPI (dev-режим).
+Эндпоинты аутентификации.
 
-Назначение:
-- Предоставить простой, но структурный механизм логина для разработки.
-- Эмулировать реальные глобальные роли (GlobalRole), чтобы проверять RBAC:
-  superadmin / admin / editor / viewer.
-- Не хранить пользователей в БД и не реализовывать настоящую авторизацию,
-  но использовать те же модели (LoginRequest, LoginResponse, CurrentUser),
-  что и в будущем боевом варианте.
-
-Важно:
-- Контракт эндпоинта /api/v1/auth/login (запрос/ответ) считается стабильным.
-- Внутренняя реализация (dev-логины, фиктивные токены) может быть
-  заменена на полноценный логин (users + JWT), не ломая фронтенд.
+Чистая модель:
+- Только реальный логин через таблицу users.
+- Поле username в запросе временно сохраняем для контрактной совместимости,
+  но фактически интерпретируем его как email.
+- Никакого dev-fallback.
 """
 
 from __future__ import annotations
 
-import uuid
-from typing import TypedDict
-
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser
+from core.logging import get_logger
+from core.roles import normalize_system_role
+from db.repositories.user_repo import UserRepository
+from db.session import get_db
+from services.auth_service import create_access_token, verify_password
+
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/auth",
@@ -37,11 +35,9 @@ class LoginRequest(BaseModel):
     """
     Входные данные для логина.
 
-    Сейчас:
-    - ожидаем username и password из формы логина на фронтенде.
-
-    Потом:
-    - поля можно оставить те же, а внутри искать пользователя в БД.
+    Поле username используется как email для входа.
+    Переименовать в email можно позже отдельным шагом,
+    когда фронтенд будет готов к изменению контракта.
     """
 
     username: str
@@ -52,10 +48,9 @@ class LoginResponse(BaseModel):
     """
     Ответ на успешный логин.
 
-    Поля:
-    - access_token: строка с токеном доступа (пока фиктивная).
-    - token_type : тип токена, по умолчанию "bearer".
-    - user       : объект CurrentUser (см. src/api/deps/auth.py).
+    - access_token: JWT токен
+    - token_type  : всегда "bearer"
+    - user        : краткая информация о пользователе
     """
 
     access_token: str
@@ -63,81 +58,72 @@ class LoginResponse(BaseModel):
     user: CurrentUser
 
 
-class DevUserConfig(TypedDict):
-    password: str
-    global_role: str
-    email: str | None
-
-
-# Набор dev-пользователей для отладки RBAC.
-# В будущем будет заменён на реальную таблицу users + хранилище паролей.
-DEV_USERS: dict[str, DevUserConfig] = {
-    # Полный доступ ко всем сделкам, игнорирует projectRole.
-    "superadmin": {
-        "password": "superadmin",
-        "global_role": "superadmin",
-        "email": "superadmin@example.com",
-    },
-    # Глобальный админ: максимальные права в рамках своего tenant,
-    # но projectRole может урезать доступ в конкретной сделке.
-    "admin": {
-        "password": "admin",
-        "global_role": "admin",
-        "email": "admin@example.com",
-    },
-    # Пользователь с правами редактирования (например, загрузка документов,
-    # запуск анализа) в рамках разрешённых проектов.
-    "editor": {
-        "password": "editor",
-        "global_role": "editor",
-        "email": "editor@example.com",
-    },
-    # Пользователь только для просмотра.
-    "viewer": {
-        "password": "viewer",
-        "global_role": "viewer",
-        "email": "viewer@example.com",
-    },
-}
-
-
 @router.post("/login", response_model=LoginResponse)
-async def login(payload: LoginRequest) -> LoginResponse:
+async def login(
+    payload: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+) -> LoginResponse:
     """
-    Простой dev-логин по username и password.
+    Логин по email + password.
 
-    Сейчас:
-    - Поддерживаются dev-логины:
-        * superadmin / superadmin
-        * admin      / admin
-        * editor     / editor
-        * viewer     / viewer
-    - Для каждого логина задаётся своя global_role.
-    - user.id = username (строка), tenant_id = нулевой UUID.
-
-    Позже:
-    - Проверка логина/пароля будет заменена на запрос к БД и проверку хэша.
-    - access_token станет JWT с user_id, global_role, tenant_id и т.п.
+    Алгоритм:
+    1. Ищем активного пользователя по email.
+    2. Проверяем bcrypt hash.
+    3. Выдаём JWT.
     """
-    config = DEV_USERS.get(payload.username)
+    email = payload.username.strip().lower()
+    password = payload.password
 
-    if config is None or config["password"] != payload.password:
+    if not email or not password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email and password are required",
+        )
+
+    user_repo = UserRepository(db)
+    db_user = await user_repo.get_by_email(email)
+
+    if db_user is None:
+        logger.info("Login failed: user not found", email=email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
         )
 
-    user = CurrentUser(
-        id=payload.username,  # пока строка, позже UUID из таблицы users
-        global_role=config["global_role"],  # GlobalRole: superadmin/admin/editor/viewer
-        tenant_id=uuid.UUID(int=0),  # временный tenant_id
-        email=config["email"],
+    if not verify_password(password, db_user.password_hash):
+        logger.info("Login failed: wrong password", email=email)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+        )
+
+    system_role = normalize_system_role(db_user.system_role)
+
+    token = create_access_token(
+        user_id=db_user.id,
+        tenant_id=db_user.tenant_id,
+        system_role=system_role,
+        email=db_user.email,
     )
 
-    # access_token остаётся фиктивным, но структура совместима с будущим JWT.
-    token = f"dev-token-{payload.username}"
+    current_user = CurrentUser(
+        id=str(db_user.id),
+        global_role=system_role,
+        tenant_id=db_user.tenant_id,
+        email=db_user.email,
+    )
+
+    logger.info(
+        "Login successful",
+        user_id=str(db_user.id),
+        email=db_user.email,
+        system_role=system_role,
+        tenant_id=str(db_user.tenant_id),
+    )
 
     return LoginResponse(
         access_token=token,
-        user=user,
+        user=current_user,
     )
+
+

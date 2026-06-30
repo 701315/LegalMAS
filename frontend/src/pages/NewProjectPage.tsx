@@ -31,13 +31,16 @@ const NewProjectPage: React.FC = () => {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const canCreate =
+    globalRole === "superadmin" || globalRole === "tenant_admin";
+
   useEffect(() => {
-    if (globalRole !== "superadmin") {
+    if (!canCreate) {
       navigate("/dashboard", { replace: true });
     }
-  }, [globalRole, navigate]);
+  }, [canCreate, navigate]);
 
-  if (globalRole !== "superadmin") {
+  if (!canCreate) {
     return null;
   }
 

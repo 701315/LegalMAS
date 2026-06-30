@@ -42,6 +42,23 @@ class Settings(BaseSettings):
     # --- Application ---
     BASE_DIR: str = str(Path(__file__).resolve().parent.parent.parent)
     ENVIRONMENT: str = "development"
+    # --- Tenant ---
+    # Фиксированный dev-tenant UUID.
+    # Используется вместо zero UUID (00000000-...) до появления
+    # полноценного tenant management layer с реальной регистрацией клиентов.
+    # Значение совпадает с seed-записью в таблице tenants (миграция B1).
+    # В production каждый клиент получит свой UUID из таблицы tenants.
+    DEV_TENANT_ID: str = "11111111-1111-1111-1111-111111111111"
+
+    # --- Auth (JWT) ---
+    # Секретный ключ для подписи JWT-токенов.
+    # В production ОБЯЗАТЕЛЬНО заменить на случайную строку длиной >= 32 символов.
+    # Генерация: python3 -c "import secrets; print(secrets.token_hex(32))"
+    JWT_SECRET_KEY: str = "dev-secret-key-change-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    # Время жизни access token в минутах.
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 8  # 8 часов для dev
+
     LOG_LEVEL: str = "DEBUG"
     LOG_FORMAT: str = "console"
     LLM_EXTRACTION_JSON_GRAMMAR_PATH: str | None = None

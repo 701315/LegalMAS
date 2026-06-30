@@ -13,8 +13,9 @@
  * обновлённые данные.
  */
 export const queryKeys = {
-  /**
-   * Ключ списка проектов, доступных конкретному пользователю.
-   */
   userProjects: (userId: string) => ["user-projects", userId] as const,
+  adminTenants: ["admin", "tenants"] as const,
+  adminTenant: (tenantId: string) => ["admin", "tenants", tenantId] as const,
 };
+
+

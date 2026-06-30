@@ -139,8 +139,7 @@ async def create_deal(
 
     await role_repo.create_member(
         deal_id=deal.id,
-        name=user.id,
-        login=user.id,
+        user_id=UUID(user.id),
         role="admin",
     )
 
@@ -203,8 +202,8 @@ async def update_deal(
     global_role = getattr(user, "global_role", None) or getattr(user, "role", None)
 
     if project_role not in ("admin", "editor") and global_role not in (
-        "admin",
         "superadmin",
+        "tenant_admin",
     ):
         raise HTTPException(
             status_code=403,
@@ -250,7 +249,7 @@ async def delete_deal(
     user: CurrentUser = Depends(get_current_user),
 ):
     global_role = getattr(user, "global_role", None) or getattr(user, "role", None)
-    if global_role not in ("admin", "superadmin"):
+    if global_role not in ("superadmin", "tenant_admin"):
         raise HTTPException(
             status_code=403,
             detail="Not enough permissions to delete deal",

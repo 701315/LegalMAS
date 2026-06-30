@@ -4,10 +4,24 @@
 // =============================================================
 
 /**
- * Роли пользователей в системе.
- * Уровни: viewer=1, editor=2, reviewer=3, admin=4
+ * Системные роли пользователя в платформе.
+ *
+ * Канонические:
+ * - superadmin   : полный доступ ко всем tenant'ам и данным
+ * - tenant_admin : управляет своим tenant'ом и его проектами
+ * - member       : видит только назначенные ему проекты
+ *
+ * Legacy (для dev-совместимости):
+ * - admin        : алиас для tenant_admin
  */
-export type UserRole = "superadmin" | "admin" | "reviewer" | "editor" | "viewer";
+export type UserRole =
+  | "superadmin"
+  | "tenant_admin"
+  | "admin"
+  | "member"
+  | "reviewer"
+  | "editor"
+  | "viewer";
 
 export interface User {
   id: string;
@@ -15,4 +29,5 @@ export interface User {
   role: UserRole;
   name?: string;
 }
+
 

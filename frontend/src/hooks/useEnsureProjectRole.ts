@@ -14,11 +14,13 @@ export function useEnsureProjectRole(dealId: string): void {
   const projectRoles = useUIStore((s) => s.projectRoles);
   const setProjectRole = useUIStore((s) => s.setProjectRole);
 
-  const isSuperAdmin = globalRole === "superadmin";
+  const isTenantScopedAdmin =
+    globalRole === "superadmin" || globalRole === "tenant_admin";
   const alreadyResolved = dealId in projectRoles;
 
   React.useEffect(() => {
-    if (isSuperAdmin) return;
+    // superadmin и tenant_admin не нуждаются в membership-lookup
+    if (isTenantScopedAdmin) return;
     if (alreadyResolved) return;
     if (!dealId || !userId) return;
 
@@ -28,7 +30,7 @@ export function useEnsureProjectRole(dealId: string): void {
       .list(dealId)
       .then((members) => {
         if (cancelled) return;
-        const me = members.find((m) => m.member_id === userId);
+        const me = members.find((m) => m.user_id === userId);
         setProjectRole(dealId, me?.role ?? "viewer");
       })
       .catch(() => {
@@ -39,6 +41,6 @@ export function useEnsureProjectRole(dealId: string): void {
     return () => {
       cancelled = true;
     };
-  }, [dealId, userId, isSuperAdmin, alreadyResolved, setProjectRole]);
+  }, [dealId, userId, isTenantScopedAdmin, alreadyResolved, setProjectRole]);
 }
 

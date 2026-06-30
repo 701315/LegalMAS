@@ -1,7 +1,6 @@
 // =============================================================
 // src/pages/LoginPage.tsx
 // Страница входа: логин + пароль, сохранение пользователя в uiStore.
-// Обновлено под общий дизайн workspace LegalMAS.
 // =============================================================
 
 import React, { useState } from "react";
@@ -17,12 +16,8 @@ import type { ApiError } from "../types";
 // Все известные роли бэкенда → GlobalRole фронта
 const ROLE_MAP: Record<string, GlobalRole> = {
   superadmin: "superadmin",
-  admin: "admin",
-  editor: "editor",
-  reviewer: "reviewer",
-  viewer: "viewer",
-  user: "user",
-  system: "system",
+  tenant_admin: "tenant_admin",
+  member: "member",
 };
 
 const LoginPage: React.FC = () => {
@@ -52,9 +47,7 @@ const LoginPage: React.FC = () => {
           const user = data.user;
 
           const globalRole: GlobalRole =
-            user.id === "admin"
-              ? "superadmin"
-              : ROLE_MAP[user.global_role] ?? "user";
+            ROLE_MAP[user.global_role] ?? "member";
 
           const projectRoles: Record<string, ProjectRole> = {};
 
@@ -196,7 +189,5 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
-
-
 
 

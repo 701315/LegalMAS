@@ -1,18 +1,22 @@
 // =============================================================
 // src/components/settings/ProjectMembersPanel.tsx
 // Embedded workspace panel для управления участниками проекта.
-// Используется внутри SettingsTab и как shared-content для legacy route.
+// Новая модель: выбираем существующего пользователя tenant'а.
 // =============================================================
 
 import React from "react";
 import { Loader2, Shield, UserPlus, Users } from "lucide-react";
 import {
   useProjectMembers,
+  useAvailableProjectUsers,
   useCreateProjectMember,
   useUpdateProjectMember,
   useDeleteProjectMember,
 } from "../../api/projectMembers";
-import type { ProjectMember } from "../../api/projectMembers";
+import type {
+  ProjectMember,
+  AvailableProjectUser,
+} from "../../api/projectMembers";
 import type { ProjectRole } from "../../api/auth";
 import type { ApiError } from "../../types";
 import { useDealPermissions } from "../../hooks/usePermissions";
@@ -21,11 +25,13 @@ import PageSection from "../ui/PageSection";
 
 type FormMode = "create" | "edit";
 
-interface MemberFormState {
+interface CreateMemberFormState {
+  userId: string;
+  role: ProjectRole;
+}
+
+interface EditMemberFormState {
   memberId?: string;
-  name: string;
-  login: string;
-  password: string;
   role: ProjectRole;
 }
 
@@ -35,18 +41,26 @@ interface ProjectMembersPanelProps {
   backButton?: React.ReactNode;
 }
 
-const EMPTY_FORM: MemberFormState = {
+const EMPTY_CREATE_FORM: CreateMemberFormState = {
+  userId: "",
+  role: "viewer",
+};
+
+const EMPTY_EDIT_FORM: EditMemberFormState = {
   memberId: undefined,
-  name: "",
-  login: "",
-  password: "",
   role: "viewer",
 };
 
 const ROLE_LABEL: Record<ProjectRole, string> = {
-  admin: "Администратор",
-  editor: "Права правки",
+  admin: "Администратор проекта",
+  editor: "Редактор проекта",
   viewer: "Только просмотр",
+};
+
+const SYSTEM_ROLE_LABEL: Record<string, string> = {
+  superadmin: "Суперадмин",
+  tenant_admin: "Администратор клиента",
+  member: "Участник",
 };
 
 const ALERT_ERROR_CLASS =
@@ -59,18 +73,27 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
   const { canManageRequests } = useDealPermissions(dealId);
   const canManageMembers = canManageRequests;
 
-  const { data: members, isLoading } = useProjectMembers(dealId);
+  const { data: members, isLoading: isMembersLoading } = useProjectMembers(dealId);
+  const {
+    data: availableUsers,
+    isLoading: isAvailableUsersLoading,
+  } = useAvailableProjectUsers(dealId);
+
   const createMutation = useCreateProjectMember(dealId);
   const updateMutation = useUpdateProjectMember(dealId);
   const deleteMutation = useDeleteProjectMember(dealId);
 
   const [formMode, setFormMode] = React.useState<FormMode | null>(null);
-  const [form, setForm] = React.useState<MemberFormState>(EMPTY_FORM);
+  const [createForm, setCreateForm] =
+    React.useState<CreateMemberFormState>(EMPTY_CREATE_FORM);
+  const [editForm, setEditForm] =
+    React.useState<EditMemberFormState>(EMPTY_EDIT_FORM);
   const [errorText, setErrorText] = React.useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] =
     React.useState<ProjectMember | null>(null);
 
   const membersList = members ?? [];
+  const availableUsersList = availableUsers ?? [];
 
   const isCreateLoading = createMutation.isPending;
   const isUpdateLoading = updateMutation.isPending;
@@ -83,31 +106,36 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
     setErrorText(null);
     setConfirmDelete(null);
     setFormMode("create");
-    setForm(EMPTY_FORM);
+    setCreateForm(EMPTY_CREATE_FORM);
   }, []);
 
   const openEditForm = React.useCallback((member: ProjectMember) => {
     setErrorText(null);
     setConfirmDelete(null);
     setFormMode("edit");
-    setForm({
+    setEditForm({
       memberId: member.member_id,
-      name: member.name,
-      login: member.login,
-      password: "",
       role: member.role,
     });
   }, []);
 
   const closeForm = React.useCallback(() => {
     setFormMode(null);
-    setForm(EMPTY_FORM);
+    setCreateForm(EMPTY_CREATE_FORM);
+    setEditForm(EMPTY_EDIT_FORM);
     setErrorText(null);
   }, []);
 
-  const handleFormChange = React.useCallback(
-    (field: keyof MemberFormState, value: string) => {
-      setForm((prev) => ({ ...prev, [field]: value }));
+  const handleCreateFormChange = React.useCallback(
+    (field: keyof CreateMemberFormState, value: string) => {
+      setCreateForm((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
+
+  const handleEditFormChange = React.useCallback(
+    (field: keyof EditMemberFormState, value: string) => {
+      setEditForm((prev) => ({ ...prev, [field]: value as ProjectRole }));
     },
     [],
   );
@@ -117,37 +145,22 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
       event.preventDefault();
       setErrorText(null);
 
-      if (!form.name.trim()) {
-        setErrorText("Укажите имя пользователя.");
-        return;
-      }
-
-      if (!form.login.trim()) {
-        setErrorText("Укажите логин.");
-        return;
-      }
-
-      if (formMode === "create" && !form.password.trim()) {
-        setErrorText("Укажите пароль для нового пользователя.");
-        return;
-      }
-
       try {
         if (formMode === "create") {
+          if (!createForm.userId) {
+            setErrorText("Выберите пользователя.");
+            return;
+          }
+
           await createMutation.mutateAsync({
-            name: form.name.trim(),
-            login: form.login.trim(),
-            password: form.password.trim(),
-            role: form.role,
+            user_id: createForm.userId,
+            role: createForm.role,
           });
-        } else if (formMode === "edit" && form.memberId) {
+        } else if (formMode === "edit" && editForm.memberId) {
           await updateMutation.mutateAsync({
-            memberId: form.memberId,
+            memberId: editForm.memberId,
             data: {
-              name: form.name.trim(),
-              login: form.login.trim(),
-              role: form.role,
-              password: form.password.trim() || undefined,
+              role: editForm.role,
             },
           });
         }
@@ -155,14 +168,14 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
         closeForm();
       } catch (error) {
         const apiErr = error as ApiError;
-        if (apiErr.detail === "LOGIN_TAKEN") {
-          setErrorText("Такой логин уже занят. Выберите другой.");
+        if (apiErr.detail === "USER_ALREADY_IN_PROJECT") {
+          setErrorText("Пользователь уже добавлен в этот проект.");
         } else {
           setErrorText(apiErr.detail || "Не удалось сохранить участника.");
         }
       }
     },
-    [closeForm, createMutation, form, formMode, updateMutation],
+    [closeForm, createMutation, createForm, editForm, formMode, updateMutation],
   );
 
   const handleDelete = React.useCallback(async () => {
@@ -180,6 +193,14 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
       );
     }
   }, [confirmDelete, deleteMutation]);
+
+  const getAvailableUserLabel = (user: AvailableProjectUser): string => {
+    const name = user.full_name?.trim();
+    if (name) {
+      return `${name} — ${user.email}`;
+    }
+    return user.email;
+  };
 
   if (!canManageMembers) {
     return (
@@ -210,7 +231,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
   return (
     <PageSection
       title="Участники проекта"
-      subtitle="Управление составом команды, ролями и доступом к рабочему пространству сделки."
+      subtitle="Назначение существующих пользователей клиента в проект и управление их проектными ролями."
       rightSlot={
         <div className="flex flex-wrap items-center gap-2">
           {backButton}
@@ -220,6 +241,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
             variant="secondary"
             leftIcon={<UserPlus size={14} />}
             onClick={openCreateForm}
+            disabled={availableUsersList.length === 0}
           >
             Добавить участника
           </Button>
@@ -239,7 +261,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
         ) : null}
 
         <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-          {isLoading ? (
+          {isMembersLoading ? (
             <div className="flex items-center justify-center px-5 py-16">
               <Loader2
                 size={18}
@@ -260,8 +282,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
               </h2>
 
               <p className="mx-auto mt-2 max-w-md text-sm text-[var(--text-muted)]">
-                Добавьте первого участника проекта, чтобы настроить состав
-                команды и права доступа.
+                Добавьте первого участника проекта из числа пользователей клиента.
               </p>
 
               <div className="mt-5 flex justify-center">
@@ -271,6 +292,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                   variant="secondary"
                   leftIcon={<UserPlus size={14} />}
                   onClick={openCreateForm}
+                  disabled={availableUsersList.length === 0}
                 >
                   Добавить участника
                 </Button>
@@ -282,10 +304,10 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                 <thead className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
                   <tr>
                     <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Имя
+                      Пользователь
                     </th>
                     <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Логин
+                      Системная роль
                     </th>
                     <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                       Роль в проекте
@@ -302,17 +324,28 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                       key={member.member_id}
                       className="border-b border-[var(--border)] transition-colors hover:bg-[var(--bg-elevated-soft)]"
                     >
-                      <td className="px-3 py-2.5 text-sm font-medium text-[var(--text-primary)]">
-                        {member.name}
+                      <td className="px-3 py-2.5">
+                        <div className="text-sm font-medium text-[var(--text-primary)]">
+                          {member.full_name || member.email}
+                        </div>
+                        <div className="text-xs text-[var(--text-secondary)]">
+                          {member.email}
+                        </div>
                       </td>
-                      <td className="px-3 py-2.5 text-sm text-[var(--text-secondary)]">
-                        {member.login}
+
+                      <td className="px-3 py-2.5">
+                        <span className="inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
+                          {SYSTEM_ROLE_LABEL[member.system_role] ??
+                            member.system_role}
+                        </span>
                       </td>
+
                       <td className="px-3 py-2.5">
                         <span className="inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
                           {ROLE_LABEL[member.role]}
                         </span>
                       </td>
+
                       <td className="px-3 py-2.5">
                         <div className="flex justify-end gap-2">
                           <Button
@@ -321,7 +354,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                             variant="ghost"
                             onClick={() => openEditForm(member)}
                           >
-                            Редактировать
+                            Роль
                           </Button>
 
                           <Button
@@ -346,19 +379,17 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
           )}
         </section>
 
-        {formMode ? (
+        {formMode === "create" ? (
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
             <div className="border-b border-[var(--border-subtle)] px-5 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                {formMode === "create" ? "Новый участник" : "Редактирование"}
+                Новый участник
               </p>
               <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">
-                {formMode === "create"
-                  ? "Добавить участника"
-                  : "Редактировать участника"}
+                Добавить пользователя в проект
               </h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">
-                Укажите имя, логин, роль в проекте и при необходимости пароль.
+                Выберите существующего пользователя клиента и назначьте ему роль в проекте.
               </p>
             </div>
 
@@ -366,52 +397,33 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                    Имя пользователя
+                    Пользователь
                   </label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => handleFormChange("name", e.target.value)}
-                    className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-muted)] focus:border-[var(--border)]"
-                    placeholder="Например: Иванов Иван"
-                  />
-                </div>
 
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                    Логин
-                  </label>
-                  <input
-                    type="text"
-                    value={form.login}
-                    onChange={(e) => handleFormChange("login", e.target.value)}
-                    className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-muted)] focus:border-[var(--border)]"
-                    placeholder="Например: ivanov"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-                    Пароль
-                  </label>
-                  <input
-                    type="password"
-                    value={form.password}
-                    onChange={(e) =>
-                      handleFormChange("password", e.target.value)
-                    }
-                    className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-muted)] focus:border-[var(--border)]"
-                    placeholder={
-                      formMode === "create"
-                        ? "Придумайте пароль"
-                        : "Новый пароль (необязательно)"
-                    }
-                  />
-                  {formMode === "edit" ? (
-                    <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-                      Оставьте поле пустым, если пароль менять не нужно.
-                    </p>
-                  ) : null}
+                  {isAvailableUsersLoading ? (
+                    <div className="flex items-center rounded-xl border border-[var(--border-subtle)] px-3 py-2 text-sm text-[var(--text-muted)]">
+                      <Loader2
+                        size={16}
+                        className="mr-2 animate-spin text-[var(--accent-primary)]"
+                      />
+                      Загружаем список пользователей…
+                    </div>
+                  ) : (
+                    <select
+                      value={createForm.userId}
+                      onChange={(e) =>
+                        handleCreateFormChange("userId", e.target.value)
+                      }
+                      className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--border)]"
+                    >
+                      <option value="">Выберите пользователя</option>
+                      {availableUsersList.map((u) => (
+                        <option key={u.user_id} value={u.user_id}>
+                          {getAvailableUserLabel(u)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -419,14 +431,14 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                     Роль в проекте
                   </label>
                   <select
-                    value={form.role}
+                    value={createForm.role}
                     onChange={(e) =>
-                      handleFormChange("role", e.target.value as ProjectRole)
+                      handleCreateFormChange("role", e.target.value)
                     }
                     className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--border)]"
                   >
                     <option value="admin">Администратор</option>
-                    <option value="editor">Права правки</option>
+                    <option value="editor">Редактор</option>
                     <option value="viewer">Только просмотр</option>
                   </select>
                 </div>
@@ -436,6 +448,72 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                 <div className={ALERT_ERROR_CLASS}>
                   <p className="text-sm font-medium text-[var(--text-primary)]">
                     Проверьте данные формы
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                    {errorText}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="flex items-center justify-end gap-2 border-t border-[var(--border-subtle)] pt-4">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={closeForm}
+                >
+                  Отмена
+                </Button>
+
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant="secondary"
+                  isLoading={isSaving}
+                >
+                  Добавить
+                </Button>
+              </div>
+            </form>
+          </section>
+        ) : null}
+
+        {formMode === "edit" ? (
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+            <div className="border-b border-[var(--border-subtle)] px-5 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
+                Редактирование
+              </p>
+              <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">
+                Изменить роль участника
+              </h2>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">
+                Измените роль пользователя внутри проекта.
+              </p>
+            </div>
+
+            <form className="space-y-4 px-5 py-5" onSubmit={handleSave}>
+              <div className="max-w-sm">
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
+                  Роль в проекте
+                </label>
+                <select
+                  value={editForm.role}
+                  onChange={(e) =>
+                    handleEditFormChange("role", e.target.value)
+                  }
+                  className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--border)]"
+                >
+                  <option value="admin">Администратор</option>
+                  <option value="editor">Редактор</option>
+                  <option value="viewer">Только просмотр</option>
+                </select>
+              </div>
+
+              {errorText ? (
+                <div className={ALERT_ERROR_CLASS}>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">
+                    Не удалось изменить роль
                   </p>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
                     {errorText}
@@ -476,7 +554,8 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                 Удалить участника проекта
               </h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">
-                Это действие удалит участника из текущего проекта.
+                Это действие удалит пользователя только из текущего проекта.
+                Сам пользователь останется в системе.
               </p>
             </div>
 
@@ -484,7 +563,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
               <p className="text-sm text-[var(--text-secondary)]">
                 Удалить участника{" "}
                 <span className="font-semibold text-[var(--text-primary)]">
-                  {confirmDelete.name}
+                  {confirmDelete.full_name || confirmDelete.email}
                 </span>{" "}
                 из проекта?
               </p>
@@ -518,5 +597,4 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
 };
 
 export default ProjectMembersPanel;
-
 

@@ -3,31 +3,23 @@
 """
 User projects API.
 
-Эндпоинты:
-- GET /api/v1/user/{user_id}/projects — вернуть список «проектов» (сделок),
-  к которым пользователь имеет доступ, с ролью и базовыми метаданными.
+GET /api/v1/user/{user_id}/projects
 
-На данный момент:
-- список берётся как первые N сделок из DealRepository без реальной фильтрации
-  по membership/tenant;
-- роль пользователя захардкожена как "admin" для всех проектов;
-- проверка user_id против current_user.id пока заглушена и не даёт 403.
-
-Модель UserProject описывает минимальный DTO для фронта:
-- deal_id, deal_name;
-- role (admin/editor/viewer);
-- created_at;
-- contact_person из metadata_ сделки (если есть).
+Логика:
+- superadmin   → все проекты всех клиентов
+- tenant_admin → все проекты своего tenant'а
+- member       → только проекты, в которые он добавлен через deal_members
 """
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
 from db.repositories.deal_repo import DealRepository
+from db.repositories.project_role_repo import ProjectRoleRepository
 from db.session import get_db
 
 router = APIRouter(prefix="/api/v1/user", tags=["user-projects"])
@@ -47,28 +39,82 @@ async def list_user_projects(
     db: AsyncSession = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    # здесь можно сразу заложить проверку, что user_id == current_user.id
-    # чтобы интерфейс был «правильным»:
+    """
+    Список проектов, доступных пользователю.
+
+    Правила:
+    - superadmin может получать список проектов только для самого себя,
+      но увидит все проекты всех клиентов;
+    - tenant_admin может получать список проектов только для самого себя,
+      и увидит все проекты своего tenant'а;
+    - member может получать список проектов только для самого себя,
+      и увидит только membership-проекты.
+    """
     if user_id != current_user.id:
-        # позже тут будет 403 / проверка прав
-        # сейчас можно просто игнорировать, либо вернуть пустой список
-        pass
-
-    repo = DealRepository(db)
-    # прод‑вариант — сделать нормальную пагинацию + фильтрацию по membership/tenant
-    deals_page, _total = await repo.get_page(page=1, per_page=100)
-
-    return [
-        UserProject(
-            deal_id=str(d.id),
-            deal_name=d.name,
-            role="admin",  # временно считаем, что текущий пользователь — админ везде
-            created_at=d.created_at.isoformat(),
-            contact_person=(
-                (d.metadata_ or {}).get("contact_person")
-                if getattr(d, "metadata_", None) is not None
-                else None
-            ),
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="ACCESS_DENIED: cannot request projects for another user",
         )
-        for d in deals_page
-    ]
+
+    deal_repo = DealRepository(db)
+    role_repo = ProjectRoleRepository(db)
+
+    if current_user.global_role == "superadmin":
+        deals = await deal_repo.get_all()
+        return [
+            UserProject(
+                deal_id=str(d.id),
+                deal_name=d.name,
+                role="admin",
+                created_at=d.created_at.isoformat(),
+                contact_person=(
+                    (d.metadata_ or {}).get("contact_person")
+                    if getattr(d, "metadata_", None) is not None
+                    else None
+                ),
+            )
+            for d in deals
+        ]
+
+    if current_user.global_role == "tenant_admin":
+        deals = await deal_repo.get_by_tenant(current_user.tenant_id)
+        return [
+            UserProject(
+                deal_id=str(d.id),
+                deal_name=d.name,
+                role="admin",
+                created_at=d.created_at.isoformat(),
+                contact_person=(
+                    (d.metadata_ or {}).get("contact_person")
+                    if getattr(d, "metadata_", None) is not None
+                    else None
+                ),
+            )
+            for d in deals
+        ]
+
+    memberships = await role_repo.list_deals_for_user(current_user.id)
+
+    projects: list[UserProject] = []
+    for membership in memberships:
+        deal = await deal_repo.get_by_id(membership.deal_id)
+        if deal is None:
+            continue
+
+        projects.append(
+            UserProject(
+                deal_id=str(deal.id),
+                deal_name=deal.name,
+                role=membership.role,
+                created_at=deal.created_at.isoformat(),
+                contact_person=(
+                    (deal.metadata_ or {}).get("contact_person")
+                    if getattr(deal, "metadata_", None) is not None
+                    else None
+                ),
+            )
+        )
+
+    return projects
+
+

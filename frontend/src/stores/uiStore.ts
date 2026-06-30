@@ -9,12 +9,8 @@ import type { ProjectRole } from "../api/auth";
 
 export type GlobalRole =
   | "superadmin"
-  | "admin"
-  | "reviewer"
-  | "editor"
-  | "viewer"
-  | "user"
-  | "system";
+  | "tenant_admin"
+  | "member";
 
 interface UIState {
   apiKey: string | null;
@@ -37,7 +33,6 @@ interface UIState {
     apiKey?: string | null;
   }) => void;
 
-  // Установить роль пользователя в конкретном проекте
   setProjectRole: (dealId: string, role: ProjectRole) => void;
 
   logout: () => void;
@@ -76,13 +71,7 @@ export const useUIStore = create<UIState>((set) => ({
     }
   })(),
 
-  setUserInfo: ({
-    userId,
-    userName,
-    globalRole,
-    projectRoles,
-    apiKey,
-  }) => {
+  setUserInfo: ({ userId, userName, globalRole, projectRoles, apiKey }) => {
     localStorage.setItem("mas_dd_user_id", userId);
     localStorage.setItem("mas_dd_user_name", userName);
     localStorage.setItem("mas_dd_global_role", globalRole);

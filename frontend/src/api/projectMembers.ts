@@ -1,7 +1,7 @@
 // =============================================================
 // src/api/projectMembers.ts
 // API-клиент и hooks для участников проекта.
-// TanStack Query v5 safe version.
+// Новая модель: membership назначается существующему пользователю.
 // =============================================================
 
 import {
@@ -17,24 +17,28 @@ import type { ProjectRole } from "./auth";
 
 export interface ProjectMember {
   member_id: string;
-  name: string;
-  login: string;
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  system_role: string;
   role: ProjectRole;
   created_at: string;
 }
 
+export interface AvailableProjectUser {
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  system_role: string;
+}
+
 export interface CreateProjectMemberInput {
-  name: string;
-  login: string;
-  password: string;
+  user_id: string;
   role: ProjectRole;
 }
 
 export interface UpdateProjectMemberInput {
-  name?: string;
-  login?: string;
-  password?: string;
-  role?: ProjectRole;
+  role: ProjectRole;
 }
 
 export interface UpdateProjectMemberParams {
@@ -45,6 +49,8 @@ export interface UpdateProjectMemberParams {
 export const projectMembersKeys = {
   all: ["project-members"] as const,
   byDeal: (dealId: string) => [...projectMembersKeys.all, dealId] as const,
+  availableUsers: (dealId: string) =>
+    [...projectMembersKeys.all, dealId, "available-users"] as const,
   create: (dealId: string) =>
     [...projectMembersKeys.all, "create", dealId] as const,
   update: (dealId: string) =>
@@ -57,6 +63,13 @@ export const projectMembersApi = {
   async list(dealId: string): Promise<ProjectMember[]> {
     const res = await client.get<ProjectMember[]>(
       `/api/v1/projects/${dealId}/members`,
+    );
+    return res.data;
+  },
+
+  async listAvailableUsers(dealId: string): Promise<AvailableProjectUser[]> {
+    const res = await client.get<AvailableProjectUser[]>(
+      `/api/v1/projects/${dealId}/available-users`,
     );
     return res.data;
   },
@@ -93,13 +106,28 @@ async function invalidateProjectMembers(
   queryClient: QueryClient,
   dealId: string,
 ): Promise<void> {
-  await queryClient.invalidateQueries({
-    queryKey: projectMembersKeys.byDeal(dealId),
-  });
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: projectMembersKeys.byDeal(dealId),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: projectMembersKeys.availableUsers(dealId),
+    }),
+  ]);
 }
 
 type ProjectMembersQueryOptions = Omit<
   UseQueryOptions<ProjectMember[], Error, ProjectMember[], readonly unknown[]>,
+  "queryKey" | "queryFn" | "enabled"
+>;
+
+type AvailableUsersQueryOptions = Omit<
+  UseQueryOptions<
+    AvailableProjectUser[],
+    Error,
+    AvailableProjectUser[],
+    readonly unknown[]
+  >,
   "queryKey" | "queryFn" | "enabled"
 >;
 
@@ -112,6 +140,20 @@ export function useProjectMembers(
       ? projectMembersKeys.byDeal(dealId)
       : projectMembersKeys.all,
     queryFn: () => projectMembersApi.list(dealId!),
+    enabled: Boolean(dealId),
+    ...options,
+  });
+}
+
+export function useAvailableProjectUsers(
+  dealId: string | null,
+  options?: AvailableUsersQueryOptions,
+) {
+  return useQuery({
+    queryKey: dealId
+      ? projectMembersKeys.availableUsers(dealId)
+      : projectMembersKeys.all,
+    queryFn: () => projectMembersApi.listAvailableUsers(dealId!),
     enabled: Boolean(dealId),
     ...options,
   });
@@ -155,5 +197,4 @@ export function useDeleteProjectMember(dealId: string) {
     },
   });
 }
-
 

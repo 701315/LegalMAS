@@ -22,7 +22,6 @@ function formatDate(value: string): string {
   });
 }
 
-/** Данные проекта, который пользователь хочет удалить. */
 interface DeleteTarget {
   dealId: string;
   dealName: string;
@@ -34,11 +33,7 @@ const DashboardPage: React.FC = () => {
 
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
-
-  // Состояние модального окна подтверждения удаления
-  const [deleteTarget, setDeleteTarget] = React.useState<DeleteTarget | null>(
-    null,
-  );
+  const [deleteTarget, setDeleteTarget] = React.useState<DeleteTarget | null>(null);
 
   React.useEffect(() => {
     if (!userId) {
@@ -59,18 +54,15 @@ const DashboardPage: React.FC = () => {
     navigate("/projects/new");
   };
 
-  /** Открыть диалог подтверждения удаления. */
   const handleRequestDelete = (dealId: string, dealName: string) => {
     setDeleteError(null);
     setDeleteTarget({ dealId, dealName });
   };
 
-  /** Закрыть диалог без удаления. */
   const handleCancelDelete = () => {
     setDeleteTarget(null);
   };
 
-  /** Подтвердить удаление. */
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
 
@@ -94,14 +86,12 @@ const DashboardPage: React.FC = () => {
           const resp = (e as { response?: { data?: ApiError } }).response;
           detailFromResponse = resp?.data?.detail;
         }
-
         if (
           "detail" in e &&
           typeof (e as { detail?: unknown }).detail === "string"
         ) {
           detailFromApiError = (e as { detail?: string }).detail;
         }
-
         if (
           "message" in e &&
           typeof (e as { message?: unknown }).message === "string"
@@ -127,9 +117,13 @@ const DashboardPage: React.FC = () => {
     return null;
   }
 
+  const canCreateProject =
+    globalRole === "superadmin" || globalRole === "tenant_admin";
+
   return (
     <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 md:px-6">
       <div className="mx-auto max-w-6xl animate-fadein space-y-5">
+
         {/* Шапка */}
         <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
           <div className="flex flex-col gap-4">
@@ -186,7 +180,7 @@ const DashboardPage: React.FC = () => {
               <p className="text-sm text-[var(--text-secondary)]">
                 Пока нет проектов, к которым у вас есть доступ.
               </p>
-              {globalRole === "superadmin" && (
+              {canCreateProject && (
                 <div className="mt-5 flex justify-center">
                   <Button
                     size="md"
@@ -254,7 +248,8 @@ const DashboardPage: React.FC = () => {
                     Открыть проект
                   </Button>
 
-                  {globalRole === "superadmin" && (
+                  {(globalRole === "superadmin" ||
+                    globalRole === "tenant_admin") && (
                     <Button
                       type="button"
                       size="sm"
@@ -274,7 +269,6 @@ const DashboardPage: React.FC = () => {
         )}
       </div>
 
-      {/* Диалог подтверждения удаления */}
       <ConfirmDialog
         open={deleteTarget !== null}
         title={`Удалить проект «${deleteTarget?.dealName ?? ""}»?`}

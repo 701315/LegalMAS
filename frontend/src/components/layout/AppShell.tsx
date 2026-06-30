@@ -1,8 +1,6 @@
 // =============================================================
 // src/components/layout/AppShell.tsx
 // Основной каркас приложения с глобальным сайдбаром.
-// Внутренний скролл живёт только в рабочей области справа.
-// Между AppShell и страницей есть workspace gutter.
 // =============================================================
 
 import React from "react";
@@ -14,15 +12,12 @@ import {
   BriefcaseBusiness,
   ChevronLeft,
   ChevronRight,
+  Settings,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useUserProjects } from "../../hooks/useUserProjects";
 import Button from "../ui/Button";
-
-// -------------------------------------------------------------
-// Константы
-// -------------------------------------------------------------
 
 const NAV_WIDTH_EXPANDED = 248;
 const NAV_WIDTH_COLLAPSED = 64;
@@ -31,10 +26,6 @@ const MAX_PROJECTS_IN_SIDEBAR = 6;
 const navItemBaseClassName =
   "group flex items-center gap-3 rounded-xl px-3 py-2 font-medium transition-all duration-150 " +
   "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]";
-
-// -------------------------------------------------------------
-// Типы
-// -------------------------------------------------------------
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -53,20 +44,7 @@ interface DashboardNavItemProps {
   onClick: () => void;
 }
 
-// -------------------------------------------------------------
-// Вспомогательные компоненты навигации
-// -------------------------------------------------------------
-
-/**
- * Обычный пункт навигации с иконкой и текстом.
- * В свёрнутом состоянии показывает только иконку.
- */
-const NavItem: React.FC<NavItemProps> = ({
-  to,
-  label,
-  icon: Icon,
-  collapsed,
-}) => (
+const NavItem: React.FC<NavItemProps> = ({ to, label, icon: Icon, collapsed }) => (
   <NavLink
     to={to}
     className={({ isActive }) =>
@@ -87,11 +65,6 @@ const NavItem: React.FC<NavItemProps> = ({
   </NavLink>
 );
 
-/**
- * Кнопка перехода на Dashboard.
- * Используется как button вместо NavLink, потому что клик
- * дополнительно открывает секцию проектов в сайдбаре.
- */
 const DashboardNavItem: React.FC<DashboardNavItemProps> = ({
   collapsed,
   isActive,
@@ -117,42 +90,18 @@ const DashboardNavItem: React.FC<DashboardNavItemProps> = ({
   </button>
 );
 
-/**
- * Заголовок секции в сайдбаре с иконкой и текстом.
- */
 const SidebarSectionLabel: React.FC<{
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   label: string;
 }> = ({ icon: Icon, label }) => (
   <div className="flex items-center gap-2 px-1">
-    <Icon
-      className="h-3.5 w-3.5 text-[var(--text-muted)]"
-      aria-hidden="true"
-    />
+    <Icon className="h-3.5 w-3.5 text-[var(--text-muted)]" aria-hidden="true" />
     <span className="text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
       {label}
     </span>
   </div>
 );
 
-// -------------------------------------------------------------
-// Основной компонент
-// -------------------------------------------------------------
-
-/**
- * Основной каркас приложения.
- *
- * Содержит:
- * - Боковую навигацию с поддержкой сворачивания.
- * - Список проектов пользователя в сайдбаре.
- *   Данные берутся из общего hook useUserProjects, который
- *   использует тот же queryKey, что и DashboardPage.
- *   Благодаря этому после удаления проекта на Dashboard
- *   сайдбар автоматически синхронизируется без дополнительных
- *   запросов или пробросов колбэков.
- * - Верхнюю шапку рабочей области.
- * - Диалог подтверждения выхода из профиля.
- */
 const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const { globalRole, userId } = useAuth();
   const location = useLocation();
@@ -174,18 +123,17 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
   }, [isInDashboardArea]);
 
   const navWidth = collapsed ? NAV_WIDTH_COLLAPSED : NAV_WIDTH_EXPANDED;
-  const isSuperadmin = globalRole === "superadmin";
 
-  // Используем общий hook с единым queryKey.
-  // DashboardPage использует тот же hook, поэтому после
-  // invalidateQueries в useDeleteProject оба компонента
-  // получат обновлённый список одновременно.
+  // Создание проекта: superadmin и tenant_admin
+  const canCreateProject =
+    globalRole === "superadmin" || globalRole === "tenant_admin";
+
+  // Административная панель: только superadmin
+  const canAccessAdmin = globalRole === "superadmin";
+
   const { data: projectsData } = useUserProjects(userId);
 
-  const sidebarProjects = (projectsData ?? []).slice(
-    0,
-    MAX_PROJECTS_IN_SIDEBAR,
-  );
+  const sidebarProjects = (projectsData ?? []).slice(0, MAX_PROJECTS_IN_SIDEBAR);
 
   const hiddenProjectsCount = Math.max(
     0,
@@ -209,9 +157,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   return (
     <div className="flex h-screen min-h-0 w-full overflow-hidden bg-[var(--bg-base)] text-[var(--text-primary)]">
-      {/* --------------------------------------------------------
-          Сайдбар
-      -------------------------------------------------------- */}
+      {/* ── Сайдбар ─────────────────────────────────────────── */}
       <aside
         className="relative flex h-full min-h-0 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-card)] transition-all duration-200"
         style={{ width: navWidth }}
@@ -241,7 +187,6 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
           <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--accent-primary)] text-xs font-semibold text-white shadow-sm">
             <span className="tracking-tight">LM</span>
           </div>
-
           {!collapsed && (
             <div className="min-w-0">
               <div className="text-[length:var(--font-size-body-sm)] leading-[var(--line-height-body-sm)] font-semibold tracking-tight text-[var(--text-primary)]">
@@ -260,22 +205,16 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               onClick={handleDashboardClick}
             />
 
-            {/* Список проектов — только в развёрнутом состоянии */}
+            {/* Список проектов */}
             {!collapsed && isProjectsOpen && (
               <div className="mt-1 pl-2">
-                <SidebarSectionLabel
-                  icon={BriefcaseBusiness}
-                  label="Проекты"
-                />
+                <SidebarSectionLabel icon={BriefcaseBusiness} label="Проекты" />
                 <div className="mt-2 space-y-1">
                   {sidebarProjects.length > 0 ? (
                     sidebarProjects.map((project) => {
                       const isActive =
-                        location.pathname ===
-                          `/projects/${project.deal_id}` ||
-                        location.pathname.startsWith(
-                          `/projects/${project.deal_id}/`,
-                        );
+                        location.pathname === `/projects/${project.deal_id}` ||
+                        location.pathname.startsWith(`/projects/${project.deal_id}/`);
 
                       return (
                         <NavLink
@@ -320,8 +259,8 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               </div>
             )}
 
-            {/* Создать новый проект — только для superadmin */}
-            {isSuperadmin && (
+            {/* Создать новый проект: superadmin и tenant_admin */}
+            {canCreateProject && (
               <div className="mt-4">
                 <NavItem
                   collapsed={collapsed}
@@ -331,10 +270,22 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
                 />
               </div>
             )}
+
+            {/* Административная панель: только superadmin */}
+            {canAccessAdmin && (
+              <div className="mt-1">
+                <NavItem
+                  collapsed={collapsed}
+                  to="/admin"
+                  label="Администрирование"
+                  icon={Settings}
+                />
+              </div>
+            )}
           </nav>
         </div>
 
-        {/* Кнопка профиля / выхода */}
+        {/* Профиль / выход */}
         <div className="shrink-0 border-t border-[var(--border)] px-3 py-3">
           <Button
             type="button"
@@ -369,9 +320,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
         </div>
       </aside>
 
-      {/* --------------------------------------------------------
-          Рабочая область
-      -------------------------------------------------------- */}
+      {/* ── Рабочая область ─────────────────────────────────── */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--bg-base)]">
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-card)] px-5">
           <div className="flex items-center gap-2">
@@ -379,7 +328,6 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               Review Workspace
             </span>
           </div>
-
           <div className="flex items-center gap-2 rounded-full border border-[color:var(--color-success-border)] bg-[color:var(--color-success-bg)] px-3 py-1 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[color:var(--color-success-text)]">
             <Shield className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Data secured</span>
@@ -393,9 +341,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
         </div>
       </main>
 
-      {/* --------------------------------------------------------
-          Диалог подтверждения выхода
-      -------------------------------------------------------- */}
+      {/* ── Диалог выхода ───────────────────────────────────── */}
       {isLogoutOpen && (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 backdrop-blur-[2px]"
@@ -417,7 +363,6 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               Вы будете перенаправлены на страницу входа и текущая сессия будет
               завершена.
             </p>
-
             <div className="mt-5 flex justify-end gap-2">
               <Button
                 variant="secondary"

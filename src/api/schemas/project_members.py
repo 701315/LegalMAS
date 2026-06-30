@@ -1,18 +1,12 @@
 # src/api/schemas/project_members.py
 
 """
-Pydantic схемы для управления участниками проекта (project members).
+Pydantic-схемы для управления участниками проекта.
 
-Используются в API-слое для:
-- приёма данных при создании/обновлении участника проекта;
-- возврата участника в ответах (ORM → Pydantic через from_attributes);
-- типизации роли участника через ProjectRole из слоя БД.
-
-Модели:
-- ProjectMemberBase — общие поля участника (name, login, role);
-- ProjectMemberResponse — модель ответа API с member_id и created_at;
-- CreateProjectMember — payload для создания участника, включает password;
-- UpdateProjectMember — частичное обновление участника (все поля опциональны).
+Чистая модель:
+- пользователь создаётся отдельно через admin panel;
+- project members API только назначает существующего пользователя
+  в проект и задаёт ему project role.
 """
 
 from __future__ import annotations
@@ -22,29 +16,46 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from db.repositories.project_role_repo import ProjectRole
+from core.roles import ProjectRole
 
 
-class ProjectMemberBase(BaseModel):
-    name: str
-    login: str
+class ProjectMemberResponse(BaseModel):
+    """
+    Участник проекта с данными пользователя и project role.
+    """
+
+    member_id: UUID
+    user_id: UUID
+    email: str
+    full_name: str | None
+    system_role: str
+    role: ProjectRole
+    created_at: datetime
+
+
+class AvailableProjectUserResponse(BaseModel):
+    """
+    Пользователь tenant'а, которого можно добавить в проект.
+    """
+
+    user_id: UUID
+    email: str
+    full_name: str | None
+    system_role: str
+
+
+class CreateProjectMember(BaseModel):
+    """
+    Назначить существующего пользователя в проект.
+    """
+
+    user_id: UUID
     role: ProjectRole
 
 
-class ProjectMemberResponse(ProjectMemberBase):
-    member_id: UUID
-    created_at: datetime
-
-    class Config:
-        from_attributes = True  # для model_validate(ORM)
-
-
-class CreateProjectMember(ProjectMemberBase):
-    password: str  # пока просто принимаем, позже свяжем с реальным user
-
-
 class UpdateProjectMember(BaseModel):
-    name: str | None = None
-    login: str | None = None
-    password: str | None = None
-    role: ProjectRole | None = None
+    """
+    Изменить только роль участника в проекте.
+    """
+
+    role: ProjectRole

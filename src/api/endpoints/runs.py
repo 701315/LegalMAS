@@ -18,7 +18,7 @@ import json
 import uuid
 from typing import Literal
 from uuid import UUID
-
+from core.config import settings
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -234,7 +234,7 @@ async def _start_run_core(
     # 6.1. Аудит: пользователь запросил запуск анализа по сделке
     try:
         await audit_repo.log(
-            tenant_id=getattr(user, "tenant_id", None) or uuid.UUID(int=0),
+            tenant_id=getattr(user, "tenant_id", None) or uuid.UUID(settings.DEV_TENANT_ID),
             deal_id=deal_uuid,
             action="ANALYSIS_REQUESTED",
             actor=str(getattr(user, "id", None)) if getattr(user, "id", None) else "unknown",
@@ -287,7 +287,10 @@ async def _start_run_core(
                 "deal_id": str(deal_uuid),
                 "tenant_id": (
                     str(tenant_id)
-                    if tenant_id and str(tenant_id) != "00000000-0000-0000-0000-000000000000"
+                    if tenant_id and str(tenant_id) not in (
+                        "00000000-0000-0000-0000-000000000000",
+                        settings.DEV_TENANT_ID,
+                    )
                     else None
                 ),
                 "force_reclassify": bool(

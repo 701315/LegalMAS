@@ -24,6 +24,9 @@ import DealPlaybookSelectorPage from "./pages/DealPlaybookSelectorPage";
 import AdminPlaybookLinesPage from "./pages/AdminPlaybookLinesPage";
 import ModelConfigsAdminPage from "./pages/ModelConfigsAdminPage";
 import AdminPlaybookVersionsPage from "./pages/AdminPlaybookVersionsPage";
+import AdminPage from "./pages/AdminPage";
+import AdminTenantNewPage from "./pages/AdminTenantNewPage";
+import AdminTenantDetailPage from "./pages/AdminTenantDetailPage";
 
 // ── Utilities ─────────────────────────────────────────────────
 import { shouldPollDealLanguageDiscovery } from "./utils/languageDiscovery";
@@ -38,48 +41,47 @@ const POLL_INTERVAL = 4000;
 // ─────────────────────────────────────────────────────────────
 function DealRouteWrapper() {
   const { dealId } = useParams<{ dealId: string }>();
-  const { data: deal, isLoading, isError, error } = useDeal(
-    dealId ?? null,
-    {
-      refetchInterval: (query) =>
-        shouldPollDealLanguageDiscovery(
-          query.state.data?.language_discovery_status
-        )
-          ? POLL_INTERVAL
-          : false,
-    }
-  );
+  const { data: deal, isLoading, isError, error } = useDeal(dealId ?? null, {
+    refetchInterval: (query) =>
+      shouldPollDealLanguageDiscovery(
+        query.state.data?.language_discovery_status,
+      )
+        ? POLL_INTERVAL
+        : false,
+  });
 
-  if (isLoading) return (
-    <div className="min-h-screen bg-[var(--bg-base)] px-6 py-10">
-      <div className="mx-auto max-w-7xl animate-fadein">
-        <div className="skeleton h-5 w-48" />
-        <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
-          <div className="skeleton mb-4 h-6 w-64" />
-          <div className="skeleton mb-3 h-4 w-full" />
-          <div className="skeleton mb-3 h-4 w-11/12" />
-          <div className="skeleton h-4 w-9/12" />
+  if (isLoading)
+    return (
+      <div className="min-h-screen bg-[var(--bg-base)] px-6 py-10">
+        <div className="mx-auto max-w-7xl animate-fadein">
+          <div className="skeleton h-5 w-48" />
+          <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
+            <div className="skeleton mb-4 h-6 w-64" />
+            <div className="skeleton mb-3 h-4 w-full" />
+            <div className="skeleton mb-3 h-4 w-11/12" />
+            <div className="skeleton h-4 w-9/12" />
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
 
-  if (isError || !deal) return (
-    <div className="min-h-screen bg-[var(--bg-base)] px-6 py-10">
-      <div className="mx-auto max-w-3xl">
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
-          <h1 className="text-lg font-semibold text-[var(--text-primary)]">
-            Не удалось загрузить проект
-          </h1>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            {error instanceof Error
-              ? error.message
-              : "Проект не найден или временно недоступен."}
-          </p>
+  if (isError || !deal)
+    return (
+      <div className="min-h-screen bg-[var(--bg-base)] px-6 py-10">
+        <div className="mx-auto max-w-3xl">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
+            <h1 className="text-lg font-semibold text-[var(--text-primary)]">
+              Не удалось загрузить проект
+            </h1>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              {error instanceof Error
+                ? error.message
+                : "Проект не найден или временно недоступен."}
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
 
   return <DealPage deal={deal} />;
 }
@@ -94,15 +96,22 @@ function RequireAuth({ children }: { children: React.ReactElement }) {
 function RequireSuperadmin({ children }: { children: React.ReactElement }) {
   const { userId, globalRole } = useAuth();
   if (!userId) return <Navigate to="/login" replace />;
-  if (globalRole !== "superadmin") return <Navigate to="/dashboard" replace />;
+  if (globalRole !== "superadmin") {
+    return <Navigate to="/dashboard" replace />;
+  }
   return children;
 }
 
-function RequireAdminOrSuperadmin({ children }: { children: React.ReactElement }) {
+function RequireAdminOrSuperadmin({
+  children,
+}: {
+  children: React.ReactElement;
+}) {
   const { userId, globalRole } = useAuth();
   if (!userId) return <Navigate to="/login" replace />;
-  if (globalRole !== "superadmin" && globalRole !== "admin")
+  if (globalRole !== "superadmin" && globalRole !== "tenant_admin") {
     return <Navigate to="/dashboard" replace />;
+  }
   return children;
 }
 
@@ -112,7 +121,6 @@ function App() {
     <div className="min-h-screen w-full bg-[var(--bg-base)] text-[var(--text-primary)]">
       <ScrollToAnchor />
       <Routes>
-
         {/* ── Public marketing routes ──────────────────────── */}
         <Route path="/" element={<HomePage />} />
         <Route path="/platform" element={<CapabilitiesPage />} />
@@ -130,73 +138,159 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
 
         {/* ── Protected app routes ─────────────────────────── */}
-        <Route path="/dashboard" element={
-          <RequireAuth><AppShell><DashboardPage /></AppShell></RequireAuth>
-        }/>
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <AppShell>
+                <DashboardPage />
+              </AppShell>
+            </RequireAuth>
+          }
+        />
 
-        <Route path="/projects/:dealId" element={
-          <RequireAuth><AppShell><DealRouteWrapper /></AppShell></RequireAuth>
-        }/>
+        <Route
+          path="/projects/:dealId"
+          element={
+            <RequireAuth>
+              <AppShell>
+                <DealRouteWrapper />
+              </AppShell>
+            </RequireAuth>
+          }
+        />
 
-        <Route path="/projects/new" element={
-          <RequireSuperadmin><AppShell><NewProjectPage /></AppShell></RequireSuperadmin>
-        }/>
+        {/* Создание нового проекта: superadmin и tenant_admin */}
+        <Route
+          path="/projects/new"
+          element={
+            <RequireAdminOrSuperadmin>
+              <AppShell>
+                <NewProjectPage />
+              </AppShell>
+            </RequireAdminOrSuperadmin>
+          }
+        />
 
-        <Route path="/deals" element={
-          <RequireAuth><AppShell><DealListPage /></AppShell></RequireAuth>
-        }/>
+        <Route
+          path="/deals"
+          element={
+            <RequireAuth>
+              <AppShell>
+                <DealListPage />
+              </AppShell>
+            </RequireAuth>
+          }
+        />
 
-        <Route path="/projects/:dealId/upload" element={
-          <RequireAuth>
-            <AppShell>
-              <ProjectRouteGuard requiredCapability="canUploadDocuments">
-                <ProjectUploadPage />
-              </ProjectRouteGuard>
-            </AppShell>
-          </RequireAuth>
-        }/>
+        <Route
+          path="/projects/:dealId/upload"
+          element={
+            <RequireAuth>
+              <AppShell>
+                <ProjectRouteGuard requiredCapability="canUploadDocuments">
+                  <ProjectUploadPage />
+                </ProjectRouteGuard>
+              </AppShell>
+            </RequireAuth>
+          }
+        />
 
-        <Route path="/projects/:dealId/members" element={
-          <RequireAuth>
-            <AppShell>
-              <ProjectRouteGuard requiredCapability="canManageRequests">
-                <ProjectMembersPage />
-              </ProjectRouteGuard>
-            </AppShell>
-          </RequireAuth>
-        }/>
+        <Route
+          path="/projects/:dealId/members"
+          element={
+            <RequireAuth>
+              <AppShell>
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <ProjectMembersPage />
+                </ProjectRouteGuard>
+              </AppShell>
+            </RequireAuth>
+          }
+        />
 
-        <Route path="/projects/:dealId/playbook" element={
-          <RequireAuth>
-            <AppShell>
-              <ProjectRouteGuard requiredCapability="canViewOverview">
-                <DealPlaybookSelectorPage />
-              </ProjectRouteGuard>
-            </AppShell>
-          </RequireAuth>
-        }/>
+        <Route
+          path="/projects/:dealId/playbook"
+          element={
+            <RequireAuth>
+              <AppShell>
+                <ProjectRouteGuard requiredCapability="canViewOverview">
+                  <DealPlaybookSelectorPage />
+                </ProjectRouteGuard>
+              </AppShell>
+            </RequireAuth>
+          }
+        />
 
-        <Route path="/projects/:dealId/playbooks/admin" element={
-          <RequireAuth>
-            <AppShell>
-              <ProjectRouteGuard requiredCapability="canManageRequests">
-                <AdminPlaybookLinesPage />
-              </ProjectRouteGuard>
-            </AppShell>
-          </RequireAuth>
-        }/>
+        <Route
+          path="/projects/:dealId/playbooks/admin"
+          element={
+            <RequireAuth>
+              <AppShell>
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <AdminPlaybookLinesPage />
+                </ProjectRouteGuard>
+              </AppShell>
+            </RequireAuth>
+          }
+        />
 
-        <Route path="/admin/model-configs" element={
-          <RequireAdminOrSuperadmin>
-            <AppShell><ModelConfigsAdminPage /></AppShell>
-          </RequireAdminOrSuperadmin>
-        }/>
+        {/* Эти админские страницы пока доступны superadmin и tenant_admin */}
+        <Route
+          path="/admin/model-configs"
+          element={
+            <RequireAdminOrSuperadmin>
+              <AppShell>
+                <ModelConfigsAdminPage />
+              </AppShell>
+            </RequireAdminOrSuperadmin>
+          }
+        />
 
-        <Route path="/admin/playbook-versions" element={
-          <RequireAdminOrSuperadmin>
-            <AppShell><AdminPlaybookVersionsPage /></AppShell>
-          </RequireAdminOrSuperadmin>
-        }/>
+        <Route
+          path="/admin/playbook-versions"
+          element={
+            <RequireAdminOrSuperadmin>
+              <AppShell>
+                <AdminPlaybookVersionsPage />
+              </AppShell>
+            </RequireAdminOrSuperadmin>
+          }
+        />
+
+        {/* ── System Admin Panel (только superadmin) ───────────────────── */}
+        <Route
+          path="/admin"
+          element={
+            <RequireSuperadmin>
+              <AppShell>
+                <AdminPage />
+              </AppShell>
+            </RequireSuperadmin>
+          }
+        />
+
+        <Route
+          path="/admin/tenants/new"
+          element={
+            <RequireSuperadmin>
+              <AppShell>
+                <AdminTenantNewPage />
+              </AppShell>
+            </RequireSuperadmin>
+          }
+        />
+
+        <Route
+          path="/admin/tenants/:tenantId"
+          element={
+            <RequireSuperadmin>
+              <AppShell>
+                <AdminTenantDetailPage />
+              </AppShell>
+            </RequireSuperadmin>
+          }
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -205,5 +299,4 @@ function App() {
 }
 
 export default App;
-
 

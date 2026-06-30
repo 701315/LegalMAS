@@ -19,11 +19,12 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-
+from core.config import settings
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.deps.auth import CurrentUser, get_current_user
 from api.schemas.audit import AuditLogEntrySchema, AuditLogPage
 from core.logging import get_logger
 from db.repositories.audit_repo import AuditRepository
@@ -39,9 +40,11 @@ router = APIRouter(tags=["audit"])
 # ---------------------------------------------------------------------------
 
 
-async def get_tenant_id() -> str:
-    """Временная заглушка. Позже — из JWT-токена или middleware."""
-    return "default"
+async def get_tenant_id(
+    current_user: CurrentUser = Depends(get_current_user),
+) -> str:
+    """Получить tenant_id текущего пользователя из JWT или dev-fallback."""
+    return str(current_user.tenant_id)
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +153,7 @@ async def create_audit_log_entry(
     repo = AuditRepository(db)
 
     entry = await repo.log(
-        tenant_id=uuid.UUID(tenant_id) if tenant_id != "default" else uuid.UUID(int=0),
+        tenant_id=uuid.UUID(tenant_id),
         deal_id=payload.deal_id,
         action=payload.action,
         actor="frontend",  # TODO: заменить на реального пользователя из токена

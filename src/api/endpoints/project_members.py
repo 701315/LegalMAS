@@ -1,51 +1,43 @@
 # src/api/endpoints/project_members.py
 
-
 """
-Эндпоинты управления участниками проектов (project members).
+Эндпоинты управления участниками проекта.
 
-Назначение файла:
-- Даёт REST-API для списка участников проекта и их ролей.
-- Позволяет добавлять, изменять и удалять участников конкретной сделки (deal_id).
-- Используется фронтендом на странице "Участники проекта".
+Чистая модель:
+- создаём пользователей отдельно через admin panel;
+- здесь только назначаем существующего пользователя в проект;
+- здесь только управляем project role.
 
-Ключевые моменты:
-- Все данные берутся из таблицы deal_members через ProjectRoleRepository.
-- Проверка прав делается через require_project_role:
-  - смотреть список участников сейчас могут все залогиненные пользователи
-    (на будущее можно ограничить viewer/editor/admin);
-  - добавлять/изменять/удалять участников могут только project admin-ы.
-- В ответах API внешний идентификатор участника называется member_id,
-  внутри ORM-модели это поле называется id; отображение id -> member_id
-  инкапсулировано в api.mappers.project_members.
-
-Дополнительное правило инициализации:
-- Если по deal_id ещё нет ни одного участника (пустой проект),
-  первого участника может создать глобальный admin (user.global_role == "admin")
-  без наличия project role.
-- Как только первый участник создан, все дальнейшие операции идут только
-  через require_project_role(..., allowed_roles=("admin",)).
+Маршруты:
+- GET    /api/v1/projects/{deal_id}/members
+- GET    /api/v1/projects/{deal_id}/available-users
+- POST   /api/v1/projects/{deal_id}/members
+- PUT    /api/v1/projects/{deal_id}/members/{member_id}
+- DELETE /api/v1/projects/{deal_id}/members/{member_id}
 """
 
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
 from api.mappers.project_members import (
-    map_member_to_response,
+    map_available_users_to_response,
     map_members_to_response,
+    map_member_to_response,
 )
 from api.schemas.project_members import (
+    AvailableProjectUserResponse,
     CreateProjectMember,
     ProjectMemberResponse,
     UpdateProjectMember,
 )
-from db.models.deal_member import DealMember
+from db.repositories.deal_repo import DealRepository
 from db.repositories.project_role_repo import ProjectRoleRepository
+from db.repositories.user_repo import UserRepository
 from db.session import get_db
 
 router = APIRouter(
@@ -65,23 +57,61 @@ async def list_project_members(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Список участников проекта для указанной сделки.
+    Список участников проекта.
 
-    Сейчас:
-    - любой залогиненный пользователь может смотреть список участников;
-    - позже можно добавить require_project_role(..., allowed_roles=("viewer","editor","admin")).
+    Доступ:
+    - superadmin
+    - tenant_admin того же tenant'а
+    - любой member, у которого есть access к проекту
     """
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
     repo = ProjectRoleRepository(db)
     members = await repo.list_members(deal_id)
-
     return map_members_to_response(members)
+
+
+@router.get(
+    "/{deal_id}/available-users",
+    response_model=list[AvailableProjectUserResponse],
+    summary="Пользователи tenant'а, которых можно добавить в проект",
+)
+async def list_available_users_for_project(
+    deal_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Вернуть активных пользователей tenant'а сделки,
+    которые ещё не добавлены в проект.
+
+    Доступ:
+    - superadmin
+    - tenant_admin того же tenant'а
+    - project admin
+    """
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin",),
+    )
+
+    repo = ProjectRoleRepository(db)
+    users = await repo.list_available_users(deal_id)
+    return map_available_users_to_response(users)
 
 
 @router.post(
     "/{deal_id}/members",
     response_model=ProjectMemberResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Добавить участника проекта",
+    summary="Добавить существующего пользователя в проект",
 )
 async def create_project_member(
     deal_id: UUID,
@@ -90,65 +120,81 @@ async def create_project_member(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Добавить участника проекта.
+    Добавить существующего пользователя в проект и назначить project role.
 
-    Правила:
-    - Если участников по deal_id ещё нет:
-        * первый участник может быть создан глобальным admin (user.global_role == "admin");
-    - Если участники уже есть:
-        * создавать новых/менять состав могут только project admin-ы
-          через require_project_role(..., allowed_roles=("admin",)).
+    Проверки:
+    - проект существует;
+    - пользователь существует;
+    - пользователь активен;
+    - пользователь принадлежит тому же tenant'у, что и проект;
+    - пользователь ещё не состоит в этом проекте.
     """
-    repo = ProjectRoleRepository(db)
-    existing_members = await repo.list_members(deal_id)
-
-    if not existing_members:
-        # Инициализация проекта: первого участника может создать только глобальный админ.
-        if user.global_role != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="ACCESS_DENIED: first project member can be created only by global admin",
-            )
-    else:
-        # Проект уже инициализирован — действуют обычные правила project admin.
-        await require_project_role(
-            db=db,
-            user=user,
-            deal_id=deal_id,
-            allowed_roles=("admin",),
-        )
-
-    # Проверка уникальности логина В РАМКАХ ЭТОЙ СДЕЛКИ.
-    # Нам не важно, что admin есть в других сделках, важно — нет ли второго admin по этой же deal_id.
-    existing_q = await db.execute(
-        select(DealMember).where(
-            DealMember.deal_id == deal_id,
-            DealMember.login == payload.login,
-        )
-    )
-    # Нам нужно только "есть хотя бы один", поэтому не используем scalar_one_or_none().
-    if existing_q.first() is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="LOGIN_TAKEN",
-        )
-
-    member = await repo.create_member(
+    await require_project_role(
+        db=db,
+        user=user,
         deal_id=deal_id,
-        name=payload.name,
-        login=payload.login,
-        role=payload.role,
+        allowed_roles=("admin",),
     )
 
-    await db.commit()
+    deal_repo = DealRepository(db)
+    user_repo = UserRepository(db)
+    role_repo = ProjectRoleRepository(db)
 
-    return map_member_to_response(member)
+    deal = await deal_repo.get_by_id(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    target_user = await user_repo.get_by_id(payload.user_id)
+    if target_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not target_user.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot add inactive user to project",
+        )
+
+    if target_user.tenant_id != deal.tenant_id:
+        raise HTTPException(
+            status_code=400,
+            detail="User belongs to another tenant",
+        )
+
+    existing_role = await role_repo.get_role(payload.user_id, deal_id)
+    if existing_role is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="USER_ALREADY_IN_PROJECT",
+        )
+
+    try:
+        member = await role_repo.create_member(
+            deal_id=deal_id,
+            user_id=payload.user_id,
+            role=payload.role,
+        )
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="USER_ALREADY_IN_PROJECT",
+        )
+
+    member_view = await role_repo.get_member_view(member.id)
+    if member_view is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to build project member response",
+        )
+
+    return map_member_to_response(member_view)
 
 
 @router.put(
     "/{deal_id}/members/{member_id}",
     response_model=ProjectMemberResponse,
-    summary="Обновить участника проекта",
+    summary="Изменить project role участника",
 )
 async def update_project_member(
     deal_id: UUID,
@@ -157,6 +203,9 @@ async def update_project_member(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Изменить только project role участника проекта.
+    """
     await require_project_role(
         db=db,
         user=user,
@@ -164,32 +213,12 @@ async def update_project_member(
         allowed_roles=("admin",),
     )
 
-    repo = ProjectRoleRepository(db)
-
-    # Найти текущего участника для проверки логина
-    current = await db.get(DealMember, member_id)
-    if current is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Member not found",
-        )
-
-    # Если логин меняется – проверяем уникальность
-    if payload.login is not None and payload.login != current.login:
-        existing = await db.execute(select(DealMember).where(DealMember.login == payload.login))
-        if existing.scalar_one_or_none() is not None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="LOGIN_TAKEN",
-            )
-
-    member = await repo.update_member(
+    role_repo = ProjectRoleRepository(db)
+    updated = await role_repo.update_member_role(
         member_id=member_id,
-        name=payload.name,
-        login=payload.login,
         role=payload.role,
     )
-    if member is None:
+    if updated is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Member not found",
@@ -197,13 +226,20 @@ async def update_project_member(
 
     await db.commit()
 
-    return map_member_to_response(member)
+    member_view = await role_repo.get_member_view(member_id)
+    if member_view is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Member not found",
+        )
+
+    return map_member_to_response(member_view)
 
 
 @router.delete(
     "/{deal_id}/members/{member_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Удалить участника проекта",
+    summary="Удалить участника из проекта",
 )
 async def delete_project_member(
     deal_id: UUID,
@@ -211,6 +247,9 @@ async def delete_project_member(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Удалить membership пользователя из проекта.
+    """
     await require_project_role(
         db=db,
         user=user,
@@ -218,8 +257,8 @@ async def delete_project_member(
         allowed_roles=("admin",),
     )
 
-    repo = ProjectRoleRepository(db)
-    deleted = await repo.remove_member(member_id)
+    role_repo = ProjectRoleRepository(db)
+    deleted = await role_repo.remove_member(member_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -227,3 +266,5 @@ async def delete_project_member(
         )
 
     await db.commit()
+
+    

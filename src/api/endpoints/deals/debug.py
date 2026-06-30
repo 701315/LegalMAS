@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from core.config import settings
 from db.repositories.deal_repo import DealRepository
 from db.session import get_db
 
@@ -46,7 +46,7 @@ async def debug_create_deal(
 ):
     repo = DealRepository(db)
     deal = await repo.create(
-        tenant_id=uuid.UUID(int=0),
+        tenant_id=uuid.UUID(settings.DEV_TENANT_ID),
         name=body.name,
         deal_type=body.deal_type,
         jurisdiction=None,
