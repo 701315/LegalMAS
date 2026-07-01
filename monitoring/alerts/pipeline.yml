@@ -1,0 +1,67 @@
+groups:
+  - name: legalmas_pipeline
+    interval: 1m
+    rules:
+
+      - alert: DLQSizeWarning
+        expr: mas_dd_dlq_size > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DLQ has {{ $value }} records"
+          description: "Dead Letter Queue size exceeded 10. Manual review required."
+
+      - alert: DLQSizeCritical
+        expr: mas_dd_dlq_size > 50
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DLQ has {{ $value }} records — CRITICAL"
+          description: "Dead Letter Queue size exceeded 50. Immediate attention required."
+
+      - alert: StageFailureRateHigh
+        expr: |
+          sum(rate(mas_dd_documents_processed_total{status="failed"}[15m]))
+          /
+          sum(rate(mas_dd_documents_processed_total[15m])) > 0.20
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Stage failure rate {{ $value | humanizePercentage }}"
+          description: "More than 20% of stage executions are failing over 15 minutes."
+
+      - alert: StuckStageExecutions
+        expr: mas_dd_stuck_stage_executions_total > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} stuck stage executions"
+          description: "Stage executions stuck in active status longer than expected."
+
+      - alert: NoPipelineActivity
+        expr: |
+          sum(rate(mas_dd_documents_processed_total[30m])) == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No pipeline activity for 30 minutes"
+          description: "No documents processed in the last 30 minutes."
+
+      - alert: HighTaskRetryRate
+        expr: |
+          sum(rate(mas_dd_celery_task_retries_total[10m])) by (task_name) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High retry rate for {{ $labels.task_name }}"
+          description: "Task {{ $labels.task_name }} retrying more than 0.5/sec over 10 min."
+
+
+
+          

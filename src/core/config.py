@@ -61,13 +61,17 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "DEBUG"
     LOG_FORMAT: str = "console"
+    LOG_TO_STDOUT: bool = True
+    LOG_TO_FILE: bool = False
+    LOG_FILE_DIR: str | None = None
+    LOG_FILE_NAME: str = "app.log"
+    LOG_FILE_MAX_BYTES: int = 20 * 1024 * 1024   # 20 MB
+    LOG_FILE_BACKUP_COUNT: int = 10
     LLM_EXTRACTION_JSON_GRAMMAR_PATH: str | None = None
 
     # Default max_tokens for extraction LLM calls.
     # Может быть переопределён per-check через ExtractionConfig.llm_max_tokens.
     LLM_EXTRACTION_MAX_TOKENS: int = 512
-
-    LOG_FILE_DIR: str | None = None
 
     # --- Classification explainability / observability ---
     CLASSIFICATION_DECISION_TRACE_SCHEMA_VERSION: int = 1

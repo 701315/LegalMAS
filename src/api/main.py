@@ -33,7 +33,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from classifiers.yaml_registry import YAMLRegistry
-from core.logging import get_logger
+from core.logging import get_logger, setup_logging
 from db.session import engine
 from ops.instrument import setup_metrics
 
@@ -61,6 +61,8 @@ from .endpoints import (
 from .endpoints.deals.router import router as deals_router
 from .endpoints.documents.router import router as documents_router
 from .middleware.audit import AuditMiddleware
+
+setup_logging()
 
 logger = get_logger(__name__)
 

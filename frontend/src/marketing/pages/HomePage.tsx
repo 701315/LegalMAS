@@ -21,9 +21,7 @@ const HomePage: React.FC = () => {
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const subject = encodeURIComponent("Steloom demo request");
-    const body = encodeURIComponent(
-      `Email: ${formEmail}\n\n${formMessage}`
-    );
+    const body = encodeURIComponent(`Email: ${formEmail}\n\n${formMessage}`);
     window.location.href =
       `mailto:vladimir.gorelov.mail@gmail.com?subject=${subject}&body=${body}`;
   };
@@ -33,42 +31,40 @@ const HomePage: React.FC = () => {
       <SiteHeader />
 
       <main>
-        {/* 1. Hero — тёмная секция */}
+        {/* 1. Hero */}
         <section data-header-theme="dark">
           <PremiumHeroSection />
           <ConceptTagsSection />
         </section>
 
-        {/* 2. Knowledge — светлая */}
+        {/* 2. Knowledge */}
         <section data-header-theme="light">
           <KnowledgeGrowthSection />
         </section>
 
-        {/* 3. Security — светлая */}
+        {/* 3. Security */}
         <section data-header-theme="light">
           <SecurityFoundationSection />
         </section>
 
-        {/* 4. Use Cases — тёмная */}
+        {/* 4. Application */}
         <section data-header-theme="light">
           <ApplicationSection />
         </section>
 
-        {/* 5. Founder — светлая */}
+        {/* 5. Founder */}
         <section data-header-theme="light">
           <FounderSection />
         </section>
 
-        {/* 6. FAQ — светлая */}
+        {/* 6. FAQ */}
         <section data-header-theme="light">
           <FaqSection />
         </section>
 
-        {/* 7. Final CTA — тёмная */}
+        {/* 7. Final CTA */}
         <section data-header-theme="light">
-          <PremiumFinalCtaSection
-            onOpenContact={() => setContactOpen(true)}
-          />
+          <PremiumFinalCtaSection />
         </section>
       </main>
 

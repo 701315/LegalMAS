@@ -38,6 +38,10 @@ def reap_stale_stage_executions(
     """
     Периодически переводит stale active document_stage_executions
     в FAILED, чтобы снять блокировку unique partial index.
+
+    Дополнительно обновляет Prometheus метрики:
+    - stuck_stage_executions_total — сколько stale execution нашлось
+    - dlq_size — текущий размер DLQ таблицы
     """
     _ = self
 
@@ -48,10 +52,15 @@ def reap_stale_stage_executions(
             dse_repo = DocumentStageExecutionRepository(uow.session)
 
             stale = await dse_repo.list_stale_active_executions(cutoff)
+
+            # ── Обновить Prometheus metrics ───────────────────────────────
+            _update_operational_metrics(stuck_count=len(stale), session=uow.session)
+            # ─────────────────────────────────────────────────────────────
+
             if not stale:
                 logger.info(
                     "reap_stale_stage_executions: no stale executions found",
-                    extra={"cutoff": cutoff.isoformat()},
+                    cutoff=cutoff.isoformat(),
                 )
                 return {"reaped_count": 0}
 
@@ -77,15 +86,13 @@ def reap_stale_stage_executions(
 
                 logger.warning(
                     "reap_stale_stage_executions: stale execution marked FAILED",
-                    extra={
-                        "execution_id": str(execution.id),
-                        "document_id": str(execution.document_id),
-                        "document_version_id": str(execution.document_version_id),
-                        "task_name": execution.task_name,
-                        "status": execution.status,
-                        "created_at": execution.created_at.isoformat(),
-                        "celery_task_id": execution.celery_task_id,
-                    },
+                    execution_id=str(execution.id),
+                    document_id=str(execution.document_id),
+                    document_version_id=str(execution.document_version_id),
+                    task_name=execution.task_name,
+                    status=execution.status,
+                    created_at=execution.created_at.isoformat(),
+                    celery_task_id=execution.celery_task_id,
                 )
 
             return {"reaped_count": reaped_count}
@@ -93,4 +100,47 @@ def reap_stale_stage_executions(
     return run_async(_wrapper())
 
 
-    
+def _update_operational_metrics(stuck_count: int, session: Any) -> None:
+    """
+    Обновить Prometheus operational metrics.
+
+    Вызывается из reap_stale_stage_executions.
+    Ошибки изолированы — не влияют на основную логику reaper.
+    """
+    try:
+        from ops.metrics import get_metrics  # noqa: PLC0415
+        _m = get_metrics()
+
+        # Количество stuck executions.
+        _m.stuck_stage_executions_total.set(stuck_count)
+
+        # Размер DLQ — читаем count напрямую через SQL.
+        # Не используем DLQManager чтобы не создавать лишний UoW —
+        # у нас уже есть сессия.
+        import asyncio  # noqa: PLC0415
+        from sqlalchemy import func, select  # noqa: PLC0415
+        from db.models.ops import DLQRecord  # noqa: PLC0415
+
+        async def _get_dlq_count() -> int:
+            result = await session.execute(select(func.count(DLQRecord.id)))
+            return int(result.scalar_one() or 0)
+
+        # run_async уже есть в контексте воркера.
+        from mas_queue.async_helpers import run_async as _run_async  # noqa: PLC0415
+        dlq_count = _run_async(_get_dlq_count())
+        _m.dlq_size.set(dlq_count)
+
+        logger.info(
+            "reap_stale_stage_executions: operational metrics updated",
+            stuck_executions=stuck_count,
+            dlq_size=dlq_count,
+        )
+
+    except Exception as exc:
+        logger.warning(
+            "reap_stale_stage_executions: failed to update operational metrics",
+            error=str(exc),
+        )
+
+
+        

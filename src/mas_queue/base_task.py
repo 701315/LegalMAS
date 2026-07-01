@@ -31,6 +31,8 @@ MASBaseTask — базовый класс для всех Celery-задач в �
       retry_count, error_details);
     * обновляет document_stage_executions (STARTED / SUCCEEDED / FAILED)
       в отдельной транзакции, независимо от бизнес-транзакции worker'а.
+    * инкрементирует Prometheus pipeline metrics (documents_processed_total,
+      document_stage_duration_seconds, celery_task_* и т.д.).
 
 Политика stage execution lifecycle:
 - before_start  → mark_started  (best-effort, отдельный UoW)
@@ -92,6 +94,7 @@ Jitter (±10 % от base) предотвращает thundering herd при ма
 from __future__ import annotations
 
 import random
+import time
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -103,7 +106,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import DocumentStageExecutionStatus, DocumentStatus, JobStatus
 from core.exceptions import PermanentError, QuarantineError, TransientError
-from core.logging import deal_id_var, document_id_var, get_logger
+from core.logging import clear_log_context, get_logger, set_task_context
 from db.models.run import Job
 from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
 from db.uow import db_uow
@@ -187,12 +190,30 @@ class MASBaseTask(Task):
         Вызывается Celery до __call__ и до run(). kwargs здесь полные —
         содержат все поля, включая stage_execution_id.
         """
-        if "deal_id" in kwargs:
-            deal_id_var.set(kwargs["deal_id"])
-        if "document_id" in kwargs:
-            document_id_var.set(kwargs["document_id"])
-        elif "doc_id" in kwargs:
-            document_id_var.set(kwargs["doc_id"])
+        delivery_info = getattr(self.request, "delivery_info", None) or {}
+        queue: str | None = None
+        if isinstance(delivery_info, dict):
+            queue = (
+                delivery_info.get("routing_key")
+                or delivery_info.get("queue")
+                or delivery_info.get("exchange")
+            )
+
+        set_task_context(
+            request_id=kwargs.get("request_id"),
+            task_id=task_id,
+            tenant_id=kwargs.get("tenant_id"),
+            deal_id=kwargs.get("deal_id"),
+            run_id=kwargs.get("run_id"),
+            document_id=kwargs.get("document_id") or kwargs.get("doc_id"),
+            stage=self.name,
+            actor_role=kwargs.get("actor_role"),
+            worker_hostname=getattr(self.request, "hostname", None),
+            queue=queue,
+        )
+
+        # Запомнить время старта для расчёта duration в on_success / on_failure.
+        self._task_started_at: float = time.perf_counter()
 
         self._stage_execution_id = self._extract_stage_execution_id(kwargs)
         self._orchestration_strategy = kwargs.get("orchestration_strategy")
@@ -241,40 +262,63 @@ class MASBaseTask(Task):
         status=failed/quarantine — в таком случае execution закрывается
         как FAILED.
         """
-        logger.info("Task completed", task_name=self.name, task_id=task_id)
+        _ = args
 
-        # Читаем из kwargs (они полные в хуках on_success/on_failure).
-        stage_execution_id = self._extract_stage_execution_id(kwargs)
-        if stage_execution_id:
-            terminal_action, payload = self._resolve_stage_execution_completion(
-                retval=retval,
-                kwargs=kwargs,
-            )
-            if terminal_action == "failed":
-                self._mark_stage_execution_failed_best_effort(
-                    stage_execution_id,
-                    error_details=payload or {},
-                )
-            else:
-                self._mark_stage_execution_succeeded_best_effort(
-                    stage_execution_id,
-                    result_details=payload,
-                )
+        try:
+            logger.info("Task completed", task_name=self.name, task_id=task_id)
 
-        if self.track_job and "job_id" in kwargs:
+            # ── Prometheus pipeline metrics ───────────────────────────────
             try:
-                run_async(
-                    self._update_job_status(
-                        kwargs["job_id"],
-                        JobStatus.COMPLETED.value,
+                from ops.metrics import get_metrics  # noqa: PLC0415
+                _duration = time.perf_counter() - getattr(self, "_task_started_at", 0.0)
+                _m = get_metrics()
+                _m.documents_processed_total.labels(
+                    stage=self.name, status="succeeded"
+                ).inc()
+                _m.document_stage_duration_seconds.labels(
+                    stage=self.name, status="succeeded"
+                ).observe(_duration)
+                _m.celery_task_duration_seconds.labels(
+                    task_name=self.name, status="succeeded"
+                ).observe(_duration)
+            except Exception:
+                pass  # metrics never break pipeline
+            # ─────────────────────────────────────────────────────────────
+
+            # Читаем из kwargs (они полные в хуках on_success/on_failure).
+            stage_execution_id = self._extract_stage_execution_id(kwargs)
+            if stage_execution_id:
+                terminal_action, payload = self._resolve_stage_execution_completion(
+                    retval=retval,
+                    kwargs=kwargs,
+                )
+                if terminal_action == "failed":
+                    self._mark_stage_execution_failed_best_effort(
+                        stage_execution_id,
+                        error_details=payload or {},
                     )
-                )
-            except Exception as job_exc:
-                logger.warning(
-                    "Failed to update job status on success",
-                    error=str(job_exc),
-                    task_name=self.name,
-                )
+                else:
+                    self._mark_stage_execution_succeeded_best_effort(
+                        stage_execution_id,
+                        result_details=payload,
+                    )
+
+            if self.track_job and "job_id" in kwargs:
+                try:
+                    run_async(
+                        self._update_job_status(
+                            kwargs["job_id"],
+                            JobStatus.COMPLETED.value,
+                        )
+                    )
+                except Exception as job_exc:
+                    logger.warning(
+                        "Failed to update job status on success",
+                        error=str(job_exc),
+                        task_name=self.name,
+                    )
+        finally:
+            clear_log_context()
 
     def on_failure(
         self,
@@ -294,71 +338,98 @@ class MASBaseTask(Task):
         Stage execution закрывается как FAILED безусловно при любом
         типе исключения.
         """
-        error_info = self._build_error_info(exc, task_id=task_id)
-        traceback_text = str(einfo) if einfo is not None else None
+        _ = args
 
-        # Закрыть stage execution независимо от типа исключения.
-        stage_execution_id = self._extract_stage_execution_id(kwargs)
-        if stage_execution_id:
-            self._mark_stage_execution_failed_best_effort(
-                stage_execution_id,
-                error_details=self._build_execution_error_details_from_exc(
-                    exc=exc,
-                    task_id=task_id,
-                    kwargs=kwargs,
-                ),
+        try:
+            # ── Prometheus pipeline metrics ───────────────────────────────
+            try:
+                from ops.metrics import get_metrics  # noqa: PLC0415
+                _duration = time.perf_counter() - getattr(self, "_task_started_at", 0.0)
+                _failure_type = "permanent" if isinstance(exc, PermanentError) else "transient"
+                _m = get_metrics()
+                _m.documents_processed_total.labels(
+                    stage=self.name, status="failed"
+                ).inc()
+                _m.document_stage_duration_seconds.labels(
+                    stage=self.name, status="failed"
+                ).observe(_duration)
+                _m.celery_task_failures_total.labels(
+                    task_name=self.name, failure_type=_failure_type
+                ).inc()
+                _m.celery_task_duration_seconds.labels(
+                    task_name=self.name, status="failed"
+                ).observe(_duration)
+            except Exception:
+                pass  # metrics never break pipeline
+            # ─────────────────────────────────────────────────────────────
+
+            error_info = self._build_error_info(exc, task_id=task_id)
+            traceback_text = str(einfo) if einfo is not None else None
+
+            # Закрыть stage execution независимо от типа исключения.
+            stage_execution_id = self._extract_stage_execution_id(kwargs)
+            if stage_execution_id:
+                self._mark_stage_execution_failed_best_effort(
+                    stage_execution_id,
+                    error_details=self._build_execution_error_details_from_exc(
+                        exc=exc,
+                        task_id=task_id,
+                        kwargs=kwargs,
+                    ),
+                )
+
+            if isinstance(exc, QuarantineError):
+                logger.warning("Task resulted in quarantine", **error_info)
+
+                if self.track_job and "job_id" in kwargs:
+                    try:
+                        run_async(
+                            self._update_job_status(
+                                kwargs["job_id"],
+                                JobStatus.COMPLETED.value,
+                                error_details={"quarantine": True, **error_info},
+                            )
+                        )
+                    except Exception as job_exc:
+                        logger.warning(
+                            "Failed to update job for quarantine",
+                            error=str(job_exc),
+                            task_name=self.name,
+                        )
+                return
+
+            failure_type = "permanent" if isinstance(exc, PermanentError) else "transient"
+
+            logger.error(
+                "Task failed permanently — sending to DLQ",
+                failure_type=failure_type,
+                **error_info,
             )
 
-        if isinstance(exc, QuarantineError):
-            logger.warning("Task resulted in quarantine", **error_info)
+            self._send_to_dlq_once(
+                kwargs=kwargs,
+                task_type=self.name,
+                failure_type=failure_type,
+                error_details={**error_info, "traceback": traceback_text},
+            )
 
             if self.track_job and "job_id" in kwargs:
                 try:
                     run_async(
                         self._update_job_status(
                             kwargs["job_id"],
-                            JobStatus.COMPLETED.value,
-                            error_details={"quarantine": True, **error_info},
+                            JobStatus.DLQ.value,
+                            error_details={**error_info, "traceback": traceback_text},
                         )
                     )
                 except Exception as job_exc:
                     logger.warning(
-                        "Failed to update job for quarantine",
+                        "Failed to update job status for DLQ",
                         error=str(job_exc),
                         task_name=self.name,
                     )
-            return
-
-        failure_type = "permanent" if isinstance(exc, PermanentError) else "transient"
-
-        logger.error(
-            "Task failed permanently — sending to DLQ",
-            failure_type=failure_type,
-            **error_info,
-        )
-
-        self._send_to_dlq_once(
-            kwargs=kwargs,
-            task_type=self.name,
-            failure_type=failure_type,
-            error_details={**error_info, "traceback": traceback_text},
-        )
-
-        if self.track_job and "job_id" in kwargs:
-            try:
-                run_async(
-                    self._update_job_status(
-                        kwargs["job_id"],
-                        JobStatus.DLQ.value,
-                        error_details={**error_info, "traceback": traceback_text},
-                    )
-                )
-            except Exception as job_exc:
-                logger.warning(
-                    "Failed to update job status for DLQ",
-                    error=str(job_exc),
-                    task_name=self.name,
-                )
+        finally:
+            clear_log_context()
 
     def on_retry(
         self,
@@ -371,15 +442,31 @@ class MASBaseTask(Task):
         """
         Залогировать событие retry.
         """
-        logger.info(
-            "Task retrying",
-            task_name=self.name,
-            task_id=task_id,
-            retry_num=self.request.retries,
-            error=str(exc),
-        )
+        _ = args, kwargs, einfo
 
-    # ── _handle_transient (unchanged) ────────────────────────────────────────
+        try:
+            logger.info(
+                "Task retrying",
+                task_name=self.name,
+                task_id=task_id,
+                retry_num=self.request.retries,
+                error=str(exc),
+            )
+
+            # ── Prometheus pipeline metrics ───────────────────────────────
+            try:
+                from ops.metrics import get_metrics  # noqa: PLC0415
+                get_metrics().celery_task_retries_total.labels(
+                    task_name=self.name
+                ).inc()
+            except Exception:
+                pass  # metrics never break pipeline
+            # ─────────────────────────────────────────────────────────────
+
+        finally:
+            clear_log_context()
+
+    # ── _handle_transient ─────────────────────────────────────────────────────
 
     def _handle_transient(
         self,
@@ -505,8 +592,6 @@ class MASBaseTask(Task):
                 self._build_execution_error_details_from_result(retval=retval, kwargs=kwargs),
             )
 
-        # Опциональный structured payload, который worker может передать
-        # через retval["stage_execution_result_details"] (например enrichment outcome).
         result_details: dict[str, Any] | None = None
         if isinstance(retval, dict):
             candidate = retval.get("stage_execution_result_details")
@@ -722,7 +807,7 @@ class MASBaseTask(Task):
                 return
             await repo.mark_failed(execution_uuid, error_details=error_details)
 
-    # ── Общие helpers (без изменений) ─────────────────────────────────────────
+    # ── Общие helpers ─────────────────────────────────────────────────────────
 
     def _build_error_info(
         self,
@@ -890,5 +975,4 @@ class MASBaseTask(Task):
 def _compact_dict(values: dict[str, Any]) -> dict[str, Any]:
     """Убрать None-значения из словаря для чистоты JSON payload."""
     return {key: val for key, val in values.items() if val is not None}
-
 

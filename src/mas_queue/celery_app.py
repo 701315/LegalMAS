@@ -68,15 +68,23 @@ visibility_timeout               — должен быть существенн�
 from __future__ import annotations
 
 from urllib.parse import urlparse, urlunparse
+from typing import Any
 
 from celery import Celery
-from celery.signals import worker_process_shutdown
+from celery.signals import (
+    task_postrun,
+    task_prerun,
+    worker_process_init,
+    worker_process_shutdown,
+)
 from kombu import Exchange, Queue
 
 from core.config import settings
-from core.logging import get_logger
+from core.logging import clear_log_context, get_logger, set_task_context, setup_logging
 from db.session import engine
 from mas_queue.async_helpers import close_worker_loop, has_worker_loop, run_async
+
+setup_logging()
 
 logger = get_logger(__name__)
 
@@ -208,6 +216,8 @@ celery_app.conf.update(
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     task_reject_on_worker_lost=True,
+    worker_hijack_root_logger=False,
+    worker_redirect_stdouts=False,
     # --- Результаты ---
     result_expires=3600,
     task_track_started=True,
@@ -375,6 +385,70 @@ celery_app.conf.update(
     },
 )
 
+@worker_process_init.connect
+def _configure_worker_process_logging(**kwargs: Any) -> None:
+    """
+    Reconfigure logging inside a Celery worker process.
+
+    This is especially important for prefork mode where child processes
+    need their own logging setup. It is harmless in solo mode.
+    """
+    _ = kwargs
+    setup_logging()
+
+
+@task_prerun.connect
+def _bind_task_logging_context(
+    sender: Any = None,
+    task_id: str | None = None,
+    task: Any = None,
+    args: tuple[Any, ...] | None = None,
+    kwargs: dict[str, Any] | None = None,
+    **signal_kwargs: Any,
+) -> None:
+    """
+    Bind generic task logging context for every Celery task.
+
+    This is a universal fallback even for tasks that do not inherit from
+    MASBaseTask.
+    """
+    _ = args, signal_kwargs
+
+    task_obj = task or sender
+    task_kwargs = kwargs if isinstance(kwargs, dict) else {}
+
+    request = getattr(task_obj, "request", None)
+    delivery_info = getattr(request, "delivery_info", None) or {}
+
+    queue: str | None = None
+    if isinstance(delivery_info, dict):
+        queue = (
+            delivery_info.get("routing_key")
+            or delivery_info.get("queue")
+            or delivery_info.get("exchange")
+        )
+
+    set_task_context(
+        request_id=task_kwargs.get("request_id"),
+        task_id=task_id or getattr(request, "id", None),
+        tenant_id=task_kwargs.get("tenant_id"),
+        deal_id=task_kwargs.get("deal_id"),
+        run_id=task_kwargs.get("run_id"),
+        document_id=task_kwargs.get("document_id") or task_kwargs.get("doc_id"),
+        stage=getattr(task_obj, "name", None),
+        actor_role=task_kwargs.get("actor_role"),
+        worker_hostname=getattr(request, "hostname", None),
+        queue=queue,
+    )
+
+
+@task_postrun.connect
+def _clear_task_logging_context(**kwargs: Any) -> None:
+    """
+    Always clear task-scoped logging context after task execution.
+    """
+    _ = kwargs
+    clear_log_context()
 
 # ---------------------------------------------------------------------------
 # Cleanup worker child process resources
@@ -403,13 +477,15 @@ def _cleanup_worker_process_async_resources(
     """
     logger.info(
         "Celery worker process shutdown started",
-        extra={"pid": pid, "exitcode": exitcode},
+        pid=pid,
+        exitcode=exitcode,
     )
 
     if not has_worker_loop():
         logger.info(
             "Celery worker process shutdown: worker loop was never initialized, nothing to clean",
-            extra={"pid": pid, "exitcode": exitcode},
+            pid=pid,
+            exitcode=exitcode,
         )
         return
 
@@ -417,22 +493,28 @@ def _cleanup_worker_process_async_resources(
         run_async(engine.dispose())
         logger.info(
             "Celery worker process shutdown: database engine disposed",
-            extra={"pid": pid, "exitcode": exitcode},
+            pid=pid,
+            exitcode=exitcode,
         )
     except Exception:
         logger.exception(
             "Celery worker process shutdown: failed to dispose database engine",
-            extra={"pid": pid, "exitcode": exitcode},
+            pid=pid,
+            exitcode=exitcode,
         )
     finally:
         try:
             close_worker_loop()
             logger.info(
                 "Celery worker process shutdown: worker event loop closed",
-                extra={"pid": pid, "exitcode": exitcode},
+                pid=pid,
+                exitcode=exitcode,
             )
         except Exception:
             logger.exception(
                 "Celery worker process shutdown: failed to close worker event loop",
-                extra={"pid": pid, "exitcode": exitcode},
+                pid=pid,
+                exitcode=exitcode,
             )
+
+            
