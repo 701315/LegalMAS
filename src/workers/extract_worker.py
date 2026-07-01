@@ -647,6 +647,36 @@ async def _extract_document_async(
             run_id=run_id,
         )
 
+    from core.stage_trace import build_stage_trace_fragment  # noqa: PLC0415
+
+    _trace = build_stage_trace_fragment(
+        strategy=extraction.strategy,
+        input_summary={
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "run_id": run_id,
+        },
+        output_summary={
+            "page_count": extraction.page_count,
+            "elements_count": len(extraction.elements),
+            "tables_count": len(extraction.tables),
+            "ocr_confidence": (
+                float(extraction.avg_ocr_confidence)
+                if extraction.avg_ocr_confidence is not None else None
+            ),
+            "ocr_rate": ocr_rate,
+            "duration_seconds": round(duration, 2),
+        },
+        warnings=[],
+        artifact_refs={
+            "raw_ref": raw_ref,
+            "layout_primary_ref": primary_ref,
+        },
+        decision_details={
+            "primary_only_source_contract": True,
+        },
+    )
+
     return {
         "status": DocumentStatus.EXTRACTED.value,
         "document_id": document_id,
@@ -660,6 +690,7 @@ async def _extract_document_async(
         "layout_primary_ref": primary_ref,
         "tenant_id": tenant_id,
         "committed": True,
+        "stage_execution_result_details": _trace,
     }
 
 

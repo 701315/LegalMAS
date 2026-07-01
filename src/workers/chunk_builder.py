@@ -49,7 +49,7 @@ from __future__ import annotations
 import time
 import uuid
 from typing import Any
-
+from core.stage_trace import build_stage_trace_fragment
 from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, QuarantineError, TransientError
@@ -309,17 +309,6 @@ async def _build_chunks_v2_async(
     from services.telemetry._events import ChunkingCompletedEvent
 
     telemetry_collector = TelemetryCollector(document_id=str(d_id))
-
-    if stage_execution_id:
-        try:
-            await dse_repo.mark_started(uuid.UUID(stage_execution_id))
-        except Exception as e:
-            logger.exception(
-                "Failed to mark stage execution as STARTED for chunking",
-                document_version_id=document_version_id,
-                stage_execution_id=stage_execution_id,
-                error=str(e),
-            )
 
     version = await ver_repo.get_by_id(v_id)
     if not version:
@@ -814,17 +803,6 @@ async def _build_chunks_v2_async(
 
     await uow.session.commit()
 
-    if stage_execution_id:
-        try:
-            await dse_repo.mark_succeeded(uuid.UUID(stage_execution_id))
-        except Exception as e:
-            logger.exception(
-                "Failed to mark stage execution as SUCCEEDED for chunking",
-                document_version_id=document_version_id,
-                stage_execution_id=stage_execution_id,
-                error=str(e),
-            )
-
     # ── Phase 14.4: post-commit cleanup stale chunk/legal/enrichment artifacts ─
     current_chunk_refs: set[str] = set()
     current_lu_refs: set[str] = set()
@@ -1069,6 +1047,48 @@ async def _build_chunks_v2_async(
         legal_units_count=len(legal_units_refs),
     )
 
+    _trace = build_stage_trace_fragment(
+        strategy="segment_chunk_builder_v2",
+        input_summary={
+            "document_id": str(doc.id),
+            "document_version_id": str(v_id),
+            "segments_count": len(segment_snapshots),
+            "chunk_plan_available": chunk_plan is not None,
+        },
+        output_summary={
+            "chunk_count_total": chunk_count_total,
+            "legal_units_count": len(legal_units_refs),
+            "enrichment_count": len(enrichment_refs),
+            "legal_unit_chunks": legal_unit_chunk_count_total,
+            "duration_seconds": duration,
+        },
+        warnings=(
+            ["retrieval_not_fully_safe"]
+            if (doc_summary is not None and not doc_summary.overall_retrieval_safe)
+            else []
+        ),
+        artifact_refs={
+            "chunks_manifest_v2_ref": chunks_manifest_v2_ref,
+        },
+        decision_details={
+            "telemetry_summary": doc_summary.to_dict() if doc_summary is not None else None,
+        },
+    )
+
+    if stage_execution_id:
+        try:
+            await dse_repo.mark_succeeded(
+                uuid.UUID(stage_execution_id),
+                result_details=_trace,
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to mark stage execution as SUCCEEDED for chunking",
+                document_version_id=document_version_id,
+                stage_execution_id=stage_execution_id,
+                error=str(e),
+            )
+
     return {
         "status": DocumentStatus.CHUNKED.value,
         "document_id": str(doc.id),
@@ -1083,6 +1103,7 @@ async def _build_chunks_v2_async(
         "legal_units_count": len(legal_units_refs),
         "enrichment_refs": enrichment_refs,
         "enrichment_count": len(enrichment_refs),
+        "stage_execution_result_details": _trace,
     }
 
 

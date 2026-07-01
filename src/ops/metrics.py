@@ -381,8 +381,8 @@ class MetricsRegistry:
 
         self.llm_requests_total = Counter(
             f"{_P}_llm_requests_total",
-            "Total LLM requests by provider and status.",
-            labelnames=["provider", "status"],  # status: success | timeout | error
+            "Total LLM requests by provider and error type.",
+            labelnames=["provider", "error_type"],  # error_type: none | timeout | ...
             registry=r,
         )
 

@@ -357,3 +357,32 @@ class DocumentStageExecutionRepository:
                 )
         except IntegrityError:
             return None
+        
+    async def update_result_details(
+        self,
+        execution_id: uuid.UUID,
+        result_details: dict,
+    ) -> DocumentStageExecution | None:
+        """
+        Обновить только result_details у уже существующей execution-записи.
+
+        Используется в Explainability flow, когда worker уже успел
+        пометить execution как SUCCEEDED, а MASBaseTask затем хочет
+        записать enriched trace payload.
+        """
+        stmt = (
+            update(DocumentStageExecution)
+            .where(DocumentStageExecution.id == execution_id)
+            .values(result_details=result_details)
+            .returning(DocumentStageExecution)
+        )
+        result = await self.session.execute(stmt)
+        execution = result.scalar_one_or_none()
+
+        if execution:
+            await self.session.flush()
+
+        return execution
+    
+    
+

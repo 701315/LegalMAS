@@ -41,7 +41,6 @@ const KnowledgeGrowthSection: React.FC = () => {
     >
       <div className="mx-auto w-full max-w-[1920px] px-4 lg:px-6 xl:px-10">
         <div className="grid items-center gap-6 lg:grid-cols-12 lg:gap-8">
-
           {/* ── Левая колонка: Дерево ── */}
           <div
             ref={left.ref as React.Ref<HTMLDivElement>}
@@ -93,14 +92,13 @@ const KnowledgeGrowthSection: React.FC = () => {
             </p>
 
             <Link
-              to="/capabilities"
+              to="/platform"
               className="mt-10 inline-flex w-fit items-center gap-2 rounded-full border border-[#E5E2DA] bg-white px-5 py-2.5 text-sm font-medium text-stone-700 transition-all hover:border-stone-300 hover:text-stone-950"
             >
               Все возможности платформы
               <ArrowUpRight size={14} />
             </Link>
           </div>
-
         </div>
       </div>
     </section>
@@ -108,4 +106,5 @@ const KnowledgeGrowthSection: React.FC = () => {
 };
 
 export default KnowledgeGrowthSection;
+
 

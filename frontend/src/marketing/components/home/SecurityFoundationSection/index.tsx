@@ -65,7 +65,6 @@ const SecurityFoundationSection: React.FC = () => {
     >
       <div className="mx-auto w-full max-w-[1920px] px-4 lg:px-6 xl:px-10">
         <div className="grid items-center gap-6 lg:grid-cols-12 lg:gap-8">
-
           {/* ── Левая колонка: Корни (соразмерно дереву) ── */}
           <div
             ref={left.ref as React.Ref<HTMLDivElement>}
@@ -98,7 +97,6 @@ const SecurityFoundationSection: React.FC = () => {
               </em>
             </h2>
 
-            {/* ── 4 абзаца без заголовков ── */}
             <div className="mt-8 flex flex-col gap-5 max-w-md">
               {PRINCIPLES.map((p) => (
                 <p
@@ -118,7 +116,6 @@ const SecurityFoundationSection: React.FC = () => {
               <ArrowUpRight size={14} />
             </Link>
           </div>
-
         </div>
       </div>
     </section>
@@ -126,3 +123,5 @@ const SecurityFoundationSection: React.FC = () => {
 };
 
 export default SecurityFoundationSection;
+
+

@@ -43,21 +43,35 @@ function formatConfidence(value: number | null): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function formatConfidenceZone(zone: string | null): string {
-  if (!zone) return "—";
-
-  switch (zone) {
-    case "high":
-      return "Высокая";
-    case "medium":
-      return "Средняя";
-    case "low":
-      return "Низкая";
-    case "unknown":
-      return "Неизвестно";
-    default:
-      return zone;
+function ConfidenceZoneBadge({ zone }: { zone: string | null }) {
+  if (!zone) {
+    return <span className="text-xs text-[var(--text-muted)]">—</span>;
   }
+  const config: Record<string, { label: string; cls: string }> = {
+    confident: {
+      label: "Уверенная",
+      cls: "bg-green-50 text-green-700 border-green-300/40",
+    },
+    low: {
+      label: "Низкая",
+      cls: "bg-yellow-50 text-yellow-700 border-yellow-300/40",
+    },
+    unknown: {
+      label: "Неопр.",
+      cls: "bg-red-50 text-red-700 border-red-300/40",
+    },
+  };
+  const c = config[zone];
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+        c?.cls ??
+        "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]"
+      }`}
+    >
+      {c?.label ?? zone}
+    </span>
+  );
 }
 
 function getRowBadges(row: ClassificationInvestigationRow): string[] {
@@ -304,8 +318,8 @@ const ClassificationAuditView: React.FC<ClassificationAuditViewProps> = ({
                           {formatConfidence(row.classification_confidence)}
                         </td>
 
-                        <td className="px-3 py-3 text-xs text-[var(--text-secondary)]">
-                          {formatConfidenceZone(row.confidence_zone)}
+                        <td className="px-3 py-3">
+                          <ConfidenceZoneBadge zone={row.confidence_zone} />
                         </td>
 
                         <td className="px-3 py-3 text-xs text-[var(--text-secondary)]">

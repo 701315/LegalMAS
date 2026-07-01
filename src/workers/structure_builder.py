@@ -48,6 +48,7 @@ from core.pipeline_errors import (
     PipelineErrorType,
     StructureV2ErrorReason,
 )
+from core.stage_trace import build_stage_trace_fragment
 from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
@@ -220,21 +221,7 @@ async def _build_structure_async(
     ver_repo = DocumentVersionRepository(uow.session)
     doc_repo = DocumentRepository(uow.session)
     seg_repo = DocumentSegmentRepository(uow.session)
-    dse_repo = DocumentStageExecutionRepository(uow.session)
     audit_repo = AuditRepository(uow.session)
-
-    # 1. Помечаем execution как STARTED (если он есть).
-    if stage_execution_id:
-        try:
-            await dse_repo.mark_started(uuid.UUID(stage_execution_id))
-        except Exception as e:
-            logger.exception(
-                "Failed to mark stage execution as STARTED for structure",
-                document_version_id=document_version_id,
-                stage_execution_id=stage_execution_id,
-                error=str(e),
-            )
-            # Не прерываем саму стадию: лучше пусть структура всё равно строится.
 
     version = await ver_repo.get_by_id(v_id)
     if not version:
@@ -269,12 +256,26 @@ async def _build_structure_async(
             document_version_id=str(v_id),
             status=doc.status,
         )
+        _skip_trace = build_stage_trace_fragment(
+            strategy="structure_v2",
+            input_summary={
+                "document_version_id": str(v_id),
+                "skip_reason": "already_structured",
+                "current_status": doc.status,
+            },
+            output_summary={},
+            warnings=["skipped_already_structured"],
+            artifact_refs={},
+            decision_details=None,
+        )
         return {
             "status": DocumentStatus.STRUCTURED.value,
             "document_id": str(doc.id),
             "document_version_id": str(v_id),
             "skipped": True,
             "committed": False,
+            "stage_execution_trace_status": "skipped",
+            "stage_execution_result_details": _skip_trace,
         }
 
     allow_legacy_layout_fallback = bool(getattr(settings, "ALLOW_LEGACY_LAYOUT_FALLBACK", False))
@@ -755,18 +756,6 @@ async def _build_structure_async(
 
     await uow.session.commit()
 
-    # 2. На успешном пути помечаем execution как SUCCEEDED (если он есть).
-    if stage_execution_id:
-        try:
-            await dse_repo.mark_succeeded(uuid.UUID(stage_execution_id))
-        except Exception as e:
-            logger.exception(
-                "Failed to mark stage execution as SUCCEEDED for structure",
-                document_version_id=document_version_id,
-                stage_execution_id=stage_execution_id,
-                error=str(e),
-            )
-
     # ── Phase 14.4: post-commit cleanup stale segment tree artifacts ─────────
     # Удаляем только те refs, которые больше не в текущем committed state.
     # Best-effort: ошибка cleanup НЕ ломает pipeline.
@@ -889,6 +878,38 @@ async def _build_structure_async(
         status=DocumentStatus.STRUCTURED.value,
     )
 
+    _trace = build_stage_trace_fragment(
+        strategy="structure_v2",
+        input_summary={
+            "document_version_id": str(v_id),
+            "layout_source": layout_source,
+            "layout_ref": layout_ref,
+            "allow_legacy_layout_fallback": allow_legacy_layout_fallback,
+            "store_file_graph": store_file_graph,
+            "store_segment_trees": store_segment_trees,
+        },
+        output_summary={
+            "segments_count": segments_count,
+            "materialized_segments": (
+                len(segment_rows_to_create) if store_file_graph else 0
+            ),
+            "confidence": getattr(clause_tree, "structure_confidence", None),
+            "is_degraded": getattr(clause_tree, "degraded", None),
+            "duration_seconds": duration,
+        },
+        warnings=(
+            ["legacy_layout_fallback_used"]
+            if layout_source == "layout_primary_ref_legacy_fallback"
+            else []
+        ),
+        artifact_refs={
+            "clause_tree_ref": clause_tree_ref,
+            "file_graph_ref": file_graph_ref,
+            "chunk_plan_ref": chunk_plan_ref,
+        },
+        decision_details=None,
+    )
+
     return {
         "status": DocumentStatus.STRUCTURED.value,
         "document_id": str(doc.id),
@@ -905,6 +926,7 @@ async def _build_structure_async(
         "duration_seconds": duration,
         "tenant_id": tenant_id,
         "committed": True,
+        "stage_execution_result_details": _trace,
     }
 
 

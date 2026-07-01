@@ -1,0 +1,262 @@
+// frontend/src/components/documents/pipeline/ProcessingTracePanel.tsx
+
+import React from "react";
+import { useProcessingTrace } from "../../../api/provenance";
+import type { StageTraceDTO } from "../../../api/provenance";
+
+interface Props {
+  documentId: string;
+}
+
+const STAGE_LABELS: Record<string, string> = {
+  "workers.build_primary_language_source": "Языковой источник",
+  "workers.extract_document": "Извлечение текста",
+  "pii.sanitize_document": "Санитизация PII",
+  "workers.build_structure": "Построение структуры",
+  "workers.build_chunks": "Чанкинг",
+  "workers.classify_document": "Классификация документа",
+  "workers.classify_document_segments": "Классификация сегментов",
+  "workers.build_legal_units_enrichment": "Семантическое обогащение",
+};
+
+const STRATEGY_LABELS: Record<string, string> = {
+  text: "Native text",
+  trigger_and_policy_based: "PII policy",
+  structure_v2: "Structure v2",
+  segment_chunk_builder_v2: "Chunk builder v2",
+  hybrid_classifier_stage8: "Hybrid classifier",
+  hybrid_segment_classifier_stage8: "Segment classifier",
+  semantic_enrichment_llm: "LLM enrichment",
+};
+
+function formatDuration(ms: number | null | undefined): string {
+  if (ms == null) return "—";
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
+}
+
+function StatusDot({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    succeeded: "bg-green-500",
+    failed: "bg-red-500",
+    started: "bg-yellow-400",
+    cancelled: "bg-gray-400",
+  };
+  return (
+    <span
+      className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${colors[status] ?? "bg-gray-300"}`}
+    />
+  );
+}
+
+function StageRow({ stage }: { stage: StageTraceDTO }) {
+  const [expanded, setExpanded] = React.useState(false);
+
+  const label =
+    STAGE_LABELS[stage.task_name] ??
+    stage.task_name.replace("workers.", "").replace("pii.", "");
+
+  const strategyLabel = stage.strategy
+    ? (STRATEGY_LABELS[stage.strategy] ?? stage.strategy)
+    : null;
+
+  const warnings = (stage.warnings ?? []).filter(Boolean);
+  const hasWarnings = warnings.length > 0;
+  const hasTrace = stage.schema_version != null;
+
+  const terminalOutcome = stage.output_summary?.terminal_outcome as
+    | string
+    | undefined;
+  const enrichedCount = stage.output_summary?.segments_enriched as
+    | number
+    | undefined;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 text-left transition hover:bg-[var(--bg-elevated-soft)]"
+      >
+        <StatusDot status={stage.status} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-[var(--text-primary)]">
+              {label}
+            </span>
+            <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
+              {formatDuration(stage.duration_ms)}
+            </span>
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            {strategyLabel && (
+              <span className="text-[10px] text-[var(--text-muted)]">
+                {strategyLabel}
+              </span>
+            )}
+            {terminalOutcome && (
+              <span className="text-[10px] text-[var(--text-muted)]">
+                {terminalOutcome}
+                {enrichedCount != null ? ` · ${enrichedCount} сегм.` : ""}
+              </span>
+            )}
+            {hasWarnings && (
+              <span className="rounded-full border border-yellow-300/30 bg-yellow-50 px-1.5 py-0.5 text-[10px] text-yellow-700">
+                ⚠ {warnings.length}
+              </span>
+            )}
+            {!hasTrace && (
+              <span className="text-[10px] text-[var(--text-faint)]">
+                legacy
+              </span>
+            )}
+          </div>
+        </div>
+        <span className="shrink-0 text-[10px] text-[var(--accent-primary)]">
+          {expanded ? "▲" : "▼"}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="ml-5 mt-1 space-y-2 rounded-b-xl border border-t-0 border-[var(--border-subtle)] px-3 py-3 text-[11px]">
+          {hasWarnings && (
+            <div className="rounded-lg border border-yellow-300/30 bg-yellow-50 px-2 py-2">
+              <div className="font-medium text-yellow-700">Warnings</div>
+              <ul className="mt-1 list-inside list-disc text-yellow-800">
+                {warnings.map((w, i) => (
+                  <li key={i}>{String(w)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {stage.input_summary &&
+            Object.keys(stage.input_summary).length > 0 && (
+              <div>
+                <div className="mb-1 font-medium text-[var(--text-muted)]">
+                  Input
+                </div>
+                <pre className="overflow-auto rounded-lg bg-[var(--bg-elevated-soft)] p-2 text-[10px] text-[var(--text-secondary)]">
+                  {JSON.stringify(stage.input_summary, null, 2)}
+                </pre>
+              </div>
+            )}
+
+          {stage.output_summary &&
+            Object.keys(stage.output_summary).length > 0 && (
+              <div>
+                <div className="mb-1 font-medium text-[var(--text-muted)]">
+                  Output
+                </div>
+                <pre className="overflow-auto rounded-lg bg-[var(--bg-elevated-soft)] p-2 text-[10px] text-[var(--text-secondary)]">
+                  {JSON.stringify(stage.output_summary, null, 2)}
+                </pre>
+              </div>
+            )}
+
+          {stage.artifact_refs &&
+            Object.keys(stage.artifact_refs).length > 0 && (
+              <div>
+                <div className="mb-1 font-medium text-[var(--text-muted)]">
+                  Artifacts
+                </div>
+                {Object.entries(stage.artifact_refs).map(([k, v]) => (
+                  <div key={k} className="flex gap-1">
+                    <span className="text-[var(--text-muted)]">{k}:</span>
+                    <span className="break-all text-[var(--accent-primary)]">
+                      {String(v)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+          {stage.error_details && (
+            <div>
+              <div className="mb-1 font-medium text-red-500">Error</div>
+              <pre className="overflow-auto rounded-lg bg-red-50 p-2 text-[10px] text-red-700">
+                {JSON.stringify(stage.error_details, null, 2)}
+              </pre>
+            </div>
+          )}
+
+          {(stage.started_at || stage.finished_at) && (
+            <div className="text-[10px] text-[var(--text-faint)]">
+              {stage.started_at && (
+                <div>
+                  Старт:{" "}
+                  {new Date(stage.started_at).toLocaleTimeString("ru-RU")}
+                </div>
+              )}
+              {stage.finished_at && (
+                <div>
+                  Завершено:{" "}
+                  {new Date(stage.finished_at).toLocaleTimeString("ru-RU")}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ProcessingTracePanel({ documentId }: Props) {
+  const { data, isLoading, error } = useProcessingTrace(documentId);
+
+  if (isLoading) {
+    return (
+      <div className="text-xs text-[var(--text-muted)]">
+        Загружаем processing trace…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-xs text-[var(--color-error)]">
+        Не удалось загрузить processing trace.
+      </div>
+    );
+  }
+
+  if (!data || data.stages.length === 0) {
+    return (
+      <div className="text-xs text-[var(--text-faint)]">
+        Processing trace недоступен.
+      </div>
+    );
+  }
+
+  const succeeded = data.stages.filter((s) => s.status === "succeeded").length;
+  const total = data.stages.length;
+  const pct = Math.round((succeeded / total) * 100);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-[11px]">
+        <span className="text-[var(--text-muted)]">
+          {succeeded}/{total} стадий завершено
+        </span>
+        <span className="text-[var(--text-faint)]">{data.document_status}</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-elevated-soft)]">
+        <div
+          className="h-full rounded-full bg-green-500 transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="space-y-2">
+        {data.stages.map((stage, i) => (
+          <StageRow key={`${stage.task_name}-${i}`} stage={stage} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default ProcessingTracePanel;
+
+

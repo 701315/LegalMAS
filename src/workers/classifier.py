@@ -424,6 +424,44 @@ async def _classify_document_async(
     _final = classification_result.get("final_type") if classification_result else None
     _return_outcome = "typed" if (_final and str(_final).strip()) else "unknown"
 
+
+    from core.stage_trace import build_stage_trace_fragment  # noqa: PLC0415
+
+    _candidates = []
+    if classification_result:
+        _raw_candidates = classification_result.get("candidates") or []
+        _candidates = _raw_candidates[:10]  # ограничим размер
+
+    _trace = build_stage_trace_fragment(
+        strategy="hybrid_classifier_stage8",
+        input_summary={
+            "document_id": document_id,
+            "previous_status": "chunked",
+        },
+        output_summary={
+            "classification_outcome": _return_outcome,
+            "doc_type": classification_result.get("final_type") if classification_result else None,
+            "confidence": classification_result.get("final_confidence") if classification_result else 0.0,
+            "language": classification_result.get("language") if classification_result else None,
+            "jurisdiction": classification_result.get("jurisdiction") if classification_result else None,
+            "requires_manual_review": bool(classification_requires_review),
+            "duration_ms": duration_ms,
+        },
+        warnings=(
+            ["requires_manual_review"] if classification_requires_review else []
+        ),
+        artifact_refs={
+            "playbook_version_id": str(playbook.id) if playbook else None,
+        },
+        decision_details={
+            "decided_by": decided_by,
+            "levels_tried": classification_result.get("levels_tried", []) if classification_result else [],
+            "applicable_triggers": applicable_triggers,
+            "confidence_zone": details.get("confidence_zone") if details else None,
+            "candidates": _candidates,
+        },
+    )
+
     return {
         "document_id": document_id,
         "status": DocumentStatus.CLASSIFIED.value,
@@ -440,6 +478,7 @@ async def _classify_document_async(
         "duration_ms": duration_ms,
         "classification_requires_review": classification_requires_review,
         "committed": True,
+        "stage_execution_result_details": _trace,
     }
 
 

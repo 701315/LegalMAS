@@ -50,7 +50,7 @@ from core.constants import (
     SemanticEnrichmentStageOutcome,
 )
 from core.exceptions import PermanentError
-
+from core.stage_trace import build_stage_trace_fragment
 from core.logging import get_logger
 from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
@@ -226,6 +226,31 @@ def _build_stale_replay_result(
     Но если pipeline ещё не завершился — разбудим оркестратор,
     чтобы он проверил, что делать дальше.
     """
+    _stale_trace = build_stage_trace_fragment(
+        strategy="semantic_enrichment_llm",
+        input_summary={
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "stale_replay": True,
+        },
+        output_summary={
+            "terminal_outcome": SemanticEnrichmentStageOutcome.SKIPPED.value,
+            "segments_total": 0,
+            "segments_with_legal_units_ref": 0,
+            "segments_enriched": 0,
+            "segments_timed_out": 0,
+            "segments_failed": 0,
+            "segments_skipped_budget": 0,
+            "budget_exhausted": False,
+        },
+        warnings=["stale_replay"],
+        artifact_refs={},
+        decision_details={
+            "stale_replay": True,
+            "stale_replay_reason": reason,
+        },
+    )
+
     return {
         "document_id": document_id,
         "document_version_id": document_version_id,
@@ -234,8 +259,6 @@ def _build_stale_replay_result(
         "terminal_outcome": SemanticEnrichmentStageOutcome.SKIPPED.value,
         "stale_replay": True,
         "stale_replay_reason": reason,
-        # committed=True сигнализирует sync wrapper-у вызвать retrigger_run_pipeline().
-        # Для terminal run это False — orchestrator будить не нужно.
         "committed": retrigger_orchestrator,
         "segments_total": 0,
         "segments_with_legal_units_ref": 0,
@@ -244,14 +267,9 @@ def _build_stale_replay_result(
         "segments_failed": 0,
         "segments_skipped_budget": 0,
         "budget_exhausted": False,
-        "stage_execution_result_details": {
-            "terminal_outcome": SemanticEnrichmentStageOutcome.SKIPPED.value,
-            "stale_replay": True,
-            "stale_replay_reason": reason,
-        },
+        "stage_execution_trace_status": "skipped",
+        "stage_execution_result_details": _stale_trace,
     }
-
-
 
 async def _enrichment_preflight(
     document_version_id: str,
@@ -885,7 +903,7 @@ async def _finalize_enrichment_stage(
       после возврата из этой функции, но guard идемпотентности в
       _async_mark_execution_succeeded() пропустит его, если execution уже terminal.
     """
-    result_details: dict[str, Any] = {
+    result_payload: dict[str, Any] = {
         "terminal_outcome": outcome.value,
         "segments_total": segments_total,
         "segments_with_legal_units_ref": segments_with_legal_units_ref,
@@ -898,11 +916,37 @@ async def _finalize_enrichment_stage(
         "segment_timeout_seconds": settings.SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS,
     }
 
+    result_details = build_stage_trace_fragment(
+        strategy="semantic_enrichment_llm",
+        input_summary={
+            "document_id": log_base["document_id"],
+            "document_version_id": log_base["document_version_id"],
+            "segments_total": segments_total,
+            "segments_with_legal_units_ref": segments_with_legal_units_ref,
+        },
+        output_summary={
+            "terminal_outcome": outcome.value,
+            "segments_enriched": segments_enriched,
+            "segments_timed_out": segments_timed_out,
+            "segments_failed": segments_failed,
+            "segments_skipped_budget": segments_skipped_budget,
+            "budget_exhausted": budget_exhausted,
+        },
+        warnings=(
+            ["budget_exhausted"] if budget_exhausted else []
+        ),
+        artifact_refs={},
+        decision_details={
+            "document_budget_seconds": settings.SEMANTIC_ENRICHMENT_DOCUMENT_BUDGET_SECONDS,
+            "segment_timeout_seconds": settings.SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS,
+        },
+    )
+
     logger.info(
         "Semantic enrichment stage: terminal outcome reached",
         extra={
             **log_base,
-            **result_details,
+            **result_payload,
         },
     )
 
@@ -944,7 +988,7 @@ async def _finalize_enrichment_stage(
             actor="system",
             actor_role="worker",
             details={
-                **result_details,
+                **result_payload,
                 "document_id": log_base["document_id"],
                 "document_version_id": log_base["document_version_id"],
                 "run_id": run_id,
@@ -970,8 +1014,6 @@ async def _finalize_enrichment_stage(
         "segments_skipped_budget": segments_skipped_budget,
         "budget_exhausted": budget_exhausted,
         "committed": True,
-        # Подхватывается MASBaseTask.on_success() → mark_succeeded с result_details,
-        # если worker-level mark_succeeded выше был пропущен или завершился с ошибкой.
         "stage_execution_result_details": result_details,
     }
 

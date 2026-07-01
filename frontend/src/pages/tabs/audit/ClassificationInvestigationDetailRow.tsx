@@ -28,22 +28,35 @@ function formatConfidence(value: number | null | undefined): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function formatConfidenceZone(zone: string | null | undefined): string {
-  if (!zone) return "—";
-
-  switch (zone) {
-    case "high":
-      return "Высокая";
-    case "medium":
-      return "Средняя";
-    case "low":
-      return "Низкая";
-    case "unknown":
-      return "Неизвестно";
-    default:
-      return zone;
-  }
+function ConfidenceZoneBadge({ zone }: { zone: string | null | undefined }) {
+  if (!zone) return <span className="text-[var(--text-muted)]">—</span>;
+  const config: Record<string, { label: string; className: string }> = {
+    confident: {
+      label: "Уверенная",
+      className: "border-green-300/40 bg-green-50 text-green-700",
+    },
+    low: {
+      label: "Низкая",
+      className: "border-yellow-300/40 bg-yellow-50 text-yellow-700",
+    },
+    unknown: {
+      label: "Неопределённая",
+      className: "border-red-300/40 bg-red-50 text-red-700",
+    },
+  };
+  const c = config[zone];
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+        c?.className ??
+        "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]"
+      }`}
+    >
+      {c?.label ?? zone}
+    </span>
+  );
 }
+
 
 function renderJson(value: unknown): string {
   try {
@@ -163,7 +176,7 @@ const ClassificationInvestigationDetailRow: React.FC<Props> = ({ documentId }) =
               />
               <MetaRow
                 label="Confidence zone"
-                value={formatConfidenceZone(data.confidence_zone)}
+                value={<ConfidenceZoneBadge zone={data.confidence_zone} />}
               />
               <MetaRow label="Decided by" value={data.decided_by ?? "—"} />
               <MetaRow label="Language" value={data.language ?? "—"} />
@@ -256,59 +269,67 @@ const ClassificationInvestigationDetailRow: React.FC<Props> = ({ documentId }) =
 
           <Section title="Кандидаты" icon={<Trophy size={16} />}>
             {candidates.length > 0 ? (
-              <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-                <table className="w-full border-collapse">
-                  <thead className="border-b border-[var(--border)] bg-[var(--bg-base)]">
-                    <tr>
-                      <th
-                        scope="col"
-                        className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                      >
-                        Тип
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                      >
-                        Level
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                      >
-                        Confidence
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                      >
-                        Method
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {candidates.map((candidate: any, index: number) => (
-                      <tr
-                        key={`${String(candidate?.doctype ?? "candidate")}-${String(candidate?.level ?? "level")}-${index}`}
-                        className="border-b border-[var(--border)] last:border-b-0"
-                      >
-                        <td className="px-3 py-2 text-sm text-[var(--text-primary)]">
-                          {candidate?.doctype ?? "—"}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-[var(--text-secondary)]">
-                          {candidate?.level ?? "—"}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-[var(--text-secondary)]">
-                          {formatConfidence(candidate?.confidence)}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-[var(--text-secondary)]">
-                          {candidate?.method ?? "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-2">
+                {candidates.map((candidate: any, index: number) => {
+                  const confidence = candidate?.confidence ?? 0;
+                  const isWinner = index === 0;
+                  const pct = Math.round(confidence * 100);
+                  return (
+                    <div
+                      key={`${String(candidate?.doctype ?? "c")}-${index}`}
+                      className={`rounded-xl border p-3 ${
+                        isWinner
+                          ? "border-green-300/40 bg-green-50"
+                          : "border-[var(--border-subtle)] bg-[var(--bg-card)]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          {isWinner && (
+                            <span className="text-xs text-green-600">✓</span>
+                          )}
+                          <span
+                            className={`text-xs font-semibold ${
+                              isWinner ? "text-green-800" : "text-[var(--text-primary)]"
+                            }`}
+                          >
+                            {candidate?.doctype ?? "—"}
+                          </span>
+                          {candidate?.level ? (
+                            <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+                              {String(candidate.level)}
+                            </span>
+                          ) : null}
+                          {candidate?.method ? (
+                            <span className="text-[10px] text-[var(--text-faint)]">
+                              {String(candidate.method)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <span
+                          className={`text-xs font-bold ${
+                            isWinner ? "text-green-700" : "text-[var(--text-secondary)]"
+                          }`}
+                        >
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-elevated-soft)]">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            isWinner ? "bg-green-500" : "bg-[var(--text-muted)]"
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      {candidate?.evidence ? (
+                        <p className="mt-2 text-[11px] italic text-[var(--text-muted)]">
+                          {String(candidate.evidence)}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-[var(--text-muted)]">

@@ -32,7 +32,7 @@ PII Sanitizer Worker.
 import uuid
 from datetime import UTC, datetime
 from typing import Any
-
+from core.stage_trace import build_stage_trace_fragment
 from classifiers.yaml_registry import YAMLRegistry
 from core.config import settings
 from core.constants import DocumentStatus
@@ -119,7 +119,23 @@ class PIISanitizer:
                 "Document already sanitized, skipping",
                 document_id=str(doc.id),
             )
-            return {"document_id": str(doc.id), "skipped": True}
+            _skip_trace = build_stage_trace_fragment(
+                strategy="trigger_and_policy_based",
+                input_summary={
+                    "document_id": str(doc.id),
+                    "skip_reason": "already_sanitized",
+                },
+                output_summary={},
+                warnings=["skipped_already_sanitized"],
+                artifact_refs={},
+                decision_details=None,
+            )
+            return {
+                "document_id": str(doc.id),
+                "skipped": True,
+                "stage_execution_trace_status": "skipped",
+                "stage_execution_result_details": _skip_trace,
+            }
 
         # 3. Единый контракт пайплайна:
         # PII работает только по layout_primary_ref.
@@ -191,6 +207,31 @@ class PIISanitizer:
                 role_map_used=policy.use_role_map,
             )
 
+            _trace = build_stage_trace_fragment(
+                strategy="trigger_and_policy_based",
+                input_summary={
+                    "document_id": str(doc.id),
+                    "layout_source": "layout_primary_ref",
+                    "doc_type": getattr(doc, "doc_type", None),
+                    "triggers_count": len(triggers),
+                },
+                output_summary={
+                    "entities_detected": stats["detected"],
+                    "entities_tokenized": stats["tokenized"],
+                    "entities_preserved": stats["preserved"],
+                    "role_map_used": policy.use_role_map,
+                },
+                warnings=[],
+                artifact_refs={
+                    "layout_primary_sanitized_ref": sanitized_path,
+                    "pii_mapping_ref": mapping_path,
+                },
+                decision_details={
+                    "yaml_keywords_used": policy.party_role_keywords is not None,
+                    "encryption_enabled": self.encryptor.is_encryption_enabled,
+                },
+            )
+
             return {
                 "status": DocumentStatus.SANITIZED.value,
                 "document_id": str(doc.id),
@@ -200,6 +241,7 @@ class PIISanitizer:
                 "tenant_id": self.artifact_tenant_id,
                 "skipped": False,
                 "committed": True,
+                "stage_execution_result_details": _trace,
             }
 
         except PIIEncryptionError as e:
@@ -382,7 +424,6 @@ def sanitize_document(
       - запуск следующего этапа (Structure Builder) выполняется оркестратором.
     """
     version_uuid = uuid.UUID(document_version_id)
-    exec_uuid = uuid.UUID(stage_execution_id) if stage_execution_id else None
     document_id = kwargs.get("document_id")
 
     async def _run() -> dict:
@@ -400,17 +441,8 @@ def sanitize_document(
                 artifact_store=store,
                 artifact_tenant_id=resolved_tenant_id,
             )
-            dse_repo = DocumentStageExecutionRepository(uow_main.session)
-
-            if exec_uuid:
-                await dse_repo.mark_started(exec_uuid)
-
             try:
                 result = await sanitizer.sanitize(version_uuid)
-
-                if exec_uuid:
-                    await dse_repo.mark_succeeded(exec_uuid)
-
                 return result
 
             except PermanentError as e:
@@ -421,10 +453,10 @@ def sanitize_document(
                         document_id=document_id,
                         payload_tenant_id=resolved_tenant_id,
                     )
-                    dse_err = DocumentStageExecutionRepository(uow_err.session)
-                    if exec_uuid:
+                    if stage_execution_id:
+                        dse_err = DocumentStageExecutionRepository(uow_err.session)
                         await dse_err.mark_failed(
-                            exec_uuid,
+                            uuid.UUID(stage_execution_id),
                             error_details={
                                 "stage": "pii",
                                 "type": "permanent_error",
@@ -467,10 +499,10 @@ def sanitize_document(
                         document_id=document_id,
                         payload_tenant_id=resolved_tenant_id,
                     )
-                    dse_err = DocumentStageExecutionRepository(uow_err.session)
-                    if exec_uuid:
+                    if stage_execution_id:
+                        dse_err = DocumentStageExecutionRepository(uow_err.session)
                         await dse_err.mark_failed(
-                            exec_uuid,
+                            uuid.UUID(stage_execution_id),
                             error_details={
                                 "stage": "pii",
                                 "type": "quarantine_error",

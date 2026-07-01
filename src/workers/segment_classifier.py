@@ -57,7 +57,7 @@ import json
 import time
 import uuid
 from typing import Any
-
+from core.stage_trace import build_stage_trace_fragment
 from classifiers.stage8._duplicate_handler import DuplicateHandler
 from classifiers.stage8.hybrid_classifier import HybridClassifier
 from core.exceptions import PermanentError
@@ -434,6 +434,30 @@ async def _classify_document_segments_async(
                     document_version_id=document_version_id,
                 )
 
+                trace_fragment = build_stage_trace_fragment(
+                    strategy="hybrid_segment_classifier_stage8",
+                    input_summary={
+                        "document_id": document_id,
+                        "document_version_id": document_version_id,
+                        "total_segments": 0,
+                    },
+                    output_summary={
+                        "terminal_segments": 0,
+                        "classified_segments": 0,
+                        "unknown_segments": 0,
+                        "skipped_count": 0,
+                        "failed_segments": 0,
+                        "duration_ms": int((time.time() - start_time) * 1000),
+                    },
+                    warnings=["no_segments"],
+                    artifact_refs={},
+                    decision_details={
+                        "processed_segments": [],
+                        "skipped_segments": [],
+                        "failed_segment_details": [],
+                    },
+                )
+
                 result = {
                     "document_id": document_id,
                     "document_version_id": document_version_id,
@@ -449,6 +473,8 @@ async def _classify_document_segments_async(
                     "skipped_segments": [],
                     "failed_segment_details": [],
                     "duration_ms": int((time.time() - start_time) * 1000),
+                    "stage_execution_trace_status": "skipped",
+                    "stage_execution_result_details": trace_fragment,
                 }
 
                 if tenant_id and deal_id:
@@ -670,6 +696,34 @@ async def _classify_document_segments_async(
             # skipped — пустой текст (terminal)
             # failed — ошибка (non-terminal)
 
+            trace_status = "partial" if failed_segments_count > 0 else "succeeded"
+
+            trace_fragment = build_stage_trace_fragment(
+                strategy="hybrid_segment_classifier_stage8",
+                input_summary={
+                    "document_id": document_id,
+                    "document_version_id": document_version_id,
+                    "total_segments": total_segments,
+                },
+                output_summary={
+                    "terminal_segments": terminal_segments,
+                    "classified_segments": typed_segments_count,
+                    "unknown_segments": unknown_segments_count,
+                    "skipped_count": len(skipped_segments),
+                    "failed_segments": failed_segments_count,
+                    "duration_ms": duration_ms,
+                },
+                warnings=(
+                    ["segment_failures_present"] if failed_segments_count > 0 else []
+                ),
+                artifact_refs={},
+                decision_details={
+                    "processed_segments": processed_segments,
+                    "skipped_segments": skipped_segments,
+                    "failed_segment_details": failed_segments,
+                },
+            )
+
             final_result = {
                 "document_id": document_id,
                 "document_version_id": document_version_id,
@@ -684,6 +738,8 @@ async def _classify_document_segments_async(
                 "skipped_segments": skipped_segments,
                 "failed_segment_details": failed_segments,
                 "duration_ms": duration_ms,
+                "stage_execution_trace_status": trace_status,
+                "stage_execution_result_details": trace_fragment,
             }
 
             if tenant_id and deal_id:

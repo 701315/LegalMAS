@@ -67,6 +67,15 @@ class EvidenceResponse(BaseModel):
     doc_type: str | None = None
     yaml_instruction_ref: str | None = None
 
+    chunk_id: str | None = None
+    chunk_index: int | None = None
+    segment_id: str | None = None
+    segment_type: str | None = None
+    context_trace: list[dict] | None = None
+    display_text: str | None = None
+    review_status: str | None = None
+    review_message: str | None = None
+
 
 @router.get(
     "",
@@ -144,31 +153,17 @@ async def get_evidence(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Возвращает подробную информацию о доказательствах (evidence) для одного CheckResult.
-
-    Технические сценарии:
-    - Некорректный UUID -> 400.
-    - Результат не найден -> 404.
-    - Успех -> 200 + структура EvidenceResponse.
-    """
-
-    # 1. Валидируем формат UUID
     try:
         result_uuid = uuid.UUID(result_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid result_id format")
 
-    # 2. Ищем результат в базе
-    # TODO (улучшение 16): перенести в CheckResultRepository.get_by_id
     stmt = select(CheckResult).where(CheckResult.id == result_uuid)
     db_result = await db.execute(stmt)
     check_result: CheckResult | None = db_result.scalar_one_or_none()
 
     if check_result is None:
         raise HTTPException(status_code=404, detail="Result not found")
-
-    # 3. TODO: добавить ACL‑проверку доступа к сделке/документу.
 
     return EvidenceResponse(
         result_id=check_result.id,
@@ -185,6 +180,15 @@ async def get_evidence(
         confidence=check_result.confidence,
         detector_used=check_result.detector_used,
         origin=check_result.origin,
+        # Добавляем новые провенанс поля:
+        chunk_id=check_result.chunk_id,
+        chunk_index=check_result.chunk_index,
+        segment_id=check_result.segment_id,
+        segment_type=check_result.segment_type,
+        context_trace=check_result.context_trace,
+        display_text=check_result.display_text,
+        review_status=check_result.review_status,
+        review_message=check_result.review_message,
         doc_type=None,
         yaml_instruction_ref=None,
     )

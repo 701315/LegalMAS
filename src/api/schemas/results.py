@@ -119,6 +119,31 @@ class CheckResultResponse(BaseModel):
     conditional_check_triggered: bool = False
     trigger_name: str | None = None
 
+    # ── Canonical display semantics (Spec v2) ──────────────────────
+    display_text: str | None = None
+    review_status: str | None = None
+    review_message: str | None = None
+    needs_manual_review: bool = False
+    ui_mode: str | None = None
+    machine_reason_code: str | None = None
+
+    # ── Retrieval provenance ────────────────────────────────────────
+    evidence_ref: str | None = None
+    page: int | None = None
+    clause_uid: str | None = None
+    element_id: str | None = None
+    bbox: dict | None = None
+    chunk_id: str | None = None
+    chunk_index: int | None = None
+    context_trace: list[dict] | None = None
+
+    # ── Segment provenance ──────────────────────────────────────────
+    segment_id: str | None = None
+    segment_type: str | None = None
+    segment_title: str | None = None
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+
     model_config = {"from_attributes": True}
 
 

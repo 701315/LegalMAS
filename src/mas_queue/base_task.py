@@ -98,12 +98,11 @@ import time
 import uuid
 from datetime import UTC, datetime
 from typing import Any
-
 from celery import Task
 from celery.exceptions import Retry, SoftTimeLimitExceeded
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from core.stage_trace import enrich_trace_with_base_envelope
 from core.constants import DocumentStageExecutionStatus, DocumentStatus, JobStatus
 from core.exceptions import PermanentError, QuarantineError, TransientError
 from core.logging import clear_log_context, get_logger, set_task_context
@@ -574,29 +573,60 @@ class MASBaseTask(Task):
         Определить, как закрыть stage execution по результату worker-а.
 
         Возвращает:
-          ("failed",    error_details_dict)   — если worker вернул terminal failure
-          ("succeeded", result_details | None) — в остальных случаях
+          ("failed",    error_details_dict)
+          ("succeeded", result_details | None)
 
-        Бизнес-terminal failure определяется по retval["status"] в
-        _FAILURE_DOCUMENT_STATUSES (failed / quarantine).
+        Важно:
+        - terminal failure по-прежнему определяется по retval["status"]
+          в _FAILURE_DOCUMENT_STATUSES;
+        - explainability trace status (succeeded/skipped/partial)
+          живёт внутри result_details["status"] и не меняет
+          технический terminal status execution row, который остаётся
+          SUCCEEDED/FAILED.
         """
-        status: str | None = None
+        raw_status: str | None = None
         if isinstance(retval, dict):
             raw = retval.get("status")
             if isinstance(raw, str):
-                status = raw.strip().lower()
+                raw_status = raw.strip().lower()
 
-        if status in self._FAILURE_DOCUMENT_STATUSES:
+        if raw_status in self._FAILURE_DOCUMENT_STATUSES:
             return (
                 "failed",
-                self._build_execution_error_details_from_result(retval=retval, kwargs=kwargs),
+                self._build_execution_error_details_from_result(
+                    retval=retval,
+                    kwargs=kwargs,
+                ),
             )
 
-        result_details: dict[str, Any] | None = None
+        raw_fragment: dict[str, Any] | None = None
+        trace_status = "succeeded"
+
         if isinstance(retval, dict):
             candidate = retval.get("stage_execution_result_details")
             if isinstance(candidate, dict):
-                result_details = candidate
+                raw_fragment = candidate
+
+            explicit_trace_status = retval.get("stage_execution_trace_status")
+            if isinstance(explicit_trace_status, str):
+                explicit_trace_status = explicit_trace_status.strip().lower()
+                if explicit_trace_status in {"succeeded", "skipped", "partial"}:
+                    trace_status = explicit_trace_status
+            elif retval.get("skipped") is True or raw_status == "skipped":
+                trace_status = "skipped"
+            elif retval.get("partial") is True:
+                trace_status = "partial"
+
+        try:
+            result_details = enrich_trace_with_base_envelope(
+                raw_fragment,
+                stage=self.name,
+                status=trace_status,
+                started_at=getattr(self, "_task_started_at", None),
+                task_id=getattr(self.request, "id", None),
+            )
+        except Exception:
+            result_details = raw_fragment
 
         return "succeeded", result_details
 
@@ -765,7 +795,13 @@ class MASBaseTask(Task):
         """
         Пометить execution как SUCCEEDED в отдельной транзакции.
 
-        Пропускается если execution уже в terminal статусе.
+        В Explainability flow допускается special-case:
+        - если execution уже SUCCEEDED, но у нас появился enriched trace,
+          мы обновляем result_details поверх существующей записи.
+
+        Это нужно для hybrid ownership model:
+        - некоторые worker'ы сами делают mark_succeeded() ради атомарности;
+        - MASBaseTask затем дописывает/нормализует explainability trace.
         """
         execution_uuid = uuid.UUID(stage_execution_id)
         async with db_uow() as uow:
@@ -777,8 +813,23 @@ class MASBaseTask(Task):
                     stage_execution_id=stage_execution_id,
                 )
                 return
-            if execution.status in cls._TERMINAL_EXECUTION_STATUSES:
+
+            # Если уже FAILED/CANCELLED — не трогаем.
+            if execution.status in {
+                DocumentStageExecutionStatus.FAILED.value,
+                DocumentStageExecutionStatus.CANCELLED.value,
+            }:
                 return
+
+            # Если уже SUCCEEDED — допускаем update trace payload.
+            if execution.status == DocumentStageExecutionStatus.SUCCEEDED.value:
+                if result_details is not None:
+                    await repo.update_result_details(
+                        execution_uuid,
+                        result_details=result_details,
+                    )
+                return
+
             await repo.mark_succeeded(execution_uuid, result_details=result_details)
 
     @classmethod

@@ -364,6 +364,8 @@ class LLMClient:
                     provider=self.provider,
                     error_type=error_type_for_metrics or "none",
                 ).inc()
+                if error_type_for_metrics == "timeout":
+                    METRICS.llm_timeout_total.labels(provider=self.provider).inc()
                 if isinstance(result, LLMResponse):
                     METRICS.llm_tokens_total.labels(
                         provider=self.provider,
@@ -833,6 +835,8 @@ class LLMClient:
                     provider=self.provider,
                     error_type=error_type_for_metrics or "none",
                 ).inc()
+                if error_type_for_metrics == "timeout":
+                    METRICS.llm_timeout_total.labels(provider=self.provider).inc()
                 if isinstance(result, LLMResponse):
                     METRICS.llm_tokens_total.labels(
                         provider=self.provider,

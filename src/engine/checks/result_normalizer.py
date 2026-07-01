@@ -187,7 +187,7 @@ def normalize_check_result(
         "page": exec_result.get("page"),
         "clause_uid": exec_result.get("clause_uid"),
         "element_id": exec_result.get("element_id"),
-        "context_trace": exec_result.get("context_trace") or [],
+        "context_trace": _normalize_context_trace(exec_result.get("context_trace")),
         # ── Citation anchor fields ─────────────────────────────────────────────
         "anchor_uid": anchor_uid,
         "anchor_title": anchor_title,
@@ -344,6 +344,62 @@ def _cleanup_legacy_ui_keys(quality_flags: dict[str, Any]) -> None:
     if isinstance(raw, dict):
         for key in _LEGACY_UI_KEYS:
             raw.pop(key, None)
+
+
+def _normalize_context_trace(raw_trace: Any) -> list[dict[str, Any]]:
+    """
+    Нормализовать retrieval provenance trace к стабильному canonical schema.
+
+    Canonical item schema:
+    {
+        "rank": int | None,
+        "score": float | None,
+        "score_breakdown": dict | None,
+        "chunk_id": str | None,
+        "chunk_index": int | None,
+        "clause_uid": str | None,
+        "element_id": str | None,
+        "page": int | None,
+        "segment_id": str | None,
+        "segment_type": str | None,
+        "segment_title": str | None,
+        "segment_order": int | None,
+        "is_primary_segment": bool | None,
+    }
+
+    Важно:
+    - не храним полный текст чанков в context_trace;
+    - context_trace остаётся compact forensic/debug provenance.
+    - schema стабильна независимо от upstream producer.
+    """
+    if not isinstance(raw_trace, list):
+        return []
+
+    normalized: list[dict[str, Any]] = []
+
+    for idx, item in enumerate(raw_trace):
+        if not isinstance(item, dict):
+            continue
+
+        normalized.append(
+            {
+                "rank": item.get("rank", idx),
+                "score": item.get("score"),
+                "score_breakdown": item.get("score_breakdown"),
+                "chunk_id": item.get("chunk_id"),
+                "chunk_index": item.get("chunk_index"),
+                "clause_uid": item.get("clause_uid"),
+                "element_id": item.get("element_id"),
+                "page": item.get("page"),
+                "segment_id": item.get("segment_id"),
+                "segment_type": item.get("segment_type"),
+                "segment_title": item.get("segment_title"),
+                "segment_order": item.get("segment_order"),
+                "is_primary_segment": item.get("is_primary_segment"),
+            }
+        )
+
+    return normalized
 
 
 def _extract_provenance(exec_result: dict) -> dict[str, Any]:

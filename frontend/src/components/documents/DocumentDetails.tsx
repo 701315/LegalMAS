@@ -9,7 +9,7 @@
 
 import React, { useEffect, useState } from "react";
 import { AlertTriangle, Loader2, Upload } from "lucide-react";
-
+import { ProcessingTracePanel } from "./pipeline/ProcessingTracePanel";
 import type { DocumentTypeOption } from "../../api/documentTypes";
 import { DocumentPipelinePanel } from "./pipeline/DocumentPipelinePanel";
 import {
@@ -759,6 +759,10 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
             />
           </Section>
         )}
+
+        <Section title="История обработки">
+          <ProcessingTracePanel documentId={documentId} />
+        </Section>
 
         <Section title="Информационный блок по документу">
           <DocumentPipelinePanel

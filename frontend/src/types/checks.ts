@@ -59,6 +59,30 @@ export interface CheckResult {
   origin?: CheckResultOrigin;
   origin_type?: CheckResultOriginType;
   doc_requires_manual_review?: boolean | null;
+  // ── Canonical display semantics ──────────────────────────────
+  display_text?: string | null;
+  review_status?: string | null;
+  review_message?: string | null;
+  needs_manual_review?: boolean;
+  ui_mode?: string | null;
+  machine_reason_code?: string | null;
+
+  // ── Retrieval provenance ─────────────────────────────────────
+  evidence_ref?: string | null;
+  page?: number | null;
+  clause_uid?: string | null;
+  element_id?: string | null;
+  bbox?: Record<string, unknown> | null;
+  chunk_id?: string | null;
+  chunk_index?: number | null;
+  context_trace?: unknown[] | null;
+
+  // ── Segment provenance ───────────────────────────────────────
+  segment_id?: string | null;
+  segment_type?: string | null;
+  segment_title?: string | null;
+  segment_order?: number | null;
+  is_primary_segment?: boolean | null;
 }
 
 export interface StructuredField {
