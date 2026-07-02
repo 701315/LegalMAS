@@ -103,16 +103,14 @@ def import_bundle(
 
     logger.info(
         "Import bundle task finished",
-        extra={
-            "deal_id": deal_id,
-            "tenant_id": tenant_id,
-            "source_path": source_path,
-            "imported_count": result.get("imported_count"),
-            "quarantine_count": result.get("quarantine_count"),
-            "duplicate_count": result.get("duplicate_count"),
-            "skipped_count": result.get("skipped_count"),
-            "bundle_id": result.get("bundle_id"),
-        },
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        source_path=source_path,
+        imported_count=result.get("imported_count"),
+        quarantine_count=result.get("quarantine_count"),
+        duplicate_count=result.get("duplicate_count"),
+        skipped_count=result.get("skipped_count"),
+        bundle_id=result.get("bundle_id"),
     )
 
     return result

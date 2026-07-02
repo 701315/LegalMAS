@@ -41,6 +41,7 @@ from classifiers.stage8.hybrid_classifier import HybridClassifier
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError
 from core.logging import get_logger
+from core.stage_trace import build_stage_trace_fragment
 from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
@@ -423,9 +424,6 @@ async def _classify_document_async(
     # В БД outcome уже записан внутри save_classification_result().
     _final = classification_result.get("final_type") if classification_result else None
     _return_outcome = "typed" if (_final and str(_final).strip()) else "unknown"
-
-
-    from core.stage_trace import build_stage_trace_fragment  # noqa: PLC0415
 
     _candidates = []
     if classification_result:

@@ -49,6 +49,7 @@ Lifecycle записи Export:
 
 import time
 import uuid
+from typing import Any
 
 from core.constants import RunStatus
 from core.logging import get_logger
@@ -61,7 +62,6 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from ops.metrics import get_metrics
 from services.export.core import export_core
-from typing import Any
 
 logger = get_logger(__name__)
 
@@ -90,7 +90,9 @@ def export_results(
 ) -> dict:
     logger.info(
         "Export results task received",
-        extra={"run_id": run_id, "deal_id": deal_id, "tenant_id": tenant_id},
+        run_id=run_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
     )
 
     started_at = time.time()
@@ -124,12 +126,10 @@ def export_results(
 
                 logger.info(
                     "Экспорт завершён",
-                    extra={
-                        "run_id": run_id,
-                        "deal_id": deal_id,
-                        "duration_sec": round(duration, 2),
-                        "files_generated": len(refs),
-                    },
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    duration_sec=round(duration, 2),
+                    files_generated=len(refs),
                 )
 
                 # Пишем аудит: автоматический экспорт завершён успешно
@@ -154,7 +154,9 @@ def export_results(
             except Exception as e:
                 logger.error(
                     "Экспорт завершился с ошибкой",
-                    extra={"run_id": run_id, "deal_id": deal_id, "error": str(e)},
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    error=str(e),
                 )
 
                 await run_repo.update_status(
@@ -187,7 +189,7 @@ def export_results(
                     # Аудит не должен ломать основной поток ошибки
                     logger.warning(
                         "Не удалось записать аудит для EXPORT_FAILED",
-                        extra={"run_id": run_id},
+                        run_id=run_id,
                     )
 
                 raise
@@ -275,7 +277,8 @@ def export_by_id(
     """
     logger.info(
         "Export by id task received",
-        extra={"export_id": export_id, "celery_task_id": self.request.id},
+        export_id=export_id,
+        celery_task_id=self.request.id,
     )
 
     started_at = time.time()
@@ -304,12 +307,10 @@ def export_by_id(
 
             logger.info(
                 "Export job started",
-                extra={
-                    "export_id": export_id,
-                    "run_id": run_id,
-                    "deal_id": deal_id,
-                    "export_type": export_type,
-                },
+                export_id=export_id,
+                run_id=run_id,
+                deal_id=deal_id,
+                export_type=export_type,
             )
 
             # ── Переход: pending → processing ────────────────────────────────
@@ -332,11 +333,9 @@ def export_by_id(
 
             logger.info(
                 "Export status changed",
-                extra={
-                    "export_id": export_id,
-                    "from_status": "pending",
-                    "to_status": "processing",
-                },
+                export_id=export_id,
+                from_status="pending",
+                to_status="processing",
             )
 
             try:
@@ -351,13 +350,11 @@ def export_by_id(
 
                 logger.info(
                     "Export core returned refs",
-                    extra={
-                        "export_id": export_id,
-                        "run_id": run_id,
-                        "export_type": export_type,
-                        "refs_keys": sorted(refs.keys()) if isinstance(refs, dict) else [],
-                        "refs": refs,
-                    },
+                    export_id=export_id,
+                    run_id=run_id,
+                    export_type=export_type,
+                    refs_keys=sorted(refs.keys()) if isinstance(refs, dict) else [],
+                    refs=refs,
                 )
 
                 file_ref = _pick_file_ref(export_type, refs)
@@ -372,13 +369,11 @@ def export_by_id(
 
                     logger.error(
                         "Primary export artifact was not found",
-                        extra={
-                            "export_id": export_id,
-                            "run_id": run_id,
-                            "deal_id": deal_id,
-                            "export_type": export_type,
-                            "refs_keys": refs_keys,
-                        },
+                        export_id=export_id,
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        export_type=export_type,
+                        refs_keys=refs_keys,
                     )
 
                     # ── Переход: processing → failed (нет файла) ─────────────
@@ -444,14 +439,12 @@ def export_by_id(
 
                 logger.info(
                     "Export completed",
-                    extra={
-                        "export_id": export_id,
-                        "run_id": run_id,
-                        "export_type": export_type,
-                        "file_ref": file_ref,
-                        "duration_sec": round(duration, 2),
-                        "files_generated": len(refs),
-                    },
+                    export_id=export_id,
+                    run_id=run_id,
+                    export_type=export_type,
+                    file_ref=file_ref,
+                    duration_sec=round(duration, 2),
+                    files_generated=len(refs),
                 )
 
                 return {
@@ -464,12 +457,10 @@ def export_by_id(
             except Exception as e:
                 logger.exception(
                     "Export failed",
-                    extra={
-                        "export_id": export_id,
-                        "run_id": run_id,
-                        "export_type": export_type,
-                        "error": str(e),
-                    },
+                    export_id=export_id,
+                    run_id=run_id,
+                    export_type=export_type,
+                    error=str(e),
                 )
 
                 # ── Переход: processing → failed (исключение) ────────────────
@@ -503,7 +494,7 @@ def export_by_id(
                 except Exception:
                     logger.warning(
                         "Не удалось записать аудит для EXPORT_FAILED",
-                        extra={"export_id": export_id},
+                        export_id=export_id,
                     )
 
                 raise

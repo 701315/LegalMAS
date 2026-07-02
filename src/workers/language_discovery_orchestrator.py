@@ -233,11 +233,9 @@ async def _write_deal_audit(
     except Exception:
         logger.exception(
             "Language discovery orchestrator: failed to write audit log",
-            extra={
-                "deal_id": str(deal_id),
-                "tenant_id": str(tenant_id),
-                "action": action,
-            },
+            deal_id=str(deal_id),
+            tenant_id=str(tenant_id),
+            action=action,
         )
 
 
@@ -326,13 +324,11 @@ async def _start_language_discovery_async(
 
     logger.info(
         "Starting language discovery orchestration",
-        extra={
-            "deal_id": deal_id,
-            "tenant_id": str(tenant_uuid),
-            "requested_document_ids": (
-                [str(x) for x in requested_doc_ids] if requested_doc_ids else None
-            ),
-        },
+        deal_id=deal_id,
+        tenant_id=str(tenant_uuid),
+        requested_document_ids=(
+            [str(x) for x in requested_doc_ids] if requested_doc_ids else None
+        ),
     )
 
     deal_repo = DealRepository(db)
@@ -419,7 +415,7 @@ async def _start_language_discovery_async(
 
             logger.info(
                 "Language discovery orchestration completed: no documents selected",
-                extra=result,
+                **result,
             )
             return result
 
@@ -453,11 +449,9 @@ async def _start_language_discovery_async(
             if ver_snap is None:
                 logger.warning(
                     "Language discovery orchestration: latest version not found, document marked failed",
-                    extra={
-                        "deal_id": deal_id,
-                        "tenant_id": tenant_id,
-                        "document_id": doc_snap.document_id_str,
-                    },
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    document_id=doc_snap.document_id_str,
                 )
 
                 await doc_repo.update_language_discovery(
@@ -484,11 +478,9 @@ async def _start_language_discovery_async(
                 duplicate_guard_skipped_document_ids.append(doc_snap.document_id_str)
                 logger.info(
                     "Language discovery orchestration: document already claimed by another worker",
-                    extra={
-                        "deal_id": deal_id,
-                        "tenant_id": tenant_id,
-                        "document_id": doc_snap.document_id_str,
-                    },
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    document_id=doc_snap.document_id_str,
                 )
                 continue
 
@@ -514,18 +506,16 @@ async def _start_language_discovery_async(
             except Exception as e:
                 logger.exception(
                     "Failed to enqueue language detection task",
-                    extra={
-                        "deal_id": deal_id,
-                        "tenant_id": tenant_id,
-                        "document_id": doc_snap.document_id_str,
-                        "document_version_id": ver_snap.version_id_str,
-                        "task_name": task_name,
-                        "pipeline_strategy": ver_snap.pipeline_strategy,
-                        "extraction_strategy": ver_snap.extraction_strategy,
-                        "ocr_confidence": ver_snap.ocr_confidence,
-                        "origin_filetype": ver_snap.origin_filetype,
-                        "error": str(e),
-                    },
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    document_id=doc_snap.document_id_str,
+                    document_version_id=ver_snap.version_id_str,
+                    task_name=task_name,
+                    pipeline_strategy=ver_snap.pipeline_strategy,
+                    extraction_strategy=ver_snap.extraction_strategy,
+                    ocr_confidence=ver_snap.ocr_confidence,
+                    origin_filetype=ver_snap.origin_filetype,
+                    error=str(e),
                 )
                 raise
 
@@ -533,17 +523,15 @@ async def _start_language_discovery_async(
 
             logger.info(
                 "Language discovery orchestration: detection task enqueued",
-                extra={
-                    "deal_id": deal_id,
-                    "tenant_id": tenant_id,
-                    "document_id": doc_snap.document_id_str,
-                    "document_version_id": ver_snap.version_id_str,
-                    "task_name": task_name,
-                    "pipeline_strategy": ver_snap.pipeline_strategy,
-                    "extraction_strategy": ver_snap.extraction_strategy,
-                    "ocr_confidence": ver_snap.ocr_confidence,
-                    "origin_filetype": ver_snap.origin_filetype,
-                },
+                deal_id=deal_id,
+                tenant_id=tenant_id,
+                document_id=doc_snap.document_id_str,
+                document_version_id=ver_snap.version_id_str,
+                task_name=task_name,
+                pipeline_strategy=ver_snap.pipeline_strategy,
+                extraction_strategy=ver_snap.extraction_strategy,
+                ocr_confidence=ver_snap.ocr_confidence,
+                origin_filetype=ver_snap.origin_filetype,
             )
 
         recomputed = await recompute_deal_language_discovery_state(
@@ -592,7 +580,7 @@ async def _start_language_discovery_async(
 
         logger.info(
             "Language discovery orchestration completed",
-            extra=result,
+            **result,
         )
 
         return result

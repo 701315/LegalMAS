@@ -1453,8 +1453,12 @@ async def get_tenant_logs(
     if requested_deal_id is not None:
         filters.append(f'deal_id = "{_escape_logql_value(requested_deal_id)}"')
     else:
-        deal_regex = "|".join(allowed_deal_ids)
-        filters.append(f'deal_id =~ "{deal_regex}"')
+        # Anchor each UUID to prevent partial-match on substrings.
+        # UUIDs are fixed-length but regex matching without anchors
+        # could produce false positives if one ID is a prefix of another.
+        escaped_ids = [_escape_logql_value(did) for did in allowed_deal_ids]
+        deal_regex = "|".join(escaped_ids)
+        filters.append(f'deal_id =~ "^({deal_regex})$"')
 
     if normalized_run_id:
         filters.append(f'run_id = "{_escape_logql_value(normalized_run_id)}"')
@@ -1601,6 +1605,24 @@ async def get_tenant_logs(
     parsed_entries.sort(key=lambda item: item[0], reverse=True)
 
     all_entries = [e for _, e in parsed_entries]
+
+    # ── Defense-in-depth: post-filter by tenant_id ────────────────────────
+    # If a log entry contains tenant_id and it does not match the
+    # resolved tenant, drop it. This is a safety net on top of the
+    # deal_id-based LogQL filter.
+    # Superadmin viewing a specific tenant is also filtered;
+    # superadmin without tenant_id param sees everything (resolved_tenant_id
+    # is always set by _resolve_tenant_id).
+    _resolved_tid_str = str(resolved_tenant_id)
+
+    def _tenant_allowed(entry: LogEntry) -> bool:
+        entry_tenant = entry.raw.get("tenant_id")
+        if entry_tenant is None:
+            return True  # no tenant_id in log line — pass through (filtered by deal_id)
+        return str(entry_tenant).strip() == _resolved_tid_str
+
+    all_entries = [e for e in all_entries if _tenant_allowed(e)]
+
     fetched_count = len(all_entries)
 
     if normalized_mode == "operational":

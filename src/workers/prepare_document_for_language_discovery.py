@@ -214,12 +214,10 @@ async def _prepare_document_for_language_discovery_async(
 
     logger.info(
         "Starting document preparation for language discovery",
-        extra={
-            "document_id": document_id,
-            "document_version_id": document_version_id,
-            "deal_id": deal_id,
-            "tenant_id": str(tenant_uuid),
-        },
+        document_id=document_id,
+        document_version_id=document_version_id,
+        deal_id=deal_id,
+        tenant_id=str(tenant_uuid),
     )
 
     doc_repo = DocumentRepository(db)
@@ -268,7 +266,7 @@ async def _prepare_document_for_language_discovery_async(
         }
         logger.info(
             "Prepare language discovery skipped: already completed",
-            extra=result,
+            **result,
         )
         return result
 
@@ -287,7 +285,7 @@ async def _prepare_document_for_language_discovery_async(
         }
         logger.info(
             "Prepare language discovery skipped: already failed",
-            extra=result,
+            **result,
         )
         return result
 
@@ -362,31 +360,27 @@ async def _prepare_document_for_language_discovery_async(
 
         logger.info(
             "Document preparation for language discovery completed; next task enqueued",
-            extra=result,
+            **result,
         )
         return result
 
     except TransientError:
         logger.warning(
             "Transient error during prepare language discovery; re-raising for retry",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
         )
         raise
 
     except PermanentError:
         logger.exception(
             "Permanent failure during prepare language discovery",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
         )
         await mark_document_discovery_failed_and_recompute(
             db=db,
@@ -405,13 +399,11 @@ async def _prepare_document_for_language_discovery_async(
     except Exception as e:
         logger.exception(
             "Unexpected error during prepare language discovery; re-raising for retry",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-                "error": str(e),
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            error=str(e),
         )
         raise
 

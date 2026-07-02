@@ -8,7 +8,7 @@ services:
       - ./monitoring/alerts:/etc/prometheus/alerts:ro
       - prometheus_data:/prometheus
     ports:
-      - "9090:9090"
+      - "${MONITORING_BIND_ADDRESS:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -22,7 +22,7 @@ services:
     container_name: mas_loki
     restart: unless-stopped
     ports:
-      - "3100:3100"
+      - "${MONITORING_BIND_ADDRESS:-127.0.0.1}:${LOKI_PORT:-3100}:3100"
     volumes:
       - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - ./monitoring/loki/rules:/etc/loki/rules:ro
@@ -51,7 +51,7 @@ services:
     container_name: mas_alertmanager
     restart: unless-stopped
     ports:
-      - "9093:9093"
+      - "${MONITORING_BIND_ADDRESS:-127.0.0.1}:${ALERTMANAGER_PORT:-9093}:9093"
     volumes:
       - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager_data:/alertmanager
@@ -69,10 +69,10 @@ services:
     container_name: mas_grafana
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${MONITORING_BIND_ADDRESS:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-change-me-now}"
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
     volumes:

@@ -294,11 +294,9 @@ async def _can_start_checks_for_run(
         if doc_snap.status not in ready_statuses:
             logger.info(
                 "Run checks postponed: document has not completed enrichment stage",
-                extra={
-                    "run_id": run_snap.run_id_str,
-                    "document_id": doc_snap.document_id_str,
-                    "document_status": doc_snap.status,
-                },
+                run_id=run_snap.run_id_str,
+                document_id=doc_snap.document_id_str,
+                document_status=doc_snap.status,
             )
             return False
 
@@ -313,12 +311,10 @@ async def _can_start_checks_for_run(
             if not all_segments_classified:
                 logger.info(
                     "Run checks postponed: multi-document has unclassified segments",
-                    extra={
-                        "run_id": run_snap.run_id_str,
-                        "document_id": doc_snap.document_id_str,
-                        "document_version_id": snap.version_id_str,
-                        "segments_count": snap.segments_count,
-                    },
+                    run_id=run_snap.run_id_str,
+                    document_id=doc_snap.document_id_str,
+                    document_version_id=snap.version_id_str,
+                    segments_count=snap.segments_count,
                 )
                 return False
 
@@ -366,7 +362,7 @@ def start_run_pipeline(
         return run_async(_wrapper())
     except SoftTimeLimitExceeded as exc:
         raise TransientError(
-            f"Task 'workers.start_run_pipeline' exceeded soft time limit"
+            "Task 'workers.start_run_pipeline' exceeded soft time limit"
         ) from exc
 
 
@@ -396,18 +392,17 @@ async def _resolve_tenant_id(
         resolved = str(deal_tenant_id)
         logger.info(
             "tenant_id resolved from deal",
-            extra={"deal_id": str(deal_uuid), "tenant_id": resolved},
+            deal_id=str(deal_uuid),
+            tenant_id=resolved,
         )
         return resolved
 
     surrogate = str(deal_uuid)
     logger.warning(
         "tenant_id not resolvable, using deal_id as surrogate tenant",
-        extra={
-            "deal_id": surrogate,
-            "payload_tenant_id": tenant_id,
-            "deal_tenant_id": str(deal_tenant_id) if deal_tenant_id else None,
-        },
+        deal_id=surrogate,
+        payload_tenant_id=tenant_id,
+        deal_tenant_id=str(deal_tenant_id) if deal_tenant_id else None,
     )
     return surrogate
 
@@ -443,12 +438,10 @@ async def _start_run_pipeline_async(
 
     logger.info(
         "Starting run pipeline",
-        extra={
-            "run_id": run_id,
-            "deal_id": deal_id,
-            "tenant_id": tenant_id,
-            "force_reclassify": force_reclassify,
-        },
+        run_id=run_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        force_reclassify=force_reclassify,
     )
 
     run_repo = RunRepository(db)
@@ -473,7 +466,7 @@ async def _start_run_pipeline_async(
                 "message": f"Run {run_id} not found",
             },
         )
-        logger.error("Run not found for orchestrator", extra={"run_id": run_id})
+        logger.error("Run not found for orchestrator", run_id=run_id)
         return {
             "run_id": run_id,
             "deal_id": None,
@@ -503,7 +496,8 @@ async def _start_run_pipeline_async(
             if current_status != RunStatus.RUNNING.value:
                 logger.info(
                     "Run pipeline cannot be started from non-pending state, skipping orchestration",
-                    extra={"run_id": run_id, "status": current_status},
+                    run_id=run_id,
+                    status=current_status,
                 )
                 return {
                     "run_id": run_id,
@@ -515,7 +509,7 @@ async def _start_run_pipeline_async(
                 }
             logger.info(
                 "Run transitioned to RUNNING concurrently, continuing orchestration",
-                extra={"run_id": run_id},
+                run_id=run_id,
             )
         else:
             try:
@@ -535,13 +529,13 @@ async def _start_run_pipeline_async(
             except Exception:
                 logger.warning(
                     "Failed to write audit log for ANALYSIS_STARTED",
-                    extra={"run_id": run_id},
+                    run_id=run_id,
                 )
 
     elif current_status == RunStatus.RUNNING.value:
         logger.info(
             "Run already RUNNING, continuing orchestration pass",
-            extra={"run_id": run_id},
+            run_id=run_id,
         )
 
     elif current_status in {
@@ -551,7 +545,8 @@ async def _start_run_pipeline_async(
     }:
         logger.info(
             "Run already in terminal status, skipping orchestration",
-            extra={"run_id": run_id, "status": current_status},
+            run_id=run_id,
+            status=current_status,
         )
         return {
             "run_id": run_id,
@@ -565,7 +560,8 @@ async def _start_run_pipeline_async(
     else:
         logger.warning(
             "Run in unsupported status for orchestration, skipping",
-            extra={"run_id": run_id, "status": current_status},
+            run_id=run_id,
+            status=current_status,
         )
         return {
             "run_id": run_id,
@@ -581,11 +577,9 @@ async def _start_run_pipeline_async(
 
     logger.info(
         "Resolved run pipeline strategy",
-        extra={
-            "run_id": run_id,
-            "pipeline_strategy": pipeline_strategy,
-            "force_reclassify": force_reclassify,
-        },
+        run_id=run_id,
+        pipeline_strategy=pipeline_strategy,
+        force_reclassify=force_reclassify,
     )
 
     # ── Resolve deal ──────────────────────────────────────────────────────────
@@ -602,7 +596,7 @@ async def _start_run_pipeline_async(
                 "message": f"Run {run_id} has no deal_id",
             },
         )
-        logger.error("Run has no deal_id", extra={"run_id": run_id})
+        logger.error("Run has no deal_id", run_id=run_id)
         return {
             "run_id": run_id,
             "deal_id": None,
@@ -638,7 +632,8 @@ async def _start_run_pipeline_async(
         )
         logger.error(
             "Deal not found for run",
-            extra={"run_id": run_id, "deal_id": deal_id_str},
+            run_id=run_id,
+            deal_id=deal_id_str,
         )
         return {
             "run_id": run_id,
@@ -657,13 +652,11 @@ async def _start_run_pipeline_async(
     if not deal_primary_language:
         logger.warning(
             "Run pipeline blocked: deal.primary_language is not selected",
-            extra={
-                "run_id": run_id,
-                "deal_id": deal_id_str,
-                "tenant_id": tenant_id_str,
-                "language_discovery_status": deal_language_discovery_status,
-                "deal_languages": deal_languages,
-            },
+            run_id=run_id,
+            deal_id=deal_id_str,
+            tenant_id=tenant_id_str,
+            language_discovery_status=deal_language_discovery_status,
+            deal_languages=deal_languages,
         )
         return {
             "run_id": run_id,
@@ -681,7 +674,8 @@ async def _start_run_pipeline_async(
     if not docs:
         logger.info(
             "No documents for deal, nothing to process",
-            extra={"run_id": run_id, "deal_id": deal_id_str},
+            run_id=run_id,
+            deal_id=deal_id_str,
         )
         await run_repo.update_status(run_uuid, RunStatus.COMPLETED.value)
         return {
@@ -711,14 +705,12 @@ async def _start_run_pipeline_async(
 
         logger.info(
             "Evaluating document for run pipeline",
-            extra={
-                "run_id": run_id,
-                "document_id": doc_id_str,
-                "status": status,
-                "doc_type": doc_snap.doc_type,
-                "classification_level": doc_snap.classification_level,
-                "deal_primary_language": deal_primary_language,
-            },
+            run_id=run_id,
+            document_id=doc_id_str,
+            status=status,
+            doc_type=doc_snap.doc_type,
+            classification_level=doc_snap.classification_level,
+            deal_primary_language=deal_primary_language,
         )
 
         version = await ver_repo.get_latest(doc_id)
@@ -749,18 +741,18 @@ async def _start_run_pipeline_async(
         if plan is None:
             logger.info(
                 "No next task scheduled for document",
-                extra={
-                    "run_id": run_id,
-                    "document_id": doc_id_str,
-                    "status": status,
-                },
+                run_id=run_id,
+                document_id=doc_id_str,
+                status=status,
             )
             continue
 
         if ver_snap is None:
             logger.warning(
                 "Task plan produced for document without version, skipping execution scheduling",
-                extra={"run_id": run_id, "document_id": doc_id_str, "status": status},
+                run_id=run_id,
+                document_id=doc_id_str,
+                status=status,
             )
             continue
 
@@ -779,16 +771,14 @@ async def _start_run_pipeline_async(
         if execution is None:
             logger.info(
                 "Active execution already exists for this stage, skipping duplicate scheduling",
-                extra={
-                    "run_id": run_id,
-                    "document_id": doc_id_str,
-                    "document_version_id": ver_snap.version_id_str,
-                    "status": status,
-                    "task_name": plan.task_name,
-                    "stage": plan.stage,
-                    "reason": plan.reason,
-                    "orchestration_strategy": orchestration_strategy,
-                },
+                run_id=run_id,
+                document_id=doc_id_str,
+                document_version_id=ver_snap.version_id_str,
+                status=status,
+                task_name=plan.task_name,
+                stage=plan.stage,
+                reason=plan.reason,
+                orchestration_strategy=orchestration_strategy,
             )
             continue
 
@@ -802,17 +792,15 @@ async def _start_run_pipeline_async(
 
         logger.info(
             "Scheduling next document stage",
-            extra={
-                "run_id": run_id,
-                "document_id": doc_id_str,
-                "document_version_id": ver_snap.version_id_str,
-                "status": status,
-                "task_name": plan.task_name,
-                "stage": plan.stage,
-                "reason": plan.reason,
-                "orchestration_strategy": orchestration_strategy,
-                "stage_execution_id": execution_id_str,
-            },
+            run_id=run_id,
+            document_id=doc_id_str,
+            document_version_id=ver_snap.version_id_str,
+            status=status,
+            task_name=plan.task_name,
+            stage=plan.stage,
+            reason=plan.reason,
+            orchestration_strategy=orchestration_strategy,
+            stage_execution_id=execution_id_str,
         )
 
         try:
@@ -829,14 +817,12 @@ async def _start_run_pipeline_async(
         except Exception as send_exc:
             logger.exception(
                 "Failed to enqueue next document stage",
-                extra={
-                    "run_id": run_id,
-                    "document_id": doc_id_str,
-                    "document_version_id": ver_snap.version_id_str,
-                    "task_name": plan.task_name,
-                    "stage": plan.stage,
-                    "stage_execution_id": execution_id_str,
-                },
+                run_id=run_id,
+                document_id=doc_id_str,
+                document_version_id=ver_snap.version_id_str,
+                task_name=plan.task_name,
+                stage=plan.stage,
+                stage_execution_id=execution_id_str,
             )
             try:
                 await dse_repo.mark_failed(
@@ -854,11 +840,9 @@ async def _start_run_pipeline_async(
             except Exception:
                 logger.exception(
                     "Failed to mark execution FAILED after send_task exception",
-                    extra={
-                        "run_id": run_id,
-                        "document_id": doc_id_str,
-                        "stage_execution_id": execution_id_str,
-                    },
+                    run_id=run_id,
+                    document_id=doc_id_str,
+                    stage_execution_id=execution_id_str,
                 )
             raise TransientError(
                 f"Failed to dispatch stage task '{plan.task_name}' for document {doc_id_str}"
@@ -881,14 +865,12 @@ async def _start_run_pipeline_async(
 
     logger.info(
         "Run pipeline documents evaluation complete",
-        extra={
-            "run_id": run_id,
-            "deal_id": deal_id_str,
-            "tenant_id": tenant_id_str,
-            "documents_total": documents_total,
-            "tasks_scheduled": tasks_scheduled,
-            "documents_with_plan": documents_with_plan,
-        },
+        run_id=run_id,
+        deal_id=deal_id_str,
+        tenant_id=tenant_id_str,
+        documents_total=documents_total,
+        tasks_scheduled=tasks_scheduled,
+        documents_with_plan=documents_with_plan,
     )
 
     # ── POST PHASE: segment readiness gate + maybe_start_run_checks ───────────
@@ -903,21 +885,19 @@ async def _start_run_pipeline_async(
     if not can_start_checks:
         logger.info(
             "Run checks auto-start postponed due to incomplete segment-level classification",
-            extra={"run_id": run_id},
+            run_id=run_id,
         )
     else:
         await maybe_start_run_checks(db=db, run_id=run_snap.run_id)
 
     logger.info(
         "Run pipeline scheduling complete",
-        extra={
-            "run_id": run_id,
-            "deal_id": deal_id_str,
-            "tenant_id": tenant_id_str,
-            "documents_total": documents_total,
-            "tasks_scheduled": tasks_scheduled,
-            "documents_with_plan": documents_with_plan,
-        },
+        run_id=run_id,
+        deal_id=deal_id_str,
+        tenant_id=tenant_id_str,
+        documents_total=documents_total,
+        tasks_scheduled=tasks_scheduled,
+        documents_with_plan=documents_with_plan,
     )
 
     return {
@@ -982,13 +962,11 @@ async def _build_document_task_plan(
     if not deal_primary_language:
         logger.error(
             "Invariant violation: _build_document_task_plan called without deal_primary_language",
-            extra={
-                "document_id": doc_id_str,
-                "run_id": run_id,
-                "deal_id": deal_id_str,
-                "tenant_id": tenant_id_str,
-                "status": status,
-            },
+            document_id=doc_id_str,
+            run_id=run_id,
+            deal_id=deal_id_str,
+            tenant_id=tenant_id_str,
+            status=status,
         )
         raise ValueError("deal_primary_language must be selected before building run task plan")
 
@@ -998,21 +976,20 @@ async def _build_document_task_plan(
         if snap is None:
             logger.warning(
                 "Document has PENDING status but no version, skipping next stage",
-                extra={"document_id": doc_id_str, "run_id": run_id},
+                document_id=doc_id_str,
+                run_id=run_id,
             )
             return None
 
         if snap.origin_filetype in CONVERTIBLE_TO_PDF and not snap.converted_pdf_ref:
             logger.info(
                 "PENDING document requires office-to-PDF conversion before primary source build",
-                extra={
-                    "document_id": doc_id_str,
-                    "document_version_id": snap.version_id_str,
-                    "origin_filetype": snap.origin_filetype,
-                    "has_converted_pdf": bool(snap.converted_pdf_ref),
-                    "original_ref": snap.original_ref,
-                    "run_id": run_id,
-                },
+                document_id=doc_id_str,
+                document_version_id=snap.version_id_str,
+                origin_filetype=snap.origin_filetype,
+                has_converted_pdf=bool(snap.converted_pdf_ref),
+                original_ref=snap.original_ref,
+                run_id=run_id,
             )
             return TaskPlan(
                 task_name="workers.convert_to_pdf",
@@ -1030,15 +1007,13 @@ async def _build_document_task_plan(
         source_kind = "converted_pdf_ref" if snap.converted_pdf_ref else "original_ref"
         logger.info(
             "PENDING document ready for primary source build with preselected deal primary language",
-            extra={
-                "document_id": doc_id_str,
-                "document_version_id": snap.version_id_str,
-                "origin_filetype": snap.origin_filetype,
-                "has_converted_pdf": bool(snap.converted_pdf_ref),
-                "source_kind": source_kind,
-                "run_id": run_id,
-                "target_language": deal_primary_language,
-            },
+            document_id=doc_id_str,
+            document_version_id=snap.version_id_str,
+            origin_filetype=snap.origin_filetype,
+            has_converted_pdf=bool(snap.converted_pdf_ref),
+            source_kind=source_kind,
+            run_id=run_id,
+            target_language=deal_primary_language,
         )
         return TaskPlan(
             task_name="workers.build_primary_language_source",
@@ -1060,7 +1035,8 @@ async def _build_document_task_plan(
         if snap is None:
             logger.warning(
                 "PRIMARY_READY document without version, skipping extract",
-                extra={"document_id": doc_id_str, "run_id": run_id},
+                document_id=doc_id_str,
+                run_id=run_id,
             )
             return None
 
@@ -1068,22 +1044,18 @@ async def _build_document_task_plan(
             logger.warning(
                 "PRIMARY_READY document without primary_source_ref, "
                 "waiting for primary source commit",
-                extra={
-                    "document_id": doc_id_str,
-                    "document_version_id": snap.version_id_str,
-                    "run_id": run_id,
-                },
+                document_id=doc_id_str,
+                document_version_id=snap.version_id_str,
+                run_id=run_id,
             )
             return None
 
         logger.info(
             "PRIMARY_READY document ready for extract",
-            extra={
-                "document_id": doc_id_str,
-                "document_version_id": snap.version_id_str,
-                "primary_source_ref": snap.primary_source_ref,
-                "run_id": run_id,
-            },
+            document_id=doc_id_str,
+            document_version_id=snap.version_id_str,
+            primary_source_ref=snap.primary_source_ref,
+            run_id=run_id,
         )
         return TaskPlan(
             task_name="workers.extract_document",
@@ -1104,29 +1076,26 @@ async def _build_document_task_plan(
         if snap is None:
             logger.warning(
                 "EXTRACTED document without version, skipping pii",
-                extra={"document_id": doc_id_str, "run_id": run_id},
+                document_id=doc_id_str,
+                run_id=run_id,
             )
             return None
 
         if not snap.layout_primary_ref:
             logger.warning(
                 "EXTRACTED document without layout_primary_ref, waiting for extract commit",
-                extra={
-                    "document_id": doc_id_str,
-                    "document_version_id": snap.version_id_str,
-                    "run_id": run_id,
-                },
+                document_id=doc_id_str,
+                document_version_id=snap.version_id_str,
+                run_id=run_id,
             )
             return None
 
         logger.info(
             "EXTRACTED document ready for PII sanitization",
-            extra={
-                "document_id": doc_id_str,
-                "document_version_id": snap.version_id_str,
-                "layout_primary_ref": snap.layout_primary_ref,
-                "run_id": run_id,
-            },
+            document_id=doc_id_str,
+            document_version_id=snap.version_id_str,
+            layout_primary_ref=snap.layout_primary_ref,
+            run_id=run_id,
         )
         return TaskPlan(
             task_name="pii.sanitize_document",
@@ -1146,7 +1115,8 @@ async def _build_document_task_plan(
         if snap is None:
             logger.warning(
                 "SANITIZED document without version, skipping structure",
-                extra={"document_id": doc_id_str, "run_id": run_id},
+                document_id=doc_id_str,
+                run_id=run_id,
             )
             return None
 
@@ -1154,22 +1124,18 @@ async def _build_document_task_plan(
             logger.warning(
                 "SANITIZED document without layout_primary_sanitized_ref, "
                 "waiting for PII commit",
-                extra={
-                    "document_id": doc_id_str,
-                    "document_version_id": snap.version_id_str,
-                    "run_id": run_id,
-                },
+                document_id=doc_id_str,
+                document_version_id=snap.version_id_str,
+                run_id=run_id,
             )
             return None
 
         logger.info(
             "SANITIZED document ready for structure build",
-            extra={
-                "document_id": doc_id_str,
-                "document_version_id": snap.version_id_str,
-                "layout_primary_sanitized_ref": snap.layout_primary_sanitized_ref,
-                "run_id": run_id,
-            },
+            document_id=doc_id_str,
+            document_version_id=snap.version_id_str,
+            layout_primary_sanitized_ref=snap.layout_primary_sanitized_ref,
+            run_id=run_id,
         )
         return TaskPlan(
             task_name="workers.build_structure",
@@ -1187,7 +1153,8 @@ async def _build_document_task_plan(
         if snap is None:
             logger.warning(
                 "STRUCTURED document without version, skipping chunks",
-                extra={"document_id": doc_id_str, "run_id": run_id},
+                document_id=doc_id_str,
+                run_id=run_id,
             )
             return None
 
@@ -1195,11 +1162,9 @@ async def _build_document_task_plan(
             logger.warning(
                 "STRUCTURED document without file_graph_ref in V2_ONLY, "
                 "waiting for structure v2 commit",
-                extra={
-                    "document_id": doc_id_str,
-                    "document_version_id": snap.version_id_str,
-                    "run_id": run_id,
-                },
+                document_id=doc_id_str,
+                document_version_id=snap.version_id_str,
+                run_id=run_id,
             )
             return None
 
@@ -1207,24 +1172,20 @@ async def _build_document_task_plan(
             logger.warning(
                 "STRUCTURED document without segments_count in V2_ONLY, "
                 "waiting for structure v2 commit",
-                extra={
-                    "document_id": doc_id_str,
-                    "document_version_id": snap.version_id_str,
-                    "segments_count": snap.segments_count,
-                    "run_id": run_id,
-                },
+                document_id=doc_id_str,
+                document_version_id=snap.version_id_str,
+                segments_count=snap.segments_count,
+                run_id=run_id,
             )
             return None
 
         logger.info(
             "STRUCTURED document ready for chunk build (v2 structure artifacts present)",
-            extra={
-                "document_id": doc_id_str,
-                "document_version_id": snap.version_id_str,
-                "file_graph_ref": snap.file_graph_ref,
-                "segments_count": snap.segments_count,
-                "run_id": run_id,
-            },
+            document_id=doc_id_str,
+            document_version_id=snap.version_id_str,
+            file_graph_ref=snap.file_graph_ref,
+            segments_count=snap.segments_count,
+            run_id=run_id,
         )
         return TaskPlan(
             task_name="workers.build_chunks",
@@ -1245,7 +1206,8 @@ async def _build_document_task_plan(
         if snap is None:
             logger.warning(
                 "CHUNKED document without version, skipping classify",
-                extra={"document_id": doc_id_str, "run_id": run_id},
+                document_id=doc_id_str,
+                run_id=run_id,
             )
             return None
 
@@ -1253,11 +1215,9 @@ async def _build_document_task_plan(
             logger.warning(
                 "CHUNKED document without chunks_manifest_v2_ref in V2_ONLY, "
                 "waiting for chunk v2 commit",
-                extra={
-                    "document_id": doc_id_str,
-                    "document_version_id": snap.version_id_str,
-                    "run_id": run_id,
-                },
+                document_id=doc_id_str,
+                document_version_id=snap.version_id_str,
+                run_id=run_id,
             )
             return None
 
@@ -1269,12 +1229,10 @@ async def _build_document_task_plan(
             logger.warning(
                 "CHUNKED document without persisted segments in V2_ONLY, "
                 "cannot continue to classification",
-                extra={
-                    "document_id": doc_id_str,
-                    "document_version_id": snap.version_id_str,
-                    "chunks_manifest_v2_ref": snap.chunks_manifest_v2_ref,
-                    "run_id": run_id,
-                },
+                document_id=doc_id_str,
+                document_version_id=snap.version_id_str,
+                chunks_manifest_v2_ref=snap.chunks_manifest_v2_ref,
+                run_id=run_id,
             )
             return None
 
@@ -1282,27 +1240,23 @@ async def _build_document_task_plan(
             logger.warning(
                 "CHUNKED document has incomplete segment chunk refs in V2_ONLY, "
                 "waiting for full chunk contract",
-                extra={
-                    "document_id": doc_id_str,
-                    "document_version_id": snap.version_id_str,
-                    "chunks_manifest_v2_ref": snap.chunks_manifest_v2_ref,
-                    "total_segments": total_segments,
-                    "segments_with_chunks": segments_with_chunks,
-                    "run_id": run_id,
-                },
+                document_id=doc_id_str,
+                document_version_id=snap.version_id_str,
+                chunks_manifest_v2_ref=snap.chunks_manifest_v2_ref,
+                total_segments=total_segments,
+                segments_with_chunks=segments_with_chunks,
+                run_id=run_id,
             )
             return None
 
         logger.info(
             "CHUNKED document ready for classification " "(v2 manifest + full segment chunk refs)",
-            extra={
-                "document_id": doc_id_str,
-                "document_version_id": snap.version_id_str,
-                "chunks_manifest_v2_ref": snap.chunks_manifest_v2_ref,
-                "total_segments": total_segments,
-                "segments_with_chunks": segments_with_chunks,
-                "run_id": run_id,
-            },
+            document_id=doc_id_str,
+            document_version_id=snap.version_id_str,
+            chunks_manifest_v2_ref=snap.chunks_manifest_v2_ref,
+            total_segments=total_segments,
+            segments_with_chunks=segments_with_chunks,
+            run_id=run_id,
         )
         return TaskPlan(
             task_name="workers.classify_document",
@@ -1322,19 +1276,18 @@ async def _build_document_task_plan(
         if snap is None:
             logger.warning(
                 "CLASSIFIED document without version, nothing to plan",
-                extra={"document_id": doc_id_str, "run_id": run_id},
+                document_id=doc_id_str,
+                run_id=run_id,
             )
             return None
 
         if is_full_rerun or force_reclassify:
             logger.info(
                 "CLASSIFIED document scheduled for reclassification",
-                extra={
-                    "document_id": doc_id_str,
-                    "run_id": run_id,
-                    "is_full_rerun": is_full_rerun,
-                    "force_reclassify": force_reclassify,
-                },
+                document_id=doc_id_str,
+                run_id=run_id,
+                is_full_rerun=is_full_rerun,
+                force_reclassify=force_reclassify,
             )
             return TaskPlan(
                 task_name="workers.classify_document",
@@ -1353,12 +1306,10 @@ async def _build_document_task_plan(
             if not segment_stage_complete:
                 logger.info(
                     "CLASSIFIED multi-document: segment classification not yet complete",
-                    extra={
-                        "document_id": doc_id_str,
-                        "document_version_id": snap.version_id_str,
-                        "segments_count": snap.segments_count,
-                        "run_id": run_id,
-                    },
+                    document_id=doc_id_str,
+                    document_version_id=snap.version_id_str,
+                    segments_count=snap.segments_count,
+                    run_id=run_id,
                 )
                 return TaskPlan(
                     task_name="workers.classify_document_segments",
@@ -1374,12 +1325,10 @@ async def _build_document_task_plan(
 
         logger.info(
             "CLASSIFIED document ready for semantic enrichment formal stage",
-            extra={
-                "document_id": doc_id_str,
-                "document_version_id": snap.version_id_str,
-                "segments_count": snap.segments_count,
-                "run_id": run_id,
-            },
+            document_id=doc_id_str,
+            document_version_id=snap.version_id_str,
+            segments_count=snap.segments_count,
+            run_id=run_id,
         )
         return TaskPlan(
             task_name="workers.build_legal_units_enrichment",
@@ -1400,12 +1349,10 @@ async def _build_document_task_plan(
         if is_full_rerun or force_reclassify:
             logger.info(
                 "COMPLETED document scheduled for reclassification",
-                extra={
-                    "document_id": doc_id_str,
-                    "run_id": run_id,
-                    "is_full_rerun": is_full_rerun,
-                    "force_reclassify": force_reclassify,
-                },
+                document_id=doc_id_str,
+                run_id=run_id,
+                is_full_rerun=is_full_rerun,
+                force_reclassify=force_reclassify,
             )
             return TaskPlan(
                 task_name="workers.classify_document",
@@ -1421,7 +1368,8 @@ async def _build_document_task_plan(
 
         logger.info(
             "Document already completed, reusing for this run",
-            extra={"document_id": doc_id_str, "run_id": run_id},
+            document_id=doc_id_str,
+            run_id=run_id,
         )
         return None
 
@@ -1429,11 +1377,9 @@ async def _build_document_task_plan(
 
     logger.info(
         "Document in unsupported or terminal status for run pipeline, skipping",
-        extra={
-            "document_id": doc_id_str,
-            "status": status,
-            "run_id": run_id,
-        },
+        document_id=doc_id_str,
+        status=status,
+        run_id=run_id,
     )
     return None
 

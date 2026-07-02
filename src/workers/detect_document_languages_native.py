@@ -188,12 +188,10 @@ async def _detect_document_languages_native_async(
 
     logger.info(
         "Starting native document language detection",
-        extra={
-            "document_id": document_id,
-            "document_version_id": document_version_id,
-            "deal_id": deal_id,
-            "tenant_id": str(tenant_uuid),
-        },
+        document_id=document_id,
+        document_version_id=document_version_id,
+        deal_id=deal_id,
+        tenant_id=str(tenant_uuid),
     )
 
     doc_repo = DocumentRepository(db)
@@ -264,7 +262,7 @@ async def _detect_document_languages_native_async(
         }
         logger.info(
             "Native document language detection skipped: already completed",
-            extra=result,
+            **result,
         )
         return result
 
@@ -302,7 +300,7 @@ async def _detect_document_languages_native_async(
         }
         logger.info(
             "Native document language detection skipped: already processing",
-            extra=result,
+            **result,
         )
         return result
 
@@ -340,7 +338,7 @@ async def _detect_document_languages_native_async(
         }
         logger.info(
             "Native document language detection skipped: already failed",
-            extra=result,
+            **result,
         )
         return result
 
@@ -354,13 +352,11 @@ async def _detect_document_languages_native_async(
             "Native document language detection: unexpected document status at entry; "
             "expected 'pending', got %r — possible orchestrator/pipeline race",
             current_status,
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-                "current_status": current_status,
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            current_status=current_status,
         )
         raise TransientError(
             f"Unexpected document language discovery status '{current_status}' "
@@ -426,7 +422,7 @@ async def _detect_document_languages_native_async(
 
         logger.info(
             "Native document language detection skipped: atomic processing claim not acquired",
-            extra=result,
+            **result,
         )
         return result
 
@@ -445,12 +441,10 @@ async def _detect_document_languages_native_async(
 
         logger.info(
             "Native language detection: reading PDF source from storage",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "source_ref": source_ref,
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            source_ref=source_ref,
         )
 
         try:
@@ -515,7 +509,7 @@ async def _detect_document_languages_native_async(
 
         logger.info(
             "Native document language detection completed successfully",
-            extra=result,
+            **result,
         )
 
         return result
@@ -526,12 +520,10 @@ async def _detect_document_languages_native_async(
         # его при необходимости, если все retries исчерпаются.
         logger.warning(
             "Transient error during native document language detection; re-raising for retry",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
         )
         raise
 
@@ -540,12 +532,10 @@ async def _detect_document_languages_native_async(
         # затем пробрасываем вверх для записи в MASBaseTask job log.
         logger.exception(
             "Permanent failure during native document language detection",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
         )
         await mark_document_discovery_failed_and_recompute(
             db=db,
@@ -566,13 +556,11 @@ async def _detect_document_languages_native_async(
         # Не пишем failed: неизвестно, была ли это постоянная или временная проблема.
         logger.exception(
             "Unexpected error during native document language detection; re-raising for retry",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-                "error": str(e),
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            error=str(e),
         )
         raise
 

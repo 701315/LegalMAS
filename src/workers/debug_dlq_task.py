@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
-from typing import Any
-
 
 logger = get_logger(__name__)
 
@@ -30,11 +30,9 @@ def always_fail_transient(
 
     logger.warning(
         "debug.always_fail_transient: about to fail",
-        extra={
-            "retry_num": retry_num,
-            "job_id": job_id,
-            "task_id": self.request.id,
-        },
+        retry_num=retry_num,
+        job_id=job_id,
+        task_id=self.request.id,
     )
 
     raise TransientError(
@@ -62,10 +60,8 @@ def always_fail_permanent(
     """
     logger.warning(
         "debug.always_fail_permanent: about to fail",
-        extra={
-            "job_id": job_id,
-            "task_id": self.request.id,
-        },
+        job_id=job_id,
+        task_id=self.request.id,
     )
 
     raise PermanentError(

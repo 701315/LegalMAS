@@ -135,10 +135,8 @@ def _store_primary_language_metadata_sidecar_safe(
     if payload is None:
         logger.debug(
             "Primary source build: no language metadata available for sidecar",
-            extra={
-                **log_extra_base,
-                "document_id": document_id,
-            },
+            **log_extra_base,
+            document_id=document_id,
         )
         return None
 
@@ -153,26 +151,22 @@ def _store_primary_language_metadata_sidecar_safe(
     except Exception as exc:
         logger.warning(
             "Primary source build: failed to store language metadata sidecar, continuing",
-            extra={
-                **log_extra_base,
-                "document_id": document_id,
-                "sidecar_path": sidecar_path,
-                "error": str(exc),
-            },
+            **log_extra_base,
+            document_id=document_id,
+            sidecar_path=sidecar_path,
+            error=str(exc),
         )
         return None
 
     logger.info(
         "Primary source build: language metadata sidecar stored",
-        extra={
-            **log_extra_base,
-            "document_id": document_id,
-            "sidecar_path": sidecar_path,
-            "sidecar_ref": sidecar_ref,
-            "metadata_keys": sorted(
-                key for key in payload.keys() if key != "contract_version"
-            ),
-        },
+        **log_extra_base,
+        document_id=document_id,
+        sidecar_path=sidecar_path,
+        sidecar_ref=sidecar_ref,
+        metadata_keys=sorted(
+            key for key in payload.keys() if key != "contract_version"
+        ),
     )
     return sidecar_ref
 
@@ -233,28 +227,24 @@ def build_primary_language_source(
     except PermanentError as e:
         logger.error(
             "Permanent error during primary language source build",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-                "run_id": run_id,
-                "error": str(e),
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            error=str(e),
         )
         raise
 
     except TransientError as e:
         logger.warning(
             "Transient error during primary language source build; task should be retried",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-                "run_id": run_id,
-                "error": str(e),
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            error=str(e),
         )
         raise
 
@@ -267,14 +257,12 @@ def build_primary_language_source(
     if requires_user_selection:
         logger.info(
             "Primary language source build paused: user language selection required",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-                "run_id": run_id,
-                "detected_languages": result.get("detected_languages"),
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            detected_languages=result.get("detected_languages"),
         )
         return result
 
@@ -282,15 +270,13 @@ def build_primary_language_source(
     if run_id and committed:
         logger.info(
             "Primary language source build committed, retriggering run pipeline",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-                "run_id": run_id,
-                "target_language": target_language,
-                "primary_source_ref": primary_source_ref,
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            target_language=target_language,
+            primary_source_ref=primary_source_ref,
         )
         retrigger_run_pipeline(
             run_id=run_id,
@@ -302,17 +288,15 @@ def build_primary_language_source(
     # Это не ошибка, но важно видеть такое поведение в логах.
     logger.info(
         "Primary language source build completed without pipeline retrigger",
-        extra={
-            "document_id": document_id,
-            "document_version_id": document_version_id,
-            "deal_id": deal_id,
-            "tenant_id": tenant_id,
-            "run_id": run_id,
-            "committed": committed,
-            "requires_user_selection": requires_user_selection,
-            "target_language": target_language,
-            "primary_source_ref": primary_source_ref,
-        },
+        document_id=document_id,
+        document_version_id=document_version_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        run_id=run_id,
+        committed=committed,
+        requires_user_selection=requires_user_selection,
+        target_language=target_language,
+        primary_source_ref=primary_source_ref,
     )
 
     return result
@@ -437,7 +421,7 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Starting build_primary_language_source",
-        extra=log_extra_base,
+        **log_extra_base,
     )
 
     ver_repo = DocumentVersionRepository(db)
@@ -461,13 +445,11 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Primary source build: resolved version refs",
-        extra={
-            **log_extra_base,
-            "existing_primary_source_ref": existing_primary_ref,
-            "converted_pdf_ref": converted_pdf_ref,
-            "original_ref": original_ref,
-            "origin_filetype": origin_filetype,
-        },
+        **log_extra_base,
+        existing_primary_source_ref=existing_primary_ref,
+        converted_pdf_ref=converted_pdf_ref,
+        original_ref=original_ref,
+        origin_filetype=origin_filetype,
     )
 
     # ── 2. Выбор source_ref ───────────────────────────────────────────────────
@@ -505,11 +487,9 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Primary source build: source selected",
-        extra={
-            **log_extra_base,
-            "source_ref": source_ref,
-            "source_kind": source_kind,
-        },
+        **log_extra_base,
+        source_ref=source_ref,
+        source_kind=source_kind,
     )
 
     # Если primary_source_ref уже существует — всё равно перестраиваем,
@@ -518,10 +498,8 @@ async def _build_primary_language_source_async(
         logger.info(
             "Primary source build: existing primary_source_ref present, "
             "rebuilding to enforce single-language PDF",
-            extra={
-                **log_extra_base,
-                "existing_primary_source_ref": existing_primary_ref,
-            },
+            **log_extra_base,
+            existing_primary_source_ref=existing_primary_ref,
         )
 
     # ── 3. Читаем исходный PDF из MinIO ──────────────────────────────────────
@@ -530,31 +508,25 @@ async def _build_primary_language_source_async(
         source_path = _s3_ref_to_store_path(source_ref, store.bucket)
         logger.info(
             "Primary source build: reading source PDF from store",
-            extra={
-                **log_extra_base,
-                "source_ref": source_ref,
-                "source_path": source_path,
-            },
+            **log_extra_base,
+            source_ref=source_ref,
+            source_path=source_path,
         )
         pdf_bytes = store.get_file(source_path)
         logger.info(
             "Primary source build: source PDF loaded",
-            extra={
-                **log_extra_base,
-                "source_ref": source_ref,
-                "size": len(pdf_bytes),
-            },
+            **log_extra_base,
+            source_ref=source_ref,
+            size=len(pdf_bytes),
         )
     except PermanentError:
         raise
     except Exception as e:
         logger.exception(
             "Failed to read source PDF for primary source build",
-            extra={
-                **log_extra_base,
-                "source_ref": source_ref,
-                "error": str(e),
-            },
+            **log_extra_base,
+            source_ref=source_ref,
+            error=str(e),
         )
         raise PermanentError(f"Failed to read source PDF: {e}")
 
@@ -570,10 +542,8 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Primary source build: detected languages from quick layout",
-        extra={
-            **log_extra_base,
-            "detected_languages": detected_languages,
-        },
+        **log_extra_base,
+        detected_languages=detected_languages,
     )
 
     # Фиксируем результат language discovery для этого документа.
@@ -596,10 +566,8 @@ async def _build_primary_language_source_async(
         )
         logger.info(
             "Primary source build: detected languages updated in deal",
-            extra={
-                **log_extra_base,
-                "detected_languages": detected_languages,
-            },
+            **log_extra_base,
+            detected_languages=detected_languages,
         )
 
     await recompute_deal_language_discovery_state(
@@ -611,23 +579,19 @@ async def _build_primary_language_source_async(
     deal_after_lang_update = await deal_repo.get_by_id(deal_uuid)
     logger.info(
         "Primary source build: deal languages after update",
-        extra={
-            **log_extra_base,
-            "persisted_deal_languages": getattr(deal_after_lang_update, "languages", None),
-        },
+        **log_extra_base,
+        persisted_deal_languages=getattr(deal_after_lang_update, "languages", None),
     )
 
     quick_meta = (quick_layout.get("metadata") or {}).get("quick_layout") or {}
     if quick_meta.get("degraded"):
         logger.warning(
             "Primary source build: quick layout marked as degraded",
-            extra={
-                **log_extra_base,
-                "degraded_reason": quick_meta.get("degraded_reason"),
-                "total_chars": quick_meta.get("total_extracted_chars"),
-                "valid_bbox_ratio": quick_meta.get("valid_bbox_ratio"),
-                "usable_element_ratio": quick_meta.get("usable_element_ratio"),
-            },
+            **log_extra_base,
+            degraded_reason=quick_meta.get("degraded_reason"),
+            total_chars=quick_meta.get("total_extracted_chars"),
+            valid_bbox_ratio=quick_meta.get("valid_bbox_ratio"),
+            usable_element_ratio=quick_meta.get("usable_element_ratio"),
         )
 
     # ── 5. Резолвим целевой язык ──────────────────────────────────────────────
@@ -651,7 +615,7 @@ async def _build_primary_language_source_async(
         logger.warning(
             "Primary source build entered fallback mode: target language is missing; "
             "document will be paused until primary language is selected",
-            extra=log_extra_base,
+            **log_extra_base,
         )
         updated_doc = await doc_repo.update_status(
             doc_uuid,
@@ -684,10 +648,8 @@ async def _build_primary_language_source_async(
             logger.warning(
                 "Primary source build: failed to write audit log for "
                 "PRIMARY_LANGUAGE_SELECTION_REQUIRED",
-                extra={
-                    "document_id": document_id,
-                    "document_version_id": document_version_id,
-                },
+                document_id=document_id,
+                document_version_id=document_version_id,
             )
 
         return {
@@ -729,13 +691,11 @@ async def _build_primary_language_source_async(
     if primary_layout_result.should_quarantine:
         logger.warning(
             "Primary source build: document quarantined due to language mismatch",
-            extra={
-                **log_extra_base,
-                "target_language": target_language,
-                "detected_languages": decision.detected_languages,
-                "target_language_ratio": round(decision.target_language_ratio, 3),
-                "quarantine_reason": decision.quarantine_reason,
-            },
+            **log_extra_base,
+            target_language=target_language,
+            detected_languages=decision.detected_languages,
+            target_language_ratio=round(decision.target_language_ratio, 3),
+            quarantine_reason=decision.quarantine_reason,
         )
         updated_doc = await doc_repo.update_status(
             doc_uuid,
@@ -781,10 +741,8 @@ async def _build_primary_language_source_async(
         except Exception:
             logger.warning(
                 "Primary source build: failed to write audit log for PRIMARY_SOURCE_QUARANTINED",
-                extra={
-                    "document_id": document_id,
-                    "document_version_id": document_version_id,
-                },
+                document_id=document_id,
+                document_version_id=document_version_id,
             )
 
         return {
@@ -806,17 +764,15 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Primary source build: primary layout constructed",
-        extra={
-            **log_extra_base,
-            "target_language": target_language,
-            "detected_languages": decision.detected_languages,
-            "is_bilingual": decision.is_bilingual,
-            "requires_user_selection": decision.requires_user_selection,
-            "language_filter_degraded": language_filter_meta.get("degraded"),
-            "language_filter_degraded_reason": language_filter_meta.get("degraded_reason"),
-            "element_retention_ratio": language_filter_meta.get("element_retention_ratio"),
-            "primary_source_build_mode": primary_source_build_mode,
-        },
+        **log_extra_base,
+        target_language=target_language,
+        detected_languages=decision.detected_languages,
+        is_bilingual=decision.is_bilingual,
+        requires_user_selection=decision.requires_user_selection,
+        language_filter_degraded=language_filter_meta.get("degraded"),
+        language_filter_degraded_reason=language_filter_meta.get("degraded_reason"),
+        element_retention_ratio=language_filter_meta.get("element_retention_ratio"),
+        primary_source_build_mode=primary_source_build_mode,
     )
 
     # ── 8. Fast-path reuse only when primary layout did not materially change ──
@@ -833,12 +789,10 @@ async def _build_primary_language_source_async(
         logger.info(
             "Primary source build: monolingual document without material layout changes, "
             "reusing original PDF as primary_source_ref",
-            extra={
-                **log_extra_base,
-                "target_language": target_language,
-                "detected_languages": decision.detected_languages,
-                "primary_source_build_mode": primary_source_build_mode,
-            },
+            **log_extra_base,
+            target_language=target_language,
+            detected_languages=decision.detected_languages,
+            primary_source_build_mode=primary_source_build_mode,
         )
 
         primary_path = ArtifactPath.primary_source(
@@ -855,11 +809,9 @@ async def _build_primary_language_source_async(
         except Exception as e:
             logger.exception(
                 "Failed to store primary source PDF (monolingual reuse)",
-                extra={
-                    **log_extra_base,
-                    "path": primary_path,
-                    "error": str(e),
-                },
+                **log_extra_base,
+                path=primary_path,
+                error=str(e),
             )
             raise PermanentError(f"Failed to store primary source PDF: {e}")
 
@@ -906,11 +858,9 @@ async def _build_primary_language_source_async(
 
         logger.info(
             "Primary source build committed successfully (monolingual reuse)",
-            extra={
-                **log_extra_base,
-                "primary_source_ref": primary_source_ref,
-                "status": DocumentStatus.PRIMARY_READY.value,
-            },
+            **log_extra_base,
+            primary_source_ref=primary_source_ref,
+            status=DocumentStatus.PRIMARY_READY.value,
         )
 
         audit_repo = AuditRepository(db)
@@ -936,10 +886,8 @@ async def _build_primary_language_source_async(
             logger.warning(
                 "Primary source build: failed to write audit log for "
                 "PRIMARY_SOURCE_READY (monolingual)",
-                extra={
-                    "document_id": document_id,
-                    "document_version_id": document_version_id,
-                },
+                document_id=document_id,
+                document_version_id=document_version_id,
             )
 
         return {
@@ -965,13 +913,11 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Primary source build: rebuilding primary PDF from filtered layout",
-        extra={
-            **log_extra_base,
-            "target_language": target_language,
-            "detected_languages": decision.detected_languages,
-            "is_bilingual": decision.is_bilingual,
-            "primary_source_build_mode": primary_source_build_mode,
-        },
+        **log_extra_base,
+        target_language=target_language,
+        detected_languages=decision.detected_languages,
+        is_bilingual=decision.is_bilingual,
+        primary_source_build_mode=primary_source_build_mode,
     )
 
     try:
@@ -979,11 +925,9 @@ async def _build_primary_language_source_async(
     except Exception as e:
         logger.exception(
             "Failed to build primary PDF from layout",
-            extra={
-                **log_extra_base,
-                "target_language": target_language,
-                "error": str(e),
-            },
+            **log_extra_base,
+            target_language=target_language,
+            error=str(e),
         )
         raise PermanentError(f"Failed to build primary PDF from layout: {e}")
 
@@ -1011,23 +955,19 @@ async def _build_primary_language_source_async(
         )
         logger.info(
             "Primary source build: primary single-language PDF stored",
-            extra={
-                **log_extra_base,
-                "primary_path": primary_path,
-                "primary_source_ref": primary_source_ref,
-                "size": len(primary_pdf_bytes),
-                "target_language": target_language,
-                "primary_source_build_mode": primary_source_build_mode,
-            },
+            **log_extra_base,
+            primary_path=primary_path,
+            primary_source_ref=primary_source_ref,
+            size=len(primary_pdf_bytes),
+            target_language=target_language,
+            primary_source_build_mode=primary_source_build_mode,
         )
     except Exception as e:
         logger.exception(
             "Failed to store primary source PDF",
-            extra={
-                **log_extra_base,
-                "path": primary_path,
-                "error": str(e),
-            },
+            **log_extra_base,
+            path=primary_path,
+            error=str(e),
         )
         raise PermanentError(f"Failed to store primary source PDF: {e}")
 
@@ -1082,11 +1022,9 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Primary source build committed successfully",
-        extra={
-            **log_extra_base,
-            "primary_source_ref": primary_source_ref,
-            "status": DocumentStatus.PRIMARY_READY.value,
-        },
+        **log_extra_base,
+        primary_source_ref=primary_source_ref,
+        status=DocumentStatus.PRIMARY_READY.value,
     )
 
     # ── 14. Аудит ─────────────────────────────────────────────────────────────
@@ -1113,10 +1051,8 @@ async def _build_primary_language_source_async(
     except Exception:
         logger.warning(
             "Primary source build: failed to write audit log for PRIMARY_SOURCE_READY",
-            extra={
-                "document_id": document_id,
-                "document_version_id": document_version_id,
-            },
+            document_id=document_id,
+            document_version_id=document_version_id,
         )
 
     return {

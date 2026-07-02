@@ -118,36 +118,30 @@ async def resolve_artifact_tenant_id(
         ):
             logger.warning(
                 "Payload tenant_id differs from DB tenant_id; DB value will be used for artifact writes",
-                extra={
-                    "document_id": str(parsed_document_id) if parsed_document_id else None,
-                    "deal_id": str(parsed_deal_id),
-                    "payload_tenant_id": str(payload_tenant_uuid),
-                    "db_tenant_id": str(deal_tenant_uuid),
-                },
+                document_id=str(parsed_document_id) if parsed_document_id else None,
+                deal_id=str(parsed_deal_id),
+                payload_tenant_id=str(payload_tenant_uuid),
+                db_tenant_id=str(deal_tenant_uuid),
             )
         return str(deal_tenant_uuid)
 
     if _is_non_zero_uuid(payload_tenant_uuid):
         logger.warning(
             "Using payload tenant_id for artifact writes because deal.tenant_id is missing or zero",
-            extra={
-                "document_id": str(parsed_document_id) if parsed_document_id else None,
-                "deal_id": str(parsed_deal_id),
-                "payload_tenant_id": str(payload_tenant_uuid),
-                "db_tenant_id": str(deal_tenant_uuid) if deal_tenant_uuid else None,
-            },
+            document_id=str(parsed_document_id) if parsed_document_id else None,
+            deal_id=str(parsed_deal_id),
+            payload_tenant_id=str(payload_tenant_uuid),
+            db_tenant_id=str(deal_tenant_uuid) if deal_tenant_uuid else None,
         )
         return str(payload_tenant_uuid)
 
     surrogate = str(parsed_deal_id)
     logger.warning(
         "tenant_id not resolvable from DB or payload, using deal_id as surrogate tenant",
-        extra={
-            "document_id": str(parsed_document_id) if parsed_document_id else None,
-            "deal_id": surrogate,
-            "payload_tenant_id": str(payload_tenant_uuid) if payload_tenant_uuid else None,
-            "db_tenant_id": str(deal_tenant_uuid) if deal_tenant_uuid else None,
-        },
+        document_id=str(parsed_document_id) if parsed_document_id else None,
+        deal_id=surrogate,
+        payload_tenant_id=str(payload_tenant_uuid) if payload_tenant_uuid else None,
+        db_tenant_id=str(deal_tenant_uuid) if deal_tenant_uuid else None,
     )
     return surrogate
 

@@ -42,16 +42,17 @@ import uuid
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.config import settings
 from core.constants import (
-    DocumentStatus,
     DocumentStageExecutionStatus,
+    DocumentStatus,
     RunStatus,
     SemanticEnrichmentStageOutcome,
 )
 from core.exceptions import PermanentError
-from core.stage_trace import build_stage_trace_fragment
 from core.logging import get_logger
+from core.stage_trace import build_stage_trace_fragment
 from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
@@ -59,7 +60,6 @@ from db.repositories.document_stage_execution_repo import DocumentStageExecution
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.run_repo import RunRepository
 from db.uow import db_uow
-
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
@@ -306,7 +306,7 @@ async def _enrichment_preflight(
         "run_id": run_id,
     }
 
-    logger.info("Semantic enrichment stage: starting", extra=log_base)
+    logger.info("Semantic enrichment stage: starting", **log_base)
 
     ver_repo = DocumentVersionRepository(db)
     doc_repo = DocumentRepository(db)
@@ -341,7 +341,8 @@ async def _enrichment_preflight(
         except Exception as exc:
             logger.warning(
                 "Semantic enrichment stage: failed to load stage_execution for stale check",
-                extra={**log_base, "error": str(exc)},
+                **log_base,
+                error=str(exc),
             )
 
     current_run = None
@@ -352,14 +353,16 @@ async def _enrichment_preflight(
         except Exception as exc:
             logger.warning(
                 "Semantic enrichment stage: failed to load run for stale check",
-                extra={**log_base, "error": str(exc)},
+                **log_base,
+                error=str(exc),
             )
 
     # Guard 1: run уже terminal
     if current_run is not None and current_run.status in _stale_run_terminal_statuses:
         logger.warning(
             "Semantic enrichment stage: stale replay detected — run already terminal, skipping",
-            extra={**log_base, "run_status": current_run.status},
+            **log_base,
+            run_status=current_run.status,
         )
         return {
             "skip_llm": True,
@@ -386,10 +389,8 @@ async def _enrichment_preflight(
         )
         logger.warning(
             "Semantic enrichment stage: stale replay detected — stage execution already terminal, skipping",
-            extra={
-                **log_base,
-                "execution_status": current_execution.status,
-            },
+            **log_base,
+            execution_status=current_execution.status,
         )
         return {
             "skip_llm": True,
@@ -424,7 +425,8 @@ async def _enrichment_preflight(
         )
         logger.warning(
             "Semantic enrichment stage: stale replay detected — document already downstream of enrichment, skipping",
-            extra={**log_base, "document_status": document.status},
+            **log_base,
+            document_status=document.status,
         )
         return {
             "skip_llm": True,
@@ -460,7 +462,7 @@ async def _enrichment_preflight(
     if not settings.SEMANTIC_ENRICHMENT_ENABLED:
         logger.info(
             "Semantic enrichment stage: feature disabled, terminal outcome=skipped",
-            extra=log_base,
+            **log_base,
         )
         early_result = await _finalize_enrichment_stage(
             db=db,
@@ -487,7 +489,7 @@ async def _enrichment_preflight(
     if not llm_available:
         logger.warning(
             "Semantic enrichment stage: LLM unavailable, terminal outcome=unavailable",
-            extra=log_base,
+            **log_base,
         )
         early_result = await _finalize_enrichment_stage(
             db=db,
@@ -599,7 +601,8 @@ async def _enrichment_llm_phase(
         if not legal_units_ref:
             logger.debug(
                 "Semantic enrichment stage: segment has no legal_units_ref, skipping",
-                extra={**log_base, "segment_id": segment_id},
+                **log_base,
+                segment_id=segment_id,
             )
             continue
 
@@ -610,7 +613,8 @@ async def _enrichment_llm_phase(
             segments_skipped_budget += 1
             logger.info(
                 "Semantic enrichment stage: document budget exhausted, skipping segment",
-                extra={**log_base, "segment_id": segment_id},
+                **log_base,
+                segment_id=segment_id,
             )
             continue
 
@@ -620,7 +624,9 @@ async def _enrichment_llm_phase(
         except Exception as load_exc:
             logger.warning(
                 "Semantic enrichment stage: failed to load baseline legal units, skipping segment",
-                extra={**log_base, "segment_id": segment_id, "error": str(load_exc)},
+                **log_base,
+                segment_id=segment_id,
+                error=str(load_exc),
             )
             segments_failed += 1
             continue
@@ -628,7 +634,8 @@ async def _enrichment_llm_phase(
         if not legal_units_snapshot.units:
             logger.debug(
                 "Semantic enrichment stage: segment has zero legal units, skipping",
-                extra={**log_base, "segment_id": segment_id},
+                **log_base,
+                segment_id=segment_id,
             )
             continue
 
@@ -644,12 +651,10 @@ async def _enrichment_llm_phase(
             if seg_timeout < primary_min_timeout:
                 logger.info(
                     "Semantic enrichment stage: extending timeout for primary segment",
-                    extra={
-                        **log_base,
-                        "segment_id": segment_id,
-                        "original_timeout": seg_timeout,
-                        "extended_timeout": primary_min_timeout,
-                    },
+                    **log_base,
+                    segment_id=segment_id,
+                    original_timeout=seg_timeout,
+                    extended_timeout=primary_min_timeout,
                 )
                 seg_timeout = primary_min_timeout
 
@@ -674,16 +679,14 @@ async def _enrichment_llm_phase(
                 ),
                 timeout=seg_timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "Semantic enrichment stage: segment enrichment timed out",
-                extra={
-                    **log_base,
-                    "segment_id": segment_id,
-                    "timeout_seconds": seg_timeout,
-                    "partial_units_completed": len(_partial_enrichments),
-                    "total_units": len(legal_units_snapshot.units),
-                },
+                **log_base,
+                segment_id=segment_id,
+                timeout_seconds=seg_timeout,
+                partial_units_completed=len(_partial_enrichments),
+                total_units=len(legal_units_snapshot.units),
             )
             if _partial_enrichments:
                 llm_provider_for_partial, llm_model_for_partial = _resolve_llm_info_for_partial()
@@ -696,13 +699,11 @@ async def _enrichment_llm_phase(
                 )
                 logger.info(
                     "Semantic enrichment stage: saving partial enrichment sidecar after timeout",
-                    extra={
-                        **log_base,
-                        "segment_id": segment_id,
-                        "partial_units": len(_partial_enrichments),
-                        "total_units": len(legal_units_snapshot.units),
-                        "status_counts": enrichment_result.status_counts,
-                    },
+                    **log_base,
+                    segment_id=segment_id,
+                    partial_units=len(_partial_enrichments),
+                    total_units=len(legal_units_snapshot.units),
+                    status_counts=enrichment_result.status_counts,
                 )
             else:
                 segments_timed_out += 1
@@ -710,7 +711,9 @@ async def _enrichment_llm_phase(
         except Exception as enrich_exc:
             logger.warning(
                 "Semantic enrichment stage: segment enrichment failed",
-                extra={**log_base, "segment_id": segment_id, "error": str(enrich_exc)},
+                **log_base,
+                segment_id=segment_id,
+                error=str(enrich_exc),
             )
             segments_failed += 1
             continue
@@ -731,17 +734,17 @@ async def _enrichment_llm_phase(
 
             logger.info(
                 "Semantic enrichment stage: segment enriched",
-                extra={
-                    **log_base,
-                    "segment_id": segment_id,
-                    "sidecar_ref": sidecar_ref,
-                    "status_counts": enrichment_result.status_counts,
-                },
+                **log_base,
+                segment_id=segment_id,
+                sidecar_ref=sidecar_ref,
+                status_counts=enrichment_result.status_counts,
             )
         except Exception as store_exc:
             logger.warning(
                 "Semantic enrichment stage: failed to store enrichment sidecar",
-                extra={**log_base, "segment_id": segment_id, "error": str(store_exc)},
+                **log_base,
+                segment_id=segment_id,
+                error=str(store_exc),
             )
             segments_failed += 1
 
@@ -818,7 +821,8 @@ async def _enrichment_finalize(
         else:
             logger.warning(
                 "Semantic enrichment stage: segment not found during finalize, skipping meta update",
-                extra={**log_base, "segment_id": segment_id},
+                **log_base,
+                segment_id=segment_id,
             )
 
     # ── Проверить primary segments ────────────────────────────────────────────
@@ -834,7 +838,8 @@ async def _enrichment_finalize(
         logger.warning(
             "Semantic enrichment stage: primary segment(s) missing enrichment — "
             "retrieval will degrade to unknown clause_function for these segments",
-            extra={**log_base, "primary_segments_without_enrichment": missing_ids},
+            **log_base,
+            primary_segments_without_enrichment=missing_ids,
         )
 
     # ── Определить терминальный исход ─────────────────────────────────────────
@@ -944,10 +949,8 @@ async def _finalize_enrichment_stage(
 
     logger.info(
         "Semantic enrichment stage: terminal outcome reached",
-        extra={
-            **log_base,
-            **result_payload,
-        },
+        **log_base,
+        **result_payload,
     )
 
     # ── Установить Document.status = ENRICHED ─────────────────────────────────
@@ -997,7 +1000,8 @@ async def _finalize_enrichment_stage(
     except Exception as audit_exc:
         logger.warning(
             "Semantic enrichment stage: failed to write audit log",
-            extra={**log_base, "error": str(audit_exc)},
+            **log_base,
+            error=str(audit_exc),
         )
 
     return {
@@ -1180,4 +1184,4 @@ def _resolve_llm_info_for_partial() -> tuple[str | None, str | None]:
         return provider, model
     except Exception:
         return None, None
-    
+

@@ -72,10 +72,8 @@ def outbox_dispatcher(
                 published_count += 1
                 logger.info(
                     "Outbox message published",
-                    extra={
-                        "outbox_message_id": str(message.id),
-                        "task_name": message.task_name,
-                    },
+                    outbox_message_id=str(message.id),
+                    task_name=message.task_name,
                 )
             except Exception as e:
                 failed_count += 1
@@ -91,13 +89,11 @@ def outbox_dispatcher(
 
                 logger.warning(
                     "Outbox publish failed",
-                    extra={
-                        "outbox_message_id": str(message.id),
-                        "task_name": message.task_name,
-                        "attempt": message.attempts + 1,
-                        "retry_delay_seconds": retry_delay,
-                        "error": str(e),
-                    },
+                    outbox_message_id=str(message.id),
+                    task_name=message.task_name,
+                    attempt=message.attempts + 1,
+                    retry_delay_seconds=retry_delay,
+                    error=str(e),
                 )
 
         return {

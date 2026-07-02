@@ -309,18 +309,16 @@ def classify_document_segments(self, document_id: str, **kwargs) -> dict:
     if run_id and _should_retrigger(result):
         logger.info(
             "Segment classification fully completed, retriggering run pipeline",
-            extra={
-                "document_id": document_id,
-                "run_id": run_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-                "total_segments": total_segments,
-                "terminal_segments": terminal_segments,
-                "classified_segments": classified_segments,
-                "unknown_segments": unknown_segments,
-                "failed_segments": failed_segments,
-                "skipped_count": skipped_count,
-            },
+            document_id=document_id,
+            run_id=run_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            total_segments=total_segments,
+            terminal_segments=terminal_segments,
+            classified_segments=classified_segments,
+            unknown_segments=unknown_segments,
+            failed_segments=failed_segments,
+            skipped_count=skipped_count,
         )
         try:
             retrigger_run_pipeline(
@@ -332,28 +330,24 @@ def classify_document_segments(self, document_id: str, **kwargs) -> dict:
             # Best-effort: ошибка retrigger не должна ломать результат классификации.
             logger.warning(
                 "Segment classifier: failed to retrigger run_orchestrator (non-fatal)",
-                extra={
-                    "document_id": document_id,
-                    "run_id": run_id,
-                },
+                document_id=document_id,
+                run_id=run_id,
             )
     elif run_id and status == "completed":
         # completed, но не все сегменты достигли terminal outcome — не retrigger-им.
         logger.warning(
             "Segment classification not terminal for all segments; "
             "orchestrator not retriggered to avoid rescheduling loop",
-            extra={
-                "document_id": document_id,
-                "run_id": run_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-                "total_segments": total_segments,
-                "terminal_segments": terminal_segments,
-                "classified_segments": classified_segments,
-                "unknown_segments": unknown_segments,
-                "failed_segments": failed_segments,
-                "skipped_count": skipped_count,
-            },
+            document_id=document_id,
+            run_id=run_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            total_segments=total_segments,
+            terminal_segments=terminal_segments,
+            classified_segments=classified_segments,
+            unknown_segments=unknown_segments,
+            failed_segments=failed_segments,
+            skipped_count=skipped_count,
         )
 
     return result

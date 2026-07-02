@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from typing import Any
 
 from celery.exceptions import SoftTimeLimitExceeded
 
@@ -59,8 +60,6 @@ from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from ops.metrics import get_metrics
-from typing import Any
-
 
 logger = get_logger(__name__)
 
@@ -97,12 +96,10 @@ def run_deal_checks(
     """
     logger.info(
         "Run deal checks scheduler received",
-        extra={
-            "run_id": run_id,
-            "deal_id": deal_id,
-            "tenant_id": tenant_id,
-            "job_id": job_id,
-        },
+        run_id=run_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        job_id=job_id,
     )
 
     started_at = time.time()
@@ -119,10 +116,8 @@ def run_deal_checks(
             try:
                 logger.info(
                     "Run deal checks scheduler: loading run and playbook",
-                    extra={
-                        "run_id": run_id,
-                        "deal_id": deal_id,
-                    },
+                    run_id=run_id,
+                    deal_id=deal_id,
                 )
 
                 run_obj = await run_repo.get(run_uuid)
@@ -138,11 +133,9 @@ def run_deal_checks(
                 if not started and run_snap.status != RunStatus.RUNNING.value:
                     logger.info(
                         "Run deal checks scheduler: run already started or finalized, skipping",
-                        extra={
-                            "run_id": run_id,
-                            "deal_id": deal_id,
-                            "current_status": run_snap.status,
-                        },
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        current_status=run_snap.status,
                     )
                     return {
                         "status": "SKIPPED",
@@ -158,13 +151,11 @@ def run_deal_checks(
 
                 logger.info(
                     "Run deal checks scheduler: playbook loaded",
-                    extra={
-                        "run_id": run_id,
-                        "deal_id": deal_id,
-                        "playbook_version_id": str(run_snap.playbook_version_id),
-                        "checks_mode": run_snap.checks_mode,
-                        "checks_scope": run_snap.checks_scope,
-                    },
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    playbook_version_id=str(run_snap.playbook_version_id),
+                    checks_mode=run_snap.checks_mode,
+                    checks_scope=run_snap.checks_scope,
                 )
 
                 runner = CheckRunner(
@@ -189,27 +180,23 @@ def run_deal_checks(
 
                 logger.info(
                     "Run deal checks scheduler: plan built",
-                    extra={
-                        "run_id": run_id,
-                        "deal_id": deal_id,
-                        "processed_docs": processed_docs,
-                        "pairs_count": len(pairs),
-                        "total_checks": total_checks,
-                        "planning_errors": errors,
-                        "checks_mode": run_snap.checks_mode,
-                        "checks_scope": run_snap.checks_scope,
-                    },
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    processed_docs=processed_docs,
+                    pairs_count=len(pairs),
+                    total_checks=total_checks,
+                    planning_errors=errors,
+                    checks_mode=run_snap.checks_mode,
+                    checks_scope=run_snap.checks_scope,
                 )
 
                 if total_checks != len(pairs):
                     logger.warning(
                         "Run deal checks scheduler: total_checks differs from pairs_count",
-                        extra={
-                            "run_id": run_id,
-                            "deal_id": deal_id,
-                            "total_checks": total_checks,
-                            "pairs_count": len(pairs),
-                        },
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        total_checks=total_checks,
+                        pairs_count=len(pairs),
                     )
 
                 await run_repo.update_status(
@@ -257,7 +244,8 @@ def run_deal_checks(
                 except Exception:
                     logger.warning(
                         "run_deal_checks: failed to write audit log for CHECKS_SCHEDULED",
-                        extra={"run_id": run_id, "deal_id": deal_id},
+                        run_id=run_id,
+                        deal_id=deal_id,
                     )
 
                 duration = time.time() - started_at
@@ -267,34 +255,31 @@ def run_deal_checks(
                 except Exception:
                     logger.exception(
                         "run_deal_checks scheduler: failed to update checks_duration metric",
-                        extra={"run_id": run_id, "deal_id": deal_id},
+                        run_id=run_id,
+                        deal_id=deal_id,
                     )
 
                 logger.info(
                     "Run deal checks scheduler completed",
-                    extra={
-                        "run_id": run_id,
-                        "deal_id": deal_id,
-                        "duration_sec": round(duration, 2),
-                        "processed_docs": processed_docs,
-                        "planned_checks": total_checks,
-                        "scheduled_checks": scheduled,
-                        "planning_errors": errors,
-                        "status": RunStatus.RUNNING.value,
-                    },
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    duration_sec=round(duration, 2),
+                    processed_docs=processed_docs,
+                    planned_checks=total_checks,
+                    scheduled_checks=scheduled,
+                    planning_errors=errors,
+                    status=RunStatus.RUNNING.value,
                 )
 
                 if total_checks == 0:
                     logger.warning(
                         "Run deal checks scheduler: zero checks planned, finalizing run immediately",
-                        extra={
-                            "run_id": run_id,
-                            "deal_id": deal_id,
-                            "processed_docs": processed_docs,
-                            "planning_errors": errors,
-                            "checks_mode": run_snap.checks_mode,
-                            "checks_scope": run_snap.checks_scope,
-                        },
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        processed_docs=processed_docs,
+                        planning_errors=errors,
+                        checks_mode=run_snap.checks_mode,
+                        checks_scope=run_snap.checks_scope,
                     )
 
                     finalized = await run_repo.finalize_run_if_finished(run_uuid)
@@ -325,11 +310,9 @@ def run_deal_checks(
             except Exception as e:
                 logger.exception(
                     "Run deal checks scheduler failed",
-                    extra={
-                        "run_id": run_id,
-                        "deal_id": deal_id,
-                        "error": str(e),
-                    },
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    error=str(e),
                 )
                 await run_repo.mark_run_failed(
                     run_uuid,
@@ -381,15 +364,13 @@ def run_single_check(
     """
     logger.info(
         "Run single check task received",
-        extra={
-            "run_id": run_id,
-            "deal_id": deal_id,
-            "doc_id": doc_id,
-            "check_id": check_id,
-            "playbook_version_id": playbook_version_id,
-            "checks_mode": checks_mode,
-            "force": force,
-        },
+        run_id=run_id,
+        deal_id=deal_id,
+        doc_id=doc_id,
+        check_id=check_id,
+        playbook_version_id=playbook_version_id,
+        checks_mode=checks_mode,
+        force=force,
     )
 
     started_at = time.time()
@@ -420,11 +401,9 @@ def run_single_check(
                 if run_snap.deal_id != deal_uuid:
                     logger.warning(
                         "run_single_check: deal_id mismatch between task and Run",
-                        extra={
-                            "run_id": run_id,
-                            "deal_id_task": str(deal_uuid),
-                            "deal_id_run": run_snap.deal_id_str,
-                        },
+                        run_id=run_id,
+                        deal_id_task=str(deal_uuid),
+                        deal_id_run=run_snap.deal_id_str,
                     )
 
                 pb_version = await pb_repo.get_by_id(effective_pb_version_id)
@@ -451,43 +430,39 @@ def run_single_check(
 
                     logger.debug(
                         "run_single_check: existing SUCCESS details for doc/check aggregate",
-                        extra={
-                            "run_id": run_id,
-                            "deal_id": deal_id,
-                            "doc_id": doc_id,
-                            "check_id": check_id,
-                            "force": force,
-                            "success_result_id": (str(success_row.id) if success_row else None),
-                            "success_segment_id": (success_row.segment_id if success_row else None),
-                            "success_segment_type": (
-                                success_row.segment_type if success_row else None
-                            ),
-                            "success_segment_title": (
-                                success_row.segment_title if success_row else None
-                            ),
-                            "success_segment_order": (
-                                success_row.segment_order if success_row else None
-                            ),
-                            "success_is_primary_segment": (
-                                success_row.is_primary_segment if success_row else None
-                            ),
-                            "success_created_at": (
-                                success_row.created_at.isoformat()
-                                if success_row and success_row.created_at
-                                else None
-                            ),
-                        },
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        doc_id=doc_id,
+                        check_id=check_id,
+                        force=force,
+                        success_result_id=(str(success_row.id) if success_row else None),
+                        success_segment_id=(success_row.segment_id if success_row else None),
+                        success_segment_type=(
+                            success_row.segment_type if success_row else None
+                        ),
+                        success_segment_title=(
+                            success_row.segment_title if success_row else None
+                        ),
+                        success_segment_order=(
+                            success_row.segment_order if success_row else None
+                        ),
+                        success_is_primary_segment=(
+                            success_row.is_primary_segment if success_row else None
+                        ),
+                        success_created_at=(
+                            success_row.created_at.isoformat()
+                            if success_row and success_row.created_at
+                            else None
+                        ),
                     )
 
                     logger.info(
                         "run_single_check: result already SUCCESS for doc/check aggregate, skipping",
-                        extra={
-                            "run_id": run_id,
-                            "deal_id": deal_id,
-                            "doc_id": doc_id,
-                            "check_id": check_id,
-                            "force": force,
-                        },
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        doc_id=doc_id,
+                        check_id=check_id,
+                        force=force,
                     )
                     return {
                         "status": "SKIPPED",
@@ -520,13 +495,11 @@ def run_single_check(
                 if exec_result is None:
                     logger.info(
                         "run_single_check completed: check not applicable",
-                        extra={
-                            "run_id": run_id,
-                            "deal_id": deal_id,
-                            "doc_id": doc_id,
-                            "check_id": check_id,
-                            "duration_sec": round(duration, 2),
-                        },
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        doc_id=doc_id,
+                        check_id=check_id,
+                        duration_sec=round(duration, 2),
                     )
                     return {
                         "status": "SUCCESS",
@@ -539,15 +512,13 @@ def run_single_check(
 
                 logger.info(
                     "run_single_check completed",
-                    extra={
-                        "run_id": run_id,
-                        "deal_id": deal_id,
-                        "doc_id": doc_id,
-                        "check_id": check_id,
-                        "result": exec_result.get("result"),
-                        "severity": exec_result.get("severity"),
-                        "duration_sec": round(duration, 2),
-                    },
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    doc_id=doc_id,
+                    check_id=check_id,
+                    result=exec_result.get("result"),
+                    severity=exec_result.get("severity"),
+                    duration_sec=round(duration, 2),
                 )
 
                 return {
@@ -561,12 +532,10 @@ def run_single_check(
             except SoftTimeLimitExceeded as e:
                 logger.warning(
                     "run_single_check: soft time limit exceeded",
-                    extra={
-                        "run_id": run_id,
-                        "doc_id": doc_id,
-                        "check_id": check_id,
-                        "error": str(e),
-                    },
+                    run_id=run_id,
+                    doc_id=doc_id,
+                    check_id=check_id,
+                    error=str(e),
                 )
                 await result_repo.upsert_single_check_result(
                     run_id=run_uuid,
@@ -597,13 +566,11 @@ def run_single_check(
             except Exception as e:
                 logger.exception(
                     "run_single_check failed",
-                    extra={
-                        "run_id": run_id,
-                        "deal_id": deal_id,
-                        "doc_id": doc_id,
-                        "check_id": check_id,
-                        "error": str(e),
-                    },
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    doc_id=doc_id,
+                    check_id=check_id,
+                    error=str(e),
                 )
 
                 message = str(e)
@@ -640,12 +607,10 @@ def run_single_check(
                 except Exception:
                     logger.exception(
                         "run_single_check: failed to persist FAILED status after exception",
-                        extra={
-                            "run_id": run_id,
-                            "deal_id": deal_id,
-                            "doc_id": doc_id,
-                            "check_id": check_id,
-                        },
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        doc_id=doc_id,
+                        check_id=check_id,
                     )
 
                 if is_transient_db_error:
@@ -663,11 +628,9 @@ def run_single_check(
                 except Exception:
                     logger.exception(
                         "run_single_check: failed to enqueue finalize_run_if_ready",
-                        extra={
-                            "run_id": run_id,
-                            "doc_id": doc_id,
-                            "check_id": check_id,
-                        },
+                        run_id=run_id,
+                        doc_id=doc_id,
+                        check_id=check_id,
                     )
 
     return run_async(_run())
@@ -695,7 +658,7 @@ def finalize_run_if_ready(
     """
     logger.info(
         "Finalize run task received",
-        extra={"run_id": run_id},
+        run_id=run_id,
     )
 
     run_uuid = uuid.UUID(run_id)
@@ -721,12 +684,10 @@ def finalize_run_if_ready(
             if active_stage_executions > 0:
                 logger.info(
                     "finalize_run_if_ready: active document stage executions remain, postponing run finalization",
-                    extra={
-                        "run_id": run_id,
-                        "active_stage_executions": active_stage_executions,
-                        "finished_checks": finished_checks,
-                        "materialized_checks": materialized_checks,
-                    },
+                    run_id=run_id,
+                    active_stage_executions=active_stage_executions,
+                    finished_checks=finished_checks,
+                    materialized_checks=materialized_checks,
                 )
                 return {
                     "status": "WAITING_FOR_STAGE_EXECUTIONS",
@@ -746,15 +707,13 @@ def finalize_run_if_ready(
 
             logger.info(
                 "finalize_run_if_ready: run state synced",
-                extra={
-                    "run_id": run_id,
-                    "status": updated_snap.status,
-                    "run_total_checks": updated_snap.total_checks,
-                    "run_completed_checks": updated_snap.completed_checks,
-                    "materialized_checks": materialized_checks,
-                    "finished_checks": finished_checks,
-                    "has_errors": updated_snap.has_errors,
-                },
+                run_id=run_id,
+                status=updated_snap.status,
+                run_total_checks=updated_snap.total_checks,
+                run_completed_checks=updated_snap.completed_checks,
+                materialized_checks=materialized_checks,
+                finished_checks=finished_checks,
+                has_errors=updated_snap.has_errors,
             )
 
             # Если Run перешёл в терминальный статус — пишем аудит.
@@ -790,10 +749,8 @@ def finalize_run_if_ready(
                 except Exception:
                     logger.warning(
                         "finalize_run_if_ready: failed to write audit log for run finalization",
-                        extra={
-                            "run_id": run_id,
-                            "status": updated_snap.status,
-                        },
+                        run_id=run_id,
+                        status=updated_snap.status,
                     )
 
                 return {
@@ -806,15 +763,13 @@ def finalize_run_if_ready(
             if run_snap.total_checks <= 0:
                 logger.error(
                     "finalize_run_if_ready: zero-check run is still non-terminal after repository finalize",
-                    extra={
-                        "run_id": run_id,
-                        "status": updated_snap.status,
-                        "run_total_checks": updated_snap.total_checks,
-                        "run_completed_checks": updated_snap.completed_checks,
-                        "materialized_checks": materialized_checks,
-                        "finished_checks": finished_checks,
-                        "has_errors": updated_snap.has_errors,
-                    },
+                    run_id=run_id,
+                    status=updated_snap.status,
+                    run_total_checks=updated_snap.total_checks,
+                    run_completed_checks=updated_snap.completed_checks,
+                    materialized_checks=materialized_checks,
+                    finished_checks=finished_checks,
+                    has_errors=updated_snap.has_errors,
                 )
                 raise RuntimeError(
                     f"Run {run_id} has zero total_checks but remained non-terminal after finalize"

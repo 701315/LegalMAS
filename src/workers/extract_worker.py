@@ -28,12 +28,14 @@ import time
 import uuid
 from copy import deepcopy
 from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, QuarantineError, TransientError
 from core.logging import get_logger
+from core.stage_trace import build_stage_trace_fragment
 from db.repositories import AuditRepository, DocumentRepository, DocumentVersionRepository
 from db.uow import UnitOfWork, db_uow
 from mas_queue.async_helpers import run_async
@@ -646,8 +648,6 @@ async def _extract_document_async(
             document_version_id=document_version_id,
             run_id=run_id,
         )
-
-    from core.stage_trace import build_stage_trace_fragment  # noqa: PLC0415
 
     _trace = build_stage_trace_fragment(
         strategy=extraction.strategy,
