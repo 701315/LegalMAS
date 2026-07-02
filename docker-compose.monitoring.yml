@@ -1,7 +1,3 @@
-# docker-compose.monitoring.yml
-
-version: "3.8"
-
 services:
   prometheus:
     image: prom/prometheus:v2.51.0
@@ -21,6 +17,53 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: mas_loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - ./monitoring/loki/rules:/etc/loki/rules:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  promtail:
+    image: grafana/promtail:2.9.4
+    container_name: mas_promtail
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ./logs:/var/log/legalmas:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      loki:
+        condition: service_healthy
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: mas_alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:9093/-/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   grafana:
     image: grafana/grafana-oss:10.4.0
     container_name: mas_grafana
@@ -38,11 +81,14 @@ services:
       - ./monitoring/dashboards:/etc/grafana/dashboards:ro
     depends_on:
       - prometheus
+      - loki
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
 volumes:
   prometheus_data:
   grafana_data:
+  loki_data:
+  alertmanager_data:
 
   

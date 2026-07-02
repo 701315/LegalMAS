@@ -62,6 +62,7 @@ from .endpoints.deals.router import router as deals_router
 from .endpoints.documents.router import router as documents_router
 from .middleware.audit import AuditMiddleware
 from .endpoints.provenance import router as provenance_router
+from .endpoints.tenant_admin import router as tenant_admin_router
 
 setup_logging()
 
@@ -156,6 +157,7 @@ app.include_router(results.router, prefix="/api/v1")
 app.include_router(provenance_router, prefix="/api/v1")
 
 # Админские эндпоинты.
+app.include_router(tenant_admin_router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 
 # Сделки и вложенные deal-specific endpoints.

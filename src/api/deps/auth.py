@@ -16,10 +16,10 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import Header, HTTPException, status
+from fastapi import Header, HTTPException, Request, status
 from pydantic import BaseModel
 
-from core.logging import get_logger
+from core.logging import bind_log_context, get_logger
 from core.roles import normalize_system_role
 from services.auth_service import decode_access_token
 
@@ -45,6 +45,7 @@ class CurrentUser(BaseModel):
 
 
 def get_current_user(
+    request: Request,
     authorization: str | None = Header(default=None),
 ) -> CurrentUser:
     """
@@ -93,11 +94,28 @@ def get_current_user(
             detail="Malformed token payload",
         ) from e
 
-    return CurrentUser(
+    normalized_role = normalize_system_role(raw_role)
+
+    # Обогащаем request-scoped logging context после успешной аутентификации.
+    # request_id уже ставится AuditMiddleware, здесь добавляем tenant_id и role.
+    bind_log_context(
+        tenant_id=tenant_id,
+        actor_role=normalized_role,
+    )
+
+    user = CurrentUser(
         id=user_id,
-        global_role=normalize_system_role(raw_role),
+        global_role=normalized_role,
         tenant_id=tenant_id,
         email=email,
     )
 
+    # Записываем identity в request.state, чтобы downstream middleware / deps
+    # могли брать реального пользователя без повторного декодирования JWT.
+    request.state.user_id = user_id
+    request.state.tenant_id = tenant_id
+    request.state.user_email = email
+    request.state.actor_role = normalized_role
+
+    return user
 

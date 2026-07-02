@@ -1,0 +1,124 @@
+# Loki alert rules for Steloom.
+# Синтаксис: LogQL внутри Prometheus-style rules.
+# Rules выполняются Loki ruler и отправляются в Alertmanager.
+
+groups:
+  # ────────────────────────────────────────────────────────────
+  # P1 — Security & abuse
+  # ────────────────────────────────────────────────────────────
+  - name: steloom_security
+    interval: 1m
+    rules:
+
+      - alert: AdminRateLimitAbuse
+        expr: |
+          sum(count_over_time({job="legalmas"} |= "Rate limit exceeded for admin endpoint" [10m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+          source: loki
+          category: security
+        annotations:
+          summary: "Admin rate limit abuse: {{ $value }} events in 10 minutes"
+          description: "Более 20 срабатываний rate limit на admin endpoints за 10 минут. Возможный abuse или баг в клиенте."
+
+      - alert: JwtMalformedSpike
+        expr: |
+          sum(count_over_time({job="legalmas"} |= "JWT payload malformed" [5m])) > 10
+        for: 2m
+        labels:
+          severity: warning
+          source: loki
+          category: security
+        annotations:
+          summary: "JWT malformed spike: {{ $value }} events in 5 minutes"
+          description: "Более 10 невалидных JWT токенов за 5 минут. Возможная атака или проблема с клиентом."
+
+      - alert: AuditWriteFailure
+        expr: |
+          sum(count_over_time({job="legalmas"} |= "Audit middleware failed to write audit log" [5m])) >= 1
+        for: 1m
+        labels:
+          severity: critical
+          source: loki
+          category: security
+        annotations:
+          summary: "Audit write failure detected"
+          description: "Аудит не записывается в БД. Критично для compliance — нужно немедленно расследовать."
+
+  # ────────────────────────────────────────────────────────────
+  # P2 — Performance & operations
+  # ────────────────────────────────────────────────────────────
+  - name: steloom_performance
+    interval: 1m
+    rules:
+
+      - alert: SlowLokiQueriesBurst
+        expr: |
+          sum(count_over_time({job="legalmas"} |= "Slow Loki query in admin logs endpoint" [10m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          source: loki
+          category: performance
+        annotations:
+          summary: "Slow Loki queries burst: {{ $value }} in 10 minutes"
+          description: "Более 5 медленных запросов к Loki из admin panel за 10 минут. Нужна оптимизация или увеличение лимитов."
+
+      - alert: LokiCapFrequentlyHit
+        expr: |
+          sum(count_over_time({job="legalmas"} |= "auto-capped due to wide time window" [30m])) > 10
+        for: 10m
+        labels:
+          severity: info
+          source: loki
+          category: performance
+        annotations:
+          summary: "Loki query cap frequently hit"
+          description: "Пользователи регулярно упираются в auto-cap лимит на широкие временные окна. Возможно нужно расширить."
+
+      - alert: CriticalLogEvents
+        expr: |
+          sum(count_over_time({job="legalmas", level="critical"} [5m])) >= 1
+        for: 1m
+        labels:
+          severity: critical
+          source: loki
+          category: system
+        annotations:
+          summary: "Critical log event detected"
+          description: "В системе появилось событие уровня critical. Требуется немедленное внимание."
+
+  # ────────────────────────────────────────────────────────────
+  # P3 — Pipeline health
+  # ────────────────────────────────────────────────────────────
+  - name: steloom_pipeline
+    interval: 1m
+    rules:
+
+      - alert: QuarantineBurst
+        expr: |
+          sum(count_over_time({job="legalmas"} |= "Task resulted in quarantine" [10m])) > 3
+        for: 5m
+        labels:
+          severity: warning
+          source: loki
+          category: pipeline
+        annotations:
+          summary: "Quarantine burst: {{ $value }} tasks quarantined in 10 minutes"
+          description: "Более 3 задач попало в quarantine за 10 минут. Проверить типы падений."
+
+      - alert: StageErrorSpike
+        expr: |
+          sum by (stage) (count_over_time({job="legalmas", level="error"} [15m])) > 20
+        for: 10m
+        labels:
+          severity: warning
+          source: loki
+          category: pipeline
+        annotations:
+          summary: "Error spike in stage {{ $labels.stage }}: {{ $value }} errors in 15 minutes"
+          description: "Более 20 ошибок в стадии {{ $labels.stage }} за 15 минут. Возможна регрессия."
+
+
+          

@@ -94,6 +94,13 @@ export const provenanceApi = {
     client
       .get<CheckProvenance>(`/api/v1/checks/${checkResultId}/provenance`)
       .then((r) => r.data),
+
+  getClassificationDecision: (documentId: string) =>
+    client
+      .get<ClassificationDecisionDTO>(
+        `/api/v1/documents/${documentId}/classification-decision`,
+      )
+      .then((r) => r.data),
 };
 
 // ─── Hooks ───────────────────────────────────────────────────
@@ -114,6 +121,46 @@ export function useCheckProvenance(checkResultId: string | null) {
     enabled: !!checkResultId,
     staleTime: 5 * 60_000,
   });
+}
+
+export function useClassificationDecision(documentId: string | null) {
+  return useQuery({
+    queryKey: ["classification-decision", documentId],
+    queryFn: () => provenanceApi.getClassificationDecision(documentId!),
+    enabled: !!documentId,
+    staleTime: 5 * 60_000,
+  });
+}
+
+// ─── Classification Decision ─────────────────────────────────
+
+export interface ClassificationCandidateDTO {
+  type_code?: string | null;
+  doctype?: string | null;
+  confidence?: number | null;
+  level?: string | null;
+  method?: string | null;
+  evidence?: string | null;
+}
+
+export interface ClassificationDecisionDTO {
+  document_id: string;
+  doc_type?: string | null;
+  classification_outcome?: string | null;
+  confidence?: number | null;
+  classification_level?: string | null;
+  language?: string | null;
+  jurisdiction?: string | null;
+  requires_manual_review: boolean;
+  applicable_triggers: string[];
+  playbook_version_id?: string | null;
+  decided_by?: string | null;
+  levels_tried: string[];
+  confidence_zone?: string | null;
+  candidates: ClassificationCandidateDTO[];
+  unknown_corridor_applied?: boolean | null;
+  voting_score?: number | null;
+  l4_triggered?: boolean | null;
 }
 
 

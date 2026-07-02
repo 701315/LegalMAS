@@ -478,6 +478,18 @@ class MetricsRegistry:
             registry=r,
         )
 
+        # ==============================================================
+        # 13. ADMIN METRICS
+        # ==============================================================
+
+        self.admin_logs_query_duration_seconds = Histogram(
+            f"{_P}_admin_logs_query_duration_seconds",
+            "Duration of Loki log queries from tenant admin panel.",
+            labelnames=["since_minutes_bucket"],
+            buckets=[0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 30.0],
+            registry=r,
+        )
+
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
 

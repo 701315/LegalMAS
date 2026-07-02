@@ -1,0 +1,274 @@
+{
+  "uid": "steloom-slo",
+  "title": "Steloom — SLO Overview",
+  "tags": ["steloom", "slo"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Pipeline Run Duration P95",
+      "description": "SLO target: P95 < 600s (10 min)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mas_dd_pipeline_run_duration_seconds_bucket[30m])) by (le))",
+          "legendFormat": "P95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(mas_dd_pipeline_run_duration_seconds_bucket[30m])) by (le))",
+          "legendFormat": "P50",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 300 },
+              { "color": "red", "value": 600 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Document Stage Success Rate",
+      "description": "SLO target: success rate > 95%",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(mas_dd_documents_processed_total{status=\"succeeded\"}[30m])) / sum(rate(mas_dd_documents_processed_total[30m]))",
+          "legendFormat": "Success Rate",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.9 },
+              { "color": "green", "value": 0.95 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "API Latency P95",
+      "description": "SLO target: P95 < 2s for all endpoints",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mas_dd_http_request_duration_seconds_bucket[15m])) by (le))",
+          "legendFormat": "P95 (all endpoints)",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(mas_dd_http_request_duration_seconds_bucket[15m])) by (le))",
+          "legendFormat": "P99 (all endpoints)",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 2 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "LLM Availability",
+      "description": "SLO target: availability > 99% (timeout rate < 1%)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "1 - (sum(rate(mas_dd_llm_timeout_total[30m])) / sum(rate(mas_dd_llm_requests_total[30m])))",
+          "legendFormat": "LLM Availability",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0.9,
+          "max": 1,
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.95 },
+              { "color": "green", "value": 0.99 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Check Execution Duration P95",
+      "description": "SLO target: P95 single check < 30s",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mas_dd_runner_check_duration_seconds_bucket[30m])) by (le))",
+          "legendFormat": "P95",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 15 },
+              { "color": "red", "value": 30 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Extraction Duration P95",
+      "description": "SLO target: P95 extraction < 60s per document",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mas_dd_extraction_duration_seconds_bucket[30m])) by (le))",
+          "legendFormat": "P95 (all strategies)",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mas_dd_extraction_duration_seconds_bucket[30m])) by (strategy, le))",
+          "legendFormat": "P95 {{ strategy }}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "red", "value": 60 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Admin Logs Query Duration P95",
+      "description": "SLO target: P95 admin log query < 5s",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mas_dd_admin_logs_query_duration_seconds_bucket[15m])) by (le))",
+          "legendFormat": "P95 (all windows)",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mas_dd_admin_logs_query_duration_seconds_bucket[15m])) by (since_minutes_bucket, le))",
+          "legendFormat": "P95 {{ since_minutes_bucket }}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 3 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "SLO Summary — Current",
+      "description": "Current SLO compliance at a glance",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(mas_dd_documents_processed_total{status=\"succeeded\"}[1h])) / sum(rate(mas_dd_documents_processed_total[1h]))",
+          "legendFormat": "Stage Success Rate (1h)",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mas_dd_pipeline_run_duration_seconds_bucket[1h])) by (le))",
+          "legendFormat": "Pipeline P95 (1h)",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(mas_dd_http_request_duration_seconds_bucket[1h])) by (le))",
+          "legendFormat": "API P95 (1h)",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.9 },
+              { "color": "green", "value": 0.95 }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
+
+

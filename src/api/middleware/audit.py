@@ -32,15 +32,17 @@ logger = get_logger(__name__)
 # Точные пути (метод + путь), которые обязательно аудитим
 # ключ: (HTTP-метод, путь), значение: action для AuditLog
 _AUDITED_PATHS: dict[tuple[str, str], str] = {
-    # пример: ("GET", "/health"): "VIEW_HEALTH",
     ("GET", "/admin/yaml-instructions"): "VIEW_YAML_INSTRUCTIONS",
 }
 
-# Суффиксы путей для динамических URL (например /documents/{id}/reclassify)
+# Суффиксы путей для динамических URL
 # ключ: суффикс, значение: action
 _AUDITED_PATH_SUFFIXES: dict[str, str] = {
     "/reclassify": "DOCUMENT_RECLASSIFIED_API",
     "/structured-data": "STRUCTURED_DATA_ACCESSED",
+    "/tenant/dashboard": "ADMIN_VIEW_DASHBOARD",
+    "/tenant/metrics": "ADMIN_VIEW_METRICS",
+    "/tenant/logs": "ADMIN_VIEW_LOGS",
 }
 
 
@@ -66,7 +68,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
         tenant_id_header = request.headers.get("X-Tenant-Id")
-        user_id_header = request.headers.get("X-User-Id", "unknown")
+        user_id_header = request.headers.get("X-User-Id")
         actor_role_header = request.headers.get("X-Actor-Role")
 
         set_request_context(
@@ -77,45 +79,54 @@ class AuditMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
 
         try:
-            # 1. Ищем точное совпадение (метод + путь)
             action = _AUDITED_PATHS.get((method, path))
 
-            # 2. Если не нашли — проверяем суффиксы (для динамических путей)
             if action is None:
                 for suffix, suffix_action in _AUDITED_PATH_SUFFIXES.items():
                     if path.endswith(suffix):
                         action = suffix_action
                         break
 
-            # 3. Дальше обязательно вызываем хэндлер, чтобы клиент получил ответ
             response = await call_next(request)
             response.headers.setdefault("X-Request-Id", request_id)
 
-            # Если путь не подлежит аудиту — выходим
+            # После call_next() request.state уже может быть заполнен
+            # Depends(get_current_user), поэтому здесь читаем real identity.
+            resolved_actor = (
+                user_id_header
+                or getattr(request.state, "user_id", None)
+                or "unknown"
+            )
+            resolved_tenant_id_value = (
+                tenant_id_header
+                or getattr(request.state, "tenant_id", None)
+            )
+            resolved_actor_role = (
+                actor_role_header
+                or getattr(request.state, "actor_role", None)
+            )
+
             if action is None:
                 return response
 
-            # Логировать только успешные/частично успешные запросы
             if response.status_code >= 400:
                 return response
 
-            # 4. Пытаемся записать аудит (не ломаем запрос при ошибке)
             try:
                 tenant_uuid = (
-                    uuid.UUID(tenant_id_header)
-                    if tenant_id_header
-                    else uuid.UUID(int=0)  # "анонимный" tenant, если не передали
+                    uuid.UUID(str(resolved_tenant_id_value))
+                    if resolved_tenant_id_value
+                    else uuid.UUID(int=0)
                 )
 
-                # Отдельная сессия для аудита (unit of work, независимый от запроса)
                 async with get_session() as session:
                     repo = AuditRepository(session)
                     await repo.log(
                         tenant_id=tenant_uuid,
                         action=action,
-                        actor=user_id_header,
-                        deal_id=None,  # пока не извлекаем deal_id из path без явного контракта
-                        actor_role=actor_role_header,
+                        actor=str(resolved_actor),
+                        deal_id=None,
+                        actor_role=resolved_actor_role,
                         details={
                             "request_id": request_id,
                             "path": path,
@@ -123,6 +134,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
                             "status_code": response.status_code,
                         },
                     )
+                    await session.commit()
 
             except Exception:
                 logger.exception(
@@ -130,16 +142,19 @@ class AuditMiddleware(BaseHTTPMiddleware):
                     path=path,
                     method=method,
                     action=action,
-                    tenant_id=tenant_id_header,
-                    actor=user_id_header,
-                    actor_role=actor_role_header,
+                    tenant_id=(
+                        str(resolved_tenant_id_value)
+                        if resolved_tenant_id_value is not None
+                        else None
+                    ),
+                    actor=str(resolved_actor),
+                    actor_role=resolved_actor_role,
                     request_id=request_id,
                 )
 
             return response
         finally:
             clear_log_context()
-
 
 
             

@@ -25,6 +25,7 @@ import AdminPlaybookLinesPage from "./pages/AdminPlaybookLinesPage";
 import ModelConfigsAdminPage from "./pages/ModelConfigsAdminPage";
 import AdminPlaybookVersionsPage from "./pages/AdminPlaybookVersionsPage";
 import AdminPage from "./pages/AdminPage";
+import TenantAdminPage from "./pages/TenantAdminPage";
 import AdminTenantNewPage from "./pages/AdminTenantNewPage";
 import AdminTenantDetailPage from "./pages/AdminTenantDetailPage";
 
@@ -253,6 +254,18 @@ function App() {
             <RequireAdminOrSuperadmin>
               <AppShell>
                 <AdminPlaybookVersionsPage />
+              </AppShell>
+            </RequireAdminOrSuperadmin>
+          }
+        />
+
+        {/* Панель администратора клиента: tenant_admin и superadmin */}
+        <Route
+          path="/tenant-admin"
+          element={
+            <RequireAdminOrSuperadmin>
+              <AppShell>
+                <TenantAdminPage />
               </AppShell>
             </RequireAdminOrSuperadmin>
           }

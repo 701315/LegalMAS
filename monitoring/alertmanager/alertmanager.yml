@@ -1,0 +1,53 @@
+# Alertmanager configuration for Steloom.
+#
+# Начальная конфигурация: все алерты идут в null receiver.
+# Alertmanager принимает алерты, dedupлицирует, группирует,
+# и делает их доступными через API :9093/api/v2/alerts.
+#
+# UI: http://localhost:9093
+# API: http://localhost:9093/api/v2/alerts
+#
+# Позже сюда можно добавить:
+# - webhook receiver (свой backend)
+# - slack_configs
+# - email_configs
+# - pagerduty_configs
+
+global:
+  resolve_timeout: 5m
+
+route:
+  # Группируем алерты по имени и severity, чтобы не спамить одинаковыми.
+  group_by: ['alertname', 'severity']
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 4h
+
+  # По умолчанию — null (только accept + expose через API).
+  receiver: 'null'
+
+  routes:
+    # Critical алерты доставляются быстрее.
+    - matchers:
+        - severity="critical"
+      receiver: 'null'
+      group_wait: 5s
+      group_interval: 15s
+      repeat_interval: 1h
+
+receivers:
+  # Null receiver — Alertmanager принимает и хранит алерт, но никуда не шлёт.
+  # Алерты доступны через API и UI.
+  - name: 'null'
+
+inhibit_rules:
+  # Если сработал critical — подавляем warning с теми же labels.
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal: ['alertname']
+
+
+
+    

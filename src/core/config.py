@@ -499,6 +499,14 @@ class Settings(BaseSettings):
     # --- Ops: Metrics & Regression ---
     METRICS_ENABLED: bool = True
     METRICS_PREFIX: str = "mas_dd"
+
+    # ── External monitoring tool URLs (для admin panel) ─────────────────────
+    # Отображаются как кнопки-ссылки в TenantAdminPage.
+    # Backend proxy к Alertmanager использует ALERTMANAGER_INTERNAL_URL.
+    GRAFANA_EXTERNAL_URL: str = "http://localhost:3000"
+    PROMETHEUS_EXTERNAL_URL: str = "http://localhost:9090"
+    ALERTMANAGER_EXTERNAL_URL: str = "http://localhost:9093"
+    ALERTMANAGER_INTERNAL_URL: str = "http://localhost:9093"
     GATE_EVIDENCE_VALIDITY_MIN: float = 0.95
     GATE_PRECISION_CRITICAL_MIN: float = 0.90
     GATE_RECALL_CRITICAL_MIN: float = 0.85

@@ -10,13 +10,13 @@
 import React, { useEffect, useState } from "react";
 import { AlertTriangle, Loader2, Upload } from "lucide-react";
 import { ProcessingTracePanel } from "./pipeline/ProcessingTracePanel";
+import { ClassificationDecisionPanel } from "./pipeline/ClassificationDecisionPanel";
 import type { DocumentTypeOption } from "../../api/documentTypes";
 import { DocumentPipelinePanel } from "./pipeline/DocumentPipelinePanel";
 import {
   DOCUMENT_STATUS_CONFIG,
   getErrorStageLabel,
 } from "../../utils/statusConfig";
-import { ClassificationBadge } from "../ui/ClassificationBadge";
 import { TriggerList } from "../ui/TriggerList";
 import Button from "../ui/Button";
 import { StructuredDataSection } from "./DocumentDetails/sections/StructuredDataSection";
@@ -526,14 +526,9 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
             {classification ? (
               <>
                 <div className="flex flex-wrap items-center gap-2">
-                  <ClassificationBadge
-                    level={classification.classification_level}
-                    confidence={classification.classification_confidence}
-                    showConfidence
-                  />
                   {classification.doc_type && (
                     <span className="text-xs font-medium text-[var(--text-primary)]">
-                      {classification.doc_type}
+                      Тип документа: {classification.doc_type}
                     </span>
                   )}
                   {needsManualReview && (
@@ -702,6 +697,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                 )}
               </div>
             )}
+          <ClassificationDecisionPanel documentId={documentId} />
           </div>
         </Section>
 

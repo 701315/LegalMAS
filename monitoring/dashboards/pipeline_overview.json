@@ -1,7 +1,7 @@
 {
   "uid": "legalmas-pipeline",
-  "title": "LegalMAS — Pipeline Overview",
-  "tags": ["legalmas", "pipeline"],
+  "title": "Steloom — Pipeline Overview",
+  "tags": ["steloom", "pipeline"],
   "timezone": "browser",
   "refresh": "30s",
   "schemaVersion": 38,

@@ -1,0 +1,183 @@
+{
+  "uid": "legalmas-logs",
+  "title": "Steloom — Log Explorer",
+  "tags": ["steloom", "logs"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "level",
+        "type": "custom",
+        "label": "Log Level",
+        "current": { "value": ".*" },
+        "options": [
+          { "text": "All", "value": ".*" },
+          { "text": "error", "value": "error" },
+          { "text": "warning", "value": "warning" },
+          { "text": "info", "value": "info" },
+          { "text": "debug", "value": "debug" }
+        ]
+      },
+      {
+        "name": "stage",
+        "type": "custom",
+        "label": "Stage",
+        "current": { "value": "" },
+        "options": [
+          { "text": "All", "value": "" },
+          { "text": "build_primary_language_source", "value": "workers.build_primary_language_source" },
+          { "text": "extract_document", "value": "workers.extract_document" },
+          { "text": "pii", "value": "pii.sanitize_document" },
+          { "text": "structure", "value": "workers.build_structure" },
+          { "text": "chunks", "value": "workers.build_chunks" },
+          { "text": "classify_document", "value": "workers.classify_document" },
+          { "text": "classify_document_segments", "value": "workers.classify_document_segments" },
+          { "text": "build_legal_units_enrichment", "value": "workers.build_legal_units_enrichment" }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Log volume by level",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 5 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({job=\"legalmas\"}[1m])) by (level)",
+          "legendFormat": "{{ level }}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "error" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "warning" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "info" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "title": "Errors & Warnings",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 12 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "expr": "{job=\"legalmas\", level=~\"error|critical|warning\"}",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "All logs (by level filter)",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 17, "w": 24, "h": 14 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "expr": "{job=\"legalmas\", level=~\"$level\"}",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Stage logs",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 31, "w": 24, "h": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "expr": "{job=\"legalmas\", stage=\"$stage\"}",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Task failures / DLQ",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 41, "w": 24, "h": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "expr": "{job=\"legalmas\"} | json | event =~ \".*DLQ.*|.*failed permanently.*\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
+
+
+

@@ -271,13 +271,31 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               </div>
             )}
 
-            {/* Административная панель: только superadmin */}
+            {/* Панель администратора клиента: tenant_admin */}
+            {globalRole === "tenant_admin" && (
+              <div className="mt-1">
+                <NavItem
+                  collapsed={collapsed}
+                  to="/tenant-admin"
+                  label="Панель администратора"
+                  icon={Settings}
+                />
+              </div>
+            )}
+
+            {/* Системное администрирование: только superadmin */}
             {canAccessAdmin && (
               <div className="mt-1">
                 <NavItem
                   collapsed={collapsed}
                   to="/admin"
                   label="Администрирование"
+                  icon={Settings}
+                />
+                <NavItem
+                  collapsed={collapsed}
+                  to="/tenant-admin"
+                  label="Панель клиента"
                   icon={Settings}
                 />
               </div>
