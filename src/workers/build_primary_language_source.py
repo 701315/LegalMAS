@@ -136,7 +136,6 @@ def _store_primary_language_metadata_sidecar_safe(
         logger.debug(
             "Primary source build: no language metadata available for sidecar",
             **log_extra_base,
-            document_id=document_id,
         )
         return None
 
@@ -152,7 +151,6 @@ def _store_primary_language_metadata_sidecar_safe(
         logger.warning(
             "Primary source build: failed to store language metadata sidecar, continuing",
             **log_extra_base,
-            document_id=document_id,
             sidecar_path=sidecar_path,
             error=str(exc),
         )
@@ -161,7 +159,6 @@ def _store_primary_language_metadata_sidecar_safe(
     logger.info(
         "Primary source build: language metadata sidecar stored",
         **log_extra_base,
-        document_id=document_id,
         sidecar_path=sidecar_path,
         sidecar_ref=sidecar_ref,
         metadata_keys=sorted(

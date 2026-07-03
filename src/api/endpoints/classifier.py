@@ -39,7 +39,7 @@ from core.config import settings
 from core.logging import get_logger
 from db.repositories.runner_repo import RunnerRepository
 from db.session import get_db
-from mas_queue.celery_app import celery_app
+from mas_queue.task_dispatcher import send_task_with_context
 
 logger = get_logger(__name__)
 
@@ -118,14 +118,11 @@ async def run_deal_classification(
     tasks_scheduled = 0
     for doc in docs:
         try:
-            celery_app.send_task(
+            send_task_with_context(
                 "workers.classify_document",
                 kwargs={
                     "document_id": str(doc.id),
-                    # run_id / tenant_id можно добавить при необходимости:
-                    # "run_id": ...,
-                    # "deal_id": str(doc.deal_id),
-                    # "tenant_id": ...
+                    "deal_id": str(deal_id),
                 },
             )
             tasks_scheduled += 1

@@ -59,6 +59,7 @@ from engine.playbook.loader import load_playbook_from_version
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.task_dispatcher import send_task_with_context
 from ops.metrics import get_metrics
 
 logger = get_logger(__name__)
@@ -207,7 +208,7 @@ def run_deal_checks(
 
                 scheduled = 0
                 for pair in pairs:
-                    celery_app.send_task(
+                    send_task_with_context(
                         "workers.run_single_check",
                         kwargs={
                             "run_id": run_id,
@@ -620,7 +621,7 @@ def run_single_check(
 
             finally:
                 try:
-                    celery_app.send_task(
+                    send_task_with_context(
                         "workers.finalize_run_if_ready",
                         kwargs={"run_id": run_id},
                         queue="default",

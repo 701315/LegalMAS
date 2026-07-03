@@ -58,6 +58,7 @@ from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.task_dispatcher import send_task_with_context
 from services.language_discovery_conversion_service import (
     convert_document_for_language_discovery,
 )
@@ -155,7 +156,7 @@ async def _convert_document_for_language_discovery_async(
 
     logger.info(
         "Starting pre-run document conversion for language discovery",
-        extra=log_extra_base,
+        **log_extra_base,
     )
 
     doc_repo = DocumentRepository(db)
@@ -198,7 +199,7 @@ async def _convert_document_for_language_discovery_async(
         }
         logger.info(
             "Pre-run language discovery conversion skipped: document already in terminal status",
-            extra=result,
+            **result,
         )
         return result
 
@@ -218,7 +219,7 @@ async def _convert_document_for_language_discovery_async(
         # Enqueue следующий шаг pipeline.
         # prepare_document_for_language_discovery повторно определит downstream detector
         # уже с заполненным converted_pdf_ref.
-        celery_app.send_task(
+        send_task_with_context(
             PREPARE_LANGUAGE_DISCOVERY_TASK_NAME,
             kwargs={
                 "document_id": document_id,
@@ -247,7 +248,7 @@ async def _convert_document_for_language_discovery_async(
 
         logger.info(
             "Pre-run document conversion for language discovery completed",
-            extra=result,
+            **result,
         )
         return result
 
@@ -255,7 +256,7 @@ async def _convert_document_for_language_discovery_async(
         # Transient — не трогаем статус документа, Celery сделает retry.
         logger.warning(
             "Transient error during pre-run language discovery conversion; re-raising for retry",
-            extra=log_extra_base,
+            **log_extra_base,
         )
         raise
 
@@ -265,7 +266,7 @@ async def _convert_document_for_language_discovery_async(
         # try/except, поэтому исключения внутри helper не скрывают оригинальный raise.
         logger.exception(
             "Permanent failure during pre-run language discovery conversion",
-            extra=log_extra_base,
+            **log_extra_base,
         )
         await mark_document_discovery_failed_and_recompute(
             db=db,
@@ -282,6 +283,6 @@ async def _convert_document_for_language_discovery_async(
         # ошибку выше и task перейдёт в FAILURE — отдельный мониторинг-алерт.
         logger.exception(
             "Unexpected error during pre-run language discovery conversion; re-raising for retry",
-            extra=log_extra_base,
+            **log_extra_base,
         )
         raise

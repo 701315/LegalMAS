@@ -18,7 +18,7 @@ import json
 import uuid
 from typing import Literal
 from uuid import UUID
-from core.config import settings
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -45,7 +45,7 @@ from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
 from db.repositories.run_repo import RunRepository
 from db.session import get_db
-from mas_queue.celery_app import celery_app
+from mas_queue.task_dispatcher import send_task_with_context
 from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
 from services.run_progress_service import subscribe_run_progress
 
@@ -280,23 +280,28 @@ async def _start_run_core(
             },
         )
 
-        celery_app.send_task(
+        task_kwargs = {
+            "run_id": str(run.id),
+            "deal_id": str(deal_uuid),
+            "force_reclassify": bool(
+                data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
+            ),
+        }
+
+        normalized_tenant_id = (
+            str(tenant_id)
+            if tenant_id and str(tenant_id) not in (
+                "00000000-0000-0000-0000-000000000000",
+                settings.DEV_TENANT_ID,
+            )
+            else None
+        )
+        if normalized_tenant_id is not None:
+            task_kwargs["tenant_id"] = normalized_tenant_id
+
+        send_task_with_context(
             "workers.start_run_pipeline",
-            kwargs={
-                "run_id": str(run.id),
-                "deal_id": str(deal_uuid),
-                "tenant_id": (
-                    str(tenant_id)
-                    if tenant_id and str(tenant_id) not in (
-                        "00000000-0000-0000-0000-000000000000",
-                        settings.DEV_TENANT_ID,
-                    )
-                    else None
-                ),
-                "force_reclassify": bool(
-                    data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
-                ),
-            },
+            kwargs=task_kwargs,
         )
 
     except Exception as e:
@@ -701,7 +706,7 @@ async def start_run_export(
 
     # 6. Ставим задачу на экспорт в Celery — передаём export_id
     try:
-        celery_app.send_task(
+        send_task_with_context(
             "workers.export_by_id",
             kwargs={
                 "export_id": str(export.id),

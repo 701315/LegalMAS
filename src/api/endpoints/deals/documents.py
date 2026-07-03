@@ -17,7 +17,7 @@ from api.schemas.pagination import PaginatedResponse
 from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
 from db.session import get_db
-from mas_queue.celery_app import celery_app
+from mas_queue.task_dispatcher import send_task_with_context
 from services.document_composition_query import DocumentCompositionQueryService
 
 logger = logging.getLogger(__name__)
@@ -236,7 +236,7 @@ async def upload_deal_documents(
                     f.write(file_bytes)
                 zf.write(tmp_file_path, arcname=arcname)
 
-        celery_app.send_task(
+        send_task_with_context(
             "workers.import_bundle",
             kwargs={
                 "deal_id": str(deal_id),

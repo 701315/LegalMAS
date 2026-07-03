@@ -137,6 +137,7 @@ from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.task_dispatcher import send_task_with_context
 from services.run_checks_auto_starter import maybe_start_run_checks
 
 logger = get_logger(__name__)
@@ -1411,5 +1412,5 @@ def _send_task(
             "orchestration_strategy": orchestration_strategy,
         }
     )
-    result = celery_app.send_task(plan.task_name, kwargs=kwargs)
+    result = send_task_with_context(plan.task_name, kwargs=kwargs)
     return result.id

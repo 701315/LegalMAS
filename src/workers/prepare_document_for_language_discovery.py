@@ -41,6 +41,7 @@ from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.task_dispatcher import send_task_with_context
 from services.language_discovery_helpers import (
     mark_document_discovery_failed_and_recompute,
 )
@@ -320,7 +321,7 @@ async def _prepare_document_for_language_discovery_async(
 
         next_task_name = route_result["next_task_name"]
 
-        celery_app.send_task(
+        send_task_with_context(
             next_task_name,
             kwargs={
                 "document_id": document_id,

@@ -34,6 +34,8 @@ Run Checks Auto-Starter Service.
   в текущем UoW, как это уже сделано в classifier.py и run_orchestrator.py.
 """
 
+from __future__ import annotations
+
 import uuid
 
 from sqlalchemy import select
@@ -44,7 +46,7 @@ from core.constants import DocumentStatus, JobStatus, RunStatus
 from core.logging import get_logger
 from db.models.run import Job, Run
 from db.repositories.document_repo import DocumentRepository
-from mas_queue.celery_app import celery_app
+from mas_queue.task_dispatcher import send_task_with_context
 
 logger = get_logger(__name__)
 
@@ -78,7 +80,7 @@ async def maybe_start_run_checks(
 
     logger.info(
         "maybe_start_run_checks: starting",
-        extra={"run_id": run_id_str},
+        run_id=run_id_str,
     )
 
     # 1) Загружаем Run
@@ -87,7 +89,7 @@ async def maybe_start_run_checks(
     if not run_obj:
         logger.warning(
             "maybe_start_run_checks: run not found",
-            extra={"run_id": run_id_str},
+            run_id=run_id_str,
         )
         return
 
@@ -99,10 +101,8 @@ async def maybe_start_run_checks(
     if run_status != RunStatus.RUNNING.value:
         logger.debug(
             "maybe_start_run_checks: run is not RUNNING, skip",
-            extra={
-                "run_id": run_id_str,
-                "status": run_status,
-            },
+            run_id=run_id_str,
+            status=run_status,
         )
         return
 
@@ -111,7 +111,7 @@ async def maybe_start_run_checks(
     if job_exists:
         logger.debug(
             "maybe_start_run_checks: run_deal_checks job already exists, skip",
-            extra={"run_id": run_id_str},
+            run_id=run_id_str,
         )
         return
 
@@ -122,10 +122,8 @@ async def maybe_start_run_checks(
     if not docs:
         logger.info(
             "maybe_start_run_checks: no documents for deal, nothing to check",
-            extra={
-                "run_id": run_id_str,
-                "deal_id": deal_id_str,
-            },
+            run_id=run_id_str,
+            deal_id=deal_id_str,
         )
         return
 
@@ -152,27 +150,23 @@ async def maybe_start_run_checks(
     if not participating_statuses:
         logger.info(
             "maybe_start_run_checks: no participating documents, scheduling zero-check run",
-            extra={
-                "run_id": run_id_str,
-                "deal_id": deal_id_str,
-            },
+            run_id=run_id_str,
+            deal_id=deal_id_str,
         )
     else:
         all_ready = all(s in ready_statuses for s in participating_statuses)
         if not all_ready:
             logger.debug(
                 "maybe_start_run_checks: not all documents are ready for checks",
-                extra={
-                    "run_id": run_id_str,
-                    "deal_id": deal_id_str,
-                    "participating_docs": len(participating_statuses),
-                    "ready_docs": sum(1 for s in participating_statuses if s in ready_statuses),
-                    "blocked_docs": sum(
-                        1
-                        for s in doc_statuses
-                        if s == DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value
-                    ),
-                },
+                run_id=run_id_str,
+                deal_id=deal_id_str,
+                participating_docs=len(participating_statuses),
+                ready_docs=sum(1 for s in participating_statuses if s in ready_statuses),
+                blocked_docs=sum(
+                    1
+                    for s in doc_statuses
+                    if s == DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value
+                ),
             )
             return
 
@@ -199,38 +193,36 @@ async def maybe_start_run_checks(
         # Savepoint откатился сам, основная транзакция цела.
         logger.info(
             "maybe_start_run_checks: run_deal_checks job was created concurrently, skip duplicate",
-            extra={"run_id": run_id_str},
+            run_id=run_id_str,
         )
         return
 
     logger.info(
         "maybe_start_run_checks: scheduling run_deal_checks",
-        extra={
-            "run_id": run_id_str,
-            "deal_id": deal_id_str,
-            "checks_planned": None,
-            "job_id": job_id_str,
-        },
+        run_id=run_id_str,
+        deal_id=deal_id_str,
+        checks_planned=None,
+        job_id=job_id_str,
     )
 
-    celery_app.send_task(
+    # Важно:
+    # tenant_id здесь специально НЕ передаём как None.
+    # Если в текущем logging context уже есть tenant_id/request_id/actor_role,
+    # helper автоматически подмешает их в kwargs.
+    send_task_with_context(
         "workers.run_deal_checks",
         kwargs={
             "run_id": run_id_str,
             "deal_id": deal_id_str,
-            "tenant_id": None,
             "job_id": job_id_str,
         },
     )
 
     logger.info(
         "maybe_start_run_checks: run_deal_checks task sent",
-        extra={
-            "run_id": run_id_str,
-            "deal_id": deal_id_str,
-            "tenant_id": None,
-            "job_id": job_id_str,
-        },
+        run_id=run_id_str,
+        deal_id=deal_id_str,
+        job_id=job_id_str,
     )
 
 
@@ -249,3 +241,5 @@ async def _has_run_deal_checks_job(db: AsyncSession, run_id: uuid.UUID) -> bool:
     )
     job = result.scalar_one_or_none()
     return job is not None
+
+

@@ -92,6 +92,7 @@ from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.task_dispatcher import send_task_with_context
 from services.deal_language_discovery_service import (
     recompute_deal_language_discovery_state,
 )
@@ -487,7 +488,7 @@ async def _start_language_discovery_async(
             task_name = _select_language_discovery_task_name(ver_snap)
 
             try:
-                celery_app.send_task(
+                send_task_with_context(
                     task_name,
                     kwargs={
                         "document_id": doc_snap.document_id_str,
