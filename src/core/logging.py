@@ -174,6 +174,60 @@ def add_context(
     return event_dict
 
 
+def add_trace_context(
+    logger: structlog.types.WrappedLogger,
+    method_name: str,
+    event_dict: structlog.types.EventDict,
+) -> structlog.types.EventDict:
+    """
+    Добавить trace_id и span_id из активного OpenTelemetry span в лог.
+
+    Простым языком:
+    Когда система обрабатывает запрос и при этом активен трейсинг,
+    каждая строка лога автоматически получает два дополнительных поля:
+    - trace_id: уникальный ID всего пути запроса (32 символа hex)
+    - span_id:  уникальный ID текущего участка пути (16 символов hex)
+
+    Это позволяет из любой строки лога в Grafana нажать кнопку
+    "View Trace" и сразу увидеть визуальный путь этого запроса.
+
+    Если трейсинг выключен (OTEL_ENABLED=False) или span не активен —
+    функция ничего не делает. Логирование работает точно как раньше.
+
+    Почему try/except:
+    OpenTelemetry может быть не установлен или не инициализирован.
+    В таком случае любой импорт или вызов может выбросить исключение.
+    Мы никогда не должны ломать логирование из-за трейсинга.
+    """
+    _ = logger, method_name
+
+    try:
+        # Импортируем внутри функции чтобы:
+        # 1. Не падать при старте если opentelemetry не установлен
+        # 2. Не создавать circular import
+        from opentelemetry import trace  # noqa: PLC0415
+
+        span = trace.get_current_span()
+
+        # get_current_span() всегда возвращает объект, даже если span не активен.
+        # Проверяем is_recording() — только активные span имеют реальный контекст.
+        if span.is_recording():
+            ctx = span.get_span_context()
+            if ctx.is_valid:
+                # Форматируем trace_id как 32-символьный hex (стандарт W3C TraceContext).
+                # Именно такой формат ожидает регулярное выражение в Grafana Loki
+                # derivedField: '"trace_id":\s*"([a-f0-9]{32})"'
+                event_dict["trace_id"] = format(ctx.trace_id, "032x")
+                # Форматируем span_id как 16-символьный hex.
+                event_dict["span_id"] = format(ctx.span_id, "016x")
+    except Exception:  # noqa: BLE001
+        # Никогда не ломаем логирование из-за ошибки трейсинга.
+        # Молча проглатываем исключение.
+        pass
+
+    return event_dict
+
+
 def flatten_extra_processor(
     logger: structlog.types.WrappedLogger,
     method_name: str,
@@ -206,6 +260,9 @@ def _shared_processors() -> list[structlog.types.Processor]:
         structlog.stdlib.ExtraAdder(),
         add_context,
         flatten_extra_processor,
+        # Добавляем trace_id и span_id из активного OpenTelemetry span.
+        # Если трейсинг выключен или span не активен — processor ничего не делает.
+        add_trace_context,
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt="iso", utc=True),

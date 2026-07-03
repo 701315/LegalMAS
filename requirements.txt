@@ -94,3 +94,25 @@ python-multipart
 
 requests>=2.31.0
 urllib3>=2.0,<3.0
+
+# Ядро OpenTelemetry
+opentelemetry-api==1.28.2
+opentelemetry-sdk==1.28.2
+opentelemetry-semantic-conventions==0.49b2
+
+# Экспортёр — отправляет трейсы в Tempo по протоколу OTLP HTTP
+opentelemetry-exporter-otlp-proto-http==1.28.2
+
+# Авто-инструментация FastAPI — автоматически создаёт span для каждого HTTP запроса
+opentelemetry-instrumentation-fastapi==0.49b2
+
+# Авто-инструментация SQLAlchemy — создаёт span для каждого SQL запроса к БД
+opentelemetry-instrumentation-sqlalchemy==0.49b2
+
+# Авто-инструментация httpx — создаёт span для каждого внешнего HTTP вызова
+# (LLM, конвертер документов, proxy к Alertmanager и т.д.)
+opentelemetry-instrumentation-httpx==0.49b2
+
+# Авто-инструментация Celery — создаёт span для publish и execute задач
+# Подключается во второй волне (Phase 2), здесь только устанавливается
+opentelemetry-instrumentation-celery==0.49b2

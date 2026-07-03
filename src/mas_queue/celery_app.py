@@ -74,8 +74,10 @@ from celery import Celery
 from celery.signals import (
     task_postrun,
     task_prerun,
+    worker_init,
     worker_process_init,
     worker_process_shutdown,
+    worker_shutdown,
 )
 from kombu import Exchange, Queue
 
@@ -88,6 +90,34 @@ setup_logging()
 
 logger = get_logger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _is_solo_worker(sender: Any | None) -> bool:
+    """
+    Определить, что Celery worker использует pool=solo.
+
+    Почему это нужно:
+    - для prefork tracing должен инициализироваться в child process
+      через worker_process_init;
+    - для solo нет child process, поэтому tracing нужно инициализировать
+      в main process через worker_init.
+    """
+    if sender is None:
+        return False
+
+    pool_cls = getattr(sender, "pool_cls", None)
+    if pool_cls is None:
+        return False
+
+    pool_name = (
+        f"{getattr(pool_cls, '__module__', '')}."
+        f"{getattr(pool_cls, '__name__', '')}"
+    ).lower()
+
+    return "solo" in pool_name
 
 # ---------------------------------------------------------------------------
 # Экземпляр приложения
@@ -385,16 +415,60 @@ celery_app.conf.update(
     },
 )
 
+@worker_init.connect
+def _configure_solo_worker_observability(sender: Any = None, **kwargs: Any) -> None:
+    """
+    Initialize logging + tracing for solo workers.
+
+    Простым языком:
+    В solo pool нет child process, значит worker_process_init не срабатывает
+    так как в prefork. Поэтому для solo workers tracing надо поднимать
+    в main process через worker_init.
+
+    Для prefork workers здесь tracing НЕ инициализируем, иначе parent process
+    инициализирует provider до fork, что плохо.
+    """
+    _ = kwargs
+
+    if not _is_solo_worker(sender):
+        return
+
+    setup_logging()
+
+    try:
+        from core.tracing import setup_worker_tracing  # noqa: PLC0415
+        setup_worker_tracing()
+    except Exception:
+        logger.exception(
+            "Failed to initialize tracing in solo worker main process"
+        )
+
+
+
 @worker_process_init.connect
 def _configure_worker_process_logging(**kwargs: Any) -> None:
     """
-    Reconfigure logging inside a Celery worker process.
+    Reconfigure logging and initialize tracing inside a prefork worker child process.
 
-    This is especially important for prefork mode where child processes
-    need their own logging setup. It is harmless in solo mode.
+    Простым языком:
+    Каждый prefork child process — это отдельный Python-процесс.
+    Ему нужны:
+    1) свой logging setup;
+    2) свой TracerProvider + SQLAlchemy/httpx instrumentation.
+
+    Это безопасно для prefork child processes.
+    Для solo workers tracing поднимается в worker_init.
     """
     _ = kwargs
     setup_logging()
+
+    try:
+        from core.tracing import setup_worker_tracing  # noqa: PLC0415
+        setup_worker_tracing()
+    except Exception:
+        logger.exception(
+            "Failed to initialize tracing in worker child process"
+        )
 
 
 @task_prerun.connect
@@ -407,10 +481,12 @@ def _bind_task_logging_context(
     **signal_kwargs: Any,
 ) -> None:
     """
-    Bind generic task logging context for every Celery task.
+    Bind generic task logging context and restore trace context
+    for every Celery task.
 
-    This is a universal fallback even for tasks that do not inherit from
-    MASBaseTask.
+    Делаем две вещи:
+    1) ставим logging context (request_id/run_id/deal_id/...)
+    2) создаём worker-side consumer span, продолжая trace из Celery headers
     """
     _ = args, signal_kwargs
 
@@ -441,13 +517,94 @@ def _bind_task_logging_context(
         queue=queue,
     )
 
+    # ---------------------------------------------------------------------
+    # Новое в B.1: создать worker-side execute span.
+    #
+    # Простым языком:
+    # - publish side положил trace context в Celery headers
+    # - worker извлекает его здесь
+    # - создаёт child span: celery.execute/<task_name>
+    # - все SQL/httpx/logs внутри задачи попадают в этот span
+    # ---------------------------------------------------------------------
+    try:
+        raw_headers = getattr(request, "headers", None) or {}
+
+        from core.tracing import start_celery_consumer_span  # noqa: PLC0415
+
+        span, token = start_celery_consumer_span(
+            task_name=getattr(task_obj, "name", "unknown"),
+            task_id=task_id or getattr(request, "id", None),
+            queue=queue,
+            headers=raw_headers,
+            request_id=task_kwargs.get("request_id"),
+            tenant_id=task_kwargs.get("tenant_id"),
+            deal_id=task_kwargs.get("deal_id"),
+            run_id=task_kwargs.get("run_id"),
+            document_id=task_kwargs.get("document_id") or task_kwargs.get("doc_id"),
+        )
+
+        if request is not None:
+            setattr(request, "_otel_consumer_span", span)
+            setattr(request, "_otel_consumer_token", token)
+
+    except Exception:
+        # Tracing никогда не должен ломать task execution.
+        logger.exception(
+            "Failed to restore tracing context for Celery task",
+            task_name=getattr(task_obj, "name", None),
+            task_id=task_id or getattr(request, "id", None),
+        )
+
 
 @task_postrun.connect
-def _clear_task_logging_context(**kwargs: Any) -> None:
+def _clear_task_logging_context(
+    sender: Any = None,
+    task_id: str | None = None,
+    task: Any = None,
+    retval: Any = None,
+    state: str | None = None,
+    **kwargs: Any,
+) -> None:
     """
-    Always clear task-scoped logging context after task execution.
+    Close worker-side tracing span and clear task logging context.
+
+    Простым языком:
+    После выполнения задачи нужно:
+    1) закрыть Celery execute span;
+    2) отвязать context token;
+    3) очистить logging context.
+
+    Без этого:
+    - span не уйдёт в Tempo вовремя;
+    - следующая задача может унаследовать чужой trace context/log context.
     """
-    _ = kwargs
+    _ = task_id, retval, kwargs
+
+    try:
+        task_obj = task or sender
+        request = getattr(task_obj, "request", None) if task_obj is not None else None
+
+        if request is not None:
+            span = getattr(request, "_otel_consumer_span", None)
+            token = getattr(request, "_otel_consumer_token", None)
+
+            from core.tracing import finish_celery_consumer_span  # noqa: PLC0415
+
+            finish_celery_consumer_span(
+                span,
+                token,
+                state=state,
+                error_message="Celery task failed" if state == "FAILURE" else None,
+            )
+
+            if hasattr(request, "_otel_consumer_span"):
+                delattr(request, "_otel_consumer_span")
+            if hasattr(request, "_otel_consumer_token"):
+                delattr(request, "_otel_consumer_token")
+
+    except Exception:
+        logger.exception("Failed to finalize tracing for Celery task")
+
     clear_log_context()
 
 # ---------------------------------------------------------------------------
@@ -456,6 +613,7 @@ def _clear_task_logging_context(**kwargs: Any) -> None:
 
 
 @worker_process_shutdown.connect
+@worker_shutdown.connect
 def _cleanup_worker_process_async_resources(
     pid: int | None = None,
     exitcode: int | None = None,
@@ -480,6 +638,20 @@ def _cleanup_worker_process_async_resources(
         pid=pid,
         exitcode=exitcode,
     )
+
+    # Новое в B.1: shutdown tracing provider перед закрытием engine и loop.
+    # Важно делать это ПЕРВЫМ: pending spans могут содержать SQL traces,
+    # которые ещё не отправлены. Если сначала закрыть engine, эти spans
+    # не смогут быть корректно завершены.
+    try:
+        from core.tracing import shutdown_worker_tracing  # noqa: PLC0415
+        shutdown_worker_tracing()
+    except Exception:
+        logger.exception(
+            "Celery worker process shutdown: failed to shutdown tracing",
+            pid=pid,
+            exitcode=exitcode,
+        )
 
     if not has_worker_loop():
         logger.info(

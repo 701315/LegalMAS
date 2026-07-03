@@ -524,6 +524,60 @@ class Settings(BaseSettings):
     CELERY_HEAVY_WORKER_CONCURRENCY: int = 1
 
     # ---------------------------------------------------------------------------
+    # --- OpenTelemetry / Distributed Tracing ---
+    #
+    # Простым языком:
+    # Эти настройки управляют системой трейсинга — записью "путей запросов".
+    #
+    # OTEL_ENABLED — главный рубильник. False = трейсинг полностью выключен,
+    #   система работает точно как раньше, никакой дополнительной нагрузки.
+    #
+    # OTEL_SERVICE_NAME — имя нашего сервиса в трейсах. По этому имени
+    #   в Grafana можно фильтровать трейсы именно от нашего API.
+    #   Используем "legalmas-api" чтобы совпадало с именованием в метриках.
+    #
+    # OTEL_EXPORTER_OTLP_ENDPOINT — адрес куда отправлять трейсы.
+    #   Backend работает на host-машине, Tempo в Docker.
+    #   127.0.0.1:4318 — это порт Tempo, доступный с host-машины.
+    #   /v1/traces — стандартный путь OTLP HTTP endpoint.
+    #
+    # OTEL_TRACES_SAMPLER — стратегия выборки трейсов:
+    #   parentbased_traceidratio — умная стратегия:
+    #     * если запрос пришёл с уже существующим trace_id (например от gateway),
+    #       то решение о sampling принимается на основе родительского решения;
+    #     * если запрос новый — применяется OTEL_TRACES_SAMPLER_ARG как вероятность.
+    #
+    # OTEL_TRACES_SAMPLER_ARG — вероятность записи трейса (0.0 — 1.0):
+    #   1.0 = записывать 100% запросов (dev/local — видим всё).
+    #   0.1 = записывать 10% (production — экономим место и CPU).
+    #
+    # TEMPO_EXTERNAL_URL — адрес Tempo для отображения в admin panel.
+    #   Аналогично GRAFANA_EXTERNAL_URL и PROMETHEUS_EXTERNAL_URL.
+    # ---------------------------------------------------------------------------
+
+    # Главный рубильник трейсинга.
+    # Установите OTEL_ENABLED=true в .env чтобы включить трейсинг.
+    OTEL_ENABLED: bool = False
+
+    # Имя сервиса в трейсах — так наш API будет виден в Grafana/Tempo.
+    OTEL_SERVICE_NAME: str = "legalmas-api"
+
+    # Адрес OTLP HTTP endpoint Tempo.
+    # Backend на host → Tempo в Docker → 127.0.0.1:4318 доступен с host.
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = "http://127.0.0.1:4318/v1/traces"
+
+    # Стратегия выборки трейсов.
+    # parentbased_traceidratio — умная выборка с учётом родительского span.
+    OTEL_TRACES_SAMPLER: str = "parentbased_traceidratio"
+
+    # Вероятность записи трейса: 1.0 = 100% для dev, снижайте в production.
+    OTEL_TRACES_SAMPLER_ARG: float = 1.0
+
+    # Адрес Tempo для ссылок в admin panel.
+    TEMPO_EXTERNAL_URL: str = "http://localhost:3200"
+
+
+    # ---------------------------------------------------------------------------
     # --- Validators ---
     # ---------------------------------------------------------------------------
 

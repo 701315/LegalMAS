@@ -64,6 +64,31 @@ services:
       timeout: 5s
       retries: 5
 
+  tempo:
+    image: grafana/tempo:2.4.1
+    container_name: mas_tempo
+    restart: unless-stopped
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      # Конфигурационный файл Tempo
+      - ./monitoring/tempo/tempo-config.yml:/etc/tempo.yaml:ro
+      # Постоянное хранилище для самих трейсов
+      - tempo_data:/var/tempo
+    ports:
+      # Порт 3200 — HTTP API Tempo (Grafana читает трейсы отсюда)
+      - "${MONITORING_BIND_ADDRESS:-127.0.0.1}:${TEMPO_PORT:-3200}:3200"
+      # Порт 4317 — OTLP gRPC (альтернативный протокол, оставляем для совместимости)
+      - "${MONITORING_BIND_ADDRESS:-127.0.0.1}:4317:4317"
+      # Порт 4318 — OTLP HTTP (именно сюда наш Python backend будет слать трейсы)
+      # Backend работает на host-машине, Tempo в Docker.
+      # 127.0.0.1:4318 доступен с host-машины — всё работает.
+      - "${MONITORING_BIND_ADDRESS:-127.0.0.1}:4318:4318"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3200/ready || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   grafana:
     image: grafana/grafana-oss:10.4.0
     container_name: mas_grafana
@@ -71,10 +96,11 @@ services:
     ports:
       - "${MONITORING_BIND_ADDRESS:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
-      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-change-me-now}"
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:?set GRAFANA_ADMIN_USER in .env.monitoring}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env.monitoring}"
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_FEATURE_TOGGLES_ENABLE: "correlations traceqlEditor"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -82,6 +108,7 @@ services:
     depends_on:
       - prometheus
       - loki
+      - tempo
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -90,5 +117,6 @@ volumes:
   grafana_data:
   loki_data:
   alertmanager_data:
-
+  tempo_data:
+  
   

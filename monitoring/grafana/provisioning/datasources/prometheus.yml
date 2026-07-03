@@ -1,6 +1,12 @@
 apiVersion: 1
 
 datasources:
+
+  # ---------------------------------------------------------------------------
+  # Prometheus — источник метрик.
+  # Здесь хранятся числовые показатели системы: количество запросов,
+  # время ответа, количество ошибок и т.д.
+  # ---------------------------------------------------------------------------
   - name: Prometheus
     type: prometheus
     uid: prometheus
@@ -12,6 +18,15 @@ datasources:
       timeInterval: "15s"
       httpMethod: POST
 
+  # ---------------------------------------------------------------------------
+  # Loki — источник логов.
+  #
+  # Простым языком:
+  # Здесь хранятся текстовые записи о всех событиях в системе.
+  # Через derivedFields мы превращаем некоторые поля из JSON-логов в кнопки:
+  # - trace_id → открывает соответствующий trace в Tempo
+  # - deal_id, run_id, document_id, task_id → фильтруют логи по этому ID
+  # ---------------------------------------------------------------------------
   - name: Loki
     type: loki
     uid: loki
@@ -23,6 +38,36 @@ datasources:
       maxLines: 5000
       timeout: 60
       derivedFields:
+
+        # -------------------------------------------------------------------
+        # trace_id → ссылка на трейс в Tempo.
+        #
+        # Простым языком:
+        # Когда в логе есть поле trace_id (32 hex-символа),
+        # Grafana покажет кнопку "View Trace in Tempo".
+        # При клике Grafana откроет Tempo panel с этим trace ID.
+        #
+        # Как это работает технически:
+        # - datasourceUid: tempo — указывает datasource куда идти
+        # - url: "${__value.raw}" — говорит Grafana использовать
+        #   raw значение trace_id как параметр открытия trace
+        # - Grafana сама формирует правильный TraceQL/traceId запрос
+        #   к Tempo — не нужно вручную писать /explore?left={...}
+        #
+        # Именно это правильный современный формат для internal link
+        # между Loki и Tempo в Grafana 10+.
+        # -------------------------------------------------------------------
+        - name: trace_id
+          matcherRegex: '"trace_id":\s*"([a-f0-9]{32})"'
+          url: "${__value.raw}"
+          urlDisplayLabel: "View Trace in Tempo"
+          datasourceUid: tempo
+
+        # -------------------------------------------------------------------
+        # Business correlation fields — фильтруют логи по бизнес-ID.
+        # Не трогаем — работают правильно.
+        # -------------------------------------------------------------------
+
         - name: deal_id
           matcherRegex: '"deal_id":\s*"([^"]+)"'
           url: '/explore?left={"datasource":"loki","queries":[{"expr":"{job=\"legalmas\"} | json | deal_id = \"${__value.raw}\""}]}'
@@ -43,5 +88,72 @@ datasources:
           url: '/explore?left={"datasource":"loki","queries":[{"expr":"{job=\"legalmas\"} | json | task_id = \"${__value.raw}\""}]}'
           urlDisplayLabel: "Logs for this task"
 
+  # ---------------------------------------------------------------------------
+  # Tempo — источник distributed traces (трейсов).
+  #
+  # Простым языком:
+  # Tempo хранит "пути запросов" — визуальные графы того, как один
+  # пользовательский запрос прошёл через все части системы.
+  #
+  # Связки:
+  # 1. Tempo → Loki (из трейса можно перейти в логи этого же запроса)
+  # 2. Tempo → Prometheus (service map — карта зависимостей сервисов)
+  # 3. Loki → Tempo (из лога можно перейти в трейс — настроено выше)
+  # ---------------------------------------------------------------------------
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    isDefault: false
+    editable: false
+    jsonData:
+      httpMethod: GET
 
-          
+      # Node Graph — визуальная карта зависимостей сервисов.
+      nodeGraph:
+        enabled: true
+
+      # TraceQL Search настройки.
+      traceQuery:
+        timeShiftEnabled: true
+        spanStartTimeShift: "1h"
+        spanEndTimeShift: "-1h"
+
+      search:
+        hide: false
+
+      # Связка Tempo → Loki.
+      # Когда открыт trace, Grafana покажет кнопку "Logs for this span".
+      # При клике покажет логи с соответствующим trace_id.
+      lokiSearch:
+        datasourceUid: loki
+
+      # Связка Tempo → Prometheus (Service Map).
+      # Tempo генерирует RED-метрики (Rate/Errors/Duration) из трейсов
+      # и отправляет их в Prometheus.
+      serviceMap:
+        datasourceUid: prometheus
+
+      # ------------------------------------------------------------------
+      # tracesToLogsV2 — правильный современный формат связки Tempo → Loki.
+      #
+      # Простым языком:
+      # Когда в trace виден span, Grafana предложит перейти в Loki
+      # и показать логи с тем же trace_id.
+      #
+      # customQuery: true — используем свой LogQL запрос.
+      # query: "{job=\"legalmas\"} | json | trace_id = \"${__span.traceId}\""
+      #   говорит Grafana как искать логи по trace_id этого span.
+      # ------------------------------------------------------------------
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: "-1h"
+        spanEndTimeShift: "1h"
+        filterByTraceID: true
+        filterBySpanID: false
+        customQuery: true
+        query: '{job="legalmas"} | json | trace_id="${__span.traceId}"'
+
+
+        
