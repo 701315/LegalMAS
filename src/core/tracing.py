@@ -1,5 +1,3 @@
-# src/core/tracing.py
-
 """
 OpenTelemetry distributed tracing setup.
 
@@ -29,23 +27,167 @@ OpenTelemetry distributed tracing setup.
 - extract_trace_context(headers) — извлекает trace context из Celery headers.
 - start_celery_consumer_span(...) — создаёт worker-side execute span.
 - finish_celery_consumer_span(...) — корректно закрывает worker-side span.
+
+Для noisy tasks:
+- bind_noisy_task_context(task_name) — пометить текущий execution context как noisy
+- reset_noisy_task_context(token) — снять noisy marker
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+from contextvars import ContextVar, Token
 from typing import Any
 
 _logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Флаг инициализации — защита от двойной инициализации в одном процессе.
-# Важно:
-# - API процесс и worker process инициализируются отдельно.
-# - В каждом процессе tracing должен подняться ровно один раз.
 # ---------------------------------------------------------------------------
 _tracing_initialized = False
+
+
+# ---------------------------------------------------------------------------
+# Noisy task context
+#
+# Простым языком:
+# Когда system task вроде workers.outbox_dispatcher начинает выполняться,
+# мы помечаем текущий Python context как "noisy".
+#
+# Потом специальный SpanProcessor автоматически добавляет атрибут
+# app.noisy_task_name ко ВСЕМ spans, которые стартуют в этом контексте:
+# - celery.execute/...
+# - SQLAlchemy spans
+# - httpx spans
+#
+# А exporter уже на выходе выкидывает все spans с этим атрибутом.
+#
+# Это лучше, чем:
+# - угадывать span по имени "SELECT ..."
+# - использовать internal suppression APIs
+# - надеяться что sampler автоматически погасит все дочерние spans
+# ---------------------------------------------------------------------------
+
+_noisy_task_name_var: ContextVar[str | None] = ContextVar(
+    "otel_noisy_task_name",
+    default=None,
+)
+
+_noisy_tasks_cache: frozenset[str] | None = None
+
+
+def _get_noisy_tasks() -> frozenset[str]:
+    """
+    Получить множество noisy task names из settings.OTEL_NOISY_TASKS.
+    """
+    global _noisy_tasks_cache
+
+    if _noisy_tasks_cache is not None:
+        return _noisy_tasks_cache
+
+    try:
+        from core.config import settings  # noqa: PLC0415
+
+        raw = str(getattr(settings, "OTEL_NOISY_TASKS", "") or "")
+        tasks = frozenset(
+            item.strip()
+            for item in raw.split(",")
+            if item.strip()
+        )
+    except Exception:  # noqa: BLE001
+        tasks = frozenset()
+
+    _noisy_tasks_cache = tasks
+    return tasks
+
+
+def _is_noisy_task(task_name: str | None) -> bool:
+    """
+    Проверить, относится ли task к noisy task list.
+    """
+    if not task_name:
+        return False
+    return task_name in _get_noisy_tasks()
+
+
+def _get_current_noisy_task_name() -> str | None:
+    """
+    Получить noisy task name из текущего contextvars context.
+    """
+    try:
+        return _noisy_task_name_var.get()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def bind_noisy_task_context(task_name: str | None) -> Token[str | None] | None:
+    """
+    Пометить текущий execution context как noisy task.
+
+    Возвращает token для последующего reset.
+    Если task не noisy — возвращает None.
+    """
+    if not _is_noisy_task(task_name):
+        return None
+    try:
+        return _noisy_task_name_var.set(task_name)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def reset_noisy_task_context(token: Token[str | None] | None) -> None:
+    """
+    Снять noisy task marker.
+    """
+    if token is None:
+        return
+    try:
+        _noisy_task_name_var.reset(token)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+class _NoisyTaskTaggingSpanProcessor:
+    """
+    SpanProcessor, который автоматически помечает spans атрибутом
+    app.noisy_task_name=<task_name>, если текущий execution context noisy.
+
+    Простым языком:
+    если сейчас исполняется workers.outbox_dispatcher, то любой span,
+    созданный внутри него, получает атрибут:
+      app.noisy_task_name=workers.outbox_dispatcher
+
+    Это даёт exporter'у надёжный и явный критерий фильтрации.
+    """
+
+    def on_start(self, span: Any, parent_context: Any | None = None) -> None:
+        _ = parent_context
+
+        try:
+            if span is None:
+                return
+            if not span.is_recording():
+                return
+
+            noisy_task_name = _get_current_noisy_task_name()
+            if not noisy_task_name:
+                return
+
+            span.set_attribute("app.noisy_task_name", noisy_task_name)
+            span.set_attribute("app.noisy_task", True)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def on_end(self, span: Any) -> None:
+        _ = span
+
+    def shutdown(self) -> None:
+        return None
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        _ = timeout_millis
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -85,24 +227,16 @@ def _should_export_span(span: Any) -> bool:
     """
     Решить, нужно ли экспортировать span в Tempo.
 
-    Простым языком:
-    Иногда FastAPI instrumentation всё равно создаёт spans для /metrics,
-    даже если excluded_urls настроен. Чтобы убрать такой шум надёжно,
-    фильтруем spans прямо перед отправкой в Tempo.
-
-    Это работает надёжнее, чем полагаться только на excluded_urls.
-
-    Что НЕ выкидываем:
-    - /api/v1/tenant/metrics
-    Потому что это бизнесовый endpoint, а не технический scrape endpoint.
+    Фильтруем:
+    1) технические HTTP spans (/metrics, /docs, ...)
+    2) любые spans, помеченные как noisy task spans
     """
     name = str(getattr(span, "name", "") or "")
     attrs = dict(getattr(span, "attributes", {}) or {})
 
-    # 1. Быстрый фильтр по имени span.
-    # FastAPI server spans обычно имеют имя вида:
-    #   GET /metrics
-    #   GET /docs
+    # ------------------------------------------------------------------
+    # 1. Фильтр технических HTTP spans
+    # ------------------------------------------------------------------
     if name.startswith("GET /metrics") or name.startswith("HEAD /metrics"):
         return False
     if name.startswith("GET /docs") or name.startswith("HEAD /docs"):
@@ -114,7 +248,6 @@ def _should_export_span(span: Any) -> bool:
     if name.startswith("GET /favicon.ico") or name.startswith("HEAD /favicon.ico"):
         return False
 
-    # 2. Более надёжный фильтр по attrs, если instrumentation положил path туда.
     path_candidates = [
         attrs.get("http.route"),
         attrs.get("http.target"),
@@ -126,18 +259,23 @@ def _should_export_span(span: Any) -> bool:
         if isinstance(candidate, str) and _is_technical_path(candidate):
             return False
 
+    # ------------------------------------------------------------------
+    # 2. Фильтр spans, созданных внутри noisy task context
+    # ------------------------------------------------------------------
+    noisy_task_name = attrs.get("app.noisy_task_name")
+    if isinstance(noisy_task_name, str) and noisy_task_name.strip():
+        return False
+
+    if attrs.get("app.noisy_task") is True:
+        return False
+
     return True
 
 
 class _FilteringSpanExporter:
     """
-    Обёртка над реальным exporter'ом, которая отбрасывает технические spans.
-
-    Простым языком:
-    Даже если instrumentation создал span для /metrics,
-    этот exporter не даст ему уйти в Tempo.
-
-    Это последний и самый надёжный рубеж фильтрации.
+    Обёртка над реальным exporter'ом, которая отбрасывает spans,
+    которые не должны уходить в Tempo.
     """
 
     def __init__(self, wrapped_exporter: Any) -> None:
@@ -161,7 +299,7 @@ class _FilteringSpanExporter:
         if callable(force_flush):
             return bool(force_flush(timeout_millis))
         return True
-    
+
 
 def setup_tracing_provider() -> None:
     """
@@ -209,16 +347,6 @@ def setup_tracing_provider() -> None:
 def setup_worker_tracing() -> None:
     """
     Инициализировать TracerProvider для Celery worker процесса.
-
-    Простым языком:
-    Worker — это отдельный Python-процесс, ему нужен свой TracerProvider.
-    Мы используем отдельное service.name:
-      legalmas-api-worker
-    чтобы в Tempo/Grafana отличать API spans от worker spans.
-
-    Вызывается:
-    - в prefork child process через worker_process_init
-    - в solo worker main process через worker_init
     """
     global _tracing_initialized
 
@@ -260,8 +388,6 @@ def setup_worker_tracing() -> None:
 def instrument_fastapi_app(app: object) -> None:
     """
     Подключить FastAPI instrumentation к уже созданному app.
-
-    Вызывается ПОСЛЕ app = FastAPI(...), но ДО старта приложения.
     """
     from core.config import settings  # noqa: PLC0415
 
@@ -291,14 +417,12 @@ def shutdown_worker_tracing() -> None:
 
 def inject_trace_context(headers: dict[str, Any] | None = None) -> dict[str, Any]:
     """
-    Сериализовать текущий OpenTelemetry trace context в словарь headers.
+    Сериализовать текущий OpenTelemetry trace context в headers.
 
+    Важно:
+    если сейчас выполняется noisy task, trace context дальше НЕ пробрасываем.
     Простым языком:
-    Когда API/worker публикует Celery-задачу, мы кладём в headers
-    traceparent/tracestate. Worker потом извлечёт их и продолжит
-    тот же trace.
-
-    Если tracing выключен или активного span нет — возвращаем headers как есть.
+    downstream бизнес-задачи не должны становиться детьми скрытого system trace.
     """
     carrier: dict[str, Any] = dict(headers or {})
 
@@ -306,6 +430,11 @@ def inject_trace_context(headers: dict[str, Any] | None = None) -> dict[str, Any
         from core.config import settings  # noqa: PLC0415
 
         if not settings.OTEL_ENABLED:
+            return carrier
+
+        # Если текущий execution context noisy —
+        # не пробрасываем tracing дальше.
+        if _get_current_noisy_task_name():
             return carrier
 
         from opentelemetry import trace  # noqa: PLC0415
@@ -317,7 +446,6 @@ def inject_trace_context(headers: dict[str, Any] | None = None) -> dict[str, Any
 
         inject(carrier)
     except Exception:  # noqa: BLE001
-        # Propagation никогда не должна ломать publish path.
         pass
 
     return carrier
@@ -326,8 +454,6 @@ def inject_trace_context(headers: dict[str, Any] | None = None) -> dict[str, Any
 def extract_trace_context(headers: dict[str, Any] | None) -> object | None:
     """
     Извлечь trace context из Celery headers.
-
-    Возвращает OpenTelemetry Context или None.
     """
     if not headers:
         return None
@@ -366,21 +492,9 @@ def start_celery_consumer_span(
     """
     Создать worker-side execute span для Celery task.
 
-    Простым языком:
-    Worker получает Celery message, извлекает trace context из headers
-    и создаёт новый span:
-      celery.execute/<task_name>
-
-    Этот span становится current span на время выполнения задачи,
-    поэтому:
-    - SQLAlchemy spans становятся его дочерними spans
-    - httpx spans становятся его дочерними spans
-    - structlog автоматически получает trace_id/span_id
-
-    Возвращает:
-      (span, token)
-    или
-      (None, None) если tracing выключен/не поднялся.
+    Для noisy tasks span тоже может быть создан, но будет автоматически
+    помечен app.noisy_task_name и отброшен exporter'ом вместе со всеми
+    дочерними SQL/httpx spans.
     """
     try:
         from core.config import settings  # noqa: PLC0415
@@ -464,7 +578,9 @@ def finish_celery_consumer_span(
 # ---------------------------------------------------------------------------
 
 def _shutdown_provider() -> None:
-    """Общая логика shutdown для API и worker."""
+    """
+    Общая логика shutdown для API и worker.
+    """
     global _tracing_initialized
 
     from core.config import settings  # noqa: PLC0415
@@ -493,7 +609,9 @@ def _init_tracer_provider(
     *,
     service_name_override: str | None = None,
 ) -> None:
-    """Создать и зарегистрировать TracerProvider с OTLP HTTP exporter."""
+    """
+    Создать и зарегистрировать TracerProvider с OTLP HTTP exporter.
+    """
     from opentelemetry import trace  # noqa: PLC0415
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import (  # noqa: PLC0415
         OTLPSpanExporter,
@@ -520,14 +638,14 @@ def _init_tracer_provider(
     sampler = _build_sampler(settings)
     provider = TracerProvider(resource=resource, sampler=sampler)
 
+    # Сначала добавляем processor, который помечает noisy spans.
+    provider.add_span_processor(_NoisyTaskTaggingSpanProcessor())
+
     raw_exporter = OTLPSpanExporter(
         endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT,
         timeout=10,
     )
 
-    # Оборачиваем exporter фильтром.
-    # Это надёжно выкинет /metrics, /docs, /openapi.json и другие
-    # технические spans ещё до отправки в Tempo.
     exporter = _FilteringSpanExporter(raw_exporter)
 
     processor = BatchSpanProcessor(
@@ -550,17 +668,68 @@ def _init_tracer_provider(
     )
 
 
+# ---------------------------------------------------------------------------
+# Environment-aware sampling
+# ---------------------------------------------------------------------------
+
+_ENVIRONMENT_SAMPLING_DEFAULTS: dict[str, float] = {
+    "development": 1.0,
+    "staging": 0.3,
+    "production": 0.1,
+}
+
+
+def _resolve_sampler_arg(settings: object) -> float:
+    """
+    Определить effective sampling rate.
+    """
+    explicit_arg = float(settings.OTEL_TRACES_SAMPLER_ARG)
+    environment = str(getattr(settings, "ENVIRONMENT", "development")).lower()
+
+    config_default = 1.0
+
+    if explicit_arg == config_default and environment in _ENVIRONMENT_SAMPLING_DEFAULTS:
+        env_default = _ENVIRONMENT_SAMPLING_DEFAULTS[environment]
+        if env_default != config_default:
+            _logger.info(
+                "OTEL_TRACES_SAMPLER_ARG not explicitly set, "
+                "using environment-aware default",
+                extra={
+                    "environment": environment,
+                    "effective_sampler_arg": env_default,
+                    "config_default": config_default,
+                },
+            )
+            return max(0.0, min(1.0, env_default))
+
+    return max(0.0, min(1.0, explicit_arg))
+
+
 def _build_sampler(settings: object) -> object:
-    """Построить sampler по настройкам."""
+    """
+    Построить sampler по настройкам.
+
+    Здесь остаётся только обычный environment-aware sampler.
+    Noisy task filtering делается НЕ sampler'ом, а через:
+    context marker -> span tagging -> exporter filtering.
+    """
     from opentelemetry.sdk.trace.sampling import (  # noqa: PLC0415
         ParentBased,
         TraceIdRatioBased,
     )
 
-    sampler_arg = float(settings.OTEL_TRACES_SAMPLER_ARG)
-    sampler_arg = max(0.0, min(1.0, sampler_arg))
-
+    sampler_arg = _resolve_sampler_arg(settings)
     sampler_name = settings.OTEL_TRACES_SAMPLER
+
+    _logger.info(
+        "Building OTEL sampler",
+        extra={
+            "sampler_name": sampler_name,
+            "effective_sampler_arg": sampler_arg,
+            "environment": getattr(settings, "ENVIRONMENT", "unknown"),
+            "noisy_tasks": sorted(_get_noisy_tasks()),
+        },
+    )
 
     if sampler_name == "parentbased_traceidratio":
         return ParentBased(root=TraceIdRatioBased(sampler_arg))
@@ -581,22 +750,14 @@ def _build_sampler(settings: object) -> object:
 
 
 def _instrument_fastapi(app: object) -> None:
-    """Подключить FastAPI instrumentation."""
+    """
+    Подключить FastAPI instrumentation.
+    """
     try:
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor  # noqa: PLC0415
 
         FastAPIInstrumentor.instrument_app(
             app,
-            # Простым языком:
-            # OpenTelemetry FastAPI instrumentation в реальности может матчить
-            # path не совсем так, как ожидается по документации.
-            # Поэтому для надёжного исключения /metrics используем более
-            # широкий паттерн начала строки.
-            #
-            # Важно:
-            # - исключаем именно технический /metrics endpoint;
-            # - /api/v1/tenant/metrics НЕ подпадает, потому что начинается
-            #   не с "/metrics", а с "/api/v1/tenant/metrics".
             excluded_urls=(
                 "^/metrics($|/.*)"
                 "|^/health($|/.*)"
@@ -614,7 +775,9 @@ def _instrument_fastapi(app: object) -> None:
 
 
 def _enrich_span_from_request_context(span: object, scope: dict) -> None:
-    """Обогатить FastAPI span бизнес-полями из logging context."""
+    """
+    Обогатить FastAPI span бизнес-полями из logging context.
+    """
     _ = scope
 
     try:
@@ -649,10 +812,6 @@ def _enrich_span_from_request_context(span: object, scope: dict) -> None:
 def _instrument_sqlalchemy() -> None:
     """
     Подключить SQLAlchemy instrumentation к существующему engine.
-
-    Важно:
-    engine уже создан заранее в db/session.py,
-    поэтому инструментируем именно engine.sync_engine.
     """
     try:
         from db.session import engine  # noqa: PLC0415
@@ -671,7 +830,9 @@ def _instrument_sqlalchemy() -> None:
 
 
 def _instrument_httpx() -> None:
-    """Подключить httpx instrumentation."""
+    """
+    Подключить httpx instrumentation.
+    """
     try:
         from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor  # noqa: PLC0415
 
@@ -684,9 +845,6 @@ def _instrument_httpx() -> None:
 def _compact_attributes(values: dict[str, Any]) -> dict[str, Any]:
     """
     Убрать None/пустые значения из span attributes.
-
-    Важно:
-    OpenTelemetry attributes должны быть простыми типами.
     """
     compacted: dict[str, Any] = {}
     for key, value in values.items():
@@ -699,4 +857,42 @@ def _compact_attributes(values: dict[str, Any]) -> dict[str, Any]:
         compacted[key] = value
     return compacted
 
+# ---------------------------------------------------------------------------
+# Business span helpers для worker stages
+# ---------------------------------------------------------------------------
 
+def get_stage_tracer() -> Any | None:
+    """
+    Получить tracer для business spans в worker stages.
+
+    Простым языком:
+    Если tracing включён и инициализирован — возвращаем tracer.
+    Если нет — возвращаем None.
+
+    Код вызывающей стороны:
+        from contextlib import nullcontext
+        tracer = get_stage_tracer()
+        with (tracer.start_as_current_span("stage.xxx") if tracer else nullcontext()):
+            do_work()
+
+    Это гарантирует:
+    - никакого дублирования кода
+    - tracing никогда не ломает бизнес-логику
+    - при OTEL_ENABLED=false нулевая стоимость
+    """
+    try:
+        from core.config import settings  # noqa: PLC0415
+
+        if not settings.OTEL_ENABLED:
+            return None
+
+        if not _tracing_initialized:
+            return None
+
+        from opentelemetry import trace  # noqa: PLC0415
+        return trace.get_tracer("legalmas.stages")
+
+    except Exception:  # noqa: BLE001
+        return None
+    
+    

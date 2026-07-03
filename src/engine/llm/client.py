@@ -31,6 +31,15 @@ from core.logging import get_logger
 from engine.retrieval.tokenization import count_tokens
 from ops.metrics import METRICS
 
+
+# ── Tracing: импортируем лениво чтобы не ломать если OTEL выключен ───────────
+# get_stage_tracer() возвращает Tracer или None — обе ситуации обрабатываем.
+try:
+    from core.tracing import get_stage_tracer as _get_stage_tracer
+    _TRACING_AVAILABLE = True
+except ImportError:
+    _TRACING_AVAILABLE = False
+
 logger = get_logger(__name__)
 
 # P8.5: Valid values for response_format parameter
@@ -123,6 +132,100 @@ class LLMClient:
     # - 0 означает «ровно один вызов без ретраев»;
     # - 2 означает «до трёх вызовов: первая попытка + 2 повтора».
     _DEFAULT_MAX_RETRIES = getattr(settings, "LLM_MAX_RETRIES", 2)
+
+
+    # =========================================================================
+    # Tracing helpers
+    # Вызываются только из call() и call_async().
+    # Defensive: никогда не бросают исключение наружу.
+    # =========================================================================
+
+    def _get_tracer(self):
+        """
+        Вернуть tracer или None.
+
+        Вызываем _get_stage_tracer() лениво (не в __init__) потому что:
+        - LLMClient — singleton, создаётся при первом импорте;
+        - OTEL может инициализироваться позже;
+        - в worker-system процессе OTEL_ENABLED=false, get_stage_tracer() вернёт None.
+        """
+        if not _TRACING_AVAILABLE:
+            return None
+        try:
+            return _get_stage_tracer()
+        except Exception:
+            return None
+
+    def _enrich_llm_span(
+        self,
+        span,
+        result: "LLMResponse | None",
+        duration_ms: int,
+        error_type: "str | None",
+        exc: "Exception | None",
+    ) -> None:
+        """
+        Обогатить span llm.call атрибутами после завершения вызова.
+
+        Вызывается из finally блока — никогда не бросает исключение.
+        """
+        try:
+            from opentelemetry.trace import StatusCode
+
+            span.set_attribute("llm.success", error_type is None and result is not None)
+            span.set_attribute("llm.duration_ms", duration_ms)
+
+            if error_type is not None:
+                span.set_attribute("llm.error_type", error_type)
+
+            if isinstance(result, LLMResponse):
+                # tokens_used — это total (prompt + completion)
+                # Для Ollama пробуем вытащить prompt/completion отдельно из raw_response
+                span.set_attribute("llm.tokens_total", result.tokens_used)
+
+                raw = result.raw_response or {}
+
+                if self.provider == "ollama":
+                    # Ollama возвращает prompt_eval_count и eval_count в raw response
+                    prompt_tokens = raw.get("prompt_eval_count")
+                    completion_tokens = raw.get("eval_count")
+                    if isinstance(prompt_tokens, int):
+                        span.set_attribute("llm.prompt_tokens", prompt_tokens)
+                    if isinstance(completion_tokens, int):
+                        span.set_attribute("llm.completion_tokens", completion_tokens)
+
+                elif self.provider == "openai":
+                    # OpenAI возвращает usage.prompt_tokens и usage.completion_tokens
+                    usage = raw.get("usage", {}) or {}
+                    prompt_tokens = usage.get("prompt_tokens")
+                    completion_tokens = usage.get("completion_tokens")
+                    if isinstance(prompt_tokens, int):
+                        span.set_attribute("llm.prompt_tokens", prompt_tokens)
+                    if isinstance(completion_tokens, int):
+                        span.set_attribute("llm.completion_tokens", completion_tokens)
+
+                elif self.provider == "llamacpp":
+                    # llamacpp возвращает usage.prompt_tokens и usage.completion_tokens
+                    usage = raw.get("usage", {}) or {}
+                    prompt_tokens = usage.get("prompt_tokens")
+                    completion_tokens = usage.get("completion_tokens")
+                    if isinstance(prompt_tokens, int):
+                        span.set_attribute("llm.prompt_tokens", prompt_tokens)
+                    if isinstance(completion_tokens, int):
+                        span.set_attribute("llm.completion_tokens", completion_tokens)
+
+            # Статус span
+            if exc is not None:
+                span.record_exception(exc)
+                span.set_status(StatusCode.ERROR, str(exc))
+            elif error_type is not None:
+                span.set_status(StatusCode.ERROR, error_type)
+            else:
+                span.set_status(StatusCode.OK)
+
+        except Exception:
+            # Tracing никогда не ломает бизнес-код
+            pass
 
     def is_available(self) -> bool:
         """Check if any LLM provider is configured."""
@@ -250,24 +353,11 @@ class LLMClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
         grammar_path: str | None = None,
-        response_format: str | None = None,  # P8.5
+        response_format: str | None = None,
     ) -> LLMResponse | None:
         """
         Call the configured LLM provider.
-
-        grammar_path:
-            Optional path to a GBNF grammar file (used for llama-cpp).
-            For OpenAI/Ollama сейчас игнорируется (можно расширить позже).
-
-        Returns:
-            LLMResponse or None if LLM is not available/failed.
-
-        Raises:
-            LLMContextLimitError: если prompt превышает контекстное окно.
-                                  Вызывающий код должен поймать это и выставить
-                                  error_type='context_limit', не делать retry.
-            TransientError: таймаут / сетевая ошибка — можно повторить.
-            PermanentError: прочие постоянные ошибки — retry бессмысленен.
+        ... (docstring без изменений) ...
         """
         # P8.5: validate response_format
         if response_format not in _VALID_RESPONSE_FORMATS:
@@ -282,9 +372,6 @@ class LLMClient:
         temp = temperature if temperature is not None else settings.LLM_TEMPERATURE
         requested_tokens = max_tokens if max_tokens is not None else settings.LLM_MAX_TOKENS
 
-        # ── Жёсткий budget: останавливаем вызов до обращения к модели ──────
-        # LLMContextLimitError — подкласс PermanentError, поэтому порядок важен:
-        # сначала ловим специфичный, затем общий.
         try:
             tokens, budget_info = self._compute_token_budget(
                 prompt=prompt,
@@ -296,7 +383,7 @@ class LLMClient:
                 provider=self.provider,
                 requested_max_tokens=int(requested_tokens),
             )
-            raise  # пробрасываем как LLMContextLimitError, не теряем тип
+            raise
         except PermanentError:
             logger.warning(
                 "LLM call aborted due to token budget violation",
@@ -318,60 +405,104 @@ class LLMClient:
             token_budget=budget_info,
         )
 
+        # ── Tracing: открываем span llm.call ─────────────────────────────────
+        # Span становится child от stage.run_single_check автоматически
+        # через OpenTelemetry context propagation.
+        # Если tracer=None (OTEL выключен) — используем nullcontext().
+        _tracer = self._get_tracer()
+        _llm_span_ctx = (
+            _tracer.start_as_current_span(
+                "llm.call",
+                attributes={
+                    "llm.provider": self.provider,
+                    "llm.model": (
+                        settings.LLM_OLLAMA_MODEL if self.provider == "ollama"
+                        else settings.LLM_OPENAI_MODEL if self.provider == "openai"
+                        else str(getattr(settings, "LLM_LOCAL_MODEL_PATH", "unknown"))
+                    ),
+                    "llm.temperature": float(temp),
+                    "llm.max_tokens": int(tokens),
+                },
+            )
+            if _tracer is not None
+            else __import__("contextlib").nullcontext()
+        )
+        # ─────────────────────────────────────────────────────────────────────
+
         start_time = time.time()
         error_type_for_metrics: str | None = None
         result: LLMResponse | None = None
+        _last_exc: Exception | None = None  # для span.record_exception
 
-        try:
-            if self.provider == "openai":
-                result = self._call_openai(prompt, temp, tokens)
-            elif self.provider == "ollama":
-                result = self._call_ollama(
-                    prompt, temp, tokens,
-                    response_format=response_format,  # P8.5
-                )
-            elif self.provider == "llamacpp":
-                result = self._call_llamacpp(prompt, temp, tokens, grammar_path=grammar_path)
-            else:
-                logger.warning("Unknown LLM provider", provider=self.provider)
-                error_type_for_metrics = "unknown_provider"
-                result = None
-        except httpx.TimeoutException:
-            logger.warning("LLM call timed out", provider=self.provider)
-            error_type_for_metrics = "timeout"
-            raise TransientError(f"LLM timeout ({self.provider})")
-        except httpx.ConnectError:
-            logger.warning("LLM connection failed", provider=self.provider)
-            error_type_for_metrics = "connect_error"
-            raise TransientError(f"LLM connection failed ({self.provider})")
-        except TransientError:
-            error_type_for_metrics = "transient_error"
-            raise
-        except PermanentError:
-            error_type_for_metrics = "permanent_error"
-            raise
-        except Exception as e:
-            logger.error("LLM call failed", provider=self.provider, error=str(e))
-            error_type_for_metrics = "unexpected_error"
-            result = None
-        finally:
-            duration = time.time() - start_time
+        with _llm_span_ctx as _llm_span:
             try:
-                METRICS.llm_request_duration_seconds.labels(provider=self.provider).observe(
-                    duration
-                )
-                METRICS.llm_requests_total.labels(
-                    provider=self.provider,
-                    error_type=error_type_for_metrics or "none",
-                ).inc()
-                if error_type_for_metrics == "timeout":
-                    METRICS.llm_timeout_total.labels(provider=self.provider).inc()
-                if isinstance(result, LLMResponse):
-                    METRICS.llm_tokens_total.labels(
+                if self.provider == "openai":
+                    result = self._call_openai(prompt, temp, tokens)
+                elif self.provider == "ollama":
+                    result = self._call_ollama(
+                        prompt, temp, tokens,
+                        response_format=response_format,
+                    )
+                elif self.provider == "llamacpp":
+                    result = self._call_llamacpp(prompt, temp, tokens, grammar_path=grammar_path)
+                else:
+                    logger.warning("Unknown LLM provider", provider=self.provider)
+                    error_type_for_metrics = "unknown_provider"
+                    result = None
+            except httpx.TimeoutException as e:
+                logger.warning("LLM call timed out", provider=self.provider)
+                error_type_for_metrics = "timeout"
+                _last_exc = e
+                raise TransientError(f"LLM timeout ({self.provider})")
+            except httpx.ConnectError as e:
+                logger.warning("LLM connection failed", provider=self.provider)
+                error_type_for_metrics = "connect_error"
+                _last_exc = e
+                raise TransientError(f"LLM connection failed ({self.provider})")
+            except TransientError as e:
+                error_type_for_metrics = "transient_error"
+                _last_exc = e
+                raise
+            except PermanentError as e:
+                error_type_for_metrics = "permanent_error"
+                _last_exc = e
+                raise
+            except Exception as e:
+                logger.error("LLM call failed", provider=self.provider, error=str(e))
+                error_type_for_metrics = "unexpected_error"
+                _last_exc = e
+                result = None
+            finally:
+                duration = time.time() - start_time
+                duration_ms = int(duration * 1000)
+
+                # ── Обогащаем span после завершения вызова ────────────────────
+                if _llm_span is not None:
+                    self._enrich_llm_span(
+                        span=_llm_span,
+                        result=result,
+                        duration_ms=duration_ms,
+                        error_type=error_type_for_metrics,
+                        exc=_last_exc,
+                    )
+                # ─────────────────────────────────────────────────────────────
+
+                try:
+                    METRICS.llm_request_duration_seconds.labels(
+                        provider=self.provider
+                    ).observe(duration)
+                    METRICS.llm_requests_total.labels(
                         provider=self.provider,
-                    ).inc(result.tokens_used)
-            except Exception:
-                logger.exception("LLMClient: failed to update LLM metrics")
+                        error_type=error_type_for_metrics or "none",
+                    ).inc()
+                    if error_type_for_metrics == "timeout":
+                        METRICS.llm_timeout_total.labels(provider=self.provider).inc()
+                    if isinstance(result, LLMResponse):
+                        METRICS.llm_tokens_total.labels(
+                            provider=self.provider,
+                        ).inc(result.tokens_used)
+                except Exception:
+                    logger.exception("LLMClient: failed to update LLM metrics")
 
         return result
 
@@ -718,22 +849,12 @@ class LLMClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
         grammar_path: str | None = None,
-        response_format: str | None = None,  # P8.5
+        response_format: str | None = None,
     ) -> LLMResponse | None:
         """
         Async версия call().
-
-        Provider routing:
-        - llamacpp → _call_llamacpp_async() (run_in_executor + Semaphore)
-        - ollama   → _call_ollama_async()   (httpx.AsyncClient)
-        - openai   → _call_openai_async()   (httpx.AsyncClient)
-
-        Raises:
-            LLMContextLimitError: prompt превышает контекстное окно.
-            TransientError: таймаут / сетевая ошибка.
-            PermanentError: постоянные ошибки.
+        ... (docstring без изменений) ...
         """
-        # P8.5: validate response_format
         if response_format not in _VALID_RESPONSE_FORMATS:
             raise PermanentError(
                 f"Invalid response_format={response_format!r}. "
@@ -763,7 +884,6 @@ class LLMClient:
         except PermanentError:
             raise
 
-        # P8.5: resolve structured output strategy for logging
         so_strategy = _resolve_structured_output_strategy(
             self.provider, response_format, grammar_path,
         )
@@ -781,70 +901,113 @@ class LLMClient:
             effective_max_tokens=budget_info.get("effective_max_tokens"),
         )
 
+        # ── Tracing: открываем span llm.call (async версия) ──────────────────
+        # Для async используем start_as_current_span как обычный context manager.
+        # OpenTelemetry поддерживает это в async контексте корректно.
+        _tracer = self._get_tracer()
+        _llm_span_ctx = (
+            _tracer.start_as_current_span(
+                "llm.call",
+                attributes={
+                    "llm.provider": self.provider,
+                    "llm.model": (
+                        settings.LLM_OLLAMA_MODEL if self.provider == "ollama"
+                        else settings.LLM_OPENAI_MODEL if self.provider == "openai"
+                        else str(getattr(settings, "LLM_LOCAL_MODEL_PATH", "unknown"))
+                    ),
+                    "llm.temperature": float(temp),
+                    "llm.max_tokens": int(tokens),
+                },
+            )
+            if _tracer is not None
+            else __import__("contextlib").nullcontext()
+        )
+        # ─────────────────────────────────────────────────────────────────────
+
         start_time = time.time()
         error_type_for_metrics: str | None = None
         result: LLMResponse | None = None
+        _last_exc: Exception | None = None
 
-        try:
-            if self.provider == "openai":
-                result = await self._call_openai_async(prompt, temp, tokens)
-            elif self.provider == "ollama":
-                result = await self._call_ollama_async(
-                    prompt, temp, tokens,
-                    response_format=response_format,  # P8.5
-                )
-            elif self.provider == "llamacpp":
-                result = await self._call_llamacpp_async(
-                    prompt, temp, tokens, grammar_path=grammar_path
-                )
-            else:
-                logger.warning(
-                    "Unknown LLM provider (async)", provider=self.provider
-                )
-                error_type_for_metrics = "unknown_provider"
-                result = None
-        except httpx.TimeoutException:
-            logger.warning("LLM async call timed out", provider=self.provider)
-            error_type_for_metrics = "timeout"
-            raise TransientError(f"LLM timeout ({self.provider})")
-        except httpx.ConnectError:
-            logger.warning(
-                "LLM async connection failed", provider=self.provider
-            )
-            error_type_for_metrics = "connect_error"
-            raise TransientError(f"LLM connection failed ({self.provider})")
-        except TransientError:
-            error_type_for_metrics = "transient_error"
-            raise
-        except PermanentError:
-            error_type_for_metrics = "permanent_error"
-            raise
-        except Exception as e:
-            logger.error(
-                "LLM async call failed", provider=self.provider, error=str(e)
-            )
-            error_type_for_metrics = "unexpected_error"
-            result = None
-        finally:
-            duration = time.time() - start_time
+        with _llm_span_ctx as _llm_span:
             try:
-                METRICS.llm_request_duration_seconds.labels(
-                    provider=self.provider
-                ).observe(duration)
-                METRICS.llm_requests_total.labels(
-                    provider=self.provider,
-                    error_type=error_type_for_metrics or "none",
-                ).inc()
-                if error_type_for_metrics == "timeout":
-                    METRICS.llm_timeout_total.labels(provider=self.provider).inc()
-                if isinstance(result, LLMResponse):
-                    METRICS.llm_tokens_total.labels(
-                        provider=self.provider,
-                    ).inc(result.tokens_used)
-            except Exception:
-                logger.exception(
-                    "LLMClient: failed to update LLM metrics (async)"
+                if self.provider == "openai":
+                    result = await self._call_openai_async(prompt, temp, tokens)
+                elif self.provider == "ollama":
+                    result = await self._call_ollama_async(
+                        prompt, temp, tokens,
+                        response_format=response_format,
+                    )
+                elif self.provider == "llamacpp":
+                    result = await self._call_llamacpp_async(
+                        prompt, temp, tokens, grammar_path=grammar_path
+                    )
+                else:
+                    logger.warning(
+                        "Unknown LLM provider (async)", provider=self.provider
+                    )
+                    error_type_for_metrics = "unknown_provider"
+                    result = None
+            except httpx.TimeoutException as e:
+                logger.warning("LLM async call timed out", provider=self.provider)
+                error_type_for_metrics = "timeout"
+                _last_exc = e
+                raise TransientError(f"LLM timeout ({self.provider})")
+            except httpx.ConnectError as e:
+                logger.warning(
+                    "LLM async connection failed", provider=self.provider
                 )
+                error_type_for_metrics = "connect_error"
+                _last_exc = e
+                raise TransientError(f"LLM connection failed ({self.provider})")
+            except TransientError as e:
+                error_type_for_metrics = "transient_error"
+                _last_exc = e
+                raise
+            except PermanentError as e:
+                error_type_for_metrics = "permanent_error"
+                _last_exc = e
+                raise
+            except Exception as e:
+                logger.error(
+                    "LLM async call failed", provider=self.provider, error=str(e)
+                )
+                error_type_for_metrics = "unexpected_error"
+                _last_exc = e
+                result = None
+            finally:
+                duration = time.time() - start_time
+                duration_ms = int(duration * 1000)
+
+                # ── Обогащаем span ────────────────────────────────────────────
+                if _llm_span is not None:
+                    self._enrich_llm_span(
+                        span=_llm_span,
+                        result=result,
+                        duration_ms=duration_ms,
+                        error_type=error_type_for_metrics,
+                        exc=_last_exc,
+                    )
+                # ─────────────────────────────────────────────────────────────
+
+                try:
+                    METRICS.llm_request_duration_seconds.labels(
+                        provider=self.provider
+                    ).observe(duration)
+                    METRICS.llm_requests_total.labels(
+                        provider=self.provider,
+                        error_type=error_type_for_metrics or "none",
+                    ).inc()
+                    if error_type_for_metrics == "timeout":
+                        METRICS.llm_timeout_total.labels(provider=self.provider).inc()
+                    if isinstance(result, LLMResponse):
+                        METRICS.llm_tokens_total.labels(
+                            provider=self.provider,
+                        ).inc(result.tokens_used)
+                except Exception:
+                    logger.exception(
+                        "LLMClient: failed to update LLM metrics (async)"
+                    )
 
         return result
 

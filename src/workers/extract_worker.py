@@ -336,362 +336,394 @@ async def _extract_document_async(
     start_time = time.time()
     store = ArtifactStore(settings)
 
-    # 1. Чтение исходного PDF строго по primary_source_ref
-    try:
-        pdf_ref = await get_pdf_source_ref(
-            document_version_id=document_version_id,
-            db=db,
-            require_primary=True,
+    # Business span для stage extract.
+    # Охватывает полный цикл: PDF → extraction → quality check → artifacts → DB commit.
+    from contextlib import nullcontext  # noqa: PLC0415
+    from core.tracing import get_stage_tracer  # noqa: PLC0415
+    _stage_tracer = get_stage_tracer()
+    _stage_span_ctx = (
+        _stage_tracer.start_as_current_span(
+            "stage.extract_document",
+            attributes={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "run_id": run_id or "",
+            },
         )
-        logger.info(
-            "Extract: pdf_ref resolved",
-            document_id=document_id,
-            version_id=document_version_id,
-            pdf_ref=pdf_ref,
-        )
+        if _stage_tracer else nullcontext()
+    )
 
-        if not pdf_ref:
-            raise PermanentError(
-                f"No PDF source ref for version {document_version_id} "
-                f"(primary_source_ref is required for extract stage)",
-                details={"stage": "extract", "kind": "missing_pdf_ref"},
+    with _stage_span_ctx:
+
+        # 1. Чтение исходного PDF строго по primary_source_ref
+        try:
+            pdf_ref = await get_pdf_source_ref(
+                document_version_id=document_version_id,
+                db=db,
+                require_primary=True,
+            )
+            logger.info(
+                "Extract: pdf_ref resolved",
+                document_id=document_id,
+                version_id=document_version_id,
+                pdf_ref=pdf_ref,
             )
 
-        s3_path = _s3_ref_to_store_path(pdf_ref, store.bucket)
+            if not pdf_ref:
+                raise PermanentError(
+                    f"No PDF source ref for version {document_version_id} "
+                    f"(primary_source_ref is required for extract stage)",
+                    details={"stage": "extract", "kind": "missing_pdf_ref"},
+                )
+
+            s3_path = _s3_ref_to_store_path(pdf_ref, store.bucket)
+            logger.info(
+                "Extract: reading PDF from store",
+                document_id=document_id,
+                version_id=document_version_id,
+                s3_path=s3_path,
+            )
+
+            pdf_bytes = store.get_file(s3_path)
+            logger.info(
+                "Extract: PDF bytes loaded",
+                document_id=document_id,
+                version_id=document_version_id,
+                size=len(pdf_bytes),
+            )
+
+        except TransientError:
+            raise
+
+        except PermanentError:
+            raise
+
+        except Exception as e:
+            logger.exception(
+                "Extract: failed to read PDF from store",
+                document_id=document_id,
+                version_id=document_version_id,
+                error=str(e),
+            )
+            raise PermanentError(
+                f"Failed to read PDF from store: {e}",
+                details={"stage": "extract", "kind": "storage_read_error"},
+            )
+
+        # 2. Извлечение текста/таблиц
+        try:
+            extraction: ExtractionResult = extract_pdf(pdf_bytes, document_id)
+            logger.info(
+                "Extract: pdf parsed",
+                document_id=document_id,
+                version_id=document_version_id,
+                elements=len(extraction.elements),
+                tables=len(extraction.tables),
+                pages=extraction.page_count,
+                strategy=extraction.strategy,
+            )
+
+            # Обогатить span стратегией извлечения — становится известна после parse.
+            try:
+                from opentelemetry import trace as _otel_trace  # noqa: PLC0415
+                _cur = _otel_trace.get_current_span()
+                if _cur and _cur.is_recording():
+                    _cur.set_attribute("extraction.strategy", extraction.strategy or "unknown")
+                    _cur.set_attribute("extraction.pages", extraction.page_count or 0)
+                    _cur.set_attribute("extraction.elements", len(extraction.elements))
+            except Exception:  # noqa: BLE001
+                pass
+
+        except Exception as e:
+            logger.exception(
+                "Extract: extract_pdf failed",
+                document_id=document_id,
+                version_id=document_version_id,
+                error=str(e),
+            )
+            raise PermanentError(
+                f"extract_pdf failed: {e}",
+                details={"stage": "extract", "kind": "pdf_parse_error"},
+            )
+
+        # 3. Политика качества извлечения
+        quality_decision = evaluate_extraction_quality(
+            extraction,
+            policy=ExtractionQualityPolicy(
+                ocr_quarantine_threshold=settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD,
+                hybrid_min_ocr_rate_for_quarantine=(
+                    settings.EXTRACTION_HYBRID_MIN_OCR_RATE_FOR_QUARANTINE
+                ),
+            ),
+        )
+
         logger.info(
-            "Extract: reading PDF from store",
+            "Extract: quality decision evaluated",
             document_id=document_id,
             version_id=document_version_id,
-            s3_path=s3_path,
+            outcome=quality_decision.outcome,
+            reason=quality_decision.reason,
+            details=quality_decision.details,
         )
 
-        pdf_bytes = store.get_file(s3_path)
+        if quality_decision.outcome == "failed":
+            raise PermanentError(
+                quality_decision.message,
+                details={
+                    "stage": "extract",
+                    "kind": "quality_failed",
+                    "reason": quality_decision.reason,
+                    "details": quality_decision.details,
+                },
+            )
+
+        if quality_decision.outcome == "quarantine":
+            METRICS.quarantine.labels(reason=quality_decision.reason or "unknown").inc()
+            raise QuarantineError(
+                quality_decision.message,
+                document_id=document_id,
+                reason=quality_decision.reason or "unknown",
+                details=quality_decision.details,
+            )
+
+        # 4. Построение layout-артефактов
+        text_layout_raw = build_text_layout_raw(
+            extraction,
+            document_id=document_id,
+            document_version_id=document_version_id,
+        )
+
+        language_metadata = _load_primary_language_metadata_sidecar_safe(
+            store=store,
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=document_id,
+            document_version_id=document_version_id,
+        )
+
+        layout_primary = _attach_primary_language_metadata(
+            layout=text_layout_raw,
+            language_metadata=language_metadata,
+        )
+
+        # 5. Сохранение артефактов в storage
+        raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
+        raw_ref = store.put_json(raw_path, text_layout_raw)
+
+        primary_path = ArtifactPath.layout_primary(tenant_id, deal_id, document_id)
+        primary_ref = store.put_json(primary_path, layout_primary)
+
+        # 6. Фиксация результатов в БД
+        await update_extraction_result(
+            document_version_id=document_version_id,
+            document_id=document_id,
+            raw_ref=raw_ref,
+            primary_ref=primary_ref,
+            page_count=extraction.page_count,
+            strategy=extraction.strategy or "text",
+            ocr_confidence=(
+                float(extraction.avg_ocr_confidence)
+                if extraction.avg_ocr_confidence is not None
+                else None
+            ),
+            db=db,
+        )
+
+        # Важный production-подход:
+        # граница успешной записи — commit(), а не проверка "видно ли ref сразу после flush".
+        await db.commit()
+
+        # Мягкая post-commit верификация для диагностики — без исключений.
+        try:
+            ver_repo = DocumentVersionRepository(db)
+            refreshed_version = await ver_repo.get_by_id(uuid.UUID(document_version_id))
+            refreshed_layout_primary_ref = (
+                getattr(refreshed_version, "layout_primary_ref", None) if refreshed_version else None
+            )
+            refreshed_raw_ref = (
+                getattr(refreshed_version, "raw_ref", None) if refreshed_version else None
+            )
+
+            if not refreshed_version:
+                logger.warning(
+                    "Extract: document version not visible immediately after commit; "
+                    "next orchestrator pass will validate downstream refs",
+                    document_id=document_id,
+                    version_id=document_version_id,
+                    run_id=run_id,
+                )
+            else:
+                # Жёсткое расхождение: сломан layout_primary_ref или raw_ref изменился на другое ненулевое значение.
+                hard_mismatch = refreshed_layout_primary_ref != primary_ref or (
+                    refreshed_raw_ref is not None and refreshed_raw_ref != raw_ref
+                )
+
+                # При необходимости даём БД шанс догнать raw_ref.
+                if refreshed_layout_primary_ref == primary_ref and not refreshed_raw_ref and raw_ref:
+                    await asyncio.sleep(0.1)
+                    refreshed_version = await ver_repo.get_by_id(uuid.UUID(document_version_id))
+                    refreshed_raw_ref = (
+                        getattr(refreshed_version, "raw_ref", None) if refreshed_version else None
+                    )
+
+                soft_raw_lag = (
+                    refreshed_layout_primary_ref == primary_ref and not refreshed_raw_ref and raw_ref
+                )
+
+                if hard_mismatch:
+                    logger.warning(
+                        "Extract: refs differ on immediate post-commit read; "
+                        "keeping committed result and relying on orchestrator guards",
+                        document_id=document_id,
+                        version_id=document_version_id,
+                        expected_layout_primary_ref=primary_ref,
+                        actual_layout_primary_ref=refreshed_layout_primary_ref,
+                        expected_raw_ref=raw_ref,
+                        actual_raw_ref=refreshed_raw_ref,
+                        run_id=run_id,
+                    )
+                elif soft_raw_lag:
+                    logger.info(
+                        "Extract: raw_ref not visible on immediate post-commit read; "
+                        "committed result is authoritative, orchestrator will re-read later",
+                        document_id=document_id,
+                        version_id=document_version_id,
+                        expected_layout_primary_ref=primary_ref,
+                        actual_layout_primary_ref=refreshed_layout_primary_ref,
+                        expected_raw_ref=raw_ref,
+                        actual_raw_ref=refreshed_raw_ref,
+                        run_id=run_id,
+                    )
+
+        except Exception as e:
+            logger.warning(
+                "Extract: post-commit readback failed; committed result kept",
+                document_id=document_id,
+                version_id=document_version_id,
+                run_id=run_id,
+                error=str(e),
+            )
+
+        duration = time.time() - start_time
+
+        page_strategies = extraction.page_strategies or {}
+        ocr_page_count = sum(1 for s in page_strategies.values() if s == "ocr")
+        ocr_rate = round(ocr_page_count / max(extraction.page_count or 0, 1), 3)
+
         logger.info(
-            "Extract: PDF bytes loaded",
+            "Extraction committed successfully",
             document_id=document_id,
             version_id=document_version_id,
-            size=len(pdf_bytes),
-        )
-
-    except TransientError:
-        raise
-
-    except PermanentError:
-        raise
-
-    except Exception as e:
-        logger.exception(
-            "Extract: failed to read PDF from store",
-            document_id=document_id,
-            version_id=document_version_id,
-            error=str(e),
-        )
-        raise PermanentError(
-            f"Failed to read PDF from store: {e}",
-            details={"stage": "extract", "kind": "storage_read_error"},
-        )
-
-    # 2. Извлечение текста/таблиц
-    try:
-        extraction: ExtractionResult = extract_pdf(pdf_bytes, document_id)
-        logger.info(
-            "Extract: pdf parsed",
-            document_id=document_id,
-            version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
             elements=len(extraction.elements),
             tables=len(extraction.tables),
             pages=extraction.page_count,
             strategy=extraction.strategy,
-        )
-    except Exception as e:
-        logger.exception(
-            "Extract: extract_pdf failed",
-            document_id=document_id,
-            version_id=document_version_id,
-            error=str(e),
-        )
-        raise PermanentError(
-            f"extract_pdf failed: {e}",
-            details={"stage": "extract", "kind": "pdf_parse_error"},
-        )
-
-    # 3. Политика качества извлечения
-    quality_decision = evaluate_extraction_quality(
-        extraction,
-        policy=ExtractionQualityPolicy(
-            ocr_quarantine_threshold=settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD,
-            hybrid_min_ocr_rate_for_quarantine=(
-                settings.EXTRACTION_HYBRID_MIN_OCR_RATE_FOR_QUARANTINE
+            raw_ref=raw_ref,
+            layout_primary_ref=primary_ref,
+            ocr_confidence=(
+                round(extraction.avg_ocr_confidence, 3)
+                if extraction.avg_ocr_confidence is not None
+                else None
             ),
-        ),
-    )
-
-    logger.info(
-        "Extract: quality decision evaluated",
-        document_id=document_id,
-        version_id=document_version_id,
-        outcome=quality_decision.outcome,
-        reason=quality_decision.reason,
-        details=quality_decision.details,
-    )
-
-    if quality_decision.outcome == "failed":
-        raise PermanentError(
-            quality_decision.message,
-            details={
-                "stage": "extract",
-                "kind": "quality_failed",
-                "reason": quality_decision.reason,
-                "details": quality_decision.details,
-            },
+            ocr_rate=ocr_rate,
+            duration_seconds=round(duration, 2),
+            status=DocumentStatus.EXTRACTED.value,
         )
 
-    if quality_decision.outcome == "quarantine":
-        METRICS.quarantine.labels(reason=quality_decision.reason or "unknown").inc()
-        raise QuarantineError(
-            quality_decision.message,
-            document_id=document_id,
-            reason=quality_decision.reason or "unknown",
-            details=quality_decision.details,
-        )
+        METRICS.extraction_duration.labels(
+            strategy=extraction.strategy,
+        ).observe(duration)
 
-    # 4. Построение layout-артефактов
-    text_layout_raw = build_text_layout_raw(
-        extraction,
-        document_id=document_id,
-        document_version_id=document_version_id,
-    )
+        METRICS.extraction_pages.labels(
+            strategy=extraction.strategy,
+        ).inc(extraction.page_count)
 
-    language_metadata = _load_primary_language_metadata_sidecar_safe(
-        store=store,
-        tenant_id=tenant_id,
-        deal_id=deal_id,
-        document_id=document_id,
-        document_version_id=document_version_id,
-    )
+        if extraction.avg_ocr_confidence is not None and extraction.strategy in ("ocr", "hybrid"):
+            METRICS.extraction_ocr_confidence.observe(extraction.avg_ocr_confidence)
 
-    layout_primary = _attach_primary_language_metadata(
-        layout=text_layout_raw,
-        language_metadata=language_metadata,
-    )
-
-    # 5. Сохранение артефактов в storage
-    raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
-    raw_ref = store.put_json(raw_path, text_layout_raw)
-
-    primary_path = ArtifactPath.layout_primary(tenant_id, deal_id, document_id)
-    primary_ref = store.put_json(primary_path, layout_primary)
-
-    # 6. Фиксация результатов в БД
-    await update_extraction_result(
-        document_version_id=document_version_id,
-        document_id=document_id,
-        raw_ref=raw_ref,
-        primary_ref=primary_ref,
-        page_count=extraction.page_count,
-        strategy=extraction.strategy or "text",
-        ocr_confidence=(
-            float(extraction.avg_ocr_confidence)
-            if extraction.avg_ocr_confidence is not None
-            else None
-        ),
-        db=db,
-    )
-
-    # Важный production-подход:
-    # граница успешной записи — commit(), а не проверка "видно ли ref сразу после flush".
-    await db.commit()
-
-    # Мягкая post-commit верификация для диагностики — без исключений.
-    try:
-        ver_repo = DocumentVersionRepository(db)
-        refreshed_version = await ver_repo.get_by_id(uuid.UUID(document_version_id))
-        refreshed_layout_primary_ref = (
-            getattr(refreshed_version, "layout_primary_ref", None) if refreshed_version else None
-        )
-        refreshed_raw_ref = (
-            getattr(refreshed_version, "raw_ref", None) if refreshed_version else None
-        )
-
-        if not refreshed_version:
+        # Аудит: успешное завершение extract
+        audit_repo = AuditRepository(db)
+        try:
+            await audit_repo.log(
+                tenant_id=uuid.UUID(tenant_id),
+                deal_id=uuid.UUID(deal_id),
+                action="EXTRACTION_COMPLETED",
+                actor="system",
+                actor_role="worker",
+                details={
+                    "document_id": document_id,
+                    "document_version_id": document_version_id,
+                    "run_id": run_id,
+                    "strategy": extraction.strategy,
+                    "page_count": extraction.page_count,
+                    "elements": len(extraction.elements),
+                    "tables": len(extraction.tables),
+                    "raw_ref": raw_ref,
+                    "layout_primary_ref": primary_ref,
+                    "ocr_confidence": (
+                        float(extraction.avg_ocr_confidence)
+                        if extraction.avg_ocr_confidence is not None
+                        else None
+                    ),
+                    "ocr_rate": ocr_rate,
+                    "duration_seconds": round(duration, 2),
+                },
+            )
+        except Exception:
             logger.warning(
-                "Extract: document version not visible immediately after commit; "
-                "next orchestrator pass will validate downstream refs",
+                "Extract: failed to write audit log for EXTRACTION_COMPLETED",
                 document_id=document_id,
-                version_id=document_version_id,
+                document_version_id=document_version_id,
                 run_id=run_id,
             )
-        else:
-            # Жёсткое расхождение: сломан layout_primary_ref или raw_ref изменился на другое ненулевое значение.
-            hard_mismatch = refreshed_layout_primary_ref != primary_ref or (
-                refreshed_raw_ref is not None and refreshed_raw_ref != raw_ref
-            )
 
-            # При необходимости даём БД шанс догнать raw_ref.
-            if refreshed_layout_primary_ref == primary_ref and not refreshed_raw_ref and raw_ref:
-                await asyncio.sleep(0.1)
-                refreshed_version = await ver_repo.get_by_id(uuid.UUID(document_version_id))
-                refreshed_raw_ref = (
-                    getattr(refreshed_version, "raw_ref", None) if refreshed_version else None
-                )
-
-            soft_raw_lag = (
-                refreshed_layout_primary_ref == primary_ref and not refreshed_raw_ref and raw_ref
-            )
-
-            if hard_mismatch:
-                logger.warning(
-                    "Extract: refs differ on immediate post-commit read; "
-                    "keeping committed result and relying on orchestrator guards",
-                    document_id=document_id,
-                    version_id=document_version_id,
-                    expected_layout_primary_ref=primary_ref,
-                    actual_layout_primary_ref=refreshed_layout_primary_ref,
-                    expected_raw_ref=raw_ref,
-                    actual_raw_ref=refreshed_raw_ref,
-                    run_id=run_id,
-                )
-            elif soft_raw_lag:
-                logger.info(
-                    "Extract: raw_ref not visible on immediate post-commit read; "
-                    "committed result is authoritative, orchestrator will re-read later",
-                    document_id=document_id,
-                    version_id=document_version_id,
-                    expected_layout_primary_ref=primary_ref,
-                    actual_layout_primary_ref=refreshed_layout_primary_ref,
-                    expected_raw_ref=raw_ref,
-                    actual_raw_ref=refreshed_raw_ref,
-                    run_id=run_id,
-                )
-
-    except Exception as e:
-        logger.warning(
-            "Extract: post-commit readback failed; committed result kept",
-            document_id=document_id,
-            version_id=document_version_id,
-            run_id=run_id,
-            error=str(e),
-        )
-
-    duration = time.time() - start_time
-
-    page_strategies = extraction.page_strategies or {}
-    ocr_page_count = sum(1 for s in page_strategies.values() if s == "ocr")
-    ocr_rate = round(ocr_page_count / max(extraction.page_count or 0, 1), 3)
-
-    logger.info(
-        "Extraction committed successfully",
-        document_id=document_id,
-        version_id=document_version_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        run_id=run_id,
-        elements=len(extraction.elements),
-        tables=len(extraction.tables),
-        pages=extraction.page_count,
-        strategy=extraction.strategy,
-        raw_ref=raw_ref,
-        layout_primary_ref=primary_ref,
-        ocr_confidence=(
-            round(extraction.avg_ocr_confidence, 3)
-            if extraction.avg_ocr_confidence is not None
-            else None
-        ),
-        ocr_rate=ocr_rate,
-        duration_seconds=round(duration, 2),
-        status=DocumentStatus.EXTRACTED.value,
-    )
-
-    METRICS.extraction_duration.labels(
-        strategy=extraction.strategy,
-    ).observe(duration)
-
-    METRICS.extraction_pages.labels(
-        strategy=extraction.strategy,
-    ).inc(extraction.page_count)
-
-    if extraction.avg_ocr_confidence is not None and extraction.strategy in ("ocr", "hybrid"):
-        METRICS.extraction_ocr_confidence.observe(extraction.avg_ocr_confidence)
-
-    # Аудит: успешное завершение extract
-    audit_repo = AuditRepository(db)
-    try:
-        await audit_repo.log(
-            tenant_id=uuid.UUID(tenant_id),
-            deal_id=uuid.UUID(deal_id),
-            action="EXTRACTION_COMPLETED",
-            actor="system",
-            actor_role="worker",
-            details={
+        _trace = build_stage_trace_fragment(
+            strategy=extraction.strategy,
+            input_summary={
                 "document_id": document_id,
                 "document_version_id": document_version_id,
                 "run_id": run_id,
-                "strategy": extraction.strategy,
+            },
+            output_summary={
                 "page_count": extraction.page_count,
-                "elements": len(extraction.elements),
-                "tables": len(extraction.tables),
-                "raw_ref": raw_ref,
-                "layout_primary_ref": primary_ref,
+                "elements_count": len(extraction.elements),
+                "tables_count": len(extraction.tables),
                 "ocr_confidence": (
                     float(extraction.avg_ocr_confidence)
-                    if extraction.avg_ocr_confidence is not None
-                    else None
+                    if extraction.avg_ocr_confidence is not None else None
                 ),
                 "ocr_rate": ocr_rate,
                 "duration_seconds": round(duration, 2),
             },
-        )
-    except Exception:
-        logger.warning(
-            "Extract: failed to write audit log for EXTRACTION_COMPLETED",
-            document_id=document_id,
-            document_version_id=document_version_id,
-            run_id=run_id,
+            warnings=[],
+            artifact_refs={
+                "raw_ref": raw_ref,
+                "layout_primary_ref": primary_ref,
+            },
+            decision_details={
+                "primary_only_source_contract": True,
+            },
         )
 
-    _trace = build_stage_trace_fragment(
-        strategy=extraction.strategy,
-        input_summary={
+        return {
+            "status": DocumentStatus.EXTRACTED.value,
             "document_id": document_id,
             "document_version_id": document_version_id,
-            "run_id": run_id,
-        },
-        output_summary={
-            "page_count": extraction.page_count,
-            "elements_count": len(extraction.elements),
-            "tables_count": len(extraction.tables),
-            "ocr_confidence": (
-                float(extraction.avg_ocr_confidence)
-                if extraction.avg_ocr_confidence is not None else None
-            ),
-            "ocr_rate": ocr_rate,
+            "elements": len(extraction.elements),
+            "tables": len(extraction.tables),
+            "pages": extraction.page_count,
+            "strategy": extraction.strategy,
             "duration_seconds": round(duration, 2),
-        },
-        warnings=[],
-        artifact_refs={
             "raw_ref": raw_ref,
             "layout_primary_ref": primary_ref,
-        },
-        decision_details={
-            "primary_only_source_contract": True,
-        },
-    )
-
-    return {
-        "status": DocumentStatus.EXTRACTED.value,
-        "document_id": document_id,
-        "document_version_id": document_version_id,
-        "elements": len(extraction.elements),
-        "tables": len(extraction.tables),
-        "pages": extraction.page_count,
-        "strategy": extraction.strategy,
-        "duration_seconds": round(duration, 2),
-        "raw_ref": raw_ref,
-        "layout_primary_ref": primary_ref,
-        "tenant_id": tenant_id,
-        "committed": True,
-        "stage_execution_result_details": _trace,
-    }
+            "tenant_id": tenant_id,
+            "committed": True,
+            "stage_execution_result_details": _trace,
+        }
 
 
 async def get_pdf_source_ref(

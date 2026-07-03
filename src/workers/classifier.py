@@ -228,8 +228,23 @@ async def _classify_document_async(
 
     start_time = time.time()
     doc_uuid = uuid.UUID(document_id) if isinstance(document_id, str) else document_id
-
     metrics = get_metrics()
+
+    from contextlib import nullcontext  # noqa: PLC0415
+    from core.tracing import get_stage_tracer  # noqa: PLC0415
+    _stage_tracer = get_stage_tracer()
+    _stage_span_ctx = (
+        _stage_tracer.start_as_current_span(
+            "stage.classify_document",
+            attributes={
+                "document_id": document_id,
+                "run_id": extra_args.get("run_id") or "",
+                "deal_id": extra_args.get("deal_id") or "",
+            },
+        )
+        if _stage_tracer else nullcontext()
+    )
+
     run_id_str = extra_args.get("run_id")
     run_uuid = uuid.UUID(run_id_str) if run_id_str else None
 
@@ -237,247 +252,263 @@ async def _classify_document_async(
     classification_result: dict[str, Any] | None = None
     classification_requires_review: bool | None = None
 
-    try:
-        async with db_uow() as uow:
-            doc_repo = DocumentRepository(uow.session)
-            ver_repo = DocumentVersionRepository(uow.session)
-            playbook_repo = PlaybookRepository(uow.session)
-            audit_repo = AuditRepository(uow.session)
+    with _stage_span_ctx:
 
-            doc = await doc_repo.get_by_id(doc_uuid)
-            if not doc:
-                raise PermanentError(f"Document {document_id} not found")
+        try:
+            async with db_uow() as uow:
+                doc_repo = DocumentRepository(uow.session)
+                ver_repo = DocumentVersionRepository(uow.session)
+                playbook_repo = PlaybookRepository(uow.session)
+                audit_repo = AuditRepository(uow.session)
 
-            if doc.status in (
-                DocumentStatus.CLASSIFIED.value,
-                DocumentStatus.ANALYZING.value,
-            ):
+                doc = await doc_repo.get_by_id(doc_uuid)
+                if not doc:
+                    raise PermanentError(f"Document {document_id} not found")
+
+                if doc.status in (
+                    DocumentStatus.CLASSIFIED.value,
+                    DocumentStatus.ANALYZING.value,
+                ):
+                    logger.info(
+                        "Already classified or analyzing, skipping",
+                        document_id=document_id,
+                        status=doc.status,
+                    )
+                    return {
+                        "document_id": document_id,
+                        "status": doc.status,
+                        "skipped": True,
+                        "committed": False,
+                    }
+
+                allowed_statuses = {
+                    DocumentStatus.CHUNKED.value,
+                    DocumentStatus.COMPLETED.value,
+                }
+                if doc.status not in allowed_statuses:
+                    logger.warning(
+                        "Document in unexpected status for classification, skipping",
+                        document_id=document_id,
+                        status=doc.status,
+                        allowed_statuses=sorted(allowed_statuses),
+                    )
+                    return {
+                        "document_id": document_id,
+                        "status": doc.status,
+                        "skipped": True,
+                        "reason": "unexpected_status",
+                        "committed": False,
+                    }
+
+                version = await ver_repo.get_latest(doc.id)
+                if not version:
+                    raise PermanentError(f"No version found for document {document_id}")
+
+                classifier = _get_classifier(uow)
+                classification_result = await classifier.classify_document(str(doc.id))
+
+                _details = classification_result.get("details") or {}
+                decided_by = _extract_decided_by(_details)
+
                 logger.info(
-                    "Already classified or analyzing, skipping",
-                    document_id=document_id,
-                    status=doc.status,
+                    "worker_classification_done",
+                    doc_id=str(doc.id),
+                    deal_id=str(doc.deal_id) if doc.deal_id else None,
+                    final_type=classification_result.get("final_type"),
+                    final_confidence=classification_result.get("final_confidence"),
+                    decided_by=decided_by,
+                    levels_tried=classification_result.get("levels_tried", []),
+                    requires_manual_review=_details.get("requires_manual_review", False),
+                    applicable_triggers_count=len(
+                        classification_result.get("applicable_triggers") or []
+                    ),
                 )
-                return {
-                    "document_id": document_id,
-                    "status": doc.status,
-                    "skipped": True,
-                    "committed": False,
-                }
 
-            allowed_statuses = {
-                DocumentStatus.CHUNKED.value,
-                DocumentStatus.COMPLETED.value,
+                raw_final_type = classification_result.get("final_type") or "UNKNOWN"
+                final_conf = float(classification_result.get("final_confidence") or 0.0)
+                level = classification_result.get("level")
+                language = classification_result.get("language")
+                jurisdiction = classification_result.get("jurisdiction")
+                applicable_triggers = classification_result.get("applicable_triggers", [])
+                details = classification_result.get("details", {}) or {}
+
+                classification_requires_review = bool(details.get("requires_manual_review", False))
+
+                # Обогатить span результатом классификации.
+                try:
+                    from opentelemetry import trace as _otel_trace  # noqa: PLC0415
+                    _cur = _otel_trace.get_current_span()
+                    if _cur and _cur.is_recording():
+                        _cur.set_attribute("classification.doc_type", raw_final_type or "UNKNOWN")
+                        _cur.set_attribute(
+                            "classification.confidence",
+                            float(classification_result.get("final_confidence") or 0.0),
+                        )
+                        _cur.set_attribute("classification.level", level or "UNKNOWN")
+                except Exception:  # noqa: BLE001
+                    pass
+
+                final_type: str | None
+                if isinstance(raw_final_type, str) and raw_final_type.upper() == "UNKNOWN":
+                    final_type = None
+                elif isinstance(raw_final_type, str) and raw_final_type.strip():
+                    final_type = raw_final_type.strip()
+                else:
+                    final_type = None
+
+                # ВАЖНО: НЕ обнуляем level при UNKNOWN final_type.
+                # level — диагностическое поле (на каком уровне принято решение).
+                # На document-level pipeline не ломается из-за Document.status = CLASSIFIED,
+                # но обнуление level концептуально неверно и убирается для консистентности.
+
+                playbook = await playbook_repo.get_for_deal(doc.deal_id)
+
+                await doc_repo.update_classification(
+                    doc_id=doc.id,
+                    doc_type=final_type,
+                    classification_confidence=final_conf,
+                    classification_level=level,
+                    classification_details=details,
+                    applicable_triggers=applicable_triggers,
+                    classification_requires_review=classification_requires_review,
+                    language=language,
+                    jurisdiction=jurisdiction,
+                    playbook_version_id=playbook.id if playbook else None,
+                )
+
+                try:
+                    metrics.classification_level_distribution.labels(
+                        level=level or "UNKNOWN",
+                        doc_type=final_type or "UNKNOWN",
+                    ).inc()
+                except Exception:
+                    logger.exception("classify_document: failed to update classification metrics")
+
+                updated_doc = await doc_repo.update_status(
+                    doc.id,
+                    DocumentStatus.CLASSIFIED.value,
+                    processing_error_details=None,
+                )
+                if not updated_doc:
+                    raise PermanentError(
+                        f"Document {document_id} not found during CLASSIFIED status update"
+                    )
+
+                try:
+                    tenant_id_value = None
+                    if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
+                        tenant_id_value = doc.deal.tenant_id
+                    elif hasattr(doc, "tenant_id") and getattr(doc, "tenant_id", None):
+                        tenant_id_value = doc.tenant_id
+
+                    await audit_repo.log(
+                        tenant_id=tenant_id_value or uuid.UUID(int=0),
+                        deal_id=doc.deal_id,
+                        action="CLASSIFY_COMPLETED",
+                        actor="system",
+                        actor_role="worker",
+                        details={
+                            "document_id": str(doc.id),
+                            "document_version_id": str(version.id),
+                            "doc_type": final_type,
+                            "classification_outcome": "typed" if final_type else "unknown",
+                            "classification_confidence": final_conf,
+                            "classification_level": level,
+                            "classification_requires_review": classification_requires_review,
+                            "language": language,
+                            "jurisdiction": jurisdiction,
+                            "applicable_triggers": applicable_triggers,
+                            "playbook_version_id": str(playbook.id) if playbook else None,
+                            "run_id": str(run_uuid) if run_uuid else None,
+                        },
+                    )
+                except Exception:
+                    logger.warning(
+                        "Classifier: failed to write audit log for CLASSIFY_COMPLETED",
+                        document_id=str(doc.id),
+                    )
+
+        except PermanentError as e:
+            logger.error(
+                "Permanent error during classification",
+                document_id=document_id,
+                error=str(e),
+            )
+            async with db_uow() as uow_status:
+                await _mark_failed(
+                    uow_status,
+                    doc_uuid,
+                    message=str(e),
+                    run_id=run_uuid,
+                )
+            return {
+                "document_id": document_id,
+                "status": DocumentStatus.FAILED.value,
+                "classification_outcome": "failed",
+                "error": str(e),
+                "committed": False,
             }
-            if doc.status not in allowed_statuses:
-                logger.warning(
-                    "Document in unexpected status for classification, skipping",
-                    document_id=document_id,
-                    status=doc.status,
-                    allowed_statuses=sorted(allowed_statuses),
-                )
-                return {
-                    "document_id": document_id,
-                    "status": doc.status,
-                    "skipped": True,
-                    "reason": "unexpected_status",
-                    "committed": False,
-                }
 
-            version = await ver_repo.get_latest(doc.id)
-            if not version:
-                raise PermanentError(f"No version found for document {document_id}")
+        duration_ms = int((time.time() - start_time) * 1000)
 
-            classifier = _get_classifier(uow)
-            classification_result = await classifier.classify_document(str(doc.id))
+        # Вычисляем outcome для return value (для логов и мониторинга).
+        # В БД outcome уже записан внутри save_classification_result().
+        _final = classification_result.get("final_type") if classification_result else None
+        _return_outcome = "typed" if (_final and str(_final).strip()) else "unknown"
 
-            _details = classification_result.get("details") or {}
-            decided_by = _extract_decided_by(_details)
+        _candidates = []
+        if classification_result:
+            _raw_candidates = classification_result.get("candidates") or []
+            _candidates = _raw_candidates[:10]  # ограничим размер
 
-            logger.info(
-                "worker_classification_done",
-                doc_id=str(doc.id),
-                deal_id=str(doc.deal_id) if doc.deal_id else None,
-                final_type=classification_result.get("final_type"),
-                final_confidence=classification_result.get("final_confidence"),
-                decided_by=decided_by,
-                levels_tried=classification_result.get("levels_tried", []),
-                requires_manual_review=_details.get("requires_manual_review", False),
-                applicable_triggers_count=len(
-                    classification_result.get("applicable_triggers") or []
-                ),
-            )
-
-            raw_final_type = classification_result.get("final_type") or "UNKNOWN"
-            final_conf = float(classification_result.get("final_confidence") or 0.0)
-            level = classification_result.get("level")
-            language = classification_result.get("language")
-            jurisdiction = classification_result.get("jurisdiction")
-            applicable_triggers = classification_result.get("applicable_triggers", [])
-            details = classification_result.get("details", {}) or {}
-
-            classification_requires_review = bool(details.get("requires_manual_review", False))
-
-            final_type: str | None
-            if isinstance(raw_final_type, str) and raw_final_type.upper() == "UNKNOWN":
-                final_type = None
-            elif isinstance(raw_final_type, str) and raw_final_type.strip():
-                final_type = raw_final_type.strip()
-            else:
-                final_type = None
-
-            # ВАЖНО: НЕ обнуляем level при UNKNOWN final_type.
-            # level — диагностическое поле (на каком уровне принято решение).
-            # На document-level pipeline не ломается из-за Document.status = CLASSIFIED,
-            # но обнуление level концептуально неверно и убирается для консистентности.
-
-            playbook = await playbook_repo.get_for_deal(doc.deal_id)
-
-            await doc_repo.update_classification(
-                doc_id=doc.id,
-                doc_type=final_type,
-                classification_confidence=final_conf,
-                classification_level=level,
-                classification_details=details,
-                applicable_triggers=applicable_triggers,
-                classification_requires_review=classification_requires_review,
-                language=language,
-                jurisdiction=jurisdiction,
-                playbook_version_id=playbook.id if playbook else None,
-            )
-
-            try:
-                metrics.classification_level_distribution.labels(
-                    level=level or "UNKNOWN",
-                    doc_type=final_type or "UNKNOWN",
-                ).inc()
-            except Exception:
-                logger.exception("classify_document: failed to update classification metrics")
-
-            updated_doc = await doc_repo.update_status(
-                doc.id,
-                DocumentStatus.CLASSIFIED.value,
-                processing_error_details=None,
-            )
-            if not updated_doc:
-                raise PermanentError(
-                    f"Document {document_id} not found during CLASSIFIED status update"
-                )
-
-            try:
-                tenant_id_value = None
-                if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
-                    tenant_id_value = doc.deal.tenant_id
-                elif hasattr(doc, "tenant_id") and getattr(doc, "tenant_id", None):
-                    tenant_id_value = doc.tenant_id
-
-                await audit_repo.log(
-                    tenant_id=tenant_id_value or uuid.UUID(int=0),
-                    deal_id=doc.deal_id,
-                    action="CLASSIFY_COMPLETED",
-                    actor="system",
-                    actor_role="worker",
-                    details={
-                        "document_id": str(doc.id),
-                        "document_version_id": str(version.id),
-                        "doc_type": final_type,
-                        "classification_outcome": "typed" if final_type else "unknown",
-                        "classification_confidence": final_conf,
-                        "classification_level": level,
-                        "classification_requires_review": classification_requires_review,
-                        "language": language,
-                        "jurisdiction": jurisdiction,
-                        "applicable_triggers": applicable_triggers,
-                        "playbook_version_id": str(playbook.id) if playbook else None,
-                        "run_id": str(run_uuid) if run_uuid else None,
-                    },
-                )
-            except Exception:
-                logger.warning(
-                    "Classifier: failed to write audit log for CLASSIFY_COMPLETED",
-                    document_id=str(doc.id),
-                )
-
-    except PermanentError as e:
-        logger.error(
-            "Permanent error during classification",
-            document_id=document_id,
-            error=str(e),
+        _trace = build_stage_trace_fragment(
+            strategy="hybrid_classifier_stage8",
+            input_summary={
+                "document_id": document_id,
+                "previous_status": "chunked",
+            },
+            output_summary={
+                "classification_outcome": _return_outcome,
+                "doc_type": classification_result.get("final_type") if classification_result else None,
+                "confidence": classification_result.get("final_confidence") if classification_result else 0.0,
+                "language": classification_result.get("language") if classification_result else None,
+                "jurisdiction": classification_result.get("jurisdiction") if classification_result else None,
+                "requires_manual_review": bool(classification_requires_review),
+                "duration_ms": duration_ms,
+            },
+            warnings=(
+                ["requires_manual_review"] if classification_requires_review else []
+            ),
+            artifact_refs={
+                "playbook_version_id": str(playbook.id) if playbook else None,
+            },
+            decision_details={
+                "decided_by": decided_by,
+                "levels_tried": classification_result.get("levels_tried", []) if classification_result else [],
+                "applicable_triggers": applicable_triggers,
+                "confidence_zone": details.get("confidence_zone") if details else None,
+                "candidates": _candidates,
+            },
         )
-        async with db_uow() as uow_status:
-            await _mark_failed(
-                uow_status,
-                doc_uuid,
-                message=str(e),
-                run_id=run_uuid,
-            )
+
         return {
             "document_id": document_id,
-            "status": DocumentStatus.FAILED.value,
-            "classification_outcome": "failed",
-            "error": str(e),
-            "committed": False,
-        }
-
-    duration_ms = int((time.time() - start_time) * 1000)
-
-    # Вычисляем outcome для return value (для логов и мониторинга).
-    # В БД outcome уже записан внутри save_classification_result().
-    _final = classification_result.get("final_type") if classification_result else None
-    _return_outcome = "typed" if (_final and str(_final).strip()) else "unknown"
-
-    _candidates = []
-    if classification_result:
-        _raw_candidates = classification_result.get("candidates") or []
-        _candidates = _raw_candidates[:10]  # ограничим размер
-
-    _trace = build_stage_trace_fragment(
-        strategy="hybrid_classifier_stage8",
-        input_summary={
-            "document_id": document_id,
-            "previous_status": "chunked",
-        },
-        output_summary={
+            "status": DocumentStatus.CLASSIFIED.value,
             "classification_outcome": _return_outcome,
-            "doc_type": classification_result.get("final_type") if classification_result else None,
-            "confidence": classification_result.get("final_confidence") if classification_result else 0.0,
+            "doctype": classification_result.get("final_type") if classification_result else None,
+            "confidence": classification_result.get("final_confidence")
+            if classification_result
+            else 0.0,
             "language": classification_result.get("language") if classification_result else None,
-            "jurisdiction": classification_result.get("jurisdiction") if classification_result else None,
-            "requires_manual_review": bool(classification_requires_review),
+            "jurisdiction": classification_result.get("jurisdiction")
+            if classification_result
+            else None,
+            "playbook_found": playbook is not None,
             "duration_ms": duration_ms,
-        },
-        warnings=(
-            ["requires_manual_review"] if classification_requires_review else []
-        ),
-        artifact_refs={
-            "playbook_version_id": str(playbook.id) if playbook else None,
-        },
-        decision_details={
-            "decided_by": decided_by,
-            "levels_tried": classification_result.get("levels_tried", []) if classification_result else [],
-            "applicable_triggers": applicable_triggers,
-            "confidence_zone": details.get("confidence_zone") if details else None,
-            "candidates": _candidates,
-        },
-    )
-
-    return {
-        "document_id": document_id,
-        "status": DocumentStatus.CLASSIFIED.value,
-        "classification_outcome": _return_outcome,
-        "doctype": classification_result.get("final_type") if classification_result else None,
-        "confidence": classification_result.get("final_confidence")
-        if classification_result
-        else 0.0,
-        "language": classification_result.get("language") if classification_result else None,
-        "jurisdiction": classification_result.get("jurisdiction")
-        if classification_result
-        else None,
-        "playbook_found": playbook is not None,
-        "duration_ms": duration_ms,
-        "classification_requires_review": classification_requires_review,
-        "committed": True,
-        "stage_execution_result_details": _trace,
-    }
+            "classification_requires_review": classification_requires_review,
+            "committed": True,
+            "stage_execution_result_details": _trace,
+        }
 
 
 async def _mark_failed(

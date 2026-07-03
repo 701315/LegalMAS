@@ -1,5 +1,3 @@
-# src/workers/check_runner_worker.py
-
 """
 CheckRunner Worker — запуск playbook-checks по уже классифицированным документам сделки.
 
@@ -36,6 +34,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from contextlib import nullcontext
 from typing import Any
 
 from celery.exceptions import SoftTimeLimitExceeded
@@ -362,6 +361,12 @@ def run_single_check(
     - выполняем одну проверку через CheckRunner;
     - сохраняем/обновляем CheckResult с execution_status;
     - в finally публикуем finalize_run_if_ready для возможной финализации всего Run.
+
+    Business span stage.run_single_check:
+    - охватывает полный lifecycle одного check внутри worker
+    - включает LLM call, SQL reads/writes
+    - атрибуты: check_id, document_id, run_id, deal_id
+    - обогащается результатом check после выполнения
     """
     logger.info(
         "Run single check task received",
@@ -381,206 +386,193 @@ def run_single_check(
     pb_version_uuid = uuid.UUID(playbook_version_id) if playbook_version_id else None
 
     async def _run() -> dict:
-        async with db_uow() as uow:
-            run_repo = RunRepository(uow.session)
-            pb_repo = PlaybookRepository(uow.session)
-            doc_repo = DocumentRepository(uow.session)
-            result_repo = ResultRepository(uow.session)
+        from core.tracing import get_stage_tracer  # noqa: PLC0415
 
-            try:
-                run_obj = await run_repo.get(run_uuid)
-                if run_obj is None:
-                    raise ValueError(f"Run not found: {run_uuid}")
+        _stage_tracer = get_stage_tracer()
+        _stage_span_ctx = (
+            _stage_tracer.start_as_current_span(
+                "stage.run_single_check",
+                attributes={
+                    "check_id": check_id,
+                    "document_id": doc_id,
+                    "run_id": run_id,
+                    "deal_id": deal_id,
+                },
+            )
+            if _stage_tracer else nullcontext()
+        )
 
-                # Снимаем snapshot сразу после загрузки ORM-объекта Run.
-                # Дальше работаем только с run_snap, а не с run_obj.
-                run_snap: RunSnapshot = snapshot_run(run_obj)
+        with _stage_span_ctx:
+            async with db_uow() as uow:
+                run_repo = RunRepository(uow.session)
+                pb_repo = PlaybookRepository(uow.session)
+                doc_repo = DocumentRepository(uow.session)
+                result_repo = ResultRepository(uow.session)
 
-                effective_checks_mode = checks_mode or run_snap.checks_mode or "global_and_doc_type"
-                effective_pb_version_id = pb_version_uuid or run_snap.playbook_version_id
+                try:
+                    run_obj = await run_repo.get(run_uuid)
+                    if run_obj is None:
+                        raise ValueError(f"Run not found: {run_uuid}")
 
-                if run_snap.deal_id != deal_uuid:
-                    logger.warning(
-                        "run_single_check: deal_id mismatch between task and Run",
-                        run_id=run_id,
-                        deal_id_task=str(deal_uuid),
-                        deal_id_run=run_snap.deal_id_str,
-                    )
+                    # Снимаем snapshot сразу после загрузки ORM-объекта Run.
+                    # Дальше работаем только с run_snap, а не с run_obj.
+                    run_snap: RunSnapshot = snapshot_run(run_obj)
 
-                pb_version = await pb_repo.get_by_id(effective_pb_version_id)
-                if pb_version is None:
-                    raise ValueError(f"PlaybookVersion not found: {effective_pb_version_id}")
-                playbook = load_playbook_from_version(pb_version)
+                    effective_checks_mode = checks_mode or run_snap.checks_mode or "global_and_doc_type"
+                    effective_pb_version_id = pb_version_uuid or run_snap.playbook_version_id
 
-                doc = await doc_repo.get_by_id(doc_uuid)
-                if doc is None:
-                    raise ValueError(f"Document not found: {doc_uuid}")
+                    if run_snap.deal_id != deal_uuid:
+                        logger.warning(
+                            "run_single_check: deal_id mismatch between task and Run",
+                            run_id=run_id,
+                            deal_id_task=str(deal_uuid),
+                            deal_id_run=run_snap.deal_id_str,
+                        )
 
-                already_success = await result_repo.has_success_for_doc_check(
-                    run_id=run_uuid,
-                    document_id=doc_uuid,
-                    check_id=check_id,
-                )
+                    pb_version = await pb_repo.get_by_id(effective_pb_version_id)
+                    if pb_version is None:
+                        raise ValueError(f"PlaybookVersion not found: {effective_pb_version_id}")
+                    playbook = load_playbook_from_version(pb_version)
 
-                if already_success and not force:
-                    success_row = await result_repo.get_first_success_for_doc_check(
+                    doc = await doc_repo.get_by_id(doc_uuid)
+                    if doc is None:
+                        raise ValueError(f"Document not found: {doc_uuid}")
+
+                    already_success = await result_repo.has_success_for_doc_check(
                         run_id=run_uuid,
                         document_id=doc_uuid,
                         check_id=check_id,
                     )
 
-                    logger.debug(
-                        "run_single_check: existing SUCCESS details for doc/check aggregate",
-                        run_id=run_id,
-                        deal_id=deal_id,
-                        doc_id=doc_id,
-                        check_id=check_id,
-                        force=force,
-                        success_result_id=(str(success_row.id) if success_row else None),
-                        success_segment_id=(success_row.segment_id if success_row else None),
-                        success_segment_type=(
-                            success_row.segment_type if success_row else None
-                        ),
-                        success_segment_title=(
-                            success_row.segment_title if success_row else None
-                        ),
-                        success_segment_order=(
-                            success_row.segment_order if success_row else None
-                        ),
-                        success_is_primary_segment=(
-                            success_row.is_primary_segment if success_row else None
-                        ),
-                        success_created_at=(
-                            success_row.created_at.isoformat()
-                            if success_row and success_row.created_at
-                            else None
-                        ),
+                    if already_success and not force:
+                        success_row = await result_repo.get_first_success_for_doc_check(
+                            run_id=run_uuid,
+                            document_id=doc_uuid,
+                            check_id=check_id,
+                        )
+
+                        logger.debug(
+                            "run_single_check: existing SUCCESS details for doc/check aggregate",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                            doc_id=doc_id,
+                            check_id=check_id,
+                            force=force,
+                            success_result_id=(str(success_row.id) if success_row else None),
+                            success_segment_id=(success_row.segment_id if success_row else None),
+                            success_segment_type=(
+                                success_row.segment_type if success_row else None
+                            ),
+                            success_segment_title=(
+                                success_row.segment_title if success_row else None
+                            ),
+                            success_segment_order=(
+                                success_row.segment_order if success_row else None
+                            ),
+                            success_is_primary_segment=(
+                                success_row.is_primary_segment if success_row else None
+                            ),
+                            success_created_at=(
+                                success_row.created_at.isoformat()
+                                if success_row and success_row.created_at
+                                else None
+                            ),
+                        )
+
+                        logger.info(
+                            "run_single_check: result already SUCCESS for doc/check aggregate, skipping",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                            doc_id=doc_id,
+                            check_id=check_id,
+                            force=force,
+                        )
+                        return {
+                            "status": "SKIPPED",
+                            "reason": "already_success",
+                        }
+
+                    runner = CheckRunner(
+                        llm_client=_shared_llm_client,
+                        playbook_version_id=effective_pb_version_id,
+                        checks_mode=effective_checks_mode,
+                        run_repo=run_repo,
+                        checks_scope=run_snap.checks_scope,
                     )
 
-                    logger.info(
-                        "run_single_check: result already SUCCESS for doc/check aggregate, skipping",
-                        run_id=run_id,
-                        deal_id=deal_id,
-                        doc_id=doc_id,
+                    # doc здесь — живой ORM Document, загруженный в этом UoW.
+                    # execute_single_check внутри сразу снимает DocumentCheckSnapshot
+                    # через _snapshot_check_doc() в engine/checks/check_runner.py.
+                    outcome = await runner.execute_single_check(
+                        session=uow.session,
+                        repo=result_repo,
+                        doc=doc,
+                        run_id=run_uuid,
+                        playbook=playbook,
                         check_id=check_id,
-                        force=force,
                     )
-                    return {
-                        "status": "SKIPPED",
-                        "reason": "already_success",
-                    }
 
-                runner = CheckRunner(
-                    llm_client=_shared_llm_client,
-                    playbook_version_id=effective_pb_version_id,
-                    checks_mode=effective_checks_mode,
-                    run_repo=run_repo,
-                    checks_scope=run_snap.checks_scope,
-                )
+                    exec_result = outcome["exec_result"]
+                    duration = time.time() - started_at
 
-                # doc здесь — живой ORM Document, загруженный в этом UoW.
-                # execute_single_check внутри сразу снимает DocumentCheckSnapshot
-                # через _snapshot_check_doc() в engine/checks/check_runner.py.
-                outcome = await runner.execute_single_check(
-                    session=uow.session,
-                    repo=result_repo,
-                    doc=doc,
-                    run_id=run_uuid,
-                    playbook=playbook,
-                    check_id=check_id,
-                )
+                    if exec_result is None:
+                        logger.info(
+                            "run_single_check completed: check not applicable",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                            doc_id=doc_id,
+                            check_id=check_id,
+                            duration_sec=round(duration, 2),
+                        )
+                        return {
+                            "status": "SUCCESS",
+                            "result": None,
+                            "severity": None,
+                            "check_id": check_id,
+                            "doc_id": str(doc_uuid),
+                            "reason": "not_applicable",
+                        }
 
-                exec_result = outcome["exec_result"]
-                duration = time.time() - started_at
-
-                if exec_result is None:
                     logger.info(
-                        "run_single_check completed: check not applicable",
+                        "run_single_check completed",
                         run_id=run_id,
                         deal_id=deal_id,
                         doc_id=doc_id,
                         check_id=check_id,
+                        result=exec_result.get("result"),
+                        severity=exec_result.get("severity"),
                         duration_sec=round(duration, 2),
                     )
+
+                    # Обогатить span результатом check.
+                    # Это позволяет в Tempo сразу видеть результат check
+                    # без перехода в логи.
+                    try:
+                        from opentelemetry import trace as _otel_trace  # noqa: PLC0415
+                        _cur = _otel_trace.get_current_span()
+                        if _cur and _cur.is_recording():
+                            _cur.set_attribute("check.result", exec_result.get("result") or "")
+                            _cur.set_attribute("check.severity", exec_result.get("severity") or "")
+                            _cur.set_attribute("check.duration_sec", round(duration, 2))
+                    except Exception:  # noqa: BLE001
+                        pass
+
                     return {
                         "status": "SUCCESS",
-                        "result": None,
-                        "severity": None,
+                        "result": exec_result.get("result"),
+                        "severity": exec_result.get("severity"),
                         "check_id": check_id,
                         "doc_id": str(doc_uuid),
-                        "reason": "not_applicable",
                     }
 
-                logger.info(
-                    "run_single_check completed",
-                    run_id=run_id,
-                    deal_id=deal_id,
-                    doc_id=doc_id,
-                    check_id=check_id,
-                    result=exec_result.get("result"),
-                    severity=exec_result.get("severity"),
-                    duration_sec=round(duration, 2),
-                )
-
-                return {
-                    "status": "SUCCESS",
-                    "result": exec_result.get("result"),
-                    "severity": exec_result.get("severity"),
-                    "check_id": check_id,
-                    "doc_id": str(doc_uuid),
-                }
-
-            except SoftTimeLimitExceeded as e:
-                logger.warning(
-                    "run_single_check: soft time limit exceeded",
-                    run_id=run_id,
-                    doc_id=doc_id,
-                    check_id=check_id,
-                    error=str(e),
-                )
-                await result_repo.upsert_single_check_result(
-                    run_id=run_uuid,
-                    document_id=doc_uuid,
-                    check_id=check_id,
-                    check_name=check_id,
-                    result="unclear",
-                    severity="unclear",
-                    value_text="timeout",
-                    evidence_ref=None,
-                    confidence=None,
-                    detector_used=None,
-                    quality_flags={"raw": {"source": "timeout", "error_message": str(e)}},
-                    structured_data=None,
-                    conditional_check_triggered=False,
-                    trigger_name=None,
-                    origin=None,
-                    playbook_version_id=pb_version_uuid,
-                    page=None,
-                    clause_uid=None,
-                    element_id=None,
-                    bbox=None,
-                    execution_status=CheckExecutionStatus.TIMEOUT.value,
-                    error_details={"type": "soft_time_limit", "message": str(e)},
-                )
-                raise
-
-            except Exception as e:
-                logger.exception(
-                    "run_single_check failed",
-                    run_id=run_id,
-                    deal_id=deal_id,
-                    doc_id=doc_id,
-                    check_id=check_id,
-                    error=str(e),
-                )
-
-                message = str(e)
-
-                is_transient_db_error = message.startswith(
-                    "Transient DB error while upserting check_result"
-                )
-
-                try:
+                except SoftTimeLimitExceeded as e:
+                    logger.warning(
+                        "run_single_check: soft time limit exceeded",
+                        run_id=run_id,
+                        doc_id=doc_id,
+                        check_id=check_id,
+                        error=str(e),
+                    )
                     await result_repo.upsert_single_check_result(
                         run_id=run_uuid,
                         document_id=doc_uuid,
@@ -588,11 +580,11 @@ def run_single_check(
                         check_name=check_id,
                         result="unclear",
                         severity="unclear",
-                        value_text="error",
+                        value_text="timeout",
                         evidence_ref=None,
                         confidence=None,
                         detector_used=None,
-                        quality_flags={"raw": {"source": "exception", "error_message": message}},
+                        quality_flags={"raw": {"source": "timeout", "error_message": str(e)}},
                         structured_data=None,
                         conditional_check_triggered=False,
                         trigger_name=None,
@@ -602,37 +594,80 @@ def run_single_check(
                         clause_uid=None,
                         element_id=None,
                         bbox=None,
-                        execution_status=CheckExecutionStatus.COMPUTE_FAILED.value,
-                        error_details={"type": "exception", "message": message},
+                        execution_status=CheckExecutionStatus.TIMEOUT.value,
+                        error_details={"type": "soft_time_limit", "message": str(e)},
                     )
-                except Exception:
+                    raise
+
+                except Exception as e:
                     logger.exception(
-                        "run_single_check: failed to persist FAILED status after exception",
+                        "run_single_check failed",
                         run_id=run_id,
                         deal_id=deal_id,
                         doc_id=doc_id,
                         check_id=check_id,
+                        error=str(e),
                     )
 
-                if is_transient_db_error:
-                    raise self.retry(exc=e, countdown=30)
+                    message = str(e)
 
-                raise
+                    is_transient_db_error = message.startswith(
+                        "Transient DB error while upserting check_result"
+                    )
 
-            finally:
-                try:
-                    send_task_with_context(
-                        "workers.finalize_run_if_ready",
-                        kwargs={"run_id": run_id},
-                        queue="default",
-                    )
-                except Exception:
-                    logger.exception(
-                        "run_single_check: failed to enqueue finalize_run_if_ready",
-                        run_id=run_id,
-                        doc_id=doc_id,
-                        check_id=check_id,
-                    )
+                    try:
+                        await result_repo.upsert_single_check_result(
+                            run_id=run_uuid,
+                            document_id=doc_uuid,
+                            check_id=check_id,
+                            check_name=check_id,
+                            result="unclear",
+                            severity="unclear",
+                            value_text="error",
+                            evidence_ref=None,
+                            confidence=None,
+                            detector_used=None,
+                            quality_flags={"raw": {"source": "exception", "error_message": message}},
+                            structured_data=None,
+                            conditional_check_triggered=False,
+                            trigger_name=None,
+                            origin=None,
+                            playbook_version_id=pb_version_uuid,
+                            page=None,
+                            clause_uid=None,
+                            element_id=None,
+                            bbox=None,
+                            execution_status=CheckExecutionStatus.COMPUTE_FAILED.value,
+                            error_details={"type": "exception", "message": message},
+                        )
+                    except Exception:
+                        logger.exception(
+                            "run_single_check: failed to persist FAILED status after exception",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                            doc_id=doc_id,
+                            check_id=check_id,
+                        )
+
+                    if is_transient_db_error:
+                        raise self.retry(exc=e, countdown=30)
+
+                    raise
+
+                finally:
+                    try:
+                        send_task_with_context(
+                            "workers.finalize_run_if_ready",
+                            kwargs={"run_id": run_id},
+                            queue="default",
+                        )
+                    except Exception:
+                        logger.exception(
+                            "run_single_check: failed to enqueue finalize_run_if_ready",
+                            run_id=run_id,
+                            doc_id=doc_id,
+                            check_id=check_id,
+                        )
 
     return run_async(_run())
 
@@ -785,3 +820,5 @@ def finalize_run_if_ready(
             }
 
     return run_async(_run())
+
+    

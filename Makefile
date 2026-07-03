@@ -92,11 +92,18 @@ worker-dev:
 		--include=tests.tasks_for_testing \
 		--pool=solo
 
-# Отдельный system worker:
-# именно он нужен для outbox_dispatcher и других служебных задач
+# Отдельный system worker для инфраструктурных задач:
+# outbox_dispatcher, reap_stale_stage_executions.
+#
+# OTEL_ENABLED=false — намеренно.
+# Причина: system worker выполняет только служебные задачи без бизнес-ценности
+# для трейсинга. SQLAlchemy и connection pool events от этого worker'а
+# создают orphan spans в Tempo, засоряя бизнес-traces.
+# Логи и метрики работают нормально — только traces отключены.
 worker-system:
-	$(PYTHONPATH_ENV) celery -A $(CELERY_APP) worker \
-		--loglevel=info \
+	OTEL_ENABLED=false $(PYTHONPATH_ENV) celery -A $(CELERY_APP) worker \
+		--loglevel=INFO \
+		--hostname=worker-system@%h \
 		--queues=system \
 		--pool=solo
 
