@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-07-04T13:02:45.802690+00:00",
+  "phase": "BASELINE",
+  "steps": {
+    "auth": {
+      "ok": true
+    },
+    "find_deal": {
+      "ok": true,
+      "deal_id": "f74dc7b4-44b1-4d73-b39d-7ef3d5a802e5",
+      "deal_name": "тест 278"
+    },
+    "trigger_run": {
+      "status_code": 200,
+      "run_id": "cdd5b02e-d1bf-49c5-b503-4d3802224b64",
+      "initial_status": "pending",
+      "deal_id": "f74dc7b4-44b1-4d73-b39d-7ef3d5a802e5",
+      "error": false
+    },
+    "run_in_db": {
+      "stdout": "cdd5b02e-d1bf-49c5-b503-4d3802224b64 | running |           16 |                0 | f          | 2026-07-04 13:02:47.499787+00 |",
+      "stderr": "",
+      "returncode": 0
+    },
+    "run_parsed": {
+      "status": "running",
+      "total_checks": 16,
+      "completed_checks": 0
+    },
+    "stage_executions_in_db": {
+      "stdout": "",
+      "stderr": "",
+      "returncode": 0
+    },
+    "log_entries": {
+      "found": false,
+      "count": 0,
+      "entries": [],
+      "entries_with_trace_id": 0,
+      "worker_entries_count": 0,
+      "worker_entries_sample": []
+    },
+    "recent_traces": {
+      "count": 3,
+      "traces": [
+        {
+          "traceID": "8259068860c6aff35a75df6bf3919ee3",
+          "rootTraceName": "POST /api/v1/runs",
+          "rootServiceName": "legalmas-api"
+        },
+        {
+          "traceID": "cd44ea748e4638a41b075e90f2db6d55",
+          "rootTraceName": "GET /api/v1/deals/",
+          "rootServiceName": "legalmas-api"
+        },
+        {
+          "traceID": "d34009fd8f51d9bbf9214e8b1c4384a6",
+          "rootTraceName": "POST /api/v1/auth/login",
+          "rootServiceName": "legalmas-api"
+        }
+      ]
+    }
+  },
+  "conclusion": {
+    "run_created": true,
+    "run_not_stuck_in_pending": true,
+    "run_status": "running",
+    "run_total_checks": 16,
+    "run_id_in_api_logs": false,
+    "worker_path_proven": false,
+    "stage_executions_exist": false,
+    "trace_id_in_logs": false,
+    "traces_in_tempo": true,
+    "overall": "DEGRADED",
+    "notes": {
+      "stage_executions_exist_not_required": "For documents in enriched/completed status, orchestrator correctly skips document-stage scheduling. This is not a failure.",
+      "trace_id_in_logs_expected_before_b1": false,
+      "trace_id_in_logs_expected_after_b1": true,
+      "worker_path_proven_meaning": "True means worker_hostname appeared in run_id logs — Celery task was actually consumed and executed."
+    }
+  }
+}

@@ -251,3 +251,103 @@ class RunProgressEvent(BaseModel):
     total_checks: int
     current_document: str | None = None
     error: str | None = None
+
+
+class PipelineSubstepResponse(BaseModel):
+    """
+    Один технический substep внутри product-этапа pipeline.
+
+    status:
+    - planned
+    - running
+    - completed
+    - failed
+    - cancelled
+    """
+
+    code: str
+    title: str
+    status: str
+    started_at: datetime | None
+    finished_at: datetime | None
+    duration_seconds: int | None
+    error_message: str | None = None
+
+
+class StageSubProgressResponse(BaseModel):
+    """
+    Живой прогресс внутри долгого этапа.
+
+    kind:
+    - legal_units
+    - segments
+    - checks
+    - documents
+    """
+
+    kind: str
+    current: int
+    total: int
+    total_units_in_document: int | None = None
+    current_document_id: str | None = None
+    current_document_name: str | None = None
+    current_segment_id: str | None = None
+    current_segment_title: str | None = None
+    current_unit_label: str | None = None
+    updated_at: datetime | None = None
+
+
+class PipelineStepResponse(BaseModel):
+    """
+    Один product-этап pipeline, который видит пользователь.
+
+    status:
+    - pending
+    - running
+    - completed
+    - completed_with_errors
+    - failed
+    """
+
+    code: str
+    title: str
+    status: str
+    documents_total: int
+    documents_completed: int
+    documents_running: int
+    documents_failed: int
+    started_at: datetime | None
+    finished_at: datetime | None
+    duration_seconds: int | None
+    message: str | None = None
+    error_message: str | None = None
+    substeps: list[PipelineSubstepResponse]
+    sub_progress: StageSubProgressResponse | None = None
+
+
+class RunPipelineProgressResponse(BaseModel):
+    """
+    Подробный user-facing прогресс pipeline по run.
+
+    Нужен для страницы обзора сделки, чтобы показывать не только checks,
+    но и document pipeline до них.
+    """
+
+    run_id: UUID
+    deal_id: UUID
+    run_status: str
+    started_at: datetime | None
+    completed_at: datetime | None
+    elapsed_seconds: int | None
+    last_activity_at: datetime | None
+    is_stale: bool
+    stale_threshold_minutes: int
+    documents_total: int
+    documents_failed: int
+    documents_quarantine: int
+    current_step_code: str | None
+    current_step_title: str | None
+    active_step_codes: list[str]
+    steps: list[PipelineStepResponse]
+
+    

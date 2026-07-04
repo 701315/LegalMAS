@@ -87,6 +87,22 @@ class DocumentStageExecutionRepository:
         )
         return result.scalar_one_or_none()
 
+    async def list_by_run(
+        self,
+        run_id: uuid.UUID,
+    ) -> list[DocumentStageExecution]:
+        """
+        Return all stage executions for a Run ordered by creation time.
+
+        Нужен для pipeline progress aggregation на уровне Run.
+        """
+        result = await self.session.execute(
+            select(DocumentStageExecution)
+            .where(DocumentStageExecution.run_id == run_id)
+            .order_by(DocumentStageExecution.created_at.asc())
+        )
+        return list(result.scalars().all())
+
     async def get_active_for_stage(
         self,
         document_version_id: uuid.UUID,
@@ -141,7 +157,7 @@ class DocumentStageExecutionRepository:
             )
         )
         return int(result.scalar_one() or 0)
-    
+
     async def list_stale_active_executions(
         self,
         older_than: datetime,
@@ -357,7 +373,7 @@ class DocumentStageExecutionRepository:
                 )
         except IntegrityError:
             return None
-        
+
     async def update_result_details(
         self,
         execution_id: uuid.UUID,
@@ -383,6 +399,27 @@ class DocumentStageExecutionRepository:
             await self.session.flush()
 
         return execution
-    
-    
 
+    async def update_progress_details(
+        self,
+        execution_id: uuid.UUID,
+        progress_details: dict,
+    ) -> None:
+        """
+        Best-effort update of live progress snapshot for a long-running stage.
+
+        Важно:
+        - метод не меняет lifecycle status;
+        - метод не завершает execution;
+        - предназначен только для периодических progress writes из worker'ов.
+        """
+        stmt = (
+            update(DocumentStageExecution)
+            .where(DocumentStageExecution.id == execution_id)
+            .values(progress_details=progress_details)
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
+
+
+        

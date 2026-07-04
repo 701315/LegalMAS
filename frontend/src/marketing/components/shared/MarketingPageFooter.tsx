@@ -1,3 +1,5 @@
+// frontend/src/marketing/components/shared/MarketingPageFooter.tsx
+
 import React from "react";
 import { Link } from "react-router-dom";
 import SteloomWordmark from "./primitives/SteloomWordmark";

@@ -37,6 +37,10 @@ import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
 import ScrollToAnchor from "./components/routing/ScrollToAnchor";
 import AppShell from "./components/layout/AppShell";
 
+// ── Context Providers ─────────────────────────────────────────
+import { ContactModalProvider } from "./marketing/context/ContactModalContext";
+
+
 const POLL_INTERVAL = 4000;
 
 // ─────────────────────────────────────────────────────────────
@@ -119,197 +123,200 @@ function RequireAdminOrSuperadmin({
 // ─────────────────────────────────────────────────────────────
 function App() {
   return (
-    <div className="min-h-screen w-full bg-[var(--bg-base)] text-[var(--text-primary)]">
-      <ScrollToAnchor />
-      <Routes>
-        {/* ── Public marketing routes ──────────────────────── */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/platform" element={<CapabilitiesPage />} />
-        <Route path="/security" element={<SecurityPage />} />
-        <Route path="/use-cases" element={<SolutionsPage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/demo" element={<DemoPage />} />
+    <ContactModalProvider>
+      <div className="min-h-screen w-full bg-[var(--bg-base)] text-[var(--text-primary)]">
+        <ScrollToAnchor />
+        <Routes>
+          {/* ── Public marketing routes ──────────────────────── */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/platform" element={<CapabilitiesPage />} />
+          <Route path="/security" element={<SecurityPage />} />
+          <Route path="/use-cases" element={<SolutionsPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/demo" element={<DemoPage />} />
 
-        {/* Legacy redirects */}
-        <Route path="/capabilities" element={<Navigate to="/platform" replace />} />
-        <Route path="/tech" element={<Navigate to="/platform" replace />} />
-        <Route path="/solutions" element={<Navigate to="/use-cases" replace />} />
+          {/* Legacy redirects */}
+          <Route path="/capabilities" element={<Navigate to="/platform" replace />} />
+          <Route path="/tech" element={<Navigate to="/platform" replace />} />
+          <Route path="/solutions" element={<Navigate to="/use-cases" replace />} />
 
-        {/* Auth */}
-        <Route path="/login" element={<LoginPage />} />
+          {/* Auth */}
+          <Route path="/login" element={<LoginPage />} />
 
-        {/* ── Protected app routes ─────────────────────────── */}
-        <Route
-          path="/dashboard"
-          element={
-            <RequireAuth>
-              <AppShell>
-                <DashboardPage />
-              </AppShell>
-            </RequireAuth>
-          }
-        />
+          {/* ── Protected app routes ─────────────────────────── */}
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <DashboardPage />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/projects/:dealId"
-          element={
-            <RequireAuth>
-              <AppShell>
-                <DealRouteWrapper />
-              </AppShell>
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/projects/:dealId"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <DealRouteWrapper />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
 
-        {/* Создание нового проекта: superadmin и tenant_admin */}
-        <Route
-          path="/projects/new"
-          element={
-            <RequireAdminOrSuperadmin>
-              <AppShell>
-                <NewProjectPage />
-              </AppShell>
-            </RequireAdminOrSuperadmin>
-          }
-        />
+          {/* Создание нового проекта: superadmin и tenant_admin */}
+          <Route
+            path="/projects/new"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <NewProjectPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
 
-        <Route
-          path="/deals"
-          element={
-            <RequireAuth>
-              <AppShell>
-                <DealListPage />
-              </AppShell>
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/deals"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <DealListPage />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/projects/:dealId/upload"
-          element={
-            <RequireAuth>
-              <AppShell>
-                <ProjectRouteGuard requiredCapability="canUploadDocuments">
-                  <ProjectUploadPage />
-                </ProjectRouteGuard>
-              </AppShell>
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/projects/:dealId/upload"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <ProjectRouteGuard requiredCapability="canUploadDocuments">
+                    <ProjectUploadPage />
+                  </ProjectRouteGuard>
+                </AppShell>
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/projects/:dealId/members"
-          element={
-            <RequireAuth>
-              <AppShell>
-                <ProjectRouteGuard requiredCapability="canManageRequests">
-                  <ProjectMembersPage />
-                </ProjectRouteGuard>
-              </AppShell>
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/projects/:dealId/members"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <ProjectRouteGuard requiredCapability="canManageRequests">
+                    <ProjectMembersPage />
+                  </ProjectRouteGuard>
+                </AppShell>
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/projects/:dealId/playbook"
-          element={
-            <RequireAuth>
-              <AppShell>
-                <ProjectRouteGuard requiredCapability="canViewOverview">
-                  <DealPlaybookSelectorPage />
-                </ProjectRouteGuard>
-              </AppShell>
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/projects/:dealId/playbook"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <ProjectRouteGuard requiredCapability="canViewOverview">
+                    <DealPlaybookSelectorPage />
+                  </ProjectRouteGuard>
+                </AppShell>
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/projects/:dealId/playbooks/admin"
-          element={
-            <RequireAuth>
-              <AppShell>
-                <ProjectRouteGuard requiredCapability="canManageRequests">
-                  <AdminPlaybookLinesPage />
-                </ProjectRouteGuard>
-              </AppShell>
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/projects/:dealId/playbooks/admin"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <ProjectRouteGuard requiredCapability="canManageRequests">
+                    <AdminPlaybookLinesPage />
+                  </ProjectRouteGuard>
+                </AppShell>
+              </RequireAuth>
+            }
+          />
 
-        {/* Эти админские страницы пока доступны superadmin и tenant_admin */}
-        <Route
-          path="/admin/model-configs"
-          element={
-            <RequireAdminOrSuperadmin>
-              <AppShell>
-                <ModelConfigsAdminPage />
-              </AppShell>
-            </RequireAdminOrSuperadmin>
-          }
-        />
+          {/* Эти админские страницы пока доступны superadmin и tenant_admin */}
+          <Route
+            path="/admin/model-configs"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <ModelConfigsAdminPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
 
-        <Route
-          path="/admin/playbook-versions"
-          element={
-            <RequireAdminOrSuperadmin>
-              <AppShell>
-                <AdminPlaybookVersionsPage />
-              </AppShell>
-            </RequireAdminOrSuperadmin>
-          }
-        />
+          <Route
+            path="/admin/playbook-versions"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <AdminPlaybookVersionsPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
 
-        {/* Панель администратора клиента: tenant_admin и superadmin */}
-        <Route
-          path="/tenant-admin"
-          element={
-            <RequireAdminOrSuperadmin>
-              <AppShell>
-                <TenantAdminPage />
-              </AppShell>
-            </RequireAdminOrSuperadmin>
-          }
-        />
+          {/* Панель администратора клиента: tenant_admin и superadmin */}
+          <Route
+            path="/tenant-admin"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantAdminPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
 
-        {/* ── System Admin Panel (только superadmin) ───────────────────── */}
-        <Route
-          path="/admin"
-          element={
-            <RequireSuperadmin>
-              <AppShell>
-                <AdminPage />
-              </AppShell>
-            </RequireSuperadmin>
-          }
-        />
+          {/* ── System Admin Panel (только superadmin) ───────────────────── */}
+          <Route
+            path="/admin"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <AdminPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
 
-        <Route
-          path="/admin/tenants/new"
-          element={
-            <RequireSuperadmin>
-              <AppShell>
-                <AdminTenantNewPage />
-              </AppShell>
-            </RequireSuperadmin>
-          }
-        />
+          <Route
+            path="/admin/tenants/new"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <AdminTenantNewPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
 
-        <Route
-          path="/admin/tenants/:tenantId"
-          element={
-            <RequireSuperadmin>
-              <AppShell>
-                <AdminTenantDetailPage />
-              </AppShell>
-            </RequireSuperadmin>
-          }
-        />
+          <Route
+            path="/admin/tenants/:tenantId"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <AdminTenantDetailPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </div>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </ContactModalProvider>
   );
 }
 
 export default App;
+
 

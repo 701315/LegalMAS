@@ -1,10 +1,10 @@
 // src/marketing/components/home/KnowledgeGrowthSection/index.tsx
-
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 import { useScrollReveal } from "../../../../hooks/useScrollReveal";
 import KnowledgeTree from "./KnowledgeTree";
+import { landingContent } from "../../../content/landingContent";
 
 const KnowledgeGrowthSection: React.FC = () => {
   const left = useScrollReveal(0);
@@ -33,19 +33,24 @@ const KnowledgeGrowthSection: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
+  // Берем "eyebrow" из контента
+  const content = landingContent.capabilities;
+
   return (
     <section
       ref={sectionRef}
       id="knowledge"
-      className="relative flex min-h-screen items-center bg-[#F8F7F4] py-4 scroll-mt-0"
+      className="relative flex min-h-screen items-center bg-[#F8F7F4] py-24 sm:py-32 scroll-mt-0"
+      data-header-theme="light"
     >
-      <div className="mx-auto w-full max-w-[1920px] px-4 lg:px-6 xl:px-10">
-        <div className="grid items-center gap-6 lg:grid-cols-12 lg:gap-8">
+      <div className="mx-auto w-full max-w-[1920px] px-6 lg:px-10 xl:px-12">
+        <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
+          
           {/* ── Левая колонка: Дерево ── */}
           <div
             ref={left.ref as React.Ref<HTMLDivElement>}
             style={left.style}
-            className="lg:col-span-8"
+            className="lg:col-span-7 xl:col-span-8"
           >
             <div
               className="relative mx-auto w-full"
@@ -59,46 +64,45 @@ const KnowledgeGrowthSection: React.FC = () => {
           <div
             ref={right.ref as React.Ref<HTMLDivElement>}
             style={right.style}
-            className="flex flex-col justify-center lg:col-span-4"
+            className="flex flex-col justify-center lg:col-span-5 xl:col-span-4"
           >
-            <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500">
-              Возможности
-            </div>
+            <span className="eyebrow">{content.eyebrow}</span>
 
-            <h2 className="mt-5 font-serif text-5xl leading-[1.06] tracking-[-0.03em] text-stone-950 lg:text-[3.75rem]">
+            <h2 className="section-title !mt-2 text-stone-950">
               Растущее
               <br />
-              <em className="not-italic" style={{ color: "#2F5A4A" }}>
-                знание.
-              </em>
+              <em className="not-italic text-[#2F5A4A]">знание.</em>
             </h2>
 
-            <p className="mt-6 max-w-md text-base leading-8 text-stone-600 lg:text-[1.05rem] lg:leading-9">
-              Steloom собирает тысячи разрозненных положений договора
-              в единую живую структуру — не для поиска, а для понимания.
-            </p>
+            <div className="mt-8 flex flex-col gap-6">
+              <p className="text-[1.05rem] leading-relaxed text-stone-600">
+                Steloom собирает тысячи разрозненных положений договора
+                в единую живую структуру — не для поиска, а для понимания.
+              </p>
 
-            <p className="mt-5 max-w-md text-base leading-8 text-stone-600 lg:text-[1.05rem] lg:leading-9">
-              Один документ или пакет из десятков — система работает
-              одинаково: распознаёт тип (SPA, SHA, NDA, трудовой договор),
-              выстраивает структуру и применяет набор рисков, заранее
-              определённый юристом под конкретную сделку.
-            </p>
+              <p className="text-[1.05rem] leading-relaxed text-stone-600">
+                Один документ или пакет из десятков — система работает
+                одинаково: распознаёт тип (SPA, SHA, NDA, трудовой договор),
+                выстраивает структуру и применяет набор рисков, заранее
+                определённый юристом под конкретную сделку.
+              </p>
 
-            <p className="mt-5 max-w-md text-base leading-8 text-stone-600 lg:text-[1.05rem] lg:leading-9">
-              Каждый вывод привязан к источнику — конкретному пункту
-              в конкретном документе. Без галлюцинаций, без отвязанных
-              обобщений.
-            </p>
+              <p className="text-[1.05rem] leading-relaxed text-stone-600">
+                Каждый вывод привязан к источнику — конкретному пункту
+                в конкретном документе. Без галлюцинаций, без отвязанных
+                обобщений.
+              </p>
+            </div>
 
             <Link
-              to="/platform"
-              className="mt-10 inline-flex w-fit items-center gap-2 rounded-full border border-[#E5E2DA] bg-white px-5 py-2.5 text-sm font-medium text-stone-700 transition-all hover:border-stone-300 hover:text-stone-950"
+              to="/capabilities"
+              className="mt-12 inline-flex w-fit items-center gap-2 rounded-full border border-stone-300 bg-white px-6 py-3 text-sm font-medium text-stone-700 shadow-sm transition-all hover:border-stone-400 hover:text-stone-950 hover:shadow-md"
             >
               Все возможности платформы
-              <ArrowUpRight size={14} />
+              <ArrowUpRight size={16} />
             </Link>
           </div>
+
         </div>
       </div>
     </section>
@@ -106,5 +110,4 @@ const KnowledgeGrowthSection: React.FC = () => {
 };
 
 export default KnowledgeGrowthSection;
-
 

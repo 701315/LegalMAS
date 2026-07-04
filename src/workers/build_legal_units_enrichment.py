@@ -171,6 +171,7 @@ def build_legal_units_enrichment(
             run_id=run_id,
             segments_snapshot=segments_snapshot,
             started_monotonic=started_monotonic,
+            stage_execution_id=stage_execution_id,
         )
 
     llm_result = run_async(_llm_phase())
@@ -541,6 +542,7 @@ async def _enrichment_llm_phase(
     run_id: str | None,
     segments_snapshot: list[dict[str, Any]],
     started_monotonic: float,
+    stage_execution_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Фаза 2: долгая LLM-работа.
@@ -664,9 +666,14 @@ async def _enrichment_llm_phase(
             continue
 
         _partial_enrichments: list[LegalUnitEnrichment] = []
+        _last_unit_label: list[str] = []
 
         def _on_unit_enriched(enrichment: LegalUnitEnrichment) -> None:
             _partial_enrichments.append(enrichment)
+            unit_id = getattr(enrichment, "unit_id", None)
+            if unit_id:
+                _last_unit_label.clear()
+                _last_unit_label.append(str(unit_id))
 
         try:
             enrichment_result = await asyncio.wait_for(
@@ -739,6 +746,21 @@ async def _enrichment_llm_phase(
                 sidecar_ref=sidecar_ref,
                 status_counts=enrichment_result.status_counts,
             )
+
+            # ── Best-effort: progress write после успешной записи sidecar ──
+            await _write_enrichment_progress_safe(
+                stage_execution_id=stage_execution_id,
+                current=segments_enriched,
+                total_segment_units=len(legal_units_snapshot.units),
+                total_units_in_document=None,
+                document_id=document_id,
+                document_name=None,
+                segment_id=segment_id,
+                segment_title=segment_meta.get("segment_title") or None,
+                last_unit_label=_last_unit_label[0] if _last_unit_label else None,
+                log_base=log_base,
+            )
+
         except Exception as store_exc:
             logger.warning(
                 "Semantic enrichment stage: failed to store enrichment sidecar",
@@ -1185,3 +1207,58 @@ def _resolve_llm_info_for_partial() -> tuple[str | None, str | None]:
     except Exception:
         return None, None
 
+async def _write_enrichment_progress_safe(
+    *,
+    stage_execution_id: str | None,
+    current: int,
+    total_segment_units: int,
+    total_units_in_document: int | None,
+    document_id: str,
+    document_name: str | None,
+    segment_id: str,
+    segment_title: str | None,
+    last_unit_label: str | None,
+    log_base: dict,
+) -> None:
+    """
+    Best-effort запись live progress для semantic enrichment.
+
+    Открывает отдельную короткоживущую DB-сессию.
+    Никогда не бросает исключение — только warning в лог.
+    Не меняет lifecycle status execution.
+    """
+    if not stage_execution_id:
+        return
+
+    from datetime import UTC, datetime
+
+    try:
+        from db.uow import db_uow
+        from db.repositories.document_stage_execution_repo import (
+            DocumentStageExecutionRepository,
+        )
+
+        async with db_uow() as uow:
+            dse_repo = DocumentStageExecutionRepository(uow.session)
+            await dse_repo.update_progress_details(
+                uuid.UUID(stage_execution_id),
+                {
+                    "kind": "legal_units",
+                    "current": current,
+                    "total": total_segment_units,
+                    "total_units_in_document": total_units_in_document,
+                    "current_document_id": document_id,
+                    "current_document_name": document_name,
+                    "current_segment_id": segment_id,
+                    "current_segment_title": segment_title,
+                    "current_unit_label": last_unit_label,
+                    "updated_at": datetime.now(UTC).isoformat(),
+                },
+            )
+    except Exception as exc:
+        logger.warning(
+            "Semantic enrichment stage: failed to write progress_details (non-fatal)",
+            **log_base,
+            segment_id=segment_id,
+            error=str(exc),
+        )

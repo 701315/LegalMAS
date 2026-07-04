@@ -6,6 +6,7 @@ import { ArrowRight, Menu } from "lucide-react";
 import SteloomWordmark from "./primitives/SteloomWordmark";
 import MobileMenu from "./MobileMenu";
 import { SITE_NAV, SITE_CTA } from "../../content/siteNav";
+import { useContactModal } from "../../context/ContactModalContext"; // <-- ИМПОРТ
 
 type Theme = "light" | "dark";
 
@@ -100,6 +101,9 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
   const scrolled = useWindowScroll(32);
   const sectionTheme = useSectionTheme();
   const [menuOpen, setMenuOpen] = useState(false);
+  
+  // Подключаем контекст для модалки контактов
+  const { openContactModal } = useContactModal();
 
   const theme: Theme = forcedTheme ?? sectionTheme;
   const p = PALETTE[theme];
@@ -116,17 +120,17 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
 
     if (theme === "dark") {
       return {
-        background: "rgba(17,24,39,0.80)",
-        backdropFilter: "blur(20px) saturate(160%)",
-        WebkitBackdropFilter: "blur(20px) saturate(160%)",
+        background: "rgba(17,24,39,0.75)",
+        backdropFilter: "blur(24px) saturate(180%)",
+        WebkitBackdropFilter: "blur(24px) saturate(180%)",
         borderBottom: "1px solid rgba(255,255,255,0.08)",
       };
     }
 
     return {
-      background: "rgba(248,247,244,0.92)",
-      backdropFilter: "blur(20px) saturate(160%)",
-      WebkitBackdropFilter: "blur(20px) saturate(160%)",
+      background: "rgba(248,247,244,0.85)",
+      backdropFilter: "blur(24px) saturate(180%)",
+      WebkitBackdropFilter: "blur(24px) saturate(180%)",
       borderBottom: "1px solid rgba(229,226,218,0.80)",
     };
   })();
@@ -205,20 +209,27 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
               </button>
             )}
 
-            <Link to={SITE_CTA.demo.href} className="cta-primary">
+            {/* Вызов модалки вместо прямой ссылки */}
+            <button 
+              type="button" 
+              onClick={openContactModal} 
+              className="cta-primary"
+            >
               {SITE_CTA.demo.label}
               <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            </button>
           </div>
 
           <div className="flex items-center gap-2 lg:hidden">
-            <Link
-              to={SITE_CTA.demo.href}
+            {/* Вызов модалки на мобильном */}
+            <button
+              type="button"
+              onClick={openContactModal}
               className="cta-primary gap-1.5 px-4 py-2 text-sm"
             >
               Демо
               <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            </button>
 
             <button
               type="button"
@@ -243,5 +254,4 @@ const SiteHeader: React.FC<SiteHeaderProps> = ({
 };
 
 export default SiteHeader;
-
 

@@ -1,0 +1,369 @@
+{
+  "timestamp": "2026-07-04T13:12:25.906927+00:00",
+  "phase": "BASELINE",
+  "steps": {
+    "auth": {
+      "ok": true
+    },
+    "find_deal": {
+      "ok": true,
+      "deal_id": "f74dc7b4-44b1-4d73-b39d-7ef3d5a802e5",
+      "deal_name": "тест 278"
+    },
+    "trigger_run": {
+      "status_code": 200,
+      "run_id": "569075e3-eecf-4cef-a1a8-b5e134ccb8da",
+      "initial_status": "pending",
+      "deal_id": "f74dc7b4-44b1-4d73-b39d-7ef3d5a802e5",
+      "error": false
+    },
+    "run_in_db": {
+      "stdout": "569075e3-eecf-4cef-a1a8-b5e134ccb8da | running |           16 |                0 | f          | 2026-07-04 13:12:29.211472+00 |",
+      "stderr": "",
+      "returncode": 0
+    },
+    "run_parsed": {
+      "status": "running",
+      "total_checks": 16,
+      "completed_checks": 0
+    },
+    "stage_executions_in_db": {
+      "stdout": "",
+      "stderr": "",
+      "returncode": 0
+    },
+    "log_entries": {
+      "found": true,
+      "count": 29,
+      "entries": [
+        {
+          "event": "Run created",
+          "logger": "api.endpoints.runs",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "c2897275f73b1c1e",
+          "task_name": null,
+          "task_id": null,
+          "worker_hostname": null
+        },
+        {
+          "event": "Scheduling start_run_pipeline",
+          "logger": "api.endpoints.runs",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "c2897275f73b1c1e",
+          "task_name": null,
+          "task_id": null,
+          "worker_hostname": null
+        },
+        {
+          "event": "Task workers.start_run_pipeline[9c76cbe7-3032-4b24-b56d-f86f840cb2ad] received",
+          "logger": "celery.worker.strategy",
+          "level": "info",
+          "trace_id": null,
+          "span_id": null,
+          "task_name": null,
+          "task_id": null,
+          "worker_hostname": null
+        },
+        {
+          "event": "Task starting",
+          "logger": "mas_queue.base_task",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": "workers.start_run_pipeline",
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Starting run pipeline",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Resolved run pipeline strategy",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "tenant_id resolved from deal",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Evaluating document for run pipeline",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Document in unsupported or terminal status for run pipeline, skipping",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "No next task scheduled for document",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Run pipeline documents evaluation complete",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "maybe_start_run_checks: starting",
+          "logger": "services.run_checks_auto_starter",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "maybe_start_run_checks: scheduling run_deal_checks",
+          "logger": "services.run_checks_auto_starter",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Task workers.run_deal_checks[9c792709-c38e-4b5f-b94e-946ee40eced7] received",
+          "logger": "celery.worker.strategy",
+          "level": "info",
+          "trace_id": null,
+          "span_id": null,
+          "task_name": null,
+          "task_id": null,
+          "worker_hostname": null
+        },
+        {
+          "event": "maybe_start_run_checks: run_deal_checks task sent",
+          "logger": "services.run_checks_auto_starter",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Run pipeline scheduling complete",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Task completed",
+          "logger": "mas_queue.base_task",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": "workers.start_run_pipeline",
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Task workers.start_run_pipeline[9c76cbe7-3032-4b24-b56d-f86f840cb2ad] succeeded in 0.5603485330066178s: {'run_id': '569075e3-eecf-4cef-a1a8-b5e134ccb8da', 'deal_id': 'f74dc7b4-44b1-4d73-b39d-7ef3d5a802e5', 'tenant_id': '11111111-1111-1111-1111-111111111111', 'documents_total': 1, 'tasks_scheduled': 0, 'documents_with_plan': 0}",
+          "logger": "celery.app.trace",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": null,
+          "worker_hostname": null
+        },
+        {
+          "event": "Task starting",
+          "logger": "mas_queue.base_task",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "63124e9349e2661d",
+          "task_name": "workers.run_deal_checks",
+          "task_id": "9c792709-c38e-4b5f-b94e-946ee40eced7",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Run deal checks scheduler received",
+          "logger": "workers.check_runner_worker",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "63124e9349e2661d",
+          "task_name": null,
+          "task_id": "9c792709-c38e-4b5f-b94e-946ee40eced7",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        }
+      ],
+      "entries_with_trace_id": 27,
+      "worker_entries_count": 23,
+      "worker_entries_sample": [
+        {
+          "event": "Task starting",
+          "logger": "mas_queue.base_task",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": "workers.start_run_pipeline",
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Starting run pipeline",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Resolved run pipeline strategy",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "tenant_id resolved from deal",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        },
+        {
+          "event": "Evaluating document for run pipeline",
+          "logger": "workers.run_orchestrator",
+          "level": "info",
+          "trace_id": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "span_id": "1c9dea167ef0ebe1",
+          "task_name": null,
+          "task_id": "9c76cbe7-3032-4b24-b56d-f86f840cb2ad",
+          "worker_hostname": "worker-default@LAPTOP-70V01FA5"
+        }
+      ]
+    },
+    "recent_traces": {
+      "count": 10,
+      "traces": [
+        {
+          "traceID": "5fc1c5c22d6b9b3f810abf98effcb340",
+          "rootTraceName": "POST /api/v1/runs",
+          "rootServiceName": "legalmas-api"
+        },
+        {
+          "traceID": "95ac6ebfdf9a42d406f27d2e606066f2",
+          "rootTraceName": "GET /api/v1/deals/",
+          "rootServiceName": "legalmas-api"
+        },
+        {
+          "traceID": "37e9d83323aa21fc8002c68191732e66",
+          "rootTraceName": "POST /api/v1/auth/login",
+          "rootServiceName": "legalmas-api"
+        },
+        {
+          "traceID": "d0cb824800d519848608a43b4002fe5f",
+          "rootTraceName": "GET /api/v1/user/{user_id}/projects",
+          "rootServiceName": "legalmas-api"
+        },
+        {
+          "traceID": "d665f5f33391506645907b765f685d",
+          "rootTraceName": "OPTIONS /api/v1/user/{user_id}/projects",
+          "rootServiceName": "legalmas-api"
+        },
+        {
+          "traceID": "2347bf0d8db7f0e2305f177d68c61341",
+          "rootTraceName": "POST /api/v1/auth/login",
+          "rootServiceName": "legalmas-api"
+        },
+        {
+          "traceID": "ffb73469c592e5cd8c68f031299e284d",
+          "rootTraceName": "POST /api/v1/auth/login",
+          "rootServiceName": "legalmas-api"
+        },
+        {
+          "traceID": "5d89c894e7c17ede2ee5847b86fbe2c8",
+          "rootTraceName": "OPTIONS /api/v1/auth/login",
+          "rootServiceName": "legalmas-api"
+        },
+        {
+          "traceID": "8259068860c6aff35a75df6bf3919ee3",
+          "rootTraceName": null,
+          "rootServiceName": "<root span not yet received>"
+        },
+        {
+          "traceID": "d34009fd8f51d9bbf9214e8b1c4384a6",
+          "rootTraceName": null,
+          "rootServiceName": "<root span not yet received>"
+        }
+      ]
+    }
+  },
+  "conclusion": {
+    "run_created": true,
+    "run_not_stuck_in_pending": true,
+    "run_status": "running",
+    "run_total_checks": 16,
+    "run_id_in_api_logs": true,
+    "worker_path_proven": true,
+    "stage_executions_exist": false,
+    "trace_id_in_logs": true,
+    "traces_in_tempo": true,
+    "overall": "OK",
+    "notes": {
+      "stage_executions_exist_not_required": "For documents in enriched/completed status, orchestrator correctly skips document-stage scheduling. This is not a failure.",
+      "trace_id_in_logs_expected_before_b1": false,
+      "trace_id_in_logs_expected_after_b1": true,
+      "worker_path_proven_meaning": "True means worker_hostname appeared in run_id logs — Celery task was actually consumed and executed."
+    }
+  }
+}

@@ -39,9 +39,18 @@ export * from "./dealReview";
 
 export type {
   RunStatus,
+  RunProfile,
+  RunChecksMode,
   RunCreateInput,
   Run,
   ProgressEvent,
+  PipelineStepStatus,
+  PipelineSubstepStatus,
+  PipelineSubProgressKind,
+  PipelineSubProgress,
+  PipelineSubstep,
+  PipelineStep,
+  RunPipelineProgress,
 } from "./runs";
 
 export type {

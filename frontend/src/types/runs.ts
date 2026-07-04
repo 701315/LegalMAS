@@ -125,4 +125,130 @@ export interface ProgressEvent {
   error?: string;
 }
 
+// =============================================================
+// Pipeline progress types
+// Используются для детального отображения стадий пайплайна
+// на странице обзора сделки.
+// =============================================================
+
+/**
+ * Статус одного product-этапа pipeline.
+ * pending           — ещё не начат
+ * running           — идёт прямо сейчас
+ * completed         — успешно завершён
+ * completed_with_errors — завершён, но с ошибками в части документов
+ * failed            — завершён с ошибкой
+ */
+export type PipelineStepStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "completed_with_errors"
+  | "failed";
+
+/**
+ * Статус технического substep внутри product-этапа.
+ * planned   — запланирован, ещё не начат
+ * running   — выполняется
+ * completed — успешно завершён
+ * failed    — завершился с ошибкой
+ * cancelled — отменён
+ */
+export type PipelineSubstepStatus =
+  | "planned"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+/**
+ * Тип живого прогресса внутри долгого этапа.
+ * legal_units — обогащение semantic-блоков
+ * segments    — классификация сегментов
+ * checks      — DD-проверки
+ * documents   — общий прогресс по документам
+ */
+export type PipelineSubProgressKind =
+  | "legal_units"
+  | "segments"
+  | "checks"
+  | "documents";
+
+/**
+ * Живой прогресс внутри долгого этапа (из progress_details в БД).
+ */
+export interface PipelineSubProgress {
+  kind: PipelineSubProgressKind;
+  current: number;
+  total: number;
+  total_units_in_document?: number;
+  current_document_id?: string;
+  current_document_name?: string;
+  current_segment_id?: string;
+  current_segment_title?: string;
+  current_unit_label?: string;
+  updated_at?: string;
+}
+
+/**
+ * Один технический substep внутри product-этапа.
+ * Например: workers.extract_document внутри "Подготовка документа".
+ */
+export interface PipelineSubstep {
+  code: string;
+  title: string;
+  status: PipelineSubstepStatus;
+  started_at?: string;
+  finished_at?: string;
+  duration_seconds?: number;
+  error_message?: string;
+}
+
+/**
+ * Один product-этап pipeline, который видит пользователь.
+ * Например: "Подготовка документа", "Семантическое обогащение".
+ */
+export interface PipelineStep {
+  code: string;
+  title: string;
+  status: PipelineStepStatus;
+  documents_total: number;
+  documents_completed: number;
+  documents_running: number;
+  documents_failed: number;
+  started_at?: string;
+  finished_at?: string;
+  duration_seconds?: number;
+  message?: string;
+  error_message?: string;
+  substeps: PipelineSubstep[];
+  sub_progress?: PipelineSubProgress | null;
+}
+
+/**
+ * Подробный user-facing прогресс pipeline по run.
+ * Возвращается эндпоинтом GET /api/v1/runs/{run_id}/progress.
+ *
+ * Показывает не только checks, но и document pipeline до них:
+ * подготовка → структура → классификация → обогащение → проверки → финализация.
+ */
+export interface RunPipelineProgress {
+  run_id: string;
+  deal_id: string;
+  run_status: RunStatus;
+  started_at?: string;
+  completed_at?: string;
+  elapsed_seconds?: number;
+  last_activity_at?: string;
+  is_stale: boolean;
+  stale_threshold_minutes: number;
+  documents_total: number;
+  documents_failed: number;
+  documents_quarantine: number;
+  current_step_code?: string;
+  current_step_title?: string;
+  active_step_codes: string[];
+  steps: PipelineStep[];
+}
+
 

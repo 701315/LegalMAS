@@ -238,7 +238,6 @@ class Document(Base):
         ),
     )
 
-
     playbook_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("playbook_versions.id", ondelete="SET NULL"),
@@ -416,7 +415,6 @@ class DocumentVersion(Base):
             "planning) — chunk_builder использует дефолтные параметры."
         ),
     )
-
 
     segments_count: Mapped[int | None] = mapped_column(
         Integer,
@@ -690,7 +688,6 @@ class DocumentSegment(Base):
         ),
     )
 
-
     __table_args__ = (
         UniqueConstraint(
             "document_version_id",
@@ -839,6 +836,12 @@ class DocumentStageExecution(Base):
         ),
     )
 
+    progress_details: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Live progress snapshot for long-running stages.",
+    )
+
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
@@ -864,3 +867,5 @@ class DocumentStageExecution(Base):
             postgresql_where=text("status IN ('planned', 'dispatched', 'started')"),
         ),
     )
+
+    

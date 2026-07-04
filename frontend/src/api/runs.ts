@@ -9,17 +9,26 @@
 //   1) старт run,
 //   2) чтение конкретного run,
 //   3) чтение истории run'ов сделки,
-//   4) чтение classification report для конкретного run.
+//   4) чтение classification report для конкретного run,
+//   5) чтение pipeline progress для конкретного run.
 // =============================================================
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import client from "./client";
 import { documentKeys } from "./documents";
-import type { ClassificationReport, Run, RunCreateInput } from "../types";
+import type {
+  ClassificationReport,
+  Run,
+  RunCreateInput,
+  RunPipelineProgress,
+} from "../types";
 
 const RUN_POLL_INTERVAL_MS = 2000;
 const RUN_HISTORY_STALE_TIME_MS = 2 * 60_000;
 const CLASSIFICATION_REPORT_STALE_TIME_MS = 10 * 60_000;
+const PIPELINE_PROGRESS_STALE_TIME_MS = 5_000;
+const PIPELINE_PROGRESS_POLL_ACTIVE_MS = 10_000;
+const PIPELINE_PROGRESS_POLL_BACKGROUND_MS = 60_000;
 
 function isTerminalRunStatus(status: Run["status"] | undefined): boolean {
   return (
@@ -34,7 +43,8 @@ function isTerminalRunStatus(status: Run["status"] | undefined): boolean {
  * Важно:
  * - detail адресуется по runId;
  * - history адресуется по dealId;
- * - classificationReport адресуется по runId.
+ * - classificationReport адресуется по runId;
+ * - progress адресуется по runId.
  */
 export const runKeys = {
   all: ["runs"] as const,
@@ -47,6 +57,8 @@ export const runKeys = {
 
   classificationReport: (runId: string) =>
     ["runs", "classification-report", runId] as const,
+
+  progress: (runId: string) => ["runs", "progress", runId] as const,
 };
 
 export const runApi = {
@@ -74,10 +86,6 @@ export const runApi = {
 
   /**
    * История запусков по сделке.
-   * Ранее это жило в resultApi.listDealRuns(...),
-   * но семантически это API запусков, поэтому переносим сюда.
-   *
-   * Предполагаемый endpoint:
    * GET /api/v1/deals/{deal_id}/runs
    */
   listDealRuns: (dealId: string, includeClassificationStats = false) =>
@@ -98,6 +106,18 @@ export const runApi = {
       .get<ClassificationReport>(
         `/api/v1/runs/${runId}/classification-report`,
       )
+      .then((response) => response.data),
+
+  /**
+   * Подробный pipeline progress для run.
+   * GET /api/v1/runs/{run_id}/progress
+   *
+   * Возвращает стадии document pipeline, substeps, live sub_progress,
+   * stale detection и pseudo-steps для deal_checks и finalization.
+   */
+  getProgress: (runId: string) =>
+    client
+      .get<RunPipelineProgress>(`/api/v1/runs/${runId}/progress`)
       .then((response) => response.data),
 };
 
@@ -122,7 +142,6 @@ export function useStartRun(dealId: string) {
 
 /**
  * Хук для чтения истории запусков по сделке.
- * Используется, например, в Overview timeline.
  */
 export function useDealRuns(
   dealId: string,
@@ -205,5 +224,47 @@ export function useClassificationReport(runId: string | null) {
   });
 }
 
+/**
+ * Хук для получения подробного pipeline progress конкретного run.
+ *
+ * Поведение polling:
+ * - если run в terminal статусе — polling останавливается;
+ * - если вкладка активна — опрашиваем раз в 10 секунд;
+ * - если вкладка в фоне — раз в 60 секунд.
+ *
+ * Используется DocumentsPipelinePanel для отображения
+ * стадий документного пайплайна до начала DD-проверок.
+ */
+export function useRunProgress(runId: string | null) {
+  const enabled = !!runId;
+
+  return useQuery<RunPipelineProgress, Error>({
+    queryKey: runId
+      ? runKeys.progress(runId)
+      : ["runs", "progress", "disabled"],
+    queryFn: () => {
+      if (!runId) {
+        throw new Error("runId is required to fetch pipeline progress");
+      }
+      return runApi.getProgress(runId);
+    },
+    enabled,
+    staleTime: PIPELINE_PROGRESS_STALE_TIME_MS,
+    refetchOnWindowFocus: false,
+    refetchInterval: (query) => {
+      if (!enabled) return false;
+
+      const data = query.state.data;
+
+      if (!data) return PIPELINE_PROGRESS_POLL_ACTIVE_MS;
+
+      if (isTerminalRunStatus(data.run_status)) return false;
+
+      return document.hasFocus()
+        ? PIPELINE_PROGRESS_POLL_ACTIVE_MS
+        : PIPELINE_PROGRESS_POLL_BACKGROUND_MS;
+    },
+  });
+}
 
 

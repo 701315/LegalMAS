@@ -1,5 +1,4 @@
 // src/marketing/components/home/FounderSection.tsx
-
 import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
@@ -17,6 +16,7 @@ const FounderSection: React.FC = () => {
     >
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-10 xl:px-12">
         <div className="grid gap-16 lg:grid-cols-[1fr_1.6fr] lg:gap-24 lg:items-start">
+          
           {/* ── Левая: Attribution ─────────────────────────── */}
           <div
             ref={content.ref as React.Ref<HTMLDivElement>}
@@ -24,7 +24,7 @@ const FounderSection: React.FC = () => {
           >
             <div className="mb-10 flex items-center gap-3">
               <div className="h-px w-10 bg-stone-300" />
-              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400">
+              <span className="eyebrow !mb-0">
                 От основателя
               </span>
             </div>
@@ -64,8 +64,8 @@ const FounderSection: React.FC = () => {
           >
             <blockquote>
               <p
-                className="font-serif font-light leading-[1.5] tracking-[-0.01em] text-stone-800"
-                style={{ fontSize: "clamp(1.5rem, 2.4vw, 2.125rem)" }}
+                className="font-serif font-light leading-[1.4] tracking-[-0.01em] text-stone-900"
+                style={{ fontSize: "clamp(1.75rem, 2.8vw, 2.5rem)" }}
               >
                 «Юридическим командам не нужен ещё один AI, который просто даёт быстрые ответы.
                 Им нужна система, где каждый вывод можно проследить до источника —
@@ -74,7 +74,7 @@ const FounderSection: React.FC = () => {
 
               <p
                 className="mt-8 font-serif font-light leading-[1.5] tracking-[-0.01em] text-stone-500"
-                style={{ fontSize: "clamp(1.25rem, 1.8vw, 1.625rem)" }}
+                style={{ fontSize: "clamp(1.25rem, 1.8vw, 1.75rem)" }}
               >
                 «Steloom — это именно такая система. Не shortcut к ответу,
                 а основание для защищаемого и проверяемого вывода».

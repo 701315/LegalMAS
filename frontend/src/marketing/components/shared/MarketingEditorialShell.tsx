@@ -1,3 +1,5 @@
+// frontend/src/marketing/components/shared/MarketingEditorialShell.tsx
+
 import React from "react";
 import SiteHeader from "./SiteHeader";
 import MarketingPageFooter from "./MarketingPageFooter";

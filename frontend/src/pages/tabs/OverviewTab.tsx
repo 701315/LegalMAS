@@ -4,19 +4,15 @@
 
 import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AuditLogEntry, Deal, RunStatus } from "../../types";
+import type { Deal } from "../../types";
 import {
   runKeys,
-  useDealRuns,
   useRun,
   useStartRun,
 } from "../../api/runs";
 import { useSetPrimaryLanguage, useUpdateDeal } from "../../api/deals";
 import { useDocuments } from "../../api/documents";
 import { useDealPermissions } from "../../hooks/usePermissions";
-import { useSSEProgress } from "../../hooks/useSSE";
-import { RUN_STATUS_CONFIG } from "../../utils/statusConfig";
-import { useAuditLog } from "../../api/audit";
 import Button from "../../components/ui/Button";
 import AnalysisActionsPanel from "./overview/AnalysisActionsPanel";
 import LaunchWideOverlay from "./overview/LaunchWideOverlay";
@@ -24,14 +20,8 @@ import {
   normalizeDiscoveryStatus,
   normalizeLang,
 } from "../../utils/languageDiscovery";
-
-// ↓ ВАЖНО:
-// Для этого файла предполагается, что эти константы экспортируются
-// из соответствующих tab-файлов:
-// export const DEMO_AGGREGATES = [...];
-// export const DEMO_OBJECTS = [...];
-import { DEMO_AGGREGATES } from "./CounterpartiesTab";
-import { DEMO_OBJECTS } from "./RealEstateTab";
+import { ProjectDomainsOverviewPanel } from "./overview/ProjectDomainsOverviewPanel";
+import { ProjectDomainDetailsPanel } from "./overview/ProjectDomainDetailsPanel";
 
 export type ChecksMode =
   | "global_only"
@@ -44,388 +34,7 @@ interface OverviewTabProps {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("ru-RU", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function formatDateShort(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
-  const imports = entries.filter((e) => e.action === "IMPORT");
-  const quarantined = entries.filter(
-    (e) => e.action === "IMPORT_FILE_QUARANTINED",
-  );
-  const unsupported = entries.filter(
-    (e) => e.action === "IMPORT_FILE_UNSUPPORTED",
-  );
-  const reclassified = entries.filter(
-    (e) => e.action === "DOCUMENT_RECLASSIFIED_API",
-  );
-
-  const sortedImports = imports
-    .slice()
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    );
-
-  return {
-    firstUpload: sortedImports[sortedImports.length - 1] ?? null,
-    lastUpload: sortedImports[0] ?? null,
-    totalUploads: imports.length,
-    totalQuarantined: quarantined.length,
-    totalUnsupported: unsupported.length,
-    manualReclassifications: reclassified.length,
-  };
-}
-
-function runStatusTextClass(
-  tone: "ok" | "warn" | "error" | "neutral",
-): string {
-  if (tone === "ok") return "text-[var(--color-success)]";
-  if (tone === "warn") return "text-[var(--color-warning)]";
-  if (tone === "error") return "text-[var(--color-error)]";
-  return "text-[var(--text-secondary)]";
-}
-
-function progressBarClass(status: RunStatus | undefined): string {
-  if (status === "failed") return "bg-[var(--color-error)]";
-  if (status === "completed") return "bg-[var(--color-success)]";
-  if (status === "completed_with_errors") return "bg-[var(--color-warning)]";
-  return "bg-[var(--accent-primary)]";
-}
-
-function isTerminalRunStatus(status: RunStatus | null | undefined): boolean {
-  return (
-    status === "completed" ||
-    status === "completed_with_errors" ||
-    status === "failed"
-  );
-}
-
-function buildCounterpartiesActivitySummary() {
-  const total = DEMO_AGGREGATES.length;
-
-  const countryMap = new Map<string, number>();
-  for (const item of DEMO_AGGREGATES) {
-    countryMap.set(item.country, (countryMap.get(item.country) ?? 0) + 1);
-  }
-
-  const topCountries = [...countryMap.entries()]
-    .map(([country, count]) => ({ country, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3);
-
-  const critical = DEMO_AGGREGATES.filter(
-    (item) => item.reviewStatus === "critical",
-  );
-  const needsReview = DEMO_AGGREGATES.filter(
-    (item) => item.reviewStatus === "needs_review",
-  );
-  const sanctions = DEMO_AGGREGATES.filter((item) => item.sanctionsFlag);
-  const bankruptcy = DEMO_AGGREGATES.filter((item) => item.bankruptcyFlag);
-  const legalEntities = DEMO_AGGREGATES.filter(
-    (item) => item.type === "legal_entity",
-  );
-  const individuals = DEMO_AGGREGATES.filter(
-    (item) => item.type === "individual",
-  );
-
-  const highExposure = DEMO_AGGREGATES
-    .filter((item) => item.contractValueUsdM > item.annualRevenueUsdM)
-    .sort(
-      (a, b) =>
-        b.contractValueUsdM / b.annualRevenueUsdM -
-        a.contractValueUsdM / a.annualRevenueUsdM,
-    )
-    .slice(0, 2);
-
-  return {
-    total,
-    topCountries,
-    critical,
-    needsReview,
-    sanctions,
-    bankruptcy,
-    legalEntities,
-    individuals,
-    highExposure,
-  };
-}
-
-function buildRealEstateActivitySummary() {
-  const total = DEMO_OBJECTS.length;
-  const encumbered = DEMO_OBJECTS.filter((item) => item.encumbrance === true);
-  const reviewOwnership = DEMO_OBJECTS.filter(
-    (item) =>
-      item.ownership_status === "review" ||
-      item.ownership_status === "not_confirmed",
-  );
-
-  const land = DEMO_OBJECTS.filter((item) => item.object_type === "land").length;
-  const buildingsAndPremises = DEMO_OBJECTS.filter(
-    (item) =>
-      item.object_type === "building" || item.object_type === "premises",
-  ).length;
-
-  const regionMap = new Map<string, number>();
-  for (const item of DEMO_OBJECTS) {
-    regionMap.set(item.region, (regionMap.get(item.region) ?? 0) + 1);
-  }
-
-  const topRegions = [...regionMap.entries()]
-    .map(([region, count]) => ({ region, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3);
-
-  const criticalAssets = DEMO_OBJECTS.filter(
-    (item) =>
-      item.risk === "high" ||
-      item.encumbrance === true ||
-      item.ownership_status === "not_confirmed",
-  ).slice(0, 2);
-
-  return {
-    total,
-    encumbered,
-    reviewOwnership,
-    land,
-    buildingsAndPremises,
-    topRegions,
-    criticalAssets,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// KpiCard
-// ---------------------------------------------------------------------------
-
-const KpiCard: React.FC<{
-  label: string;
-  value: React.ReactNode;
-  sub?: React.ReactNode;
-  tone?: "default" | "ok" | "warn" | "error";
-}> = ({ label, value, sub, tone = "default" }) => {
-  const valueClass =
-    tone === "ok"
-      ? "text-[var(--color-success)]"
-      : tone === "warn"
-        ? "text-[var(--color-warning)]"
-        : tone === "error"
-          ? "text-[var(--color-error)]"
-          : "text-[var(--text-primary)]";
-
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 shadow-sm">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-        {label}
-      </p>
-      <p className={`truncate text-sm font-semibold tabular-nums leading-5 ${valueClass}`}>
-        {value}
-      </p>
-      {sub && (
-        <p className="truncate text-[10px] leading-4 text-[var(--text-muted)]">
-          {sub}
-        </p>
-      )}
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// ProjectKpiRow
-// ---------------------------------------------------------------------------
-
-const ProjectKpiRow: React.FC<{
-  deal: Deal;
-  currentRunId?: string | null;
-  documentsCount: number;
-}> = ({ deal, currentRunId, documentsCount }) => {
-  const runId = currentRunId ?? null;
-  const { data: run } = useRun(runId, false);
-  const qc = useQueryClient();
-
-  const { lastEvent } = useSSEProgress(runId, {
-    enabled: !!runId && !isTerminalRunStatus(run?.status),
-  });
-
-  const lastEventStatus = lastEvent?.status;
-  React.useEffect(() => {
-    if (!runId || !isTerminalRunStatus(lastEventStatus as RunStatus)) return;
-    void qc.invalidateQueries({ queryKey: runKeys.detail(runId, false) });
-    void qc.invalidateQueries({ queryKey: runKeys.detail(runId, true) });
-  }, [runId, lastEventStatus, qc]);
-
-  const sseCompleted =
-    lastEvent?.completed_checks ?? lastEvent?.completed ?? null;
-  const sseTotal = lastEvent?.total_checks ?? lastEvent?.total ?? null;
-  const effectiveCompleted = sseCompleted ?? run?.completed_checks ?? 0;
-  const effectiveTotal = sseTotal ?? run?.total_checks ?? 0;
-  const effectiveStatus = (lastEvent?.status ?? run?.status) as
-    | RunStatus
-    | undefined;
-
-  const percent =
-    effectiveTotal > 0
-      ? Math.round((effectiveCompleted / effectiveTotal) * 100)
-      : 0;
-
-  const statusLabel = effectiveStatus
-    ? (RUN_STATUS_CONFIG[effectiveStatus]?.label ?? effectiveStatus)
-    : "Не запускался";
-
-  const statusTone: "ok" | "warn" | "error" | "neutral" = (() => {
-    if (effectiveStatus === "completed") return "ok";
-    if (effectiveStatus === "completed_with_errors") return "warn";
-    if (effectiveStatus === "failed") return "error";
-    return "neutral";
-  })();
-
-  const failedDocs = run?.failed_docs_count ?? 0;
-  const quarantineDocs = run?.quarantine_docs_count ?? 0;
-
-  return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <KpiCard
-          label="Документов"
-          value={documentsCount > 0 ? documentsCount : "—"}
-          sub={documentsCount > 0 ? "В проекте" : "Не загружены"}
-        />
-        <KpiCard
-          label="Статус анализа"
-          value={statusLabel}
-          sub={
-            effectiveTotal > 0
-              ? `${effectiveCompleted} / ${effectiveTotal} проверок`
-              : "Нет данных"
-          }
-          tone={
-            statusTone === "neutral"
-              ? "default"
-              : (statusTone as "ok" | "warn" | "error")
-          }
-        />
-        <KpiCard
-          label="Последний анализ"
-          value={
-            run?.completed_at ?? run?.started_at
-              ? formatDateShort(run.completed_at ?? run.started_at)
-              : "—"
-          }
-          sub={deal.created_at ? `Создан ${formatDate(deal.created_at)}` : undefined}
-        />
-        <KpiCard
-          label="Проблемных файлов"
-          value={
-            failedDocs + quarantineDocs > 0
-              ? failedDocs + quarantineDocs
-              : run
-                ? "0"
-                : "—"
-          }
-          sub={
-            failedDocs + quarantineDocs > 0
-              ? `Ошибок: ${failedDocs} · Карантин: ${quarantineDocs}`
-              : run
-                ? "Всё в порядке"
-                : "После анализа"
-          }
-          tone={
-            failedDocs + quarantineDocs > 0
-              ? failedDocs > 0
-                ? "error"
-                : "warn"
-              : "default"
-          }
-        />
-      </div>
-
-      {effectiveTotal > 0 && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2.5 shadow-sm">
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Прогресс анализа
-            </span>
-            <span className="text-[10px] font-semibold tabular-nums text-[var(--text-primary)]">
-              {percent}%
-            </span>
-          </div>
-          <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--bg-elevated-soft)]">
-            <div
-              className={`h-1 rounded-full transition-all duration-500 ease-out ${progressBarClass(effectiveStatus)}`}
-              style={{ width: `${Math.min(100, percent)}%` }}
-            />
-          </div>
-          {(effectiveStatus === "failed" ||
-            effectiveStatus === "completed_with_errors") && (
-            <p
-              className={`mt-1 text-[10px] font-medium ${runStatusTextClass(
-                effectiveStatus === "failed" ? "error" : "warn",
-              )}`}
-            >
-              {effectiveStatus === "failed"
-                ? "Анализ завершился с ошибкой."
-                : "Анализ завершён, но есть документы с ошибками."}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// TimelineEvent
-// ---------------------------------------------------------------------------
-
-const TimelineEvent: React.FC<{
-  icon: string;
-  label: string;
-  date?: string;
-  children?: React.ReactNode;
-}> = ({ icon, label, date, children }) => (
-  <li className="relative flex gap-3">
-    <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-xs">
-      {icon}
-    </span>
-    <div className="min-w-0 pt-0.5">
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <span className="text-xs font-medium text-[var(--text-primary)]">
-          {label}
-        </span>
-        {date && (
-          <span className="text-[10px] text-[var(--text-muted)]">{date}</span>
-        )}
-      </div>
-      {children}
-    </div>
-  </li>
-);
-
-// ---------------------------------------------------------------------------
-// DealInfoCard
+// DealInfoCard (collapsible)
 // ---------------------------------------------------------------------------
 
 const DealInfoCard: React.FC<{
@@ -435,408 +44,71 @@ const DealInfoCard: React.FC<{
   isDirty: boolean;
   onChangeSummary: (value: string) => void;
   onSaveSummary: () => void;
-}> = ({ deal, projectSummary, isSaving, isDirty, onChangeSummary, onSaveSummary }) => (
-  <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-    <div className="px-5">
-      <div className="flex items-center justify-between gap-4 py-3">
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            О проекте
-          </h2>
-          <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-            Краткое описание для рабочей команды
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onSaveSummary}
-          isLoading={isSaving}
-          disabled={isSaving || !isDirty}
-        >
-          Сохранить
-        </Button>
-      </div>
-      <div className="border-t border-[var(--border-subtle)]" />
-    </div>
-    <div className="px-5 py-4">
-      <textarea
-        id={`deal-summary-${deal.id}`}
-        value={projectSummary}
-        onChange={(e) => onChangeSummary(e.target.value)}
-        rows={6}
-        placeholder="Например: продажа группы компаний, buy-side DD, корпоративный блок, ключевые договоры и IP..."
-        className="w-full resize-none overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg-base)] px-4 py-3 text-sm leading-6 text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]"
-        style={{ minHeight: "9rem", maxHeight: "16rem" }}
-      />
-    </div>
-  </section>
-);
+}> = ({ deal, projectSummary, isSaving, isDirty, onChangeSummary, onSaveSummary }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
 
-// ---------------------------------------------------------------------------
-// ActivitySummarySection
-// ---------------------------------------------------------------------------
-
-const ActivitySummarySection: React.FC<{
-  deal: Deal;
-  currentRunId?: string | null;
-  documentsCount?: number;
-}> = ({ deal, currentRunId, documentsCount }) => {
-  const { data: allRuns } = useDealRuns(deal.id, false);
-  const { data: currentRun } = useRun(currentRunId ?? null, false);
-  const { data: auditPage } = useAuditLog(deal.id, { per_page: 50 });
-
-  const auditEntries = auditPage?.items ?? [];
-  const auditAgg = buildProjectTimelineFromAudit(auditEntries);
-
-  const counterpartiesSummary = buildCounterpartiesActivitySummary();
-  const realEstateSummary = buildRealEstateActivitySummary();
-
-  const firstRun = React.useMemo(() => {
-    if (!allRuns || allRuns.length === 0) return null;
-    const runsWithStart = allRuns.filter((run) => !!run.started_at);
-    if (runsWithStart.length === 0) return null;
-    return runsWithStart
-      .slice()
-      .sort(
-        (a, b) =>
-          new Date(a.started_at!).getTime() - new Date(b.started_at!).getTime(),
-      )[0];
-  }, [allRuns]);
-
-  const lastRunDate = currentRun?.completed_at ?? currentRun?.started_at ?? null;
-
-  const lastRunStatusLabel = (() => {
-    const s = currentRun?.status;
-    if (!s) return null;
-    if (s === "completed") return { text: "Завершён успешно", tone: "ok" as const };
-    if (s === "completed_with_errors") return { text: "Завершён с ошибками", tone: "warn" as const };
-    if (s === "failed") return { text: "Завершился с ошибкой", tone: "error" as const };
-    if (s === "running") return { text: "Выполняется", tone: "neutral" as const };
-    if (s === "pending") return { text: "В очереди", tone: "neutral" as const };
-    return { text: s, tone: "neutral" as const };
-  })();
-
-  const totalChecks = currentRun?.total_checks ?? 0;
-  const failedDocs = currentRun?.failed_docs_count ?? 0;
-  const quarantineDocs = currentRun?.quarantine_docs_count ?? 0;
-  const successDocs =
-    totalChecks > 0 ? totalChecks - failedDocs - quarantineDocs : 0;
+  const hasContent = (projectSummary ?? "").trim().length > 0;
 
   return (
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-      <div className="px-5">
-        <div className="py-3">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between gap-4 px-5 py-3 text-left transition hover:bg-[var(--bg-elevated-soft)]"
+      >
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Активность
+            О проекте
           </h2>
-          <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-            Документы · Контрагенты · Имущество
-          </p>
+          {!isOpen && hasContent && (
+            <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+              {projectSummary.trim().slice(0, 120)}
+              {projectSummary.trim().length > 120 ? "…" : ""}
+            </p>
+          )}
+          {!isOpen && !hasContent && (
+            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+              Нажмите, чтобы добавить описание
+            </p>
+          )}
         </div>
-        <div className="border-t border-[var(--border-subtle)]" />
-      </div>
+        <span
+          className={[
+            "shrink-0 text-[var(--text-muted)] transition-transform duration-200",
+            isOpen ? "rotate-180" : "",
+          ].join(" ")}
+        >
+          ▾
+        </span>
+      </button>
 
-      <div className="grid grid-cols-1 divide-y divide-[var(--border-subtle)] px-5 pb-5 pt-4 md:grid-cols-3 md:divide-x md:divide-y-0">
-        {/* ── Колонка 1: Документы ── */}
-        <div className="flex flex-col pb-5 md:pb-0 md:pr-5">
-          <p className="mb-3 shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Документы
-          </p>
-
-          <ol className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
-            <TimelineEvent
-              icon="🗂"
-              label="Проект создан"
-              date={formatDate(deal.created_at)}
+      {isOpen && (
+        <>
+          <div className="mx-5 border-t border-[var(--border-subtle)]" />
+          <div className="px-5 py-4">
+            <textarea
+              id={`deal-summary-${deal.id}`}
+              value={projectSummary}
+              onChange={(e) => onChangeSummary(e.target.value)}
+              rows={5}
+              placeholder="Например: продажа группы компаний, buy-side DD, корпоративный блок, ключевые договоры и IP..."
+              className="w-full resize-none overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg-base)] px-4 py-3 text-sm leading-6 text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]"
+              style={{ minHeight: "7rem", maxHeight: "14rem" }}
             />
-
-            {auditAgg.firstUpload && (
-              <TimelineEvent
-                icon="📤"
-                label="Первая загрузка"
-                date={formatDateShort(auditAgg.firstUpload.created_at)}
+            <div className="mt-2 flex justify-end">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onSaveSummary}
+                isLoading={isSaving}
+                disabled={isSaving || !isDirty}
               >
-                <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
-                  Через импорт-пайплайн.
-                </p>
-              </TimelineEvent>
-            )}
-
-            {auditAgg.lastUpload && (
-              <TimelineEvent
-                icon="📥"
-                label={
-                  auditAgg.totalUploads > 1
-                    ? `Последняя загрузка (${auditAgg.totalUploads})`
-                    : "Загрузка документов"
-                }
-                date={formatDateShort(auditAgg.lastUpload.created_at)}
-              />
-            )}
-
-            {(auditAgg.totalQuarantined > 0 || auditAgg.totalUnsupported > 0) && (
-              <TimelineEvent icon="⚠️" label="Проблемные файлы">
-                <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
-                  Карантин: {auditAgg.totalQuarantined}
-                  {auditAgg.totalUnsupported > 0 && (
-                    <> · неподдерживаемых: {auditAgg.totalUnsupported}</>
-                  )}
-                </p>
-              </TimelineEvent>
-            )}
-
-            {typeof documentsCount === "number" && (
-              <TimelineEvent
-                icon="📚"
-                label={
-                  documentsCount > 0
-                    ? `В проекте: ${documentsCount} докум.`
-                    : "Документы не загружены"
-                }
-              />
-            )}
-
-            {firstRun?.started_at && (
-              <TimelineEvent
-                icon="🚀"
-                label="Первый анализ"
-                date={formatDateShort(firstRun.started_at)}
-              />
-            )}
-
-            {currentRun && (
-              <TimelineEvent
-                icon={
-                  currentRun.status === "completed"
-                    ? "✅"
-                    : currentRun.status === "completed_with_errors"
-                      ? "⚠️"
-                      : currentRun.status === "failed"
-                        ? "❌"
-                        : "🔄"
-                }
-                label="Последний анализ"
-                date={lastRunDate ? formatDateShort(lastRunDate) : "—"}
-              >
-                {totalChecks > 0 && (
-                  <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
-                    <span className="text-[var(--color-success)]">
-                      проверено: {totalChecks}
-                    </span>
-                    {successDocs > 0 && (
-                      <span className="text-[var(--color-success)]">
-                        успешно: {successDocs}
-                      </span>
-                    )}
-                    {failedDocs > 0 && (
-                      <span className="text-[var(--color-error)]">
-                        ошибок: {failedDocs}
-                      </span>
-                    )}
-                    {quarantineDocs > 0 && (
-                      <span className="text-[var(--color-warning)]">
-                        карантин: {quarantineDocs}
-                      </span>
-                    )}
-                  </div>
-                )}
-                {lastRunStatusLabel && (
-                  <p
-                    className={`mt-0.5 text-[10px] font-medium ${runStatusTextClass(lastRunStatusLabel.tone)}`}
-                  >
-                    {lastRunStatusLabel.text}
-                  </p>
-                )}
-              </TimelineEvent>
-            )}
-          </ol>
-        </div>
-
-        {/* ── Колонка 2: Контрагенты ── */}
-        <div className="flex flex-col py-5 md:px-5 md:py-0">
-          <p className="mb-3 shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Контрагенты
-          </p>
-
-          <div className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
-            <TimelineEvent
-              icon="🏢"
-              label={`Выявлено контрагентов: ${counterpartiesSummary.total}`}
-            >
-              <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
-                Данные синхронизированы с вкладкой анализа контрагентов.
-              </p>
-            </TimelineEvent>
-
-            {counterpartiesSummary.topCountries.length > 0 && (
-              <TimelineEvent icon="🌍" label="Основная география">
-                <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
-                  {counterpartiesSummary.topCountries
-                    .map((item) => `${item.country} (${item.count})`)
-                    .join(" · ")}
-                </p>
-              </TimelineEvent>
-            )}
-
-            <TimelineEvent
-              icon="⚠️"
-              label={`Требуют внимания: ${counterpartiesSummary.critical.length + counterpartiesSummary.needsReview.length}`}
-            >
-              <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
-                <span className="text-[var(--color-error)]">
-                  critical: {counterpartiesSummary.critical.length}
-                </span>
-                <span className="text-[var(--color-warning)]">
-                  needs review: {counterpartiesSummary.needsReview.length}
-                </span>
-              </div>
-            </TimelineEvent>
-
-            {(counterpartiesSummary.sanctions.length > 0 ||
-              counterpartiesSummary.bankruptcy.length > 0) && (
-              <TimelineEvent icon="🛡️" label="Комплаенс-сигналы">
-                <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
-                  {counterpartiesSummary.sanctions.length > 0 && (
-                    <span className="text-[var(--color-error)]">
-                      sanctions: {counterpartiesSummary.sanctions.length}
-                    </span>
-                  )}
-                  {counterpartiesSummary.bankruptcy.length > 0 && (
-                    <span className="text-[var(--color-error)]">
-                      bankruptcy: {counterpartiesSummary.bankruptcy.length}
-                    </span>
-                  )}
-                </div>
-              </TimelineEvent>
-            )}
-
-            {counterpartiesSummary.highExposure.map((item) => (
-              <TimelineEvent
-                key={item.id}
-                icon="💼"
-                label={item.name}
-                date={item.country}
-              >
-                <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
-                  Контрактная нагрузка: ${item.contractValueUsdM}m при выручке ${item.annualRevenueUsdM}m.
-                </p>
-              </TimelineEvent>
-            ))}
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-[var(--border)] px-3 py-2">
-                <p className="text-[10px] text-[var(--text-muted)]">Юрлиц</p>
-                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                  {counterpartiesSummary.legalEntities.length}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[var(--border)] px-3 py-2">
-                <p className="text-[10px] text-[var(--text-muted)]">Физлиц</p>
-                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                  {counterpartiesSummary.individuals.length}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[var(--border)] px-3 py-2">
-                <p className="text-[10px] text-[var(--text-muted)]">Critical</p>
-                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--color-error)]">
-                  {counterpartiesSummary.critical.length}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[var(--border)] px-3 py-2">
-                <p className="text-[10px] text-[var(--text-muted)]">Санкции / банкротство</p>
-                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                  {counterpartiesSummary.sanctions.length + counterpartiesSummary.bankruptcy.length}
-                </p>
-              </div>
+                Сохранить
+              </Button>
             </div>
           </div>
-        </div>
-
-        {/* ── Колонка 3: Имущество ── */}
-        <div className="flex flex-col pt-5 md:pl-5 md:pt-0">
-          <p className="mb-3 shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            Имущество
-          </p>
-
-          <div className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
-            <TimelineEvent
-              icon="🏗"
-              label={`Выявлено объектов: ${realEstateSummary.total}`}
-            >
-              <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
-                Данные синхронизированы с вкладкой анализа недвижимого имущества.
-              </p>
-            </TimelineEvent>
-
-            {realEstateSummary.topRegions.length > 0 && (
-              <TimelineEvent icon="📍" label="Основные регионы">
-                <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
-                  {realEstateSummary.topRegions
-                    .map((item) => `${item.region} (${item.count})`)
-                    .join(" · ")}
-                </p>
-              </TimelineEvent>
-            )}
-
-            <TimelineEvent icon="⚖️" label="Структура периметра">
-              <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
-                <span className="text-[var(--text-secondary)]">
-                  земля: {realEstateSummary.land}
-                </span>
-                <span className="text-[var(--text-secondary)]">
-                  здания / помещения: {realEstateSummary.buildingsAndPremises}
-                </span>
-              </div>
-            </TimelineEvent>
-
-            <TimelineEvent
-              icon="🔒"
-              label={`С обременением: ${realEstateSummary.encumbered.length}`}
-            >
-              <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
-                <span className="text-[var(--color-warning)]">
-                  ownership review: {realEstateSummary.reviewOwnership.length}
-                </span>
-              </div>
-            </TimelineEvent>
-
-            {realEstateSummary.criticalAssets.map((item) => (
-              <TimelineEvent
-                key={item.id}
-                icon="🏢"
-                label={item.address ?? "Объект без адреса"}
-                date={item.region}
-              >
-                <p className="mt-0.5 text-[10px] leading-4 text-[var(--text-secondary)]">
-                  {item.area_sqm
-                    ? `${item.area_sqm.toLocaleString("ru-RU")} м²`
-                    : "Площадь не указана"}
-                  {item.encumbrance === true ? " · есть признаки обременения" : ""}
-                  {item.ownership_status !== "registered"
-                    ? " · право требует верификации"
-                    : ""}
-                </p>
-              </TimelineEvent>
-            ))}
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-[var(--border)] px-3 py-2">
-                <p className="text-[10px] text-[var(--text-muted)]">Объектов</p>
-                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                  {realEstateSummary.total}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[var(--border)] px-3 py-2">
-                <p className="text-[10px] text-[var(--text-muted)]">С обременением</p>
-                <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--color-error)]">
-                  {realEstateSummary.encumbered.length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </section>
   );
 };
@@ -863,6 +135,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
   const [forceReclassify, setForceReclassify] = React.useState(false);
   const [hasRestartedAfterReclass, setHasRestartedAfterReclass] =
     React.useState(false);
+
+  const [activeDomain, setActiveDomain] = React.useState<
+    "documents" | "counterparties" | "real_estate"
+  >("documents");
+
   const [projectSummary, setProjectSummary] = React.useState(
     deal.summary ?? "",
   );
@@ -1032,29 +309,37 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
   return (
     <div
       ref={overviewRef}
-      className="relative grid gap-4 xl:grid-cols-[minmax(0,2.2fr)_360px]"
+      className="relative grid h-full min-h-0 gap-4 xl:grid-cols-[minmax(0,2.2fr)_360px]"
     >
-      <div className="min-w-0 space-y-4">
-        <ProjectKpiRow
-          deal={effectiveDeal}
-          currentRunId={currentRunId}
-          documentsCount={documentsCount}
-        />
+      <div className="flex min-w-0 min-h-0 flex-col gap-4">
+        <div className="shrink-0">
+          <DealInfoCard
+            deal={effectiveDeal}
+            projectSummary={projectSummary}
+            isSaving={updateDeal.isPending}
+            isDirty={isSummaryDirty}
+            onChangeSummary={setProjectSummary}
+            onSaveSummary={handleSaveSummary}
+          />
+        </div>
 
-        <DealInfoCard
-          deal={effectiveDeal}
-          projectSummary={projectSummary}
-          isSaving={updateDeal.isPending}
-          isDirty={isSummaryDirty}
-          onChangeSummary={setProjectSummary}
-          onSaveSummary={handleSaveSummary}
-        />
+        <div className="shrink-0">
+          <ProjectDomainsOverviewPanel
+            runId={currentRunId ?? null}
+            deal={effectiveDeal}
+            activeDomain={activeDomain}
+            onDomainSelect={setActiveDomain}
+          />
+        </div>
 
-        <ActivitySummarySection
-          deal={effectiveDeal}
-          currentRunId={currentRunId}
-          documentsCount={documentsCount}
-        />
+        <div className="min-h-0 flex-1">
+          <ProjectDomainDetailsPanel
+            activeDomain={activeDomain}
+            onDomainChange={setActiveDomain}
+            runId={currentRunId ?? null}
+            deal={effectiveDeal}
+          />
+        </div>
       </div>
 
       <div ref={railRef} className="relative hidden xl:block px-1 pb-2">

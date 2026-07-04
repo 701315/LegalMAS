@@ -32,6 +32,7 @@ from api.schemas.runs import (
     ClassificationReportResponse,
     DealRunSummaryResponse,
     RunCreate,
+    RunPipelineProgressResponse,
     RunResponse,
 )
 from core.config import settings
@@ -47,6 +48,7 @@ from db.repositories.run_repo import RunRepository
 from db.session import get_db
 from mas_queue.task_dispatcher import send_task_with_context
 from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
+from services.run_pipeline_progress_service import RunPipelineProgressService
 from services.run_progress_service import subscribe_run_progress
 
 logger = get_logger(__name__)
@@ -492,6 +494,45 @@ async def get_run(
         run_out.error_user_message = render_error_message(run.error_details)
 
     return run_out
+
+
+@router.get(
+    "/{run_id}/progress",
+    response_model=RunPipelineProgressResponse,
+    summary="Подробный pipeline progress по run",
+)
+async def get_run_pipeline_progress(
+    run_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Подробный user-facing progress для страницы обзора сделки.
+
+    В отличие от legacy SSE /events, этот endpoint возвращает:
+    - стадии document pipeline;
+    - substeps;
+    - live sub_progress для долгих этапов;
+    - stale detection;
+    - pseudo-steps для deal_checks и finalization.
+
+    Доступ:
+    - только участники проекта (viewer/editor/admin) для сделки этого run.
+    """
+    run_repo = RunRepository(db)
+    run = await run_repo.get_by_id(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=run.deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
+    service = RunPipelineProgressService(db)
+    return await service.build_progress(run)
 
 
 @router.get(

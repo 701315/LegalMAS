@@ -1,0 +1,170 @@
+# monitoring/alerts/operations.yml
+#
+# Operations-level alerts (HTTP, LLM, DLQ hard-critical).
+#
+# Комплементарен monitoring/alerts/pipeline.yml:
+# - pipeline.yml    → бизнес-pipeline (DLQ warn/crit, stuck stages,
+#                     stage failures, no activity, retries)
+# - operations.yml  → инфраструктурный уровень (HTTP errors, HTTP latency,
+#                     LLM latency, LLM error rate, DLQ hard-critical)
+#
+# Все метрики — из src/ops/metrics.py.
+#
+# Про LLM метрики (mas_dd_llm_*):
+# Регистрируются лениво в worker процессах. Пока worker не имеет
+# отдельного /metrics scrape endpoint, эти alerts "спят" (нет данных →
+# expr не возвращает результата → alert не срабатывает).
+# Это ожидаемое поведение. Когда worker scrape появится — alerts
+# начнут работать автоматически без изменения этого файла.
+
+groups:
+  - name: legalmas_operations
+    interval: 1m
+    rules:
+
+      # ==================================================================
+      # HTTP: server error rate
+      # Метрика: mas_dd_http_requests_total{method, handler, status_code}
+      # ==================================================================
+
+      - alert: HTTPServerErrorRateWarning
+        expr: |
+          (
+            sum(rate(mas_dd_http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(mas_dd_http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: http
+        annotations:
+          summary: "HTTP 5xx error rate is {{ $value | humanizePercentage }}"
+          description: >
+            More than 5% of HTTP requests are returning 5xx status codes
+            over the last 5 minutes. Check API logs for exceptions.
+
+      - alert: HTTPServerErrorRateCritical
+        expr: |
+          (
+            sum(rate(mas_dd_http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(mas_dd_http_requests_total[5m]))
+          ) > 0.20
+        for: 2m
+        labels:
+          severity: critical
+          component: http
+        annotations:
+          summary: "HTTP 5xx error rate is {{ $value | humanizePercentage }} — CRITICAL"
+          description: >
+            More than 20% of HTTP requests are failing with 5xx over 2 minutes.
+            Likely a serious backend problem (DB down, unhandled exceptions).
+
+      # ==================================================================
+      # HTTP: p95 latency
+      # Метрика: mas_dd_http_request_duration_seconds_bucket
+      # ==================================================================
+
+      - alert: HTTPLatencyP95Warning
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(mas_dd_http_request_duration_seconds_bucket[10m])) by (le)
+          ) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+          component: http
+        annotations:
+          summary: "HTTP p95 latency is {{ $value }}s"
+          description: >
+            HTTP p95 latency exceeded 1s over the last 10 minutes.
+            Possible causes: slow DB queries, LLM contention,
+            worker starvation.
+
+      - alert: HTTPLatencyP95Critical
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(mas_dd_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 5.0
+        for: 5m
+        labels:
+          severity: critical
+          component: http
+        annotations:
+          summary: "HTTP p95 latency is {{ $value }}s — CRITICAL"
+          description: >
+            HTTP p95 latency exceeded 5s over the last 5 minutes.
+            User experience severely degraded.
+
+      # ==================================================================
+      # LLM: latency (спит пока нет worker scrape)
+      # Метрика: mas_dd_llm_request_duration_seconds_bucket{provider}
+      # ==================================================================
+
+      - alert: LLMLatencyP95Critical
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(mas_dd_llm_request_duration_seconds_bucket[5m])) by (le, provider)
+          ) > 120
+        for: 5m
+        labels:
+          severity: critical
+          component: llm
+        annotations:
+          summary: "LLM {{ $labels.provider }} p95 latency is {{ $value }}s — CRITICAL"
+          description: >
+            LLM provider {{ $labels.provider }} p95 latency exceeded 120s
+            over the last 5 minutes. Pipeline will effectively stall
+            waiting for LLM responses.
+
+      # ==================================================================
+      # LLM: error rate (спит пока нет worker scrape)
+      # Метрика: mas_dd_llm_requests_total{provider, error_type}
+      # Ловит ситуацию когда LLM backend упал (Ollama died).
+      # ==================================================================
+
+      - alert: LLMErrorRateCritical
+        expr: |
+          (
+            sum(rate(mas_dd_llm_requests_total{error_type!="none"}[5m]))
+            /
+            sum(rate(mas_dd_llm_requests_total[5m]))
+          ) > 0.50
+        for: 2m
+        labels:
+          severity: critical
+          component: llm
+        annotations:
+          summary: "LLM error rate is {{ $value | humanizePercentage }} — LLM backend likely down"
+          description: >
+            More than 50% of LLM calls are failing over the last 5 minutes.
+            This typically indicates LLM backend crashed (Ollama died, OpenAI outage).
+            Pipeline will produce mostly "unclear" results until fixed.
+
+      # ==================================================================
+      # DLQ: hard-critical порог
+      # В pipeline.yml уже есть warning (>10) и critical (>50).
+      # Здесь — "wake-up-at-night" уровень на 200.
+      # Метрика: mas_dd_dlq_size
+      # ==================================================================
+
+      - alert: DLQSizeHardCritical
+        expr: mas_dd_dlq_size > 200
+        for: 2m
+        labels:
+          severity: critical
+          component: dlq
+          pager: "true"
+        annotations:
+          summary: "DLQ size is {{ $value }} — HARD CRITICAL"
+          description: >
+            Dead Letter Queue exceeded 200 records. Immediate manual
+            intervention required. Pipeline is producing far more failed
+            messages than normal.
+
+
+            

@@ -1,6 +1,6 @@
 // src/marketing/pages/HomePage.tsx
 
-import React, { useState } from "react";
+import React from "react";
 import SiteHeader from "../components/shared/SiteHeader";
 import PremiumHeroSection from "../components/home/PremiumHeroSection";
 import ConceptTagsSection from "../components/home/ConceptTagsSection";
@@ -11,78 +11,47 @@ import FounderSection from "../components/home/FounderSection";
 import FaqSection from "../components/home/FaqSection";
 import PremiumFinalCtaSection from "../components/home/PremiumFinalCtaSection";
 import SiteFooter from "../components/shared/SiteFooter";
-import ContactModal from "../components/home/ContactModal";
+import { ContactModalProvider } from "../context/ContactModalContext";
 
 const HomePage: React.FC = () => {
-  const [contactOpen, setContactOpen] = useState(false);
-  const [formEmail, setFormEmail] = useState("");
-  const [formMessage, setFormMessage] = useState("");
-
-  const handleContactSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const subject = encodeURIComponent("Steloom demo request");
-    const body = encodeURIComponent(`Email: ${formEmail}\n\n${formMessage}`);
-    window.location.href =
-      `mailto:vladimir.gorelov.mail@gmail.com?subject=${subject}&body=${body}`;
-  };
-
   return (
-    <>
+    <ContactModalProvider>
       <SiteHeader />
 
       <main>
-        {/* 1. Hero */}
         <section data-header-theme="dark">
           <PremiumHeroSection />
           <ConceptTagsSection />
         </section>
 
-        {/* 2. Knowledge */}
         <section data-header-theme="light">
           <KnowledgeGrowthSection />
         </section>
 
-        {/* 3. Security */}
         <section data-header-theme="light">
           <SecurityFoundationSection />
         </section>
 
-        {/* 4. Application */}
         <section data-header-theme="light">
           <ApplicationSection />
         </section>
 
-        {/* 5. Founder */}
         <section data-header-theme="light">
           <FounderSection />
         </section>
 
-        {/* 6. FAQ */}
         <section data-header-theme="light">
           <FaqSection />
         </section>
 
-        {/* 7. Final CTA */}
         <section data-header-theme="light">
           <PremiumFinalCtaSection />
         </section>
       </main>
 
       <SiteFooter />
-
-      <ContactModal
-        open={contactOpen}
-        email={formEmail}
-        message={formMessage}
-        onEmailChange={setFormEmail}
-        onMessageChange={setFormMessage}
-        onClose={() => setContactOpen(false)}
-        onSubmit={handleContactSubmit}
-      />
-    </>
+    </ContactModalProvider>
   );
 };
 
 export default HomePage;
-
-

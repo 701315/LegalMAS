@@ -376,9 +376,14 @@ async def _classify_document_segments_async(
     Не делает retrigger — это ответственность sync entrypoint
     classify_document_segments().
     """
-    _ = extra_args
+    stage_execution_id: str | None = extra_args.get("stage_execution_id")
     start_time = time.time()
     doc_uuid = uuid.UUID(document_id) if isinstance(document_id, str) else document_id
+
+    log_base = {
+        "document_id": document_id,
+        "stage_execution_id": stage_execution_id,
+    }
 
     metrics = get_metrics()
 
@@ -617,6 +622,18 @@ async def _classify_document_segments_async(
                     else:
                         unknown_segments_count += 1
 
+                    # ── Best-effort: progress write после классификации сегмента ──
+                    await _write_segment_progress_safe(
+                        stage_execution_id=stage_execution_id,
+                        current=classified_segments,
+                        total=total_segments,
+                        document_id=document_id,
+                        document_name=getattr(doc, "filename", None),
+                        segment_id=segment_id,
+                        segment_title=getattr(segment, "segment_title", None),
+                        log_base=log_base,
+                    )
+
                     processed_segments.append(
                         {
                             "segment_id": segment_id,
@@ -841,6 +858,57 @@ async def _get_segment_text(
         "DocumentContentService.get_segment_text(...) is not implemented yet. "
         "Add segment-aware text extraction before enabling segment worker."
     )
+
+async def _write_segment_progress_safe(
+    *,
+    stage_execution_id: str | None,
+    current: int,
+    total: int,
+    document_id: str,
+    document_name: str | None,
+    segment_id: str,
+    segment_title: str | None,
+    log_base: dict,
+) -> None:
+    """
+    Best-effort запись live progress для segment classification.
+
+    Открывает отдельную короткоживущую DB-сессию.
+    Никогда не бросает исключение — только warning в лог.
+    Не меняет lifecycle status execution.
+    """
+    if not stage_execution_id:
+        return
+
+    from datetime import UTC, datetime
+
+    try:
+        from db.repositories.document_stage_execution_repo import (
+            DocumentStageExecutionRepository,
+        )
+
+        async with db_uow() as uow:
+            dse_repo = DocumentStageExecutionRepository(uow.session)
+            await dse_repo.update_progress_details(
+                uuid.UUID(stage_execution_id),
+                {
+                    "kind": "segments",
+                    "current": current,
+                    "total": total,
+                    "current_document_id": document_id,
+                    "current_document_name": document_name,
+                    "current_segment_id": segment_id,
+                    "current_segment_title": segment_title,
+                    "updated_at": datetime.now(UTC).isoformat(),
+                },
+            )
+    except Exception as exc:
+        logger.warning(
+            "Segment classifier: failed to write progress_details (non-fatal)",
+            **log_base,
+            segment_id=segment_id,
+            error=str(exc),
+        )
 
 
     

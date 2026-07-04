@@ -1,5 +1,4 @@
 // src/marketing/components/home/FaqSection.tsx
-
 import React, { useState } from "react";
 
 const FAQ_ITEMS = [
@@ -36,23 +35,23 @@ function FaqItem({ q, a }: { q: string; a: string }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-start justify-between gap-4 py-3.5 text-left"
+        className="flex w-full items-start justify-between gap-4 py-5 text-left transition-colors hover:bg-stone-50/50"
       >
-        <span className="text-sm font-medium leading-6 text-stone-900">{q}</span>
+        <span className="text-base font-medium leading-relaxed text-stone-900">{q}</span>
         <span
-          className="mt-0.5 shrink-0 text-stone-400 transition-transform duration-300"
+          className="mt-1 shrink-0 text-stone-400 transition-transform duration-300"
           style={{ transform: open ? "rotate(45deg)" : "rotate(0deg)" }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
           </svg>
         </span>
       </button>
       <div
         className="overflow-hidden transition-all duration-300"
-        style={{ maxHeight: open ? 200 : 0, opacity: open ? 1 : 0 }}
+        style={{ maxHeight: open ? 240 : 0, opacity: open ? 1 : 0 }}
       >
-        <p className="pb-3.5 text-sm leading-7 text-stone-500">{a}</p>
+        <p className="pb-6 text-[15px] leading-relaxed text-stone-500 pr-8">{a}</p>
       </div>
     </div>
   );
@@ -60,29 +59,26 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 const FaqSection: React.FC = () => {
   return (
-    <section
-      className="flex items-center bg-[#F1EFEA]"
-      style={{ height: "50vh", minHeight: 320 }}
-    >
+    <section className="bg-[#F1EFEA] py-24 sm:py-32">
       <div className="mx-auto w-full max-w-[1280px] px-6 lg:px-10 xl:px-12">
-        <div className="grid gap-10 lg:grid-cols-[0.38fr_0.62fr] items-start">
-
-          <div>
-            <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500">
-              FAQ
-            </div>
-            <h2 className="mt-4 font-serif text-5xl leading-[1.06] tracking-[-0.03em] text-stone-950 lg:text-[3.5rem]">
+        <div className="grid gap-12 lg:grid-cols-[0.4fr_0.6fr] items-start">
+          
+          {/* Левая колонка - залипает при скролле */}
+          <div className="sticky top-32">
+            <span className="eyebrow">FAQ</span>
+            <h2 className="section-title text-stone-950">
               Вопросы, которые задают до того, как пойти в пилот.
             </h2>
             <a
               href="mailto:hello@steloom.com"
-              className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[#2F5A4A] transition-colors hover:text-[#3F735F]"
+              className="mt-8 inline-flex items-center gap-1.5 text-sm font-semibold text-[#2F5A4A] transition-colors hover:text-[#3F735F]"
             >
               Задать свой вопрос →
             </a>
           </div>
 
-          <div className="overflow-y-auto" style={{ maxHeight: "calc(50vh - 48px)" }}>
+          {/* Правая колонка - скроллится */}
+          <div className="flex flex-col">
             {FAQ_ITEMS.map((item) => (
               <FaqItem key={item.q} q={item.q} a={item.a} />
             ))}

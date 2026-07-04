@@ -1,0 +1,332 @@
+{
+    "uid": "operations-overview",
+    "title": "Steloom — Operations Overview",
+    "tags": [
+        "steloom",
+        "operations"
+    ],
+    "timezone": "browser",
+    "refresh": "30s",
+    "schemaVersion": 38,
+    "time": {
+        "from": "now-1h",
+        "to": "now"
+    },
+    "panels": [
+        {
+            "id": 1,
+            "title": "HTTP Request Rate (per sec)",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "gridPos": {"x": 0, "y": 0, "w": 8, "h": 8},
+            "targets": [
+                {
+                    "expr": "sum(rate(mas_dd_http_requests_total[5m])) by (handler)",
+                    "legendFormat": "{{ handler }}",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "reqps",
+                    "custom": {"lineWidth": 2}
+                }
+            }
+        },
+        {
+            "id": 2,
+            "title": "HTTP Error Rate (5xx %)",
+            "type": "stat",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "gridPos": {"x": 8, "y": 0, "w": 8, "h": 8},
+            "targets": [
+                {
+                    "expr": "(sum(rate(mas_dd_http_requests_total{status_code=~\"5..\"}[5m])) / sum(rate(mas_dd_http_requests_total[5m]))) * 100",
+                    "legendFormat": "5xx %",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percent",
+                    "decimals": 2,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {"color": "green", "value": null},
+                            {"color": "yellow", "value": 5},
+                            {"color": "red", "value": 20}
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": ["lastNotNull"]
+                }
+            }
+        },
+        {
+            "id": 3,
+            "title": "HTTP p95 Latency",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "gridPos": {"x": 16, "y": 0, "w": 8, "h": 8},
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.50, sum(rate(mas_dd_http_request_duration_seconds_bucket[5m])) by (le))",
+                    "legendFormat": "p50",
+                    "refId": "A"
+                },
+                {
+                    "expr": "histogram_quantile(0.95, sum(rate(mas_dd_http_request_duration_seconds_bucket[5m])) by (le))",
+                    "legendFormat": "p95",
+                    "refId": "B"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "custom": {"lineWidth": 2}
+                }
+            }
+        },
+        {
+            "id": 4,
+            "title": "Active Runs",
+            "type": "stat",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "gridPos": {"x": 0, "y": 8, "w": 8, "h": 6},
+            "targets": [
+                {
+                    "expr": "mas_dd_active_runs",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {"color": "blue", "value": null},
+                            {"color": "green", "value": 1}
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": ["lastNotNull"]
+                }
+            }
+        },
+        {
+            "id": 5,
+            "title": "DLQ Size",
+            "type": "stat",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "gridPos": {"x": 8, "y": 8, "w": 8, "h": 6},
+            "targets": [
+                {
+                    "expr": "mas_dd_dlq_size",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {"color": "green", "value": null},
+                            {"color": "yellow", "value": 10},
+                            {"color": "orange", "value": 50},
+                            {"color": "red", "value": 200}
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": ["lastNotNull"]
+                }
+            }
+        },
+        {
+            "id": 6,
+            "title": "Stuck Stage Executions",
+            "type": "stat",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "gridPos": {"x": 16, "y": 8, "w": 8, "h": 6},
+            "targets": [
+                {
+                    "expr": "mas_dd_stuck_stage_executions_total",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {"color": "green", "value": null},
+                            {"color": "yellow", "value": 1},
+                            {"color": "red", "value": 5}
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "reduceOptions": {
+                    "values": false,
+                    "calcs": ["lastNotNull"]
+                }
+            }
+        },
+        {
+            "id": 7,
+            "title": "LLM Latency p50 / p95 (per provider)",
+            "type": "timeseries",
+            "description": "Требует worker /metrics scrape endpoint. Панель пуста пока метрики mas_dd_llm_request_duration_seconds доступны только в worker процессах.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "gridPos": {"x": 0, "y": 14, "w": 12, "h": 8},
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.50, sum(rate(mas_dd_llm_request_duration_seconds_bucket[5m])) by (le, provider))",
+                    "legendFormat": "{{ provider }} p50",
+                    "refId": "A"
+                },
+                {
+                    "expr": "histogram_quantile(0.95, sum(rate(mas_dd_llm_request_duration_seconds_bucket[5m])) by (le, provider))",
+                    "legendFormat": "{{ provider }} p95",
+                    "refId": "B"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "custom": {"lineWidth": 2}
+                }
+            }
+        },
+        {
+            "id": 8,
+            "title": "LLM Error Rate (per provider)",
+            "type": "timeseries",
+            "description": "Требует worker /metrics scrape endpoint. Показывает долю LLM вызовов с ошибками. При падении Ollama будет резкий скачок вверх.",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "gridPos": {"x": 12, "y": 14, "w": 12, "h": 8},
+            "targets": [
+                {
+                    "expr": "sum(rate(mas_dd_llm_requests_total{error_type!=\"none\"}[5m])) by (provider) / sum(rate(mas_dd_llm_requests_total[5m])) by (provider)",
+                    "legendFormat": "{{ provider }} error %",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percentunit",
+                    "min": 0,
+                    "max": 1,
+                    "custom": {"lineWidth": 2},
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {"color": "green", "value": null},
+                            {"color": "yellow", "value": 0.1},
+                            {"color": "red", "value": 0.5}
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "id": 9,
+            "title": "Pipeline Run Duration p95",
+            "type": "timeseries",
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "gridPos": {"x": 0, "y": 22, "w": 12, "h": 8},
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.50, sum(rate(mas_dd_pipeline_run_duration_seconds_bucket[15m])) by (le))",
+                    "legendFormat": "p50",
+                    "refId": "A"
+                },
+                {
+                    "expr": "histogram_quantile(0.95, sum(rate(mas_dd_pipeline_run_duration_seconds_bucket[15m])) by (le))",
+                    "legendFormat": "p95",
+                    "refId": "B"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "custom": {"lineWidth": 2}
+                }
+            }
+        },
+        {
+            "id": 10,
+            "title": "Recent Business Traces",
+            "type": "table",
+            "description": "Последние traces от worker процессов (business spans stage.*). Кликните на trace ID чтобы открыть полный trace tree.",
+            "datasource": {
+                "type": "tempo",
+                "uid": "tempo"
+            },
+            "gridPos": {"x": 12, "y": 22, "w": 12, "h": 8},
+            "targets": [
+                {
+                    "queryType": "traceql",
+                    "query": "{ resource.service.name = \"legalmas-api-worker\" && name =~ \"stage\\\\..*\" }",
+                    "limit": 20,
+                    "tableType": "traces",
+                    "refId": "A"
+                }
+            ]
+        }
+    ]
+}
+
+
+

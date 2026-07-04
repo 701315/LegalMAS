@@ -308,7 +308,7 @@ export const landingContent = {
         image: sourceLinkedImage,
       },
     ],
-    linkLabel: "Подробнее о privacy-first архитектуре",
+    linkLabel: "Подробнее о безопасности платформы",
   },
 
   // ─── TESTIMONIAL ─────────────────────────────────────────────────────────────
