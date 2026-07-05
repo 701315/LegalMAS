@@ -32,11 +32,46 @@ export interface AlertsResponse {
   alerts: ActiveAlertDTO[];
 }
 
+/**
+ * Один внешний сервис (Grafana / Prometheus / MinIO / ...).
+ * Показывается как пункт в dropdown "Внешние инструменты".
+ */
+export interface ExternalServiceDTO {
+  key: string;
+  label: string;
+  url: string;
+  description: string;
+}
+
+/**
+ * Один Grafana dashboard с deep link.
+ */
+export interface ExternalDashboardDTO {
+  uid: string;
+  label: string;
+  description: string;
+  url: string;
+}
+
+/**
+ * Ответ endpoint /api/v1/tenant/tools.
+ *
+ * Старые поля (grafana_url / prometheus_url / alertmanager_url) сохранены
+ * для обратной совместимости — используются в AlertsPanel.
+ *
+ * Новые поля (services, dashboards) заполнены только для superadmin —
+ * для обычного tenant_admin возвращаются пустые массивы.
+ */
 export interface ExternalToolsDTO {
+  // Legacy — для обратной совместимости с AlertsPanel
   grafana_url: string;
   prometheus_url: string;
   alertmanager_url: string;
   is_superadmin: boolean;
+
+  // Расширенные данные для dropdown "Внешние инструменты"
+  services: ExternalServiceDTO[];
+  dashboards: ExternalDashboardDTO[];
 }
 
 // ─── API ─────────────────────────────────────────────────────
@@ -67,5 +102,3 @@ export function useExternalTools() {
     staleTime: 60 * 60_000,
   });
 }
-
-

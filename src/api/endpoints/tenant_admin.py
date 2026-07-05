@@ -418,15 +418,51 @@ class AlertsResponse(BaseModel):
     alerts: list[ActiveAlertDTO] = Field(default_factory=list)
 
 
+class ExternalServiceDTO(BaseModel):
+    """
+    Один внешний сервис (Grafana, Prometheus, MinIO и т.д.).
+    Показывается как пункт в dropdown "Внешние инструменты".
+    """
+    key: str          # уникальный идентификатор для React key
+    label: str        # человекочитаемое название
+    url: str          # полный URL для открытия в новой вкладке
+    description: str  # короткое описание что показывает
+
+
+class ExternalDashboardDTO(BaseModel):
+    """
+    Один Grafana dashboard.
+    URL строится как {grafana_url}/d/{uid}.
+    """
+    uid: str          # Grafana dashboard UID (например "operations-overview")
+    label: str        # человекочитаемое название
+    description: str  # короткое описание
+    url: str          # полный URL для открытия
+
+
 class ExternalToolsDTO(BaseModel):
     """
     Внешние monitoring tools для навигации из admin panel.
-    URLs берутся из settings и указывают на браузерно-доступные адреса.
+
+    Возвращает 2 списка:
+    - services: инфраструктурные сервисы (Grafana, Prometheus, ...)
+    - dashboards: конкретные Grafana dashboards с deep links
+
+    Оба списка пустые для не-superadmin.
+    Frontend проверяет is_superadmin и скрывает панель если False.
+
+    Обратная совместимость: старые поля grafana_url / prometheus_url /
+    alertmanager_url оставлены для существующих компонентов (AlertsPanel).
     """
+    # Обратная совместимость — не удалять, используется в AlertsPanel
     grafana_url: str
     prometheus_url: str
     alertmanager_url: str
     is_superadmin: bool
+
+    # Расширенные данные для dropdown "Внешние инструменты"
+    services: list[ExternalServiceDTO] = Field(default_factory=list)
+    dashboards: list[ExternalDashboardDTO] = Field(default_factory=list)
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -1782,19 +1818,128 @@ async def get_external_tools(
     user: CurrentUser = Depends(get_current_user),
 ) -> ExternalToolsDTO:
     """
-    Вернуть URLs Grafana / Prometheus / Alertmanager.
+    Вернуть URLs Grafana / Prometheus / Alertmanager + расширенный
+    список сервисов и Grafana dashboards для admin panel.
 
-    Frontend использует эти URLs для кнопок-ссылок в admin panel.
-    Кнопки Grafana/Prometheus/Alertmanager отображаются только
-    superadmin — обычный tenant_admin не должен иметь прямого
-    доступа к чужим метрикам.
+    Frontend использует эти URLs для dropdown "Внешние инструменты".
+    Расширенные списки (services, dashboards) наполняются только для
+    superadmin — обычный tenant_admin получает is_superadmin=False и
+    пустые списки, компонент во frontend сам скрывает панель.
+
+    Обоснование role check:
+    Grafana / Prometheus / Alertmanager показывают cross-tenant данные.
+    Tenant_admin не должен иметь прямого доступа к чужим метрикам,
+    он получает свои данные через API вашего backend (уже tenant-scoped).
     """
     _require_tenant_admin(user)
+
+    is_superadmin = user.global_role == "superadmin"
+
+    # Для не-superadmin возвращаем минимум для обратной совместимости
+    # (AlertsPanel может использовать поля grafana_url и т.д.)
+    if not is_superadmin:
+        return ExternalToolsDTO(
+            grafana_url=settings.GRAFANA_EXTERNAL_URL,
+            prometheus_url=settings.PROMETHEUS_EXTERNAL_URL,
+            alertmanager_url=settings.ALERTMANAGER_EXTERNAL_URL,
+            is_superadmin=False,
+            services=[],
+            dashboards=[],
+        )
+
+    # ─── Grafana dashboards с deep links ────────────────────────────
+    grafana_base = settings.GRAFANA_EXTERNAL_URL.rstrip("/")
+    dashboards = [
+        ExternalDashboardDTO(
+            uid="operations-overview",
+            label="Operations Overview",
+            description="HTTP, LLM, DLQ, active runs",
+            url=f"{grafana_base}/d/operations-overview",
+        ),
+        ExternalDashboardDTO(
+            uid="legalmas-pipeline",
+            label="Pipeline Overview",
+            description="Стадии обработки документов",
+            url=f"{grafana_base}/d/legalmas-pipeline",
+        ),
+        ExternalDashboardDTO(
+            uid="slo-overview",
+            label="SLO Overview",
+            description="Метрики качества и SLO",
+            url=f"{grafana_base}/d/slo-overview",
+        ),
+        ExternalDashboardDTO(
+            uid="logs-explorer",
+            label="Log Explorer",
+            description="Поиск и анализ логов Loki",
+            url=f"{grafana_base}/d/logs-explorer",
+        ),
+    ]
+
+    # ─── Инфраструктурные сервисы ───────────────────────────────────
+    services = [
+        ExternalServiceDTO(
+            key="grafana",
+            label="Grafana",
+            url=settings.GRAFANA_EXTERNAL_URL,
+            description="Dashboards, alerts, explore",
+        ),
+        ExternalServiceDTO(
+            key="prometheus",
+            label="Prometheus",
+            url=settings.PROMETHEUS_EXTERNAL_URL,
+            description="Метрики, alert rules, targets",
+        ),
+        ExternalServiceDTO(
+            key="alertmanager",
+            label="Alertmanager",
+            url=settings.ALERTMANAGER_EXTERNAL_URL,
+            description="Активные алерты, silences",
+        ),
+        ExternalServiceDTO(
+            key="tempo",
+            label="Tempo (через Grafana)",
+            url=(
+                f"{grafana_base}/explore?"
+                'left=%7B%22datasource%22:%22tempo%22%7D'
+            ),
+            description="Distributed traces через Grafana Explore",
+        ),
+        ExternalServiceDTO(
+            key="loki",
+            label="Loki (через Grafana)",
+            url=(
+                f"{grafana_base}/explore?"
+                'left=%7B%22datasource%22:%22loki%22%7D'
+            ),
+            description="Structured logs через Grafana Explore",
+        ),
+        ExternalServiceDTO(
+            key="minio",
+            label="MinIO Console",
+            url=settings.MINIO_CONSOLE_EXTERNAL_URL,
+            description="Object storage: артефакты, экспорты",
+        ),
+        ExternalServiceDTO(
+            key="api_docs",
+            label="API Docs",
+            url=settings.API_DOCS_EXTERNAL_URL,
+            description="OpenAPI Swagger для backend",
+        ),
+        ExternalServiceDTO(
+            key="ollama",
+            label="Ollama API",
+            url=settings.OLLAMA_EXTERNAL_URL,
+            description="LLM inference status и модели",
+        ),
+    ]
 
     return ExternalToolsDTO(
         grafana_url=settings.GRAFANA_EXTERNAL_URL,
         prometheus_url=settings.PROMETHEUS_EXTERNAL_URL,
         alertmanager_url=settings.ALERTMANAGER_EXTERNAL_URL,
-        is_superadmin=user.global_role == "superadmin",
+        is_superadmin=True,
+        services=services,
+        dashboards=dashboards,
     )
 

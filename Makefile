@@ -1,5 +1,7 @@
 .PHONY: \
 	up down restart logs test lint format migrate seed clean \
+	monitoring-up monitoring-down monitoring-logs \
+	ollama-check ollama-warm \
 	worker worker-dev worker-system worker-heavy worker-heavy-enrichment worker-heavy-segment-classification worker-heavy-checks beat dev-help \
 	test-pii test-pii-unit test-pii-integration pii-keygen pii-smoke
 
@@ -45,24 +47,45 @@ endif
 # Инфраструктура и API
 # ============================================================================
 
-# Поднять инфраструктурные сервисы и API
-up:
+# ---------------------------------------------------------------------------
+# Observability stack (Tempo, Prometheus, Loki, Grafana, Alertmanager)
+# Простым языком: система "видимости" — метрики, логи, трейсы.
+# Без неё OTEL export падает с ConnectionRefused, dashboard пустой.
+# ---------------------------------------------------------------------------
+monitoring-up:
+	@echo "Starting observability stack..."
+	docker compose --env-file .env.monitoring -f docker-compose.monitoring.yml up -d
+	@echo "Waiting for monitoring stack to warm up..."
+	@sleep 10
+	@echo "Monitoring stack status:"
+	@docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "tempo|prometheus|grafana|loki|alertmanager" || echo "Warning: some monitoring containers may not be running"
+
+monitoring-down:
+	docker compose --env-file .env.monitoring -f docker-compose.monitoring.yml down
+
+monitoring-logs:
+	docker compose --env-file .env.monitoring -f docker-compose.monitoring.yml logs -f --tail=20
+
+# Поднять инфраструктурные сервисы, observability и API
+up: monitoring-up
 	docker compose up -d
 	@echo "Waiting for PostgreSQL to be ready..."
 	@$(WAIT_PG)
 	@echo "Waiting for Redis to be ready..."
 	@$(WAIT_REDIS)
 	@echo "Services are up. PostgreSQL: localhost:5432, Redis: localhost:6379, MinIO: localhost:9000 (console: localhost:9001)"
+	@echo "Monitoring: Grafana http://localhost:3000, Prometheus http://localhost:9090"
 	$(PYTHONPATH_ENV) uvicorn api.main:app --reload --port 8000
 
-# Остановить все docker-сервисы
+# Остановить все docker-сервисы (включая observability)
 down:
 	docker compose down
+	docker compose --env-file .env.monitoring -f docker-compose.monitoring.yml down
 
 # Перезапустить docker-сервисы
 restart: down up
 
-# Показать логи docker-сервисов
+# Показать логи docker-сервисов (основные)
 logs:
 	docker compose logs -f
 

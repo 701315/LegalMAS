@@ -501,12 +501,20 @@ class Settings(BaseSettings):
     METRICS_PREFIX: str = "mas_dd"
 
     # ── External monitoring tool URLs (для admin panel) ─────────────────────
-    # Отображаются как кнопки-ссылки в TenantAdminPage.
+    # Отображаются в TenantAdminPage → dropdown "Внешние инструменты".
+    # Видны только superadmin (проверка в get_external_tools endpoint).
     # Backend proxy к Alertmanager использует ALERTMANAGER_INTERNAL_URL.
     GRAFANA_EXTERNAL_URL: str = "http://localhost:3000"
     PROMETHEUS_EXTERNAL_URL: str = "http://localhost:9090"
     ALERTMANAGER_EXTERNAL_URL: str = "http://localhost:9093"
     ALERTMANAGER_INTERNAL_URL: str = "http://localhost:9093"
+    LOKI_EXTERNAL_URL: str = "http://localhost:3100"
+    TEMPO_EXTERNAL_URL: str = "http://localhost:3200"
+    MINIO_CONSOLE_EXTERNAL_URL: str = "http://localhost:9001"
+    API_DOCS_EXTERNAL_URL: str = "http://localhost:8000/docs"
+    OLLAMA_EXTERNAL_URL: str = "http://localhost:11434"
+    
+    
     GATE_EVIDENCE_VALIDITY_MIN: float = 0.95
     GATE_PRECISION_CRITICAL_MIN: float = 0.90
     GATE_RECALL_CRITICAL_MIN: float = 0.85

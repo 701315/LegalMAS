@@ -15,6 +15,7 @@ import {
 } from "../api/admin";
 import Button from "../components/ui/Button";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import { ExternalToolsBar } from "../components/admin/ExternalToolsBar";
 
 function formatDate(value: string): string {
   const d = new Date(value);
@@ -71,14 +72,21 @@ const AdminPage: React.FC = () => {
                 Управление клиентами системы и их пользователями.
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={() => navigate("/admin/tenants/new")}
-            >
-              <Plus className="mr-1.5 h-4 w-4" />
-              Новый клиент
-            </Button>
+
+            {/* Правая часть header: ExternalToolsBar (только для superadmin)
+                + кнопка "Новый клиент".
+                На мобильных ссылки и кнопка переносятся на новую строку. */}
+            <div className="flex flex-wrap items-center gap-3">
+              <ExternalToolsBar />
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => navigate("/admin/tenants/new")}
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Новый клиент
+              </Button>
+            </div>
           </div>
 
           {/* Фильтр */}
@@ -275,5 +283,4 @@ const AdminPage: React.FC = () => {
 };
 
 export default AdminPage;
-
 
