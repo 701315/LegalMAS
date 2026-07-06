@@ -1,3 +1,4 @@
+// frontend/src/content/demoContent.ts
 import {
   Users,
   FolderSearch,
@@ -106,10 +107,12 @@ export const demoContent = {
       name: "Ваше имя",
       company: "Название компании",
       email: "name@company.com",
-      useCase: "Например: Due Diligence, NDA / SPA / SHA, 500+ документов, нужен Excel-отчёт",
+      useCase:
+        "Например: Due Diligence, NDA / SPA / SHA, 500+ документов, нужен Excel-отчёт",
     },
     submit: "Отправить запрос",
-    note: "Сейчас форма может отправлять запрос на email или backend endpoint — выбери тот способ, который уже есть у тебя в проекте.",
+    note:
+      "Сейчас форма может отправлять запрос на email или backend endpoint — выбери тот способ, который уже есть у тебя в проекте.",
   },
 
   aside: {
@@ -124,4 +127,5 @@ export const demoContent = {
     icon: Clock3,
   },
 } as const;
+
 

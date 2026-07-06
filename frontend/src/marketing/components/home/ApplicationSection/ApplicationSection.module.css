@@ -1,9 +1,11 @@
+/* src/marketing/components/home/ApplicationSection/ApplicationSection.module.css */
+
 /* --- Секция и Фон --- */
 .section {
   position: relative;
   background: linear-gradient(
-      rgba(17, 24, 39, 0.80),
-      rgba(17, 24, 39, 0.95)
+      rgba(26, 25, 23, 0.85),  /* Тёплый тёмный вместо холодного slate */
+      rgba(26, 25, 23, 0.95)
     ),
     url('/background.jpg') center/cover no-repeat;
   min-height: 100vh;
@@ -48,7 +50,6 @@
   display: flex;
   gap: 1.5rem;
   overflow-x: auto;
-  /* Мягкий snap, чтобы не блокировать мышь */
   scroll-snap-type: x proximity; 
   scroll-behavior: smooth;
   scrollbar-width: none;
@@ -116,4 +117,5 @@
   background-color: rgba(255, 255, 255, 1);
   transform: scale(1.5);
 }
+
 

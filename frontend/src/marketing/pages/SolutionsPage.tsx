@@ -1,3 +1,4 @@
+// src/marketing/pages/SolutionsPage.tsx
 import React from "react";
 import MarketingEditorialShell from "../components/shared/MarketingEditorialShell";
 import { landingContent } from "../content/landingContent";
@@ -29,19 +30,19 @@ const SolutionsPage: React.FC = () => {
   ];
 
   const leftToneByIndex: string[] = [
-    "bg-white/70",
-    "bg-[#efe9dd]",
-    "bg-white/75",
-    "bg-[#efe9dd]",
-    "bg-white/70",
+    "bg-white",
+    "bg-[#F3F0EB]",
+    "bg-white",
+    "bg-[#F3F0EB]",
+    "bg-white",
   ];
 
   const rightToneByIndex: string[] = [
-    "bg-white/60",
-    "bg-[#efe9dd]",
-    "bg-white/60",
-    "bg-[#efe9dd]",
-    "bg-white/60",
+    "bg-[#FAF8F5]",
+    "bg-[#F3F0EB]",
+    "bg-[#FAF8F5]",
+    "bg-[#F3F0EB]",
+    "bg-[#FAF8F5]",
   ];
 
   return (
@@ -65,24 +66,24 @@ const SolutionsPage: React.FC = () => {
               className="grid gap-4 lg:grid-cols-12 lg:gap-5"
             >
               <div
-                className={`rounded-[28px] border border-stone-900/10 p-6 lg:col-span-6 lg:p-7 ${leftTone}`}
+                className={`rounded-2xl border border-[#E8E4DD] p-6 lg:col-span-6 lg:p-7 ${leftTone}`}
               >
-                <Icon className="h-5 w-5 text-stone-700" />
-                <h2 className="mt-10 max-w-sm font-serif text-3xl leading-tight tracking-[-0.03em] text-stone-950">
+                <Icon className="h-5 w-5 text-[#78756F]" />
+                <h2 className="mt-10 max-w-sm font-serif text-3xl leading-tight tracking-[-0.03em] text-[#1A1917]">
                   {item.title}
                 </h2>
-                <p className="mt-4 max-w-lg text-sm leading-7 text-stone-700 lg:text-base">
+                <p className="mt-4 max-w-lg text-sm leading-7 text-[#78756F] lg:text-base">
                   {item.description}
                 </p>
               </div>
 
               <div
-                className={`rounded-[28px] border border-stone-900/10 p-6 lg:col-span-6 lg:p-7 ${rightTone}`}
+                className={`rounded-2xl border border-[#E8E4DD] p-6 lg:col-span-6 lg:p-7 ${rightTone}`}
               >
-                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-500">
+                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#78756F]">
                   Дополнительное описание
                 </div>
-                <p className="mt-10 max-w-lg text-sm leading-7 text-stone-700 lg:text-base">
+                <p className="mt-10 max-w-lg text-sm leading-7 text-[#78756F] lg:text-base">
                   Будет дополнено позже.
                 </p>
               </div>
@@ -95,3 +96,5 @@ const SolutionsPage: React.FC = () => {
 };
 
 export default SolutionsPage;
+
+

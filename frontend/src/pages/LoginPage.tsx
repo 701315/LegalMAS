@@ -5,7 +5,6 @@
 
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useLogin } from "../api/auth";
 import Button from "../components/ui/Button";
@@ -88,35 +87,17 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--bg-base)] px-4 text-[var(--text-primary)]">
-      <button
-        type="button"
-        onClick={() => navigate("/")}
-        className="group mb-8 flex items-center gap-3"
-      >
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent-primary)] text-white shadow-sm">
-          <Shield className="h-5 w-5" />
-        </div>
-        <div className="text-left">
-          <p className="text-sm font-semibold leading-tight text-[var(--text-primary)]">
-            LegalMAS
-          </p>
-          <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
-            Платформа интеллектуального анализа правовых документов
-          </p>
-        </div>
-      </button>
-
-      <div className="w-full max-w-sm rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-7 shadow-sm">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#FAF8F5] px-4 text-[#1A1917]">
+      <div className="w-full max-w-sm rounded-2xl border border-[#E8E4DD] bg-white px-6 py-7 shadow-sm">
         <div className="mb-6">
-          <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+          <div className="inline-flex items-center rounded-full border border-[#E8E4DD] bg-[#F3F0EB] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#A8A29E]">
             Secure sign-in
           </div>
 
-          <h1 className="mt-4 text-[20px] font-semibold tracking-tight text-[var(--text-primary)]">
-            Вход в LegalMAS
+          <h1 className="mt-4 text-[20px] font-semibold tracking-tight text-[#1A1917]">
+            Вход в Steloom
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+          <p className="mt-2 text-sm leading-6 text-[#78756F]">
             Используйте учётные данные, выданные администратором вашей команды.
           </p>
         </div>
@@ -125,7 +106,7 @@ const LoginPage: React.FC = () => {
           <div>
             <label
               htmlFor="login"
-              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]"
+              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[#A8A29E]"
             >
               Логин
             </label>
@@ -134,7 +115,7 @@ const LoginPage: React.FC = () => {
               type="text"
               value={login}
               onChange={(e) => setLogin(e.target.value)}
-              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus:bg-[var(--bg-card)]"
+              className="w-full rounded-xl border border-[#E8E4DD] bg-[#FAF8F5] px-3.5 py-2.5 text-sm text-[#1A1917] placeholder:text-[#A8A29E] outline-none transition-colors focus:border-[#C86B52] focus:bg-white"
               placeholder="Ваш логин"
               autoComplete="username"
               autoFocus
@@ -144,7 +125,7 @@ const LoginPage: React.FC = () => {
           <div>
             <label
               htmlFor="password"
-              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]"
+              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[#A8A29E]"
             >
               Пароль
             </label>
@@ -153,14 +134,14 @@ const LoginPage: React.FC = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus:bg-[var(--bg-card)]"
+              className="w-full rounded-xl border border-[#E8E4DD] bg-[#FAF8F5] px-3.5 py-2.5 text-sm text-[#1A1917] placeholder:text-[#A8A29E] outline-none transition-colors focus:border-[#C86B52] focus:bg-white"
               placeholder="Ваш пароль"
               autoComplete="current-password"
             />
           </div>
 
           {errorText && (
-            <p className="rounded-2xl border border-[color:rgba(161,53,68,0.22)] bg-[color:rgba(161,53,68,0.08)] px-3.5 py-2.5 text-xs text-[color:rgb(120,35,46)]">
+            <p className="rounded-xl border border-[#DC2626]/20 bg-[#FEE2E2] px-3.5 py-2.5 text-xs text-[#B91C1C]">
               {errorText}
             </p>
           )}
@@ -180,7 +161,7 @@ const LoginPage: React.FC = () => {
       <button
         type="button"
         onClick={() => navigate("/")}
-        className="mt-6 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+        className="mt-6 text-xs text-[#A8A29E] transition-colors hover:text-[#78756F]"
       >
         ← Вернуться на главную
       </button>

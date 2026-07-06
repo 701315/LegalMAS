@@ -5,7 +5,7 @@ import { landingContent } from "../../content/landingContent";
 
 function Tag({ label }: { label: string }) {
   return (
-    <span className="mx-3 inline-flex cursor-default items-center whitespace-nowrap rounded-full border border-stone-200/60 bg-white/60 px-6 py-3 text-[15px] font-medium tracking-tight text-stone-600 shadow-sm backdrop-blur-sm transition-all duration-300 hover:border-stone-300 hover:bg-white hover:text-stone-900">
+    <span className="mx-3 inline-flex cursor-default items-center whitespace-nowrap rounded-full border border-[#E8E4DD] bg-white px-6 py-3 text-[0.9375rem] font-medium tracking-tight text-[#78756F] transition-all duration-300 hover:border-[#D6D0C7] hover:text-[#1A1917]">
       {label}
     </span>
   );
@@ -16,14 +16,17 @@ const ConceptTagsSection: React.FC = () => {
 
   return (
     <section 
-      className="overflow-hidden border-b border-[#E5E2DA] bg-[#F8F7F4] py-24 sm:py-32" 
+      className="overflow-hidden border-b border-[#E8E4DD] bg-[#FAF8F5] py-20 lg:py-28" 
       data-header-theme="light"
     >
-      <div className="mx-auto mb-16 flex w-full max-w-[1280px] flex-col items-center px-6 text-center lg:px-10 xl:px-12">
+      <div
+        className="mx-auto mb-16 flex w-full flex-col items-center px-6 text-center lg:px-8"
+        style={{ maxWidth: "var(--container-max-width)" }}
+      >
         <span className="eyebrow">{eyebrow}</span>
         
         {/* Используем white-space: pre-line для поддержки \n из контента */}
-        <h2 className="section-title !mt-2 max-w-3xl whitespace-pre-line text-balance text-stone-950">
+        <h2 className="section-title !mt-2 max-w-3xl whitespace-pre-line text-balance text-[#1A1917]">
           {title}
         </h2>
         
@@ -34,15 +37,14 @@ const ConceptTagsSection: React.FC = () => {
 
       <div className="relative flex flex-col gap-5">
         {/* Градиенты по краям для плавного появления/исчезновения тегов */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#F8F7F4] to-transparent sm:w-48" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#F8F7F4] to-transparent sm:w-48" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#FAF8F5] to-transparent sm:w-48" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#FAF8F5] to-transparent sm:w-48" />
 
         <div>
           <Marquee speed={32} gradient={false} pauseOnHover>
             {row1.map((tag) => (
               <Tag key={tag} label={tag} />
             ))}
-            {/* Дублируем массив, чтобы избежать пустот на больших экранах */}
             {row1.map((tag) => (
               <Tag key={`dup1-${tag}`} label={tag} />
             ))}
@@ -53,7 +55,6 @@ const ConceptTagsSection: React.FC = () => {
           {row2.map((tag) => (
             <Tag key={tag} label={tag} />
           ))}
-          {/* Дублируем массив, чтобы избежать пустот на больших экранах */}
           {row2.map((tag) => (
             <Tag key={`dup2-${tag}`} label={tag} />
           ))}
@@ -64,4 +65,5 @@ const ConceptTagsSection: React.FC = () => {
 };
 
 export default ConceptTagsSection;
+
 

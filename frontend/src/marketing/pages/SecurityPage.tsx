@@ -1,5 +1,4 @@
 // src/marketing/pages/SecurityPage.tsx
-
 import React from "react";
 import MarketingEditorialShell from "../components/shared/MarketingEditorialShell";
 import { landingContent } from "../content/landingContent";
@@ -13,8 +12,8 @@ const SecurityPage: React.FC = () => {
       description="Для Steloom trust layer — это не отдельный маркетинговый абзац, а часть архитектуры: local-first processing, controlled cloud mode, role-based access и source-linked auditability."
     >
       <div className="grid gap-6 lg:grid-cols-12">
-        <div className="rounded-[32px] border border-stone-900/10 bg-stone-950 p-7 text-[#f7f3ea] lg:col-span-5 lg:p-9">
-          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400">
+        <div className="rounded-2xl border border-[#E8E4DD] bg-[#1A1917] p-7 text-[#FAF8F5] lg:col-span-5 lg:p-9">
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#A8A29E]">
             Контур безопасности
           </div>
 
@@ -22,7 +21,7 @@ const SecurityPage: React.FC = () => {
             {security.title}
           </h2>
 
-          <p className="mt-5 text-base leading-8 text-stone-300">
+          <p className="mt-5 text-base leading-8 text-[#D6D0C7]">
             {security.description}
           </p>
 
@@ -30,7 +29,7 @@ const SecurityPage: React.FC = () => {
             {security.badges.map((badge) => (
               <div
                 key={badge}
-                className="rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-2 text-xs font-medium text-stone-200"
+                className="rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-2 text-xs font-medium text-[#D6D0C7]"
               >
                 {badge}
               </div>
@@ -42,12 +41,12 @@ const SecurityPage: React.FC = () => {
           {security.cards.map((card) => (
             <div
               key={card.title}
-              className="rounded-[28px] border border-stone-900/10 bg-white/70 p-6"
+              className="rounded-2xl border border-[#E8E4DD] bg-white p-6"
             >
-              <h3 className="text-xl font-semibold text-stone-950">
+              <h3 className="text-xl font-semibold text-[#1A1917]">
                 {card.title}
               </h3>
-              <p className="mt-3 text-sm leading-7 text-stone-700">
+              <p className="mt-3 text-sm leading-7 text-[#78756F]">
                 {card.text}
               </p>
             </div>
@@ -59,4 +58,5 @@ const SecurityPage: React.FC = () => {
 };
 
 export default SecurityPage;
+
 

@@ -1,6 +1,6 @@
 // src/marketing/components/home/PremiumFinalCtaSection.tsx
-
 import React, { useEffect, useRef, useState } from "react";
+import { landingContent } from "../../content/landingContent";
 
 const PremiumFinalCtaSection: React.FC = () => {
   const ref = useRef<HTMLElement | null>(null);
@@ -28,61 +28,49 @@ const PremiumFinalCtaSection: React.FC = () => {
     transition: `opacity 0.8s cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 0.8s cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
   });
 
+  const { finalCta } = landingContent;
+
   return (
     <section
       ref={ref}
-      className="relative flex items-center justify-center overflow-hidden bg-[#111827]"
-      style={{ height: "50vh", minHeight: 320 }}
+      className="relative flex items-center justify-center overflow-hidden border-t border-[#E8E4DD] bg-[#F3F0EB]"
+      style={{ minHeight: 480 }}
+      data-header-theme="light"
     >
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-        style={{ opacity: 0.1 }}
-      >
-        <source src="/video/cta-bg.mp4" type="video/mp4" />
-      </video>
-
+      {/* Subtle radial glow — warm terracotta */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(47,90,74,0.18) 0%, transparent 70%)",
+            "radial-gradient(ellipse 60% 55% at 50% 50%, rgba(200,107,82,0.08) 0%, transparent 70%)",
         }}
       />
 
-      <div className="relative mx-auto flex max-w-[1280px] flex-col items-center px-6 text-center lg:px-8">
-        <div style={fadeIn(0)}>
-          <span className="inline-block rounded-full border border-[#2F5A4A]/50 px-3.5 py-1 text-[11px] font-medium uppercase tracking-[0.09em] text-[#5BA88A]">
-            Интеллектуальный слой для юридической работы
-          </span>
-        </div>
-
+      <div
+        className="relative mx-auto flex flex-col items-center px-6 py-20 text-center lg:px-8 lg:py-28"
+        style={{ maxWidth: "var(--container-max-width)" }}
+      >
         <h2
-          className="mt-5 font-serif font-light text-white"
+          className="mt-6 font-serif text-[#1A1917]"
           style={{
-            fontSize: "clamp(28px, 3.5vw, 56px)",
+            fontSize: "clamp(2.25rem, 4.5vw, 4rem)",
             lineHeight: 1.08,
             letterSpacing: "-0.02em",
-            maxWidth: 640,
+            maxWidth: 720,
             ...fadeIn(100),
           }}
         >
-          Превращайте документы
+          {finalCta.title.split("\n")[0]}
           <br />
-          в структурированное знание.
+          {finalCta.title.split("\n")[1]}
         </h2>
 
         <p
-          className="mt-4 text-sm leading-7 text-stone-400"
-          style={{ maxWidth: 480, ...fadeIn(200) }}
+          className="mt-5 text-[1.0625rem] leading-[1.7] text-[#78756F]"
+          style={{ maxWidth: 560, ...fadeIn(200) }}
         >
-          Steloom даёт команде проверяемое и пригодное к действию знание
-          из любого набора документов — быстро и без потери контроля.
+          {finalCta.description}
         </p>
       </div>
     </section>

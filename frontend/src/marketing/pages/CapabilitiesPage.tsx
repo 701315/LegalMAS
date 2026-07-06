@@ -1,5 +1,4 @@
 // src/marketing/pages/CapabilitiesPage.tsx
-
 import React from "react";
 import {
   Cpu,
@@ -32,17 +31,17 @@ const CapabilitiesPage: React.FC = () => {
           return (
             <div
               key={item.title}
-              className={`rounded-[32px] border border-stone-900/10 p-7 lg:p-9 ${
+              className={`rounded-2xl border border-[#E8E4DD] p-7 lg:p-9 ${
                 idx === 0
-                  ? "bg-[#ece5d8] lg:col-span-7"
-                  : "bg-white/70 lg:col-span-5"
+                  ? "bg-[#F3F0EB] lg:col-span-7"
+                  : "bg-white lg:col-span-5"
               }`}
             >
-              <Icon className="h-6 w-6 text-stone-700" />
-              <h2 className="mt-10 max-w-xl font-serif text-3xl leading-tight tracking-[-0.03em] text-stone-950 lg:text-[2.3rem]">
+              <Icon className="h-6 w-6 text-[#78756F]" />
+              <h2 className="mt-10 max-w-xl font-serif text-3xl leading-tight tracking-[-0.03em] text-[#1A1917] lg:text-[2.3rem]">
                 {item.title}
               </h2>
-              <p className="mt-5 text-base leading-8 text-stone-700">
+              <p className="mt-5 text-base leading-8 text-[#78756F]">
                 {item.description}
               </p>
             </div>
@@ -55,13 +54,13 @@ const CapabilitiesPage: React.FC = () => {
           return (
             <div
               key={item.title}
-              className="rounded-[28px] border border-stone-900/10 bg-white/65 p-6 lg:col-span-4"
+              className="rounded-2xl border border-[#E8E4DD] bg-white p-6 lg:col-span-4"
             >
-              <Icon className="h-5 w-5 text-stone-700" />
-              <h3 className="mt-8 text-xl font-semibold text-stone-950">
+              <Icon className="h-5 w-5 text-[#78756F]" />
+              <h3 className="mt-8 text-xl font-semibold text-[#1A1917]">
                 {item.title}
               </h3>
-              <p className="mt-3 text-sm leading-7 text-stone-700">
+              <p className="mt-3 text-sm leading-7 text-[#78756F]">
                 {item.description}
               </p>
             </div>
@@ -75,13 +74,11 @@ const CapabilitiesPage: React.FC = () => {
 
       <div className="mt-16">
         <div className="mb-10">
-          <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500">
-            Архитектура
-          </div>
-          <h2 className="mt-4 max-w-3xl font-serif text-4xl leading-tight tracking-[-0.03em] text-stone-950 lg:text-5xl">
+          <div className="eyebrow">Архитектура</div>
+          <h2 className="mt-4 max-w-3xl font-serif text-4xl leading-tight tracking-[-0.03em] text-[#1A1917] lg:text-5xl">
             Как устроен Steloom внутри
           </h2>
-          <p className="mt-5 max-w-3xl text-base leading-8 text-stone-600 lg:text-[1.05rem]">
+          <p className="mt-5 max-w-3xl text-base leading-8 text-[#78756F] lg:text-[1.05rem]">
             Технический обзор document pipeline: от загрузки и нормализации до
             сценарного вывода и интеграций.
           </p>
@@ -89,37 +86,37 @@ const CapabilitiesPage: React.FC = () => {
 
         {/* Pipeline summary + architecture layers */}
         <div className="grid gap-6 lg:grid-cols-12">
-          <div className="rounded-[32px] border border-stone-900/10 bg-[#ece5d8] p-7 lg:col-span-5 lg:p-9">
-            <div className="inline-flex items-center rounded-full bg-stone-900/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-stone-700">
+          <div className="rounded-2xl border border-[#E8E4DD] bg-[#F3F0EB] p-7 lg:col-span-5 lg:p-9">
+            <div className="inline-flex items-center rounded-full bg-white px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-[#78756F]">
               <GitBranch className="mr-2 h-3.5 w-3.5" />
               Document pipeline
             </div>
-            <h3 className="mt-4 font-serif text-2xl tracking-[-0.03em] text-stone-950">
+            <h3 className="mt-4 font-serif text-2xl tracking-[-0.03em] text-[#1A1917]">
               От сырых файлов к структурированному юридическому слою
             </h3>
-            <p className="mt-4 text-sm leading-7 text-stone-700">
+            <p className="mt-4 text-sm leading-7 text-[#78756F]">
               Steloom принимает scatter-загрузку документов, нормализует их в
               едином pipeline и строит поверх стабильный слой юридически значимых
               сущностей, рисков и обязательств, пригодный для аудитов, DD и
               внутренних расследований.
             </p>
-            <div className="mt-5 space-y-3 text-sm text-stone-800">
+            <div className="mt-5 space-y-3 text-sm text-[#1A1917]">
               <div className="flex items-start gap-2">
-                <Layers className="mt-0.5 h-4 w-4 text-stone-600" />
+                <Layers className="mt-0.5 h-4 w-4 text-[#78756F]" />
                 <span>
                   Многоуровневый pipeline: ingest, canonicalization, layout,
                   extraction, аналитика.
                 </span>
               </div>
               <div className="flex items-start gap-2">
-                <FileText className="mt-0.5 h-4 w-4 text-stone-600" />
+                <FileText className="mt-0.5 h-4 w-4 text-[#78756F]" />
                 <span>
                   Гибкая работа с data room и «грязными» архивами, без
                   требований к структуре.
                 </span>
               </div>
               <div className="flex items-start gap-2">
-                <Cpu className="mt-0.5 h-4 w-4 text-stone-600" />
+                <Cpu className="mt-0.5 h-4 w-4 text-[#78756F]" />
                 <span>
                   Комбинация deterministic-правил и LLM, с audit-friendly
                   логированием шагов.
@@ -128,23 +125,23 @@ const CapabilitiesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-[32px] border border-stone-900/10 bg-white/70 p-7 lg:col-span-7 lg:p-9">
+          <div className="rounded-2xl border border-[#E8E4DD] bg-white p-7 lg:col-span-7 lg:p-9">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#78756F]">
                   Слои архитектуры
                 </div>
-                <h3 className="mt-2 text-lg font-semibold text-stone-950">
+                <h3 className="mt-2 text-lg font-semibold text-[#1A1917]">
                   Ingest, processing, analytics, delivery
                 </h3>
               </div>
-              <div className="inline-flex items-center rounded-full bg-stone-900/5 px-3 py-1 text-[11px] font-medium text-stone-700">
+              <div className="inline-flex items-center rounded-full bg-[#F3F0EB] px-3 py-1 text-[11px] font-medium text-[#78756F]">
                 <Sparkles className="mr-1.5 h-3.5 w-3.5" />
                 LLM-native, but not LLM-only
               </div>
             </div>
 
-            <div className="mt-5 grid gap-4 text-sm text-stone-800 sm:grid-cols-2">
+            <div className="mt-5 grid gap-4 text-sm text-[#1A1917] sm:grid-cols-2">
               {[
                 {
                   label: "Ingest",
@@ -163,8 +160,8 @@ const CapabilitiesPage: React.FC = () => {
                   text: "UI-слой для юристов, API/exports для внутренних систем, audit trail для compliance и проверяемости выводов.",
                 },
               ].map((block) => (
-                <div key={block.label} className="rounded-2xl bg-[#f5eee2] p-4">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                <div key={block.label} className="rounded-xl bg-[#FAF8F5] p-4">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#78756F]">
                     {block.label}
                   </div>
                   <p className="mt-2">{block.text}</p>
@@ -175,16 +172,14 @@ const CapabilitiesPage: React.FC = () => {
         </div>
 
         {/* 4-step workflow */}
-        <div className="mt-10 rounded-[32px] border border-stone-900/10 bg-[#f1ebdf] p-6 sm:p-8 lg:p-10">
+        <div className="mt-10 rounded-2xl border border-[#E8E4DD] bg-[#F3F0EB] p-6 sm:p-8 lg:p-10">
           <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
             <div className="lg:col-span-4">
-              <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500">
-                Workflow
-              </div>
-              <h3 className="mt-4 max-w-md font-serif text-2xl leading-tight tracking-[-0.03em] text-stone-950 lg:text-3xl">
+              <div className="eyebrow">Workflow</div>
+              <h3 className="mt-4 max-w-md font-serif text-2xl leading-tight tracking-[-0.03em] text-[#1A1917] lg:text-3xl">
                 {architecturePreview.title}
               </h3>
-              <p className="mt-5 max-w-md text-sm leading-7 text-stone-700 lg:text-base">
+              <p className="mt-5 max-w-md text-sm leading-7 text-[#78756F] lg:text-base">
                 {architecturePreview.description}
               </p>
             </div>
@@ -197,18 +192,18 @@ const CapabilitiesPage: React.FC = () => {
                   return (
                     <div
                       key={step.title}
-                      className="flex h-full flex-col rounded-[28px] border border-stone-900/10 bg-[#f7f3ea] p-6"
+                      className="flex h-full flex-col rounded-2xl border border-[#E8E4DD] bg-[#FAF8F5] p-6"
                     >
                       <div className="flex items-center justify-between">
-                        <Icon className="h-5 w-5 text-stone-700" />
-                        <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-stone-400">
+                        <Icon className="h-5 w-5 text-[#78756F]" />
+                        <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#A8A29E]">
                           {`0${index + 1}`}
                         </div>
                       </div>
-                      <h4 className="mt-10 font-serif text-xl tracking-[-0.02em] text-stone-950">
+                      <h4 className="mt-10 font-serif text-xl tracking-[-0.02em] text-[#1A1917]">
                         {step.title}
                       </h4>
-                      <p className="mt-4 text-sm leading-7 text-stone-700">
+                      <p className="mt-4 text-sm leading-7 text-[#78756F]">
                         {step.text}
                       </p>
                     </div>
@@ -220,23 +215,23 @@ const CapabilitiesPage: React.FC = () => {
         </div>
 
         {/* Detailed 6-step pipeline */}
-        <div className="mt-10 rounded-[32px] border border-stone-900/10 bg-white/70 p-6 sm:p-8 lg:p-10">
+        <div className="mt-10 rounded-2xl border border-[#E8E4DD] bg-white p-6 sm:p-8 lg:p-10">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#78756F]">
                 Pipeline, шаг за шагом
               </div>
-              <h3 className="mt-2 text-lg font-semibold text-stone-950">
+              <h3 className="mt-2 text-lg font-semibold text-[#1A1917]">
                 Как документ проходит через Steloom
               </h3>
             </div>
-            <div className="inline-flex items-center rounded-full bg-stone-900/5 px-3 py-1 text-[11px] font-medium text-stone-700">
+            <div className="inline-flex items-center rounded-full bg-[#F3F0EB] px-3 py-1 text-[11px] font-medium text-[#78756F]">
               <Network className="mr-1.5 h-3.5 w-3.5" />
               Orchestrated pipeline
             </div>
           </div>
 
-          <ol className="mt-6 grid gap-4 text-sm text-stone-800 md:grid-cols-2 lg:grid-cols-3">
+          <ol className="mt-6 grid gap-4 text-sm text-[#1A1917] md:grid-cols-2 lg:grid-cols-3">
             {[
               {
                 step: "1",
@@ -271,10 +266,10 @@ const CapabilitiesPage: React.FC = () => {
             ].map((item) => (
               <li
                 key={item.step}
-                className="flex h-full flex-col rounded-2xl bg-[#f7f3ea] p-4"
+                className="flex h-full flex-col rounded-xl bg-[#FAF8F5] p-4"
               >
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-stone-900 text-[11px] text-[#f7f3ea]">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#78756F]">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1A1917] text-[11px] text-[#FAF8F5]">
                     {item.step}
                   </span>
                   {item.label}
@@ -284,7 +279,7 @@ const CapabilitiesPage: React.FC = () => {
             ))}
           </ol>
 
-          <div className="mt-6 flex items-center justify-end text-sm text-stone-700">
+          <div className="mt-6 flex items-center justify-end text-sm text-[#78756F]">
             <ArrowRight className="mr-2 h-4 w-4" />
             <span>
               Детальная схема pipeline доступна в internal docs и может быть

@@ -1,12 +1,11 @@
 // src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx
-
 import React, { useEffect, useRef, type RefObject } from "react";
 import { useTreeEngine } from "./useTreeEngine";
 import type { TreeLine } from "./types";
 
-const FLIGHT_DURATION = 1100;  // строки летят чуть дольше — больше времени видеть движение
-const LAUNCH_INTERVAL = 24;    // интервал между ВОЛНАМИ (внутри волны — 4 строки одновременно)
-const MEANING_DELAY = 1200;    // задержка перед подсветками после завершения
+const FLIGHT_DURATION = 1100;
+const LAUNCH_INTERVAL = 24;
+const MEANING_DELAY = 1200;
 
 const SVG_URL = "/tree-mask.svg";
 
@@ -35,15 +34,9 @@ const KnowledgeTree: React.FC<Props> = ({ active }) => {
     };
   }, [active, loading, lines]);
 
-  // Сортируем строки: сначала ТОПОВЫЕ (маленький Y), потом всё ниже.
-  // Первая запущенная строка летит дольше всех — до самой верхушки.
-  // Последняя летит коротко — к корням.
   const sortedLines = React.useMemo(() => {
-    // Сначала сортируем сверху вниз
     const sorted = [...lines].sort((a, b) => a.targetY - b.targetY);
 
-    // Затем "интерливим" — раскладываем в N стопок и сшиваем обратно
-    // Это даёт эффект: в каждой волне 8 строк из РАЗНЫХ частей дерева
     const stacks = 8;
     const buckets: TreeLine[][] = Array.from({ length: stacks }, () => []);
     sorted.forEach((line, i) => {
@@ -129,8 +122,8 @@ const KnowledgeTree: React.FC<Props> = ({ active }) => {
 
       <style>{`
         .tree-line.is-highlighted {
-          text-shadow: 0 0 8px rgba(63, 115, 95, 0.45);
-          color: rgb(47, 90, 74) !important;
+          text-shadow: 0 0 8px rgba(200, 107, 82, 0.45);
+          color: rgb(200, 107, 82) !important;
           transition: text-shadow 800ms ease, color 800ms ease;
         }
       `}</style>
@@ -141,19 +134,14 @@ const KnowledgeTree: React.FC<Props> = ({ active }) => {
 function getColorForTone(tone: TreeLine["colorTone"]): string {
   switch (tone) {
     case "accent":
-      return "rgba(47, 90, 74, 0.85)";
+      return "rgba(200, 107, 82, 0.85)"; // terracotta
     case "primary":
-      return "rgba(47, 90, 74, 0.6)";
+      return "rgba(26, 25, 23, 0.55)"; // warm dark
     case "muted":
-      return "rgba(120, 113, 108, 0.5)";
+      return "rgba(168, 162, 158, 0.5)"; // warm gray
   }
 }
 
-/**
- * Анимация: каждая строка стартует снизу контейнера и летит до своего target Y.
- * Строки запускаются по очереди с интервалом LAUNCH_INTERVAL ms.
- * Порядок: сверху вниз — сначала верхушка, потом крона, потом ствол.
- */
 function runAnimation(
   container: HTMLElement,
   rafRef: RefObject<number | null>,
@@ -170,13 +158,10 @@ function runAnimation(
     launchTime: number;
   };
 
-  // Группируем строки в "волны" по BATCH_SIZE штук
-  // Каждая волна запускается одновременно из разных частей дерева
-  const BATCH_SIZE = 10;  // вдвое больше строк в каждой волне → больше "фонтан" из ствола
+  const BATCH_SIZE = 10;
 
   const states: LineState[] = elements.map((el, i) => {
     const batchIndex = Math.floor(i / BATCH_SIZE);
-    // Внутри батча — небольшой случайный jitter, чтобы не было идеального синхрона
     const microJitter = Math.random() * (LAUNCH_INTERVAL * 0.8);
 
     return {
@@ -255,4 +240,5 @@ function easeOutCubic(t: number): number {
 }
 
 export default KnowledgeTree;
+
 

@@ -11,26 +11,26 @@ const FounderSection: React.FC = () => {
 
   return (
     <section
-      className="bg-[#F8F7F4] py-24 sm:py-32"
+      className="bg-[#FAF8F5] py-20 lg:py-28"
       data-header-theme="light"
     >
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-10 xl:px-12">
-        <div className="grid gap-16 lg:grid-cols-[1fr_1.6fr] lg:gap-24 lg:items-start">
+      <div
+        className="mx-auto px-6 lg:px-8"
+        style={{ maxWidth: "var(--container-max-width)" }}
+      >
+        <div className="grid gap-12 lg:grid-cols-[1fr_1.6fr] lg:gap-20 lg:items-start">
           
           {/* ── Левая: Attribution ─────────────────────────── */}
           <div
             ref={content.ref as React.Ref<HTMLDivElement>}
             style={content.style}
           >
-            <div className="mb-10 flex items-center gap-3">
-              <div className="h-px w-10 bg-stone-300" />
-              <span className="eyebrow !mb-0">
-                От основателя
-              </span>
+            <div className="mb-10">
+              <span className="eyebrow">От основателя</span>
             </div>
 
             <div className="mb-6">
-              <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-[#E5E2DA]">
+              <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-[#E8E4DD]">
                 <img
                   src={photoVladimir}
                   alt="Vladimir Gorelov"
@@ -40,20 +40,17 @@ const FounderSection: React.FC = () => {
             </div>
 
             <div className="mb-8">
-              <div className="text-base font-medium text-stone-900">
+              <div className="text-[0.9375rem] font-medium text-[#1A1917]">
                 Vladimir Gorelov
               </div>
-              <div className="mt-1 text-sm text-stone-500">
+              <div className="mt-1 text-sm text-[#78756F]">
                 Основатель и CEO, Steloom
               </div>
             </div>
 
-            <Link
-              to="/about"
-              className="group inline-flex items-center gap-2 text-sm font-medium text-stone-500 transition-colors hover:text-stone-900"
-            >
+            <Link to="/about" className="cta-link mt-8">
               О команде и миссии
-              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
 
@@ -64,7 +61,7 @@ const FounderSection: React.FC = () => {
           >
             <blockquote>
               <p
-                className="font-serif font-light leading-[1.4] tracking-[-0.01em] text-stone-900"
+                className="font-serif leading-[1.4] tracking-[-0.02em] text-[#1A1917]"
                 style={{ fontSize: "clamp(1.75rem, 2.8vw, 2.5rem)" }}
               >
                 «Юридическим командам не нужен ещё один AI, который просто даёт быстрые ответы.
@@ -73,7 +70,7 @@ const FounderSection: React.FC = () => {
               </p>
 
               <p
-                className="mt-8 font-serif font-light leading-[1.5] tracking-[-0.01em] text-stone-500"
+                className="mt-8 font-serif leading-[1.5] tracking-[-0.01em] text-[#78756F]"
                 style={{ fontSize: "clamp(1.25rem, 1.8vw, 1.75rem)" }}
               >
                 «Steloom — это именно такая система. Не shortcut к ответу,

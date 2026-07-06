@@ -1,7 +1,7 @@
 // src/marketing/components/home/ApplicationSection/ApplicationSection.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { ROLES, ROLE_ORDER } from './roles/roles-data';
 import styles from './ApplicationSection.module.css';
 
@@ -69,7 +69,10 @@ const ApplicationSection: React.FC = () => {
 
   return (
     <section className={styles.section} id="application">
-      <div className="mx-auto flex w-full max-w-[1280px] flex-col px-6 lg:px-10 xl:px-12 py-24 sm:py-32">
+      <div 
+        className="mx-auto flex w-full flex-col px-6 lg:px-8 py-20 lg:py-28"
+        style={{ maxWidth: "var(--container-max-width)" }}
+      >
         
         <div className="mb-16 lg:mb-20">
           <h2 className="section-title text-white">
@@ -138,28 +141,23 @@ const ApplicationSection: React.FC = () => {
           {/* Правая колонка */}
           <div className={styles.rightCol}>
             <div key={activeRoleId} className="flex flex-col animate-fadein">
-              <span className="eyebrow !text-[#5BA88A]">Сценарий</span>
-              <p className="mt-4 text-base leading-[1.8] text-stone-300 lg:text-[1.125rem] lg:leading-[1.8]">
+              <span className="eyebrow !text-[#C86B52]">Сценарий</span>
+              <p className="mt-4 text-base leading-[1.8] text-stone-300 lg:text-[1.0625rem] lg:leading-[1.8]">
                 {activeRoleData.description}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="mt-16 lg:mt-24">
-          <Link 
-            to="/solutions" 
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-medium text-white transition-all hover:bg-white/20 hover:border-white/30"
-          >
-            Подробнее о сценариях
-            <ArrowUpRight size={16} />
-          </Link>
-        </div>
-
+        <Link to="/solutions" className="cta-link-inverse mt-16 lg:mt-24">
+          Подробнее о сценариях
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
     </section>
   );
 };
 
 export default ApplicationSection;
+
 

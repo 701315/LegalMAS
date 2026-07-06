@@ -1,5 +1,4 @@
 // src/marketing/pages/DemoPage.tsx
-
 import React from "react";
 import SiteHeader from "../components/shared/SiteHeader";
 import MarketingPageFooter from "../components/shared/MarketingPageFooter";
@@ -11,12 +10,12 @@ import DemoFaqSection from "../components/demo/DemoFaqSection";
 
 const DemoPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#F8F7F4] text-stone-950">
-      <SiteHeader forcedTheme="light" hideLogin />
+    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917]">
+      <SiteHeader forcedTheme="light" />
 
       <main
-        className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24"
-        style={{ paddingTop: 132 }}
+        className="mx-auto px-4 py-16 sm:px-6 lg:px-8 lg:py-24"
+        style={{ paddingTop: 132, maxWidth: "var(--container-max-width)" }}
       >
         <DemoHeroSection />
         <DemoAudienceSection />

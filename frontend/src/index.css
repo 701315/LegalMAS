@@ -1,110 +1,153 @@
 /* src/index.css */
-
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap");
 @import "tailwindcss";
 
+/* ════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS — Anthropic-style warm editorial
+   ════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* ── Colors ─────────────────────────────────────────────────────────── */
+  --color-background: #FAF8F5;
+  --color-surface: #F3F0EB;
+  --color-card: #FFFFFF;
+  --color-dark: #1A1917;
+
+  --color-primary: #1A1917;
+  --color-secondary: #78756F;
+  --color-muted: #A8A29E;
+  --color-faint: #D6D0C7;
+  --color-inverse: #FAF8F5;
+
+  --color-accent: #C86B52;
+  --color-accent-hover: #B55D46;
+  --color-accent-muted: rgba(200, 107, 82, 0.10);
+  --color-accent-subtle: #F5EBE7;
+
+  --color-border: #E8E4DD;
+  --color-border-strong: #D6D0C7;
+  --color-border-subtle: #F0ECE6;
+
+  --color-success: #059669;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
+
+  /* ── Typography ─────────────────────────────────────────────────────── */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: 'Instrument Serif', Georgia, serif;
+
+  /* ── Radius ─────────────────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 9999px;
+
+  /* ── Shadows (very subtle) ──────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(26, 25, 23, 0.04);
+  --shadow-md: 0 4px 12px rgba(26, 25, 23, 0.06);
+  --shadow-lg: 0 8px 24px rgba(26, 25, 23, 0.08);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   BASE LAYER
+   ════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  /* Typography */
+  /* ── Typography ─────────────────────────────────────────────────────── */
   --font-body: "Inter", system-ui, sans-serif;
   --font-display: "Instrument Serif", Georgia, serif;
-
-  --font-size-ui-xs: 0.75rem;      /* 12px */
-  --font-size-ui-sm: 0.8125rem;    /* 13px */
-  --font-size-body-sm: 0.875rem;   /* 14px */
-  --font-size-body-md: 1rem;       /* 16px */
-  --font-size-title-sm: 1rem;      /* 16px */
-  --font-size-title-md: 1.125rem;  /* 18px */
-
+  --font-size-ui-xs: 0.75rem;
+  --font-size-ui-sm: 0.8125rem;
+  --font-size-body-sm: 0.875rem;
+  --font-size-body-md: 1rem;
+  --font-size-title-sm: 1rem;
+  --font-size-title-md: 1.125rem;
   --line-height-ui-xs: 1rem;
   --line-height-ui-sm: 1.125rem;
   --line-height-body-sm: 1.25rem;
   --line-height-body-md: 1.5rem;
   --line-height-title-sm: 1.25rem;
   --line-height-title-md: 1.5rem;
-
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
-  /* --font-weight-bold убран: бриф запрещает 700+ */
 
-  /* Base surfaces */
-  --bg-base: #F8F7F4;
-  --bg-secondary: #F1EFEA;
-  --bg-surface: #F1EFEA;
+  /* ── Layout ─────────────────────────────────────────────────────────── */
+  --container-max-width: 1400px;
+
+  /* ── Base surfaces ──────────────────────────────────────────────────── */
+  --bg-base: #FAF8F5;
+  --bg-secondary: #F3F0EB;
+  --bg-surface: #F3F0EB;
   --bg-card: #ffffff;
-  --bg-card-hover: #faf9f7;
-  --bg-elevated-soft: #F1EFEA;
+  --bg-card-hover: #FDFCFA;
+  --bg-elevated-soft: #F3F0EB;
 
-  /* Borders */
-  --border: rgba(17, 24, 39, 0.08);
-  --border-soft: rgba(17, 24, 39, 0.05);
-  --border-strong: rgba(17, 24, 39, 0.14);
-  --border-subtle: rgba(17, 24, 39, 0.06);
-  --border-color: #E5E2DA;
+  /* ── Borders ────────────────────────────────────────────────────────── */
+  --border: rgba(26, 25, 23, 0.08);
+  --border-soft: rgba(26, 25, 23, 0.05);
+  --border-strong: rgba(26, 25, 23, 0.14);
+  --border-subtle: rgba(26, 25, 23, 0.06);
+  --border-color: #E8E4DD;
 
-  /* Brand / accents */
-  --accent: #2F5A4A;
-  --accent-primary: #2F5A4A;
-  --accent-hover: #3F735F;
-  --accent-muted: rgba(47, 90, 74, 0.12);
+  /* ── Brand / accents ────────────────────────────────────────────────── */
+  --accent: #C86B52;
+  --accent-primary: #C86B52;
+  --accent-hover: #B55D46;
+  --accent-muted: rgba(200, 107, 82, 0.12);
 
-  /* Primary CTA */
-  --cta-bg: #2F5A4A;
-  --cta-bg-hover: #3F735F;
+  /* ── Primary CTA ────────────────────────────────────────────────────── */
+  --cta-bg: #C86B52;
+  --cta-bg-hover: #B55D46;
   --cta-text: #ffffff;
-  --cta-ring: rgba(47, 90, 74, 0.25);
+  --cta-ring: rgba(200, 107, 82, 0.25);
 
-  /* Text */
-  --text-primary: #111827;
-  --text-secondary: #4B5563;
-  --text-muted: #9CA3AF;
-  --text-faint: #D1D5DB;
-  --text-inverse: #ffffff;
+  /* ── Text ───────────────────────────────────────────────────────────── */
+  --text-primary: #1A1917;
+  --text-secondary: #78756F;
+  --text-muted: #A8A29E;
+  --text-faint: #D6D0C7;
+  --text-inverse: #FAF8F5;
 
-  /* Semantic */
+  /* ── Semantic ───────────────────────────────────────────────────────── */
   --success: #059669;
   --warning: #d97706;
   --danger: #dc2626;
 
-  /* Status palette для badges / chips */
+  /* ── Status palette ─────────────────────────────────────────────────── */
   --color-error: #be123c;
   --color-error-highlight: #fff1f2;
-
   --color-orange: #c2410c;
   --color-orange-highlight: #fff7ed;
-
   --color-gold: #ca8a04;
   --color-gold-hover: #a16207;
   --color-gold-highlight: #fefce8;
-
   --color-success: #059669;
   --color-success-highlight: #ecfdf5;
-
   --color-warning: #d97706;
   --color-warning-highlight: #fffbeb;
-
   --color-success-text: var(--success);
   --color-success-bg: transparent;
   --color-success-border: transparent;
 
-  /* Radius */
-  --radius-sm: 8px;
+  /* ── Radius ─────────────────────────────────────────────────────────── */
+  --radius-sm: 6px;
   --radius-md: 12px;
   --radius-lg: 16px;
 
-  /* Shadows — только для app-shell, не для marketing-карточек */
-  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
-  --shadow-md: 0 10px 30px rgba(17, 24, 39, 0.06);
-  --shadow-lg: 0 18px 40px rgba(17, 24, 39, 0.08);
-}
+  /* ── Shadows ────────────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(26, 25, 23, 0.04);
+  --shadow-md: 0 10px 30px rgba(26, 25, 23, 0.06);
+  --shadow-lg: 0 18px 40px rgba(26, 25, 23, 0.08);
 
-/* ─── Reset / base layout ─────────────────────────────────────────────────
- *
- * Намеренно НЕ ставим height: 100% на html/body/#root.
- * Landing page растёт в высоту без ограничений.
- * AppShell для dashboard управляет своим scroll-контекстом сам
- * через h-screen / overflow-hidden.
- */
+  /* ── App Shell — Active States ──────────────────────────────────────── */
+  --app-active-bg: rgba(200, 107, 82, 0.08);
+  --app-active-bg-hover: rgba(200, 107, 82, 0.12);
+  --app-active-border: #C86B52;
+  --app-active-text: #B55D46;
+  --app-active-indicator: #C86B52;
+}
 
 html,
 body,
@@ -136,17 +179,14 @@ body {
   overflow-y: auto;
 }
 
-/*
- * Декоративный grain-оверлей.
- * pointer-events: none — не мешает взаимодействию.
- */
+/* Декоративный grain-оверлей (очень лёгкий) */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.018;
+  opacity: 0.008;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
 
@@ -156,20 +196,13 @@ body::after {
   min-height: 100%;
 }
 
-/* ─── Box model ───────────────────────────────────────────────────────────── */
-
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-* {
-  border-color: var(--border);
-}
-
-/* ─── Typography / links / forms ──────────────────────────────────────────── */
-
+/* ── Typography / Links / Forms ───────────────────────────────────────── */
 a {
   text-decoration: none;
   color: inherit;
@@ -191,10 +224,9 @@ table {
   font-variant-numeric: tabular-nums;
 }
 
-/* ─── Selection / focus ───────────────────────────────────────────────────── */
-
+/* ── Selection / Focus ────────────────────────────────────────────────── */
 ::selection {
-  background: rgba(47, 90, 74, 0.15);
+  background: rgba(200, 107, 82, 0.15);
   color: var(--text-primary);
 }
 
@@ -204,8 +236,7 @@ table {
   border-radius: 4px;
 }
 
-/* ─── Animations ──────────────────────────────────────────────────────────── */
-
+/* ── Animations ───────────────────────────────────────────────────────── */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -242,20 +273,24 @@ table {
   }
 }
 
-/* ─── Component tokens ────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════
+   COMPONENT TOKENS
+   ════════════════════════════════════════════════════════════════════════ */
 
+/* ── Skeleton ─────────────────────────────────────────────────────────── */
 .skeleton {
   background: linear-gradient(
     90deg,
-    #ede9e2 25%,
-    #e5e1d9 50%,
-    #ede9e2 75%
+    #F3F0EB 25%,
+    #E8E4DD 50%,
+    #F3F0EB 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
   border-radius: 6px;
 }
 
+/* ── Inputs ───────────────────────────────────────────────────────────── */
 .input-base {
   width: 100%;
   background: var(--bg-card);
@@ -292,7 +327,7 @@ table {
   background: var(--bg-surface);
 }
 
-/* card-surface — только для app-shell компонентов, не для marketing-карточек */
+/* ── Cards (app-shell) ────────────────────────────────────────────────── */
 .card-surface {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -320,15 +355,17 @@ table {
   border-radius: calc(var(--radius-lg) - 2px);
 }
 
-/* ─── Status helpers ──────────────────────────────────────────────────────── */
-
+/* ── Status helpers ───────────────────────────────────────────────────── */
 .status-success { color: var(--success); }
 .status-warning { color: var(--warning); }
 .status-danger  { color: var(--danger);  }
 
-/* ─── Marketing CTA ──────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════
+   MARKETING COMPONENTS
+   ════════════════════════════════════════════════════════════════════════ */
 
 @layer components {
+  /* Primary CTA — pill button, terracotta */
   .cta-primary {
     display: inline-flex;
     align-items: center;
@@ -361,30 +398,55 @@ table {
     outline: none;
     box-shadow: 0 0 0 3px var(--cta-ring);
   }
-}
 
-@layer components {
-  /* ─── Marketing Global Tokens ────────────────────────────────────────────── */
+  /* Secondary CTA — outlined */
+  .cta-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--text-primary);
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: 9999px;
+    cursor: pointer;
+    text-decoration: none;
+    transition:
+      background-color 200ms ease,
+      border-color 200ms ease;
+  }
 
+  .cta-secondary:hover {
+    background: var(--bg-surface);
+    border-color: var(--text-primary);
+  }
+
+  /* Eyebrow label */
   .eyebrow {
-    font-size: 0.6875rem; /* 11px */
+    font-size: 0.6875rem;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.22em;
-    color: var(--text-muted); /* или specific stone-500 */
+    color: var(--text-muted);
     margin-bottom: 1rem;
     display: inline-block;
   }
 
+  /* Section title — serif, large */
   .section-title {
     font-family: var(--font-display);
-    font-size: clamp(2.5rem, 4vw, 3.75rem); /* Responsive H2, делает 60px на десктопе */
+    font-size: clamp(2.5rem, 4vw, 3.75rem);
     line-height: 1.06;
     letter-spacing: -0.03em;
     color: var(--text-primary);
     margin-top: 1rem;
   }
 
+  /* Section description */
   .section-desc {
     font-size: 1.05rem;
     line-height: 1.75;
@@ -392,8 +454,21 @@ table {
     max-width: 480px;
     margin-top: 1.5rem;
   }
-  
-  /* Эффект дорогого матового стекла для карточек (ApplicationSection) */
+
+  /* Badge / chip */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    background: var(--accent-subtle);
+    border-radius: 9999px;
+  }
+
+  /* Glass panel (для тёмных секций) */
   .glass-panel {
     background: linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
     backdrop-filter: blur(12px);
@@ -403,3 +478,175 @@ table {
     border-radius: var(--radius-lg);
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   APP SHELL — ACTIVE STATES
+   Для рабочего пространства (dashboard, анализ документов)
+   ════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* ── Active Button (общий класс для активных кнопок) ─────────────── */
+  .btn-active {
+    background: var(--app-active-bg);
+    color: var(--app-active-text);
+    border: 1px solid var(--app-active-border);
+    font-weight: 500;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .btn-active:hover {
+    background: var(--app-active-bg-hover);
+  }
+
+  /* ── Navigation Item — Active ────────────────────────────────────── */
+  .nav-item-active {
+    background: var(--app-active-bg);
+    color: var(--app-active-text);
+    font-weight: 500;
+    position: relative;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .nav-item-active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: var(--app-active-indicator);
+    border-radius: 0 2px 2px 0;
+  }
+
+  .nav-item-active:hover {
+    background: var(--app-active-bg-hover);
+  }
+
+  /* ── Tab — Active ────────────────────────────────────────────────── */
+  .tab-active {
+    color: var(--app-active-text);
+    font-weight: 500;
+    position: relative;
+    transition: color 0.15s ease;
+  }
+
+  .tab-active::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--app-active-indicator);
+    border-radius: 2px 2px 0 0;
+  }
+
+  .tab-active:hover {
+    color: var(--app-active-text);
+  }
+
+  /* ── Chip / Filter — Active ──────────────────────────────────────── */
+  .chip-active {
+    background: var(--app-active-bg);
+    color: var(--app-active-text);
+    border: 1px solid var(--app-active-border);
+    font-weight: 500;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .chip-active:hover {
+    background: var(--app-active-bg-hover);
+  }
+
+  /* ── Sidebar Item — Active ───────────────────────────────────────── */
+  .sidebar-item-active {
+    background: var(--app-active-bg);
+    color: var(--app-active-text);
+    border-left: 3px solid var(--app-active-indicator);
+    font-weight: 500;
+    padding-left: calc(1rem - 3px); /* Компенсируем border */
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .sidebar-item-active:hover {
+    background: var(--app-active-bg-hover);
+  }
+
+  /* ── Toolbar Button — Active (toggle) ────────────────────────────── */
+  .toolbar-btn-active {
+    background: var(--app-active-bg);
+    color: var(--app-active-text);
+    border: 1px solid var(--app-active-border);
+    box-shadow: inset 0 1px 2px rgba(200, 107, 82, 0.08);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .toolbar-btn-active:hover {
+    background: var(--app-active-bg-hover);
+  }
+}
+
+/* ── CTA Link — текстовая ссылка со стрелкой ──────────────────────── */
+.cta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.cta-link:hover {
+  color: var(--color-accent-hover);
+}
+
+.cta-link svg {
+  transition: transform 0.2s ease;
+}
+
+.cta-link:hover svg {
+  transform: translateX(2px);
+}
+
+/* Вариант для тёмных секций */
+.cta-link-inverse {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(250, 248, 245, 0.85);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.cta-link-inverse:hover {
+  color: #FAF8F5;
+}
+
+.cta-link-inverse svg {
+  transition: transform 0.2s ease;
+}
+
+.cta-link-inverse:hover svg {
+  transform: translateX(2px);
+}
+
+

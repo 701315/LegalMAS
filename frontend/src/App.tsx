@@ -129,16 +129,11 @@ function App() {
         <Routes>
           {/* ── Public marketing routes ──────────────────────── */}
           <Route path="/" element={<HomePage />} />
-          <Route path="/platform" element={<CapabilitiesPage />} />
+          <Route path="/capabilities" element={<CapabilitiesPage />} />
           <Route path="/security" element={<SecurityPage />} />
-          <Route path="/use-cases" element={<SolutionsPage />} />
+          <Route path="/solutions" element={<SolutionsPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/demo" element={<DemoPage />} />
-
-          {/* Legacy redirects */}
-          <Route path="/capabilities" element={<Navigate to="/platform" replace />} />
-          <Route path="/tech" element={<Navigate to="/platform" replace />} />
-          <Route path="/solutions" element={<Navigate to="/use-cases" replace />} />
 
           {/* Auth */}
           <Route path="/login" element={<LoginPage />} />

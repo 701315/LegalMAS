@@ -1,5 +1,4 @@
 // src/marketing/components/home/ContactModal.tsx
-
 import React from "react";
 import { ArrowRight, Mail, X } from "lucide-react";
 import { landingContent } from "../../content/landingContent";
@@ -33,36 +32,36 @@ const ContactModal: React.FC<ContactModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#111827]/60 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1A1917]/60 px-4 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full max-w-5xl overflow-hidden rounded-[28px] border border-[#E5E2DA] bg-[#F8F7F4]">
+      <div className="relative w-full max-w-5xl overflow-hidden rounded-2xl border border-[#E8E4DD] bg-[#FAF8F5]">
         <button
           onClick={onClose}
           aria-label="Закрыть"
-          className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5E2DA] bg-white text-stone-500 transition-colors hover:text-stone-950"
+          className="absolute right-4 top-4 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E8E4DD] bg-white text-[#78756F] transition-colors hover:text-[#1A1917]"
         >
           <X className="h-4 w-4" />
         </button>
 
         <div className="grid lg:grid-cols-[0.95fr_1.05fr]">
           {/* Левая панель */}
-          <div className="border-b border-[#E5E2DA] bg-[#F1EFEA] p-8 lg:border-b-0 lg:border-r lg:p-10">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400">
+          <div className="border-b border-[#E8E4DD] bg-[#F3F0EB] p-8 lg:border-b-0 lg:border-r lg:p-10">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#A8A29E]">
               Запрос enterprise-демо
             </p>
 
-            <h3 className="mt-5 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] text-stone-950">
+            <h3 className="mt-5 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] text-[#1A1917]">
               {landingContent.finalCta.title}
             </h3>
 
-            <p className="mt-4 max-w-md text-sm leading-7 text-stone-600 lg:text-base">
+            <p className="mt-4 max-w-md text-sm leading-7 text-[#78756F] lg:text-base">
               Расскажи о типах документов, playbooks и текущем процессе review —
               так демо можно сделать предметным, а не общим.
             </p>
 
-            <div className="mt-7 rounded-[20px] border border-[#E5E2DA] bg-white p-5">
-              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400">
+            <div className="mt-7 rounded-xl border border-[#E8E4DD] bg-white p-5">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#A8A29E]">
                 Как пройдёт демо
               </p>
 
@@ -70,13 +69,13 @@ const ContactModal: React.FC<ContactModalProps> = ({
                 {DEMO_STEPS.map((item, index) => (
                   <div
                     key={item}
-                    className="rounded-[14px] border border-[#E5E2DA] bg-[#F8F7F4] px-4 py-3.5"
+                    className="rounded-lg border border-[#E8E4DD] bg-[#FAF8F5] px-4 py-3.5"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#111827] text-[11px] font-medium text-white">
+                      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1A1917] text-[11px] font-medium text-white">
                         0{index + 1}
                       </div>
-                      <p className="text-sm leading-6 text-stone-600">{item}</p>
+                      <p className="text-sm leading-6 text-[#78756F]">{item}</p>
                     </div>
                   </div>
                 ))}
@@ -87,14 +86,14 @@ const ContactModal: React.FC<ContactModalProps> = ({
           {/* Правая панель — форма */}
           <div className="p-8 lg:p-10">
             <div className="max-w-xl">
-              <div className="inline-flex items-center gap-2 text-sm text-stone-500">
+              <div className="inline-flex items-center gap-2 text-sm text-[#78756F]">
                 <Mail className="h-4 w-4" />
                 Ответ придёт на указанный рабочий email
               </div>
 
               <form onSubmit={onSubmit} className="mt-7 space-y-4">
                 <div>
-                  <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-stone-400">
+                  <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-[#A8A29E]">
                     Рабочий email
                   </label>
                   <input
@@ -103,12 +102,12 @@ const ContactModal: React.FC<ContactModalProps> = ({
                     value={email}
                     onChange={(e) => onEmailChange(e.target.value)}
                     placeholder="name@company.com"
-                    className="w-full rounded-[16px] border border-[#E5E2DA] bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors placeholder:text-stone-400 focus:border-stone-300"
+                    className="input-base"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-stone-400">
+                  <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.14em] text-[#A8A29E]">
                     Сценарий, типы документов, объём
                   </label>
                   <textarea
@@ -117,11 +116,11 @@ const ContactModal: React.FC<ContactModalProps> = ({
                     value={message}
                     onChange={(e) => onMessageChange(e.target.value)}
                     placeholder="Например: DD для пакета SPA / SHA / NDA, 300+ документов, нужен source-linked результат и экспорт в Excel."
-                    className="w-full resize-none rounded-[16px] border border-[#E5E2DA] bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors placeholder:text-stone-400 focus:border-stone-300"
+                    className="input-base resize-none"
                   />
                 </div>
 
-                <div className="rounded-[14px] border border-[#2F5A4A]/20 bg-[#2F5A4A]/6 px-4 py-3 text-xs leading-relaxed text-[#2F5A4A]">
+                <div className="rounded-lg border border-[#C86B52]/20 bg-[#F5EBE7] px-4 py-3 text-xs leading-relaxed text-[#C86B52]">
                   Если у тебя чувствительный сценарий, можно сразу указать требования
                   к local-first обработке, ограничения по cloud LLM и ожидания по security review.
                 </div>
@@ -129,7 +128,7 @@ const ContactModal: React.FC<ContactModalProps> = ({
                 <div className="flex flex-col gap-2.5 pt-1 sm:flex-row sm:items-center">
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#111827] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[#1f2937]"
+                    className="cta-primary"
                   >
                     Отправить запрос
                     <ArrowRight className="h-4 w-4" />
@@ -138,7 +137,7 @@ const ContactModal: React.FC<ContactModalProps> = ({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex items-center justify-center rounded-full border border-[#E5E2DA] bg-white px-5 py-3 text-sm text-stone-600 transition-colors hover:text-stone-950"
+                    className="inline-flex items-center justify-center rounded-full border border-[#E8E4DD] bg-white px-5 py-3 text-sm text-[#78756F] transition-colors hover:text-[#1A1917]"
                   >
                     Закрыть
                   </button>
