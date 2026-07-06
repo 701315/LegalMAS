@@ -188,7 +188,7 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 420
+  llm_max_tokens: 500
   llm_prompt_extraction: |
     <role>
     Ты — юрист по международным контрактам и разрешению споров.
@@ -218,6 +218,7 @@ extraction:
     - dispute_forum_value
     - pre_claim_procedure_present
     - reason
+    - evidence
 
     Важно:
     - используй только то, что прямо следует из текста;
@@ -228,6 +229,21 @@ extraction:
     - если значение отсутствует, для *_value возвращай пустую строку;
     - пиши user-facing значения коротко и по-русски.
     </task>
+
+    <location_instructions>
+    Для каждого поля по возможности укажи location в формате:
+    {"clause_ref": "п. 12.1", "page": 7}
+
+    Правила:
+    - clause_ref — короткая ссылка на пункт / раздел / статью именно в том виде,
+      как она написана в договоре;
+    - page — целое число страницы;
+    - не выдумывай location;
+    - если точную ссылку определить нельзя, верни location = null;
+    - для governing_law_and_forum_display, reason и evidence location можно вернуть null;
+    - для governing_law_value и dispute_forum_value location особенно важна;
+    - для status-полей тоже можно вернуть location, если она очевидна из того же пункта.
+    </location_instructions>
 
     <instructions>
     Шаг 1 — ПРИМЕНИМОЕ ПРАВО
@@ -244,7 +260,7 @@ extraction:
     - Короткое юридически точное название правопорядка.
     - Примеры: "РФ", "Англия и Уэльс", "Швейцария",
       "Штат Нью-Йорк, США", "Делавэр, США".
-    - Не свои "England and Wales" → "Великобритания".
+    - Не своди "England and Wales" → "Великобритания".
     - Не своди "State of New York" → "США".
     - Если только "applicable law" без юрисдикции:
       governing_law_status = "unclear", governing_law_value = "".
@@ -329,6 +345,20 @@ extraction:
     - Приведи краткую цитату из текста в кавычках.
     - Не анализируй: exclusive / non-exclusive nature;
       seat, language, состав арбитров; детали досудебного порядка.
+
+    Шаг 6 — СЛУЖЕБНОЕ ПОЛЕ EVIDENCE
+
+    Заполни "evidence".
+
+    Правила:
+    - Это metadata-поле для трассировки опорных ссылок.
+    - Верни value как массив объектов вида:
+      {"field_name": "governing_law_value", "clause_ref": "п. 12.1", "page": 7}
+    - field_name должен быть одним из:
+      "governing_law_value", "dispute_forum_value", "pre_claim_procedure_present"
+    - Включай только те поля, для которых ты точно определил ссылку на пункт.
+    - Если выделить отдельные опорные ссылки нельзя, верни value = [].
+    - Для самого поля evidence location верни null.
     </instructions>
 
     <edge_cases>
@@ -357,11 +387,13 @@ extraction:
       * governing_law_status = "missing", governing_law_value = ""
       * dispute_forum_status = "missing", dispute_forum_value = ""
       * pre_claim_procedure_present = "unclear"
+      * evidence = []
     </edge_cases>
 
     <output_expectations>
-    Все значения коротко и по-русски.
+    Все user-facing значения коротко и по-русски.
     Не добавляй никаких полей, кроме указанных в схеме extraction.
+    Для каждого поля возвращай объект с ключами "value", "confidence", "location".
     </output_expectations>
 
   fields:
@@ -413,7 +445,13 @@ extraction:
     - name: "reason"
       type: "string"
       presentation: "diagnostic"
-      description: "Обоснование"
+      description: "Краткое обоснование вывода по применимому праву и форуму"
+
+    - name: "evidence"
+      type: "evidence_list"
+      presentation: "diagnostic"
+      role: "subgroup_metadata"
+      description: "Список опорных ссылок по отдельным извлечённым полям"
 
   store_payload: true
 

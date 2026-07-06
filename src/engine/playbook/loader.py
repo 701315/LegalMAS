@@ -54,6 +54,7 @@ from db.models.playbook import PlaybookVersion
 
 from .models import (
     CheckDefinition,
+    DDGridColumnSpec,
     DetectorType,
     EnrichmentHints,
     ExtractionConfig,
@@ -116,6 +117,74 @@ def _build_rules_config(rules_raw: dict, extra_keyword_groups: dict | None = Non
         negative_keywords=rules_raw.get("negative_keywords") or [],
         keyword_groups=keyword_groups,
     )
+
+def _parse_dd_grid_columns(
+    raw: list[dict] | None,
+    *,
+    check_id: str,
+) -> list[DDGridColumnSpec] | None:
+    """
+    Разобрать raw list[dict] из compiled_checks в list[DDGridColumnSpec].
+
+    Вызывается при загрузке GlobalCheckConfig → CheckDefinition для
+    проброса явных DD Grid column specs из compiled playbook в
+    ExtractionConfig.dd_grid_columns.
+
+    Args:
+        raw:      Значение поля GlobalCheckConfig.dd_grid_columns (или None).
+        check_id: ID check'а — используется только для logging.
+
+    Returns:
+        list[DDGridColumnSpec] если хотя бы одна колонка валидна.
+        None если raw is None, не список, или все элементы невалидны.
+
+    Поведение при ошибках:
+        - raw не список → warning, return None
+        - элемент не dict → warning, skip
+        - невалидный DDGridColumnSpec → warning, skip
+        - все элементы невалидны → return None
+    """
+    if raw is None:
+        return None
+
+    if not isinstance(raw, list):
+        logger.warning(
+            "load_playbook_from_dict: dd_grid_columns is not a list, ignoring",
+            check_id=check_id,
+            type_got=type(raw).__name__,
+        )
+        return None
+
+    result: list[DDGridColumnSpec] = []
+    for i, item in enumerate(raw):
+        if not isinstance(item, dict):
+            logger.warning(
+                "load_playbook_from_dict: dd_grid_columns item is not a dict, skipping",
+                check_id=check_id,
+                item_index=i,
+                type_got=type(item).__name__,
+            )
+            continue
+        try:
+            result.append(DDGridColumnSpec(**item))
+        except Exception as exc:
+            logger.warning(
+                "load_playbook_from_dict: invalid DDGridColumnSpec, skipping",
+                check_id=check_id,
+                item_index=i,
+                error=str(exc),
+            )
+
+    if not result:
+        if raw:
+            logger.debug(
+                "load_playbook_from_dict: dd_grid_columns had items but none were valid",
+                check_id=check_id,
+                raw_count=len(raw),
+            )
+        return None
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -252,6 +321,42 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
                 # Malformed hints: degrade gracefully, do not block check loading.
                 _enrichment_hints = None
 
+        # DD Grid V1: parse top-level dd_grid_columns from GlobalCheckConfig.
+        # These are stored as raw list[dict] in compiled_checks and need to be
+        # injected into ExtractionConfig.dd_grid_columns as list[DDGridColumnSpec].
+        _raw_dd_grid_columns = getattr(cfg, "dd_grid_columns", None)
+        _parsed_dd_grid_columns = _parse_dd_grid_columns(
+            _raw_dd_grid_columns,
+            check_id=cfg.id,
+        )
+
+        # Build ExtractionConfig, injecting parsed dd_grid_columns.
+        # We create a shallow copy of the raw extraction dict to avoid
+        # mutating the original compiled_checks data.
+        _extraction: ExtractionConfig | None = None
+        if cfg.extraction:
+            _extraction_payload = dict(cfg.extraction)
+            if _parsed_dd_grid_columns is not None:
+                # Inject validated DDGridColumnSpec list into extraction payload.
+                # Overrides any dd_grid_columns already present in extraction dict.
+                _extraction_payload["dd_grid_columns"] = _parsed_dd_grid_columns
+            try:
+                _extraction = ExtractionConfig(**_extraction_payload)
+            except Exception as exc:
+                logger.warning(
+                    "load_playbook_from_dict: cannot build ExtractionConfig, skipping extraction",
+                    check_id=cfg.id,
+                    error=str(exc),
+                )
+                _extraction = None
+        elif _parsed_dd_grid_columns is not None:
+            # dd_grid_columns present at top level but no extraction block.
+            # This is a config inconsistency — log and ignore.
+            logger.debug(
+                "load_playbook_from_dict: dd_grid_columns declared but extraction is absent, ignoring",
+                check_id=cfg.id,
+            )
+
         checks.append(
             CheckDefinition(
                 id=cfg.id,
@@ -260,6 +365,9 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
                 doc_types=cfg.doc_types or [],
                 origin=origin,
                 ui_mode=getattr(cfg, "ui_mode", None),
+                # DD Grid V1: group and display_order for hierarchy and sorting.
+                group=getattr(cfg, "group", None),
+                display_order=getattr(cfg, "display_order", 0),
                 severity=cfg.severity,
                 # severity_if_* пробрасываем если заданы в GlobalCheckConfig
                 severity_if_fail=getattr(cfg, "severity_if_fail", None),
@@ -269,7 +377,7 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
                 rules=rules,
                 llm=LLMConfig(**(cfg.llm or {})),
                 retrieval=RetrievalConfig(**(cfg.retrieval or {})),
-                extraction=ExtractionConfig(**(cfg.extraction or {})) if cfg.extraction else None,
+                extraction=_extraction,
                 enrichment_hints=_enrichment_hints,
             )
         )

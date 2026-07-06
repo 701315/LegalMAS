@@ -65,6 +65,79 @@ class ExtractionExecutor:
         self.llm_client = llm_client or LLMClient()
         self.llm_detector = ExtractionLLMDetector(self.llm_client)
 
+    @staticmethod
+    def _extract_context_pages(contexts: list[dict[str, Any]]) -> list[int]:
+        """
+        Extract distinct pages covered by extraction contexts.
+
+        Used for per-field location validation:
+        LLM-provided page must belong to one of these pages.
+        """
+        pages: set[int] = set()
+
+        for ctx in contexts or []:
+            meta = ctx.get("metadata") or {}
+            for key in ("page", "start_page", "end_page"):
+                raw_page = meta.get(key)
+                if isinstance(raw_page, int) and not isinstance(raw_page, bool) and raw_page > 0:
+                    pages.add(raw_page)
+
+        return sorted(pages)
+
+    @staticmethod
+    def _build_location_fallback(
+        base_location: dict[str, Any] | None,
+        reason: str,
+    ) -> dict[str, Any]:
+        """
+        Build honest field-level location fallback referencing check-level evidence.
+        """
+        check_page: int | None = None
+        check_clause_uid: str | None = None
+
+        if isinstance(base_location, dict):
+            raw_page = base_location.get("page")
+            if not isinstance(raw_page, int):
+                raw_page = base_location.get("start_page")
+            if isinstance(raw_page, int) and not isinstance(raw_page, bool) and raw_page > 0:
+                check_page = raw_page
+
+            raw_clause_uid = base_location.get("clause_uid")
+            if raw_clause_uid is not None and str(raw_clause_uid).strip():
+                check_clause_uid = str(raw_clause_uid).strip()
+
+        return {
+            "reason": reason,
+            "check_clause_uid": check_clause_uid,
+            "check_page": check_page,
+        }
+
+    @classmethod
+    def _resolve_field_location_bundle(
+        cls,
+        *,
+        location: Any,
+        location_fallback: Any,
+        base_location: dict[str, Any] | None,
+        default_reason: str = "Точная ссылка не определена, см. общий evidence",
+    ) -> tuple[Any, dict[str, Any] | None]:
+        """
+        Resolve exact location vs honest fallback for a field.
+
+        If exact location exists -> fallback is dropped.
+        If exact location is absent -> fallback is built from check-level evidence.
+        """
+        if location is not None:
+            return location, None
+
+        fallback_reason = default_reason
+        if isinstance(location_fallback, dict):
+            raw_reason = location_fallback.get("reason")
+            if raw_reason and str(raw_reason).strip():
+                fallback_reason = str(raw_reason).strip()
+
+        return None, cls._build_location_fallback(base_location, fallback_reason)
+
     def run(
         self,
         doc: Any,
@@ -90,7 +163,9 @@ class ExtractionExecutor:
             return None
 
         # Локация риска из HybridDetector: page / clause_uid / element_id / ...
-        # Это будет общей базовой location для всех полей, если LLM не вернул более точную.
+        # Это check-level fallback provenance, а НЕ точная per-field location.
+        # Если LLM не вернул валидную location для конкретного поля,
+        # мы сохраняем location_fallback со ссылкой на общий evidence.
         raw_location = detection.get("location") or None
         base_location: dict[str, Any] | None = None
         if isinstance(raw_location, dict):
@@ -104,21 +179,34 @@ class ExtractionExecutor:
             }
 
         structured: dict[str, dict[str, Any]] = {}
+        context_pages = self._extract_context_pages(contexts)
 
         # 1. RULES часть (работает для mode == rules и для hybrid/llm как baseline)
         for field_cfg in extraction_cfg.fields or []:
             field_result = self._extract_field(field_cfg, base_text)
             if field_result is not None:
-                # если rules не проставил location, используем общую base_location
-                if "location" not in field_result or field_result.get("location") is None:
-                    field_result["location"] = base_location
+                # Rules-based extraction usually does not know precise per-field anchor.
+                # Preserve honest semantics: exact location stays None,
+                # check-level evidence is exposed via location_fallback.
+                exact_location, location_fallback = self._resolve_field_location_bundle(
+                    location=field_result.get("location"),
+                    location_fallback=field_result.get("location_fallback"),
+                    base_location=base_location,
+                )
+                field_result["location"] = exact_location
+                if location_fallback is not None:
+                    field_result["location_fallback"] = location_fallback
                 structured[field_cfg.name] = field_result
 
         # 2. LLM / HYBRID часть
         # Если mode == "llm" или "hybrid" и LLM доступен, подтянем значения из LLM.
         if mode in {"llm", "hybrid"} and self.llm_client.is_available():
             try:
-                llm_fields = self.llm_detector.extract(check, base_text)
+                llm_fields = self.llm_detector.extract(
+                    check,
+                    base_text,
+                    context_pages=context_pages,
+                )
             except Exception as e:
                 logger.warning("LLM extraction failed", error=str(e))
                 llm_fields = {}
@@ -152,11 +240,17 @@ class ExtractionExecutor:
                     except (TypeError, ValueError):
                         confidence_llm = LLM_DEFAULT_CONFIDENCE
 
-                    # Локация конкретного поля, если LLM её вернул (иначе общая base_location).
-                    field_location = llm_payload.get("location") or base_location
+                    raw_field_location = llm_payload.get("location")
+                    raw_field_location_fallback = llm_payload.get("location_fallback")
 
-                    # Приводим к типу поля (MVP: через _cast_value)
-                    value_cast = self._cast_value(field_cfg, str(value_raw))
+                    exact_location, location_fallback = self._resolve_field_location_bundle(
+                        location=raw_field_location,
+                        location_fallback=raw_field_location_fallback,
+                        base_location=base_location,
+                    )
+
+                    # Приводим к типу поля.
+                    value_cast = self._cast_value(field_cfg, value_raw)
                     value_cast = self._validate_allowed_values(field_cfg, value_cast)
                     if value_cast is None:
                         logger.debug(
@@ -166,27 +260,24 @@ class ExtractionExecutor:
                             check_id=check.id,
                         )
                         continue
+
+                    replacement_payload = {
+                        "value": value_cast,
+                        "unit": field_cfg.unit,
+                        "source": "llm",
+                        "confidence": confidence_llm,
+                        "found": True,
+                        "location": exact_location,
+                    }
+                    if location_fallback is not None:
+                        replacement_payload["location_fallback"] = location_fallback
+
                     if name not in structured:
-                        # rules ничего не дал — используем LLM
-                        structured[name] = {
-                            "value": value_cast,
-                            "unit": field_cfg.unit,
-                            "source": "llm",
-                            "confidence": confidence_llm,
-                            "found": True,
-                            "location": field_location,
-                        }
+                        structured[name] = replacement_payload
                     else:
                         # оба дали значение — если LLM увереннее, заменим
                         if confidence_llm > structured[name].get("confidence", 0.0):
-                            structured[name] = {
-                                "value": value_cast,
-                                "unit": field_cfg.unit,
-                                "source": "llm",
-                                "confidence": confidence_llm,
-                                "found": True,
-                                "location": field_location,
-                            }
+                            structured[name] = replacement_payload
 
         # 3. Нормализация: гарантируем запись для каждого поля из extraction_cfg
         for field_cfg in extraction_cfg.fields or []:
@@ -194,7 +285,6 @@ class ExtractionExecutor:
 
             if name in structured:
                 field = structured[name]
-                # дефолты
                 field.setdefault("unit", field_cfg.unit)
                 field.setdefault("source", field.get("source", "rules"))
                 try:
@@ -202,8 +292,22 @@ class ExtractionExecutor:
                 except (TypeError, ValueError):
                     field["confidence"] = 0.0
                 field.setdefault("found", True)
-                # каркас location и qc
+
+                # Honest per-field location semantics:
+                # - exact location in "location"
+                # - check-level fallback in "location_fallback"
                 field.setdefault("location", None)
+                if field.get("location") is None and field.get("found"):
+                    field.setdefault(
+                        "location_fallback",
+                        self._build_location_fallback(
+                            base_location,
+                            "Точная ссылка не определена, см. общий evidence",
+                        ),
+                    )
+                else:
+                    field.pop("location_fallback", None)
+
                 field.setdefault(
                     "qc",
                     {
@@ -223,6 +327,7 @@ class ExtractionExecutor:
                 "confidence": 0.0,
                 "found": False,
                 "location": None,
+                "location_fallback": None,
                 "qc": {
                     "status": "pending",
                     "by": None,
@@ -462,11 +567,15 @@ class ExtractionExecutor:
         """
         Привести найденное значение к типу из ExtractionFieldConfig.
 
-        Поддержка (MVP):
+        Поддержка:
           - NUMBER: к float / int при возможности.
           - BOOLEAN: по простым паттернам ("yes/no", "да/нет", "true/false").
-          - STRING: как есть.
+          - EVIDENCE_LIST: сохранить как есть.
+          - STRING / CLAUSE_REF: как есть.
         """
+        if field_cfg.type == ExtractionFieldType.EVIDENCE_LIST:
+            return raw_value
+
         raw_value = normalize_scalar_null_like_value(raw_value)
         if raw_value is None:
             return None
@@ -513,7 +622,8 @@ class ExtractionExecutor:
         if not allowed:
             return value
 
-        normalized = normalize_to_allowed_values(value, allowed)
+        canonical_allowed = [getattr(item, "value", item) for item in allowed]
+        normalized = normalize_to_allowed_values(value, canonical_allowed)
         if normalized is not None:
             return normalized
 

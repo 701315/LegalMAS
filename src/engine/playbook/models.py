@@ -43,6 +43,17 @@ core.playbooks.compiler.GlobalCheckConfig и используется в UI (DD 
   levels задаёт, какие уровни чанков использовать для retrieval.
   После P8.8d primary retrieval substrate = legal_unit + section.
   required_kind задаёт предпочитаемый "тип" чанка для evidence.
+
+Изменения (DD Grid V1 data contract):
+- ExtractionFieldType: добавлен EVIDENCE_LIST для metadata-полей.
+- AllowedValueSpec: локализованное описание enum-значения (value + label).
+- DDGridColumnSpec: явная конфигурация колонки DD Grid.
+- LocationInfo: нормализованная per-field location (clause_ref + page).
+- LocationFallback: fallback когда per-field location не определена.
+- ExtractionFieldConfig: расширен allowed_values (list[str] | list[AllowedValueSpec]),
+  добавлен role для семантической роли поля.
+- ExtractionConfig: добавлен dd_grid_columns для явной настройки колонок.
+- CheckDefinition: добавлены group (UX-группировка) и display_order (сортировка).
 """
 
 import re
@@ -425,6 +436,129 @@ class ExtractionFieldType(str, Enum):
     DATE = "date"
     BOOLEAN = "boolean"
     CLAUSE_REF = "clause_ref"  # ссылка на клаузу / chunk id
+    EVIDENCE_LIST = "evidence_list"  # список evidence-записей (DD Grid V1 metadata)
+
+
+class AllowedValueSpec(BaseModel):
+    """
+    Локализованное описание допустимого enum-значения.
+
+    Используется в DD Grid V1 для отображения enum-полей
+    с человекочитаемыми лейблами вместо raw-значений.
+
+    Пример YAML:
+        allowed_values:
+          - value: "yes"
+            label: "Да"
+            display_order: 10
+          - value: "no"
+            label: "Нет"
+            display_order: 20
+    """
+
+    value: str
+    label: str
+    display_order: int = 0
+
+
+class DDGridColumnSpec(BaseModel):
+    """
+    Явная конфигурация одной колонки DD Grid для extraction-check.
+
+    Когда задано в extraction.dd_grid_columns — перекрывает автомаппинг
+    в DDGridColumnBuilder (V1.6). Если не задано — автомаппинг
+    строит колонки из extraction.fields по универсальным правилам.
+
+    column_id:
+        Уникальный идентификатор колонки внутри check (без префикса check_id).
+
+    label:
+        Человекочитаемый заголовок колонки.
+
+    value_field:
+        Имя extraction-поля, значение которого показывается в ячейке.
+
+    status_field:
+        Имя extraction-поля со статусом (paired status+details pattern).
+        Если задано вместе с value_field — колонка объединяет оба.
+
+    status_present_value:
+        Значение status_field, означающее "данные присутствуют".
+        Например: "present", "specified", "yes".
+
+    format:
+        Формат отображения: "text", "enum", "yes_no", "presence_only".
+
+    fallback_display:
+        Текст ячейки, если значение не извлечено / null.
+
+    display_order:
+        Порядок колонки слева направо внутри check.
+    """
+
+    column_id: str
+    label: str
+    value_field: str | None = None
+    status_field: str | None = None
+    status_present_value: str | None = None
+    format: str | None = None
+    fallback_display: str | None = None
+    display_order: int = 0
+
+
+class LocationInfo(BaseModel):
+    """
+    Нормализованная per-field location информация.
+
+    Заполняется extraction pipeline (Фаза B) для каждого
+    извлечённого поля, где LLM смог указать clause_ref / page.
+
+    clause_ref:
+        Короткая ссылка на пункт договора как в тексте
+        (например: "п. 12.1", "Section 5.3").
+
+    page:
+        Номер страницы (1-based). Только int, строковые значения
+        нормализуются в None на этапе extraction.
+
+    clause_uid:
+        Внутренний ID чанка/клаузы из clause tree.
+        Заполняется post-hoc через clause_ref → clause_uid resolution.
+
+    location_confidence:
+        "high" — clause_ref найден substring-match в context_text
+                 И page в диапазоне context_pages.
+        "low"  — частичное совпадение или только одно из двух.
+    """
+
+    clause_ref: str | None = None
+    page: int | None = None
+    clause_uid: str | None = None
+    location_confidence: Literal["high", "low"] = "low"
+
+
+class LocationFallback(BaseModel):
+    """
+    Fallback location, когда точная per-field ссылка не определена.
+
+    Используется в DD Grid V1: ячейка показывает значение поля
+    + предупреждение "точная ссылка не определена, см. общий evidence"
+    с ссылкой на check-level location.
+
+    reason:
+        Человекочитаемое объяснение, почему per-field location отсутствует.
+
+    check_clause_uid:
+        clause_uid из check-level evidence (общая ссылка check'а).
+
+    check_page:
+        Страница из check-level evidence.
+    """
+
+    reason: str
+    check_clause_uid: str | None = None
+    check_page: int | None = None
+
 
 
 class ExtractionFieldConfig(BaseModel):
@@ -463,8 +597,18 @@ class ExtractionFieldConfig(BaseModel):
 
     # Пост‑условия / валидация.
     required: bool = False
-    allowed_values: list[str] = Field(default_factory=list)
+    allowed_values: list[str] | list[AllowedValueSpec] = Field(default_factory=list)
     unit: str | None = None
+
+    # Семантическая роль поля в контексте DD Grid V1.
+    #
+    # Примеры:
+    #   "subgroup_metadata" — поле является metadata (evidence, reason),
+    #                         не показывается как отдельная колонка в grid,
+    #                         но используется в drawer / compact summary.
+    #
+    # None = обычное extraction-поле (default).
+    role: str | None = None
 
     min_value: float | None = None
     max_value: float | None = None
@@ -532,6 +676,21 @@ class ExtractionConfig(BaseModel):
     #
     # This is playbook-driven: the check declares its output style contract.
     compact_output: bool = True
+
+    # Явная конфигурация колонок DD Grid V1.
+    #
+    # Если задано — перекрывает автомаппинг в DDGridColumnBuilder.
+    # Если None — автомаппинг строит колонки из self.fields по
+    # универсальным правилам (paired status+details, enum, yes_no и т.д.).
+    #
+    # Декларируется в YAML:
+    #   extraction:
+    #     dd_grid_columns:
+    #       - column_id: governing_law
+    #         label: "Применимое право"
+    #         value_field: governing_law_value
+    #         display_order: 10
+    dd_grid_columns: list[DDGridColumnSpec] | None = None
 
     @field_validator("fields")
     @classmethod
@@ -646,6 +805,16 @@ class CheckDefinition(BaseModel):
     # Поле optional для обратной совместимости:
     # старые playbooks без ui_mode продолжают работать как раньше.
     ui_mode: str | None = None
+
+    # Крупный блок/секция для UX-группировки в DD Grid V1.
+    # Примеры: "liability", "parties", "terms", "dispute_resolution".
+    # None = check не входит в группу (показывается отдельно).
+    group: str | None = None
+
+    # Порядок отображения check внутри группы/списка.
+    # Меньше = раньше. Checks с одинаковым display_order
+    # сортируются по name (алфавитно).
+    display_order: int = 0
 
     scope: Literal["document", "family", "deal"] = "document"
 

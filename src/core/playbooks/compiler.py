@@ -58,6 +58,12 @@ DOCUMENT_TYPE и SYSTEM, не ломая формат.
   severity_if_unclear. Они позволяют задавать severity, зависящий от
   результата проверки (fail/pass/unclear), который затем использует
   исполнитель проверок.
+
+Изменения (DD Grid V1 support):
+- GlobalCheckConfig получил поля display_order и dd_grid_columns.
+  display_order задаёт порядок отображения check в DD Grid.
+  dd_grid_columns — явная конфигурация колонок DD Grid (raw dict,
+  парсинг в DDGridColumnSpec выполняется loader'ом в V1.2).
 """
 
 from __future__ import annotations
@@ -160,6 +166,14 @@ class GlobalCheckConfig(BaseModel):
         default=None,
         description="Крупный блок/секция для UX (например, 'liability').",
     )
+    display_order: int = Field(
+        default=0,
+        description=(
+            "Порядок отображения check внутри группы/списка в DD Grid. "
+            "Меньше = раньше. Checks с одинаковым display_order "
+            "сортируются по name (алфавитно)."
+        ),
+    )
     severity: str = Field(
         default="medium",
         description="low | medium | high | critical",
@@ -234,6 +248,13 @@ class GlobalCheckConfig(BaseModel):
     extraction: dict[str, Any] = Field(
         default_factory=dict,
         description="Настройки структурированной вытяжки.",
+    )
+    dd_grid_columns: list[dict[str, Any]] | None = Field(
+        default=None,
+        description=(
+            "Явная конфигурация DD Grid колонок для field_extraction checks. "
+            "Raw list[dict] — парсинг в DDGridColumnSpec выполняется loader'ом."
+        ),
     )
     red_flags: dict[str, Any] = Field(
         default_factory=dict,

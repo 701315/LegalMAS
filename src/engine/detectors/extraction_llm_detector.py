@@ -147,6 +147,7 @@ from typing import Any
 
 from core.config import settings
 from core.logging import get_logger
+from engine.detectors.location_validator import validate_location
 from engine.extraction_normalization import (
     is_null_like_value,
     normalize_scalar_null_like_value,
@@ -181,55 +182,91 @@ def _salvage_partial_json(text: str) -> dict | None:
     """
     Attempt to recover field data from a truncated canonical JSON response.
 
-    LLM returns canonical format {"fields": {"field_name": {"value": ..., "confidence": ...}}}
-    but the JSON string can be cut off mid-way when the output token budget is exhausted.
+    Supports canonical field payloads of the form:
+        {
+          "value": ...,
+          "confidence": 0.0-1.0,
+          "location": {"clause_ref": "...", "page": 7} | null
+        }
 
-    This function recovers already-complete field blocks from truncated JSON text.
+    Recovery strategy:
 
-    Strategy (three passes, in order):
+    Pass 1a:
+        Recover complete field blocks with value + confidence + optional complete location.
 
-    Pass 1 — complete field blocks:
-        Find syntactically complete {"value": ..., "confidence": ...} blocks.
-        Handles short strings, null, bool, numbers.
-        Never recovers unclosed string values.
+    Pass 1b:
+        Recover value + confidence even if location started but was truncated.
+        In that case the field is recovered without location.
 
-    Pass 2 — partial long string values:
-        For fields whose string value was not closed (JSON truncated mid-string),
-        recover the partial text written so far and append a truncation marker.
-        Applied only to fields NOT already recovered in Pass 1.
-        Minimum partial value length: 30 characters (avoids junk fragments).
+    Pass 2:
+        Recover partial long string values truncated mid-string.
 
-    Pass 3 — short signal values without confidence key:
-        For very short string values (≤ 50 chars) where the confidence key
-        was not yet written before truncation.
-        Applied only to fields NOT already recovered in Pass 1 or 2.
-
-    This is a universal robustness measure for any extraction check with N > 6 fields,
-    and specifically for inventory-style checks where a single fact field
-    (e.g. asset_schedule_details) carries a long multi-line string value.
-
-    Not specific to any document, language, or check type.
-    Never guesses or invents values.
-
-    Returns:
-        dict with {"fields": {recovered_field_name: {...}}} if anything recovered, else None.
+    Pass 3:
+        Recover short signal values written without confidence key.
     """
     import re
 
-    # ── Pass 1: syntactically complete field blocks ────────────────────────────
-    # Matches: "field_name": {"value": <complete_value>, "confidence": <float>}
-    # <complete_value> = quoted string | null | true | false | number
-    _field_pattern = re.compile(
+    if not isinstance(text, str) or not text.strip():
+        return None
+
+    recovered: dict[str, dict[str, Any]] = {}
+
+    # ── Pass 1a: complete field blocks with optional complete location ───────
+    _complete_field_pattern = re.compile(
         r'"(?P<name>[a-z_][a-z0-9_]*)"\s*:\s*\{'
         r'\s*"value"\s*:\s*(?P<value>"(?:[^"\\]|\\.)*"|null|true|false|-?\d+(?:\.\d+)?)\s*,'
-        r'\s*"confidence"\s*:\s*(?P<confidence>\d+(?:\.\d+)?)\s*\}',
+        r'\s*"confidence"\s*:\s*(?P<confidence>\d+(?:\.\d+)?)'
+        r'(?:\s*,\s*"location"\s*:\s*(?P<location>\{[\s\S]*?\}|null))?'
+        r'\s*\}',
         re.DOTALL,
     )
 
-    recovered: dict[str, dict] = {}
-
-    for m in _field_pattern.finditer(text):
+    for m in _complete_field_pattern.finditer(text):
         name = m.group("name")
+        raw_value = m.group("value")
+        raw_confidence = m.group("confidence")
+        raw_location = m.group("location")
+
+        try:
+            value = json.loads(raw_value)
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+        try:
+            confidence = float(raw_confidence)
+            confidence = max(0.0, min(confidence, 1.0))
+        except ValueError:
+            confidence = LLM_DEFAULT_CONFIDENCE
+
+        location: dict[str, Any] | None = None
+        if raw_location is not None:
+            try:
+                parsed_location = json.loads(raw_location)
+                if isinstance(parsed_location, dict) or parsed_location is None:
+                    location = parsed_location
+            except (json.JSONDecodeError, ValueError):
+                location = None
+
+        recovered[name] = {
+            "value": value,
+            "confidence": confidence,
+            "location": location,
+        }
+
+    # ── Pass 1b: value+confidence complete, location started but truncated ───
+    _confidence_before_location_pattern = re.compile(
+        r'"(?P<name>[a-z_][a-z0-9_]*)"\s*:\s*\{'
+        r'\s*"value"\s*:\s*(?P<value>"(?:[^"\\]|\\.)*"|null|true|false|-?\d+(?:\.\d+)?)\s*,'
+        r'\s*"confidence"\s*:\s*(?P<confidence>\d+(?:\.\d+)?)'
+        r'(?=\s*,\s*"location"\s*:)',
+        re.DOTALL,
+    )
+
+    for m in _confidence_before_location_pattern.finditer(text):
+        name = m.group("name")
+        if name in recovered:
+            continue
+
         raw_value = m.group("value")
         raw_confidence = m.group("confidence")
 
@@ -244,20 +281,13 @@ def _salvage_partial_json(text: str) -> dict | None:
         except ValueError:
             confidence = LLM_DEFAULT_CONFIDENCE
 
-        recovered[name] = {"value": value, "confidence": confidence}
+        recovered[name] = {
+            "value": value,
+            "confidence": confidence,
+            "location": None,
+        }
 
-    # ── Pass 2: partial long string values (truncated mid-string) ─────────────
-    # Matches: "field_name": {"value": "<partial text...  (no closing quote)
-    # Applied only to fields not already recovered in Pass 1.
-    #
-    # Rationale: inventory-style checks (e.g. asset_schedule_details) produce
-    # long multi-line string values. When LLM output is token-truncated, the
-    # closing quote and confidence key are missing. Pass 1 cannot match these.
-    # Pass 2 recovers the partial text and appends a truncation marker,
-    # so that has_meaningful_extraction() can still return True.
-    #
-    # Minimum partial length (30 chars) avoids recovering junk opening fragments
-    # like "Не" or "Дан" where truncation happened immediately after the quote.
+    # ── Pass 2: partial long string values ───────────────────────────────────
     _PARTIAL_MIN_CHARS = 30
     _TRUNCATION_MARKER = "… [СПИСОК ОБРЕЗАН: вывод превысил лимит токенов]"
 
@@ -269,13 +299,9 @@ def _salvage_partial_json(text: str) -> dict | None:
     for m in _partial_string_pattern.finditer(text):
         name = m.group("name")
         if name in recovered:
-            # Already recovered in Pass 1 — skip.
             continue
 
-        partial_text = m.group("partial")
-
-        # Strip trailing whitespace / incomplete escape sequences.
-        partial_text = partial_text.rstrip()
+        partial_text = m.group("partial").rstrip()
         if partial_text.endswith("\\"):
             partial_text = partial_text[:-1].rstrip()
 
@@ -285,16 +311,10 @@ def _salvage_partial_json(text: str) -> dict | None:
         recovered[name] = {
             "value": partial_text + _TRUNCATION_MARKER,
             "confidence": 0.5,
+            "location": None,
         }
 
-    # ── Pass 3: short signal values without confidence key ────────────────────
-    # Matches: "field_name": {"value": "<short_value>"  (confidence key missing)
-    # Applied only to fields not already recovered in Pass 1 or 2.
-    #
-    # Rationale: when truncation happens between the value and the confidence key,
-    # Pass 1 fails (no "confidence" key). Pass 3 catches these short values,
-    # which are typically signal fields (e.g. "defined", "not_defined").
-    # Long strings are already handled by Pass 2.
+    # ── Pass 3: short signal values without confidence ───────────────────────
     _short_no_confidence_pattern = re.compile(
         r'"(?P<name>[a-z_][a-z0-9_]*)"\s*:\s*\{\s*"value"\s*:\s*"(?P<value>[^"]{1,50})"\s*(?!,\s*"confidence")',
         re.DOTALL,
@@ -312,6 +332,7 @@ def _salvage_partial_json(text: str) -> dict | None:
         recovered[name] = {
             "value": raw_value,
             "confidence": LLM_DEFAULT_CONFIDENCE,
+            "location": None,
         }
 
     if not recovered:
@@ -342,7 +363,12 @@ class ExtractionLLMDetector:
     def __init__(self, client: LLMClient) -> None:
         self.client = client
 
-    def extract(self, check: CheckDefinition, text: str) -> dict[str, dict[str, Any]]:
+    def extract(
+        self,
+        check: CheckDefinition,
+        text: str,
+        context_pages: list[int] | None = None,
+    ) -> dict[str, dict[str, Any]]:
         """
         Выполнить LLM-извлечение structured_data.
 
@@ -502,6 +528,49 @@ class ExtractionLLMDetector:
 
         # 7) нормализуем значения по схеме extraction_cfg
         normalized = self._normalize_fields(raw_fields, extraction_cfg)
+
+        # 8) валидируем per-field location против extraction context
+        field_by_name: dict[str, ExtractionFieldConfig] = {
+            f.name: f for f in (extraction_cfg.fields or [])
+        }
+        validated_context_pages = [
+            p for p in (context_pages or [])
+            if isinstance(p, int) and not isinstance(p, bool) and p > 0
+        ]
+
+        for field_name, payload in normalized.items():
+            field_cfg = field_by_name.get(field_name)
+            if field_cfg is None or not isinstance(payload, dict):
+                continue
+
+            # subgroup metadata и diagnostic поля не требуют per-field location
+            if getattr(field_cfg, "role", None) == "subgroup_metadata":
+                payload["location"] = None
+                payload.pop("location_fallback", None)
+                continue
+
+            if getattr(field_cfg, "presentation", None) == "diagnostic":
+                payload["location"] = None
+                payload.pop("location_fallback", None)
+                continue
+
+            location_info, location_fallback = validate_location(
+                payload.get("location"),
+                context_text=text,
+                context_pages=validated_context_pages,
+            )
+
+            payload["location"] = (
+                location_info.model_dump(exclude_none=True)
+                if location_info is not None
+                else None
+            )
+
+            if location_fallback is not None:
+                payload["location_fallback"] = location_fallback.model_dump(exclude_none=True)
+            else:
+                payload.pop("location_fallback", None)
+
         return normalized
 
     # -------------------------------------------------------------------------
@@ -631,6 +700,10 @@ class ExtractionLLMDetector:
     ) -> str:
         """
         Построить человекочитаемую схему полей.
+
+        Поддерживает оба формата allowed_values:
+        - legacy list[str]
+        - list[AllowedValueSpec] (берём canonical .value для LLM output)
         """
         schema_lines: list[str] = []
 
@@ -644,11 +717,18 @@ class ExtractionLLMDetector:
                 schema_lines.append(f"   Описание: {desc}")
 
             if field.allowed_values:
-                allowed_vals = ", ".join(f'"{v}"' for v in field.allowed_values)
+                allowed_vals: list[str] = []
+                for item in field.allowed_values:
+                    canonical_value = getattr(item, "value", item)
+                    allowed_vals.append(f'"{canonical_value}"')
+
                 schema_lines.append(
                     "   Допустимые значения: "
-                    f"[{allowed_vals}]"
+                    f"[{', '.join(allowed_vals)}]"
                 )
+
+            if field.type == ExtractionFieldType.EVIDENCE_LIST:
+                schema_lines.append("   Формат значения: JSON-массив или []")
 
             if getattr(field, "unit", None):
                 schema_lines.append(f"   Единица измерения: {field.unit}")
@@ -663,23 +743,53 @@ class ExtractionLLMDetector:
     ) -> str:
         """
         Построить canonical example JSON.
+
+        V1.3 contract:
+        every field returns:
+        {
+          "value": ...,
+          "confidence": 0.9,
+          "location": {"clause_ref": "...", "page": 1} | null
+        }
         """
         example_fields: dict[str, dict[str, Any]] = {}
 
         for field in extraction_cfg.fields or []:
             if field.allowed_values:
-                example_value: Any = str(field.allowed_values[0])
+                first_allowed = field.allowed_values[0]
+                example_value: Any = getattr(first_allowed, "value", str(first_allowed))
             else:
                 if field.type == ExtractionFieldType.NUMBER:
                     example_value = 1000000
                 elif field.type == ExtractionFieldType.BOOLEAN:
                     example_value = True
+                elif field.type == ExtractionFieldType.CLAUSE_REF:
+                    example_value = "п. 1.1"
+                elif field.type == ExtractionFieldType.EVIDENCE_LIST:
+                    example_value = []
                 else:
                     example_value = "пример"
+
+            presentation = getattr(field, "presentation", "fact")
+            role = getattr(field, "role", None)
+
+            # Diagnostic / subgroup metadata fields usually don't need per-field location.
+            if (
+                presentation in ("diagnostic", "summary")
+                or role == "subgroup_metadata"
+                or field.type == ExtractionFieldType.EVIDENCE_LIST
+            ):
+                example_location: dict[str, Any] | None = None
+            else:
+                example_location = {
+                    "clause_ref": "п. 1.1",
+                    "page": 1,
+                }
 
             example_fields[field.name] = {
                 "value": example_value,
                 "confidence": 0.9,
+                "location": example_location,
             }
 
         example_obj = {"fields": example_fields}
@@ -738,7 +848,8 @@ class ExtractionLLMDetector:
           "fields": {
             "field_name": {
               "value": ...,
-              "confidence": 0.0-1.0
+              "confidence": 0.0-1.0,
+              "location": {"clause_ref": "...", "page": 7} | null
             }
           }
         }
@@ -758,12 +869,6 @@ class ExtractionLLMDetector:
             if candidate:
                 data = candidate
             else:
-                # Full JSON parse and _extract_json both failed.
-                # JSON is likely truncated due to output token budget exhaustion.
-                # Attempt partial salvage: recover field blocks that are already
-                # syntactically complete in the truncated text.
-                # Only recovers fields that LLM already finished writing.
-                # Never invents or guesses missing values.
                 salvaged = _salvage_partial_json(text)
                 if salvaged:
                     recovered_count = len(salvaged.get("fields", {}))
@@ -800,9 +905,13 @@ class ExtractionLLMDetector:
             if isinstance(payload, dict):
                 value = payload.get("value")
                 conf_raw = payload.get("confidence", LLM_DEFAULT_CONFIDENCE)
+                raw_location = payload.get("location")
+                if raw_location is not None and not isinstance(raw_location, dict):
+                    raw_location = None
             else:
                 value = payload
                 conf_raw = LLM_DEFAULT_CONFIDENCE
+                raw_location = None
 
             try:
                 confidence = float(conf_raw)
@@ -812,6 +921,7 @@ class ExtractionLLMDetector:
             result[name] = {
                 "value": value,
                 "confidence": confidence,
+                "location": raw_location,
             }
 
         return result
@@ -831,9 +941,13 @@ class ExtractionLLMDetector:
         Делает следующее:
         - выбрасывает поля, которых нет в схеме;
         - приводит confidence к float в диапазон [0.0, 1.0];
-        - приводит value к типу поля (NUMBER / BOOLEAN / STRING);
-        - если заданы allowed_values — маппит к ним, иначе значение выкидывается;
-        - опционально логирует нарушения required.
+        - приводит value к типу поля;
+        - строго нормализует raw location:
+            * page как строка / не-int -> весь location = None
+            * clause_ref как непустая строка -> сохраняется
+            * page как int > 0 -> сохраняется
+        - поддерживает EVIDENCE_LIST и role=subgroup_metadata;
+        - если заданы allowed_values — маппит к canonical raw values.
         """
         field_by_name: dict[str, ExtractionFieldConfig] = {
             f.name: f for f in (extraction_cfg.fields or [])
@@ -843,42 +957,90 @@ class ExtractionLLMDetector:
 
         for name, payload in raw_fields.items():
             cfg = field_by_name.get(name)
-            if not cfg:
-                # LLM вернул поле, которого нет в схеме — игнорируем
+            if cfg is None:
                 continue
 
             value = payload.get("value")
+            raw_location = payload.get("location")
             conf_raw = payload.get("confidence", LLM_DEFAULT_CONFIDENCE)
+
+            # ── Strict location normalization (V1.3 contract) ─────────────────
+            # Product rule:
+            # - if page is present but is not a valid int, reject the entire location
+            # - clause_ref alone is allowed only when page key is absent
+            # - page alone is allowed when it is a valid int
+            if isinstance(raw_location, dict):
+                page_present = "page" in raw_location
+                page_raw = raw_location.get("page")
+                clause_ref_raw = raw_location.get("clause_ref")
+
+                page_valid = (
+                    isinstance(page_raw, int)
+                    and not isinstance(page_raw, bool)
+                    and page_raw > 0
+                )
+
+                clause_ref_norm: str | None = None
+                if isinstance(clause_ref_raw, str):
+                    clause_ref_norm = " ".join(clause_ref_raw.strip().split()) or None
+
+                # If page key exists but page is malformed (e.g. "7" as string),
+                # we reject the whole location to avoid half-trusting malformed payloads.
+                if page_present and not page_valid:
+                    raw_location = None
+                # If neither clause_ref nor valid page exists, location is empty.
+                elif clause_ref_norm is None and not page_valid:
+                    raw_location = None
+                else:
+                    normalized_location: dict[str, Any] = {}
+                    if clause_ref_norm is not None:
+                        normalized_location["clause_ref"] = clause_ref_norm
+                    if page_valid:
+                        normalized_location["page"] = page_raw
+                    raw_location = normalized_location
+            elif raw_location is not None:
+                # Any non-dict/non-null location payload is invalid.
+                raw_location = None
+
             try:
                 confidence_f = float(conf_raw)
             except (TypeError, ValueError):
                 confidence_f = LLM_DEFAULT_CONFIDENCE
 
-            # Жёстко обрезаем confidence в [0.0, 1.0]
             if confidence_f < 0.0:
                 confidence_f = 0.0
             elif confidence_f > 1.0:
                 confidence_f = 1.0
 
-            # 1) типовая нормализация
-            value_cast = self._cast_to_type(cfg, value)
+            is_subgroup_metadata = getattr(cfg, "role", None) == "subgroup_metadata"
 
-            # 2) allowed_values (если заданы)
-            if cfg.allowed_values:
+            # EVIDENCE_LIST is stored as-is. No scalar casting.
+            if cfg.type == ExtractionFieldType.EVIDENCE_LIST:
+                value_cast = value
+            else:
+                value_cast = self._cast_to_type(cfg, value)
+
+            # allowed_values apply only to ordinary scalar fields.
+            if (
+                cfg.allowed_values
+                and not is_subgroup_metadata
+                and cfg.type != ExtractionFieldType.EVIDENCE_LIST
+            ):
                 value_allowed = self._normalize_to_allowed_values(
                     value_cast,
                     cfg.allowed_values,
                 )
                 if value_allowed is None:
-                    # null-like value без not_found в allowed_values —
-                    # это не schema violation, а отсутствие значения.
                     if is_null_like_value(value_cast):
                         logger.debug(
                             "ExtractionLLMDetector: null-like value normalized to empty",
                             extra={
                                 "field_name": cfg.name,
                                 "value": str(value_cast),
-                                "allowed_values": [str(v) for v in cfg.allowed_values],
+                                "allowed_values": [
+                                    str(getattr(v, "value", v))
+                                    for v in cfg.allowed_values
+                                ],
                             },
                         )
                         continue
@@ -888,15 +1050,18 @@ class ExtractionLLMDetector:
                         extra={
                             "field_name": cfg.name,
                             "value": str(value_cast),
-                            "allowed_values": [str(v) for v in cfg.allowed_values],
+                            "allowed_values": [
+                                str(getattr(v, "value", v))
+                                for v in cfg.allowed_values
+                            ],
                         },
                     )
                     continue
                 value_cast = value_allowed
 
-            # 3) required-поля: если required == True, а value_cast пустое → логируем
             if getattr(cfg, "required", False) and (
-                value_cast is None or str(value_cast).strip() == ""
+                value_cast is None
+                or (isinstance(value_cast, str) and not value_cast.strip())
             ):
                 logger.warning(
                     "ExtractionLLMDetector: required field has empty value after normalization",
@@ -905,33 +1070,29 @@ class ExtractionLLMDetector:
                         "raw_value": str(payload.get("value", "")),
                     },
                 )
-                # Поле всё равно записываем (value=None), чтобы UI видел,
-                # что required-поле не заполнено, а не терялось бесследно.
                 normalized[name] = {
                     "value": None,
                     "confidence": confidence_f,
+                    "location": raw_location,
                 }
                 continue
 
-            # String length cap for extraction field values.
-            #
-            # Default cap (500 chars) is suitable for summary-style factual fields.
-            # Inventory/register fields may override it via
-            # ExtractionFieldConfig.max_value_chars in playbook YAML.
-            #
-            # This keeps the policy universal and metadata-driven:
-            # code applies the cap, playbook declares the expected value size.
             _DEFAULT_MAX_EXTRACTION_FIELD_CHARS = 500
             max_chars = (
                 getattr(cfg, "max_value_chars", None)
                 or _DEFAULT_MAX_EXTRACTION_FIELD_CHARS
             )
-            if isinstance(value_cast, str) and len(value_cast) > max_chars:
+            if (
+                isinstance(value_cast, str)
+                and cfg.type != ExtractionFieldType.EVIDENCE_LIST
+                and len(value_cast) > max_chars
+            ):
                 value_cast = value_cast[:max_chars].rstrip() + "…"
 
             normalized[name] = {
                 "value": value_cast,
                 "confidence": confidence_f,
+                "location": raw_location,
             }
 
         return normalized
@@ -944,12 +1105,15 @@ class ExtractionLLMDetector:
         """
         Привести value к одному из allowed_values.
 
-        Поведение:
-        - null-like -> 'not_found', если он разрешён, иначе None;
-        - case-insensitive exact match -> канонический вариант из YAML;
-        - иначе None.
+        Поддерживает:
+        - legacy list[str]
+        - list[AllowedValueSpec] -> используется canonical .value
         """
-        return normalize_to_allowed_values(value, allowed_values)
+        canonical_allowed_values = [
+            getattr(item, "value", item)
+            for item in (allowed_values or [])
+        ]
+        return normalize_to_allowed_values(value, canonical_allowed_values)
 
     def _cast_to_type(
         self,
@@ -961,8 +1125,12 @@ class ExtractionLLMDetector:
 
         - NUMBER: float/int при возможности, иначе исходная строка.
         - BOOLEAN: нормализация да/нет/true/false/1/0, иначе исходная строка.
-        - STRING: str(value) или None, если value пустое/null-подобное.
+        - EVIDENCE_LIST: сохраняется как есть (list/dict/null).
+        - STRING/CLAUSE_REF: str(value) или None.
         """
+        if cfg.type == ExtractionFieldType.EVIDENCE_LIST:
+            return value
+
         value = normalize_scalar_null_like_value(value)
         if value is None:
             return None
@@ -987,4 +1155,8 @@ class ExtractionLLMDetector:
 
         s = str(value)
         return s if s.strip() else None
+    
+
+
+
     

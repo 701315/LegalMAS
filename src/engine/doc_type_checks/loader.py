@@ -439,6 +439,11 @@ class DocTypeCheckLoader:
                     unit=f.get("unit"),
                     required=f.get("required", False),
                     max_value_chars=f.get("max_value_chars"),
+                    # DD Grid V1: semantic role of the field.
+                    # "subgroup_metadata" — поле является метаданными (evidence, reason),
+                    # не показывается как отдельная колонка в grid.
+                    # None = обычное extraction-поле (default).
+                    role=f.get("role"),
                 )
             )
 
@@ -453,6 +458,10 @@ class DocTypeCheckLoader:
             llm_prompt_extraction=extraction_cfg.get("llm_prompt_extraction"),
             llm_max_tokens=extraction_cfg.get("llm_max_tokens"),
             compact_output=extraction_cfg.get("compact_output", True),
+            # DD Grid V1: explicit column mapping for DD Grid.
+            # Raw list[dict] from YAML; Pydantic parses into list[DDGridColumnSpec].
+            # None if not declared — auto-mapping in DDGridColumnBuilder (V1.6).
+            dd_grid_columns=extraction_cfg.get("dd_grid_columns"),
         )
 
     def _parse_conditional(self, triggers_cfg: dict | None) -> ConditionalConfig | None:
@@ -618,6 +627,8 @@ class DocTypeCheckLoader:
                 doc_types=[doc_type],
                 origin=item.get("origin", "DOCUMENT_TYPE"),
                 ui_mode=item.get("ui_mode"),
+                # DD Grid V1: display_order for stable sorting within type/group.
+                display_order=item.get("display_order", 0),
                 severity=item.get("severity", "medium"),
                 severity_if_fail=item.get("severity_if_fail"),
                 severity_if_pass=item.get("severity_if_pass"),
@@ -697,6 +708,8 @@ class DocTypeCheckLoader:
                 doc_types=[doc_type],
                 origin=item.get("origin", "DOCUMENT_TYPE"),
                 ui_mode=item.get("ui_mode"),
+                # DD Grid V1: display_order for stable sorting within type/group.
+                display_order=item.get("display_order", 0),
                 severity=item.get("severity", "medium"),
                 severity_if_fail=item.get("severity_if_fail"),
                 severity_if_pass=item.get("severity_if_pass"),

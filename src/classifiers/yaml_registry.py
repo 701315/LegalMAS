@@ -3,8 +3,19 @@
 """
 YAML Registry — loads and caches document type configurations.
 
-Reads registry.yaml (list of types) and individual type YAML files.
-Thread-safe singleton with lazy loading.
+Reads registry.yaml (list of types + document type groups) and individual
+type YAML files. Thread-safe singleton with lazy loading.
+
+REGISTRY.YAML CONTRACT:
+
+  document_types:              → list of document type entries
+    - type / name / category / group
+
+  document_type_groups:        → map of group_id → human-readable label + order
+                                 (DD Grid V1 top-level class headers)
+    group_id:
+      label: "..."
+      display_order: <int>
 
 YAML CONTRACT (canonical):
 
@@ -80,6 +91,41 @@ class FilenamePatternRule:
     raw_pattern: str
     kind: str = "generic_form"
     weight: float = 1.0
+
+
+# ─── Document type group metadata (DD Grid V1) ────────────────────────────────
+
+
+_GROUP_LABEL_FALLBACK_ORDER = 9999
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentTypeGroupConfig:
+    """
+    Human-readable metadata for a document type group.
+
+    Referenced from registry.yaml section `document_type_groups`.
+    Consumed by DD Grid V1 builder (V1.7) as top-level class header data.
+
+    Fields:
+        group_id:      Internal machine-readable id (matches document_types[].group).
+        label:         Human-readable label shown to a lawyer in DD Grid.
+        display_order: Sort key for hierarchy display. Lower = earlier.
+                       Fallback = 9999 when not declared.
+
+    Source of truth:
+        registry.yaml → document_type_groups[group_id]
+
+    Fallback semantics:
+        If group_id is used in document_types[].group but not declared in
+        document_type_groups, YAMLRegistry produces a fallback entry with
+        label = group_id and display_order = 9999. This prevents silent data
+        loss and makes missing entries visible in UI.
+    """
+
+    group_id: str
+    label: str
+    display_order: int = _GROUP_LABEL_FALLBACK_ORDER
 
 
 class DocumentTypeConfig:
@@ -564,6 +610,7 @@ class YAMLRegistry:
     def __init__(self, registry_path: str):
         self.registry_path = registry_path
         self._configs: dict[str, DocumentTypeConfig] = {}
+        self._groups: dict[str, DocumentTypeGroupConfig] = {}
         self._load()
 
     @staticmethod
@@ -707,11 +754,119 @@ class YAMLRegistry:
                 load_warnings=[],
             )
 
-        logger.info("YAML registry loaded", total_types=len(self._configs))
+        self._parse_document_type_groups(registry)
+
+        logger.info(
+            "YAML registry loaded",
+            total_types=len(self._configs),
+            total_groups=len(self._groups),
+        )
         logger.debug(
             "YAML registry types preview",
             sample_types=list(self._configs.keys())[:10],
         )
+        logger.debug(
+            "YAML registry groups preview",
+            sample_groups=sorted(self._groups.keys())[:10],
+        )
+
+    def _parse_document_type_groups(self, registry: dict) -> None:
+        """
+        Parse `document_type_groups` section from registry.yaml.
+
+        Contract:
+            document_type_groups:
+              <group_id>:
+                label: <str>            # required, non-empty
+                display_order: <int>    # optional, defaults to 9999
+
+        Behaviour:
+        - Malformed entries are skipped with a warning (never fail the load).
+        - After parsing declared entries, ensure every group_id actually
+          used in document_types[] has an entry. Missing group_ids get a
+          fallback DocumentTypeGroupConfig with label = group_id and
+          display_order = 9999. This prevents silent data loss.
+        """
+        raw_groups = registry.get("document_type_groups") or {}
+        if not isinstance(raw_groups, dict):
+            logger.warning(
+                "YAML registry: document_type_groups is not a mapping, ignoring",
+                type_got=type(raw_groups).__name__,
+            )
+            raw_groups = {}
+
+        # Step 1: parse explicitly declared entries.
+        for group_id, entry in raw_groups.items():
+            group_id_norm = str(group_id or "").strip()
+            if not group_id_norm:
+                logger.warning(
+                    "YAML registry: document_type_groups entry with empty id, skipping",
+                    entry_preview=str(entry)[:100],
+                )
+                continue
+
+            if not isinstance(entry, dict):
+                logger.warning(
+                    "YAML registry: document_type_groups entry is not a mapping, "
+                    "using fallback",
+                    group_id=group_id_norm,
+                    type_got=type(entry).__name__,
+                )
+                self._groups[group_id_norm] = DocumentTypeGroupConfig(
+                    group_id=group_id_norm,
+                    label=group_id_norm,
+                    display_order=_GROUP_LABEL_FALLBACK_ORDER,
+                )
+                continue
+
+            label_raw = entry.get("label")
+            label = str(label_raw).strip() if isinstance(label_raw, str) else ""
+            if not label:
+                logger.warning(
+                    "YAML registry: document_type_groups entry has empty label, "
+                    "using group_id as label",
+                    group_id=group_id_norm,
+                )
+                label = group_id_norm
+
+            display_order_raw = entry.get("display_order", _GROUP_LABEL_FALLBACK_ORDER)
+            if isinstance(display_order_raw, int) and not isinstance(display_order_raw, bool):
+                display_order = display_order_raw
+            else:
+                logger.warning(
+                    "YAML registry: document_type_groups entry has non-int "
+                    "display_order, using fallback",
+                    group_id=group_id_norm,
+                    display_order_raw=str(display_order_raw),
+                )
+                display_order = _GROUP_LABEL_FALLBACK_ORDER
+
+            self._groups[group_id_norm] = DocumentTypeGroupConfig(
+                group_id=group_id_norm,
+                label=label,
+                display_order=display_order,
+            )
+
+        # Step 2: fallback for groups actually used but not declared.
+        used_group_ids: set[str] = set()
+        for cfg in self._configs.values():
+            group_id = getattr(cfg, "group", "") or ""
+            group_id = group_id.strip()
+            if group_id:
+                used_group_ids.add(group_id)
+
+        missing = used_group_ids - set(self._groups.keys())
+        for group_id in sorted(missing):
+            logger.warning(
+                "YAML registry: group_id used in document_types but not declared "
+                "in document_type_groups, generating fallback entry",
+                group_id=group_id,
+            )
+            self._groups[group_id] = DocumentTypeGroupConfig(
+                group_id=group_id,
+                label=group_id,
+                display_order=_GROUP_LABEL_FALLBACK_ORDER,
+            )
 
     def validate_all_patterns(self) -> tuple[bool, list[dict]]:
         """
@@ -1084,6 +1239,38 @@ class YAMLRegistry:
             for type_code, cfg in self._configs.items()
             if (getattr(cfg, "group", "") or "") == group
         ]
+
+    # ── Document type group metadata (DD Grid V1) ─────────────────────
+
+    def get_document_type_groups(self) -> dict[str, DocumentTypeGroupConfig]:
+        """
+        Return all document type groups keyed by group_id.
+
+        Contract for consumers:
+        - includes all explicitly declared groups from registry.yaml
+        - includes fallback entries for group_ids used in document_types[]
+          but not declared in document_type_groups section
+        - returns a shallow copy to prevent accidental mutation of the
+          singleton state
+        """
+        return dict(self._groups)
+
+    def get_document_type_group(
+        self, group_id: str
+    ) -> DocumentTypeGroupConfig | None:
+        """
+        Return metadata for a single document type group, or None if not found.
+
+        Empty / whitespace-only group_id returns None.
+        """
+        if not isinstance(group_id, str):
+            return None
+        normalized = group_id.strip()
+        if not normalized:
+            return None
+        return self._groups.get(normalized)
+
+    # ─────────────────────────────────────────────────────────────────
 
     def get_classification_rules(self, type_code: str) -> dict:
         """

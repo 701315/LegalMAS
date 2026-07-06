@@ -212,4 +212,48 @@ document_types:
     category: "contract"
     group: "group_9_special"
 
-    
+
+# ═════════════════════════════════════════════════════════════════════════════
+# DOCUMENT TYPE GROUPS
+# Human-readable metadata for document type classes used in DD Grid V1.
+# Every group_id referenced in document_types[].group must have an entry here.
+# If an entry is missing, YAMLRegistry produces a fallback with label = group_id.
+# Rendered by DD Grid builder (V1.7) as top-level class headers.
+# ═════════════════════════════════════════════════════════════════════════════
+document_type_groups:
+
+  group_1_ownership:
+    label: "Передача права собственности"
+    display_order: 10
+
+  group_2_use:
+    label: "Передача в пользование"
+    display_order: 20
+
+  group_3_works:
+    label: "Выполнение работ"
+    display_order: 30
+
+  group_4_services:
+    label: "Оказание услуг"
+    display_order: 40
+
+  group_5_financial:
+    label: "Финансовые обязательства"
+    display_order: 50
+
+  group_6_intermediary:
+    label: "Посреднические услуги"
+    display_order: 60
+
+  group_7_ip:
+    label: "Интеллектуальная собственность"
+    display_order: 70
+
+  group_8_partnership:
+    label: "Партнёрство и совместная деятельность"
+    display_order: 80
+
+  group_9_special:
+    label: "Специальные договоры"
+    display_order: 90    
