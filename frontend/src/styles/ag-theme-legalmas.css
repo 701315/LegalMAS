@@ -289,4 +289,31 @@
   }
 }
 
+/* Центровка заголовков колонок */
+.ag-center-header .ag-header-cell-label {
+  justify-content: center;
+  text-align: center;
+}
+
+.ag-center-header .ag-header-cell-text {
+  text-align: center;
+}
+
+
+/* -------------------------------------------------------------
+   V1 Matrix: подсветка активной ячейки
+   ------------------------------------------------------------- */
+
+.ag-theme-legalmas .ag-cell-focus,
+.ag-theme-legalmas .ag-cell-focus:focus {
+  border: 2px solid var(--accent-primary) !important;
+  outline: none !important;
+  background-color: color-mix(in srgb, var(--accent-primary) 8%, transparent) !important;
+}
+
+/* Убираем стандартный AG Grid outline на строке */
+.ag-theme-legalmas .ag-row-focus {
+  background-color: transparent !important;
+}
+
 

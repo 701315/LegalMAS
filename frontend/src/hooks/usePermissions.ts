@@ -19,8 +19,11 @@ export function useDealPermissions(dealId: string): DealPermissions {
 
   const projectRole: ProjectRole = projectRoles[dealId] ?? "viewer";
 
+  // globalRole может быть null, если user-info ещё не загружена или
+  // пользователь не залогинен. getDealPermissions обрабатывает null
+  // как "нет прав" (secure-by-default).
   return getDealPermissions({
-    userRole: globalRole ?? "user",
+    userRole: globalRole,
     projectRole,
   });
 }

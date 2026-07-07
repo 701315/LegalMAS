@@ -14,9 +14,33 @@ import type { DealPermissions, PermissionsContext } from "./permissions.types";
  * - tenant_admin : полный доступ в рамках своего tenant'а
  * - member       : доступ только через project role
  */
+/**
+ * Полностью закрытые права. Используются как secure-by-default fallback,
+ * если пользователь не залогинен (userRole === null) или роль не распознана.
+ */
+function noPermissions(): DealPermissions {
+  return {
+    canViewOverview: false,
+    canStartRun: false,
+    canViewClassificationReport: false,
+    canViewAuditLog: false,
+    canViewDocuments: false,
+    canDownloadDocuments: false,
+    canReclassifyDocuments: false,
+    canDeleteDocuments: false,
+    canManageRequests: false,
+    canUploadDocuments: false,
+  };
+}
+
 function basePermissionsByUserRole(
   userRole: PermissionsContext["userRole"],
 ): DealPermissions {
+  // Не залогинен / user-info ещё не загружена → 0 прав.
+  if (userRole === null) {
+    return noPermissions();
+  }
+
   // superadmin и tenant_admin имеют полный базовый доступ.
   // Разница между ними — на уровне tenant scope, а не на уровне capability.
   if (userRole === "superadmin" || userRole === "tenant_admin") {
@@ -64,6 +88,11 @@ function basePermissionsByUserRole(
 export function getDealPermissions(ctx: PermissionsContext): DealPermissions {
   const base = basePermissionsByUserRole(ctx.userRole);
 
+  // Не залогинен / user-info ещё не загружена → 0 прав.
+  if (ctx.userRole === null) {
+    return base;
+  }
+
   // superadmin — полный доступ везде.
   if (ctx.userRole === "superadmin") {
     return base;
@@ -77,6 +106,8 @@ export function getDealPermissions(ctx: PermissionsContext): DealPermissions {
 
   // Для member права определяются project role.
   const projectRole = ctx.projectRole ?? "viewer";
+
+
   const projectIsAdminOrEditor =
     projectRole === "admin" || projectRole === "editor";
   const projectIsViewer = projectRole === "viewer";

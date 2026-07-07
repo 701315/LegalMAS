@@ -15,6 +15,7 @@ import client from "./client";
 
 import type {
   ConditionalCheckDTO,
+  DDGridV1ResponseDTO,
   DDMatrixResponseDTO,
   DDRequestDTO,
   MatrixCellDTO,
@@ -80,6 +81,9 @@ export const dealReviewKeys = {
 
   ddMatrix: (dealId: string | null, runId: string | null) =>
     [...dealReviewKeys.all, "dd-matrix", dealId, runId] as const,
+
+  ddGridV1: (dealId: string | null, runId: string | null) =>
+    [...dealReviewKeys.all, "dd-grid-v1", dealId, runId] as const,
 };
 
 // -------------------------------------------------------------
@@ -159,9 +163,27 @@ export const dealReviewApi = {
     return data;
   },
 
+  /**
+   * DD Grid V1 endpoint (иерархический контракт: global groups + doc-type classes → checks → runtime columns).
+   * Backend: GET /api/v1/deals/{deal_id}/runs/{run_id}/dd-grid-v1
+   */
+  async getDdGridV1ForRun(
+    dealId: string,
+    runId: string,
+  ): Promise<DDGridV1ResponseDTO> {
+    const { data } = await client.get<DDGridV1ResponseDTO>(
+      `${buildDealReviewBasePath(dealId, runId)}/dd-grid-v1`,
+    );
+    return data;
+  },
+
   // Short aliases for cleaner usage in new review UI layer
   getDdMatrix(dealId: string, runId: string): Promise<DDMatrixResponseDTO> {
     return dealReviewApi.getDdMatrixForRun(dealId, runId);
+  },
+
+  getDdGridV1(dealId: string, runId: string): Promise<DDGridV1ResponseDTO> {
+    return dealReviewApi.getDdGridV1ForRun(dealId, runId);
   },
 
   getDdRequests(dealId: string, runId: string): Promise<DDRequestDTO[]> {
@@ -376,11 +398,39 @@ export function useDealReviewDdMatrix(
   });
 }
 
+/**
+ * React Query hook для DD Grid V1.
+ *
+ * Отдельный hook (а не переиспользование useDealReviewDdMatrix), потому что:
+ * - другой backend endpoint;
+ * - другой response schema;
+ * - другой семантический контракт (иерархия / runtime columns / cell_state / formats).
+ */
+export function useDealReviewDdGridV1(
+  dealId: string | null,
+  runId: string | null,
+  options?: QueryOptions<DDGridV1ResponseDTO>,
+): UseQueryResult<DDGridV1ResponseDTO, Error> {
+  return useQuery<DDGridV1ResponseDTO, Error>({
+    queryKey: dealReviewKeys.ddGridV1(dealId, runId),
+    queryFn: () =>
+      dealReviewApi.getDdGridV1ForRun(
+        requireParam(dealId, "dealId"),
+        requireParam(runId, "runId"),
+      ),
+    enabled: !!dealId && !!runId,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    ...options,
+  });
+}
+
 // -------------------------------------------------------------
 // Short aliases for the new review UI layer
 // -------------------------------------------------------------
 
 export const getDdMatrix = dealReviewApi.getDdMatrix;
+export const getDdGridV1 = dealReviewApi.getDdGridV1;
 export const getDdRequests = dealReviewApi.getDdRequests;
 export const getConditionalChecks = dealReviewApi.getConditionalChecks;
 
@@ -390,6 +440,18 @@ export function useDdMatrix(
   options?: QueryOptions<DDMatrixResponseDTO>,
 ): UseQueryResult<DDMatrixResponseDTO, Error> {
   return useDealReviewDdMatrix(dealId, runId, options);
+}
+
+/**
+ * Короткий alias для новой review UI layer.
+ * См. useDealReviewDdGridV1 для полного описания контракта.
+ */
+export function useDdGridV1(
+  dealId: string | null,
+  runId: string | null,
+  options?: QueryOptions<DDGridV1ResponseDTO>,
+): UseQueryResult<DDGridV1ResponseDTO, Error> {
+  return useDealReviewDdGridV1(dealId, runId, options);
 }
 
 export function useDdRequests(

@@ -56,14 +56,14 @@ const PremiumHeroSection: React.FC = () => {
         }}
       />
 
-      {/* Контент — текст по центру экрана */}
+      {/* Контент — текст на 2/3 высоты от низа (≈33% от верха) */}
       <div
-        className="relative z-10 mx-auto flex w-full items-center px-6 lg:px-8"
-        style={{ maxWidth: "var(--container-max-width)", minHeight: "100vh" }}
+        className="relative z-10 mx-auto flex w-full px-6 lg:px-8"
+        style={{ maxWidth: "var(--container-max-width)", minHeight: "100vh", paddingTop: "33vh" }}
       >
-        <div className="grid w-full grid-cols-12 items-center gap-8">
+        <div className="grid w-full grid-cols-12 items-start gap-8">
           
-          {/* Левая колонка — Заголовок (по центру) */}
+          {/* Левая колонка — Заголовок */}
           <div className="col-span-12 lg:col-span-6" style={fadeIn(0)}>
             <h1 className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.05] tracking-[-0.03em] text-[#FAF8F5]">
               {hero.title.split("\n")[0]}
@@ -74,10 +74,10 @@ const PremiumHeroSection: React.FC = () => {
             </h1>
           </div>
 
-          {/* Правая колонка — Граф + Описание (по центру) */}
-          <div className="col-span-12 lg:col-span-6 lg:ml-auto" style={fadeIn(200)}>
-            {/* SVG-граф над текстом */}
-            <div className="relative mb-[-3rem] h-[280px] w-full opacity-0.7">
+          {/* Правая колонка — Граф + Описание */}
+          <div className="col-span-12 lg:col-span-6 lg:ml-auto relative" style={fadeIn(200)}>
+            {/* SVG-граф абсолютно позиционирован над текстом */}
+            <div className="absolute bottom-full mb-[-3rem] h-[280px] w-full opacity-0.7">
               <svg viewBox="0 0 520 420" fill="none" className="h-full w-full" aria-hidden="true">
                 <circle cx="260" cy="210" r="5.5" fill="#C86B52" opacity="1" />
                 <circle cx="140" cy="130" r="3.5" fill="#C86B52" opacity="0.85" />
@@ -109,3 +109,5 @@ const PremiumHeroSection: React.FC = () => {
 };
 
 export default PremiumHeroSection;
+
+

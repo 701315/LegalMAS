@@ -399,3 +399,224 @@ export interface DocumentStructuredDataDTO {
   values: ExtractedValueDTO[];
 }
 
+// =============================================================
+// DD GRID V1 CONTRACT
+// -------------------------------------------------------------
+// Точное отражение backend-контракта GET
+// /api/v1/deals/{deal_id}/runs/{run_id}/dd-grid-v1
+// Строго по DDGridV1ResponseDTO (Pydantic).
+//
+// Правила:
+// - никаких хардкодов под конкретные check_id / column_id / doc_type;
+// - все семантические состояния — closed unions;
+// - execution_status оставлен как string, потому что закрытый список
+//   его значений во frontend-контракте не зафиксирован; при появлении
+//   закрытого enum — заменить на union без миграций UI-кода;
+// - словари всегда строго типизированы через Record<string, X>;
+// - fallback_display гарантированно строка (по контракту всегда задан).
+// =============================================================
+
+/**
+ * Пять возможных состояний ячейки в DD Grid V1.
+ *
+ * defined         — значение найдено
+ * not_defined     — check выполнен, значение не найдено
+ * not_applicable  — check не применим к данному doc_type
+ * not_executed    — check не выполнялся для данного документа
+ * error           — техническая ошибка выполнения check-а
+ */
+export type DDGridV1CellState =
+  | "defined"
+  | "not_defined"
+  | "not_applicable"
+  | "not_executed"
+  | "error";
+
+/**
+ * Формат runtime-колонки в DD Grid V1.
+ *
+ * text           — plain string (при наличии unit — string + " " + unit)
+ * enum           — display строится через enum_labels[raw_value]
+ * yes_no         — булево значение как "Да" / "Нет"
+ * presence_only  — индикатор наличия ("Присутствует" / fallback)
+ */
+export type DDGridV1ColumnFormat =
+  | "text"
+  | "enum"
+  | "yes_no"
+  | "presence_only";
+
+/**
+ * Уверенность в location для одного поля / ячейки.
+ *
+ * high  — exact pinpoint (clause_ref / page точно определены)
+ * low   — approximate (fallback), navigation допустима с caveat
+ * null  — location недоступна для этой ячейки
+ */
+export type DDGridV1LocationConfidence = "high" | "low" | null;
+
+/**
+ * Runtime-колонка внутри check-а.
+ *
+ * ВАЖНО: column_id НЕ гарантирует уникальность в масштабе всего response,
+ * потому что один и тот же column_id может встречаться несколько раз внутри
+ * одного check-а (разные field_name с одинаковым column_id). Для стабильных
+ * UI-ключей всегда строить runtime key на уровне (scope, path, index),
+ * а не полагаться на column_id как на primary key.
+ */
+export interface DDGridV1ColumnDTO {
+  column_id: string;
+  check_id: string;
+  label: string;
+  format: DDGridV1ColumnFormat;
+  fallback_display: string;
+  display_order: number;
+  enum_labels: Record<string, string>;
+  unit: string | null;
+}
+
+/**
+ * Метаданные одного check-а внутри группы (global) или типа документа.
+ */
+export interface DDGridV1CheckDTO {
+  check_id: string;
+  check_name: string;
+  display_order: number;
+  columns: DDGridV1ColumnDTO[];
+  display_summary_field: string | null;
+  metadata_fields: string[];
+}
+
+/**
+ * Глобальная группа check-ов (не привязанная к типу документа).
+ */
+export interface DDGridV1GlobalGroupDTO {
+  group_id: string;
+  label: string;
+  display_order: number;
+  checks: DDGridV1CheckDTO[];
+}
+
+/**
+ * Конкретный тип документа внутри doc-type класса.
+ */
+export interface DDGridV1DocTypeDTO {
+  type_code: string;
+  name: string;
+  checks: DDGridV1CheckDTO[];
+}
+
+/**
+ * Класс типов документов (например, "Передача права собственности"),
+ * группирующий один или несколько типов документов.
+ */
+export interface DDGridV1DocTypeClassDTO {
+  group_id: string;
+  label: string;
+  display_order: number;
+  types: DDGridV1DocTypeDTO[];
+}
+
+/**
+ * Одно значение ячейки для конкретного (document_id, column_id).
+ *
+ * Правила location:
+ * - has_location_fallback = false + clause_ref/page заданы → exact
+ * - has_location_fallback = true  + clause_ref/page заданы → approximate
+ * - has_location_fallback = true  + clause_ref/page null    → navigation недоступна
+ */
+export interface DDGridV1CellValueDTO {
+  cell_state: DDGridV1CellState;
+  display_value: string;
+  raw_value: string | null;
+  location_clause_ref: string | null;
+  location_page: number | null;
+  location_confidence: DDGridV1LocationConfidence;
+  has_location_fallback: boolean;
+  location_fallback_reason: string | null;
+}
+
+/**
+ * Одно извлечённое поле внутри drawer-content check-а.
+ *
+ * ВАЖНО: несколько field-ов внутри одного check-а могут ссылаться на
+ * одинаковый column_id. Для стабильных ключей UI использовать индекс
+ * внутри массива fields, а не column_id.
+ */
+export interface DDGridV1DrawerFieldDTO {
+  column_id: string;
+  field_name: string;
+  label: string;
+  cell_state: DDGridV1CellState;
+  display_value: string;
+  raw_value: string | null;
+  location_clause_ref: string | null;
+  location_page: number | null;
+  location_confidence: DDGridV1LocationConfidence;
+  has_location_fallback: boolean;
+  location_fallback_reason: string | null;
+}
+
+/**
+ * Полный контент drawer для одной пары (document_id, check_id).
+ *
+ * Reason precedence (реализуется в UI-слое):
+ *   1. metadata field "reason"
+ *   2. metadata field "explanation"
+ *   3. metadata field "notes"
+ *   4. review_message
+ *   5. display_text
+ *
+ * execution_status оставлен строкой: закрытый enum в frontend-контракте
+ * не зафиксирован. При появлении фикс-списка — заменить на union.
+ */
+export interface DDGridV1DrawerContentDTO {
+  check_id: string;
+  check_name: string;
+  document_id: string;
+  cell_state: DDGridV1CellState;
+  reason: string | null;
+  review_status: string | null;
+  review_message: string | null;
+  display_text: string | null;
+  execution_status: string;
+  fields: DDGridV1DrawerFieldDTO[];
+  evidence_items: string[];
+}
+
+/**
+ * Метаданные документа, попавшего в ответ DD Grid V1.
+ */
+export interface DDGridV1DocumentMetaDTO {
+  document_id: string;
+  filename: string;
+  doc_type: string;
+  status: string;
+  folder_path: string | null;
+}
+
+/**
+ * Полный ответ backend endpoint GET
+ * /api/v1/deals/{deal_id}/runs/{run_id}/dd-grid-v1
+ *
+ * Источник правды для UI:
+ * - строить runtime-колонки следует из global_groups + doc_type_classes,
+ *   а НЕ из column_registry (registry не гарантирует уникальности
+ *   пары column_id внутри одного check-а — там значения могут схлопнуться).
+ * - column_registry рассматривать как индекс для быстрого lookup по column_id,
+ *   но не как primary source of truth по составу колонок.
+ */
+export interface DDGridV1ResponseDTO {
+  deal_id: string;
+  run_id: string;
+
+  global_groups: DDGridV1GlobalGroupDTO[];
+  doc_type_classes: DDGridV1DocTypeClassDTO[];
+
+  column_registry: Record<string, DDGridV1ColumnDTO>;
+  cell_values: Record<string, Record<string, DDGridV1CellValueDTO>>;
+  drawer_contents: Record<string, Record<string, DDGridV1DrawerContentDTO>>;
+
+  documents_meta: DDGridV1DocumentMetaDTO[];
+}
+

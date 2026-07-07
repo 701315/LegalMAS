@@ -8,7 +8,14 @@ import type { GlobalRole } from "../../stores/uiStore";
 
 
 export interface PermissionsContext {
-  userRole: GlobalRole;
+  /**
+   * Системная роль пользователя.
+   *
+   * Может быть null, если пользователь не залогинен или user-info ещё
+   * не подгружена в store (см. useUIStore.globalRole: GlobalRole | null).
+   * getDealPermissions обязан обработать null как "нет прав".
+   */
+  userRole: GlobalRole | null;
   projectRole?: ProjectRole | null;
   // при необходимости сюда можно добавить ещё поля (orgId, scopes и т.п.)
 }

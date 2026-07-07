@@ -5,11 +5,29 @@
 
 import type { UserRole } from "../types";
 
+/**
+ * Numeric hierarchy для сравнения ролей.
+ *
+ * Semantic (соответствует комментариям в types/auth.ts):
+ * - superadmin        = 5  (highest)
+ * - tenant_admin      = 4  (по контракту auth.ts — canonical алиас admin)
+ * - admin (legacy)    = 4  (legacy alias для tenant_admin, сохранён для dev-совместимости)
+ * - reviewer          = 3
+ * - editor            = 2
+ * - member            = 1  (tenant-level read-only user)
+ * - viewer            = 1  (project-level read-only role)
+ *
+ * ВАЖНО: значения membership и viewer сравнены как эквивалентные read-only.
+ * Если позже появятся capability-разграничения между member и viewer —
+ * скорректировать здесь без изменения callers.
+ */
 export const ROLE_LEVEL: Record<UserRole, number> = {
   viewer: 1,
+  member: 1,
   editor: 2,
   reviewer: 3,
   admin: 4,
+  tenant_admin: 4,
   superadmin: 5,
 };
 

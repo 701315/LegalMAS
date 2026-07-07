@@ -52,14 +52,39 @@ const SecurityFoundationSection: React.FC = () => {
   return (
     <section
       id="security"
-      className="relative flex items-center bg-[#FAF8F5] py-20 lg:py-28 scroll-mt-0 border-y border-[#E8E4DD]"
+      className="relative bg-[#FAF8F5] py-20 lg:py-28 scroll-mt-0 border-y border-[#E8E4DD]"
       data-header-theme="light"
     >
       <div
-        className="mx-auto w-full px-6 lg:px-8"
+        className="relative mx-auto w-full px-6 lg:px-8"
         style={{ maxWidth: "var(--container-max-width)" }}
       >
-        <div className="grid items-start gap-16 lg:grid-cols-12 lg:gap-20">
+        {/* Декоративный граф — рандомно внутри блока, под текстом */}
+        <div
+          className="pointer-events-none absolute right-10 bottom-20 z-0"
+          style={{ width: "35%", maxWidth: "450px", opacity: 0.35 }}
+          aria-hidden="true"
+        >
+          <svg viewBox="0 0 520 420" fill="none" className="h-full w-full">
+            <circle cx="260" cy="210" r="6" fill="#C86B52" opacity="1" />
+            <circle cx="140" cy="130" r="4" fill="#C86B52" opacity="0.9" />
+            <circle cx="380" cy="130" r="4" fill="#C86B52" opacity="0.9" />
+            <circle cx="100" cy="290" r="3.5" fill="#C86B52" opacity="0.8" />
+            <circle cx="420" cy="290" r="3.5" fill="#C86B52" opacity="0.8" />
+            <circle cx="200" cy="340" r="3.5" fill="#C86B52" opacity="0.75" />
+            <circle cx="320" cy="340" r="3.5" fill="#C86B52" opacity="0.75" />
+            <line x1="260" y1="210" x2="140" y2="130" stroke="#C86B52" strokeWidth="1" opacity="0.85" />
+            <line x1="260" y1="210" x2="380" y2="130" stroke="#C86B52" strokeWidth="1" opacity="0.85" />
+            <line x1="260" y1="210" x2="100" y2="290" stroke="#C86B52" strokeWidth="0.9" opacity="0.75" />
+            <line x1="260" y1="210" x2="420" y2="290" stroke="#C86B52" strokeWidth="0.9" opacity="0.75" />
+            <line x1="260" y1="210" x2="200" y2="340" stroke="#C86B52" strokeWidth="0.8" opacity="0.7" />
+            <line x1="260" y1="210" x2="320" y2="340" stroke="#C86B52" strokeWidth="0.8" opacity="0.7" />
+            <line x1="140" y1="130" x2="380" y2="130" stroke="#C86B52" strokeWidth="0.5" opacity="0.5" />
+            <line x1="100" y1="290" x2="420" y2="290" stroke="#C86B52" strokeWidth="0.5" opacity="0.5" />
+          </svg>
+        </div>
+
+        <div className="relative z-10 grid items-start gap-16 lg:grid-cols-12 lg:gap-20">
           
           {/* ── Левая колонка: Сетка сертификатов (6 карточек) ── */}
           <div className="lg:col-span-7">

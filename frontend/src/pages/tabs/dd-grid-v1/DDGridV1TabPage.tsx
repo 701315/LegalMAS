@@ -1,0 +1,711 @@
+// =============================================================
+// src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx
+// V1 экран DD Grid.
+//
+// Актуальное состояние:
+// - Блок "DD Grid" убран, сводка перенесена в subtitle секции;
+// - В matrix mode subtitle показывает компактную сводку статистики;
+// - В list mode subtitle остаётся стандартным;
+// - Warning об ошибке run metadata показывается сверху при необходимости;
+// - Панель настроек отображения (Формат / Проверки / Группировка) + Экспорт;
+// - QC bulk actions под панелью;
+// - Grid viewport с V1 матрицей или legacy списком;
+// - Фильтры полностью убраны из UI (могут быть возвращены позже).
+// =============================================================
+
+import React from "react";
+import {
+  AlertTriangle,
+  ChevronRight,
+  Download,
+} from "lucide-react";
+
+import { useDealReviewDdGridV1 } from "../../../api/dealReview";
+import { useRun } from "../../../api/runs";
+import client from "../../../api/client";
+import DDReviewListGrid from "../../../components/grid/DDReviewListGrid";
+import DDGridV1TypedGroups from "./DDGridV1TypedGroups";
+import DDGridV1ViewSettings from "./DDGridV1ViewSettings";
+import { useDDGridV1UIStore } from "./ddGridV1.collapseStore";
+import Button from "../../../components/ui/Button";
+import DocumentViewerModal, {
+  type LayoutElement,
+  type SizedChunkMeta,
+} from "../../../components/viewer/DocumentViewerModal";
+
+import type { OpenViewerAtFn } from "../../../types";
+
+import { INLINE_PANEL_ACTIVE_CLASS } from "../grid/gridTab.constants";
+import { humanChecksMode } from "../grid/gridTab.utils";
+import type {
+  GridMode,
+  GridTabProps,
+  ViewerState,
+} from "../grid/gridTab.types";
+import type { ReviewSelectionItem } from "../grid/reviewGrid.types";
+import ReviewExportButtons from "../grid/ReviewExportButtons";
+import ReviewQcBulkActions from "../grid/ReviewQcBulkActions";
+import {
+  getReviewQcCapability,
+  getReviewQcDisabledNote,
+  getSelectedReviewFindings,
+} from "../grid/reviewGrid.qc";
+
+import { selectDDGridV1DerivedModel } from "./ddGridV1.selectors";
+import { adaptDDGridV1ToLegacyReview } from "./ddGridV1.legacyAdapter";
+
+// -------------------------------------------------------------
+// Local types
+// -------------------------------------------------------------
+
+type LayoutElementApi = {
+  element_id: string;
+  page: number;
+  bbox: [number, number, number, number];
+};
+
+type StatusStateCardProps = {
+  title: string;
+  description?: string;
+  tone?: "default" | "error";
+};
+
+type RunMetaWarningProps = {
+  visible: boolean;
+};
+
+type ExportPanelProps = {
+  open: boolean;
+  findings: ReturnType<typeof adaptDDGridV1ToLegacyReview>["findings"];
+  dealName: string;
+  runId?: string;
+};
+
+// -------------------------------------------------------------
+// Pure helpers
+// -------------------------------------------------------------
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isBboxTuple(
+  value: unknown,
+): value is [number, number, number, number] {
+  return (
+    Array.isArray(value) &&
+    value.length === 4 &&
+    value.every((item) => typeof item === "number")
+  );
+}
+
+function isLayoutElementApi(value: unknown): value is LayoutElementApi {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.element_id === "string" &&
+    typeof value.page === "number" &&
+    isBboxTuple(value.bbox)
+  );
+}
+
+function parseLayoutElements(payload: unknown): LayoutElement[] | undefined {
+  if (!isRecord(payload) || !Array.isArray(payload.elements)) {
+    return undefined;
+  }
+  return payload.elements
+    .filter(isLayoutElementApi)
+    .map((element) => ({
+      elementId: element.element_id,
+      page: element.page,
+      bbox: element.bbox,
+    }));
+}
+
+function parseSizedChunks(payload: unknown): SizedChunkMeta[] | undefined {
+  if (!isRecord(payload) || !Array.isArray(payload.chunks)) {
+    return undefined;
+  }
+  return payload.chunks
+    .filter(isRecord)
+    .map((chunk) => ({
+      id: String(chunk.id ?? ""),
+      elementIds: Array.isArray(chunk.element_ids)
+        ? chunk.element_ids.map(String)
+        : [],
+      clauseUids: Array.isArray(chunk.clause_uids)
+        ? chunk.clause_uids.map(String)
+        : [],
+    }))
+    .filter((chunk) => chunk.id.length > 0);
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+/**
+ * Возвращает правильную форму русского слова по количеству.
+ * Например: pluralizeRu(1, ["документ", "документа", "документов"]) → "документ"
+ *           pluralizeRu(2, [...]) → "документа"
+ *           pluralizeRu(5, [...]) → "документов"
+ */
+function pluralizeRu(
+  count: number,
+  forms: readonly [string, string, string],
+): string {
+  const abs = Math.abs(count);
+  const mod10 = abs % 10;
+  const mod100 = abs % 100;
+
+  if (mod100 >= 11 && mod100 <= 19) return forms[2];
+  if (mod10 === 1) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4) return forms[1];
+  return forms[2];
+}
+
+/**
+ * Форматирует число + слово в правильном падеже.
+ * Пример: formatCountRu(9, ["проверка", "проверки", "проверок"]) → "9 проверок"
+ */
+function formatCountRu(
+  count: number,
+  forms: readonly [string, string, string],
+): string {
+  return `${count} ${pluralizeRu(count, forms)}`;
+}
+
+// -------------------------------------------------------------
+// DD Grid header summary — компактная строка со статистикой
+// -------------------------------------------------------------
+
+interface DDGridV1SummaryLineProps {
+  documentsCount: number;
+  checksCount: number;
+  findingsCount: number;
+  runtimeColsCount: number;
+  definedCellsCount: number;
+  notDefinedCellsCount: number;
+  errorCellsCount: number;
+  checksMode: string | null;
+  className?: string;
+}
+
+const DDGridV1SummaryLine: React.FC<DDGridV1SummaryLineProps> = ({
+  documentsCount,
+  checksCount,
+  findingsCount,
+  runtimeColsCount,
+  definedCellsCount,
+  notDefinedCellsCount,
+  errorCellsCount,
+  checksMode,
+  className,
+}) => {
+  const docsText = formatCountRu(documentsCount, [
+    "документа",
+    "документов",
+    "документов",
+  ]);
+  const checksText = formatCountRu(checksCount, [
+    "проверка",
+    "проверки",
+    "проверок",
+  ]);
+  const findingsText = `${findingsCount} findings`;
+  const modeText = checksMode || "не указан";
+
+  const tooltip = [
+    `Runtime параметров: ${runtimeColsCount}`,
+    `Ячеек: определено ${definedCellsCount} · не найдено ${notDefinedCellsCount} · ошибок ${errorCellsCount}`,
+  ].join("\n");
+
+  const rootClassName =
+    className ?? "text-sm leading-6 text-[var(--text-secondary)]";
+
+  return (
+    <p className={rootClassName} title={tooltip}>
+      <span>Матрица проверки </span>
+      <span className="font-semibold text-[var(--text-primary)]">
+        {docsText}
+      </span>
+      <span>. Проведено </span>
+      <span className="font-semibold text-[var(--text-primary)]">
+        {checksText}
+      </span>
+      <span>. Выявлено </span>
+      <span className="font-semibold text-[var(--text-primary)]">
+        {findingsText}
+      </span>
+      <span>. Проверка проводилась в режиме: </span>
+      <span className="font-semibold text-[var(--text-primary)]">
+        {modeText}
+      </span>
+      <span>.</span>
+    </p>
+  );
+};
+
+// -------------------------------------------------------------
+// Sub-components
+// -------------------------------------------------------------
+
+const StatusStateCard: React.FC<StatusStateCardProps> = ({
+  title,
+  description,
+  tone = "default",
+}) => {
+  const contentClassName =
+    tone === "error"
+      ? "rounded-xl border border-[var(--color-error)]/20 bg-[var(--color-error)]/10 px-4 py-3 text-sm text-[var(--color-error)]"
+      : "text-sm text-[var(--text-muted)]";
+
+  return (
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+      <div className="px-6 py-10">
+        <div
+          className={
+            tone === "error"
+              ? contentClassName
+              : "flex min-h-[280px] flex-col items-center justify-center text-center"
+          }
+        >
+          <div className={contentClassName}>
+            <div
+              className={
+                tone === "error"
+                  ? undefined
+                  : "text-base font-semibold text-[var(--text-primary)]"
+              }
+            >
+              {title}
+            </div>
+            {description ? (
+              <p
+                className={
+                  tone === "error"
+                    ? "mt-0"
+                    : "mt-2 max-w-md text-sm text-[var(--text-muted)]"
+                }
+              >
+                {description}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const RunMetaWarning: React.FC<RunMetaWarningProps> = ({ visible }) => {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <span>
+        Не удалось загрузить метаданные запуска анализа. DD Grid показан без
+        части run-level метаданных (режим проверок и т.п.).
+      </span>
+    </div>
+  );
+};
+
+const ExportPanel: React.FC<ExportPanelProps> = ({
+  open,
+  findings,
+  dealName,
+  runId,
+}) => {
+  return (
+    <div
+      id="dd-grid-v1-export-panel"
+      aria-hidden={!open}
+      className={`grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${
+        open
+          ? "mt-3 grid-rows-[1fr] opacity-100"
+          : "mt-0 grid-rows-[0fr] opacity-0"
+      }`}
+    >
+      <div className="min-h-0">
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Экспорт findings
+              </p>
+              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                Файл будет сформирован по текущему набору отфильтрованных
+                findings.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <ReviewExportButtons
+                findings={findings}
+                dealName={dealName}
+                runId={runId}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// -------------------------------------------------------------
+// Main component
+// -------------------------------------------------------------
+
+const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
+  const [reviewSelection, setReviewSelection] = React.useState<
+    ReviewSelectionItem[]
+  >([]);
+  const [isExportPanelOpen, setIsExportPanelOpen] = React.useState(false);
+
+  // gridMode теперь читается из zustand store (format)
+  const format = useDDGridV1UIStore((state) => state.format);
+  const gridMode: GridMode = format === "list" ? "list" : "matrix";
+
+  const [showPassInList, setShowPassInList] = React.useState<boolean>(true);
+  const [gridSelectionResetToken, setGridSelectionResetToken] =
+    React.useState<number>(0);
+  const [viewerState, setViewerState] = React.useState<ViewerState>(null);
+  const [isViewerLoading, setIsViewerLoading] = React.useState(false);
+  const [viewerError, setViewerError] = React.useState<string | null>(null);
+
+  const {
+    data: ddGridV1Response,
+    isLoading: isV1Loading,
+    error: v1Error,
+  } = useDealReviewDdGridV1(dealId, runId);
+
+  const { data: run, error: runError } = useRun(runId, false);
+
+  // V1 derived model
+  const v1Model = React.useMemo(
+    () => selectDDGridV1DerivedModel(ddGridV1Response ?? null),
+    [ddGridV1Response],
+  );
+
+  // Legacy-совместимая derived data для существующих UI-компонентов
+  const reviewDerived = React.useMemo(
+    () => adaptDDGridV1ToLegacyReview(v1Model),
+    [v1Model],
+  );
+
+  // Без фильтров: используем raw findings и rows напрямую
+  const filteredReviewFindings = reviewDerived.findings;
+  const filteredReviewRows = reviewDerived.rows;
+
+  const visibleListCellKeys = React.useMemo(
+    () =>
+      new Set(
+        filteredReviewFindings.map(
+          (finding) => `${finding.rowId}::${finding.checkId}`,
+        ),
+      ),
+    [filteredReviewFindings],
+  );
+
+  const selectedReviewFindings = React.useMemo(
+    () => getSelectedReviewFindings(reviewDerived.findings, reviewSelection),
+    [reviewDerived.findings, reviewSelection],
+  );
+
+  const reviewQcCapability = React.useMemo(
+    () => getReviewQcCapability(reviewSelection, selectedReviewFindings, runId),
+    [reviewSelection, selectedReviewFindings, runId],
+  );
+
+  const reviewQcDisabledNote = React.useMemo(
+    () => getReviewQcDisabledNote(reviewQcCapability),
+    [reviewQcCapability],
+  );
+
+  const checksModeLabel = humanChecksMode(run?.checks_mode);
+
+  const resetReviewSelection = React.useCallback(() => {
+    setReviewSelection([]);
+    setGridSelectionResetToken((prev) => prev + 1);
+  }, []);
+
+  const handleReviewSelectionChange = React.useCallback(
+    (selection: ReviewSelectionItem[]) => {
+      setReviewSelection(selection);
+    },
+    [],
+  );
+
+  const handleCloseViewer = React.useCallback(() => {
+    setViewerState(null);
+  }, []);
+
+  const didInitGridModeResetRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!didInitGridModeResetRef.current) {
+      didInitGridModeResetRef.current = true;
+      return;
+    }
+
+    resetReviewSelection();
+  }, [gridMode, resetReviewSelection]);
+
+  const handleToggleExportPanel = React.useCallback(() => {
+    setIsExportPanelOpen((prev) => !prev);
+  }, []);
+
+  const openViewerAt: OpenViewerAtFn = React.useCallback(async (loc) => {
+    try {
+      setViewerError(null);
+      setIsViewerLoading(true);
+
+      // Централизованный client автоматически подставит
+      // Authorization: Bearer <jwt> из localStorage через interceptor.
+      const pdfUrlResponse = await client.get<string>(
+        `/api/v1/documents/${loc.documentId}/converted-pdf-url`,
+        { responseType: "text" },
+      );
+
+      const pdfUrl = pdfUrlResponse.data;
+      if (!pdfUrl || typeof pdfUrl !== "string") {
+        throw new Error("Не удалось получить ссылку на PDF документа");
+      }
+
+      // layout и chunks запрашиваем параллельно, но каждый в try/catch:
+      // если endpoint вернул ошибку — viewer просто откроется без layout hints.
+      const [layoutJson, chunksJson] = await Promise.all([
+        client
+          .get<unknown>(`/api/v1/documents/${loc.documentId}/layout-for-viewer`)
+          .then((r) => r.data)
+          .catch(() => undefined),
+        client
+          .get<unknown>(`/api/v1/documents/${loc.documentId}/sized-chunks`)
+          .then((r) => r.data)
+          .catch(() => undefined),
+      ]);
+
+      setViewerState({
+        location: loc,
+        pdfUrl,
+        layoutElements: parseLayoutElements(layoutJson),
+        sizedChunks: parseSizedChunks(chunksJson),
+      });
+    } catch (error: unknown) {
+      setViewerError(
+        `Ошибка при запросе данных для просмотра документа: ${getErrorMessage(error)}`,
+      );
+    } finally {
+      setIsViewerLoading(false);
+    }
+  }, []);
+
+  if (!runId) {
+    return (
+      <StatusStateCard
+        title="DD Grid станет доступен после запуска анализа"
+        description="Нет выбранного запуска анализа. Сначала запустите анализ на вкладке «Обзор»."
+      />
+    );
+  }
+
+  if (isV1Loading) {
+    return <StatusStateCard title="Загружаем матрицу документов…" />;
+  }
+
+  if (v1Error) {
+    return (
+      <StatusStateCard
+        title="Не удалось загрузить DD Grid V1."
+        tone="error"
+      />
+    );
+  }
+
+  const matrixSectionTitle =
+    gridMode === "matrix" ? "Review DD Matrix" : "Review findings list";
+
+  const matrixSectionSubtitle =
+    gridMode === "matrix"
+      ? "Run-scoped матрица документов и проверок (V1)."
+      : "Плоский список findings из V1 review dataset с фильтрацией и экспортом.";
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+      {/* Warning об отсутствии run metadata — если есть, показываем над секцией */}
+      {runError ? (
+        <div className="shrink-0">
+          <RunMetaWarning visible={true} />
+        </div>
+      ) : null}
+
+      {/* ── Grid section, flex-1, scroll внутри AG Grid ── */}
+      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+        {/* Toolbar — shrink-0 */}
+        <div className="shrink-0">
+          <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-5">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                {matrixSectionTitle}
+              </h2>
+              {gridMode === "matrix" ? (
+                <DDGridV1SummaryLine
+                  documentsCount={v1Model.stats.documentsCount}
+                  checksCount={v1Model.stats.checksCount}
+                  findingsCount={reviewDerived.findings.length}
+                  runtimeColsCount={v1Model.stats.runtimeColumnsCount}
+                  definedCellsCount={v1Model.stats.definedCellsCount}
+                  notDefinedCellsCount={v1Model.stats.notDefinedCellsCount}
+                  errorCellsCount={v1Model.stats.errorCellsCount}
+                  checksMode={checksModeLabel ?? null}
+                  className="mt-0.5 text-[11px] text-[var(--text-muted)]"
+                />
+              ) : (
+                <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                  {matrixSectionSubtitle}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {gridMode === "list" && (
+                <button
+                  type="button"
+                  onClick={() => setShowPassInList((prev) => !prev)}
+                  className={[
+                    "inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                    showPassInList
+                      ? "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-card-hover)]"
+                      : "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-inverse)] shadow-sm",
+                  ].join(" ")}
+                  title={
+                    showPassInList
+                      ? "Скрыть pass результаты"
+                      : "Показать pass результаты"
+                  }
+                >
+                  {showPassInList ? "Скрыть pass" : "Показать pass"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="px-6 pt-3">
+            {/* Настройки отображения + кнопка "Экспорт данных" в правом углу */}
+            <div className="mb-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <DDGridV1ViewSettings />
+                </div>
+
+                <div className="shrink-0 pt-[22px]">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={isExportPanelOpen ? "outline" : "secondary"}
+                    onClick={handleToggleExportPanel}
+                    aria-expanded={isExportPanelOpen}
+                    aria-controls="dd-grid-v1-export-panel"
+                    leftIcon={<Download className="h-4 w-4" />}
+                    rightIcon={
+                      <ChevronRight
+                        className={`h-4 w-4 transition-transform duration-200 ${
+                          isExportPanelOpen ? "rotate-90" : "rotate-0"
+                        }`}
+                      />
+                    }
+                    className={isExportPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""}
+                  >
+                    Экспорт данных
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <ExportPanel
+              open={isExportPanelOpen}
+              findings={filteredReviewFindings}
+              dealName={dealId}
+              runId={runId ?? undefined}
+            />
+
+            {reviewQcCapability.supported && runId ? (
+              <div className="mt-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                    QC: Массовое действие
+                  </h3>
+                  <span className="text-[10px] text-[var(--text-faint)]">
+                    Выберите строки в таблице для применения статуса ко всем findings
+                  </span>
+                </div>
+                <ReviewQcBulkActions
+                  selectedRowsCount={reviewQcCapability.selectedRowsCount}
+                  selectedFindings={selectedReviewFindings}
+                  runId={runId}
+                />
+              </div>
+            ) : reviewQcDisabledNote ? (
+              <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+                {reviewQcDisabledNote}
+              </div>
+            ) : null}
+
+            <div className="mt-4 border-t border-[var(--border-subtle)]" />
+          </div>
+        </div>
+
+        {/* Grid viewport — flex-1, AG Grid scroll inside */}
+        <div className="min-h-0 flex-1 overflow-hidden px-6 py-5">
+          {gridMode === "matrix" ? (
+            <DDGridV1TypedGroups
+              runId={runId}
+              model={v1Model}
+              rows={filteredReviewRows}
+              columns={reviewDerived.columns}
+              onOpenAtLocation={openViewerAt}
+              onSelectionChange={handleReviewSelectionChange}
+              clearSelectionToken={gridSelectionResetToken}
+            />
+          ) : (
+            <DDReviewListGrid
+              key={`review-list:${gridSelectionResetToken}`}
+              runId={runId}
+              rows={reviewDerived.rows}
+              columns={reviewDerived.columns}
+              allowedCellKeys={visibleListCellKeys}
+              includePassResults={showPassInList}
+              onOpenAtLocation={openViewerAt}
+              onSelectionChange={handleReviewSelectionChange}
+            />
+          )}
+        </div>
+      </section>
+
+      <DocumentViewerModal
+        open={Boolean(viewerState)}
+        onClose={handleCloseViewer}
+        fileUrl={viewerState?.pdfUrl ?? null}
+        location={viewerState?.location ?? null}
+        title={viewerError ?? (isViewerLoading ? "Загрузка PDF…" : null)}
+        layoutElements={viewerState?.layoutElements}
+        sizedChunks={viewerState?.sizedChunks}
+      />
+    </div>
+  );
+};
+
+export default DDGridV1TabPage;

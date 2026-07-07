@@ -60,6 +60,23 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     }
   }, [location]);
 
+  // Автоскролл к началу страницы при её смене.
+  // Если у нас есть layout и активный фрагмент — скроллим к нему,
+  // иначе просто скроллим в самый верх, чтобы верх страницы был виден.
+  React.useEffect(() => {
+    if (!open || !containerRef.current) return;
+
+    // Небольшая задержка — ждём рендер новой страницы PDF
+    const timeoutId = window.setTimeout(() => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      container.scrollTop = 0;
+    }, 100);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [open, pageNumber, fileUrl]);
+
   React.useLayoutEffect(() => {
     if (!open) return;
 
@@ -118,6 +135,31 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
         originalHeight: pageData.originalHeight,
       });
     }
+
+    // После рендера страницы — если есть активный фрагмент с bbox,
+    // скроллим контейнер так, чтобы фрагмент был виден с небольшим
+    // offset сверху (для визуального контекста).
+    window.setTimeout(() => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      // Ищем активный overlay на текущей странице
+      const activeOverlay = container.querySelector<HTMLDivElement>(
+        '[data-active-overlay="true"]',
+      );
+
+      if (activeOverlay) {
+        // Скроллим так, чтобы активный элемент был в верхней трети экрана
+        const containerRect = container.getBoundingClientRect();
+        const overlayRect = activeOverlay.getBoundingClientRect();
+        const offsetFromTop = overlayRect.top - containerRect.top;
+        const desiredOffset = containerRect.height * 0.15; // 15% от высоты сверху
+        container.scrollTop += offsetFromTop - desiredOffset;
+      } else {
+        // Если активного фрагмента нет — просто в самый верх страницы
+        container.scrollTop = 0;
+      }
+    }, 150);
   };
 
   const handlePrevPage = () => {
@@ -270,14 +312,14 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
         {/* Body */}
         <div
           ref={containerRef}
-          className="flex flex-1 items-center justify-center overflow-auto bg-[var(--bg-base)]"
+          className="flex flex-1 justify-center overflow-auto bg-[var(--bg-base)] p-3"
         >
           {!fileUrl ? (
             <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[color:rgb(161,53,68)]">
               Не удалось получить ссылку на PDF.
             </div>
           ) : (
-            <div className="bg-[var(--bg-elevated-soft)] p-3">
+            <div className="bg-[var(--bg-elevated-soft)]">
               <Document
                 file={fileUrl}
                 onLoadSuccess={handleDocumentLoad}
@@ -330,6 +372,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                           <div
                             key={i}
                             className={bgClass}
+                            data-active-overlay={isActive ? "true" : undefined}
                             style={{
                               position: "absolute",
                               left,
