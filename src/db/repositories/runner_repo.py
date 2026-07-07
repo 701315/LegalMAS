@@ -220,6 +220,8 @@ class RunnerRepository:
                     "review_status": r.review_status,
                     "review_message": r.review_message,
                     "needs_manual_review": bool(r.needs_manual_review or False),
+                    # Execution technical status — нужен для cell_state в DD Grid V1
+                    "execution_status": r.execution_status or "PENDING",
                 }
             )
 

@@ -426,4 +426,238 @@ class DocumentStructuredDataDTO(BaseModel):
     total_values: int
     values: list[ExtractedValueDTO]
 
+    # ---------------------------------------------------------------------------
+# DD Grid V1 API DTO
+# ---------------------------------------------------------------------------
+
+
+class DDGridCellValueDTO(BaseModel):
+    """
+    Значение одной ячейки DD Grid V1.
+
+    Ячейка = пересечение (document_id, column_id).
+    column_id формат: '{check_id}__{field_key}'.
+
+    cell_state:
+      defined         — значение найдено, display_value форматировано по column.format.
+      not_defined     — check выполнен, но значение не найдено.
+      not_applicable  — check не применим к doc_type документа.
+      not_executed    — check не выполнялся для этого документа.
+      error           — техническая ошибка выполнения check.
+
+    Location:
+      has_location_fallback=false + clause_ref/page → exact pinpoint.
+      has_location_fallback=true → approximate / check-level fallback.
+      clause_ref и page могут быть null при fallback.
+      location_confidence: 'high' (exact) или 'low' (fallback).
+    """
+
+    cell_state: str
+    """defined | not_defined | not_applicable | not_executed | error"""
+
+    display_value: str
+    """Готовый текст для отображения в ячейке. Форматирован по column.format."""
+
+    raw_value: Any = None
+    """Сырое значение из structured_data (для tooltip / drill-down)."""
+
+    location_clause_ref: str | None = None
+    """Ссылка на клаузу (напр. 'п. 22'). None при fallback без pinpoint."""
+
+    location_page: int | None = None
+    """Номер страницы в документе. None при fallback без pinpoint."""
+
+    location_confidence: str | None = None
+    """'high' — exact; 'low' — fallback. None если location отсутствует."""
+
+    has_location_fallback: bool = False
+    """True если location из check-level fallback, а не из LLM per-field extraction."""
+
+    location_fallback_reason: str | None = None
+    """Причина fallback (напр. 'LLM не указал точную ссылку для поля')."""
+
+
+class DDGridDrawerFieldDTO(BaseModel):
+    """Детализация одной колонки в drawer."""
+
+    column_id: str
+    field_name: str
+    label: str
+    cell_state: str
+    display_value: str
+    raw_value: Any = None
+    location_clause_ref: str | None = None
+    location_page: int | None = None
+    location_confidence: str | None = None
+    has_location_fallback: bool = False
+    location_fallback_reason: str | None = None
+
+
+class DDGridDrawerDTO(BaseModel):
+    """
+    Содержимое drawer для одного (document_id, check_id).
+
+    Показывается при клике на ячейку / строку DD Grid.
+
+    reason: объяснение результата. Precedence:
+      1. metadata field 'reason'
+      2. metadata field 'explanation'
+      3. metadata field 'notes'
+      4. review_message (из CheckResult)
+      5. display_text (из CheckResult)
+      Reason-like поля не дублируются в evidence_items.
+
+    fields: детализация по каждой runtime-колонке check.
+      cell_state, display_value, raw_value, location (exact или fallback).
+
+    evidence_items: список evidence-ссылок из EVIDENCE_LIST полей.
+      reason/explanation/notes не попадают сюда.
+
+    cell_state: сводный cell_state по всем columns check.
+      Priority: error > defined > not_defined > not_executed > not_applicable.
+    """
+
+    check_id: str
+    check_name: str
+    document_id: str
+    cell_state: str
+    reason: str | None = None
+    review_status: str | None = None
+    review_message: str | None = None
+    display_text: str | None = None
+    execution_status: str | None = None
+    fields: list[DDGridDrawerFieldDTO] = []
+    evidence_items: list[str] = []
+
+
+class DDGridColumnDTO(BaseModel):
+    """
+    Описание одной колонки DD Grid V1.
+
+    Используется фронтом для рендеринга заголовков и выбора renderer.
+
+    column_id формат: '{check_id}__{field_key}'.
+    check_id: идентификатор check (часть column_id до '__').
+
+    format:
+      text           — plain string, + unit если задан.
+      enum           — lookup: enum_labels[raw_value] → display string.
+      yes_no         — boolean: 'Да' / 'Нет'.
+      presence_only  — наличие: 'Присутствует'.
+
+    fallback_display: текст ячейки при not_defined / not_executed (обычно '—').
+    display_order: порядок колонки слева направо. Меньше = раньше.
+    enum_labels: {canonical_value: human_label}. Пусто для non-enum колонок.
+    unit: единица измерения (напр. 'дней', 'RUB'). None если не задано.
+    """
+
+    column_id: str
+    check_id: str
+    label: str
+    format: str
+    """text | enum | yes_no | presence_only"""
+
+    fallback_display: str
+    display_order: int
+    enum_labels: dict[str, str] = {}
+    unit: str | None = None
+
+
+class DDGridCheckSubgroupDTO(BaseModel):
+    """Один check как колонка-группа в DD Grid V1."""
+
+    check_id: str
+    check_name: str
+    display_order: int
+    columns: list[DDGridColumnDTO]
+    display_summary_field: str | None = None
+    metadata_fields: list[str] = []
+
+
+class DDGridGlobalGroupDTO(BaseModel):
+    """Группа глобальных проверок в DD Grid V1."""
+
+    group_id: str
+    label: str
+    display_order: int
+    checks: list[DDGridCheckSubgroupDTO]
+
+
+class DDGridDocTypeNodeDTO(BaseModel):
+    """Один тип документа внутри doc-type class."""
+
+    type_code: str
+    name: str
+    checks: list[DDGridCheckSubgroupDTO]
+
+
+class DDGridDocTypeClassDTO(BaseModel):
+    """Группа типов документов из registry."""
+
+    group_id: str
+    label: str
+    display_order: int
+    types: list[DDGridDocTypeNodeDTO]
+
+
+class DDGridDocumentMetaDTO(BaseModel):
+    """Метаданные документа для DD Grid V1."""
+
+    document_id: str
+    filename: str
+    doc_type: str | None = None
+    status: str
+    folder_path: str | None = None
+
+
+class DDGridV1ResponseDTO(BaseModel):
+    """
+    Полная иерархическая структура DD Grid V1 для одного run.
+
+    Endpoint: GET /deals/{deal_id}/runs/{run_id}/dd-grid-v1
+
+    Структура:
+    - global_groups: иерархия глобальных проверок
+      (group → checks → columns). Сортировка: display_order → label.
+    - doc_type_classes: иерархия по типам документов
+      (registry group → type → checks). Пустые ветки скрыты.
+    - column_registry: все runtime-колонки (column_id → spec).
+      column_id формат: '{check_id}__{field_key}'.
+    - cell_values: {doc_id: {column_id: CellValueDTO}}.
+      Ячейка = пересечение документа и runtime-колонки.
+    - drawer_contents: {doc_id: {check_id: DrawerDTO}}.
+      Drawer = детальная панель при клике на ячейку.
+    - documents_meta: метаданные документов, отсортированы по filename.
+
+    Cell states:
+      defined         — значение найдено, display_value форматировано.
+      not_defined     — check выполнен, значение не найдено.
+      not_applicable  — check не применим к doc_type документа.
+      not_executed    — check не выполнялся для этого документа.
+      error           — техническая ошибка выполнения.
+
+    Location contract:
+      has_location_fallback=false + clause_ref/page → exact pinpoint.
+      has_location_fallback=true → approximate / unavailable (conf='low').
+      clause_ref/page могут быть null при fallback.
+
+    См. docs/dd_grid_v1_contract.md для полного API contract.
+    """
+
+    deal_id: str
+    run_id: str
+
+    global_groups: list[DDGridGlobalGroupDTO]
+    doc_type_classes: list[DDGridDocTypeClassDTO]
+    column_registry: dict[str, DDGridColumnDTO]
+    cell_values: dict[str, dict[str, DDGridCellValueDTO]]
+    drawer_contents: dict[str, dict[str, DDGridDrawerDTO]]
+    documents_meta: list[DDGridDocumentMetaDTO]
+
+
+    
+
+
+
+
     

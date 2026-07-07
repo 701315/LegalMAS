@@ -41,6 +41,7 @@ from db.repositories.run_repo import RunRepository
 from db.session import get_db
 from services.deal_review_service import (
     build_conditional_checks,
+    build_dd_grid_v1_response,
     build_dd_matrix,
     build_dd_requests,
     build_document_detail,
@@ -51,6 +52,7 @@ from services.deal_review_service import (
 
 from ..schemas.deal_review import (
     ConditionalCheckDTO,
+    DDGridV1ResponseDTO,
     DDMatrixResponseDTO,
     DDRequestDTO,
     DocumentDetailDTO,
@@ -58,6 +60,8 @@ from ..schemas.deal_review import (
     DocumentSummaryDTO,
     ExtractedValueDTO,
 )
+
+
 
 router = APIRouter(prefix="/deals", tags=["deal_review"])
 
@@ -347,3 +351,65 @@ async def get_dd_matrix(
     )
     agg, documents = await load_aggregated_results(deal_id, run_id)
     return build_dd_matrix(agg, documents)
+
+@router.get(
+    "/{deal_id}/runs/{run_id}/dd-grid-v1",
+    response_model=DDGridV1ResponseDTO,
+    summary="DD Grid V1 — иерархическое представление (groups → columns → cells)",
+)
+async def get_dd_grid_v1(
+    deal_id: str,
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    DD Grid V1: полная иерархическая структура DD-проверок для нового UI.
+
+    Возвращает DDGridV1ResponseDTO — готовую структуру для рендеринга
+    DD Grid без дополнительных запросов к серверу.
+
+    Отличия от /dd-matrix:
+    - иерархия global_groups (group → checks → columns)
+    - иерархия doc_type_classes (registry groups → types → checks)
+    - cell_values с cell_state:
+        defined         — значение найдено, display_value форматировано.
+        not_defined     — check выполнен, значение не найдено.
+        not_applicable  — check не применим к doc_type документа.
+        not_executed    — check не выполнялся для этого документа.
+        error           — техническая ошибка выполнения.
+    - drawer_contents с reason + field details + evidence + location.
+    - location propagation:
+        exact (high confidence) — clause_ref + page из LLM extraction.
+        fallback (low confidence) — check-level ref или null.
+
+    Column formats:
+      text           — plain string (+ unit если задан).
+      enum           — lookup enum_labels[raw_value].
+      yes_no         — 'Да' / 'Нет'.
+      presence_only  — 'Присутствует'.
+
+    Drawer reason precedence:
+      1. metadata field 'reason'
+      2. metadata field 'explanation'
+      3. metadata field 'notes'
+      4. review_message (CheckResult)
+      5. display_text (CheckResult)
+
+    Полный API contract: docs/dd_grid_v1_contract.md
+
+    Доступ: viewer / editor / admin проекта.
+    """
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=uuid.UUID(deal_id),
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+    try:
+        return await build_dd_grid_v1_response(deal_id=deal_id, run_id=run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    
+
+    

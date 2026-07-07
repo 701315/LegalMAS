@@ -396,4 +396,169 @@ class TestCheckDefinitionValidatorWithNewFields:
         assert check.display_order == 0
 
 
+# ---------------------------------------------------------------------------
+# Tests: extraction field naming contract validation (Вариант 3 — hardening)
+# ---------------------------------------------------------------------------
+
+
+def _make_extraction_field(
+    name: str,
+    *,
+    field_type: ExtractionFieldType = ExtractionFieldType.STRING,
+    allowed_values=None,
+) -> ExtractionFieldConfig:
+    kwargs = {"name": name, "type": field_type}
+    if allowed_values is not None:
+        kwargs["allowed_values"] = allowed_values
+    return ExtractionFieldConfig(**kwargs)
+
+
+def test_extraction_config_rejects_duplicate_field_names() -> None:
+    """Два поля с одинаковым name должны быть отвергнуты валидатором."""
+    with pytest.raises(ValueError, match="дублирующиеся имена"):
+        ExtractionConfig(
+            enabled=True,
+            fields=[
+                _make_extraction_field("payment_method"),
+                _make_extraction_field("payment_method"),
+            ],
+        )
+
+
+def test_extraction_config_rejects_singleton_prefix_conflicting_with_paired_status() -> None:
+    """
+    YAML содержит и singleton 'payment_method', и paired 'payment_method_status'.
+    Оба сгенерируют одинаковый column_id → должно быть отвергнуто.
+    """
+    with pytest.raises(ValueError, match="naming contract"):
+        ExtractionConfig(
+            enabled=True,
+            fields=[
+                _make_extraction_field(
+                    "payment_method_status",
+                    allowed_values=["specified", "unspecified"],
+                ),
+                _make_extraction_field(
+                    "payment_method",
+                    allowed_values=["cash", "transfer"],
+                ),
+            ],
+        )
+
+
+def test_extraction_config_rejects_singleton_prefix_conflicting_with_paired_details() -> None:
+    """Аналогично для paired '_details' суффикса."""
+    with pytest.raises(ValueError, match="naming contract"):
+        ExtractionConfig(
+            enabled=True,
+            fields=[
+                _make_extraction_field(
+                    "notice_status",
+                    allowed_values=["present", "missing"],
+                ),
+                _make_extraction_field("notice_details"),
+                _make_extraction_field("notice"),
+            ],
+        )
+
+
+def test_extraction_config_rejects_singleton_prefix_conflicting_with_paired_value() -> None:
+    """Аналогично для paired '_value' суффикса."""
+    with pytest.raises(ValueError, match="naming contract"):
+        ExtractionConfig(
+            enabled=True,
+            fields=[
+                _make_extraction_field(
+                    "governing_law_status",
+                    allowed_values=["specified", "unspecified"],
+                ),
+                _make_extraction_field("governing_law_value"),
+                _make_extraction_field(
+                    "governing_law",
+                    allowed_values=["RU", "EN"],
+                ),
+            ],
+        )
+
+
+def test_extraction_config_allows_clean_paired_pattern() -> None:
+    """Правильно оформленная paired пара без singleton-конфликта проходит валидацию."""
+    cfg = ExtractionConfig(
+        enabled=True,
+        fields=[
+            _make_extraction_field(
+                "notice_status",
+                allowed_values=["present", "missing"],
+            ),
+            _make_extraction_field("notice_details"),
+        ],
+    )
+    assert len(cfg.fields) == 2
+
+
+def test_extraction_config_allows_clean_singleton_fields() -> None:
+    """Только singleton поля без парных суффиксов проходят валидацию."""
+    cfg = ExtractionConfig(
+        enabled=True,
+        fields=[
+            _make_extraction_field("cadastral_number"),
+            _make_extraction_field("area_sqm"),
+            _make_extraction_field(
+                "object_type",
+                allowed_values=["land_plot", "building"],
+            ),
+        ],
+    )
+    assert len(cfg.fields) == 3
+
+
+def test_extraction_config_allows_multiple_paired_pairs_without_conflicts() -> None:
+    """Несколько парных pairs без конфликтов проходят валидацию."""
+    cfg = ExtractionConfig(
+        enabled=True,
+        fields=[
+            _make_extraction_field(
+                "notice_status", allowed_values=["present", "missing"]
+            ),
+            _make_extraction_field("notice_details"),
+            _make_extraction_field(
+                "consent_status", allowed_values=["yes", "no"]
+            ),
+            _make_extraction_field("consent_details"),
+        ],
+    )
+    assert len(cfg.fields) == 4
+
+
+def test_extraction_config_skips_validation_when_disabled() -> None:
+    """При extraction.enabled=False валидатор не срабатывает."""
+    cfg = ExtractionConfig(enabled=False, fields=[])
+    assert cfg.enabled is False
+
+
+def test_extraction_config_skips_validation_when_fields_empty() -> None:
+    """Пустой fields (при enabled=False) не должен ломать валидатор."""
+    cfg = ExtractionConfig(enabled=False)
+    assert cfg.fields == []
+
+
+def test_extraction_config_error_message_lists_conflicting_fields() -> None:
+    """Сообщение об ошибке должно содержать имена конфликтующих полей."""
+    with pytest.raises(ValueError) as exc_info:
+        ExtractionConfig(
+            enabled=True,
+            fields=[
+                _make_extraction_field(
+                    "payment_method_status", allowed_values=["specified"]
+                ),
+                _make_extraction_field("payment_method_details"),
+                _make_extraction_field(
+                    "payment_method", allowed_values=["cash", "transfer"]
+                ),
+            ],
+        )
+    msg = str(exc_info.value)
+    assert "payment_method" in msg
+    assert "payment_method_status" in msg or "payment_method_details" in msg
+    
         

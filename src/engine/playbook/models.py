@@ -732,6 +732,95 @@ class ExtractionConfig(BaseModel):
         return v
 
 
+
+    @model_validator(mode="after")
+    def _validate_field_naming_contract(self) -> "ExtractionConfig":
+        """
+        Строгая валидация naming contract для extraction fields.
+
+        Предотвращает конфликты column_id в DD Grid runtime, ловит ошибки
+        YAML fail-fast при loading playbook, а не в момент рендеринга grid.
+
+        Проверяет два класса ошибок:
+
+        1. Duplicate field names:
+           Два ExtractionFieldConfig с одинаковым name в одном check.
+
+        2. Paired vs singleton column_id collision:
+           Если YAML содержит и paired поля (<prefix>_status / _details / _value),
+           и singleton поле с именем = <prefix>, то column_id в grid совпадёт:
+           - paired column: {check_id}__{prefix}
+           - singleton column: {check_id}__{prefix}
+           → runtime не может различить эти колонки.
+
+        Это нарушение universal naming contract:
+        - <prefix>_status — только парный статус (paired suffix)
+        - <prefix>_details — только парное описание (paired suffix)
+        - <prefix>_value — только парное значение (paired suffix)
+        - <prefix> — singleton поле (запрещено при наличии парных суффиксов)
+
+        Если extraction disabled или fields пустой — валидация пропускается.
+
+        Raises:
+            ValueError: с подробным описанием конфликтующих полей.
+        """
+        if not self.enabled or not self.fields:
+            return self
+
+        # 1. Duplicate field names
+        seen_names: dict[str, int] = {}
+        for field_cfg in self.fields:
+            seen_names[field_cfg.name] = seen_names.get(field_cfg.name, 0) + 1
+
+        duplicates = sorted(name for name, cnt in seen_names.items() if cnt > 1)
+        if duplicates:
+            raise ValueError(
+                f"extraction.fields содержит дублирующиеся имена: {duplicates}. "
+                f"Каждое поле должно иметь уникальное name."
+            )
+
+        # 2. Paired vs singleton column_id collision
+        paired_suffixes = ("_status", "_details", "_value")
+        all_names = set(seen_names.keys())
+
+        # Собираем все paired-префиксы
+        paired_prefixes: set[str] = set()
+        for name in all_names:
+            for suffix in paired_suffixes:
+                if name.endswith(suffix):
+                    prefix = name[: -len(suffix)]
+                    if prefix:
+                        paired_prefixes.add(prefix)
+                    break
+
+        # Ищем singleton поля, чьи имена = prefix парных полей
+        conflicts: list[tuple[str, list[str]]] = []
+        for prefix in sorted(paired_prefixes):
+            if prefix in all_names:
+                # Собираем все paired suffixes для этого prefix для диагностики
+                related_paired = sorted(
+                    name for name in all_names
+                    if any(name == f"{prefix}{suf}" for suf in paired_suffixes)
+                )
+                conflicts.append((prefix, related_paired))
+
+        if conflicts:
+            details = "; ".join(
+                f"singleton '{singleton}' конфликтует с paired {paired}"
+                for singleton, paired in conflicts
+            )
+            raise ValueError(
+                f"extraction.fields нарушают DD Grid naming contract: {details}. "
+                f"Singleton поле не может иметь то же имя, что и prefix парных полей. "
+                f"Переименуйте singleton поле или удалите paired-суффиксы. "
+                f"Naming contract: <prefix>_status/_details/_value используются "
+                f"ТОЛЬКО для парных полей; singleton поля должны иметь "
+                f"отличающиеся имена."
+            )
+
+        return self
+
+
 # ────────────────────────── CHECK & PLAYBOOK ─────────────────────────
 
 
