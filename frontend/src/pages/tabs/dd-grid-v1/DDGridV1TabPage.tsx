@@ -23,8 +23,8 @@ import {
 import { useDealReviewDdGridV1 } from "../../../api/dealReview";
 import { useRun } from "../../../api/runs";
 import client from "../../../api/client";
-import DDReviewListGrid from "../../../components/grid/DDReviewListGrid";
 import DDGridV1TypedGroups from "./DDGridV1TypedGroups";
+import DDGridV1List from "./DDGridV1List";
 import DDGridV1ViewSettings from "./DDGridV1ViewSettings";
 import { useDDGridV1UIStore } from "./ddGridV1.collapseStore";
 import Button from "../../../components/ui/Button";
@@ -379,6 +379,9 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const format = useDDGridV1UIStore((state) => state.format);
   const gridMode: GridMode = format === "list" ? "list" : "matrix";
 
+  // checksScope из store — используется для фильтрации в list mode
+  const checksScope = useDDGridV1UIStore((state) => state.checksScope);
+
   const [showPassInList, setShowPassInList] = React.useState<boolean>(true);
   const [gridSelectionResetToken, setGridSelectionResetToken] =
     React.useState<number>(0);
@@ -410,15 +413,44 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const filteredReviewFindings = reviewDerived.findings;
   const filteredReviewRows = reviewDerived.rows;
 
-  const visibleListCellKeys = React.useMemo(
-    () =>
-      new Set(
-        filteredReviewFindings.map(
-          (finding) => `${finding.rowId}::${finding.checkId}`,
-        ),
-      ),
-    [filteredReviewFindings],
-  );
+  // Компактный список visibleCheckIds для V1 List (аналогично тому,
+  // что делает DDGridV1TypedGroups для matrix)
+  const listVisibleCheckIds = React.useMemo<string[] | undefined>(() => {
+    if (checksScope === "all") return undefined;
+
+    const globalIds = new Set<string>();
+    const docTypeIds = new Set<string>();
+
+    for (const group of v1Model.globalGroups) {
+      for (const check of group.checks) {
+        globalIds.add(check.checkId);
+      }
+    }
+    for (const cls of v1Model.docTypeClasses) {
+      for (const t of cls.types) {
+        for (const check of t.checks) {
+          docTypeIds.add(check.checkId);
+        }
+      }
+    }
+
+    if (checksScope === "global_only") {
+      return Array.from(globalIds);
+    }
+    if (checksScope === "doc_type_only") {
+      // doc_type_only = все doc-type checks, кроме тех, что также
+      // помечены как global (при пересечении global выигрывает)
+      const result: string[] = [];
+      for (const id of docTypeIds) {
+        if (!globalIds.has(id)) result.push(id);
+      }
+      return result;
+    }
+    return undefined;
+  }, [checksScope, v1Model]);
+
+  // visibleListCellKeys больше не нужен — новый V1 List читает данные
+  // напрямую из V1 модели и фильтрует по visibleCheckIds.
 
   const selectedReviewFindings = React.useMemo(
     () => getSelectedReviewFindings(reviewDerived.findings, reviewSelection),
@@ -681,15 +713,17 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               clearSelectionToken={gridSelectionResetToken}
             />
           ) : (
-            <DDReviewListGrid
-              key={`review-list:${gridSelectionResetToken}`}
+            <DDGridV1List
+              key={`review-list-v1:${gridSelectionResetToken}`}
               runId={runId}
+              model={v1Model}
               rows={reviewDerived.rows}
               columns={reviewDerived.columns}
-              allowedCellKeys={visibleListCellKeys}
+              visibleCheckIds={listVisibleCheckIds}
               includePassResults={showPassInList}
               onOpenAtLocation={openViewerAt}
               onSelectionChange={handleReviewSelectionChange}
+              clearSelectionToken={gridSelectionResetToken}
             />
           )}
         </div>

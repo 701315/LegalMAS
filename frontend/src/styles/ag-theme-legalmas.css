@@ -317,3 +317,16 @@
 }
 
 
+/* -------------------------------------------------------------
+   V1 List: подсветка активной строки при открытии drawer
+   ------------------------------------------------------------- */
+
+.ag-theme-legalmas .ag-row.ag-row-active-v1 {
+  background-color: color-mix(in srgb, var(--accent-primary) 10%, transparent) !important;
+  border-left: 3px solid var(--accent-primary) !important;
+}
+
+.ag-theme-legalmas .ag-row.ag-row-active-v1:hover {
+  background-color: color-mix(in srgb, var(--accent-primary) 15%, transparent) !important;
+}
+
