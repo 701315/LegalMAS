@@ -1114,12 +1114,14 @@ class CheckExecutor:
                 retrieved_chunks,
                 max_items=5,
             )
-            structured_data = self.extractor.run(
+            extraction_result = self.extractor.run_with_telemetry(
                 doc=doc,
                 check=check,
                 contexts=extraction_contexts,
                 detection=detection,
             )
+            structured_data = extraction_result.structured_data
+            extraction_telemetry = extraction_result.telemetry
         except Exception as e:
             logger.exception(
                 "CheckExecutor: ExtractionExecutor failed",
@@ -1129,6 +1131,13 @@ class CheckExecutor:
                 },
             )
             raw_details.setdefault("extraction_error", str(e))
+            structured_data = None
+            extraction_telemetry = {
+                "extraction_mode": None,
+                "extraction_llm_invoked": False,
+                "error_type": "unexpected_exception",
+                "error_message": str(e),
+            }
 
         # ------------------------------------------------------------------
         # Business-result mapping
@@ -1240,8 +1249,38 @@ class CheckExecutor:
         # Metrics
         # ------------------------------------------------------------------
         detector_label = detector_method or "unknown"
+        duration = time.time() - start_time
+        check_duration_ms = int(duration * 1000)
+
+        raw_details.setdefault("duration_ms", check_duration_ms)
+
+        if isinstance(extraction_telemetry, dict):
+            raw_details.setdefault("extraction_mode", extraction_telemetry.get("extraction_mode"))
+            raw_details.setdefault(
+                "extraction_llm_invoked",
+                extraction_telemetry.get("extraction_llm_invoked"),
+            )
+
+            # If extraction telemetry contains real LLM runtime metadata,
+            # expose aggregate flattened keys for persistence/read-path.
+            if extraction_telemetry.get("model"):
+                raw_details["model"] = extraction_telemetry.get("model")
+            if extraction_telemetry.get("provider"):
+                raw_details["provider"] = extraction_telemetry.get("provider")
+            if extraction_telemetry.get("tokens_used") is not None:
+                raw_details["tokens_used"] = extraction_telemetry.get("tokens_used")
+            if extraction_telemetry.get("prompt_tokens") is not None:
+                raw_details["prompt_tokens"] = extraction_telemetry.get("prompt_tokens")
+            if extraction_telemetry.get("completion_tokens") is not None:
+                raw_details["completion_tokens"] = extraction_telemetry.get("completion_tokens")
+            if extraction_telemetry.get("llm_attempts") is not None:
+                raw_details["llm_attempts"] = extraction_telemetry.get("llm_attempts")
+            if extraction_telemetry.get("parse_success") is not None:
+                raw_details["parse_success"] = extraction_telemetry.get("parse_success")
+
+            raw_details.setdefault("extraction_telemetry", extraction_telemetry)
+
         try:
-            duration = time.time() - start_time
             METRICS.check_duration.labels(detector_type=detector_label).observe(duration)
             METRICS.checks_executed.labels(
                 detector_type=detector_label,

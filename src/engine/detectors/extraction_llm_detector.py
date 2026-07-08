@@ -143,6 +143,8 @@ from __future__ import annotations
 
 import json
 import os
+import time
+from dataclasses import dataclass
 from typing import Any
 
 from core.config import settings
@@ -154,7 +156,11 @@ from engine.extraction_normalization import (
     normalize_to_allowed_values,
 )
 
-from ..llm.client import LLMClient, _extract_json
+from ..llm.client import (
+    LLMClient,
+    _extract_json,
+    build_llm_telemetry_from_response,
+)
 from ..playbook.models import (
     CheckDefinition,
     ExtractionConfig,
@@ -177,6 +183,23 @@ EXTRACTION_FALLBACK_META_PATH = os.path.join(
     "playbooks",
     "extraction_fallback_meta_ru.txt",
 )
+
+@dataclass(slots=True)
+class ExtractionLLMExtractionResult:
+    """
+    Typed result of extraction LLM call.
+
+    fields:
+        normalized extraction fields compatible with structured_data payload.
+
+    telemetry:
+        normalized observability metadata for this LLM extraction call.
+        None when LLM was not invoked or data is unavailable.
+    """
+
+    fields: dict[str, dict[str, Any]]
+    telemetry: dict[str, Any] | None = None
+
 
 def _salvage_partial_json(text: str) -> dict | None:
     """
@@ -370,47 +393,39 @@ class ExtractionLLMDetector:
         context_pages: list[int] | None = None,
     ) -> dict[str, dict[str, Any]]:
         """
-        Выполнить LLM-извлечение structured_data.
+        Backward-compatible wrapper over extract_with_telemetry().
 
-        Возвращает словарь вида:
-        {
-            "field_name": {"value": ..., "confidence": 0.0-1.0},
-            ...
-        }
-        или пустой dict при ошибке/отсутствии данных.
+        Возвращает только fields payload, сохраняя старый публичный контракт.
+        """
+        return self.extract_with_telemetry(
+            check=check,
+            text=text,
+            context_pages=context_pages,
+        ).fields
 
-        Архитектура бюджетирования токенов
-        -----------------------------------
-        Правильный порядок операций:
-        1. Собрать скелет промпта БЕЗ context (с пустым placeholder).
-        2. Измерить реальный размер скелета — это и есть overhead.
-        3. Вычесть overhead + max_tokens + safety из n_ctx → остаток под context.
-        4. Если остаток <= MIN_CONTEXT_WORDS — вернуть {} с предупреждением
-            (скелет не помещается; нужно упрощать llm_prompt_extraction чека).
-        5. Обрезать context по остатку.
-        6. Собрать финальный промпт с реальным context.
+    def extract_with_telemetry(
+        self,
+        check: CheckDefinition,
+        text: str,
+        context_pages: list[int] | None = None,
+    ) -> ExtractionLLMExtractionResult:
+        """
+        Выполнить LLM-извлечение structured_data с telemetry.
 
-        Почему НЕ используем старый хардкод _template_overhead = 300 слов:
-        - Реальный overhead для governing_law_and_forum без context = 1119 слов.
-        - Хардкод недооценивал в 3.7x, что приводило к overflow контекстного окна.
-
-        Почему коэффициент 3.8, а не 2.5:
-        - count_tokens() использует CYRILLIC_TOKEN_FACTOR = 2.5 (слово → токены).
-        - Для Qwen2.5 SentencePiece на юридическом русском реальный коэффициент
-            3.5–4.0 токена на слово (кириллица в UTF-8 → субтокены).
-        - 3.8 — консервативная оценка, даёт запас ~5–10% от реального значения.
-        - Долгосрочно нужно заменить на llm_model.tokenize() для точного подсчёта.
+        Возвращает typed result:
+        - fields: normalized extraction payload
+        - telemetry: normalized LLM observability metadata
         """
         extraction_cfg: ExtractionConfig | None = getattr(check, "extraction", None)
         if not extraction_cfg or not extraction_cfg.enabled:
-            return {}
+            return ExtractionLLMExtractionResult(fields={}, telemetry=None)
 
         if not self.client.is_available():
             logger.debug("LLM not available for extraction")
-            return {}
+            return ExtractionLLMExtractionResult(fields={}, telemetry=None)
 
         if not text.strip():
-            return {}
+            return ExtractionLLMExtractionResult(fields={}, telemetry=None)
 
         # ------------------------------------------------------------------
         # 1. БЮДЖЕТ: читаем лимиты из settings один раз
@@ -464,7 +479,7 @@ class ExtractionLLMDetector:
                     available_for_context=available_for_context,
                     min_context_tokens=_min_context_tokens,
                 )
-                return {}
+                return ExtractionLLMExtractionResult(fields={}, telemetry=None)
 
             # ------------------------------------------------------------------
             # 4. ОБРЕЗКА CONTEXT: по реальному остатку бюджета.
@@ -502,6 +517,7 @@ class ExtractionLLMDetector:
                 getattr(settings, "LLM_EXTRACTION_MAX_TOKENS", 512)
             )
 
+        llm_started_at = time.time()
         response, error_details = self.client.call_with_retries(
             prompt=prompt,
             temperature=0.0,
@@ -509,6 +525,8 @@ class ExtractionLLMDetector:
             grammar_path=grammar_path,
             response_format="json_object",  # P8.5: Ollama JSON mode
         )
+        llm_duration_ms = int((time.time() - llm_started_at) * 1000)
+
         if response is None:
             logger.warning(
                 "LLM extraction call failed",
@@ -516,15 +534,42 @@ class ExtractionLLMDetector:
                 error_message=error_details.get("error_message"),
                 attempts=error_details.get("llm_attempts"),
             )
-            return {}
+            return ExtractionLLMExtractionResult(
+                fields={},
+                telemetry={
+                    "llm_invoked": True,
+                    "provider": None,
+                    "model": None,
+                    "tokens_used": None,
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "duration_ms": llm_duration_ms,
+                    "llm_attempts": error_details.get("llm_attempts"),
+                    "parse_success": None,
+                    "error_type": error_details.get("error_type"),
+                    "error_message": error_details.get("error_message"),
+                },
+            )
 
         if not response.text.strip():
-            return {}
+            telemetry = build_llm_telemetry_from_response(
+                response,
+                duration_ms=llm_duration_ms,
+                llm_attempts=error_details.get("llm_attempts"),
+            )
+            telemetry["llm_invoked"] = True
+            return ExtractionLLMExtractionResult(fields={}, telemetry=telemetry)
 
         # 6) парсим JSON в "сырую" структуру
         raw_fields = self._parse_response(response.text)
         if not raw_fields:
-            return {}
+            telemetry = build_llm_telemetry_from_response(
+                response,
+                duration_ms=llm_duration_ms,
+                llm_attempts=error_details.get("llm_attempts"),
+            )
+            telemetry["llm_invoked"] = True
+            return ExtractionLLMExtractionResult(fields={}, telemetry=telemetry)
 
         # 7) нормализуем значения по схеме extraction_cfg
         normalized = self._normalize_fields(raw_fields, extraction_cfg)
@@ -571,7 +616,16 @@ class ExtractionLLMDetector:
             else:
                 payload.pop("location_fallback", None)
 
-        return normalized
+        telemetry = build_llm_telemetry_from_response(
+            response,
+            duration_ms=llm_duration_ms,
+            llm_attempts=error_details.get("llm_attempts"),
+        )
+        telemetry["llm_invoked"] = True
+        return ExtractionLLMExtractionResult(
+            fields=normalized,
+            telemetry=telemetry,
+        )
 
     # -------------------------------------------------------------------------
     # PROMPT GENERATION

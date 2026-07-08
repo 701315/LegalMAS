@@ -19,6 +19,7 @@ DD Grid V1 Builder.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -32,6 +33,13 @@ logger = get_logger(__name__)
 _ERROR_STATUSES: frozenset[str] = frozenset(
     {"FAILED", "TIMEOUT", "COMPUTE_FAILED", "PERSIST_FAILED"}
 )
+_FAILED_EXECUTION_STATUSES: frozenset[str] = frozenset(
+    {"FAILED", "COMPUTE_FAILED", "PERSIST_FAILED"}
+)
+_TIMEOUT_EXECUTION_STATUSES: frozenset[str] = frozenset({"TIMEOUT"})
+_NON_TERMINAL_EXECUTION_STATUSES: frozenset[str] = frozenset({"PENDING", "RUNNING"})
+_SUCCESS_EXECUTION_STATUSES: frozenset[str] = frozenset({"SUCCESS"})
+
 _NOT_DEFINED_STATUS_VALUES: frozenset[str] = frozenset({"missing", "not_defined", "not_found"})
 _MISSING_SCALAR_VALUES: frozenset[str] = frozenset({"", "none", "null", "not_found"})
 
@@ -40,6 +48,14 @@ _DISPLAY_ERROR = "⚠ Ошибка"
 _DISPLAY_PRESENT = "Присутствует"
 _DEFAULT_UNGROUPED_LABEL = "Прочие проверки"
 _DEFAULT_UNGROUPED_GROUP_ID = "_ungrouped"
+_DEFAULT_LOCATION_FALLBACK_REASON = "Точная ссылка на пункт документа не определена"
+
+_PAGE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"стр\.?\s*(\d+)", re.IGNORECASE),
+    re.compile(r"страниц[аеы]?\s*(\d+)", re.IGNORECASE),
+    re.compile(r"page\s*(\d+)", re.IGNORECASE),
+    re.compile(r"p\.?\s*(\d+)", re.IGNORECASE),
+)
 
 _REASON_METADATA_FIELDS: frozenset[str] = frozenset({"reason", "explanation", "notes"})
 
@@ -103,7 +119,26 @@ class DrawerFieldDTO:
 
 @dataclass
 class DrawerContentDTO:
-    """Контент drawer для одной пары (document, check)."""
+    """
+    Контент drawer для одной пары (document, check).
+
+    Transparency fields (B3 P0):
+    - detection_level: уровень детекции (L1/L2/L3/L4).
+    - confidence: уверенность модели (0.0-1.0), None для L1/L4.
+    - quality_flags: технические флаги качества, None если нет caveats.
+
+    QC audit trail (B3 P0):
+    - qc_status: нормализованный API статус (pending/approved/rejected/needs_review).
+    - qc_by / qc_at / qc_comment: заполняются только при явном QC-действии.
+
+    Observability (B3 P1):
+    - agent_name: имя детектора/агента (derived from detector_used).
+    - model_version: версия LLM модели (from persisted raw metadata).
+    - execution_time_ms: время выполнения (from started_at/finished_at).
+    - retry_attempts: количество LLM-попыток (from raw.llm_attempts).
+    - input_tokens: input tokens (from raw.context_tokens / raw.prompt_tokens).
+    - output_tokens: output tokens (from raw.completion_tokens).
+    """
 
     check_id: str
     check_name: str
@@ -114,6 +149,19 @@ class DrawerContentDTO:
     review_message: str | None = None
     display_text: str | None = None
     execution_status: str | None = None
+    detection_level: str | None = None
+    confidence: float | None = None
+    quality_flags: dict[str, bool] | None = None
+    qc_status: str | None = None
+    qc_by: str | None = None
+    qc_at: str | None = None
+    qc_comment: str | None = None
+    agent_name: str | None = None
+    model_version: str | None = None
+    execution_time_ms: int | None = None
+    retry_attempts: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
     fields: list[DrawerFieldDTO] = field(default_factory=list)
     evidence_items: list[str] = field(default_factory=list)
 
@@ -212,6 +260,230 @@ def _safe_int_or_none(value: Any) -> int | None:
         return int(text)
     except (TypeError, ValueError):
         return None
+
+
+def _extract_page_from_clause_ref(clause_ref: str | None) -> int | None:
+    """
+    Извлечь номер страницы из текстового clause_ref.
+
+    Поддерживаем несколько языковых паттернов:
+    - "стр. 8", "стр 8", "стр.8"
+    - "страница 8"
+    - "page 8"
+    - "p. 8"
+    """
+    normalized_clause_ref = _safe_str_or_none(clause_ref)
+    if not normalized_clause_ref:
+        return None
+
+    for pattern in _PAGE_PATTERNS:
+        match = pattern.search(normalized_clause_ref)
+        if match is None:
+            continue
+
+        page = _safe_int_or_none(match.group(1))
+        if page is None:
+            continue
+
+        if 0 < page <= 10000:
+            return page
+
+    return None
+
+
+def _normalize_location_bundle(
+    *,
+    location_clause_ref: str | None,
+    location_page: int | None,
+    location_confidence: str | None,
+    has_location_fallback: bool,
+    location_fallback_reason: str | None,
+) -> tuple[str | None, int | None, str | None, bool, str | None]:
+    """
+    Нормализовать location-данные до стабильного API контракта.
+
+    Правила:
+    - если page отсутствует, пытаемся извлечь её из clause_ref;
+    - если has_location_fallback=True, reason обязан быть заполнен;
+    - если has_location_fallback=False, fallback reason всегда None.
+    """
+    normalized_clause_ref = _safe_str_or_none(location_clause_ref)
+    normalized_page = (
+        location_page
+        if location_page is not None
+        else _extract_page_from_clause_ref(normalized_clause_ref)
+    )
+    normalized_confidence = _safe_str_or_none(location_confidence)
+    normalized_reason = _safe_str_or_none(location_fallback_reason)
+
+    if has_location_fallback:
+        if not normalized_confidence:
+            normalized_confidence = "low"
+        if not normalized_reason:
+            normalized_reason = _DEFAULT_LOCATION_FALLBACK_REASON
+    else:
+        normalized_reason = None
+
+    return (
+        normalized_clause_ref,
+        normalized_page,
+        normalized_confidence,
+        has_location_fallback,
+        normalized_reason,
+    )
+
+_DETECTOR_TO_LEVEL: dict[str, str] = {
+    # Rule-based detection: pattern matching, structural rules.
+    "rules": "L1",
+    # Field extraction mode: structured extraction without LLM presence detection.
+    # llm_invoked=False in executor — deterministic retrieval + extraction pipeline.
+    "extraction_only": "L1",
+    # LLM single-shot presence detection.
+    "llm": "L2",
+    # Hybrid: rules + LLM.
+    "hybrid": "L3",
+}
+_DETECTION_LEVELS_WITHOUT_CONFIDENCE: frozenset[str] = frozenset({"L1", "L4"})
+
+_QC_STATUS_ADAPTER: dict[str, str] = {
+    "pending": "pending",
+    "confirmed": "approved",
+    "rejected": "rejected",
+    "overridden": "needs_review",
+}
+
+
+def _map_detector_to_detection_level(
+    detector_used: Any,
+    *,
+    extraction_llm_invoked: bool = False,
+    extraction_mode: str | None = None,
+) -> str | None:
+    """
+    Привести detector_used к публичному API detection_level.
+
+    Для extraction_only path учитываем фактический LLM-вызов:
+      extraction_only + llm_invoked=False   -> L1 (deterministic extraction)
+      extraction_only + llm_invoked=True + mode=llm    -> L2 (LLM extraction)
+      extraction_only + llm_invoked=True + mode=hybrid -> L3 (RAG+LLM extraction)
+
+    Для presence detection path:
+      rules   -> L1
+      llm     -> L2
+      hybrid  -> L3
+      unknown -> None
+    """
+    normalized = _safe_str_or_none(detector_used)
+    if not normalized:
+        return None
+
+    if normalized.lower() == "extraction_only":
+        if not extraction_llm_invoked:
+            return "L1"
+        normalized_mode = _safe_str_or_none(extraction_mode)
+        if normalized_mode == "hybrid":
+            return "L3"
+        return "L2"
+
+    return _DETECTOR_TO_LEVEL.get(normalized.lower())
+
+
+def _normalize_confidence(
+    value: Any,
+    *,
+    detection_level: str | None,
+) -> float | None:
+    """
+    Нормализовать confidence к float [0.0, 1.0] или None.
+
+    Правила:
+    - L1 / L4 — confidence не применимо, возвращаем None.
+    - None-like значения — None.
+    - Невалидный диапазон — None + warning.
+    """
+    if detection_level in _DETECTION_LEVELS_WITHOUT_CONFIDENCE:
+        return None
+
+    if value is None:
+        return None
+
+    if isinstance(value, bool):
+        return None
+
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        logger.warning(
+            "DD Grid V1: invalid confidence value, using None",
+            raw_value=repr(value),
+        )
+        return None
+
+    if not (0.0 <= score <= 1.0):
+        logger.warning(
+            "DD Grid V1: confidence out of range [0.0, 1.0], using None",
+            score=score,
+        )
+        return None
+
+    return score
+
+
+def _normalize_quality_flags(raw_flags: Any) -> dict[str, bool] | None:
+    """
+    Нормализовать quality_flags к API-контракту.
+
+    Правила:
+    - допускаются только bool True значения;
+    - False / non-bool / empty keys отбрасываются;
+    - пустой результат -> None.
+    """
+    if not isinstance(raw_flags, dict) or not raw_flags:
+        return None
+
+    normalized: dict[str, bool] = {}
+    for key, value in raw_flags.items():
+        clean_key = str(key).strip()
+        if not clean_key:
+            continue
+        if isinstance(value, bool) and value is True:
+            normalized[clean_key] = True
+
+    return normalized if normalized else None
+
+
+def _normalize_qc_status_for_api(raw_status: Any) -> str | None:
+    """
+    Привести persisted QCStatus к публичному API enum.
+
+    Persisted -> API:
+      pending   -> pending
+      confirmed -> approved
+      rejected  -> rejected
+      overridden -> needs_review
+
+    Неизвестный/пустой статус -> None.
+    """
+    normalized = _safe_str_or_none(raw_status)
+    if not normalized:
+        return None
+    return _QC_STATUS_ADAPTER.get(normalized.lower())
+
+
+def _normalize_qc_at_for_api(raw_qc_at: Any) -> str | None:
+    """
+    Привести qc_at к ISO 8601 строке или None.
+
+    Поддерживает datetime-объект и строку.
+    """
+    if raw_qc_at is None:
+        return None
+
+    if hasattr(raw_qc_at, "isoformat"):
+        return raw_qc_at.isoformat()
+
+    text = _safe_str_or_none(str(raw_qc_at))
+    return text
 
 
 def _normalize_structured_data(check_id: str, payload: Any) -> dict[str, Any]:
@@ -315,6 +587,173 @@ def _extract_location_bundle(
 
     return None, None, None, False, None
 
+_DETECTOR_TO_AGENT_NAME: dict[str, str] = {
+    "rules": "RulesDetector",
+    "llm": "LLMDetector",
+    "hybrid": "HybridDetector",
+    "extraction_only": "ExtractionExecutor",
+}
+
+_EXTRACTION_LLM_AGENT_NAME = "ExtractionLLMDetector"
+
+
+def _derive_agent_name(
+    detector_used: Any,
+    *,
+    extraction_llm_invoked: bool = False,
+) -> str | None:
+    """
+    Derived agent name from detector_used.
+
+    Для extraction_only учитываем фактический LLM-вызов:
+      extraction_only + llm_invoked=False -> ExtractionExecutor (rules-based extraction)
+      extraction_only + llm_invoked=True  -> ExtractionLLMDetector (LLM extraction)
+    """
+    normalized = _safe_str_or_none(detector_used)
+    if not normalized:
+        return None
+
+    if normalized.lower() == "extraction_only" and extraction_llm_invoked:
+        return _EXTRACTION_LLM_AGENT_NAME
+
+    return _DETECTOR_TO_AGENT_NAME.get(normalized.lower())
+
+
+def _derive_execution_time_ms(
+    started_at: Any,
+    finished_at: Any,
+) -> int | None:
+    """
+    Вычислить время выполнения check в миллисекундах.
+
+    Правила:
+    - оба timestamp обязательны;
+    - delta <= 0 -> None (нет значимой разницы, timestamps выставлены одновременно);
+    - delta > 600000 ms -> None + warning (sanity check: 10 минут max);
+    - иначе valid int.
+    """
+    if started_at is None or finished_at is None:
+        return None
+
+    try:
+        if hasattr(finished_at, "timestamp") and hasattr(started_at, "timestamp"):
+            delta_ms = int((finished_at.timestamp() - started_at.timestamp()) * 1000)
+        else:
+            return None
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+    if delta_ms <= 0:
+        return None
+
+    if delta_ms > 600_000:
+        logger.warning(
+            "DD Grid V1: execution_time_ms exceeds 10 minutes sanity limit, using None",
+            delta_ms=delta_ms,
+        )
+        return None
+
+    return delta_ms
+
+
+def _extract_observability_from_raw(raw_flags: Any) -> dict[str, Any]:
+    """
+    Извлечь observability-поля из quality_flags["raw"] payload.
+
+    Приоритет для каждого поля:
+    - model_version:   raw.model > raw.model_name > raw.llm_model
+    - retry_attempts:  raw.llm_attempts (>= 1)
+    - input_tokens:    raw.prompt_tokens > raw.context_tokens
+    - output_tokens:   raw.completion_tokens > raw.eval_count
+    - duration_ms:     raw.duration_ms (executor check-level total)
+    - extraction_llm_invoked: raw.extraction_llm_invoked (bool)
+    - extraction_mode:         raw.extraction_mode (str)
+    """
+    defaults: dict[str, Any] = {
+        "model_version": None,
+        "retry_attempts": None,
+        "input_tokens": None,
+        "output_tokens": None,
+        "duration_ms": None,
+        "extraction_llm_invoked": False,
+        "extraction_mode": None,
+    }
+
+    if not isinstance(raw_flags, dict):
+        return defaults
+
+    raw = raw_flags.get("raw")
+    if not isinstance(raw, dict):
+        return defaults
+
+    # model_version
+    raw_model = (
+        _safe_str_or_none(raw.get("model"))
+        or _safe_str_or_none(raw.get("model_name"))
+        or _safe_str_or_none(raw.get("llm_model"))
+    )
+
+    # retry_attempts: llm_attempts in raw, 1+ = valid
+    raw_attempts = raw.get("llm_attempts")
+    retry_attempts: int | None = None
+    if raw_attempts is not None and not isinstance(raw_attempts, bool):
+        try:
+            parsed = int(raw_attempts)
+            if parsed >= 1:
+                retry_attempts = parsed
+        except (TypeError, ValueError):
+            pass
+
+    # input_tokens: prefer prompt_tokens over context_tokens
+    raw_input = raw.get("prompt_tokens") if raw.get("prompt_tokens") is not None \
+        else raw.get("context_tokens")
+    input_tokens: int | None = None
+    if raw_input is not None and not isinstance(raw_input, bool):
+        try:
+            parsed = int(raw_input)
+            if parsed >= 0:
+                input_tokens = parsed
+        except (TypeError, ValueError):
+            pass
+
+    # output_tokens: prefer completion_tokens over eval_count
+    raw_output = raw.get("completion_tokens") if raw.get("completion_tokens") is not None \
+        else raw.get("eval_count")
+    output_tokens: int | None = None
+    if raw_output is not None and not isinstance(raw_output, bool):
+        try:
+            parsed = int(raw_output)
+            if parsed >= 0:
+                output_tokens = parsed
+        except (TypeError, ValueError):
+            pass
+
+    # duration_ms: executor check-level total execution time
+    raw_duration = raw.get("duration_ms")
+    duration_ms: int | None = None
+    if raw_duration is not None and not isinstance(raw_duration, bool):
+        try:
+            parsed = int(raw_duration)
+            if 0 < parsed <= 600_000:
+                duration_ms = parsed
+        except (TypeError, ValueError):
+            pass
+
+    # extraction_llm_invoked: was LLM actually called during extraction?
+    extraction_llm_invoked = bool(raw.get("extraction_llm_invoked", False))
+
+    # extraction_mode: "rules" | "llm" | "hybrid" | None
+    extraction_mode = _safe_str_or_none(raw.get("extraction_mode"))
+
+    return {
+        "model_version": raw_model,
+        "retry_attempts": retry_attempts,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "duration_ms": duration_ms,
+        "extraction_llm_invoked": extraction_llm_invoked,
+        "extraction_mode": extraction_mode,
+    }
 
 def _is_global_check(check: CheckDefinition) -> bool:
     """
@@ -481,6 +920,20 @@ def _build_cell_value(
         location_fallback_reason,
     ) = _extract_location_bundle(location_payload)
 
+    (
+        location_clause_ref,
+        location_page,
+        location_confidence,
+        has_location_fallback,
+        location_fallback_reason,
+    ) = _normalize_location_bundle(
+        location_clause_ref=location_clause_ref,
+        location_page=location_page,
+        location_confidence=location_confidence,
+        has_location_fallback=has_location_fallback,
+        location_fallback_reason=location_fallback_reason,
+    )
+
     return CellValueDTO(
         cell_state=cell_state,
         display_value=display_value,
@@ -530,6 +983,94 @@ def _combine_column_states(states: list[str]) -> str:
     if any(state == "not_executed" for state in states):
         return "not_executed"
     return states[0]
+
+
+def _has_partial_field_extraction(
+    column_cells: list[tuple[DDGridColumnRuntime, CellValueDTO]],
+) -> bool:
+    """
+    Определить, является ли успешное выполнение частичным.
+
+    Partial = хотя бы одно поле определено, но не все runtime-поля
+    вернулись успешно.
+    """
+    states = [cell.cell_state for _, cell in column_cells]
+    has_defined = any(state == "defined" for state in states)
+    has_missing_or_failed = any(
+        state in {"not_defined", "error", "not_executed"} for state in states
+    )
+    return has_defined and has_missing_or_failed
+
+
+def _normalize_execution_status_for_api(
+    *,
+    check_result: dict[str, Any] | None,
+    column_cells: list[tuple[DDGridColumnRuntime, CellValueDTO]],
+) -> str:
+    """
+    Нормализовать внутренний execution_status к публичному API-контракту.
+
+    API enum:
+    - SUCCESS
+    - FAILED
+    - TIMEOUT
+    - SKIPPED
+    - PARTIAL
+    """
+    states = [cell.cell_state for _, cell in column_cells]
+
+    if not states:
+        return "SKIPPED"
+
+    if all(state == "not_applicable" for state in states):
+        return "SKIPPED"
+
+    if check_result is None:
+        return "SKIPPED"
+
+    raw_status = (_safe_str_or_none(check_result.get("execution_status")) or "").upper()
+    is_partial = _has_partial_field_extraction(column_cells)
+
+    if raw_status == "PARTIAL":
+        return "PARTIAL"
+
+    if raw_status == "SKIPPED":
+        return "SKIPPED"
+
+    if raw_status in _TIMEOUT_EXECUTION_STATUSES:
+        return "TIMEOUT"
+
+    if raw_status in _FAILED_EXECUTION_STATUSES:
+        return "FAILED"
+
+    if raw_status in _NON_TERMINAL_EXECUTION_STATUSES:
+        logger.warning(
+            "DD Grid V1: non-terminal execution_status encountered in response builder",
+            raw_status=raw_status,
+            check_id=_safe_str_or_none(check_result.get("check_id")),
+            document_id=_safe_str_or_none(check_result.get("document_id")),
+        )
+        return "FAILED"
+
+    if raw_status in _SUCCESS_EXECUTION_STATUSES:
+        return "PARTIAL" if is_partial else "SUCCESS"
+
+    if not raw_status:
+        if any(state == "error" for state in states):
+            return "FAILED"
+        if is_partial:
+            return "PARTIAL"
+        if any(state in {"defined", "not_defined"} for state in states):
+            return "SUCCESS"
+        return "SKIPPED"
+
+    logger.warning(
+        "DD Grid V1: unknown execution_status mapped to FAILED",
+        raw_status=raw_status,
+        check_id=_safe_str_or_none(check_result.get("check_id")),
+        document_id=_safe_str_or_none(check_result.get("document_id")),
+    )
+    return "FAILED"
 
 
 def _build_drawer_content(
@@ -589,7 +1130,62 @@ def _build_drawer_content(
     review_message = _safe_str_or_none(check_result.get("review_message")) if check_result else None
     display_text = _safe_str_or_none(check_result.get("display_text")) if check_result else None
     review_status = _safe_str_or_none(check_result.get("review_status")) if check_result else None
-    execution_status = _safe_str_or_none(check_result.get("execution_status")) if check_result else None
+    execution_status = _normalize_execution_status_for_api(
+        check_result=check_result,
+        column_cells=column_cells,
+    )
+
+    _obs = _extract_observability_from_raw(
+        check_result.get("quality_flags") if check_result else None
+    )
+    extraction_llm_invoked: bool = _obs["extraction_llm_invoked"]
+    extraction_mode: str | None = _obs["extraction_mode"]
+
+    detection_level = _map_detector_to_detection_level(
+        check_result.get("detector_used") if check_result else None,
+        extraction_llm_invoked=extraction_llm_invoked,
+        extraction_mode=extraction_mode,
+    )
+    confidence = _normalize_confidence(
+        check_result.get("confidence") if check_result else None,
+        detection_level=detection_level,
+    )
+    quality_flags = _normalize_quality_flags(
+        check_result.get("quality_flags") if check_result else None
+    )
+
+    raw_qc_status = check_result.get("qc_status") if check_result else None
+    qc_status = _normalize_qc_status_for_api(raw_qc_status)
+
+    _pending_like_qc = qc_status == "pending"
+    qc_by = (
+        None
+        if _pending_like_qc
+        else _safe_str_or_none(check_result.get("qc_by") if check_result else None)
+    )
+    qc_at = (
+        None
+        if _pending_like_qc
+        else _normalize_qc_at_for_api(check_result.get("qc_at") if check_result else None)
+    )
+    qc_comment = (
+        None
+        if _pending_like_qc
+        else _safe_str_or_none(check_result.get("qc_comment") if check_result else None)
+    )
+
+    # B3 P1: observability
+    agent_name = _derive_agent_name(
+        check_result.get("detector_used") if check_result else None,
+        extraction_llm_invoked=extraction_llm_invoked,
+    )
+    execution_time_ms = (
+        _obs["duration_ms"]
+        or _derive_execution_time_ms(
+            check_result.get("started_at") if check_result else None,
+            check_result.get("finished_at") if check_result else None,
+        )
+    )
 
     reason = metadata_reason or review_message or display_text
     cell_state = _combine_column_states([cell.cell_state for _, cell in column_cells])
@@ -604,6 +1200,19 @@ def _build_drawer_content(
         review_message=review_message,
         display_text=display_text,
         execution_status=execution_status,
+        detection_level=detection_level,
+        confidence=confidence,
+        quality_flags=quality_flags,
+        qc_status=qc_status,
+        qc_by=qc_by,
+        qc_at=qc_at,
+        qc_comment=qc_comment,
+        agent_name=agent_name,
+        model_version=_obs["model_version"],
+        execution_time_ms=execution_time_ms,
+        retry_attempts=_obs["retry_attempts"],
+        input_tokens=_obs["input_tokens"],
+        output_tokens=_obs["output_tokens"],
         fields=field_details,
         evidence_items=evidence_items,
     )

@@ -235,6 +235,19 @@ def collect_sample_drawers(
                     "reason": reason,
                     "review_status": _get_attr(drawer, "review_status"),
                     "execution_status": _get_attr(drawer, "execution_status"),
+                    "detection_level": _get_attr(drawer, "detection_level"),
+                    "confidence": _get_attr(drawer, "confidence"),
+                    "quality_flags": _get_attr(drawer, "quality_flags"),
+                    "qc_status": _get_attr(drawer, "qc_status"),
+                    "qc_by": _get_attr(drawer, "qc_by"),
+                    "qc_at": _get_attr(drawer, "qc_at"),
+                    "qc_comment": _get_attr(drawer, "qc_comment"),
+                    "agent_name": _get_attr(drawer, "agent_name"),
+                    "model_version": _get_attr(drawer, "model_version"),
+                    "execution_time_ms": _get_attr(drawer, "execution_time_ms"),
+                    "retry_attempts": _get_attr(drawer, "retry_attempts"),
+                    "input_tokens": _get_attr(drawer, "input_tokens"),
+                    "output_tokens": _get_attr(drawer, "output_tokens"),
                     "evidence_items": list(evidence_items),
                     "fields_count": len(fields),
                     "fields_with_location": sum(
@@ -244,6 +257,11 @@ def collect_sample_drawers(
                     "fields_with_fallback": sum(
                         1 for f in fields
                         if _get_attr(f, "has_location_fallback", False)
+                    ),
+                    "fields_with_extracted_page": sum(
+                        1 for f in fields
+                        if _get_attr(f, "location_page") is not None
+                        and not _get_attr(f, "has_location_fallback", False)
                     ),
                 },
             ))
@@ -338,20 +356,23 @@ def build_summary(response: Any, *, sample_limit: int = 5) -> dict[str, Any]:
     sample_drawers = collect_sample_drawers(drawer_contents, limit=sample_limit)
 
     # Location stats
-    #
-    # Exact location: есть clause_ref/page И has_location_fallback == False.
-    # Fallback location: has_location_fallback == True (clause_ref/page могут быть None).
-    # Это важно: в реальных данных fallback часто приходит без pinpoint ref/page,
-    # но с location_fallback_reason и location_confidence="low".
     cells_with_exact_location = 0
     cells_with_fallback_location = 0
+    cells_with_extracted_page = 0
+
     for doc_cells in cell_values.values():
         for cell in doc_cells.values():
-            if _get_attr(cell, "has_location_fallback", False):
+            has_fallback = _get_attr(cell, "has_location_fallback", False)
+            has_clause_ref = bool(_get_attr(cell, "location_clause_ref"))
+            has_page = _get_attr(cell, "location_page") is not None
+
+            if has_fallback:
                 cells_with_fallback_location += 1
-            elif _get_attr(cell, "location_clause_ref") or _get_attr(cell, "location_page"):
+            elif has_clause_ref or has_page:
                 cells_with_exact_location += 1
 
+            if has_page and not has_fallback:
+                cells_with_extracted_page += 1
 
     drawers_with_reason = sum(
         1 for doc_drawers in drawer_contents.values()
@@ -363,6 +384,47 @@ def build_summary(response: Any, *, sample_limit: int = 5) -> dict[str, Any]:
         for drawer in doc_drawers.values()
         if bool(_get_attr(drawer, "evidence_items"))
     )
+
+    # B3 P0 transparency counters
+    execution_status_dist: dict[str, int] = {}
+    detection_level_dist: dict[str, int] = {}
+    drawers_with_confidence = 0
+    drawers_with_quality_flags = 0
+    drawers_with_qc = 0
+
+    for doc_drawers in drawer_contents.values():
+        for drawer in doc_drawers.values():
+            exec_status = _get_attr(drawer, "execution_status") or "None"
+            execution_status_dist[exec_status] = execution_status_dist.get(exec_status, 0) + 1
+
+            det_level = _get_attr(drawer, "detection_level") or "None"
+            detection_level_dist[det_level] = detection_level_dist.get(det_level, 0) + 1
+
+            if _get_attr(drawer, "confidence") is not None:
+                drawers_with_confidence += 1
+
+            if _get_attr(drawer, "quality_flags"):
+                drawers_with_quality_flags += 1
+
+            if _get_attr(drawer, "qc_status") not in (None, "pending"):
+                drawers_with_qc += 1
+
+    # B3 P1 observability counters
+    drawers_with_agent_name = 0
+    drawers_with_model_version = 0
+    drawers_with_execution_time = 0
+    drawers_with_input_tokens = 0
+
+    for doc_drawers in drawer_contents.values():
+        for drawer in doc_drawers.values():
+            if _get_attr(drawer, "agent_name") is not None:
+                drawers_with_agent_name += 1
+            if _get_attr(drawer, "model_version") is not None:
+                drawers_with_model_version += 1
+            if _get_attr(drawer, "execution_time_ms") is not None:
+                drawers_with_execution_time += 1
+            if _get_attr(drawer, "input_tokens") is not None:
+                drawers_with_input_tokens += 1
 
     return {
         "deal_id": deal_id,
@@ -379,10 +441,22 @@ def build_summary(response: Any, *, sample_limit: int = 5) -> dict[str, Any]:
         "location": {
             "cells_with_exact_location": cells_with_exact_location,
             "cells_with_fallback_location": cells_with_fallback_location,
+            "cells_with_extracted_page": cells_with_extracted_page,
         },
         "drawers": {
             "with_reason": drawers_with_reason,
             "with_evidence": drawers_with_evidence,
+        },
+        "transparency": {
+            "execution_status_distribution": execution_status_dist,
+            "detection_level_distribution": detection_level_dist,
+            "drawers_with_confidence": drawers_with_confidence,
+            "drawers_with_quality_flags": drawers_with_quality_flags,
+            "drawers_with_qc_actioned": drawers_with_qc,
+            "drawers_with_agent_name": drawers_with_agent_name,
+            "drawers_with_model_version": drawers_with_model_version,
+            "drawers_with_execution_time": drawers_with_execution_time,
+            "drawers_with_input_tokens": drawers_with_input_tokens,
         },
         "samples": {
             "groups": sample_groups,
@@ -459,15 +533,40 @@ def print_console_summary(summary: dict[str, Any], *, verbose: bool = False) -> 
         bar = "█" * min(cnt, 30) if cnt > 0 else ""
         print(f"  {state:<16}: {cnt:>5}  {bar}")
 
-    loc = summary["location"]
-    print("\n📍 Location:")
-    print(f"  Exact location     : {loc['cells_with_exact_location']}")
-    print(f"  Fallback location  : {loc['cells_with_fallback_location']}")
-
     drw = summary["drawers"]
     print("\n📋 Drawers:")
     print(f"  With reason        : {drw['with_reason']}")
     print(f"  With evidence      : {drw['with_evidence']}")
+
+    tr = summary.get("transparency", {})
+    if tr:
+        print("\n🔍 Transparency (B3):")
+
+        exec_dist = tr.get("execution_status_distribution", {})
+        if exec_dist:
+            print("  execution_status   :")
+            for status, cnt in sorted(exec_dist.items()):
+                print(f"    {status:<16}: {cnt}")
+
+        det_dist = tr.get("detection_level_distribution", {})
+        if det_dist:
+            print("  detection_level    :")
+            for level, cnt in sorted(det_dist.items()):
+                print(f"    {level:<16}: {cnt}")
+
+        print(f"  with confidence    : {tr.get('drawers_with_confidence', 0)}")
+        print(f"  with quality_flags : {tr.get('drawers_with_quality_flags', 0)}")
+        print(f"  qc actioned        : {tr.get('drawers_with_qc_actioned', 0)}")
+        print(f"  with agent_name    : {tr.get('drawers_with_agent_name', 0)}")
+        print(f"  with model_version : {tr.get('drawers_with_model_version', 0)}")
+        print(f"  with exec_time_ms  : {tr.get('drawers_with_execution_time', 0)}")
+        print(f"  with input_tokens  : {tr.get('drawers_with_input_tokens', 0)}")
+
+    loc = summary["location"]
+    print("\n📍 Location:")
+    print(f"  Exact location     : {loc['cells_with_exact_location']}")
+    print(f"  Fallback location  : {loc['cells_with_fallback_location']}")
+    print(f"  Page extracted     : {loc.get('cells_with_extracted_page', 0)}")
 
     samples = summary["samples"]
 
@@ -529,16 +628,55 @@ def print_console_summary(summary: dict[str, Any], *, verbose: bool = False) -> 
         print(thin)
         for drw in samples["drawers"]:
             print(f"  check_id={drw['check_id']} | state={drw['cell_state']}")
-            print(f"    doc_id          = {drw['doc_id']}")
-            print(f"    reason          = {repr(drw['reason'])}")
-            print(f"    review_status   = {drw['review_status']}")
-            print(f"    execution_status= {drw['execution_status']}")
-            print(f"    fields_count    = {drw['fields_count']}")
-            print(f"    with_location   = {drw['fields_with_location']}")
-            print(f"    with_fallback   = {drw['fields_with_fallback']}")
+            print(f"    doc_id           = {drw['doc_id']}")
+            print(f"    reason           = {repr(drw['reason'])}")
+            print(f"    review_status    = {drw['review_status']}")
+            print(f"    execution_status = {drw['execution_status']}")
+
+            det_level = drw.get("detection_level")
+            confidence = drw.get("confidence")
+            level_str = det_level if det_level else "—"
+            conf_str = f"{confidence:.2f}" if confidence is not None else "—"
+            print(f"    detection_level  = {level_str}  |  confidence = {conf_str}")
+
+            quality_flags = drw.get("quality_flags")
+            if quality_flags:
+                flags_str = ", ".join(quality_flags.keys())
+                print(f"    quality_flags    = ⚠ {flags_str}")
+            else:
+                print(f"    quality_flags    = —")
+
+            qc_status = drw.get("qc_status")
+            if qc_status and qc_status != "pending":
+                qc_by = drw.get("qc_by") or "?"
+                qc_at = drw.get("qc_at") or "?"
+                print(f"    qc_status        = {qc_status} by {qc_by} at {qc_at}")
+                if drw.get("qc_comment"):
+                    print(f"    qc_comment       = {repr(drw['qc_comment'])}")
+            else:
+                print(f"    qc_status        = {qc_status or '—'}")
+
+            agent = drw.get("agent_name") or "—"
+            model = drw.get("model_version") or "—"
+            exec_ms = drw.get("execution_time_ms")
+            exec_str = f"{exec_ms} ms" if exec_ms is not None else "—"
+            retries = drw.get("retry_attempts")
+            retries_str = str(retries) if retries is not None else "—"
+            in_tok = drw.get("input_tokens")
+            in_tok_str = str(in_tok) if in_tok is not None else "—"
+            out_tok = drw.get("output_tokens")
+            out_tok_str = str(out_tok) if out_tok is not None else "—"
+            print(f"    agent_name       = {agent}  |  model = {model}")
+            print(f"    exec_time        = {exec_str}  |  retries = {retries_str}")
+            print(f"    tokens           = in:{in_tok_str}  out:{out_tok_str}")
+
+            print(f"    fields_count     = {drw['fields_count']}")
+            print(f"    with_location    = {drw['fields_with_location']}")
+            print(f"    with_fallback    = {drw['fields_with_fallback']}")
+            print(f"    extracted_page   = {drw.get('fields_with_extracted_page', 0)}")
             if drw["evidence_items"]:
                 for ev in drw["evidence_items"][:3]:
-                    print(f"    evidence        → {repr(ev)}")
+                    print(f"    evidence         → {repr(ev)}")
             print()
 
     print(thin)
@@ -634,7 +772,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
 
 
     

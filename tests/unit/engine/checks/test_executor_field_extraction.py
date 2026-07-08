@@ -171,6 +171,20 @@ class _FakeExtractor:
             raise self.error
         return self.result
 
+    def run_with_telemetry(self, **kwargs):
+        from engine.checks.extraction import ExtractionExecutionResult
+
+        self.calls.append(kwargs)
+        if self.error is not None:
+            raise self.error
+        return ExtractionExecutionResult(
+            structured_data=self.result,
+            telemetry={
+                "extraction_mode": "llm",
+                "extraction_llm_invoked": True,
+            },
+        )
+
 
 def _make_executor(detector, extractor) -> CheckExecutor:
     executor = object.__new__(CheckExecutor)

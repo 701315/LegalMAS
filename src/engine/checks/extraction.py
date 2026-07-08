@@ -12,6 +12,7 @@ ExtractionExecutor: structured data extraction for a check.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from core.config import settings
@@ -35,6 +36,15 @@ logger = get_logger(__name__)
 LLM_DEFAULT_CONFIDENCE: float = settings.LLM_DEFAULT_CONFIDENCE
 _EXTRACTION_RULES_REGEX_CONFIDENCE: float = 0.8
 _EXTRACTION_RULES_KEYWORD_CONFIDENCE: float = 0.5
+
+@dataclass(slots=True)
+class ExtractionExecutionResult:
+    """
+    Structured extraction result with optional observability telemetry.
+    """
+
+    structured_data: dict[str, Any] | None
+    telemetry: dict[str, Any] | None = None
 
 def _is_null_value(raw: Any) -> bool:
     """
@@ -145,9 +155,26 @@ class ExtractionExecutor:
         contexts: list[dict[str, Any]],
         detection: dict[str, Any],
     ) -> dict[str, Any] | None:
+        """
+        Backward-compatible wrapper over run_with_telemetry().
+        """
+        return self.run_with_telemetry(
+            doc=doc,
+            check=check,
+            contexts=contexts,
+            detection=detection,
+        ).structured_data
+
+    def run_with_telemetry(
+        self,
+        doc: Any,
+        check: CheckDefinition,
+        contexts: list[dict[str, Any]],
+        detection: dict[str, Any],
+    ) -> ExtractionExecutionResult:
         extraction_cfg: ExtractionConfig | None = getattr(check, "extraction", None)
         if not extraction_cfg or not extraction_cfg.enabled:
-            return None
+            return ExtractionExecutionResult(structured_data=None, telemetry=None)
 
         mode = getattr(extraction_cfg, "mode", None)
         logger.debug(
@@ -160,7 +187,7 @@ class ExtractionExecutor:
         # Базовый текст для извлечения: evidence из detection, а при необходимости — весь контекст.
         base_text = self._build_extraction_text(detection, contexts)
         if not base_text:
-            return None
+            return ExtractionExecutionResult(structured_data=None, telemetry=None)
 
         # Локация риска из HybridDetector: page / clause_uid / element_id / ...
         # Это check-level fallback provenance, а НЕ точная per-field location.
@@ -200,16 +227,31 @@ class ExtractionExecutor:
 
         # 2. LLM / HYBRID часть
         # Если mode == "llm" или "hybrid" и LLM доступен, подтянем значения из LLM.
+        llm_telemetry: dict[str, Any] | None = None
         if mode in {"llm", "hybrid"} and self.llm_client.is_available():
             try:
-                llm_fields = self.llm_detector.extract(
+                llm_result = self.llm_detector.extract_with_telemetry(
                     check,
                     base_text,
                     context_pages=context_pages,
                 )
+                llm_fields = llm_result.fields
+                llm_telemetry = llm_result.telemetry
             except Exception as e:
                 logger.warning("LLM extraction failed", error=str(e))
                 llm_fields = {}
+                llm_telemetry = {
+                    "provider": None,
+                    "model": None,
+                    "tokens_used": None,
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "duration_ms": None,
+                    "llm_attempts": None,
+                    "parse_success": None,
+                    "error_type": "unexpected_exception",
+                    "error_message": str(e),
+                }
 
             if llm_fields:
                 for field_cfg in extraction_cfg.fields or []:
@@ -361,9 +403,42 @@ class ExtractionExecutor:
                 )
 
         if not structured:
-            return None
+            extraction_mode = str(mode) if mode is not None else None
+            llm_invoked = bool(
+                isinstance(llm_telemetry, dict)
+                and llm_telemetry.get("llm_invoked") is True
+            )
+            telemetry = {
+                "extraction_mode": extraction_mode,
+                "extraction_llm_invoked": llm_invoked,
+                **(llm_telemetry or {}),
+            }
+            return ExtractionExecutionResult(structured_data=None, telemetry=telemetry)
 
-        return structured
+        extraction_mode = str(mode) if mode is not None else None
+        telemetry: dict[str, Any] | None = None
+
+        llm_invoked = bool(
+            isinstance(llm_telemetry, dict)
+            and llm_telemetry.get("llm_invoked") is True
+        )
+
+        if mode in {"llm", "hybrid"}:
+            telemetry = {
+                "extraction_mode": extraction_mode,
+                "extraction_llm_invoked": llm_invoked,
+                **(llm_telemetry or {}),
+            }
+        else:
+            telemetry = {
+                "extraction_mode": extraction_mode,
+                "extraction_llm_invoked": False,
+            }
+
+        return ExtractionExecutionResult(
+            structured_data=structured or None,
+            telemetry=telemetry,
+        )
 
     def _build_extraction_text(
         self,

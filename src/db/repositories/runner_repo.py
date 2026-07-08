@@ -190,9 +190,9 @@ class RunnerRepository:
                     "result": r.result,
                     "severity": r.severity,
                     "value_text": r.value_text,
-                    "confidence": r.confidence or 0.0,
+                    "confidence": r.confidence,
                     "detector_used": r.detector_used or "",
-                    "quality_flags": r.quality_flags or {},
+                    "quality_flags": r.quality_flags,
                     "qc_status": r.qc_status or "pending",
                     "document_id": str(r.document_id),
                     "structured_data": r.structured_data or {},
@@ -222,6 +222,13 @@ class RunnerRepository:
                     "needs_manual_review": bool(r.needs_manual_review or False),
                     # Execution technical status — нужен для cell_state в DD Grid V1
                     "execution_status": r.execution_status or "PENDING",
+                    # QC audit trail — полный набор для drawer content
+                    "qc_by": r.qc_by,
+                    "qc_at": r.qc_at,
+                    "qc_comment": r.qc_comment,
+                    # Observability — для P1 read path
+                    "started_at": r.started_at,
+                    "finished_at": r.finished_at,
                 }
             )
 

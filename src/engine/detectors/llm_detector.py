@@ -111,11 +111,17 @@ str.replace() заменяет только те строки, которые я
 
 from __future__ import annotations
 
+import time
+
 from core.config import settings
 from core.logging import get_logger
 from engine.retrieval.tokenization import count_tokens
 
-from ..llm.client import LLMClient, LLMResponse
+from ..llm.client import (
+    LLMClient,
+    LLMResponse,
+    build_llm_telemetry_from_response,
+)
 from ..playbook.models import LLMConfig
 from ..prompts.loader import get_promptloader
 from .models import DetectionResult, EvidenceChunk, RetrievedChunk
@@ -229,11 +235,13 @@ class LLMDetector:
                 },
             )
 
+        llm_started_at = time.time()
         response, error_details = self._call_with_retries(
             prompt=prompt,
             temperature=config.temperature,
             max_tokens=config.max_tokens,
         )
+        llm_duration_ms = int((time.time() - llm_started_at) * 1000)
 
         if response is None:
             return DetectionResult(
@@ -243,11 +251,19 @@ class LLMDetector:
                 detector_type="llm",
                 details={
                     "reason": self._classify_error_reason(error_details),
+                    "duration_ms": llm_duration_ms,
                     **error_details,
                 },
             )
 
+        telemetry = build_llm_telemetry_from_response(
+            response,
+            duration_ms=llm_duration_ms,
+            llm_attempts=error_details.get("llm_attempts"),
+        )
+
         base_result = self._build_result(response, context_chunks)
+        base_result.details.update(telemetry)
         base_result.details.update(error_details)
         return base_result
 
@@ -338,11 +354,13 @@ class LLMDetector:
                 },
             )
 
+        llm_started_at = time.time()
         response, error_details = self._call_with_retries(
             prompt=prompt,
             temperature=config.temperature,
             max_tokens=config.max_tokens,
         )
+        llm_duration_ms = int((time.time() - llm_started_at) * 1000)
 
         if response is None:
             return DetectionResult(
@@ -352,11 +370,19 @@ class LLMDetector:
                 detector_type="llm",
                 details={
                     "reason": self._classify_error_reason(error_details),
+                    "duration_ms": llm_duration_ms,
                     **error_details,
                 },
             )
 
+        telemetry = build_llm_telemetry_from_response(
+            response,
+            duration_ms=llm_duration_ms,
+            llm_attempts=error_details.get("llm_attempts"),
+        )
+
         base_result = self._build_result(response, context_chunks)
+        base_result.details.update(telemetry)
         base_result.details.update(error_details)
         return base_result
 
@@ -685,6 +711,8 @@ class LLMDetector:
                 "provider": response.provider,
                 "model": response.model,
                 "tokens_used": response.tokens_used,
+                "prompt_tokens": response.prompt_tokens,
+                "completion_tokens": response.completion_tokens,
                 "parse_success": response.parse_success,
                 "llm_clause": response.clause,
                 "reason": getattr(response, "reasoning", None),

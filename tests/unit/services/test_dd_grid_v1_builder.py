@@ -1,4 +1,6 @@
 import pytest
+from datetime import datetime
+
 
 from engine.playbook.models import (
     AllowedValueSpec,
@@ -1023,6 +1025,1294 @@ def test_column_registry_keeps_first_column_on_duplicate_id() -> None:
     # Дубликатов не должно быть
     assert len(data.column_registry) == 1
     
+def test_build_dd_grid_v1_extracts_location_page_from_clause_ref_when_missing() -> None:
+    check = _check(
+        "lease_term_check",
+        fields=[_field("term_months", label="Срок аренды")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "lease_term_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "structured_data": {
+                    "term_months": {
+                        "value": "12",
+                        "location": {
+                            "clause_ref": "п. 7.3.3, стр. 8",
+                            "page": None,
+                            "location_confidence": "high",
+                        },
+                    }
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "lease.pdf",
+                "doc_type": "lease_contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    cell = data.cell_values["doc-1"]["lease_term_check__term_months"]
+    drawer_field = data.drawer_contents["doc-1"]["lease_term_check"].fields[0]
+
+    assert cell.location_page == 8
+    assert drawer_field.location_page == 8
+
+
+def test_build_dd_grid_v1_sets_default_fallback_reason_when_missing() -> None:
+    check = _check(
+        "lease_term_check",
+        fields=[_field("term_months", label="Срок аренды")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "lease_term_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "structured_data": {
+                    "term_months": {
+                        "value": "12",
+                        "location_fallback": {
+                            "check_clause_uid": "п. 7.3.3, стр. 8",
+                            "check_page": None,
+                        },
+                    }
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "lease.pdf",
+                "doc_type": "lease_contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    cell = data.cell_values["doc-1"]["lease_term_check__term_months"]
+    drawer_field = data.drawer_contents["doc-1"]["lease_term_check"].fields[0]
+
+    assert cell.has_location_fallback is True
+    assert cell.location_fallback_reason == "Точная ссылка на пункт документа не определена"
+    assert cell.location_confidence == "low"
+    assert cell.location_page == 8
+
+    assert drawer_field.has_location_fallback is True
+    assert drawer_field.location_fallback_reason == "Точная ссылка на пункт документа не определена"
+    assert drawer_field.location_page == 8
+
+
+def test_build_dd_grid_v1_maps_compute_failed_to_api_failed() -> None:
+    check = _check(
+        "lease_term_check",
+        fields=[_field("term_months", label="Срок аренды")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "lease_term_check",
+                "result": "unclear",
+                "severity": "unclear",
+                "execution_status": "COMPUTE_FAILED",
+                "structured_data": {},
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "lease.pdf",
+                "doc_type": "lease_contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["lease_term_check"]
+
+    assert drawer.execution_status == "FAILED"
+    assert drawer.cell_state == "error"
+
+
+def test_build_dd_grid_v1_maps_timeout_to_api_timeout() -> None:
+    check = _check(
+        "lease_term_check",
+        fields=[_field("term_months", label="Срок аренды")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "lease_term_check",
+                "result": "unclear",
+                "severity": "unclear",
+                "execution_status": "TIMEOUT",
+                "structured_data": {},
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "lease.pdf",
+                "doc_type": "lease_contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["lease_term_check"]
+
+    assert drawer.execution_status == "TIMEOUT"
+    assert drawer.cell_state == "error"
+
+
+def test_build_dd_grid_v1_maps_missing_result_to_skipped() -> None:
+    check = _check(
+        "lease_term_check",
+        doc_types=["lease_contract"],
+        fields=[_field("term_months", label="Срок аренды")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[],
+        documents={
+            "doc-1": {
+                "filename": "lease.pdf",
+                "doc_type": "lease_contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["lease_term_check"]
+
+    assert drawer.execution_status == "SKIPPED"
+    assert drawer.cell_state == "not_executed"
+
+
+def test_build_dd_grid_v1_maps_not_applicable_check_to_skipped_execution_status() -> None:
+    check = _check(
+        "lease_term_check",
+        doc_types=["nda"],
+        fields=[_field("term_months", label="Срок аренды")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[],
+        documents={
+            "doc-1": {
+                "filename": "lease.pdf",
+                "doc_type": "lease_contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["lease_term_check"]
+
+    assert drawer.execution_status == "SKIPPED"
+    assert drawer.cell_state == "not_applicable"
+
+
+def test_build_dd_grid_v1_marks_success_with_missing_fields_as_partial() -> None:
+    check = _check(
+        "lease_term_check",
+        fields=[
+            _field("term_months", label="Срок аренды"),
+            _field("auto_renewal", label="Автопролонгация"),
+        ],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "lease_term_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "structured_data": {
+                    "term_months": {
+                        "value": "12",
+                    }
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "lease.pdf",
+                "doc_type": "lease_contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["lease_term_check"]
+    field_states = {field.field_name: field.cell_state for field in drawer.fields}
+
+    assert drawer.execution_status == "PARTIAL"
+    assert field_states["term_months"] == "defined"
+    assert field_states["auto_renewal"] == "not_defined"
 
     
+def test_build_dd_grid_v1_maps_rules_detector_to_l1() -> None:
+    check = _check(
+        "confidentiality_check",
+        fields=[_field("presence", label="Наличие")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "confidentiality_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "rules",
+                "confidence": None,
+                "quality_flags": None,
+                "qc_status": "pending",
+                "qc_by": None,
+                "qc_at": None,
+                "qc_comment": None,
+                "structured_data": {
+                    "presence": {"value": "present"},
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "nda.pdf",
+                "doc_type": "nda",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["confidentiality_check"]
+
+    assert drawer.detection_level == "L1"
+    assert drawer.confidence is None
+
+
+def test_build_dd_grid_v1_maps_llm_detector_to_l2_with_confidence() -> None:
+    check = _check(
+        "termination_check",
+        fields=[_field("clause_text", label="Текст клаузы")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "termination_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "llm",
+                "confidence": 0.87,
+                "quality_flags": None,
+                "qc_status": "pending",
+                "qc_by": None,
+                "qc_at": None,
+                "qc_comment": None,
+                "structured_data": {
+                    "clause_text": {"value": "договор расторгается..."},
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "nda.pdf",
+                "doc_type": "nda",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["termination_check"]
+
+    assert drawer.detection_level == "L2"
+    assert drawer.confidence == pytest.approx(0.87)
+
+
+def test_build_dd_grid_v1_maps_hybrid_detector_to_l3() -> None:
+    check = _check(
+        "hybrid_check",
+        fields=[_field("status", label="Статус")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "hybrid_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "hybrid",
+                "confidence": 0.72,
+                "quality_flags": None,
+                "qc_status": "pending",
+                "structured_data": {
+                    "status": {"value": "active"},
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "agreement.pdf",
+                "doc_type": "agreement",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["hybrid_check"]
+
+    assert drawer.detection_level == "L3"
+    assert drawer.confidence == pytest.approx(0.72)
+
+
+def test_build_dd_grid_v1_unknown_detector_returns_none_level() -> None:
+    check = _check(
+        "unknown_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "unknown_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": None,
+                "confidence": None,
+                "quality_flags": None,
+                "qc_status": "pending",
+                "structured_data": {
+                    "value": {"value": "something"},
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["unknown_check"]
+
+    assert drawer.detection_level is None
+    assert drawer.confidence is None
+
+
+def test_build_dd_grid_v1_normalizes_quality_flags_to_true_only() -> None:
+    check = _check(
+        "quality_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "quality_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "llm",
+                "confidence": 0.6,
+                "quality_flags": {
+                    "retry_used": True,
+                    "llm_fallback_used": False,
+                    "structure_degraded": True,
+                },
+                "qc_status": "pending",
+                "structured_data": {
+                    "value": {"value": "x"},
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["quality_check"]
+
+    assert drawer.quality_flags == {
+        "retry_used": True,
+        "structure_degraded": True,
+    }
+    assert "llm_fallback_used" not in (drawer.quality_flags or {})
+
+
+def test_build_dd_grid_v1_empty_quality_flags_becomes_none() -> None:
+    check = _check(
+        "clean_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "clean_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "llm",
+                "confidence": 0.95,
+                "quality_flags": {},
+                "qc_status": "pending",
+                "structured_data": {
+                    "value": {"value": "x"},
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["clean_check"]
+    assert drawer.quality_flags is None
+
+
+def test_build_dd_grid_v1_qc_confirmed_maps_to_approved_with_full_audit() -> None:
+    check = _check(
+        "qc_check",
+        fields=[_field("value", label="Значение")],
+    )
+    from datetime import timezone
+
+    qc_at_dt = datetime(2024, 11, 15, 14, 23, 11, tzinfo=timezone.utc)
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "qc_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "llm",
+                "confidence": 0.9,
+                "quality_flags": None,
+                "qc_status": "confirmed",
+                "qc_by": "lawyer@firm.ru",
+                "qc_at": qc_at_dt,
+                "qc_comment": "Проверено, всё корректно",
+                "structured_data": {
+                    "value": {"value": "x"},
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["qc_check"]
+
+    assert drawer.qc_status == "approved"
+    assert drawer.qc_by == "lawyer@firm.ru"
+    assert drawer.qc_at == "2024-11-15T14:23:11+00:00"
+    assert drawer.qc_comment == "Проверено, всё корректно"
+
+
+def test_build_dd_grid_v1_qc_pending_hides_audit_fields() -> None:
+    check = _check(
+        "pending_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "pending_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "llm",
+                "confidence": 0.9,
+                "quality_flags": None,
+                "qc_status": "pending",
+                "qc_by": "should_be_hidden@firm.ru",
+                "qc_at": "2024-11-15T14:23:11+00:00",
+                "qc_comment": "should be hidden",
+                "structured_data": {
+                    "value": {"value": "x"},
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["pending_check"]
+
+    assert drawer.qc_status == "pending"
+    assert drawer.qc_by is None
+    assert drawer.qc_at is None
+    assert drawer.qc_comment is None
+
+
+def test_build_dd_grid_v1_qc_overridden_maps_to_needs_review() -> None:
+    check = _check(
+        "override_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "override_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "llm",
+                "confidence": 0.5,
+                "quality_flags": None,
+                "qc_status": "overridden",
+                "qc_by": "reviewer@firm.ru",
+                "qc_at": "2024-11-15T14:23:11+00:00",
+                "qc_comment": "Требует дополнительной проверки",
+                "structured_data": {
+                    "value": {"value": "x"},
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["override_check"]
+
+    assert drawer.qc_status == "needs_review"
+    assert drawer.qc_by == "reviewer@firm.ru"
+    assert drawer.qc_comment == "Требует дополнительной проверки"
+
+
+def test_build_dd_grid_v1_no_check_result_all_transparency_fields_none() -> None:
+    check = _check(
+        "missing_check",
+        doc_types=["nda"],
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[],
+        documents={
+            "doc-1": {
+                "filename": "nda.pdf",
+                "doc_type": "nda",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["missing_check"]
+
+    assert drawer.detection_level is None
+    assert drawer.confidence is None
+    assert drawer.quality_flags is None
+    assert drawer.qc_status is None
+    assert drawer.qc_by is None
+    assert drawer.qc_at is None
+    assert drawer.qc_comment is None
+
+def test_build_dd_grid_v1_ignores_non_boolean_quality_flags_diagnostics_blob() -> None:
+    check = _check(
+        "diag_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "diag_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "extraction_only",
+                "confidence": 1.0,
+                "quality_flags": {
+                    "raw": {"source": "field_extraction_mode"},
+                    "source": "field_extraction_mode",
+                    "rules_llm_decision": "skip_presence_for_extraction",
+                    "citation_anchor_uid": "main_contract:7.3.3",
+                    "llm_required": False,
+                    "llm_degraded": False,
+                },
+                "qc_status": "pending",
+                "structured_data": {
+                    "value": {"value": "x"},
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["diag_check"]
+    assert drawer.quality_flags is None
+
+    
+def test_build_dd_grid_v1_extraction_only_maps_to_l1_with_no_confidence() -> None:
+    """
+    extraction_only — field extraction без LLM presence detection.
+    Должен маппиться в L1 и иметь confidence=None (L1 детерминирован).
+    """
+    check = _check(
+        "field_extraction_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "field_extraction_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "extraction_only",
+                "confidence": 1.0,
+                "quality_flags": None,
+                "qc_status": "pending",
+                "structured_data": {
+                    "value": {"value": "some extracted value"},
+                },
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "contract.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["field_extraction_check"]
+
+    assert drawer.detection_level == "L1"
+    assert drawer.confidence is None
+
+def test_build_dd_grid_v1_derives_agent_name_from_detector_used() -> None:
+    check = _check(
+        "agent_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    cases = [
+        ("rules", "RulesDetector"),
+        ("llm", "LLMDetector"),
+        ("hybrid", "HybridDetector"),
+        ("extraction_only", "ExtractionExecutor"),
+        (None, None),
+        ("unknown_detector", None),
+    ]
+
+    for detector_used, expected_agent in cases:
+        data = build_dd_grid_v1(
+            checks=[check],
+            check_results=[
+                {
+                    "document_id": "doc-1",
+                    "check_id": "agent_check",
+                    "result": "pass",
+                    "severity": "pass",
+                    "execution_status": "SUCCESS",
+                    "detector_used": detector_used,
+                    "quality_flags": None,
+                    "qc_status": "pending",
+                    "structured_data": {"value": {"value": "x"}},
+                }
+            ],
+            documents={
+                "doc-1": {
+                    "filename": "doc.pdf",
+                    "doc_type": "contract",
+                    "status": "classified",
+                }
+            },
+            registry=FakeRegistry(),
+        )
+
+        drawer = data.drawer_contents["doc-1"]["agent_check"]
+        assert drawer.agent_name == expected_agent, (
+            f"detector_used={detector_used!r}: expected {expected_agent!r}, got {drawer.agent_name!r}"
+        )
+
+
+def test_build_dd_grid_v1_extracts_input_tokens_from_raw_context_tokens() -> None:
+    check = _check(
+        "token_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "token_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "extraction_only",
+                "quality_flags": {
+                    "raw": {
+                        "context_tokens": 1177,
+                        "llm_invoked": False,
+                        "llm_attempts": None,
+                    }
+                },
+                "qc_status": "pending",
+                "structured_data": {"value": {"value": "x"}},
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["token_check"]
+    assert drawer.input_tokens == 1177
+    assert drawer.output_tokens is None
+    assert drawer.retry_attempts is None
+
+
+def test_build_dd_grid_v1_execution_time_ms_none_when_delta_zero() -> None:
+    """started_at == finished_at → delta == 0 → execution_time_ms = None."""
+    from datetime import datetime, timezone
+
+    check = _check(
+        "time_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    same_ts = datetime(2026, 7, 7, 1, 25, 17, tzinfo=timezone.utc)
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "time_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "extraction_only",
+                "quality_flags": None,
+                "qc_status": "pending",
+                "started_at": same_ts,
+                "finished_at": same_ts,
+                "structured_data": {"value": {"value": "x"}},
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["time_check"]
+    assert drawer.execution_time_ms is None
+
+
+def test_build_dd_grid_v1_execution_time_ms_valid_when_delta_positive() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    check = _check(
+        "time_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    started = datetime(2026, 7, 7, 1, 25, 17, tzinfo=timezone.utc)
+    finished = started + timedelta(milliseconds=3500)
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "time_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "extraction_only",
+                "quality_flags": None,
+                "qc_status": "pending",
+                "started_at": started,
+                "finished_at": finished,
+                "structured_data": {"value": {"value": "x"}},
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["time_check"]
+    assert drawer.execution_time_ms == 3500
+
+
+def test_build_dd_grid_v1_no_check_result_all_observability_fields_none() -> None:
+    check = _check(
+        "obs_check",
+        doc_types=["nda"],
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[],
+        documents={
+            "doc-1": {
+                "filename": "nda.pdf",
+                "doc_type": "nda",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["obs_check"]
+    assert drawer.agent_name is None
+    assert drawer.model_version is None
+    assert drawer.execution_time_ms is None
+    assert drawer.retry_attempts is None
+    assert drawer.input_tokens is None
+    assert drawer.output_tokens is None
+
+    # ---------------------------------------------------------------------------
+# B3.P1.2 — Telemetry propagation refined semantics tests
+# ---------------------------------------------------------------------------
+
+
+def test_extraction_only_without_llm_invoked_maps_to_l1_and_extractor_agent() -> None:
+    """
+    extraction_only + extraction_llm_invoked=False → L1 + ExtractionExecutor.
+    Детерминированный extraction без LLM.
+    """
+    check = _check(
+        "pure_extraction_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "pure_extraction_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "extraction_only",
+                "confidence": 1.0,
+                "quality_flags": {
+                    "raw": {
+                        "extraction_mode": "rules",
+                        "extraction_llm_invoked": False,
+                        "context_tokens": 1177,
+                        "duration_ms": 320,
+                    }
+                },
+                "qc_status": "pending",
+                "structured_data": {"value": {"value": "x"}},
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["pure_extraction_check"]
+
+    assert drawer.detection_level == "L1"
+    assert drawer.agent_name == "ExtractionExecutor"
+    assert drawer.confidence is None
+    assert drawer.input_tokens == 1177
+    assert drawer.execution_time_ms == 320
+
+
+def test_extraction_only_with_llm_invoked_mode_llm_maps_to_l2() -> None:
+    """
+    extraction_only + extraction_llm_invoked=True + mode=llm → L2 + ExtractionLLMDetector.
+    """
+    check = _check(
+        "llm_extraction_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "llm_extraction_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "extraction_only",
+                "confidence": 0.9,
+                "quality_flags": {
+                    "raw": {
+                        "extraction_mode": "llm",
+                        "extraction_llm_invoked": True,
+                        "llm_invoked": True,
+                        "model": "qwen-2.5-7b",
+                        "prompt_tokens": 856,
+                        "completion_tokens": 124,
+                        "duration_ms": 1840,
+                        "llm_attempts": 1,
+                    }
+                },
+                "qc_status": "pending",
+                "structured_data": {"value": {"value": "extracted text"}},
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["llm_extraction_check"]
+
+    assert drawer.detection_level == "L2"
+    assert drawer.agent_name == "ExtractionLLMDetector"
+    assert drawer.confidence == pytest.approx(0.9)
+    assert drawer.model_version == "qwen-2.5-7b"
+    assert drawer.input_tokens == 856
+    assert drawer.output_tokens == 124
+    assert drawer.execution_time_ms == 1840
+    assert drawer.retry_attempts == 1
+
+
+def test_extraction_only_with_llm_invoked_mode_hybrid_maps_to_l3() -> None:
+    """
+    extraction_only + extraction_llm_invoked=True + mode=hybrid → L3.
+    """
+    check = _check(
+        "hybrid_extraction_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "hybrid_extraction_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "extraction_only",
+                "confidence": 0.85,
+                "quality_flags": {
+                    "raw": {
+                        "extraction_mode": "hybrid",
+                        "extraction_llm_invoked": True,
+                        "llm_invoked": True,
+                        "model": "qwen-2.5-7b",
+                        "prompt_tokens": 1200,
+                        "completion_tokens": 200,
+                        "duration_ms": 2500,
+                    }
+                },
+                "qc_status": "pending",
+                "structured_data": {"value": {"value": "rag result"}},
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["hybrid_extraction_check"]
+
+    assert drawer.detection_level == "L3"
+    assert drawer.agent_name == "ExtractionLLMDetector"
+    assert drawer.confidence == pytest.approx(0.85)
+    assert drawer.input_tokens == 1200
+    assert drawer.output_tokens == 200
+    assert drawer.execution_time_ms == 2500
+
+
+def test_raw_duration_ms_takes_priority_over_db_timestamps() -> None:
+    """
+    raw.duration_ms имеет приоритет над started_at/finished_at.
+    """
+    from datetime import datetime, timezone
+
+    check = _check(
+        "duration_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    same_ts = datetime(2026, 7, 7, 1, 25, 17, tzinfo=timezone.utc)
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "duration_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "extraction_only",
+                "quality_flags": {
+                    "raw": {
+                        "extraction_llm_invoked": False,
+                        "duration_ms": 4200,
+                    }
+                },
+                "qc_status": "pending",
+                "started_at": same_ts,
+                "finished_at": same_ts,
+                "structured_data": {"value": {"value": "x"}},
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["duration_check"]
+
+    # raw.duration_ms=4200 побеждает даже когда DB delta=0
+    assert drawer.execution_time_ms == 4200
+
+
+def test_prompt_tokens_takes_priority_over_context_tokens() -> None:
+    """
+    raw.prompt_tokens имеет приоритет над raw.context_tokens.
+    """
+    check = _check(
+        "tokens_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "tokens_check",
+                "result": "pass",
+                "severity": "pass",
+                "execution_status": "SUCCESS",
+                "detector_used": "extraction_only",
+                "quality_flags": {
+                    "raw": {
+                        "extraction_llm_invoked": True,
+                        "extraction_mode": "llm",
+                        "llm_invoked": True,
+                        "prompt_tokens": 856,
+                        "context_tokens": 1177,
+                        "completion_tokens": 124,
+                    }
+                },
+                "qc_status": "pending",
+                "structured_data": {"value": {"value": "x"}},
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["tokens_check"]
+
+    # prompt_tokens=856 побеждает context_tokens=1177
+    assert drawer.input_tokens == 856
+    assert drawer.output_tokens == 124
+
+
+def test_presence_llm_telemetry_propagated_to_drawer() -> None:
+    """
+    detector_used=llm → L2, LLMDetector, model/tokens из raw.
+    """
+    check = _check(
+        "presence_llm_check",
+        fields=[_field("value", label="Значение")],
+    )
+
+    data = build_dd_grid_v1(
+        checks=[check],
+        check_results=[
+            {
+                "document_id": "doc-1",
+                "check_id": "presence_llm_check",
+                "result": "fail",
+                "severity": "high",
+                "execution_status": "SUCCESS",
+                "detector_used": "llm",
+                "confidence": 0.78,
+                "quality_flags": {
+                    "raw": {
+                        "llm_invoked": True,
+                        "model": "qwen-2.5-7b",
+                        "prompt_tokens": 512,
+                        "completion_tokens": 96,
+                        "duration_ms": 1200,
+                        "llm_attempts": 2,
+                    }
+                },
+                "qc_status": "pending",
+                "structured_data": {"value": {"value": "риск найден"}},
+            }
+        ],
+        documents={
+            "doc-1": {
+                "filename": "doc.pdf",
+                "doc_type": "contract",
+                "status": "classified",
+            }
+        },
+        registry=FakeRegistry(),
+    )
+
+    drawer = data.drawer_contents["doc-1"]["presence_llm_check"]
+
+    assert drawer.detection_level == "L2"
+    assert drawer.agent_name == "LLMDetector"
+    assert drawer.confidence == pytest.approx(0.78)
+    assert drawer.model_version == "qwen-2.5-7b"
+    assert drawer.input_tokens == 512
+    assert drawer.output_tokens == 96
+    assert drawer.execution_time_ms == 1200
+    assert drawer.retry_attempts == 2
+
     

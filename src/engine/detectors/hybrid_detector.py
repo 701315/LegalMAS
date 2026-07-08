@@ -606,7 +606,20 @@ class HybridDetector:
             "location": location,
             "sources": sources,
             "raw": {
+                # Full nested telemetry/details for forensics.
                 "llm_details": details,
+                # Flattened top-level telemetry for persistence/read-path.
                 "llm_error_type": details.get("error_type"),
+                "provider": details.get("provider"),
+                "model": details.get("model"),
+                "tokens_used": details.get("tokens_used"),
+                "prompt_tokens": details.get("prompt_tokens"),
+                "completion_tokens": details.get("completion_tokens"),
+                "duration_ms": details.get("duration_ms"),
+                "llm_attempts": details.get("llm_attempts"),
+                "parse_success": details.get("parse_success"),
             },
         }
+    
+
+    

@@ -46,6 +46,125 @@ logger = get_logger(__name__)
 _VALID_RESPONSE_FORMATS: frozenset[str | None] = frozenset({None, "json_object"})
 
 
+def _safe_non_negative_int(value: Any) -> int | None:
+    """
+    Привести значение к неотрицательному int или вернуть None.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed >= 0 else None
+
+
+def _extract_prompt_tokens_from_raw_response(
+    provider: str,
+    raw_response: dict[str, Any] | None,
+) -> int | None:
+    """
+    Извлечь prompt tokens из provider-specific raw response.
+    """
+    if not isinstance(raw_response, dict):
+        return None
+
+    if provider == "openai":
+        usage = raw_response.get("usage") or {}
+        if isinstance(usage, dict):
+            return _safe_non_negative_int(usage.get("prompt_tokens"))
+
+    if provider == "ollama":
+        return _safe_non_negative_int(raw_response.get("prompt_eval_count"))
+
+    if provider == "llamacpp":
+        usage = raw_response.get("usage") or {}
+        if isinstance(usage, dict):
+            return _safe_non_negative_int(usage.get("prompt_tokens"))
+
+    return None
+
+
+def _extract_completion_tokens_from_raw_response(
+    provider: str,
+    raw_response: dict[str, Any] | None,
+) -> int | None:
+    """
+    Извлечь completion tokens из provider-specific raw response.
+    """
+    if not isinstance(raw_response, dict):
+        return None
+
+    if provider == "openai":
+        usage = raw_response.get("usage") or {}
+        if isinstance(usage, dict):
+            return _safe_non_negative_int(usage.get("completion_tokens"))
+
+    if provider == "ollama":
+        return _safe_non_negative_int(raw_response.get("eval_count"))
+
+    if provider == "llamacpp":
+        usage = raw_response.get("usage") or {}
+        if isinstance(usage, dict):
+            return _safe_non_negative_int(usage.get("completion_tokens"))
+
+    return None
+
+
+def build_llm_telemetry_from_response(
+    response: "LLMResponse",
+    *,
+    duration_ms: int | None = None,
+    llm_attempts: int | None = None,
+) -> dict[str, Any]:
+    """
+    Построить normalized telemetry dict из LLMResponse.
+
+    Это единый внутренний контракт observability-метаданных,
+    который можно безопасно прокидывать через detector -> executor -> persistence.
+
+    Returns:
+        {
+            "provider": str | None,
+            "model": str | None,
+            "tokens_used": int | None,
+            "prompt_tokens": int | None,
+            "completion_tokens": int | None,
+            "duration_ms": int | None,
+            "llm_attempts": int | None,
+            "parse_success": bool | None,
+        }
+    """
+    provider = str(response.provider or "").strip()
+    raw_response = response.raw_response if isinstance(response.raw_response, dict) else {}
+
+    prompt_tokens = (
+        response.prompt_tokens
+        if response.prompt_tokens is not None
+        else _extract_prompt_tokens_from_raw_response(provider, raw_response)
+    )
+    completion_tokens = (
+        response.completion_tokens
+        if response.completion_tokens is not None
+        else _extract_completion_tokens_from_raw_response(provider, raw_response)
+    )
+
+    return {
+        "provider": provider or None,
+        "model": (str(response.model).strip() if response.model else None),
+        "tokens_used": _safe_non_negative_int(response.tokens_used),
+        "prompt_tokens": _safe_non_negative_int(prompt_tokens),
+        "completion_tokens": _safe_non_negative_int(completion_tokens),
+        "duration_ms": _safe_non_negative_int(duration_ms),
+        "llm_attempts": _safe_non_negative_int(llm_attempts),
+        "parse_success": (
+            bool(response.parse_success)
+            if response.parse_success is not None
+            else None
+        ),
+    }
+
+
 def _resolve_structured_output_strategy(
     provider: str,
     response_format: "str | None",
@@ -97,6 +216,8 @@ class LLMResponse:
     tokens_used: int = 0  # Approximate tokens consumed
     parse_success: bool = False  # Was the JSON response parsed successfully?
     raw_response: dict = field(default_factory=dict)
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
 
 
 class LLMClient:
@@ -726,12 +847,16 @@ class LLMClient:
         text = data["choices"][0]["message"]["content"]
         tokens_used = data.get("usage", {}).get("total_tokens", 0)
 
+        usage = data.get("usage", {}) or {}
+
         result = LLMResponse(
             text=text,
             provider="openai",
             model=settings.LLM_OPENAI_MODEL,
             tokens_used=tokens_used,
             raw_response=data,
+            prompt_tokens=_safe_non_negative_int(usage.get("prompt_tokens")),
+            completion_tokens=_safe_non_negative_int(usage.get("completion_tokens")),
         )
         return _parse_llm_response(result)
 
@@ -787,6 +912,8 @@ class LLMClient:
             provider="ollama",
             model=settings.LLM_OLLAMA_MODEL,
             raw_response=data,
+            prompt_tokens=_safe_non_negative_int(data.get("prompt_eval_count")),
+            completion_tokens=_safe_non_negative_int(data.get("eval_count")),
         )
         return _parse_llm_response(result)
 
@@ -1164,12 +1291,16 @@ class LLMClient:
         text = data["choices"][0]["message"]["content"]
         tokens_used = data.get("usage", {}).get("total_tokens", 0)
 
+        usage = data.get("usage", {}) or {}
+
         result = LLMResponse(
             text=text,
             provider="openai",
             model=settings.LLM_OPENAI_MODEL,
             tokens_used=tokens_used,
             raw_response=data,
+            prompt_tokens=_safe_non_negative_int(usage.get("prompt_tokens")),
+            completion_tokens=_safe_non_negative_int(usage.get("completion_tokens")),
         )
         return _parse_llm_response(result)
 
@@ -1223,6 +1354,8 @@ class LLMClient:
             provider="ollama",
             model=settings.LLM_OLLAMA_MODEL,
             raw_response=data,
+            prompt_tokens=_safe_non_negative_int(data.get("prompt_eval_count")),
+            completion_tokens=_safe_non_negative_int(data.get("eval_count")),
         )
         return _parse_llm_response(result)
 
@@ -1314,12 +1447,16 @@ class LLMClient:
             text_preview=text[:200],
         )
 
+        usage = output.get("usage", {}) or {}
+
         result = LLMResponse(
             text=text,
             provider="llamacpp",
             model=model_path,
             tokens_used=tokens_used,
             raw_response=output,
+            prompt_tokens=_safe_non_negative_int(usage.get("prompt_tokens")),
+            completion_tokens=_safe_non_negative_int(usage.get("completion_tokens")),
         )
         return _parse_llm_response(result)
 

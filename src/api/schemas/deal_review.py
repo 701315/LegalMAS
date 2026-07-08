@@ -14,9 +14,10 @@ DTO-схемы для UI-API обзора сделки (deal review).
 между ними есть слой маппинга в deal_review_service.
 """
 
-from typing import Any
+from datetime import datetime
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StrictBool, field_validator
 
 
 class DocumentSummaryDTO(BaseModel):
@@ -430,6 +431,8 @@ class DocumentStructuredDataDTO(BaseModel):
 # DD Grid V1 API DTO
 # ---------------------------------------------------------------------------
 
+DDGridDetectionLevel = Literal["L1", "L2", "L3", "L4"]
+DDGridQCStatus = Literal["pending", "approved", "rejected", "needs_review"]
 
 class DDGridCellValueDTO(BaseModel):
     """
@@ -515,6 +518,12 @@ class DDGridDrawerDTO(BaseModel):
 
     cell_state: сводный cell_state по всем columns check.
       Priority: error > defined > not_defined > not_executed > not_applicable.
+
+    Дополнительно:
+    - detection_level / confidence / quality_flags дают прозрачность результата;
+    - qc_* поля содержат audit trail QC без отдельного round-trip;
+    - execution_status возвращается в API-контракте:
+      SUCCESS | FAILED | TIMEOUT | SKIPPED | PARTIAL.
     """
 
     check_id: str
@@ -525,9 +534,120 @@ class DDGridDrawerDTO(BaseModel):
     review_status: str | None = None
     review_message: str | None = None
     display_text: str | None = None
+
     execution_status: str | None = None
-    fields: list[DDGridDrawerFieldDTO] = []
-    evidence_items: list[str] = []
+    """SUCCESS | FAILED | TIMEOUT | SKIPPED | PARTIAL"""
+
+    detection_level: DDGridDetectionLevel | None = None
+    """L1 | L2 | L3 | L4"""
+
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    """Confidence score 0.0-1.0. None when not applicable or unavailable."""
+
+    quality_flags: dict[str, StrictBool] | None = None
+    """
+    Открытый dict технических флагов качества.
+    Допускаются только true-значения.
+    None = технических caveats нет.
+    """
+
+    qc_status: DDGridQCStatus | None = None
+    qc_by: str | None = None
+    qc_at: str | None = None
+    qc_comment: str | None = None
+
+    # Observability (B3 P1)
+    agent_name: str | None = None
+    """
+    Имя агента/детектора. Derived from detector_used.
+    Примеры: 'RulesDetector', 'LLMDetector', 'HybridDetector', 'ExtractionExecutor'.
+    None для legacy runs или если detector_used неизвестен.
+    """
+
+    model_version: str | None = None
+    """
+    Версия LLM модели. Например: 'qwen-2.5-7b', 'gpt-4-turbo-2024-04-09'.
+    None для L1/L4 без LLM или если данные недоступны.
+    """
+
+    execution_time_ms: int | None = Field(default=None, ge=0, le=600000)
+    """
+    Время выполнения check в миллисекундах.
+    Derived from started_at / finished_at.
+    None если данные недоступны или delta <= 0.
+    """
+
+    retry_attempts: int | None = Field(default=None, ge=1)
+    """
+    Количество LLM-попыток. 1 = с первого раза.
+    None для L1 без LLM или если данные недоступны.
+    """
+
+    input_tokens: int | None = Field(default=None, ge=0)
+    """
+    Количество input tokens (context + prompt overhead).
+    None если LLM не вызывался или данные недоступны.
+    """
+
+    output_tokens: int | None = Field(default=None, ge=0)
+    """
+    Количество output tokens.
+    None если LLM не вызывался или данные недоступны.
+    """
+
+    fields: list[DDGridDrawerFieldDTO] = Field(default_factory=list)
+    evidence_items: list[str] = Field(default_factory=list)
+
+    @field_validator("quality_flags")
+    @classmethod
+    def validate_quality_flags(
+        cls,
+        value: dict[str, StrictBool] | None,
+    ) -> dict[str, StrictBool] | None:
+        """
+        quality_flags:
+        - None, если флагов нет;
+        - непустой dict;
+        - только non-empty keys;
+        - только true boolean values.
+        """
+        if value is None:
+            return None
+
+        normalized: dict[str, StrictBool] = {}
+        for key, flag in value.items():
+            normalized_key = str(key).strip()
+            if not normalized_key:
+                raise ValueError("quality_flags keys must be non-empty strings")
+            if flag is not True:
+                raise ValueError("quality_flags must contain only true boolean values")
+            normalized[normalized_key] = True
+
+        if not normalized:
+            raise ValueError("quality_flags must be None or contain at least one true flag")
+
+        return normalized
+
+    @field_validator("qc_at")
+    @classmethod
+    def validate_qc_at(cls, value: str | None) -> str | None:
+        """
+        qc_at должен быть ISO 8601 string или None.
+        Пустая строка нормализуется в None.
+        """
+        if value is None:
+            return None
+
+        normalized = value.strip()
+        if not normalized:
+            return None
+
+        try:
+            datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("qc_at must be a valid ISO 8601 datetime string") from exc
+
+        return normalized
 
 
 class DDGridColumnDTO(BaseModel):
