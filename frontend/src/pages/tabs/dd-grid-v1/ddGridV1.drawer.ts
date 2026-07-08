@@ -11,8 +11,10 @@
 // =============================================================
 
 import type {
+  DDGridV1DetectionLevel,
   DDGridV1DrawerContentDTO,
   DDGridV1DrawerFieldDTO,
+  DDGridV1DrawerQcStatus,
 } from "../../../types/dealReview";
 
 import {
@@ -204,4 +206,224 @@ export function normalizeDDGridV1EvidenceItems(
   return out;
 }
 
+// -------------------------------------------------------------
+// Detection level
+// -------------------------------------------------------------
+
+export interface DDGridV1DetectionLevelInfo {
+  level: DDGridV1DetectionLevel | null;
+  /** Короткий label для badge: "L1", "L2", "L3", "L4" или null. */
+  badge: string | null;
+  /** Человекочитаемое описание. */
+  label: string;
+}
+
+const DETECTION_LEVEL_LABELS: Record<DDGridV1DetectionLevel, string> = {
+  L1: "Паттерн",
+  L2: "LLM",
+  L3: "RAG + LLM",
+  L4: "Ручная проверка",
+};
+
+/**
+ * Строит info-объект detection level для рендера.
+ * Возвращает null-safe структуру — всегда безопасно вызывать.
+ */
+export function resolveDDGridV1DetectionLevel(
+  drawer: DDGridV1DrawerContentDTO | null,
+): DDGridV1DetectionLevelInfo {
+  const level = drawer?.detection_level ?? null;
+  if (!level) {
+    return { level: null, badge: null, label: "Не определён" };
+  }
+  return {
+    level,
+    badge: level,
+    label: DETECTION_LEVEL_LABELS[level] ?? level,
+  };
+}
+
+// -------------------------------------------------------------
+// Confidence
+// -------------------------------------------------------------
+
+export type DDGridV1ConfidenceTier = "high" | "medium" | "low";
+
+export interface DDGridV1ConfidenceInfo {
+  value: number | null;
+  /** Tier для цветового кодирования. */
+  tier: DDGridV1ConfidenceTier | null;
+  /** Форматированная строка для рендера, например "0.87". */
+  formatted: string | null;
+}
+
+/**
+ * Строит info-объект confidence для рендера.
+ * Tier:
+ *   >= 0.80 → "high"  (зелёный)
+ *   >= 0.60 → "medium" (жёлтый)
+ *   <  0.60 → "low"   (красный)
+ */
+export function resolveDDGridV1Confidence(
+  drawer: DDGridV1DrawerContentDTO | null,
+): DDGridV1ConfidenceInfo {
+  const value = drawer?.confidence ?? null;
+  if (value === null || typeof value !== "number") {
+    return { value: null, tier: null, formatted: null };
+  }
+
+  const tier: DDGridV1ConfidenceTier =
+    value >= 0.8 ? "high" : value >= 0.6 ? "medium" : "low";
+
+  return {
+    value,
+    tier,
+    formatted: value.toFixed(2),
+  };
+}
+
+// -------------------------------------------------------------
+// Quality flags
+// -------------------------------------------------------------
+
+const QUALITY_FLAG_LABELS: Record<string, string> = {
+  structure_degraded: "Структура нарушена",
+  llm_fallback_used: "Fallback модель",
+  retry_used: "Повторная попытка",
+  partial_result: "Частичный результат",
+  confidence_below_threshold: "Низкая уверенность",
+  missing_provenance: "Нет провенанса",
+};
+
+export interface DDGridV1QualityFlagItem {
+  key: string;
+  label: string;
+}
+
+/**
+ * Возвращает нормализованный список quality flags для рендера.
+ * Только true-ключи (по контракту backend хранит только true).
+ * Для известных ключей — локализованный label.
+ * Для неизвестных — raw key с форматированием.
+ */
+export function resolveDDGridV1QualityFlags(
+  drawer: DDGridV1DrawerContentDTO | null,
+): DDGridV1QualityFlagItem[] {
+  const flags = drawer?.quality_flags;
+  if (!flags || typeof flags !== "object") return [];
+
+  return Object.keys(flags).map((key) => ({
+    key,
+    label: QUALITY_FLAG_LABELS[key] ?? key.replace(/_/g, " "),
+  }));
+}
+
+// -------------------------------------------------------------
+// QC Audit Trail
+// -------------------------------------------------------------
+
+export interface DDGridV1QcAuditInfo {
+  status: DDGridV1DrawerQcStatus | null;
+  /** Значение для select при редактировании. */
+  editableStatus: DDGridV1DrawerQcStatus;
+  by: string | null;
+  at: string | null;
+  /** Форматированная дата для рендера. */
+  atFormatted: string | null;
+  comment: string | null;
+  /** True если QC уже проводился (status != pending и != null). */
+  hasBeenActioned: boolean;
+}
+
+function formatISODate(iso: string | null): string | null {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+/**
+ * Строит info-объект QC audit trail из drawer content.
+ * Не требует пропсов от родителя — все данные берёт из drawer.
+ */
+export function resolveDDGridV1QcAuditInfo(
+  drawer: DDGridV1DrawerContentDTO | null,
+): DDGridV1QcAuditInfo {
+  const status = drawer?.qc_status ?? null;
+  const editableStatus: DDGridV1DrawerQcStatus = status ?? "pending";
+
+  return {
+    status,
+    editableStatus,
+    by: drawer?.qc_by ?? null,
+    at: drawer?.qc_at ?? null,
+    atFormatted: formatISODate(drawer?.qc_at ?? null),
+    comment: drawer?.qc_comment ?? null,
+    hasBeenActioned: !!status && status !== "pending",
+  };
+}
+
+// -------------------------------------------------------------
+// Observability
+// -------------------------------------------------------------
+
+export interface DDGridV1ObservabilityInfo {
+  agentName: string | null;
+  modelVersion: string | null;
+  executionTimeMs: number | null;
+  /** Форматированная строка, например "1 840 ms" или null. */
+  executionTimeFormatted: string | null;
+  retryAttempts: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  /** True если есть хотя бы одно непустое поле. */
+  hasAnyData: boolean;
+}
+
+function formatMs(ms: number | null): string | null {
+  if (ms === null || ms === undefined) return null;
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toFixed(2)} s`;
+}
+
+/**
+ * Строит info-объект observability из drawer content.
+ */
+export function resolveDDGridV1Observability(
+  drawer: DDGridV1DrawerContentDTO | null,
+): DDGridV1ObservabilityInfo {
+  const agentName = drawer?.agent_name ?? null;
+  const modelVersion = drawer?.model_version ?? null;
+  const executionTimeMs = drawer?.execution_time_ms ?? null;
+  const retryAttempts = drawer?.retry_attempts ?? null;
+  const inputTokens = drawer?.input_tokens ?? null;
+  const outputTokens = drawer?.output_tokens ?? null;
+
+  const hasAnyData =
+    !!agentName ||
+    !!modelVersion ||
+    executionTimeMs !== null ||
+    retryAttempts !== null ||
+    inputTokens !== null ||
+    outputTokens !== null;
+
+  return {
+    agentName,
+    modelVersion,
+    executionTimeMs,
+    executionTimeFormatted: formatMs(executionTimeMs),
+    retryAttempts,
+    inputTokens,
+    outputTokens,
+    hasAnyData,
+  };
+}
 

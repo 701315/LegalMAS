@@ -1,49 +1,38 @@
 // =============================================================
 // src/pages/tabs/dd-grid-v1/DDGridV1ViewModeToggle.tsx
-// Matrix-only toggle для режима представления DD Grid V1.
-//
-// Режимы:
-// - by_doc_type   — отдельная таблица на каждый doc_type;
-// - all_documents — одна сводная таблица со всеми check-ами;
-// - global_only   — одна сводная таблица только с global checks.
-//
-// Источник состояния — zustand store useDDGridV1UIStore.
+// Compact toggle для переключения между matrix и list.
+// Использует format из useDDGridV1UIStore (matrix | list).
 // =============================================================
 
 import React from "react";
 
 import {
   useDDGridV1UIStore,
-  type DDGridV1ViewMode,
+  type DDGridV1GridFormat,
 } from "./ddGridV1.collapseStore";
 
 interface ViewModeOption {
-  value: DDGridV1ViewMode;
+  value: DDGridV1GridFormat;
   label: string;
   title: string;
 }
 
 const VIEW_MODE_OPTIONS: readonly ViewModeOption[] = [
   {
-    value: "by_doc_type",
-    label: "По типам",
-    title: "Отдельная таблица для каждого типа документа",
+    value: "matrix",
+    label: "Матрица",
+    title: "Табличное представление: документы × проверки",
   },
   {
-    value: "all_documents",
-    label: "Все документы",
-    title: "Одна таблица со всеми документами и всеми доступными проверками",
-  },
-  {
-    value: "global_only",
-    label: "Только глобальные",
-    title: "Одна таблица со всеми документами и только глобальными проверками",
+    value: "list",
+    label: "Список",
+    title: "Плоский список findings",
   },
 ] as const;
 
 function getTabClassName(
-  current: DDGridV1ViewMode,
-  value: DDGridV1ViewMode,
+  current: DDGridV1GridFormat,
+  value: DDGridV1GridFormat,
 ): string {
   return current === value
     ? "rounded-lg bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-sm"
@@ -51,24 +40,24 @@ function getTabClassName(
 }
 
 export const DDGridV1ViewModeToggle: React.FC = () => {
-  const viewMode = useDDGridV1UIStore((state) => state.viewMode);
-  const setViewMode = useDDGridV1UIStore((state) => state.setViewMode);
+  const format = useDDGridV1UIStore((state) => state.format);
+  const setFormat = useDDGridV1UIStore((state) => state.setFormat);
 
   return (
     <div
       className="inline-flex items-center rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-1"
       role="tablist"
-      aria-label="DD Grid V1 matrix view mode"
+      aria-label="DD Grid V1 view mode"
     >
       {VIEW_MODE_OPTIONS.map((option) => (
         <button
           key={option.value}
           type="button"
           role="tab"
-          aria-selected={viewMode === option.value}
+          aria-selected={format === option.value}
           title={option.title}
-          onClick={() => setViewMode(option.value)}
-          className={getTabClassName(viewMode, option.value)}
+          onClick={() => setFormat(option.value)}
+          className={getTabClassName(format, option.value)}
         >
           {option.label}
         </button>
@@ -78,5 +67,3 @@ export const DDGridV1ViewModeToggle: React.FC = () => {
 };
 
 export default DDGridV1ViewModeToggle;
-
-

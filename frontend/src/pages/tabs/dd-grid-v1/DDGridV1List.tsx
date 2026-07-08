@@ -41,6 +41,16 @@ import type {
   ReviewQcStatus,
 } from "../../../types/dealReview";
 
+import {
+  resolveDDGridV1DetectionLevel,
+  resolveDDGridV1Confidence,
+  resolveDDGridV1QualityFlags,
+  resolveDDGridV1QcAuditInfo,
+  resolveDDGridV1Observability,
+  type DDGridV1ObservabilityInfo,
+  type DDGridV1QualityFlagItem,
+} from "./ddGridV1.drawer";
+
 import type {
   ReviewGridRow,
   ReviewCheckColumn,
@@ -100,6 +110,16 @@ interface V1ListRow {
   reviewStatusLabel: string;
   reviewStatusTone: ReviewStatusTone;
   locationText: string;
+
+  // B3 pre-resolved для рендера в колонках
+  detectionLevelBadge: string | null;
+  confidenceFormatted: string | null;
+  confidenceTier: "high" | "medium" | "low" | null;
+  qualityFlags: DDGridV1QualityFlagItem[];
+  qualityFlagsCount: number;
+  qcStatusLabel: string | null;
+  qcStatusTone: "success" | "error" | "warning" | "neutral" | null;
+  observability: DDGridV1ObservabilityInfo;
 }
 
 type ReviewStatusTone =
@@ -212,6 +232,23 @@ function buildLocationText(drawer: DDGridV1DrawerContentDTO | null): string {
   return "";
 }
 
+function getQcStatusMeta(
+  status: string | null | undefined,
+): { label: string | null; tone: "success" | "error" | "warning" | "neutral" | null } {
+  if (!status || status === "pending") return { label: null, tone: null };
+  switch (status) {
+    case "approved":
+      return { label: "Одобрено", tone: "success" };
+    case "rejected":
+      return { label: "Отклонено", tone: "error" };
+    case "needs_review":
+      return { label: "Нужна проверка", tone: "warning" };
+    default:
+      return { label: status, tone: "neutral" };
+  }
+}
+
+
 // -------------------------------------------------------------
 // Row builder
 // -------------------------------------------------------------
@@ -291,6 +328,13 @@ function buildV1ListRows(
 
       const legacyCell = legacyRow?.cellsByCheckId[check.checkId];
 
+      const detectionLevelInfo = resolveDDGridV1DetectionLevel(drawer);
+      const confidenceInfo = resolveDDGridV1Confidence(drawer);
+      const qualityFlags = resolveDDGridV1QualityFlags(drawer);
+      const qcAuditInfo = resolveDDGridV1QcAuditInfo(drawer);
+      const qcStatusMeta = getQcStatusMeta(qcAuditInfo.status);
+      const observability = resolveDDGridV1Observability(drawer);
+
       const listRow: V1ListRow = {
         rowId: `${v1Row.documentId}::${check.checkId}`,
         v1Row,
@@ -306,6 +350,14 @@ function buildV1ListRows(
         reviewStatusLabel: statusMeta.label,
         reviewStatusTone: statusMeta.tone,
         locationText: buildLocationText(drawer),
+        detectionLevelBadge: detectionLevelInfo.badge,
+        confidenceFormatted: confidenceInfo.formatted,
+        confidenceTier: confidenceInfo.tier,
+        qualityFlags,
+        qualityFlagsCount: qualityFlags.length,
+        qcStatusLabel: qcStatusMeta.label,
+        qcStatusTone: qcStatusMeta.tone,
+        observability,
       };
 
       result.push(listRow);
@@ -377,10 +429,85 @@ export interface DDGridV1ListProps {
    */
   includePassResults?: boolean;
 
+  /**
+   * Список ID дополнительных технических колонок, которые нужно показать.
+   * Управляется через toolbar панель "Дополнительные данные".
+   * Пустой массив / undefined — показываем только базовые колонки.
+   */
+  visibleExtraColumnIds?: readonly string[];
+
   onOpenAtLocation?: OpenViewerAtFn;
+
   onSelectionChange?: (selection: ReviewSelectionItem[]) => void;
   clearSelectionToken?: number;
 }
+
+// -------------------------------------------------------------
+// Extra columns catalog (публичный API для parent toolbar)
+// -------------------------------------------------------------
+
+export interface DDGridV1ExtraColumnMeta {
+  id: string;
+  label: string;
+  description: string;
+}
+
+/**
+ * Полный список доступных extra колонок.
+ * Parent (toolbar) использует этот массив для рендера чекбоксов выбора.
+ */
+export const DD_GRID_V1_EXTRA_COLUMNS: readonly DDGridV1ExtraColumnMeta[] = [
+  {
+    id: "detectionLevel",
+    label: "Метод анализа",
+    description: "Уровень детекции: L1 (правила), L2 (LLM), L3 (RAG+LLM), L4 (ручная)",
+  },
+  {
+    id: "qcStatus",
+    label: "QC",
+    description: "Статус ручной проверки юристом",
+  },
+  {
+    id: "confidence",
+    label: "Уверенность",
+    description: "Уверенность модели в результате (0.0–1.0)",
+  },
+  {
+    id: "qualityFlags",
+    label: "Предупреждения",
+    description: "Технические флаги качества выполнения проверки",
+  },
+  {
+    id: "agentName",
+    label: "Агент",
+    description: "Имя детектора / агента, выполнившего проверку",
+  },
+  {
+    id: "modelVersion",
+    label: "Модель",
+    description: "Версия LLM модели",
+  },
+  {
+    id: "executionTime",
+    label: "Время выполнения",
+    description: "Длительность выполнения проверки в мс",
+  },
+  {
+    id: "retryAttempts",
+    label: "Попытки LLM",
+    description: "Количество попыток вызова LLM",
+  },
+  {
+    id: "inputTokens",
+    label: "Input tokens",
+    description: "Количество входных токенов LLM",
+  },
+  {
+    id: "outputTokens",
+    label: "Output tokens",
+    description: "Количество выходных токенов LLM",
+  },
+] as const;
 
 // -------------------------------------------------------------
 // Main component
@@ -393,6 +520,7 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
   columns,
   visibleCheckIds,
   includePassResults = true,
+  visibleExtraColumnIds,
   onOpenAtLocation,
   onSelectionChange,
   clearSelectionToken,
@@ -406,8 +534,15 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
     row: null,
   });
 
-  // ID активной строки для визуальной подсветки
+  // ID активной строки для визуальной подсветки.
+  // Ref используется в getRowClass, потому что AG Grid не пересоздаёт
+  // callback при изменении React state — closure остаётся stale.
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
+  const activeRowIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    activeRowIdRef.current = activeRowId;
+  }, [activeRowId]);
 
   const rowData = useMemo(
     () =>
@@ -442,15 +577,63 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
   }, []);
 
   const closeDrawer = useCallback(() => {
+    const previousActiveRowId = activeRowIdRef.current;
+
     setSelectedDrawer({ open: false, row: null });
     setActiveRowId(null);
-  }, []);
+    activeRowIdRef.current = null;
 
-  const openDrawerForRow = useCallback((row: V1ListRow) => {
-    if (!row.drawerContent) return;
-    setSelectedDrawer({ open: true, row });
-    setActiveRowId(row.rowId);
-  }, []);
+    if (!gridApi || !previousActiveRowId) return;
+
+    requestAnimationFrame(() => {
+      const node = gridApi.getRowNode(previousActiveRowId);
+      if (node) {
+        try {
+          gridApi.redrawRows({ rowNodes: [node] });
+        } catch {
+          /* noop */
+        }
+      }
+    });
+  }, [gridApi]);
+
+  const openDrawerForRow = useCallback(
+    (row: V1ListRow) => {
+      if (!row.drawerContent) return;
+
+      // Сохраняем ID предыдущей активной строки, чтобы принудительно
+      // обновить её className в AG Grid (иначе выделение не спадёт).
+      const previousActiveRowId = activeRowIdRef.current;
+
+      setSelectedDrawer({ open: true, row });
+      setActiveRowId(row.rowId);
+      activeRowIdRef.current = row.rowId;
+
+      if (!gridApi) return;
+
+      // Redraw откладываем на следующий кадр, чтобы React успел закоммитить
+      // новый activeRowId и getRowClass прочитал актуальное значение из ref.
+      requestAnimationFrame(() => {
+        const rowIdsToRefresh: string[] = [row.rowId];
+        if (previousActiveRowId && previousActiveRowId !== row.rowId) {
+          rowIdsToRefresh.push(previousActiveRowId);
+        }
+
+        const rowNodes = rowIdsToRefresh
+          .map((id) => gridApi.getRowNode(id))
+          .filter((node): node is NonNullable<typeof node> => node != null);
+
+        if (rowNodes.length > 0) {
+          try {
+            gridApi.redrawRows({ rowNodes });
+          } catch {
+            /* noop */
+          }
+        }
+      });
+    },
+    [gridApi],
+  );
 
   const defaultColDef = useMemo<ColDef<V1ListRow>>(
     () => ({
@@ -493,8 +676,8 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
   // Column defs
   // -----------------------------------------------------------
 
-  const columnDefs = useMemo<ColDef<V1ListRow>[]>(
-    () => [
+  const columnDefs = useMemo<ColDef<V1ListRow>[]>(() => {
+    const baseColumns: ColDef<V1ListRow>[] = [
       {
         headerName: "Документ",
         field: "documentName",
@@ -655,9 +838,270 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
           );
         },
       },
-    ],
-    [onOpenAtLocation, openDrawerForRow],
-  );
+    ];
+
+    const visibleExtras = new Set(visibleExtraColumnIds ?? []);
+    if (visibleExtras.size === 0) {
+      return baseColumns;
+    }
+
+    // Все возможные extra колонки, ключ = colId (совпадает с DD_GRID_V1_EXTRA_COLUMNS.id)
+    const extraColumnsMap: Record<string, ColDef<V1ListRow>> = {
+      detectionLevel: {
+        headerName: "Метод анализа",
+        colId: "detectionLevel",
+        minWidth: 120,
+        maxWidth: 150,
+        valueGetter: (params: ValueGetterParams<V1ListRow>) =>
+          params.data?.detectionLevelBadge ?? "",
+        tooltipValueGetter: (params) =>
+          params.data?.detectionLevelBadge
+            ? `Метод анализа: ${params.data.detectionLevelBadge}`
+            : "Метод анализа не определён",
+        cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
+          const row = params.data;
+          if (!row) return null;
+          return (
+            <span className="text-xs text-[var(--text-secondary)]">
+              {row.detectionLevelBadge || "—"}
+            </span>
+          );
+        },
+      },
+      qcStatus: {
+        headerName: "QC",
+        colId: "qcStatus",
+        minWidth: 130,
+        maxWidth: 200,
+        valueGetter: (params: ValueGetterParams<V1ListRow>) =>
+          params.data?.qcStatusLabel ?? "",
+        tooltipValueGetter: (params) => params.data?.qcStatusLabel ?? "",
+        cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
+          const row = params.data;
+          if (!row || !row.qcStatusLabel || !row.qcStatusTone) {
+            return (
+              <span className="text-[11px] text-[var(--text-faint)]">—</span>
+            );
+          }
+
+          const toneClass =
+            row.qcStatusTone === "success"
+              ? "border-emerald-500/40 bg-emerald-100 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-100"
+              : row.qcStatusTone === "error"
+                ? "border-red-500/40 bg-red-100 text-red-900 dark:border-red-700/60 dark:bg-red-900/40 dark:text-red-100"
+                : row.qcStatusTone === "warning"
+                  ? "border-amber-500/40 bg-amber-100 text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-100"
+                  : "border-gray-400 bg-gray-50 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
+
+          return (
+            <div className="flex h-full items-center">
+              <span
+                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${toneClass}`}
+              >
+                {row.qcStatusLabel}
+              </span>
+            </div>
+          );
+        },
+      },
+      confidence: {
+        headerName: "Уверенность",
+        colId: "confidence",
+        minWidth: 110,
+        maxWidth: 130,
+        valueGetter: (params: ValueGetterParams<V1ListRow>) =>
+          params.data?.confidenceFormatted ?? "",
+        tooltipValueGetter: (params) =>
+          params.data?.confidenceFormatted
+            ? `Уверенность модели: ${params.data.confidenceFormatted}`
+            : "",
+        cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
+          const row = params.data;
+          if (!row || !row.confidenceFormatted || !row.confidenceTier) {
+            return (
+              <span className="text-[11px] text-[var(--text-faint)]">—</span>
+            );
+          }
+          const toneClass =
+            row.confidenceTier === "high"
+              ? "text-emerald-700 dark:text-emerald-300"
+              : row.confidenceTier === "medium"
+                ? "text-amber-700 dark:text-amber-300"
+                : "text-red-700 dark:text-red-300";
+          return (
+            <span className={`text-xs font-medium ${toneClass}`}>
+              {row.confidenceFormatted}
+            </span>
+          );
+        },
+      },
+      qualityFlags: {
+        headerName: "Предупреждения",
+        colId: "qualityFlags",
+        minWidth: 160,
+        maxWidth: 240,
+        valueGetter: (params: ValueGetterParams<V1ListRow>) =>
+          params.data?.qualityFlagsCount ?? 0,
+        tooltipValueGetter: (params) => {
+          const flags = params.data?.qualityFlags ?? [];
+          if (flags.length === 0) return "";
+          return flags.map((f) => f.label).join(", ");
+        },
+        cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
+          const row = params.data;
+          if (!row || row.qualityFlags.length === 0) {
+            return (
+              <span className="text-[11px] text-[var(--text-faint)]">—</span>
+            );
+          }
+          return (
+            <div className="flex flex-wrap gap-1 py-0.5">
+              {row.qualityFlags.map((flag) => (
+                <span
+                  key={flag.key}
+                  className="inline-flex items-center rounded border border-amber-400 bg-amber-100 px-1 py-0 text-[10px] font-medium text-amber-900 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-200"
+                  title={flag.key}
+                >
+                  {flag.label}
+                </span>
+              ))}
+            </div>
+          );
+        },
+      },
+      agentName: {
+        headerName: "Агент",
+        colId: "agentName",
+        minWidth: 160,
+        maxWidth: 220,
+        valueGetter: (params: ValueGetterParams<V1ListRow>) =>
+          params.data?.observability.agentName ?? "",
+        tooltipValueGetter: (params) =>
+          params.data?.observability.agentName ?? "",
+        cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
+          const row = params.data;
+          const value = row?.observability.agentName;
+          return value ? (
+            <span className="font-mono text-[11px] text-[var(--text-secondary)]">
+              {value}
+            </span>
+          ) : (
+            <span className="text-[11px] text-[var(--text-faint)]">—</span>
+          );
+        },
+      },
+      modelVersion: {
+        headerName: "Модель",
+        colId: "modelVersion",
+        minWidth: 160,
+        maxWidth: 220,
+        valueGetter: (params: ValueGetterParams<V1ListRow>) =>
+          params.data?.observability.modelVersion ?? "",
+        tooltipValueGetter: (params) =>
+          params.data?.observability.modelVersion ?? "",
+        cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
+          const row = params.data;
+          const value = row?.observability.modelVersion;
+          return value ? (
+            <span className="font-mono text-[11px] text-[var(--text-secondary)]">
+              {value}
+            </span>
+          ) : (
+            <span className="text-[11px] text-[var(--text-faint)]">—</span>
+          );
+        },
+      },
+      executionTime: {
+        headerName: "Время",
+        colId: "executionTime",
+        minWidth: 100,
+        maxWidth: 130,
+        valueGetter: (params: ValueGetterParams<V1ListRow>) =>
+          params.data?.observability.executionTimeMs ?? null,
+        tooltipValueGetter: (params) =>
+          params.data?.observability.executionTimeFormatted ?? "",
+        cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
+          const row = params.data;
+          const value = row?.observability.executionTimeFormatted;
+          return value ? (
+            <span className="text-xs text-[var(--text-secondary)]">
+              {value}
+            </span>
+          ) : (
+            <span className="text-[11px] text-[var(--text-faint)]">—</span>
+          );
+        },
+      },
+      retryAttempts: {
+        headerName: "Retries",
+        colId: "retryAttempts",
+        minWidth: 90,
+        maxWidth: 110,
+        valueGetter: (params: ValueGetterParams<V1ListRow>) =>
+          params.data?.observability.retryAttempts ?? null,
+        cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
+          const row = params.data;
+          const value = row?.observability.retryAttempts;
+          return value !== null && value !== undefined ? (
+            <span className="text-xs text-[var(--text-secondary)]">
+              {value}
+            </span>
+          ) : (
+            <span className="text-[11px] text-[var(--text-faint)]">—</span>
+          );
+        },
+      },
+      inputTokens: {
+        headerName: "Input tokens",
+        colId: "inputTokens",
+        minWidth: 120,
+        maxWidth: 150,
+        valueGetter: (params: ValueGetterParams<V1ListRow>) =>
+          params.data?.observability.inputTokens ?? null,
+        cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
+          const row = params.data;
+          const value = row?.observability.inputTokens;
+          return value !== null && value !== undefined ? (
+            <span className="text-xs text-[var(--text-secondary)]">
+              {value.toLocaleString()}
+            </span>
+          ) : (
+            <span className="text-[11px] text-[var(--text-faint)]">—</span>
+          );
+        },
+      },
+      outputTokens: {
+        headerName: "Output tokens",
+        colId: "outputTokens",
+        minWidth: 120,
+        maxWidth: 150,
+        valueGetter: (params: ValueGetterParams<V1ListRow>) =>
+          params.data?.observability.outputTokens ?? null,
+        cellRenderer: (params: ICellRendererParams<V1ListRow>) => {
+          const row = params.data;
+          const value = row?.observability.outputTokens;
+          return value !== null && value !== undefined ? (
+            <span className="text-xs text-[var(--text-secondary)]">
+              {value.toLocaleString()}
+            </span>
+          ) : (
+            <span className="text-[11px] text-[var(--text-faint)]">—</span>
+          );
+        },
+      },
+    };
+
+    // Сохраняем порядок из DD_GRID_V1_EXTRA_COLUMNS
+    const orderedExtras: ColDef<V1ListRow>[] = [];
+    for (const meta of DD_GRID_V1_EXTRA_COLUMNS) {
+      if (visibleExtras.has(meta.id)) {
+        const colDef = extraColumnsMap[meta.id];
+        if (colDef) orderedExtras.push(colDef);
+      }
+    }
+
+    return [...baseColumns, ...orderedExtras];
+  }, [onOpenAtLocation, visibleExtraColumnIds]);
 
   // -----------------------------------------------------------
   // Selection
@@ -749,7 +1193,7 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
                 }
               }}
               getRowClass={(params) =>
-                params.data && params.data.rowId === activeRowId
+                params.data && params.data.rowId === activeRowIdRef.current
                   ? "ag-row-active-v1"
                   : ""
               }

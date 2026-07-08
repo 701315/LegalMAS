@@ -880,9 +880,18 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
             cellView.cellState === "not_applicable" ? "opacity-70" : "";
 
           const content = (
-            <div className="py-1">
+            <div
+              className="py-0"
+              style={{
+                lineHeight: 1.2,
+              }}
+            >
               <span
-                className={`whitespace-normal break-words text-[11px] leading-4 ${cellStateToneClass(cellView.cellState)}`}
+                className={`whitespace-normal break-words text-[11px] ${cellStateToneClass(cellView.cellState)}`}
+                style={{
+                  lineHeight: 1.2,
+                  display: "block",
+                }}
               >
                 {cellView.displayText}
               </span>

@@ -16,15 +16,19 @@
 import React from "react";
 import {
   AlertTriangle,
+  Check,
   ChevronRight,
   Download,
+  SlidersHorizontal,
 } from "lucide-react";
 
 import { useDealReviewDdGridV1 } from "../../../api/dealReview";
 import { useRun } from "../../../api/runs";
 import client from "../../../api/client";
 import DDGridV1TypedGroups from "./DDGridV1TypedGroups";
-import DDGridV1List from "./DDGridV1List";
+import DDGridV1List, {
+  DD_GRID_V1_EXTRA_COLUMNS,
+} from "./DDGridV1List";
 import DDGridV1ViewSettings from "./DDGridV1ViewSettings";
 import { useDDGridV1UIStore } from "./ddGridV1.collapseStore";
 import Button from "../../../components/ui/Button";
@@ -43,7 +47,21 @@ import type {
   ViewerState,
 } from "../grid/gridTab.types";
 import type { ReviewSelectionItem } from "../grid/reviewGrid.types";
-import ReviewExportButtons from "../grid/ReviewExportButtons";
+import DDGridV1ExportButtons from "./DDGridV1ExportButtons";
+import DDGridV1ExportLayoutPicker, {
+  type DDGridV1MatrixLayout,
+} from "./DDGridV1ExportLayoutPicker";
+import {
+  buildDDGridV1MatrixExportTable,
+  buildDDGridV1DocumentSectionedExportTable,
+  buildDDGridV1ScopeGroupSectionedExportTable,
+} from "./ddGridV1.exportBuilder";
+import {
+  exportMatrixSingleToPdf,
+  exportMatrixSingleToWord,
+  exportSectionedToPdf,
+  exportSectionedToWord,
+} from "./ddGridV1.exportRunners";
 import ReviewQcBulkActions from "../grid/ReviewQcBulkActions";
 import {
   getReviewQcCapability,
@@ -76,9 +94,21 @@ type RunMetaWarningProps = {
 
 type ExportPanelProps = {
   open: boolean;
-  findings: ReturnType<typeof adaptDDGridV1ToLegacyReview>["findings"];
+  model: import("./ddGridV1.types").DDGridV1DerivedModel;
+  mode: "list" | "matrix";
+  visibleCheckIds?: readonly string[];
+  includePassResults?: boolean;
+  visibleExtraColumnIds?: readonly string[];
   dealName: string;
   runId?: string;
+  /** true если inline layout picker сейчас показан. */
+  layoutPickerFormat: "pdf" | "docx" | null;
+  onRequestLayoutPicker: (format: "pdf" | "docx") => void;
+  onCancelLayoutPicker: () => void;
+  onApplyLayout: (
+    format: "pdf" | "docx",
+    layout: DDGridV1MatrixLayout,
+  ) => void;
 };
 
 // -------------------------------------------------------------
@@ -324,10 +354,23 @@ const RunMetaWarning: React.FC<RunMetaWarningProps> = ({ visible }) => {
 
 const ExportPanel: React.FC<ExportPanelProps> = ({
   open,
-  findings,
+  model,
+  mode,
+  visibleCheckIds,
+  includePassResults,
+  visibleExtraColumnIds,
   dealName,
   runId,
+  layoutPickerFormat,
+  onRequestLayoutPicker,
+  onCancelLayoutPicker,
+  onApplyLayout,
 }) => {
+  const modeDescription =
+    mode === "matrix"
+      ? "Файл будет сформирован как двумерная таблица: строки — документы, колонки — параметры проверок, в том же порядке, что на экране."
+      : "Файл будет сформирован как плоский список findings: те же строки, те же колонки, тот же порядок, что на экране.";
+
   return (
     <div
       id="dd-grid-v1-export-panel"
@@ -339,24 +382,53 @@ const ExportPanel: React.FC<ExportPanelProps> = ({
       }`}
     >
       <div className="min-h-0">
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                Экспорт findings
-              </p>
-              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                Файл будет сформирован по текущему набору отфильтрованных
-                findings.
-              </p>
-            </div>
+        <div className="flex flex-col gap-3">
+          {/* ── Основная панель с кнопками экспорта ──────────── */}
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                  Экспорт данных ({mode === "matrix" ? "матрица" : "список"})
+                </p>
+                <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                  {modeDescription}
+                </p>
+              </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <ReviewExportButtons
-                findings={findings}
-                dealName={dealName}
-                runId={runId}
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                <DDGridV1ExportButtons
+                  model={model}
+                  mode={mode}
+                  visibleCheckIds={visibleCheckIds}
+                  includePassResults={includePassResults}
+                  visibleExtraColumnIds={visibleExtraColumnIds}
+                  dealName={dealName}
+                  runId={runId}
+                  onRequestMatrixLayout={onRequestLayoutPicker}
+                  activeLayoutPickerFormat={layoutPickerFormat}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Inline layout picker (только matrix + после клика PDF/Word) ── */}
+          <div
+            className={`grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out ${
+              layoutPickerFormat
+                ? "grid-rows-[1fr] opacity-100"
+                : "grid-rows-[0fr] opacity-0"
+            }`}
+          >
+            <div className="min-h-0">
+              {layoutPickerFormat && (
+                <DDGridV1ExportLayoutPicker
+                  format={layoutPickerFormat}
+                  onCancel={onCancelLayoutPicker}
+                  onApply={(layout) =>
+                    onApplyLayout(layoutPickerFormat, layout)
+                  }
+                />
+              )}
             </div>
           </div>
         </div>
@@ -383,6 +455,26 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const checksScope = useDDGridV1UIStore((state) => state.checksScope);
 
   const [showPassInList, setShowPassInList] = React.useState<boolean>(true);
+
+    // Inline layout picker для matrix PDF/Word.
+  // null — picker скрыт; "pdf" / "docx" — picker показан для этого формата.
+  const [layoutPickerFormat, setLayoutPickerFormat] = React.useState<
+    "pdf" | "docx" | null
+  >(null);
+
+  // Applied extra columns — то, что реально отображается в таблице.
+  const [appliedExtraColumnIds, setAppliedExtraColumnIds] = React.useState<
+    readonly string[]
+  >([]);
+
+  // Draft — то, что юрист сейчас выбирает в панели.
+  const [draftExtraColumnIds, setDraftExtraColumnIds] = React.useState<
+    readonly string[]
+  >([]);
+
+  // Открыта ли inline-панель выбора колонок.
+  const [isExtraColumnsPanelOpen, setIsExtraColumnsPanelOpen] =
+    React.useState<boolean>(false);
   const [gridSelectionResetToken, setGridSelectionResetToken] =
     React.useState<number>(0);
   const [viewerState, setViewerState] = React.useState<ViewerState>(null);
@@ -410,7 +502,6 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   );
 
   // Без фильтров: используем raw findings и rows напрямую
-  const filteredReviewFindings = reviewDerived.findings;
   const filteredReviewRows = reviewDerived.rows;
 
   // Компактный список visibleCheckIds для V1 List (аналогично тому,
@@ -494,11 +585,76 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     }
 
     resetReviewSelection();
+    setAppliedExtraColumnIds([]);
+    setDraftExtraColumnIds([]);
+    setIsExtraColumnsPanelOpen(false);
+    setLayoutPickerFormat(null);
   }, [gridMode, resetReviewSelection]);
 
   const handleToggleExportPanel = React.useCallback(() => {
-    setIsExportPanelOpen((prev) => !prev);
+    setIsExportPanelOpen((prev) => {
+      if (prev) {
+        // При закрытии панели сбрасываем layout picker
+        setLayoutPickerFormat(null);
+      }
+      return !prev;
+    });
   }, []);
+
+  const handleApplyMatrixLayout = React.useCallback(
+    async (
+      format: "pdf" | "docx",
+      layout: DDGridV1MatrixLayout,
+    ) => {
+      const fileOpts = { dealName: dealId, runId: runId ?? undefined };
+
+      if (layout === "single") {
+        const matrixTable = buildDDGridV1MatrixExportTable({
+          model: v1Model,
+        });
+        if (format === "pdf") {
+          await exportMatrixSingleToPdf(matrixTable, fileOpts);
+        } else {
+          await exportMatrixSingleToWord(matrixTable, fileOpts);
+        }
+      } else if (layout === "byDocument") {
+        const sectioned = buildDDGridV1DocumentSectionedExportTable({
+          model: v1Model,
+        });
+        const sectionOpts = {
+          ...fileOpts,
+          titleSuffix: "по документам",
+          layoutSuffix: "by_document",
+        };
+        if (format === "pdf") {
+          await exportSectionedToPdf(sectioned, sectionOpts);
+        } else {
+          await exportSectionedToWord(sectioned, sectionOpts);
+        }
+      } else {
+        // byScopeGroup
+        const sectioned = buildDDGridV1ScopeGroupSectionedExportTable({
+          model: v1Model,
+        });
+        const sectionOpts = {
+          ...fileOpts,
+          titleSuffix: "по группам проверок",
+          layoutSuffix: "by_scope",
+        };
+        if (format === "pdf") {
+          await exportSectionedToPdf(sectioned, sectionOpts);
+        } else {
+          await exportSectionedToWord(sectioned, sectionOpts);
+        }
+      }
+
+      // Скрыть picker после успешного экспорта
+      setLayoutPickerFormat(null);
+    },
+    [dealId, runId, v1Model],
+  );
+
+
 
   const openViewerAt: OpenViewerAtFn = React.useCallback(async (loc) => {
     try {
@@ -613,25 +769,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {gridMode === "list" && (
-                <button
-                  type="button"
-                  onClick={() => setShowPassInList((prev) => !prev)}
-                  className={[
-                    "inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                    showPassInList
-                      ? "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-card-hover)]"
-                      : "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-inverse)] shadow-sm",
-                  ].join(" ")}
-                  title={
-                    showPassInList
-                      ? "Скрыть pass результаты"
-                      : "Показать pass результаты"
-                  }
-                >
-                  {showPassInList ? "Скрыть pass" : "Показать pass"}
-                </button>
-              )}
+              {/* Кнопки перенесены вниз, к панели настроек */}
             </div>
           </div>
 
@@ -643,12 +781,65 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                   <DDGridV1ViewSettings />
                 </div>
 
-                <div className="shrink-0 pt-[22px]">
+                <div className="flex shrink-0 items-center gap-2 pt-[22px]">
+                  {gridMode === "list" && (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={!showPassInList ? "outline" : "secondary"}
+                        onClick={() => setShowPassInList((prev) => !prev)}
+                        title={
+                          showPassInList
+                            ? "Скрыть pass результаты"
+                            : "Показать pass результаты"
+                        }
+                        aria-pressed={!showPassInList}
+                        className={!showPassInList ? INLINE_PANEL_ACTIVE_CLASS : ""}
+                      >
+                        {showPassInList ? "Скрыть pass" : "Показать pass"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={isExtraColumnsPanelOpen ? "outline" : "secondary"}
+                        onClick={() => {
+                          if (!isExtraColumnsPanelOpen) {
+                            // Открываем панель — инициализируем draft из applied
+                            setDraftExtraColumnIds(appliedExtraColumnIds);
+                          }
+                          setIsExtraColumnsPanelOpen((prev) => !prev);
+                        }}
+                        title="Выбрать дополнительные технические колонки для отображения"
+                        aria-expanded={isExtraColumnsPanelOpen}
+                        aria-controls="dd-grid-v1-extra-columns-panel"
+                        leftIcon={<SlidersHorizontal className="h-4 w-4" />}
+                        rightIcon={
+                          <ChevronRight
+                            className={`h-4 w-4 transition-transform duration-200 ${
+                              isExtraColumnsPanelOpen ? "rotate-90" : "rotate-0"
+                            }`}
+                          />
+                        }
+                        className={
+                          isExtraColumnsPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""
+                        }
+                      >
+                        Дополнительные данные
+                        {appliedExtraColumnIds.length > 0
+                          ? ` (${appliedExtraColumnIds.length})`
+                          : ""}
+                      </Button>
+                    </>
+                  )}
+
                   <Button
                     type="button"
                     size="sm"
                     variant={isExportPanelOpen ? "outline" : "secondary"}
                     onClick={handleToggleExportPanel}
+                    title="Открыть панель экспорта findings в файл"
                     aria-expanded={isExportPanelOpen}
                     aria-controls="dd-grid-v1-export-panel"
                     leftIcon={<Download className="h-4 w-4" />}
@@ -669,10 +860,137 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
             <ExportPanel
               open={isExportPanelOpen}
-              findings={filteredReviewFindings}
+              model={v1Model}
+              mode={gridMode}
+              visibleCheckIds={
+                gridMode === "list" ? listVisibleCheckIds : undefined
+              }
+              includePassResults={gridMode === "list" ? showPassInList : true}
+              visibleExtraColumnIds={
+                gridMode === "list" ? appliedExtraColumnIds : undefined
+              }
               dealName={dealId}
               runId={runId ?? undefined}
+              layoutPickerFormat={layoutPickerFormat}
+              onRequestLayoutPicker={setLayoutPickerFormat}
+              onCancelLayoutPicker={() => setLayoutPickerFormat(null)}
+              onApplyLayout={handleApplyMatrixLayout}
             />
+
+            {/* Inline-панель выбора дополнительных колонок */}
+            <div
+              id="dd-grid-v1-extra-columns-panel"
+              aria-hidden={!isExtraColumnsPanelOpen}
+              className={`grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${
+                isExtraColumnsPanelOpen
+                  ? "mt-3 grid-rows-[1fr] opacity-100"
+                  : "mt-0 grid-rows-[0fr] opacity-0"
+              }`}
+            >
+              <div className="min-h-0">
+                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                        Выбор дополнительных колонок
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                        Отметьте технические показатели, которые нужно
+                        отобразить в таблице.
+                      </p>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setDraftExtraColumnIds(appliedExtraColumnIds);
+                          setIsExtraColumnsPanelOpen(false);
+                        }}
+                      >
+                        Отменить
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        leftIcon={<Check className="h-4 w-4" />}
+                        onClick={() => {
+                          setAppliedExtraColumnIds(draftExtraColumnIds);
+                          setIsExtraColumnsPanelOpen(false);
+                        }}
+                      >
+                        Применить
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                    {DD_GRID_V1_EXTRA_COLUMNS.map((col) => {
+                      const isChecked = draftExtraColumnIds.includes(col.id);
+                      return (
+                        <label
+                          key={col.id}
+                          className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-xs transition-colors hover:bg-[var(--bg-card-hover)]"
+                          title={col.description}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setDraftExtraColumnIds((prev) =>
+                                  prev.includes(col.id)
+                                    ? prev
+                                    : [...prev, col.id],
+                                );
+                              } else {
+                                setDraftExtraColumnIds((prev) =>
+                                  prev.filter((id) => id !== col.id),
+                                );
+                              }
+                            }}
+                            className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-[var(--border)] text-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)]"
+                          />
+                          <div className="min-w-0">
+                            <div className="font-medium text-[var(--text-primary)]">
+                              {col.label}
+                            </div>
+                            <div className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-[var(--text-muted)]">
+                              {col.description}
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDraftExtraColumnIds(
+                          DD_GRID_V1_EXTRA_COLUMNS.map((c) => c.id),
+                        )
+                      }
+                      className="text-[10px] font-medium text-[var(--accent-primary)] hover:underline"
+                    >
+                      Выбрать все
+                    </button>
+                    <span className="text-[10px] text-[var(--text-faint)]">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setDraftExtraColumnIds([])}
+                      className="text-[10px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:underline"
+                    >
+                      Снять все
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {reviewQcCapability.supported && runId ? (
               <div className="mt-4">
@@ -721,6 +1039,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               columns={reviewDerived.columns}
               visibleCheckIds={listVisibleCheckIds}
               includePassResults={showPassInList}
+              visibleExtraColumnIds={appliedExtraColumnIds}
               onOpenAtLocation={openViewerAt}
               onSelectionChange={handleReviewSelectionChange}
               clearSelectionToken={gridSelectionResetToken}

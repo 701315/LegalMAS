@@ -43,6 +43,9 @@ import {
   buildDDGridV1DrawerFieldViews,
   normalizeDDGridV1EvidenceItems,
   resolveDDGridV1DrawerReason,
+  resolveDDGridV1Confidence,
+  resolveDDGridV1QualityFlags,
+  resolveDDGridV1QcAuditInfo,
   type DDGridV1DrawerFieldView,
   type DDGridV1ReasonSource,
 } from "./ddGridV1.drawer";
@@ -63,8 +66,9 @@ export interface DDGridV1DrawerProps {
   drawerContent: DDGridV1DrawerContentDTO | null;
 
   /**
-   * Текущий QC статус для этой (document, check) пары.
-   * Приходит из legacy adapter (cellsByCheckId[checkId].qc_status).
+   * @deprecated QC данные теперь читаются из drawerContent.qc_*.
+   * Пропсы оставлены для backward-compatibility.
+   * Если оба источника доступны — drawerContent побеждает.
    */
   currentQcStatus?: ReviewQcStatus | null;
   currentQcComment?: string | null;
@@ -435,10 +439,13 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
   );
   const [localQcComment, setLocalQcComment] = React.useState<string>("");
 
-  // Синхронизация локального QC state с изменением drawerContent
+  // Синхронизация локального QC state с изменением drawerContent.
+  // Приоритет: drawerContent.qc_* (B3) → пропсы (legacy fallback).
   React.useEffect(() => {
-    setLocalQcStatus(currentQcStatus ?? "pending");
-    setLocalQcComment(currentQcComment ?? "");
+    const qcFromDrawer = drawerContent?.qc_status ?? null;
+    const commentFromDrawer = drawerContent?.qc_comment ?? null;
+    setLocalQcStatus(qcFromDrawer ?? currentQcStatus ?? "pending");
+    setLocalQcComment(commentFromDrawer ?? currentQcComment ?? "");
   }, [drawerContent, currentQcStatus, currentQcComment]);
 
   // ESC key handler
@@ -460,6 +467,21 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
 
   const fieldViews = React.useMemo(
     () => buildDDGridV1DrawerFieldViews(drawerContent),
+    [drawerContent],
+  );
+
+  const confidence = React.useMemo(
+    () => resolveDDGridV1Confidence(drawerContent),
+    [drawerContent],
+  );
+
+  const qualityFlags = React.useMemo(
+    () => resolveDDGridV1QualityFlags(drawerContent),
+    [drawerContent],
+  );
+
+  const qcAuditInfo = React.useMemo(
+    () => resolveDDGridV1QcAuditInfo(drawerContent),
     [drawerContent],
   );
 
@@ -493,9 +515,13 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
     resolvedReason.text !== null &&
     resolvedReason.text.trim() !== (displayText ?? "").trim();
 
-  // QC editing logic
-  const savedQcStatus: ReviewQcStatus = currentQcStatus ?? "pending";
-  const savedQcComment = currentQcComment ?? "";
+  // QC editing logic.
+  // Источник истины — drawer (B3). Пропсы — legacy fallback.
+  const savedQcStatus: ReviewQcStatus =
+    (drawerContent?.qc_status as ReviewQcStatus | null) ??
+    currentQcStatus ??
+    "pending";
+  const savedQcComment = drawerContent?.qc_comment ?? currentQcComment ?? "";
   const normalizedLocalComment = localQcComment.trim();
   const normalizedSavedComment = savedQcComment.trim();
   const isQcDirty =
@@ -561,6 +587,32 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
         <div className="space-y-5">
+          {/* ── 0. Detection metadata (B3 badges) ───────── */}
+          {(confidence.formatted || qualityFlags.length > 0) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {confidence.formatted && confidence.tier && (
+                <Pill
+                  tone={
+                    confidence.tier === "high"
+                      ? "success"
+                      : confidence.tier === "medium"
+                        ? "warning"
+                        : "error"
+                  }
+                  title={`Уверенность модели: ${confidence.formatted}`}
+                >
+                  Conf: {confidence.formatted}
+                </Pill>
+              )}
+
+              {qualityFlags.map((flag) => (
+                <Pill key={flag.key} tone="warning" title={flag.key}>
+                  ⚠ {flag.label}
+                </Pill>
+              ))}
+            </div>
+          )}
+
           {/* ── 1. Результат анализа + обоснование (объединённая секция) ─ */}
           <Section
             title="Результат анализа"
@@ -660,6 +712,54 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
               </InfoCard>
             </Section>
           ) : null}
+
+          {/* ── 5b. QC Audit Trail (B3) ──────────────────── */}
+          {qcAuditInfo.hasBeenActioned && (
+            <Section
+              title="История QC"
+              subtitle="Предыдущее решение юриста по этой проверке."
+            >
+              <InfoCard tone="subtle">
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Pill
+                      tone={
+                        qcAuditInfo.status === "approved"
+                          ? "success"
+                          : qcAuditInfo.status === "rejected"
+                            ? "error"
+                            : "warning"
+                      }
+                    >
+                      {qcAuditInfo.status === "approved"
+                        ? "Одобрено"
+                        : qcAuditInfo.status === "rejected"
+                          ? "Отклонено"
+                          : "Требует проверки"}
+                    </Pill>
+
+                    {qcAuditInfo.by && (
+                      <span className="text-[11px] text-[var(--text-muted)]">
+                        {qcAuditInfo.by}
+                      </span>
+                    )}
+
+                    {qcAuditInfo.atFormatted && (
+                      <span className="text-[11px] text-[var(--text-muted)]">
+                        · {qcAuditInfo.atFormatted}
+                      </span>
+                    )}
+                  </div>
+
+                  {qcAuditInfo.comment && (
+                    <p className="whitespace-pre-wrap text-xs leading-5 text-[var(--text-secondary)]">
+                      {qcAuditInfo.comment}
+                    </p>
+                  )}
+                </div>
+              </InfoCard>
+            </Section>
+          )}
 
           {/* ── 6. QC Review ───────────────── */}
           <Section

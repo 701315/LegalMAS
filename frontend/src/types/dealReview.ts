@@ -567,8 +567,35 @@ export interface DDGridV1DrawerFieldDTO {
  *   4. review_message
  *   5. display_text
  *
- * execution_status оставлен строкой: закрытый enum в frontend-контракте
- * не зафиксирован. При появлении фикс-списка — заменить на union.
+/**
+ * Уровень детекции.
+ * L1 — Pattern/rules, L2 — LLM, L3 — RAG+LLM, L4 — Manual QC.
+ */
+export type DDGridV1DetectionLevel = "L1" | "L2" | "L3" | "L4";
+
+/**
+ * API QC статус для drawer.
+ * pending — ещё не проверялось.
+ * approved — одобрено.
+ * rejected — отклонено.
+ * needs_review — требует проверки.
+ */
+export type DDGridV1DrawerQcStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "needs_review";
+
+/**
+ * Полный контракт drawer content из DDGridV1ResponseDTO (backend B3).
+ *
+ * execution_status: закрытый enum — SUCCESS | FAILED | TIMEOUT | SKIPPED | PARTIAL.
+ * Оставлен строкой: новые значения backend добавляет без breaking change.
+ *
+ * detection_level / confidence / quality_flags — прозрачность результата (B3 P0).
+ * qc_* — audit trail без отдельного round-trip (B3 P0).
+ * agent_name / model_version / execution_time_ms / retry_attempts / input_tokens / output_tokens
+ * — observability (B3 P1).
  */
 export interface DDGridV1DrawerContentDTO {
   check_id: string;
@@ -580,6 +607,26 @@ export interface DDGridV1DrawerContentDTO {
   review_message: string | null;
   display_text: string | null;
   execution_status: string;
+
+  // B3 P0 — Transparency
+  detection_level: DDGridV1DetectionLevel | null;
+  confidence: number | null;
+  quality_flags: Record<string, true> | null;
+
+  // B3 P0 — QC Audit Trail
+  qc_status: DDGridV1DrawerQcStatus | null;
+  qc_by: string | null;
+  qc_at: string | null;
+  qc_comment: string | null;
+
+  // B3 P1 — Observability
+  agent_name: string | null;
+  model_version: string | null;
+  execution_time_ms: number | null;
+  retry_attempts: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+
   fields: DDGridV1DrawerFieldDTO[];
   evidence_items: string[];
 }
