@@ -653,9 +653,9 @@ checks_v8:
         Ответ:
         {
           "work_description_status": "defined",
-          "work_description": "Изготовление и монтаж металлического ограждения на объекте Заказчика.",
+          "work_description_value": "Изготовление и монтаж металлического ограждения на объекте Заказчика.",
           "material_result_status": "defined",
-          "material_result": "Изготовленное и смонтированное металлическое ограждение.",
+          "material_result_value": "Изготовленное и смонтированное металлическое ограждение.",
           "technical_task_referenced": "yes",
           "result_definiteness": "specific",
           "evidence": [
@@ -674,9 +674,9 @@ checks_v8:
         Ответ:
         {
           "work_description_status": "not_defined",
-          "work_description": "Данные не определены",
+          "work_description_value": "Данные не определены",
           "material_result_status": "not_defined",
-          "material_result": "Данные не определены",
+          "material_result_value": "Данные не определены",
           "technical_task_referenced": "not_defined",
           "result_definiteness": "not_defined",
           "evidence": []
@@ -694,9 +694,9 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "work_description_status": "<defined / not_defined>",
-          "work_description": "<текст или 'Данные не определены'>",
+          "work_description_value": "<текст или 'Данные не определены'>",
           "material_result_status": "<defined / not_defined>",
-          "material_result": "<текст или 'Данные не определены'>",
+          "material_result_value": "<текст или 'Данные не определены'>",
           "technical_task_referenced": "<yes / no / not_defined>",
           "result_definiteness": "<specific / vague / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -779,10 +779,10 @@ checks_v8:
 
         1. work_description_status — "defined" если содержание работ прямо указано,
            иначе "not_defined".
-        2. work_description — описание содержания работ.
+        2. work_description_value — описание содержания работ.
         3. material_result_status — "defined" если прямо указан конкретный
            овеществлённый результат, иначе "not_defined".
-        4. material_result — описание овеществлённого результата.
+        4. material_result_value — описание овеществлённого результата.
         5. technical_task_referenced — "yes" / "no" / "not_defined".
         6. result_definiteness — "specific" / "vague" / "not_defined".
 
@@ -826,7 +826,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения содержания работ."
           required: true
-        - name: "work_description"
+        - name: "work_description_value"
           type: "string"
           presentation: "fact"
           label: "Содержание работ"
@@ -840,7 +840,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения овеществлённого результата."
           required: true
-        - name: "material_result"
+        - name: "material_result_value"
           type: "string"
           presentation: "fact"
           label: "Овеществлённый результат"
@@ -947,9 +947,9 @@ checks_v8:
         Ответ:
         {
           "start_date_status": "defined",
-          "start_date": "01.07.2025",
+          "start_date_value": "01.07.2025",
           "end_date_status": "defined",
-          "end_date": "31.08.2025",
+          "end_date_value": "31.08.2025",
           "intermediate_deadlines": "yes",
           "evidence": [
             {
@@ -967,9 +967,9 @@ checks_v8:
         Ответ:
         {
           "start_date_status": "not_defined",
-          "start_date": "Данные не определены",
+          "start_date_value": "Данные не определены",
           "end_date_status": "not_defined",
-          "end_date": "Данные не определены",
+          "end_date_value": "Данные не определены",
           "intermediate_deadlines": "not_defined",
           "evidence": []
         }
@@ -985,9 +985,9 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "start_date_status": "<defined / not_defined>",
-          "start_date": "<текст или 'Данные не определены'>",
+          "start_date_value": "<текст или 'Данные не определены'>",
           "end_date_status": "<defined / not_defined>",
-          "end_date": "<текст или 'Данные не определены'>",
+          "end_date_value": "<текст или 'Данные не определены'>",
           "intermediate_deadlines": "<yes / no / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -1068,10 +1068,10 @@ checks_v8:
 
         1. start_date_status — "defined" если начальный срок прямо указан,
            иначе "not_defined".
-        2. start_date — дата или событийная формулировка начала работ.
+        2. start_date_value — дата или событийная формулировка начала работ.
         3. end_date_status — "defined" если конечный срок прямо указан,
            иначе "not_defined".
-        4. end_date — дата или событийная формулировка окончания работ.
+        4. end_date_value — дата или событийная формулировка окончания работ.
         5. intermediate_deadlines — "yes" / "no" / "not_defined".
 
         Если данные отсутствуют:
@@ -1105,7 +1105,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания начального срока."
           required: true
-        - name: "start_date"
+        - name: "start_date_value"
           type: "string"
           presentation: "fact"
           label: "Начальный срок"
@@ -1119,7 +1119,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания конечного срока."
           required: true
-        - name: "end_date"
+        - name: "end_date_value"
           type: "string"
           presentation: "fact"
           label: "Конечный срок"
@@ -1200,11 +1200,11 @@ checks_v8:
         4. Не используй "None", "null", "not_found" или пустые строки.
         5. В evidence включай только текст договора.
         6. Верни только один JSON-объект.
-        7. price_type = "fixed" только при прямом указании на твёрдую цену
+        7. price_type_code = "fixed" только при прямом указании на твёрдую цену
            или твёрдую смету.
-        8. price_type = "approximate" только при прямом указании на
+        8. price_type_code = "approximate" только при прямом указании на
            приблизительную цену или приблизительную смету.
-        9. price_type = "not_specified" только если цена или стоимость
+        9. price_type_code = "not_specified" только если цена или стоимость
            прямо указаны, но тип цены не назван.
 
         [ПРИМЕРЫ (FEW-SHOT)]
@@ -1219,9 +1219,9 @@ checks_v8:
         Ответ:
         {
           "price_type_status": "defined",
-          "price_type": "fixed",
+          "price_type_code": "fixed",
           "price_amount_status": "defined",
-          "price_amount": "1 500 000 рублей",
+          "price_amount_value": "1 500 000 рублей",
           "price_change_procedure": "described",
           "additional_works_consent": "required",
           "evidence": [
@@ -1239,9 +1239,9 @@ checks_v8:
         Ответ:
         {
           "price_type_status": "not_defined",
-          "price_type": "not_defined",
+          "price_type_code": "not_defined",
           "price_amount_status": "not_defined",
-          "price_amount": "Данные не определены",
+          "price_amount_value": "Данные не определены",
           "price_change_procedure": "not_defined",
           "additional_works_consent": "not_defined",
           "evidence": []
@@ -1259,9 +1259,9 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "price_type_status": "<defined / not_defined>",
-          "price_type": "<fixed / approximate / not_specified / not_defined>",
+          "price_type_code": "<fixed / approximate / not_specified / not_defined>",
           "price_amount_status": "<defined / not_defined>",
-          "price_amount": "<текст или 'Данные не определены'>",
+          "price_amount_value": "<текст или 'Данные не определены'>",
           "price_change_procedure": "<described / not_described / not_defined>",
           "additional_works_consent": "<required / not_required / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -1344,11 +1344,11 @@ checks_v8:
 
         1. price_type_status — "defined" если из текста прямо можно установить
            тип цены или то, что тип цены не назван, иначе "not_defined".
-        2. price_type — "fixed" / "approximate" / "not_specified" /
+        2. price_type_code — "fixed" / "approximate" / "not_specified" /
            "not_defined".
         3. price_amount_status — "defined" если сумма цены прямо указана,
            иначе "not_defined".
-        4. price_amount — сумма цены работ.
+        4. price_amount_value — сумма цены работ.
         5. price_change_procedure — "described" / "not_described" /
            "not_defined".
         6. additional_works_consent — "required" / "not_required" /
@@ -1367,7 +1367,7 @@ checks_v8:
               но тип не назван.
             - "not_defined" — если по тексту нельзя установить даже наличие
               договорной цены или типа цены.
-        - price_type:
+        - price_type_code:
             - "fixed" — если прямо указана твёрдая цена или твёрдая смета.
             - "approximate" — если прямо указана приблизительная цена
               или приблизительная смета.
@@ -1398,7 +1398,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения типа цены."
           required: true
-        - name: "price_type"
+        - name: "price_type_code"
           type: "string"
           presentation: "signal"
           label: "Тип цены"
@@ -1413,7 +1413,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания суммы цены."
           required: true
-        - name: "price_amount"
+        - name: "price_amount_value"
           type: "string"
           presentation: "fact"
           label: "Цена работ"
@@ -1800,7 +1800,7 @@ checks_v8:
           "refusal_right_status": "preserved",
           "penalty_for_refusal": "no",
           "penalty_amount_status": "not_defined",
-          "penalty_amount": "Данные не определены",
+          "penalty_amount_value": "Данные не определены",
           "evidence": [
             {
               "clause_ref": "п. 8.3",
@@ -1818,7 +1818,7 @@ checks_v8:
           "refusal_right_status": "not_mentioned",
           "penalty_for_refusal": "not_defined",
           "penalty_amount_status": "not_defined",
-          "penalty_amount": "Данные не определены",
+          "penalty_amount_value": "Данные не определены",
           "evidence": []
         }
 
@@ -1835,7 +1835,7 @@ checks_v8:
           "refusal_right_status": "<preserved / restricted / excluded / not_mentioned / not_defined>",
           "penalty_for_refusal": "<yes / no / not_defined>",
           "penalty_amount_status": "<defined / not_defined>",
-          "penalty_amount": "<текст или 'Данные не определены'>",
+          "penalty_amount_value": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 5
@@ -1916,7 +1916,7 @@ checks_v8:
         2. penalty_for_refusal — "yes" / "no" / "not_defined".
         3. penalty_amount_status — "defined" если размер штрафа или неустойки
            прямо указан, иначе "not_defined".
-        4. penalty_amount — сумма, процент или иная формулировка размера
+        4. penalty_amount_value — сумма, процент или иная формулировка размера
            санкции.
 
         Если данные отсутствуют:
@@ -1973,7 +1973,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания размера штрафа за отказ."
           required: true
-        - name: "penalty_amount"
+        - name: "penalty_amount_value"
           type: "string"
           presentation: "fact"
           label: "Размер штрафа"
@@ -2367,12 +2367,12 @@ checks_v8:
         Ответ:
         {
           "contractor_details_status": "defined",
-          "contractor_details": "ООО «Строй-Инвест», ИНН 7700000001, ОГРН 1027700000001",
+          "contractor_details_value": "ООО «Строй-Инвест», ИНН 7700000001, ОГРН 1027700000001",
           "contractor_type": "legal_entity",
           "contractor_signatory": "Генеральный директор Иванов А.А.",
           "contractor_signatory_basis": "charter",
           "customer_details_status": "defined",
-          "customer_details": "Петров Б.Б., паспорт серия 45 00 № 123456",
+          "customer_details_value": "Петров Б.Б., паспорт серия 45 00 № 123456",
           "customer_type": "individual",
           "customer_signatory": "Петров Б.Б.",
           "customer_signatory_basis": "personal",
@@ -2393,12 +2393,12 @@ checks_v8:
         Ответ:
         {
           "contractor_details_status": "not_defined",
-          "contractor_details": "Данные не определены",
+          "contractor_details_value": "Данные не определены",
           "contractor_type": "not_defined",
           "contractor_signatory": "Данные не определены",
           "contractor_signatory_basis": "not_defined",
           "customer_details_status": "not_defined",
-          "customer_details": "Данные не определены",
+          "customer_details_value": "Данные не определены",
           "customer_type": "not_defined",
           "customer_signatory": "Данные не определены",
           "customer_signatory_basis": "not_defined",
@@ -2421,12 +2421,12 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "contractor_details_status": "<defined / not_defined>",
-          "contractor_details": "<реквизиты или 'Данные не определены'>",
+          "contractor_details_value": "<реквизиты или 'Данные не определены'>",
           "contractor_type": "<legal_entity / individual / ip / self_employed / not_defined>",
           "contractor_signatory": "<текст или 'Данные не определены'>",
           "contractor_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
           "customer_details_status": "<defined / not_defined>",
-          "customer_details": "<реквизиты или 'Данные не определены'>",
+          "customer_details_value": "<реквизиты или 'Данные не определены'>",
           "customer_type": "<legal_entity / individual / ip / self_employed / not_defined>",
           "customer_signatory": "<текст или 'Данные не определены'>",
           "customer_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
@@ -2515,7 +2515,7 @@ checks_v8:
 
         1. contractor_details_status — "defined" если реквизиты Подрядчика
            прямо указаны, иначе "not_defined".
-        2. contractor_details — наименование / ФИО и реквизиты Подрядчика.
+        2. contractor_details_value — наименование / ФИО и реквизиты Подрядчика.
         3. contractor_type — "legal_entity" / "individual" / "ip" /
            "self_employed" / "not_defined".
         4. contractor_signatory — кто подписывает от имени Подрядчика.
@@ -2523,7 +2523,7 @@ checks_v8:
            "personal" / "other" / "not_defined".
         6. customer_details_status — "defined" если реквизиты Заказчика
            прямо указаны, иначе "not_defined".
-        7. customer_details — наименование / ФИО и реквизиты Заказчика.
+        7. customer_details_value — наименование / ФИО и реквизиты Заказчика.
         8. customer_type — "legal_entity" / "individual" / "ip" /
            "self_employed" / "not_defined".
         9. customer_signatory — кто подписывает от имени Заказчика.
@@ -2589,7 +2589,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов Подрядчика."
           required: true
-        - name: "contractor_details"
+        - name: "contractor_details_value"
           type: "string"
           presentation: "fact"
           label: "Подрядчик"
@@ -2622,7 +2622,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов Заказчика."
           required: true
-        - name: "customer_details"
+        - name: "customer_details_value"
           type: "string"
           presentation: "fact"
           label: "Заказчик"
@@ -2741,7 +2741,7 @@ checks_v8:
         5. Не используй "None", "null", "not_found" или пустые строки.
         6. review_period_days_status = "defined" только если срок приёмки
            прямо указан и может быть выражен числом дней.
-        7. review_period_days = 0 если срок не определён числом дней.
+        7. review_period_days_value = 0 если срок не определён числом дней.
         8. auto_acceptance = "yes" только если договор прямо устанавливает,
            что работы считаются принятыми при молчании или отсутствии
            мотивированного отказа.
@@ -2765,7 +2765,7 @@ checks_v8:
         Ответ:
         {
           "review_period_days_status": "defined",
-          "review_period_days": 5,
+          "review_period_days_value": 5,
           "auto_acceptance": "yes",
           "unilateral_act_allowed": "yes",
           "motivated_refusal_deadline": "5 рабочих дней с даты получения акта.",
@@ -2785,7 +2785,7 @@ checks_v8:
         Ответ:
         {
           "review_period_days_status": "not_defined",
-          "review_period_days": 0,
+          "review_period_days_value": 0,
           "auto_acceptance": "not_defined",
           "unilateral_act_allowed": "not_defined",
           "motivated_refusal_deadline": "Данные не определены",
@@ -2805,7 +2805,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "review_period_days_status": "<defined / not_defined>",
-          "review_period_days": "<число дней или 0>",
+          "review_period_days_value": "<число дней или 0>",
           "auto_acceptance": "<yes / no / not_defined>",
           "unilateral_act_allowed": "<yes / no / not_defined>",
           "motivated_refusal_deadline": "<текст или 'Данные не определены'>",
@@ -2891,7 +2891,7 @@ checks_v8:
 
         1. review_period_days_status — "defined" если срок приёмки прямо
            указан и может быть выражен числом дней, иначе "not_defined".
-        2. review_period_days — количество дней для приёмки работ.
+        2. review_period_days_value — количество дней для приёмки работ.
         3. auto_acceptance — "yes" / "no" / "not_defined".
         4. unilateral_act_allowed — "yes" / "no" / "not_defined".
         5. motivated_refusal_deadline — срок для мотивированного отказа.
@@ -2908,7 +2908,7 @@ checks_v8:
         - review_period_days_status:
             - "defined" — если срок приёмки прямо указан числом дней.
             - "not_defined" — если срок не указан числом дней.
-        - review_period_days:
+        - review_period_days_value:
             - укажи только число без слов.
             - если срок не определён числом дней — укажи 0.
         - auto_acceptance:
@@ -2935,7 +2935,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока приёмки в днях."
           required: true
-        - name: "review_period_days"
+        - name: "review_period_days_value"
           type: "number"
           presentation: "fact"
           label: "Срок приёмки (дней)"

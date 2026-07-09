@@ -809,12 +809,12 @@ checks_v8:
         Ответ:
         {
           "eso_details_status": "defined",
-          "eso_details": "ПАО «Мосэнергосбыт», ИНН 7736520080, ОГРН 1057746557329",
+          "eso_details_value": "ПАО «Мосэнергосбыт», ИНН 7736520080, ОГРН 1057746557329",
           "eso_type": "guaranteeing_supplier",
           "eso_signatory": "Директор Сидоров А.А.",
           "eso_signatory_basis": "charter",
           "subscriber_details_status": "defined",
-          "subscriber_details": "ООО «Завод», ИНН 7700000001, ОГРН 1027700000001",
+          "subscriber_details_value": "ООО «Завод», ИНН 7700000001, ОГРН 1027700000001",
           "subscriber_type": "legal_entity",
           "subscriber_signatory": "Генеральный директор Козлов В.В.",
           "subscriber_signatory_basis": "poa",
@@ -833,12 +833,12 @@ checks_v8:
         Ответ:
         {
           "eso_details_status": "not_defined",
-          "eso_details": "Данные не определены",
+          "eso_details_value": "Данные не определены",
           "eso_type": "not_defined",
           "eso_signatory": "Данные не определены",
           "eso_signatory_basis": "not_defined",
           "subscriber_details_status": "not_defined",
-          "subscriber_details": "Данные не определены",
+          "subscriber_details_value": "Данные не определены",
           "subscriber_type": "not_defined",
           "subscriber_signatory": "Данные не определены",
           "subscriber_signatory_basis": "not_defined",
@@ -858,12 +858,12 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "eso_details_status": "<defined / not_defined>",
-          "eso_details": "<реквизиты или 'Данные не определены'>",
+          "eso_details_value": "<реквизиты или 'Данные не определены'>",
           "eso_type": "<guaranteeing_supplier / sales_company / network_org / unclear / not_defined>",
           "eso_signatory": "<ФИО или 'Данные не определены'>",
           "eso_signatory_basis": "<charter / poa / order / other / not_defined>",
           "subscriber_details_status": "<defined / not_defined>",
-          "subscriber_details": "<реквизиты или 'Данные не определены'>",
+          "subscriber_details_value": "<реквизиты или 'Данные не определены'>",
           "subscriber_type": "<legal_entity / individual / ip / tszh / uk / not_defined>",
           "subscriber_signatory": "<ФИО или 'Данные не определены'>",
           "subscriber_signatory_basis": "<charter / poa / order / other / not_defined>",
@@ -949,12 +949,12 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. eso_details_status — "defined" или "not_defined".
-        2. eso_details — наименование и реквизиты ЭСО.
+        2. eso_details_value — наименование и реквизиты ЭСО.
         3. eso_type — guaranteeing_supplier / sales_company / network_org / unclear / not_defined.
         4. eso_signatory — подписант ЭСО.
         5. eso_signatory_basis — charter / poa / order / other / not_defined.
         6. subscriber_details_status — "defined" или "not_defined".
-        7. subscriber_details — наименование и реквизиты абонента.
+        7. subscriber_details_value — наименование и реквизиты абонента.
         8. subscriber_type — legal_entity / individual / ip / tszh / uk / not_defined.
         9. subscriber_signatory — подписант абонента.
         10. subscriber_signatory_basis — charter / poa / order / other / not_defined.
@@ -977,7 +977,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов энергоснабжающей организации."
           required: true
-        - name: "eso_details"
+        - name: "eso_details_value"
           type: "string"
           presentation: "fact"
           label: "Энергоснабжающая организация"
@@ -1010,7 +1010,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов абонента."
           required: true
-        - name: "subscriber_details"
+        - name: "subscriber_details_value"
           type: "string"
           presentation: "fact"
           label: "Абонент"
@@ -1129,15 +1129,15 @@ checks_v8:
         Ответ:
         {
           "energy_type_status": "defined",
-          "energy_type": "electricity",
+          "energy_type_code": "electricity",
           "delivery_point_status": "defined",
           "delivery_point_details": "г. Москва, ул. Заводская, д. 5, ВРУ-0,4 кВ",
           "boundary_act_status": "defined",
           "boundary_act_details": "Приложение № 1",
           "agreed_volume_status": "defined",
-          "agreed_volume": "1 200 000 кВт·ч в год",
+          "agreed_volume_value": "1 200 000 кВт·ч в год",
           "max_capacity_status": "defined",
-          "max_capacity": "500 кВт",
+          "max_capacity_value": "500 кВт",
           "excess_consumption_status": "defined",
           "excess_consumption_details": "коэффициент 1,5",
           "evidence": [
@@ -1155,15 +1155,15 @@ checks_v8:
         Ответ:
         {
           "energy_type_status": "defined",
-          "energy_type": "electricity",
+          "energy_type_code": "electricity",
           "delivery_point_status": "not_defined",
           "delivery_point_details": "Данные не определены",
           "boundary_act_status": "not_defined",
           "boundary_act_details": "Данные не определены",
           "agreed_volume_status": "not_defined",
-          "agreed_volume": "Данные не определены",
+          "agreed_volume_value": "Данные не определены",
           "max_capacity_status": "not_defined",
-          "max_capacity": "Данные не определены",
+          "max_capacity_value": "Данные не определены",
           "excess_consumption_status": "not_defined",
           "excess_consumption_details": "Данные не определены",
           "evidence": [
@@ -1187,15 +1187,15 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "energy_type_status": "<defined / not_defined>",
-          "energy_type": "<electricity / heat / gas / water / other / not_defined>",
+          "energy_type_code": "<electricity / heat / gas / water / other / not_defined>",
           "delivery_point_status": "<defined / not_defined>",
           "delivery_point_details": "<адрес/узел или 'Данные не определены'>",
           "boundary_act_status": "<defined / not_defined>",
           "boundary_act_details": "<ссылка на акт или 'Данные не определены'>",
           "agreed_volume_status": "<defined / not_defined>",
-          "agreed_volume": "<объём с единицей или 'Данные не определены'>",
+          "agreed_volume_value": "<объём с единицей или 'Данные не определены'>",
           "max_capacity_status": "<defined / not_defined>",
-          "max_capacity": "<мощность с единицей или 'Данные не определены'>",
+          "max_capacity_value": "<мощность с единицей или 'Данные не определены'>",
           "excess_consumption_status": "<defined / not_defined>",
           "excess_consumption_details": "<последствия или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -1286,15 +1286,15 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. energy_type_status — "defined" или "not_defined".
-        2. energy_type — electricity / heat / gas / water / other / not_defined.
+        2. energy_type_code — electricity / heat / gas / water / other / not_defined.
         3. delivery_point_status — "defined" или "not_defined".
         4. delivery_point_details — адрес или технический узел точки поставки.
         5. boundary_act_status — "defined" или "not_defined".
         6. boundary_act_details — ссылка на акт разграничения балансовой принадлежности.
         7. agreed_volume_status — "defined" или "not_defined".
-        8. agreed_volume — согласованный объём потребления с единицей измерения.
+        8. agreed_volume_value — согласованный объём потребления с единицей измерения.
         9. max_capacity_status — "defined" или "not_defined".
-        10. max_capacity — максимальная мощность с единицей измерения.
+        10. max_capacity_value — максимальная мощность с единицей измерения.
         11. excess_consumption_status — "defined" или "not_defined".
         12. excess_consumption_details — последствия превышения объёма или мощности.
 
@@ -1316,7 +1316,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения вида энергии."
           required: true
-        - name: "energy_type"
+        - name: "energy_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["electricity", "heat", "gas", "water", "other", "not_defined"]
@@ -1355,7 +1355,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения согласованного объёма."
           required: true
-        - name: "agreed_volume"
+        - name: "agreed_volume_value"
           type: "string"
           presentation: "fact"
           label: "Согласованный объём"
@@ -1369,7 +1369,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения максимальной мощности."
           required: false
-        - name: "max_capacity"
+        - name: "max_capacity_value"
           type: "string"
           presentation: "fact"
           label: "Максимальная мощность"
@@ -1475,7 +1475,7 @@ checks_v8:
           "tariff_type": "regulatory_reference",
           "tariff_details": "устанавливается Комитетом по тарифам г. Москвы",
           "tariff_rate_type_status": "not_defined",
-          "tariff_rate_type": "not_defined",
+          "tariff_rate_type_code": "not_defined",
           "payment_deadline_status": "defined",
           "payment_deadline_details": "до 20-го числа месяца, следующего за расчётным",
           "penalty_status": "defined",
@@ -1500,7 +1500,7 @@ checks_v8:
           "tariff_type": "not_defined",
           "tariff_details": "Данные не определены",
           "tariff_rate_type_status": "not_defined",
-          "tariff_rate_type": "not_defined",
+          "tariff_rate_type_code": "not_defined",
           "payment_deadline_status": "not_defined",
           "payment_deadline_details": "Данные не определены",
           "penalty_status": "not_defined",
@@ -1525,7 +1525,7 @@ checks_v8:
           "tariff_type": "<fixed_amount / regulatory_reference / not_defined>",
           "tariff_details": "<тариф или ссылка или 'Данные не определены'>",
           "tariff_rate_type_status": "<defined / not_defined>",
-          "tariff_rate_type": "<single_rate / two_rate / three_rate / not_defined>",
+          "tariff_rate_type_code": "<single_rate / two_rate / three_rate / not_defined>",
           "payment_deadline_status": "<defined / not_defined>",
           "payment_deadline_details": "<срок или 'Данные не определены'>",
           "penalty_status": "<defined / not_defined>",
@@ -1623,7 +1623,7 @@ checks_v8:
         2. tariff_type — fixed_amount / regulatory_reference / not_defined.
         3. tariff_details — тариф или ссылка на регулирующий орган.
         4. tariff_rate_type_status — "defined" или "not_defined".
-        5. tariff_rate_type — single_rate / two_rate / three_rate / not_defined.
+        5.tariff_rate_type_code — single_rate / two_rate / three_rate / not_defined.
         6. payment_deadline_status — "defined" или "not_defined".
         7. payment_deadline_details — срок оплаты.
         8. penalty_status — "defined" или "not_defined".
@@ -1669,7 +1669,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения тарифной структуры."
           required: false
-        - name: "tariff_rate_type"
+        - name: "tariff_rate_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["single_rate", "two_rate", "three_rate", "not_defined"]
@@ -1794,11 +1794,11 @@ checks_v8:
         {
           "metering_procedure_status": "defined",
           "meter_details_status": "defined",
-          "meter_details": "Меркурий 230, заводской номер 12345678, поверка 01.01.2025",
+          "meter_details_value": "Меркурий 230, заводской номер 12345678, поверка 01.01.2025",
           "reading_submission_status": "defined",
           "reading_submission_details": "до 25-го числа каждого месяца",
           "calculation_without_meter_status": "defined",
-          "calculation_without_meter": "normative",
+          "calculation_without_meter_code": "normative",
           "verification_obligation_status": "defined",
           "seal_tampering_status": "defined",
           "seal_tampering_details": "приравнивается к безучётному потреблению",
@@ -1818,11 +1818,11 @@ checks_v8:
         {
           "metering_procedure_status": "defined",
           "meter_details_status": "not_defined",
-          "meter_details": "Данные не определены",
+          "meter_details_value": "Данные не определены",
           "reading_submission_status": "not_defined",
           "reading_submission_details": "Данные не определены",
           "calculation_without_meter_status": "not_defined",
-          "calculation_without_meter": "not_defined",
+          "calculation_without_meter_code": "not_defined",
           "verification_obligation_status": "not_defined",
           "seal_tampering_status": "not_defined",
           "seal_tampering_details": "Данные не определены",
@@ -1847,11 +1847,11 @@ checks_v8:
         {
           "metering_procedure_status": "<defined / not_defined>",
           "meter_details_status": "<defined / not_defined>",
-          "meter_details": "<реквизиты или 'Данные не определены'>",
+          "meter_details_value": "<реквизиты или 'Данные не определены'>",
           "reading_submission_status": "<defined / not_defined>",
           "reading_submission_details": "<порядок или 'Данные не определены'>",
           "calculation_without_meter_status": "<defined / not_defined>",
-          "calculation_without_meter": "<normative / calculated / not_defined>",
+          "calculation_without_meter_code": "<normative / calculated / not_defined>",
           "verification_obligation_status": "<defined / not_defined>",
           "seal_tampering_status": "<defined / not_defined>",
           "seal_tampering_details": "<последствия или 'Данные не определены'>",
@@ -1941,11 +1941,11 @@ checks_v8:
 
         1. metering_procedure_status — "defined" или "not_defined".
         2. meter_details_status — "defined" или "not_defined".
-        3. meter_details — тип, номер, дата поверки и иные реквизиты прибора учёта.
+        3. meter_details_value — тип, номер, дата поверки и иные реквизиты прибора учёта.
         4. reading_submission_status — "defined" или "not_defined".
         5. reading_submission_details — срок или порядок передачи показаний.
         6. calculation_without_meter_status — "defined" или "not_defined".
-        7. calculation_without_meter — normative / calculated / not_defined.
+        7. calculation_without_meter_code — normative / calculated / not_defined.
         8. verification_obligation_status — "defined" или "not_defined".
         9. seal_tampering_status — "defined" или "not_defined".
         10. seal_tampering_details — последствия повреждения пломбы или вмешательства.
@@ -1977,7 +1977,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания реквизитов прибора учёта."
           required: false
-        - name: "meter_details"
+        - name: "meter_details_value"
           type: "string"
           presentation: "fact"
           label: "Прибор учёта"
@@ -2005,7 +2005,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения расчёта при отсутствии или неисправности прибора."
           required: false
-        - name: "calculation_without_meter"
+        - name: "calculation_without_meter_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["normative", "calculated", "not_defined"]
@@ -3167,9 +3167,9 @@ checks_v8:
         {
           "liability_status": "<defined / not_defined>",
           "liability_type_status": "<defined / not_defined>",
-          "liability_type": "<real_damage / penalty / both / not_defined>",
+          "liability_type_code": "<real_damage / penalty / both / not_defined>",
           "lost_profit_excluded_status": "<defined / not_defined>",
-          "lost_profit_excluded": "<yes / no / not_defined>",
+          "lost_profit_excluded_code": "<yes / no / not_defined>",
           "exclusions_status": "<defined / not_defined>",
           "force_majeure_exclusion_status": "<defined / not_defined>",
           "grid_accident_exclusion_status": "<defined / not_defined>",
@@ -3257,9 +3257,9 @@ checks_v8:
 
         1. liability_status — "defined" или "not_defined".
         2. liability_type_status — "defined" или "not_defined".
-        3. liability_type — real_damage / penalty / both / not_defined.
+        3.liability_type_code — real_damage / penalty / both / not_defined.
         4. lost_profit_excluded_status — "defined" или "not_defined".
-        5. lost_profit_excluded — yes / no / not_defined.
+        5. lost_profit_excluded_code — yes / no / not_defined.
         6. exclusions_status — "defined" или "not_defined".
         7. force_majeure_exclusion_status — "defined" или "not_defined".
         8. grid_accident_exclusion_status — "defined" или "not_defined".
@@ -3272,7 +3272,7 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - yes для lost_profit_excluded — только если упущенная выгода прямо исключена.
+        - yes для lost_profit_excluded_code — только если упущенная выгода прямо исключена.
         - no — только если упущенная выгода прямо допускается.
         - Если сказано просто "возмещаются убытки", не делай автоматический вывод об исключении упущенной выгоды.
         - Верни только JSON.
@@ -3290,7 +3290,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения вида ответственности за перерывы."
           required: false
-        - name: "liability_type"
+        - name: "liability_type_code"
           type: "string"
           presentation: "signal"
           label: "Вид ответственности за перерывы"
@@ -3305,7 +3305,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус прямого условия об упущенной выгоде."
           required: false
-        - name: "lost_profit_excluded"
+        - name: "lost_profit_excluded_code"
           type: "string"
           presentation: "signal"
           label: "Упущенная выгода исключена"
@@ -3642,7 +3642,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "reliability_category_status": "<defined / not_defined>",
-          "reliability_category": "<I / II / III / not_defined>",
+          "reliability_category_code": "<I / II / III / not_defined>",
           "backup_power_status": "<defined / not_defined>",
           "backup_power_details": "<требования или 'Данные не определены'>",
           "priority_restoration_status": "<defined / not_defined>",
@@ -3733,7 +3733,7 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. reliability_category_status — "defined" или "not_defined".
-        2. reliability_category — I / II / III / not_defined.
+        2. reliability_category_code — I / II / III / not_defined.
           (I = первая категория, II = вторая, III = третья)
         3. backup_power_status — "defined" или "not_defined".
         4. backup_power_details — требования к резервному питанию.
@@ -3762,7 +3762,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения категории надёжности."
           required: true
-        - name: "reliability_category"
+        - name: "reliability_category_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["I", "II", "III", "not_defined"]
@@ -3881,7 +3881,7 @@ checks_v8:
           "odn_calculation_status": "defined",
           "odn_calculation_details": "расчёт ОДН осуществляется на основании показаний ОДПУ и распределяется в порядке, предусмотренном действующим законодательством",
           "maintenance_responsibility_status": "defined",
-          "maintenance_responsibility": "tszh_uk",
+          "maintenance_responsibility_code": "tszh_uk",
           "maintenance_responsibility_details": "Ответственность за внутридомовые сети несёт управляющая компания",
           "evidence": [
             {
@@ -3905,7 +3905,7 @@ checks_v8:
           "odn_calculation_status": "not_defined",
           "odn_calculation_details": "Данные не определены",
           "maintenance_responsibility_status": "not_defined",
-          "maintenance_responsibility": "not_defined",
+          "maintenance_responsibility_code": "not_defined",
           "maintenance_responsibility_details": "Данные не определены",
           "evidence": []
         }
@@ -3927,7 +3927,7 @@ checks_v8:
           "odn_calculation_status": "<defined / not_defined>",
           "odn_calculation_details": "<порядок расчёта ОДН или 'Данные не определены'>",
           "maintenance_responsibility_status": "<defined / not_defined>",
-          "maintenance_responsibility": "<eso / tszh_uk / not_defined>",
+          "maintenance_responsibility_code": "<eso / tszh_uk / not_defined>",
           "maintenance_responsibility_details": "<текст условия или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -4017,7 +4017,7 @@ checks_v8:
         6. odn_calculation_status — "defined" или "not_defined".
         7. odn_calculation_details — порядок расчёта ОДН.
         8. maintenance_responsibility_status — "defined" или "not_defined".
-        9. maintenance_responsibility — eso / tszh_uk / not_defined.
+        9. maintenance_responsibility_code — eso / tszh_uk / not_defined.
         10. maintenance_responsibility_details — текст условия об ответственности за внутридомовые сети.
 
         Если данные отсутствуют в тексте:
@@ -4090,7 +4090,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения ответственного за внутридомовые сети."
           required: false
-        - name: "maintenance_responsibility"
+        - name: "maintenance_responsibility_code"
           type: "string"
           presentation: "signal"
           label: "Ответственный за внутридомовые сети"

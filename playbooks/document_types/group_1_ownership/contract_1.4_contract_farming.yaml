@@ -749,12 +749,12 @@ checks_v8:
         Ответ:
         {
           "producer_details_status": "defined",
-          "producer_details": "Глава КФХ Иванов П.П., ОГРНИП 312770000000001, ИНН 770000000001",
+          "producer_details_value": "Глава КФХ Иванов П.П., ОГРНИП 312770000000001, ИНН 770000000001",
           "producer_type": "kfh",
           "producer_signatory": "Иванов П.П.",
           "producer_signatory_basis": "kfh_head",
           "purchaser_details_status": "defined",
-          "purchaser_details": "ООО «Агро», ИНН 7700000002, ОГРН 1027700000002",
+          "purchaser_details_value": "ООО «Агро», ИНН 7700000002, ОГРН 1027700000002",
           "purchaser_signatory": "Генеральный директор Петров С.С.",
           "purchaser_signatory_basis": "charter",
           "evidence": [
@@ -772,12 +772,12 @@ checks_v8:
         Ответ:
         {
           "producer_details_status": "not_defined",
-          "producer_details": "Данные не определены",
+          "producer_details_value": "Данные не определены",
           "producer_type": "not_defined",
           "producer_signatory": "Данные не определены",
           "producer_signatory_basis": "not_defined",
           "purchaser_details_status": "not_defined",
-          "purchaser_details": "Данные не определены",
+          "purchaser_details_value": "Данные не определены",
           "purchaser_signatory": "Данные не определены",
           "purchaser_signatory_basis": "not_defined",
           "evidence": []
@@ -798,12 +798,12 @@ checks_v8:
         Ответь строго в JSON:
         {
           "producer_details_status": "<defined / not_defined>",
-          "producer_details": "<реквизиты или 'Данные не определены'>",
+          "producer_details_value": "<реквизиты или 'Данные не определены'>",
           "producer_type": "<legal_entity / individual_entrepreneur / kfh / individual / not_defined>",
           "producer_signatory": "<ФИО или 'Данные не определены'>",
           "producer_signatory_basis": "<charter / poa / order / kfh_head / other / not_defined>",
           "purchaser_details_status": "<defined / not_defined>",
-          "purchaser_details": "<реквизиты или 'Данные не определены'>",
+          "purchaser_details_value": "<реквизиты или 'Данные не определены'>",
           "purchaser_signatory": "<ФИО или 'Данные не определены'>",
           "purchaser_signatory_basis": "<charter / poa / order / other / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -883,12 +883,12 @@ checks_v8:
         <task>
         Заполни следующие поля:
         1. producer_details_status: "defined" или "not_defined".
-        2. producer_details: наименование и реквизиты производителя.
+        2. producer_details_value: наименование и реквизиты производителя.
         3. producer_type: legal_entity / individual_entrepreneur / kfh / individual / not_defined.
         4. producer_signatory: ФИО и должность подписанта производителя.
         5. producer_signatory_basis: charter / poa / order / kfh_head / other / not_defined.
         6. purchaser_details_status: "defined" или "not_defined".
-        7. purchaser_details: наименование и реквизиты заготовителя.
+        7. purchaser_details_value: наименование и реквизиты заготовителя.
         8. purchaser_signatory: ФИО и должность подписанта заготовителя.
         9. purchaser_signatory_basis: charter / poa / order / other / not_defined.
 
@@ -926,7 +926,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определённости реквизитов производителя."
           required: true
-        - name: "producer_details"
+        - name: "producer_details_value"
           type: "string"
           presentation: "fact"
           label: "Производитель"
@@ -959,7 +959,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определённости реквизитов заготовителя."
           required: true
-        - name: "purchaser_details"
+        - name: "purchaser_details_value"
           type: "string"
           presentation: "fact"
           label: "Заготовитель"
@@ -1464,14 +1464,14 @@ checks_v8:
           "delivery_schedule_status": "not_defined",
           "delivery_schedule_details": "Данные не определены",
           "acceptance_place_status": "defined",
-          "acceptance_place": "producer_location",
+          "acceptance_place_code": "producer_location",
           "acceptance_place_details": "по месту нахождения производителя",
           "acceptance_obligation_status": "defined",
           "acceptance_obligation_details": "заготовитель обязан принять продукцию",
           "packaging_provision_status": "defined",
-          "packaging_provision": "purchaser",
+          "packaging_provision_code": "purchaser",
           "transport_provision_status": "defined",
-          "transport_provision": "purchaser",
+          "transport_provision_code": "purchaser",
           "acceptance_documents_status": "defined",
           "acceptance_documents_details": "товарно-транспортная накладная",
           "evidence": [
@@ -1493,14 +1493,14 @@ checks_v8:
           "delivery_schedule_status": "not_defined",
           "delivery_schedule_details": "Данные не определены",
           "acceptance_place_status": "not_defined",
-          "acceptance_place": "not_defined",
+          "acceptance_place_code": "not_defined",
           "acceptance_place_details": "Данные не определены",
           "acceptance_obligation_status": "not_defined",
           "acceptance_obligation_details": "Данные не определены",
           "packaging_provision_status": "not_defined",
-          "packaging_provision": "not_defined",
+          "packaging_provision_code": "not_defined",
           "transport_provision_status": "not_defined",
-          "transport_provision": "not_defined",
+          "transport_provision_code": "not_defined",
           "acceptance_documents_status": "not_defined",
           "acceptance_documents_details": "Данные не определены",
           "evidence": []
@@ -1526,14 +1526,14 @@ checks_v8:
           "delivery_schedule_status": "<defined / not_defined>",
           "delivery_schedule_details": "<описание графика или 'Данные не определены'>",
           "acceptance_place_status": "<defined / not_defined>",
-          "acceptance_place": "<producer_location / purchaser_warehouse / elevator / other / not_defined>",
+          "acceptance_place_code": "<producer_location / purchaser_warehouse / elevator / other / not_defined>",
           "acceptance_place_details": "<текст или 'Данные не определены'>",
           "acceptance_obligation_status": "<defined / not_defined>",
           "acceptance_obligation_details": "<текст или 'Данные не определены'>",
           "packaging_provision_status": "<defined / not_defined>",
-          "packaging_provision": "<purchaser / producer / not_defined>",
+          "packaging_provision_code": "<purchaser / producer / not_defined>",
           "transport_provision_status": "<defined / not_defined>",
-          "transport_provision": "<purchaser / producer / shared / not_defined>",
+          "transport_provision_code": "<purchaser / producer / shared / not_defined>",
           "acceptance_documents_status": "<defined / not_defined>",
           "acceptance_documents_details": "<документы или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -1631,16 +1631,16 @@ checks_v8:
         3. delivery_schedule_status — "defined" или "not_defined".
         4. delivery_schedule_details — график сдачи по периодам/партиям.
         5. acceptance_place_status — "defined" или "not_defined".
-        6. acceptance_place — одно из: producer_location / purchaser_warehouse / elevator / other / not_defined.
+        6. acceptance_place_code — одно из: producer_location / purchaser_warehouse / elevator / other / not_defined.
         7. acceptance_place_details — конкретное место (адрес, название элеватора и т.п.).
         8. acceptance_obligation_status — "defined" если прямо указана обязанность
            заготовителя принять продукцию (или прямо запрещено отказываться от приёмки),
            иначе "not_defined".
         9. acceptance_obligation_details — формулировка об обязанности заготовителя принять продукцию.
         10. packaging_provision_status — "defined" или "not_defined".
-        11. packaging_provision — одно из: purchaser / producer / not_defined.
+        11. packaging_provision_code — одно из: purchaser / producer / not_defined.
         12. transport_provision_status — "defined" или "not_defined".
-        13. transport_provision — одно из: purchaser / producer / shared / not_defined.
+        13. transport_provision_code — одно из: purchaser / producer / shared / not_defined.
         14. acceptance_documents_status — "defined" или "not_defined".
         15. acceptance_documents_details — документы при приёмке (ТТН, акт и т.п.).
 
@@ -1652,8 +1652,8 @@ checks_v8:
         <rules>
         - Используй только текст договора.
         - Не подставляй нормы закона.
-        - Самовывоз = transport_provision: purchaser.
-        - Доставка производителем = transport_provision: producer.
+        - Самовывоз = transport_provision_code: purchaser.
+        - Доставка производителем = transport_provision_code: producer.
         - Пиши кратко. Верни только JSON.
         </rules>
       fields:
@@ -1690,7 +1690,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения места приёмки."
           required: false
-        - name: "acceptance_place"
+        - name: "acceptance_place_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["producer_location", "purchaser_warehouse", "elevator", "other", "not_defined"]
@@ -1716,7 +1716,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения ответственного за тару."
           required: false
-        - name: "packaging_provision"
+        - name: "packaging_provision_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["purchaser", "producer", "not_defined"]
@@ -1728,7 +1728,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения ответственного за транспорт."
           required: false
-        - name: "transport_provision"
+        - name: "transport_provision_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["purchaser", "producer", "shared", "not_defined"]
@@ -2227,7 +2227,7 @@ checks_v8:
           "risk_transfer_moment": "upon_act",
           "risk_transfer_details": "с момента подписания акта приёмки",
           "risk_bearer_before_transfer_status": "defined",
-          "risk_bearer_before_transfer": "producer",
+          "risk_bearer_before_transfer_code": "producer",
           "storage_conditions_status": "defined",
           "storage_conditions_details": "температура от +2 до +8 °C",
           "partial_loss_procedure_status": "defined",
@@ -2250,7 +2250,7 @@ checks_v8:
           "risk_transfer_moment": "not_defined",
           "risk_transfer_details": "Данные не определены",
           "risk_bearer_before_transfer_status": "not_defined",
-          "risk_bearer_before_transfer": "not_defined",
+          "risk_bearer_before_transfer_code": "not_defined",
           "storage_conditions_status": "not_defined",
           "storage_conditions_details": "Данные не определены",
           "partial_loss_procedure_status": "not_defined",
@@ -2274,7 +2274,7 @@ checks_v8:
           "risk_transfer_moment": "<upon_act / upon_weighing / upon_shipping / custom / not_defined>",
           "risk_transfer_details": "<текст или 'Данные не определены'>",
           "risk_bearer_before_transfer_status": "<defined / not_defined>",
-          "risk_bearer_before_transfer": "<producer / purchaser / not_defined>",
+          "risk_bearer_before_transfer_code": "<producer / purchaser / not_defined>",
           "storage_conditions_status": "<defined / not_defined>",
           "storage_conditions_details": "<требования или 'Данные не определены'>",
           "partial_loss_procedure_status": "<defined / not_defined>",
@@ -2369,7 +2369,7 @@ checks_v8:
         2. risk_transfer_moment — одно из: upon_act / upon_weighing / upon_shipping / custom / not_defined.
         3. risk_transfer_details — формулировка о переходе риска из договора.
         4. risk_bearer_before_transfer_status — "defined" или "not_defined".
-        5. risk_bearer_before_transfer — одно из: producer / purchaser / not_defined.
+        5. risk_bearer_before_transfer_code — одно из: producer / purchaser / not_defined.
         6. storage_conditions_status — "defined" или "not_defined".
         7. storage_conditions_details — требования к хранению (температура, тип хранилища).
         8. partial_loss_procedure_status — "defined" или "not_defined".
@@ -2419,7 +2419,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения носителя риска до передачи."
           required: false
-        - name: "risk_bearer_before_transfer"
+        - name: "risk_bearer_before_transfer_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["producer", "purchaser", "not_defined"]
@@ -2551,7 +2551,7 @@ checks_v8:
         Ответ:
         {
           "producer_liability_type_status": "defined",
-          "producer_liability_type": "fault_based",
+          "producer_liability_type_code": "fault_based",
           "violation_of_art_538": "no",
           "producer_delivery_penalty_status": "defined",
           "producer_delivery_penalty_details": "0,1% от стоимости непоставленного товара за каждый день",
@@ -2578,7 +2578,7 @@ checks_v8:
         Ответ:
         {
           "producer_liability_type_status": "defined",
-          "producer_liability_type": "strict_liability",
+          "producer_liability_type_code": "strict_liability",
           "violation_of_art_538": "yes",
           "producer_delivery_penalty_status": "not_defined",
           "producer_delivery_penalty_details": "Данные не определены",
@@ -2612,7 +2612,7 @@ checks_v8:
         Ответь строго в JSON:
         {
           "producer_liability_type_status": "<defined / not_defined>",
-          "producer_liability_type": "<fault_based / strict_liability / not_defined>",
+          "producer_liability_type_code": "<fault_based / strict_liability / not_defined>",
           "violation_of_art_538": "<yes / no>",
           "producer_delivery_penalty_status": "<defined / not_defined>",
           "producer_delivery_penalty_details": "<ставка и база или 'Данные не определены'>",
@@ -2714,7 +2714,7 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. producer_liability_type_status — "defined" или "not_defined".
-        2. producer_liability_type — одно из: fault_based / strict_liability / not_defined.
+        2. producer_liability_type_code — одно из: fault_based / strict_liability / not_defined.
            fault_based = "при наличии вины". strict_liability = "независимо от вины".
         3. violation_of_art_538 — "yes" если в договоре прямо установлена безвиновная
            ответственность производителя (нарушение ст. 538 ГК РФ). Иначе "no".
@@ -2748,7 +2748,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения характера ответственности производителя."
           required: true
-        - name: "producer_liability_type"
+        - name: "producer_liability_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["fault_based", "strict_liability", "not_defined"]
@@ -3532,11 +3532,11 @@ checks_v8:
         {
           "insurance_status": "defined",
           "insurance_obligated_party_status": "defined",
-          "insurance_obligated_party": "producer",
+          "insurance_obligated_party_code": "producer",
           "insurance_cost_status": "defined",
           "insurance_cost_details": "расходы несёт Заготовитель",
           "beneficiary_status": "defined",
-          "beneficiary": "purchaser",
+          "beneficiary_code": "purchaser",
           "beneficiary_details": "в части выплаченного аванса",
           "insurance_event_procedure_status": "not_defined",
           "evidence": [
@@ -3555,11 +3555,11 @@ checks_v8:
         {
           "insurance_status": "not_defined",
           "insurance_obligated_party_status": "not_defined",
-          "insurance_obligated_party": "not_defined",
+          "insurance_obligated_party_code": "not_defined",
           "insurance_cost_status": "not_defined",
           "insurance_cost_details": "Данные не определены",
           "beneficiary_status": "not_defined",
-          "beneficiary": "not_defined",
+          "beneficiary_code": "not_defined",
           "beneficiary_details": "Данные не определены",
           "insurance_event_procedure_status": "not_defined",
           "evidence": []
@@ -3579,11 +3579,11 @@ checks_v8:
         {
           "insurance_status": "<defined / not_defined>",
           "insurance_obligated_party_status": "<defined / not_defined>",
-          "insurance_obligated_party": "<producer / purchaser / both / not_defined>",
+          "insurance_obligated_party_code": "<producer / purchaser / both / not_defined>",
           "insurance_cost_status": "<defined / not_defined>",
           "insurance_cost_details": "<текст или 'Данные не определены'>",
           "beneficiary_status": "<defined / not_defined>",
-          "beneficiary": "<producer / purchaser / both / not_defined>",
+          "beneficiary_code": "<producer / purchaser / both / not_defined>",
           "beneficiary_details": "<текст или 'Данные не определены'>",
           "insurance_event_procedure_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -3670,11 +3670,11 @@ checks_v8:
         1. insurance_status — "defined" или "not_defined".
            "defined" только если есть ОБЯЗАННОСТЬ застраховать (не рекомендация).
         2. insurance_obligated_party_status — "defined" или "not_defined".
-        3. insurance_obligated_party — одно из: producer / purchaser / both / not_defined.
+        3. insurance_obligated_party_code — одно из: producer / purchaser / both / not_defined.
         4. insurance_cost_status — "defined" или "not_defined".
         5. insurance_cost_details — кто несёт расходы на страхование.
         6. beneficiary_status — "defined" или "not_defined".
-        7. beneficiary — одно из: producer / purchaser / both / not_defined.
+        7. beneficiary_code — одно из: producer / purchaser / both / not_defined.
         8. beneficiary_details — уточнение о выгодоприобретателе (в части аванса и т.п.).
         9. insurance_event_procedure_status — "defined" если прямо описан порядок
            действий сторон при наступлении страхового случая, иначе "not_defined".
@@ -3706,7 +3706,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения обязанной стороны."
           required: false
-        - name: "insurance_obligated_party"
+        - name: "insurance_obligated_party_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["producer", "purchaser", "both", "not_defined"]
@@ -3732,7 +3732,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения выгодоприобретателя."
           required: false
-        - name: "beneficiary"
+        - name: "beneficiary_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["producer", "purchaser", "both", "not_defined"]
@@ -3818,7 +3818,7 @@ checks_v8:
         {
           "perennial_clause_status": "<defined / not_defined>",
           "risk_allocation_status": "<defined / not_defined>",
-          "risk_allocation": "<producer / purchaser / shared / insured / not_defined>",
+          "risk_allocation_code": "<producer / purchaser / shared / insured / not_defined>",
           "compensation_mechanism_status": "<defined / not_defined>",
           "compensation_mechanism_details": "<текст или 'Данные не определены'>",
           "partial_loss_recalculation_status": "<defined / not_defined>",
@@ -3908,7 +3908,7 @@ checks_v8:
            о многолетних насаждениях (не просто об урожае), иначе "not_defined".
         2. risk_allocation_status — "defined" если прямо указано распределение рисков
            гибели насаждений, иначе "not_defined".
-        3. risk_allocation — одно из:
+        3. risk_allocation_code — одно из:
            - "producer" — если риск несёт производитель
            - "purchaser" — если риск несёт заготовитель
            - "shared" — если риск распределён между сторонами
@@ -3948,7 +3948,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения распределения рисков гибели насаждений."
           required: false
-        - name: "risk_allocation"
+        - name: "risk_allocation_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["producer", "purchaser", "shared", "insured", "not_defined"]
@@ -4047,7 +4047,7 @@ checks_v8:
           "resources_list_status": "<defined / not_defined>",
           "resources_list_details": "<перечень или 'Данные не определены'>",
           "cost_allocation_status": "<defined / not_defined>",
-          "cost_allocation": "<purchaser / producer / offset_against_price / not_defined>",
+          "cost_allocation_code": "<purchaser / producer / offset_against_price / not_defined>",
           "liability_for_non_provision_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -4141,7 +4141,7 @@ checks_v8:
         3. resources_list_details — перечень предоставляемых ресурсов.
         4. cost_allocation_status — "defined" если прямо указано, кто несёт расходы
            на ресурсы, иначе "not_defined".
-        5. cost_allocation — одно из:
+        5. cost_allocation_code — одно из:
            - "purchaser" — расходы несёт заготовитель
            - "producer" — расходы несёт производитель
            - "offset_against_price" — стоимость ресурсов зачитывается в счёт цены продукции
@@ -4191,7 +4191,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения распределения расходов на ресурсы."
           required: false
-        - name: "cost_allocation"
+        - name: "cost_allocation_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["purchaser", "producer", "offset_against_price", "not_defined"]

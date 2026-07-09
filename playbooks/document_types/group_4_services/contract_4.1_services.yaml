@@ -955,12 +955,12 @@ checks_v8:
         Ответ:
         {
           "client_details_status": "defined",
-          "client_details": "ООО «Альфа» (ИНН 7701234567, ОГРН 1027700000001)",
+          "client_details_value": "ООО «Альфа» (ИНН 7701234567, ОГРН 1027700000001)",
           "client_type": "legal_entity",
           "client_signatory": "Иванов Иван Иванович, генеральный директор",
           "client_signatory_basis": "charter",
           "provider_details_status": "defined",
-          "provider_details": "ИП Петров Пётр Петрович (ИНН 771234567890, ОГРНИП 312770000000001)",
+          "provider_details_value": "ИП Петров Пётр Петрович (ИНН 771234567890, ОГРНИП 312770000000001)",
           "provider_type": "ip",
           "provider_signatory": "Петров Пётр Петрович",
           "provider_signatory_basis": "personal",
@@ -981,12 +981,12 @@ checks_v8:
         Ответ:
         {
           "client_details_status": "not_defined",
-          "client_details": "Данные не определены",
+          "client_details_value": "Данные не определены",
           "client_type": "not_defined",
           "client_signatory": "Данные не определены",
           "client_signatory_basis": "not_defined",
           "provider_details_status": "not_defined",
-          "provider_details": "Данные не определены",
+          "provider_details_value": "Данные не определены",
           "provider_type": "not_defined",
           "provider_signatory": "Данные не определены",
           "provider_signatory_basis": "not_defined",
@@ -1007,12 +1007,12 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "client_details_status": "<defined / not_defined>",
-          "client_details": "<текст или 'Данные не определены'>",
+          "client_details_value": "<текст или 'Данные не определены'>",
           "client_type": "<legal_entity / state_entity / individual / ip / self_employed / not_defined>",
           "client_signatory": "<текст или 'Данные не определены'>",
           "client_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
           "provider_details_status": "<defined / not_defined>",
-          "provider_details": "<текст или 'Данные не определены'>",
+          "provider_details_value": "<текст или 'Данные не определены'>",
           "provider_type": "<legal_entity / state_entity / individual / ip / self_employed / not_defined>",
           "provider_signatory": "<текст или 'Данные не определены'>",
           "provider_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
@@ -1092,14 +1092,14 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. client_details_status — "defined" / "not_defined".
-        2. client_details — идентификационные данные заказчика.
+        2. client_details_value — идентификационные данные заказчика.
         3. client_type — "legal_entity" / "state_entity" / "individual" / "ip" /
            "self_employed" / "not_defined".
         4. client_signatory — подписант заказчика.
         5. client_signatory_basis — "charter" / "poa" / "order" / "personal" /
            "other" / "not_defined".
         6. provider_details_status — "defined" / "not_defined".
-        7. provider_details — идентификационные данные исполнителя.
+        7. provider_details_value — идентификационные данные исполнителя.
         8. provider_type — "legal_entity" / "state_entity" / "individual" / "ip" /
            "self_employed" / "not_defined".
         9. provider_signatory — подписант исполнителя.
@@ -1145,7 +1145,7 @@ checks_v8:
           description: "Статус идентификационных данных заказчика."
           required: true
 
-        - name: "client_details"
+        - name: "client_details_value"
           type: "string"
           presentation: "fact"
           label: "Заказчик"
@@ -1197,7 +1197,7 @@ checks_v8:
           description: "Статус идентификационных данных исполнителя."
           required: true
 
-        - name: "provider_details"
+        - name: "provider_details_value"
           type: "string"
           presentation: "fact"
           label: "Исполнитель"
@@ -1680,7 +1680,7 @@ checks_v8:
         Ответ:
         {
           "contract_price_status": "defined",
-          "contract_price": "300 000 рублей в месяц",
+          "contract_price_value": "300 000 рублей в месяц",
           "pricing_model": "subscription",
           "price_includes_vat": "not_applicable",
           "advance_present": "defined",
@@ -1703,7 +1703,7 @@ checks_v8:
         Ответ:
         {
           "contract_price_status": "not_defined",
-          "contract_price": "Данные не определены",
+          "contract_price_value": "Данные не определены",
           "pricing_model": "not_defined",
           "price_includes_vat": "not_defined",
           "advance_present": "not_defined",
@@ -1727,7 +1727,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "contract_price_status": "<defined / not_defined>",
-          "contract_price": "<текст или 'Данные не определены'>",
+          "contract_price_value": "<текст или 'Данные не определены'>",
           "pricing_model": "<fixed / hourly / subscription / per_unit / mixed / not_defined>",
           "price_includes_vat": "<yes / no / not_applicable / unclear / not_defined>",
           "advance_present": "<defined / not_defined>",
@@ -1808,7 +1808,7 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. contract_price_status — "defined" / "not_defined".
-        2. contract_price — цена услуг.
+        2. contract_price_value — цена услуг.
         3. pricing_model — "fixed" / "hourly" / "subscription" / "per_unit" /
            "mixed" / "not_defined".
         4. price_includes_vat — "yes" / "no" / "not_applicable" / "unclear" /
@@ -1870,7 +1870,7 @@ checks_v8:
           description: "Статус определения цены услуг."
           required: true
 
-        - name: "contract_price"
+        - name: "contract_price_value"
           type: "string"
           presentation: "fact"
           label: "Стоимость услуг"
@@ -2042,7 +2042,7 @@ checks_v8:
         Ответ:
         {
           "service_period_status": "defined",
-          "service_period": "с 01.03.2024 по 31.12.2024",
+          "service_period_value": "с 01.03.2024 по 31.12.2024",
           "service_start_moment": "01.03.2024",
           "service_end_moment": "31.12.2024",
           "milestones_present": "defined",
@@ -2062,7 +2062,7 @@ checks_v8:
         Ответ:
         {
           "service_period_status": "not_defined",
-          "service_period": "Данные не определены",
+          "service_period_value": "Данные не определены",
           "service_start_moment": "Данные не определены",
           "service_end_moment": "Данные не определены",
           "milestones_present": "not_defined",
@@ -2082,7 +2082,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "service_period_status": "<defined / not_defined>",
-          "service_period": "<текст или 'Данные не определены'>",
+          "service_period_value": "<текст или 'Данные не определены'>",
           "service_start_moment": "<текст или 'Данные не определены'>",
           "service_end_moment": "<текст или 'Данные не определены'>",
           "milestones_present": "<defined / not_defined>",
@@ -2157,7 +2157,7 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. service_period_status — "defined" / "not_defined".
-        2. service_period — срок оказания услуг.
+        2. service_period_value — срок оказания услуг.
         3. service_start_moment — начальный момент срока.
         4. service_end_moment — конечный момент срока.
         5. milestones_present — "defined" / "not_defined".
@@ -2191,7 +2191,7 @@ checks_v8:
           description: "Статус указания срока оказания услуг."
           required: true
 
-        - name: "service_period"
+        - name: "service_period_value"
           type: "string"
           presentation: "fact"
           label: "Срок услуг"
@@ -2331,7 +2331,7 @@ checks_v8:
           "report_detailed": "defined",
           "payment_linked_to_acceptance": "defined",
           "review_period_status": "defined",
-          "review_period": "5 рабочих дней",
+          "review_period_value": "5 рабочих дней",
           "auto_acceptance_clause": "not_defined",
           "motivated_refusal_procedure": "defined",
           "evidence": [
@@ -2354,7 +2354,7 @@ checks_v8:
           "report_detailed": "not_defined",
           "payment_linked_to_acceptance": "not_defined",
           "review_period_status": "not_defined",
-          "review_period": "Данные не определены",
+          "review_period_value": "Данные не определены",
           "auto_acceptance_clause": "not_defined",
           "motivated_refusal_procedure": "not_defined",
           "evidence": []
@@ -2377,7 +2377,7 @@ checks_v8:
           "report_detailed": "<defined / not_defined>",
           "payment_linked_to_acceptance": "<defined / not_defined>",
           "review_period_status": "<defined / not_defined>",
-          "review_period": "<текст или 'Данные не определены'>",
+          "review_period_value": "<текст или 'Данные не определены'>",
           "auto_acceptance_clause": "<defined / not_defined>",
           "motivated_refusal_procedure": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -2456,7 +2456,7 @@ checks_v8:
         4. report_detailed — "defined" / "not_defined".
         5. payment_linked_to_acceptance — "defined" / "not_defined".
         6. review_period_status — "defined" / "not_defined".
-        7. review_period — срок рассмотрения акта / отчета.
+        7. review_period_value — срок рассмотрения акта / отчета.
         8. auto_acceptance_clause — "defined" / "not_defined".
         9. motivated_refusal_procedure — "defined" / "not_defined".
 
@@ -2470,7 +2470,7 @@ checks_v8:
         - Для signal-полей "defined" означает прямое указание условия в тексте.
         - "not_defined" означает, что условие прямо не указано.
         - Не выводи предположения о привычной практике сторон.
-        - review_period заполняй только текстом договора.
+        - review_period_value заполняй только текстом договора.
         - Верни только JSON.
         </rules>
       fields:
@@ -2530,7 +2530,7 @@ checks_v8:
           description: "Статус указания срока рассмотрения документов приемки."
           required: true
 
-        - name: "review_period"
+        - name: "review_period_value"
           type: "string"
           presentation: "fact"
           label: "Срок рассмотрения"
@@ -2974,12 +2974,12 @@ checks_v8:
         Ответ:
         {
           "quality_standards_status": "defined",
-          "quality_standards": "требования Технического задания и профессиональные стандарты",
+          "quality_standards_value": "требования Технического задания и профессиональные стандарты",
           "warranty_period_status": "defined",
-          "warranty_period": "3 месяца",
+          "warranty_period_value": "3 месяца",
           "complaint_procedure_defined": "defined",
           "defect_remedy_period_status": "defined",
-          "defect_remedy_period": "10 рабочих дней",
+          "defect_remedy_period_value": "10 рабочих дней",
           "evidence": [
             {
               "clause_ref": "п. 5.1",
@@ -2995,12 +2995,12 @@ checks_v8:
         Ответ:
         {
           "quality_standards_status": "not_defined",
-          "quality_standards": "Данные не определены",
+          "quality_standards_value": "Данные не определены",
           "warranty_period_status": "not_defined",
-          "warranty_period": "Данные не определены",
+          "warranty_period_value": "Данные не определены",
           "complaint_procedure_defined": "not_defined",
           "defect_remedy_period_status": "not_defined",
-          "defect_remedy_period": "Данные не определены",
+          "defect_remedy_period_value": "Данные не определены",
           "evidence": []
         }
 
@@ -3016,12 +3016,12 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "quality_standards_status": "<defined / not_defined>",
-          "quality_standards": "<текст или 'Данные не определены'>",
+          "quality_standards_value": "<текст или 'Данные не определены'>",
           "warranty_period_status": "<defined / not_defined>",
-          "warranty_period": "<текст или 'Данные не определены'>",
+          "warranty_period_value": "<текст или 'Данные не определены'>",
           "complaint_procedure_defined": "<defined / not_defined>",
           "defect_remedy_period_status": "<defined / not_defined>",
-          "defect_remedy_period": "<текст или 'Данные не определены'>",
+          "defect_remedy_period_value": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 5
@@ -3091,12 +3091,12 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. quality_standards_status — "defined" / "not_defined".
-        2. quality_standards — описание стандартов качества.
+        2. quality_standards_value — описание стандартов качества.
         3. warranty_period_status — "defined" / "not_defined".
-        4. warranty_period — гарантийный срок.
+        4. warranty_period_value — гарантийный срок.
         5. complaint_procedure_defined — "defined" / "not_defined".
         6. defect_remedy_period_status — "defined" / "not_defined".
-        7. defect_remedy_period — срок устранения недостатков.
+        7. defect_remedy_period_value — срок устранения недостатков.
 
         Если данные отсутствуют:
         - статус = "not_defined"
@@ -3119,7 +3119,7 @@ checks_v8:
           description: "Статус определения стандартов качества."
           required: true
 
-        - name: "quality_standards"
+        - name: "quality_standards_value"
           type: "string"
           presentation: "fact"
           label: "Стандарты качества"
@@ -3137,7 +3137,7 @@ checks_v8:
           description: "Статус указания гарантийного срока."
           required: true
 
-        - name: "warranty_period"
+        - name: "warranty_period_value"
           type: "string"
           presentation: "fact"
           label: "Гарантийный срок"
@@ -3164,7 +3164,7 @@ checks_v8:
           description: "Статус указания срока устранения недостатков."
           required: true
 
-        - name: "defect_remedy_period"
+        - name: "defect_remedy_period_value"
           type: "string"
           presentation: "fact"
           label: "Срок устранения недостатков"
@@ -3573,7 +3573,7 @@ checks_v8:
           "force_majeure_clause_status": "defined",
           "force_majeure_definition": "обстоятельства непреодолимой силы",
           "notification_period_status": "defined",
-          "notification_period": "в течение 3 рабочих дней",
+          "notification_period_value": "в течение 3 рабочих дней",
           "deadline_consequences_defined": "defined",
           "evidence_requirement_defined": "defined",
           "evidence": [
@@ -3593,7 +3593,7 @@ checks_v8:
           "force_majeure_clause_status": "not_defined",
           "force_majeure_definition": "Данные не определены",
           "notification_period_status": "not_defined",
-          "notification_period": "Данные не определены",
+          "notification_period_value": "Данные не определены",
           "deadline_consequences_defined": "not_defined",
           "evidence_requirement_defined": "not_defined",
           "evidence": []
@@ -3613,7 +3613,7 @@ checks_v8:
           "force_majeure_clause_status": "<defined / not_defined>",
           "force_majeure_definition": "<текст или 'Данные не определены'>",
           "notification_period_status": "<defined / not_defined>",
-          "notification_period": "<текст или 'Данные не определены'>",
+          "notification_period_value": "<текст или 'Данные не определены'>",
           "deadline_consequences_defined": "<defined / not_defined>",
           "evidence_requirement_defined": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -3687,7 +3687,7 @@ checks_v8:
         1. force_majeure_clause_status — "defined" / "not_defined".
         2. force_majeure_definition — описание форс-мажора.
         3. notification_period_status — "defined" / "not_defined".
-        4. notification_period — срок / порядок уведомления.
+        4. notification_period_value — срок / порядок уведомления.
         5. deadline_consequences_defined — "defined" / "not_defined".
         6. evidence_requirement_defined — "defined" / "not_defined".
 
@@ -3730,7 +3730,7 @@ checks_v8:
           description: "Статус указания уведомления о форс-мажоре."
           required: true
 
-        - name: "notification_period"
+        - name: "notification_period_value"
           type: "string"
           presentation: "fact"
           label: "Уведомление о форс-мажоре"
@@ -3837,7 +3837,7 @@ checks_v8:
         {
           "pretrial_claim_required": "defined",
           "pretrial_claim_period_status": "defined",
-          "pretrial_claim_period": "10 рабочих дней",
+          "pretrial_claim_period_value": "10 рабочих дней",
           "forum_type": "state_court",
           "forum_details": "Арбитражный суд г. Москвы",
           "evidence": [
@@ -3856,7 +3856,7 @@ checks_v8:
         {
           "pretrial_claim_required": "not_defined",
           "pretrial_claim_period_status": "not_defined",
-          "pretrial_claim_period": "Данные не определены",
+          "pretrial_claim_period_value": "Данные не определены",
           "forum_type": "not_defined",
           "forum_details": "Данные не определены",
           "evidence": []
@@ -3874,7 +3874,7 @@ checks_v8:
         {
           "pretrial_claim_required": "<defined / not_defined>",
           "pretrial_claim_period_status": "<defined / not_defined>",
-          "pretrial_claim_period": "<текст или 'Данные не определены'>",
+          "pretrial_claim_period_value": "<текст или 'Данные не определены'>",
           "forum_type": "<state_court / arbitration / not_defined>",
           "forum_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -3947,7 +3947,7 @@ checks_v8:
 
         1. pretrial_claim_required — "defined" / "not_defined".
         2. pretrial_claim_period_status — "defined" / "not_defined".
-        3. pretrial_claim_period — срок ответа на претензию.
+        3. pretrial_claim_period_value — срок ответа на претензию.
         4. forum_type — "state_court" / "arbitration" / "not_defined".
         5. forum_details — описание суда / арбитража.
 
@@ -3985,7 +3985,7 @@ checks_v8:
           description: "Статус указания срока ответа на претензию."
           required: true
 
-        - name: "pretrial_claim_period"
+        - name: "pretrial_claim_period_value"
           type: "string"
           presentation: "fact"
           label: "Срок ответа на претензию"
@@ -7183,7 +7183,7 @@ checks_v8:
         {
           "auto_renewal_present": "defined",
           "notice_period_status": "defined",
-          "notice_period": "за 30 календарных дней до окончания текущего срока",
+          "notice_period_value": "за 30 календарных дней до окончания текущего срока",
           "renewal_period": "один год",
           "auto_renewal_summary": "автоматическое продление на один год; уведомление за 30 календарных дней до окончания",
           "evidence": [
@@ -7202,7 +7202,7 @@ checks_v8:
         {
           "auto_renewal_present": "not_defined",
           "notice_period_status": "not_defined",
-          "notice_period": "Данные не определены",
+          "notice_period_value": "Данные не определены",
           "renewal_period": "Данные не определены",
           "auto_renewal_summary": "Данные не определены",
           "evidence": []
@@ -7220,7 +7220,7 @@ checks_v8:
         {
           "auto_renewal_present": "<defined / not_defined>",
           "notice_period_status": "<defined / not_defined>",
-          "notice_period": "<текст или 'Данные не определены'>",
+          "notice_period_value": "<текст или 'Данные не определены'>",
           "renewal_period": "<текст или 'Данные не определены'>",
           "auto_renewal_summary": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -7296,7 +7296,7 @@ checks_v8:
 
         1. auto_renewal_present — "defined" / "not_defined".
         2. notice_period_status — "defined" / "not_defined".
-        3. notice_period — срок уведомления о непродлении.
+        3. notice_period_value — срок уведомления о непродлении.
         4. renewal_period — период продления.
         5. auto_renewal_summary — краткое описание условия пролонгации.
 
@@ -7333,7 +7333,7 @@ checks_v8:
           description: "Указан ли срок уведомления о непродлении."
           required: true
 
-        - name: "notice_period"
+        - name: "notice_period_value"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления"

@@ -630,16 +630,16 @@ checks_v8:
         Ответ:
         {
           "debtor_details_status": "defined",
-          "debtor_details": "ООО «Альфа»",
+          "debtor_details_value": "ООО «Альфа»",
           "debtor_type": "legal_entity",
           "debtor_signatory_status": "defined",
-          "debtor_signatory": "Генеральный директор Иванов И.И.",
+          "debtor_signatory_value": "Генеральный директор Иванов И.И.",
           "debtor_signatory_basis": "charter",
           "creditor_details_status": "defined",
-          "creditor_details": "ООО «Бета»",
+          "creditor_details_value": "ООО «Бета»",
           "creditor_type": "legal_entity",
           "creditor_signatory_status": "defined",
-          "creditor_signatory": "Директор Петров П.П.",
+          "creditor_signatory_value": "Директор Петров П.П.",
           "creditor_signatory_basis": "poa",
           "corporate_approval_status": "defined",
           "corporate_approval_details": "Сделка одобрена решением единственного участника Должника № 3 от 10.03.2024",
@@ -658,16 +658,16 @@ checks_v8:
         Ответ:
         {
           "debtor_details_status": "not_defined",
-          "debtor_details": "Данные не определены",
+          "debtor_details_value": "Данные не определены",
           "debtor_type": "not_defined",
           "debtor_signatory_status": "not_defined",
-          "debtor_signatory": "Данные не определены",
+          "debtor_signatory_value": "Данные не определены",
           "debtor_signatory_basis": "not_defined",
           "creditor_details_status": "not_defined",
-          "creditor_details": "Данные не определены",
+          "creditor_details_value": "Данные не определены",
           "creditor_type": "not_defined",
           "creditor_signatory_status": "not_defined",
-          "creditor_signatory": "Данные не определены",
+          "creditor_signatory_value": "Данные не определены",
           "creditor_signatory_basis": "not_defined",
           "corporate_approval_status": "not_defined",
           "corporate_approval_details": "Данные не определены",
@@ -687,16 +687,16 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "debtor_details_status": "<defined / not_defined>",
-          "debtor_details": "<текст или 'Данные не определены'>",
+          "debtor_details_value": "<текст или 'Данные не определены'>",
           "debtor_type": "<legal_entity / individual / individual_entrepreneur / not_defined>",
           "debtor_signatory_status": "<defined / not_defined>",
-          "debtor_signatory": "<текст или 'Данные не определены'>",
+          "debtor_signatory_value": "<текст или 'Данные не определены'>",
           "debtor_signatory_basis": "<charter / poa / order / other / not_defined>",
           "creditor_details_status": "<defined / not_defined>",
-          "creditor_details": "<текст или 'Данные не определены'>",
+          "creditor_details_value": "<текст или 'Данные не определены'>",
           "creditor_type": "<legal_entity / individual / individual_entrepreneur / not_defined>",
           "creditor_signatory_status": "<defined / not_defined>",
-          "creditor_signatory": "<текст или 'Данные не определены'>",
+          "creditor_signatory_value": "<текст или 'Данные не определены'>",
           "creditor_signatory_basis": "<charter / poa / order / other / not_defined>",
           "corporate_approval_status": "<defined / not_defined>",
           "corporate_approval_details": "<текст или 'Данные не определены'>",
@@ -786,21 +786,21 @@ checks_v8:
 
         1. debtor_details_status — "defined" если Должник прямо идентифицирован,
            иначе "not_defined".
-        2. debtor_details — наименование/ФИО и реквизиты Должника.
+        2. debtor_details_value — наименование/ФИО и реквизиты Должника.
         3. debtor_type — "legal_entity" / "individual" / "individual_entrepreneur" /
            "not_defined".
         4. debtor_signatory_status — "defined" если подписант Должника прямо указан,
            иначе "not_defined".
-        5. debtor_signatory — подписант Должника.
+        5. debtor_signatory_value — подписант Должника.
         6. debtor_signatory_basis — "charter" / "poa" / "order" / "other" / "not_defined".
         7. creditor_details_status — "defined" если Кредитор прямо идентифицирован,
            иначе "not_defined".
-        8. creditor_details — наименование/ФИО и реквизиты Кредитора.
+        8. creditor_details_value — наименование/ФИО и реквизиты Кредитора.
         9. creditor_type — "legal_entity" / "individual" / "individual_entrepreneur" /
            "not_defined".
         10. creditor_signatory_status — "defined" если подписант Кредитора прямо указан,
             иначе "not_defined".
-        11. creditor_signatory — подписант Кредитора.
+        11. creditor_signatory_value — подписант Кредитора.
         12. creditor_signatory_basis — "charter" / "poa" / "order" / "other" /
             "not_defined".
         13. corporate_approval_status — "defined" если корпоративное одобрение или
@@ -839,7 +839,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Должника."
           required: true
-        - name: "debtor_details"
+        - name: "debtor_details_value"
           type: "string"
           presentation: "fact"
           label: "Должник: реквизиты"
@@ -859,7 +859,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта Должника."
           required: false
-        - name: "debtor_signatory"
+        - name: "debtor_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Должник: подписант"
@@ -878,7 +878,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Кредитора."
           required: true
-        - name: "creditor_details"
+        - name: "creditor_details_value"
           type: "string"
           presentation: "fact"
           label: "Кредитор: реквизиты"
@@ -898,7 +898,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта Кредитора."
           required: false
-        - name: "creditor_signatory"
+        - name: "creditor_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Кредитор: подписант"
@@ -1005,19 +1005,19 @@ checks_v8:
         Ответ:
         {
           "original_obligation_basis_status": "defined",
-          "original_obligation_basis": "contract",
+          "original_obligation_basis_code": "contract",
           "original_obligation_details_status": "defined",
-          "original_obligation_details": "Договор поставки № 15 от 10.01.2024",
+          "original_obligation_details_value": "Договор поставки № 15 от 10.01.2024",
           "debt_amount_status": "defined",
-          "debt_amount": "1 500 000 рублей",
+          "debt_amount_value": "1 500 000 рублей",
           "principal_status": "defined",
           "interest_status": "defined",
           "penalty_status": "not_defined",
           "termination_scope": "partial",
           "remaining_debt_status": "defined",
-          "remaining_debt": "200 000 рублей",
+          "remaining_debt_value": "200 000 рублей",
           "secured_obligation_status": "not_defined",
-          "secured_obligation": "Данные не определены",
+          "secured_obligation_value": "Данные не определены",
           "evidence": [
             {
               "clause_ref": "п. 1.1",
@@ -1033,19 +1033,19 @@ checks_v8:
         Ответ:
         {
           "original_obligation_basis_status": "not_defined",
-          "original_obligation_basis": "not_defined",
+          "original_obligation_basis_code": "not_defined",
           "original_obligation_details_status": "not_defined",
-          "original_obligation_details": "Данные не определены",
+          "original_obligation_details_value": "Данные не определены",
           "debt_amount_status": "not_defined",
-          "debt_amount": "Данные не определены",
+          "debt_amount_value": "Данные не определены",
           "principal_status": "not_defined",
           "interest_status": "not_defined",
           "penalty_status": "not_defined",
           "termination_scope": "not_defined",
           "remaining_debt_status": "not_defined",
-          "remaining_debt": "Данные не определены",
+          "remaining_debt_value": "Данные не определены",
           "secured_obligation_status": "not_defined",
-          "secured_obligation": "Данные не определены",
+          "secured_obligation_value": "Данные не определены",
           "evidence": []
         }
 
@@ -1062,19 +1062,19 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "original_obligation_basis_status": "<defined / not_defined>",
-          "original_obligation_basis": "<contract / court_act / other / not_defined>",
+          "original_obligation_basis_code": "<contract / court_act / other / not_defined>",
           "original_obligation_details_status": "<defined / not_defined>",
-          "original_obligation_details": "<текст или 'Данные не определены'>",
+          "original_obligation_details_value": "<текст или 'Данные не определены'>",
           "debt_amount_status": "<defined / not_defined>",
-          "debt_amount": "<текст или 'Данные не определены'>",
+          "debt_amount_value": "<текст или 'Данные не определены'>",
           "principal_status": "<defined / not_defined>",
           "interest_status": "<defined / not_defined>",
           "penalty_status": "<defined / not_defined>",
           "termination_scope": "<full / partial / not_defined>",
           "remaining_debt_status": "<defined / not_defined>",
-          "remaining_debt": "<текст или 'Данные не определены'>",
+          "remaining_debt_value": "<текст или 'Данные не определены'>",
           "secured_obligation_status": "<defined / not_defined>",
-          "secured_obligation": "<текст или 'Данные не определены'>",
+          "secured_obligation_value": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 7
@@ -1161,13 +1161,13 @@ checks_v8:
 
         1. original_obligation_basis_status — "defined" если основание первоначального
            обязательства прямо указано, иначе "not_defined".
-        2. original_obligation_basis — "contract" / "court_act" / "other" / "not_defined".
+        2. original_obligation_basis_code — "contract" / "court_act" / "other" / "not_defined".
         3. original_obligation_details_status — "defined" если реквизиты обязательства
            (номер, дата, стороны) прямо указаны, иначе "not_defined".
-        4. original_obligation_details — реквизиты первоначального обязательства.
+        4. original_obligation_details_value — реквизиты первоначального обязательства.
         5. debt_amount_status — "defined" если общая сумма задолженности прямо указана,
            иначе "not_defined".
-        6. debt_amount — сумма задолженности.
+        6. debt_amount_value — сумма задолженности.
         7. principal_status — "defined" если основной долг выделен отдельно,
            иначе "not_defined".
         8. interest_status — "defined" если проценты выделены отдельно,
@@ -1177,10 +1177,10 @@ checks_v8:
         10. termination_scope — "full" / "partial" / "not_defined".
         11. remaining_debt_status — "defined" если остаток долга прямо указан,
             иначе "not_defined".
-        12. remaining_debt — остаток долга после частичного прекращения.
+        12. remaining_debt_value — остаток долга после частичного прекращения.
         13. secured_obligation_status — "defined" если прямо указано, что обязательство
             обеспечено залогом, поручительством или иным способом, иначе "not_defined".
-        14. secured_obligation — описание обеспечения.
+        14. secured_obligation_value — описание обеспечения.
 
         Если данные отсутствуют:
         - статус = "not_defined"
@@ -1189,7 +1189,7 @@ checks_v8:
 
         <rules>
         - Используй только текст соглашения.
-        - original_obligation_basis:
+        - original_obligation_basis_code:
             - "contract" — прекращаемое обязательство возникло из договора
               (указан номер, дата, наименование договора).
             - "court_act" — прекращаемое обязательство установлено судебным актом
@@ -1211,7 +1211,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения основания первоначального обязательства."
           required: true
-        - name: "original_obligation_basis"
+        - name: "original_obligation_basis_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["contract", "court_act", "other", "not_defined"]
@@ -1223,7 +1223,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус реквизитов первоначального обязательства."
           required: true
-        - name: "original_obligation_details"
+        - name: "original_obligation_details_value"
           type: "string"
           presentation: "fact"
           label: "Первоначальное обязательство"
@@ -1237,7 +1237,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания суммы долга."
           required: true
-        - name: "debt_amount"
+        - name: "debt_amount_value"
           type: "string"
           presentation: "fact"
           label: "Сумма долга"
@@ -1275,7 +1275,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания остатка долга."
           required: false
-        - name: "remaining_debt"
+        - name: "remaining_debt_value"
           type: "string"
           presentation: "fact"
           label: "Остаток долга"
@@ -1288,7 +1288,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на обеспеченный характер обязательства."
           required: false
-        - name: "secured_obligation"
+        - name: "secured_obligation_value"
           type: "string"
           presentation: "fact"
           label: "Обеспеченное обязательство"
@@ -1376,14 +1376,14 @@ checks_v8:
         {
           "otsupnoe_type": "movable_property",
           "otsupnoe_description_status": "defined",
-          "otsupnoe_description": "автомобиль Toyota Camry",
+          "otsupnoe_description_value": "автомобиль Toyota Camry",
           "identifying_features_status": "defined",
-          "identifying_features": "VIN XXXXXXXXXXXXXXXX",
+          "identifying_features_value": "VIN XXXXXXXXXXXXXXXX",
           "transfer_document": "act",
           "transfer_deadline_status": "defined",
-          "transfer_deadline": "не позднее 5 рабочих дней с даты подписания",
+          "transfer_deadline_value": "не позднее 5 рабочих дней с даты подписания",
           "late_transfer_consequences_status": "not_defined",
-          "late_transfer_consequences": "Данные не определены",
+          "late_transfer_consequences_value": "Данные не определены",
           "registration_required": "no",
           "evidence": [
             {
@@ -1401,14 +1401,14 @@ checks_v8:
         {
           "otsupnoe_type": "not_defined",
           "otsupnoe_description_status": "not_defined",
-          "otsupnoe_description": "Данные не определены",
+          "otsupnoe_description_value": "Данные не определены",
           "identifying_features_status": "not_defined",
-          "identifying_features": "Данные не определены",
+          "identifying_features_value": "Данные не определены",
           "transfer_document": "not_defined",
           "transfer_deadline_status": "not_defined",
-          "transfer_deadline": "Данные не определены",
+          "transfer_deadline_value": "Данные не определены",
           "late_transfer_consequences_status": "not_defined",
-          "late_transfer_consequences": "Данные не определены",
+          "late_transfer_consequences_value": "Данные не определены",
           "registration_required": "not_defined",
           "evidence": []
         }
@@ -1426,14 +1426,14 @@ checks_v8:
         {
           "otsupnoe_type": "<money / movable_property / real_estate / claim / securities / mixed / not_defined>",
           "otsupnoe_description_status": "<defined / not_defined>",
-          "otsupnoe_description": "<текст или 'Данные не определены'>",
+          "otsupnoe_description_value": "<текст или 'Данные не определены'>",
           "identifying_features_status": "<defined / not_defined>",
-          "identifying_features": "<текст или 'Данные не определены'>",
+          "identifying_features_value": "<текст или 'Данные не определены'>",
           "transfer_document": "<payment / act / assignment_docs / registration / mixed / not_defined>",
           "transfer_deadline_status": "<defined / not_defined>",
-          "transfer_deadline": "<текст или 'Данные не определены'>",
+          "transfer_deadline_value": "<текст или 'Данные не определены'>",
           "late_transfer_consequences_status": "<defined / not_defined>",
-          "late_transfer_consequences": "<текст или 'Данные не определены'>",
+          "late_transfer_consequences_value": "<текст или 'Данные не определены'>",
           "registration_required": "<yes / no / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -1522,18 +1522,18 @@ checks_v8:
            "securities" / "mixed" / "not_defined".
         2. otsupnoe_description_status — "defined" если предмет отступного прямо описан,
            иначе "not_defined".
-        3. otsupnoe_description — описание предмета отступного.
+        3. otsupnoe_description_value — описание предмета отступного.
         4. identifying_features_status — "defined" если индивидуализирующие признаки
            прямо указаны, иначе "not_defined".
-        5. identifying_features — VIN, кадастровый номер, номер ценной бумаги и т.п.
+        5. identifying_features_value — VIN, кадастровый номер, номер ценной бумаги и т.п.
         6. transfer_document — "payment" / "act" / "assignment_docs" / "registration" /
            "mixed" / "not_defined".
         7. transfer_deadline_status — "defined" если срок предоставления прямо указан,
            иначе "not_defined".
-        8. transfer_deadline — срок передачи/предоставления отступного.
+        8. transfer_deadline_value — срок передачи/предоставления отступного.
         9. late_transfer_consequences_status — "defined" если последствия просрочки
            прямо указаны, иначе "not_defined".
-        10. late_transfer_consequences — последствия просрочки передачи.
+        10. late_transfer_consequences_value — последствия просрочки передачи.
         11. registration_required — "yes" / "no" / "not_defined".
 
         Если данные отсутствуют:
@@ -1578,7 +1578,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус описания предмета отступного."
           required: true
-        - name: "otsupnoe_description"
+        - name: "otsupnoe_description_value"
           type: "string"
           presentation: "fact"
           label: "Предмет отступного"
@@ -1592,7 +1592,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания индивидуализирующих признаков."
           required: false
-        - name: "identifying_features"
+        - name: "identifying_features_value"
           type: "string"
           presentation: "fact"
           label: "Идентификаторы предмета"
@@ -1611,7 +1611,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания срока предоставления отступного."
           required: true
-        - name: "transfer_deadline"
+        - name: "transfer_deadline_value"
           type: "string"
           presentation: "fact"
           label: "Срок предоставления отступного"
@@ -1625,7 +1625,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания последствий просрочки передачи."
           required: false
-        - name: "late_transfer_consequences"
+        - name: "late_transfer_consequences_value"
           type: "string"
           presentation: "fact"
           label: "Последствия просрочки передачи"
@@ -1713,7 +1713,7 @@ checks_v8:
 
         Ответ:
         {
-          "termination_moment": "upon_actual_transfer",
+          "termination_moment_code": "upon_actual_transfer",
           "termination_moment_status": "defined",
           "termination_moment_details": "с момента фактической передачи Кредитору имущества",
           "creditor_right_preserved_until_transfer_status": "not_defined",
@@ -1732,7 +1732,7 @@ checks_v8:
 
         Ответ:
         {
-          "termination_moment": "upon_signing",
+          "termination_moment_code": "upon_signing",
           "termination_moment_status": "defined",
           "termination_moment_details": "с даты подписания настоящего соглашения",
           "creditor_right_preserved_until_transfer_status": "not_defined",
@@ -1755,7 +1755,7 @@ checks_v8:
 
         [ФОРМАТ ОТВЕТА]
         {
-          "termination_moment": "<upon_actual_transfer / upon_registration / upon_payment_receipt / upon_signing / not_defined>",
+          "termination_moment_code": "<upon_actual_transfer / upon_registration / upon_payment_receipt / upon_signing / not_defined>",
           "termination_moment_status": "<defined / not_defined>",
           "termination_moment_details": "<текст или 'Данные не определены'>",
           "creditor_right_preserved_until_transfer_status": "<defined / not_defined>",
@@ -1841,7 +1841,7 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. termination_moment — "upon_actual_transfer" / "upon_registration" /
+        1. termination_moment_code — "upon_actual_transfer" / "upon_registration" /
            "upon_payment_receipt" / "upon_signing" / "not_defined".
         2. termination_moment_status — "defined" если момент прекращения прямо указан
            в тексте соглашения, иначе "not_defined".
@@ -1859,7 +1859,7 @@ checks_v8:
 
         <rules>
         - Используй только текст соглашения.
-        - termination_moment:
+        - termination_moment_code:
             - "upon_actual_transfer" — обязательство прекращается с момента фактической
               передачи предмета отступного (акт, фактическая передача имущества).
             - "upon_registration" — обязательство прекращается с момента государственной
@@ -1873,7 +1873,7 @@ checks_v8:
         - Верни только JSON.
         </rules>
       fields:
-        - name: "termination_moment"
+        - name: "termination_moment_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["upon_actual_transfer", "upon_registration", "upon_payment_receipt", "upon_signing", "not_defined"]
@@ -2657,7 +2657,7 @@ checks_v8:
           "no_third_party_rights_details": "свободен от прав третьих лиц",
           "quality_warranty_status": "not_defined",
           "quality_warranty_details": "Данные не определены",
-          "risk_allocation": "debtor",
+          "risk_allocation_code": "debtor",
           "risk_allocation_status": "defined",
           "risk_allocation_details": "риск случайной гибели до момента передачи несет Должник",
           "evidence": [
@@ -2684,7 +2684,7 @@ checks_v8:
           "no_third_party_rights_details": "Данные не определены",
           "quality_warranty_status": "not_defined",
           "quality_warranty_details": "Данные не определены",
-          "risk_allocation": "not_defined",
+          "risk_allocation_code": "not_defined",
           "risk_allocation_status": "not_defined",
           "risk_allocation_details": "Данные не определены",
           "evidence": []
@@ -2710,7 +2710,7 @@ checks_v8:
           "no_third_party_rights_details": "<текст или 'Данные не определены'>",
           "quality_warranty_status": "<defined / not_defined>",
           "quality_warranty_details": "<текст или 'Данные не определены'>",
-          "risk_allocation": "<debtor / creditor / not_defined>",
+          "risk_allocation_code": "<debtor / creditor / not_defined>",
           "risk_allocation_status": "<defined / not_defined>",
           "risk_allocation_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -2813,7 +2813,7 @@ checks_v8:
         10. quality_warranty_details — формулировка о качестве предмета.
         11. risk_allocation_status — "defined" если распределение риска случайной гибели
             или повреждения до момента передачи прямо указано, иначе "not_defined".
-        12. risk_allocation — "debtor" / "creditor" / "not_defined".
+        12. risk_allocation_code — "debtor" / "creditor" / "not_defined".
         13. risk_allocation_details — формулировка о распределении риска до передачи.
 
         Если данные отсутствуют:
@@ -2827,7 +2827,7 @@ checks_v8:
           прямо названный правовой титул подтверждён в тексте.
         - no_pledge_status = "defined" как при отсутствии залога, так и при наличии
           залога, если оба варианта прямо указаны в тексте (в details отразить факт).
-        - risk_allocation:
+        - risk_allocation_code:
             - "debtor" — риск случайной гибели/повреждения до передачи несёт Должник.
             - "creditor" — риск несёт Кредитор.
             - "not_defined" — распределение риска прямо не определено.
@@ -2900,7 +2900,7 @@ checks_v8:
           description: "Формулировка о качестве или отсутствии скрытых недостатков."
           required: false
           display_in_grid: false
-        - name: "risk_allocation"
+        - name: "risk_allocation_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["debtor", "creditor", "not_defined"]
@@ -3001,7 +3001,7 @@ checks_v8:
         Ответ:
         {
           "cadastral_number_status": "defined",
-          "cadastral_number": "77:06:0001001:123",
+          "cadastral_number_value": "77:06:0001001:123",
           "egrn_extract_status": "defined",
           "egrn_extract_details": "выписка из ЕГРН от 01.03.2024 прилагается",
           "registration_procedure_status": "defined",
@@ -3023,7 +3023,7 @@ checks_v8:
         Ответ:
         {
           "cadastral_number_status": "not_defined",
-          "cadastral_number": "Данные не определены",
+          "cadastral_number_value": "Данные не определены",
           "egrn_extract_status": "not_defined",
           "egrn_extract_details": "Данные не определены",
           "registration_procedure_status": "not_defined",
@@ -3045,7 +3045,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "cadastral_number_status": "<defined / not_defined>",
-          "cadastral_number": "<текст или 'Данные не определены'>",
+          "cadastral_number_value": "<текст или 'Данные не определены'>",
           "egrn_extract_status": "<defined / not_defined>",
           "egrn_extract_details": "<текст или 'Данные не определены'>",
           "registration_procedure_status": "<defined / not_defined>",
@@ -3128,7 +3128,7 @@ checks_v8:
 
         1. cadastral_number_status — "defined" если кадастровый номер прямо указан
            в тексте соглашения, иначе "not_defined".
-        2. cadastral_number — кадастровый номер недвижимого имущества.
+        2. cadastral_number_value — кадастровый номер недвижимого имущества.
         3. egrn_extract_status — "defined" если выписка из ЕГРН или сведения ЕГРН
            прямо упомянуты, иначе "not_defined".
         4. egrn_extract_details — формулировка об ЕГРН или выписке из ЕГРН.
@@ -3164,7 +3164,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания кадастрового номера."
           required: true
-        - name: "cadastral_number"
+        - name: "cadastral_number_value"
           type: "string"
           presentation: "fact"
           label: "Кадастровый номер"

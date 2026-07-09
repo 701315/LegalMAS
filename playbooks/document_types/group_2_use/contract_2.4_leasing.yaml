@@ -801,17 +801,17 @@ checks_v8:
         Ответ:
         {
           "lessor_details_status": "defined",
-          "lessor_details": "ООО «ЛизингПро», ИНН 7700000001",
+          "lessor_details_value": "ООО «ЛизингПро», ИНН 7700000001",
           "lessor_signatory_status": "defined",
-          "lessor_signatory": "директор Иванов И.И.",
+          "lessor_signatory_value": "директор Иванов И.И.",
           "lessor_signatory_basis": "charter",
           "lessee_details_status": "defined",
-          "lessee_details": "ООО «Завод», ИНН 7700000002",
+          "lessee_details_value": "ООО «Завод», ИНН 7700000002",
           "lessee_signatory_status": "defined",
-          "lessee_signatory": "Петров П.П.",
+          "lessee_signatory_value": "Петров П.П.",
           "lessee_signatory_basis": "poa",
           "vendor_details_status": "defined",
-          "vendor_details": "ООО «Поставщик», ИНН 7700000003",
+          "vendor_details_value": "ООО «Поставщик», ИНН 7700000003",
           "vendor_selection_status": "defined",
           "vendor_selection_details": "выбранный Лизингополучателем",
           "evidence": [
@@ -829,17 +829,17 @@ checks_v8:
         Ответ:
         {
           "lessor_details_status": "not_defined",
-          "lessor_details": "Данные не определены",
+          "lessor_details_value": "Данные не определены",
           "lessor_signatory_status": "not_defined",
-          "lessor_signatory": "Данные не определены",
+          "lessor_signatory_value": "Данные не определены",
           "lessor_signatory_basis": "not_defined",
           "lessee_details_status": "not_defined",
-          "lessee_details": "Данные не определены",
+          "lessee_details_value": "Данные не определены",
           "lessee_signatory_status": "not_defined",
-          "lessee_signatory": "Данные не определены",
+          "lessee_signatory_value": "Данные не определены",
           "lessee_signatory_basis": "not_defined",
           "vendor_details_status": "not_defined",
-          "vendor_details": "Данные не определены",
+          "vendor_details_value": "Данные не определены",
           "vendor_selection_status": "not_defined",
           "vendor_selection_details": "Данные не определены",
           "evidence": []
@@ -857,17 +857,17 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "lessor_details_status": "<defined / not_defined>",
-          "lessor_details": "<текст или 'Данные не определены'>",
+          "lessor_details_value": "<текст или 'Данные не определены'>",
           "lessor_signatory_status": "<defined / not_defined>",
-          "lessor_signatory": "<текст или 'Данные не определены'>",
+          "lessor_signatory_value": "<текст или 'Данные не определены'>",
           "lessor_signatory_basis": "<charter / poa / order / other / not_defined>",
           "lessee_details_status": "<defined / not_defined>",
-          "lessee_details": "<текст или 'Данные не определены'>",
+          "lessee_details_value": "<текст или 'Данные не определены'>",
           "lessee_signatory_status": "<defined / not_defined>",
-          "lessee_signatory": "<текст или 'Данные не определены'>",
+          "lessee_signatory_value": "<текст или 'Данные не определены'>",
           "lessee_signatory_basis": "<charter / poa / order / other / not_defined>",
           "vendor_details_status": "<defined / not_defined>",
-          "vendor_details": "<текст или 'Данные не определены'>",
+          "vendor_details_value": "<текст или 'Данные не определены'>",
           "vendor_selection_status": "<defined / not_defined>",
           "vendor_selection_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -949,23 +949,23 @@ checks_v8:
 
         1. lessor_details_status — "defined" если Лизингодатель прямо идентифицирован
            (указано наименование, ИНН или иные реквизиты), иначе "not_defined".
-        2. lessor_details — наименование/ФИО и реквизиты Лизингодателя.
+        2. lessor_details_value — наименование/ФИО и реквизиты Лизингодателя.
         3. lessor_signatory_status — "defined" если подписант Лизингодателя прямо
            указан, иначе "not_defined".
-        4. lessor_signatory — подписант Лизингодателя.
+        4. lessor_signatory_value — подписант Лизингодателя.
         5. lessor_signatory_basis — "charter" / "poa" / "order" / "other" /
            "not_defined".
         6. lessee_details_status — "defined" если Лизингополучатель прямо
            идентифицирован, иначе "not_defined".
-        7. lessee_details — наименование/ФИО и реквизиты Лизингополучателя.
+        7. lessee_details_value — наименование/ФИО и реквизиты Лизингополучателя.
         8. lessee_signatory_status — "defined" если подписант Лизингополучателя
            прямо указан, иначе "not_defined".
-        9. lessee_signatory — подписант Лизингополучателя.
+        9. lessee_signatory_value — подписант Лизингополучателя.
         10. lessee_signatory_basis — "charter" / "poa" / "order" / "other" /
             "not_defined".
         11. vendor_details_status — "defined" если Продавец прямо идентифицирован,
             иначе "not_defined".
-        12. vendor_details — наименование/ФИО и реквизиты Продавца.
+        12. vendor_details_value — наименование/ФИО и реквизиты Продавца.
         13. vendor_selection_status — "defined" если указано, кто выбрал продавца
             (лизингодатель или лизингополучатель), иначе "not_defined".
         14. vendor_selection_details — формулировка о выборе продавца.
@@ -992,7 +992,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Лизингодателя."
           required: true
-        - name: "lessor_details"
+        - name: "lessor_details_value"
           type: "string"
           presentation: "fact"
           label: "Лизингодатель"
@@ -1006,7 +1006,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус подписанта Лизингодателя."
           required: false
-        - name: "lessor_signatory"
+        - name: "lessor_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Лизингодатель: подписант"
@@ -1025,7 +1025,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Лизингополучателя."
           required: true
-        - name: "lessee_details"
+        - name: "lessee_details_value"
           type: "string"
           presentation: "fact"
           label: "Лизингополучатель"
@@ -1039,7 +1039,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус подписанта Лизингополучателя."
           required: false
-        - name: "lessee_signatory"
+        - name: "lessee_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Лизингополучатель: подписант"
@@ -1058,7 +1058,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Продавца."
           required: true
-        - name: "vendor_details"
+        - name: "vendor_details_value"
           type: "string"
           presentation: "fact"
           label: "Продавец"
@@ -1164,12 +1164,12 @@ checks_v8:
         Ответ:
         {
           "subject_description_status": "defined",
-          "subject_description": "станок токарный ЧПУ модель XYZ-500",
+          "subject_description_value": "станок токарный ЧПУ модель XYZ-500",
           "subject_type": "equipment",
           "identifying_features_status": "defined",
-          "identifying_features": "серийный номер SN2024001",
+          "identifying_features_value": "серийный номер SN2024001",
           "subject_value_status": "defined",
-          "subject_value": "5 000 000 рублей",
+          "subject_value_value": "5 000 000 рублей",
           "prohibited_subject_status": "not_defined",
           "prohibited_subject_details": "Данные не определены",
           "evidence": [
@@ -1187,12 +1187,12 @@ checks_v8:
         Ответ:
         {
           "subject_description_status": "not_defined",
-          "subject_description": "Данные не определены",
+          "subject_description_value": "Данные не определены",
           "subject_type": "not_defined",
           "identifying_features_status": "not_defined",
-          "identifying_features": "Данные не определены",
+          "identifying_features_value": "Данные не определены",
           "subject_value_status": "not_defined",
-          "subject_value": "Данные не определены",
+          "subject_value_value": "Данные не определены",
           "prohibited_subject_status": "not_defined",
           "prohibited_subject_details": "Данные не определены",
           "evidence": []
@@ -1210,12 +1210,12 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "subject_description_status": "<defined / not_defined>",
-          "subject_description": "<текст или 'Данные не определены'>",
+          "subject_description_value": "<текст или 'Данные не определены'>",
           "subject_type": "<equipment / vehicle / real_estate / other / not_defined>",
           "identifying_features_status": "<defined / not_defined>",
-          "identifying_features": "<текст или 'Данные не определены'>",
+          "identifying_features_value": "<текст или 'Данные не определены'>",
           "subject_value_status": "<defined / not_defined>",
-          "subject_value": "<текст или 'Данные не определены'>",
+          "subject_value_value": "<текст или 'Данные не определены'>",
           "prohibited_subject_status": "<defined / not_defined>",
           "prohibited_subject_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -1297,15 +1297,15 @@ checks_v8:
 
         1. subject_description_status — "defined" если предмет лизинга прямо описан
            (указана марка, модель, наименование или иное описание), иначе "not_defined".
-        2. subject_description — описание предмета лизинга.
+        2. subject_description_value — описание предмета лизинга.
         3. subject_type — "equipment" / "vehicle" / "real_estate" / "other" /
            "not_defined".
         4. identifying_features_status — "defined" если индивидуализирующие признаки
            прямо указаны (VIN, серийный номер, кадастровый номер), иначе "not_defined".
-        5. identifying_features — VIN, серийный номер, кадастровый номер.
+        5. identifying_features_value — VIN, серийный номер, кадастровый номер.
         6. subject_value_status — "defined" если стоимость предмета лизинга прямо
            указана, иначе "not_defined".
-        7. subject_value — стоимость предмета лизинга.
+        7. subject_value_value — стоимость предмета лизинга.
         8. prohibited_subject_status — "defined" если в тексте есть прямое указание
            на земельный участок или природный объект как предмет лизинга,
            иначе "not_defined".
@@ -1335,7 +1335,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус описания предмета лизинга."
           required: true
-        - name: "subject_description"
+        - name: "subject_description_value"
           type: "string"
           presentation: "fact"
           label: "Предмет лизинга"
@@ -1355,7 +1355,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентифицирующих признаков."
           required: false
-        - name: "identifying_features"
+        - name: "identifying_features_value"
           type: "string"
           presentation: "fact"
           label: "Идентификаторы"
@@ -1369,7 +1369,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус стоимости предмета."
           required: false
-        - name: "subject_value"
+        - name: "subject_value_value"
           type: "string"
           presentation: "fact"
           label: "Стоимость предмета"
@@ -1480,7 +1480,7 @@ checks_v8:
           "buyout_price_status": "defined",
           "buyout_price_details": "1 000 рублей",
           "buyout_model_status": "defined",
-          "buyout_model": "separate_price",
+          "buyout_model_code": "separate_price",
           "buyout_model_details": "уплачивается отдельно по окончании срока лизинга",
           "lease_term_status": "defined",
           "lease_term_details": "36 месяцев",
@@ -1505,7 +1505,7 @@ checks_v8:
           "buyout_price_status": "not_defined",
           "buyout_price_details": "Данные не определены",
           "buyout_model_status": "not_defined",
-          "buyout_model": "not_defined",
+          "buyout_model_code": "not_defined",
           "buyout_model_details": "Данные не определены",
           "lease_term_status": "not_defined",
           "lease_term_details": "Данные не определены",
@@ -1531,7 +1531,7 @@ checks_v8:
           "buyout_price_status": "<defined / not_defined>",
           "buyout_price_details": "<текст или 'Данные не определены'>",
           "buyout_model_status": "<defined / not_defined>",
-          "buyout_model": "<included_in_payments / separate_price / not_defined>",
+          "buyout_model_code": "<included_in_payments / separate_price / not_defined>",
           "buyout_model_details": "<текст или 'Данные не определены'>",
           "lease_term_status": "<defined / not_defined>",
           "lease_term_details": "<текст или 'Данные не определены'>",
@@ -1624,7 +1624,7 @@ checks_v8:
         6. buyout_price_details — формулировка о выкупной цене.
         7. buyout_model_status — "defined" если модель выкупа прямо определена,
            иначе "not_defined".
-        8. buyout_model — "included_in_payments" / "separate_price" / "not_defined".
+        8. buyout_model_code — "included_in_payments" / "separate_price" / "not_defined".
         9. buyout_model_details — формулировка о модели выкупа.
         10. lease_term_status — "defined" если срок лизинга прямо указан,
             иначе "not_defined".
@@ -1637,7 +1637,7 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - buyout_model:
+        - buyout_model_code:
             - "included_in_payments" — выкупная стоимость входит в лизинговые платежи.
             - "separate_price" — выкупная стоимость уплачивается отдельно.
             - "not_defined" — модель не определена.
@@ -1692,7 +1692,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения модели выкупа."
           required: false
-        - name: "buyout_model"
+        - name: "buyout_model_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["included_in_payments", "separate_price", "not_defined"]
@@ -4168,7 +4168,7 @@ checks_v8:
         Ответ:
         {
           "balance_holder_status": "defined",
-          "balance_holder": "lessee",
+          "balance_holder_code": "lessee",
           "balance_holder_details": "предмет лизинга учитывается на балансе Лизингополучателя",
           "accelerated_depreciation_status": "defined",
           "accelerated_depreciation_details": "с применением коэффициента ускорения 3",
@@ -4193,7 +4193,7 @@ checks_v8:
         Ответ:
         {
           "balance_holder_status": "not_defined",
-          "balance_holder": "not_defined",
+          "balance_holder_code": "not_defined",
           "balance_holder_details": "Данные не определены",
           "accelerated_depreciation_status": "not_defined",
           "accelerated_depreciation_details": "Данные не определены",
@@ -4219,7 +4219,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "balance_holder_status": "<defined / not_defined>",
-          "balance_holder": "<lessee / lessor / not_defined>",
+          "balance_holder_code": "<lessee / lessor / not_defined>",
           "balance_holder_details": "<текст или 'Данные не определены'>",
           "accelerated_depreciation_status": "<defined / not_defined>",
           "accelerated_depreciation_details": "<текст или 'Данные не определены'>",
@@ -4308,7 +4308,7 @@ checks_v8:
 
         1. balance_holder_status — "defined" если балансодержатель прямо указан,
            иначе "not_defined".
-        2. balance_holder — "lessee" / "lessor" / "not_defined".
+        2. balance_holder_code — "lessee" / "lessor" / "not_defined".
         3. balance_holder_details — формулировка о балансодержателе.
         4. accelerated_depreciation_status — "defined" если ускоренная амортизация
            прямо предусмотрена, иначе "not_defined".
@@ -4330,7 +4330,7 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - balance_holder:
+        - balance_holder_code:
             - "lessee" — предмет учитывается на балансе лизингополучателя.
             - "lessor" — предмет учитывается на балансе лизингодателя.
             - "not_defined" — балансодержатель прямо не указан.
@@ -4345,7 +4345,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания балансодержателя."
           required: true
-        - name: "balance_holder"
+        - name: "balance_holder_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["lessee", "lessor", "not_defined"]
@@ -4498,7 +4498,7 @@ checks_v8:
         Ответ:
         {
           "registration_required_status": "defined",
-          "registration_authority": "gibdd",
+          "registration_authority_code": "gibdd",
           "registration_authority_details": "ГИБДД",
           "who_registers_status": "defined",
           "who_registers_details": "Лизингополучатель в течение 10 рабочих дней",
@@ -4523,7 +4523,7 @@ checks_v8:
         Ответ:
         {
           "registration_required_status": "not_defined",
-          "registration_authority": "not_defined",
+          "registration_authority_code": "not_defined",
           "registration_authority_details": "Данные не определены",
           "who_registers_status": "not_defined",
           "who_registers_details": "Данные не определены",
@@ -4550,7 +4550,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "registration_required_status": "<defined / not_defined>",
-          "registration_authority": "<gibdd / rosreestr / other / not_defined>",
+          "registration_authority_code": "<gibdd / rosreestr / other / not_defined>",
           "registration_authority_details": "<текст или 'Данные не определены'>",
           "who_registers_status": "<defined / not_defined>",
           "who_registers_details": "<текст или 'Данные не определены'>",
@@ -4640,7 +4640,7 @@ checks_v8:
 
         1. registration_required_status — "defined" если регистрация прямо
            предусмотрена, иначе "not_defined".
-        2. registration_authority — "gibdd" / "rosreestr" / "other" / "not_defined".
+        2. registration_authority_code — "gibdd" / "rosreestr" / "other" / "not_defined".
         3. registration_authority_details — формулировка об органе регистрации.
         4. who_registers_status — "defined" если ответственная сторона прямо
            указана, иначе "not_defined".
@@ -4662,7 +4662,7 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - registration_authority:
+        - registration_authority_code:
             - "gibdd" — регистрация транспортного средства в ГИБДД.
             - "rosreestr" — регистрация прав в Росреестре (недвижимость).
             - "other" — иной орган, прямо названный в тексте.
@@ -4677,7 +4677,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия о регистрации."
           required: true
-        - name: "registration_authority"
+        - name: "registration_authority_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["gibdd", "rosreestr", "other", "not_defined"]

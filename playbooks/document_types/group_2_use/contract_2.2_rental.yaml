@@ -700,18 +700,18 @@ checks_v8:
         Ответ:
         {
           "landlord_details_status": "defined",
-          "landlord_details": "ИП Сидоров А.А., ОГРНИП 312770000000001",
+          "landlord_details_value": "ИП Сидоров А.А., ОГРНИП 312770000000001",
           "landlord_type": "individual_entrepreneur",
           "landlord_professional_status": "defined",
           "landlord_professional_details": "осуществляющий деятельность пункта проката",
           "landlord_signatory_status": "defined",
-          "landlord_signatory": "Сидоров А.А.",
+          "landlord_signatory_value": "Сидоров А.А.",
           "landlord_signatory_basis": "not_defined",
           "tenant_details_status": "defined",
-          "tenant_details": "гражданин Петров П.П., паспорт серия 4500 № 123456",
+          "tenant_details_value": "гражданин Петров П.П., паспорт серия 4500 № 123456",
           "tenant_type": "individual",
           "tenant_signatory_status": "defined",
-          "tenant_signatory": "Петров П.П.",
+          "tenant_signatory_value": "Петров П.П.",
           "tenant_signatory_basis": "not_defined",
           "evidence": [
             {
@@ -728,18 +728,18 @@ checks_v8:
         Ответ:
         {
           "landlord_details_status": "not_defined",
-          "landlord_details": "Данные не определены",
+          "landlord_details_value": "Данные не определены",
           "landlord_type": "not_defined",
           "landlord_professional_status": "not_defined",
           "landlord_professional_details": "Данные не определены",
           "landlord_signatory_status": "not_defined",
-          "landlord_signatory": "Данные не определены",
+          "landlord_signatory_value": "Данные не определены",
           "landlord_signatory_basis": "not_defined",
           "tenant_details_status": "not_defined",
-          "tenant_details": "Данные не определены",
+          "tenant_details_value": "Данные не определены",
           "tenant_type": "not_defined",
           "tenant_signatory_status": "not_defined",
-          "tenant_signatory": "Данные не определены",
+          "tenant_signatory_value": "Данные не определены",
           "tenant_signatory_basis": "not_defined",
           "evidence": []
         }
@@ -756,18 +756,18 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "landlord_details_status": "<defined / not_defined>",
-          "landlord_details": "<текст или 'Данные не определены'>",
+          "landlord_details_value": "<текст или 'Данные не определены'>",
           "landlord_type": "<legal_entity / individual_entrepreneur / not_defined>",
           "landlord_professional_status": "<defined / not_defined>",
           "landlord_professional_details": "<текст или 'Данные не определены'>",
           "landlord_signatory_status": "<defined / not_defined>",
-          "landlord_signatory": "<текст или 'Данные не определены'>",
+          "landlord_signatory_value": "<текст или 'Данные не определены'>",
           "landlord_signatory_basis": "<charter / poa / order / other / not_defined>",
           "tenant_details_status": "<defined / not_defined>",
-          "tenant_details": "<текст или 'Данные не определены'>",
+          "tenant_details_value": "<текст или 'Данные не определены'>",
           "tenant_type": "<individual / individual_entrepreneur / not_defined>",
           "tenant_signatory_status": "<defined / not_defined>",
-          "tenant_signatory": "<текст или 'Данные не определены'>",
+          "tenant_signatory_value": "<текст или 'Данные не определены'>",
           "tenant_signatory_basis": "<charter / poa / order / other / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -850,7 +850,7 @@ checks_v8:
 
         1. landlord_details_status — "defined" если Арендодатель прямо идентифицирован,
            иначе "not_defined".
-        2. landlord_details — наименование/ФИО и реквизиты Арендодателя.
+        2. landlord_details_value — наименование/ФИО и реквизиты Арендодателя.
         3. landlord_type — "legal_entity" / "individual_entrepreneur" / "not_defined".
         4. landlord_professional_status — "defined" если профессиональный характер
            деятельности прямо указан (пункт проката, постоянная предпринимательская
@@ -858,15 +858,15 @@ checks_v8:
         5. landlord_professional_details — формулировка.
         6. landlord_signatory_status — "defined" если подписант прямо указан,
            иначе "not_defined".
-        7. landlord_signatory — подписант Арендодателя.
+        7. landlord_signatory_value — подписант Арендодателя.
         8. landlord_signatory_basis — "charter" / "poa" / "order" / "other" / "not_defined".
         9. tenant_details_status — "defined" если Арендатор прямо идентифицирован,
            иначе "not_defined".
-        10. tenant_details — ФИО и реквизиты Арендатора.
+        10. tenant_details_value — ФИО и реквизиты Арендатора.
         11. tenant_type — "individual" / "individual_entrepreneur" / "not_defined".
         12. tenant_signatory_status — "defined" если подписант прямо указан,
             иначе "not_defined".
-        13. tenant_signatory — подписант Арендатора.
+        13. tenant_signatory_value — подписант Арендатора.
         14. tenant_signatory_basis — "charter" / "poa" / "order" / "other" / "not_defined".
 
         Если данные отсутствуют:
@@ -899,7 +899,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Арендодателя."
           required: true
-        - name: "landlord_details"
+        - name: "landlord_details_value"
           type: "string"
           presentation: "fact"
           label: "Арендодатель: реквизиты"
@@ -932,7 +932,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта Арендодателя."
           required: false
-        - name: "landlord_signatory"
+        - name: "landlord_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Арендодатель: подписант"
@@ -951,7 +951,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Арендатора."
           required: true
-        - name: "tenant_details"
+        - name: "tenant_details_value"
           type: "string"
           presentation: "fact"
           label: "Арендатор: реквизиты"
@@ -971,7 +971,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта Арендатора."
           required: false
-        - name: "tenant_signatory"
+        - name: "tenant_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Арендатор: подписант"
@@ -1069,16 +1069,16 @@ checks_v8:
         Ответ:
         {
           "rental_item_status": "defined",
-          "rental_item": "электросамокат Xiaomi Mi Pro 2",
+          "rental_item_value": "электросамокат Xiaomi Mi Pro 2",
           "item_type": "consumer_item",
           "identifying_features_status": "defined",
-          "identifying_features": "серийный номер SN12345678",
+          "identifying_features_value": "серийный номер SN12345678",
           "consumer_purpose_status": "defined",
           "consumer_purpose_details": "для бытовых нужд",
           "rental_term_status": "defined",
-          "rental_term": "3 суток",
+          "rental_term_value": "3 суток",
           "rental_fee_status": "defined",
-          "rental_fee": "500 рублей в сутки",
+          "rental_fee_value": "500 рублей в сутки",
           "deposit_status": "defined",
           "deposit_details": "5 000 рублей",
           "evidence": [
@@ -1096,16 +1096,16 @@ checks_v8:
         Ответ:
         {
           "rental_item_status": "not_defined",
-          "rental_item": "Данные не определены",
+          "rental_item_value": "Данные не определены",
           "item_type": "not_defined",
           "identifying_features_status": "not_defined",
-          "identifying_features": "Данные не определены",
+          "identifying_features_value": "Данные не определены",
           "consumer_purpose_status": "not_defined",
           "consumer_purpose_details": "Данные не определены",
           "rental_term_status": "not_defined",
-          "rental_term": "Данные не определены",
+          "rental_term_value": "Данные не определены",
           "rental_fee_status": "not_defined",
-          "rental_fee": "Данные не определены",
+          "rental_fee_value": "Данные не определены",
           "deposit_status": "not_defined",
           "deposit_details": "Данные не определены",
           "evidence": []
@@ -1124,16 +1124,16 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "rental_item_status": "<defined / not_defined>",
-          "rental_item": "<текст или 'Данные не определены'>",
+          "rental_item_value": "<текст или 'Данные не определены'>",
           "item_type": "<equipment / tool / scooter / bicycle / costume / consumer_item / other / not_defined>",
           "identifying_features_status": "<defined / not_defined>",
-          "identifying_features": "<текст или 'Данные не определены'>",
+          "identifying_features_value": "<текст или 'Данные не определены'>",
           "consumer_purpose_status": "<defined / not_defined>",
           "consumer_purpose_details": "<текст или 'Данные не определены'>",
           "rental_term_status": "<defined / not_defined>",
-          "rental_term": "<текст или 'Данные не определены'>",
+          "rental_term_value": "<текст или 'Данные не определены'>",
           "rental_fee_status": "<defined / not_defined>",
-          "rental_fee": "<текст или 'Данные не определены'>",
+          "rental_fee_value": "<текст или 'Данные не определены'>",
           "deposit_status": "<defined / not_defined>",
           "deposit_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -1214,19 +1214,19 @@ checks_v8:
 
         1. rental_item_status — "defined" если предмет проката прямо описан,
            иначе "not_defined".
-        2. rental_item — описание предмета проката.
+        2. rental_item_value — описание предмета проката.
         3. item_type — "equipment" / "tool" / "scooter" / "bicycle" / "costume" /
            "consumer_item" / "other" / "not_defined".
         4. identifying_features_status — "defined" если индивидуализирующие признаки
            прямо указаны, иначе "not_defined".
-        5. identifying_features — серийный номер, IMEI, VIN и т.п.
+        5. identifying_features_value — серийный номер, IMEI, VIN и т.п.
         6. consumer_purpose_status — "defined" если потребительская цель прямо указана,
            иначе "not_defined".
         7. consumer_purpose_details — формулировка о потребительской цели.
         8. rental_term_status — "defined" если срок прямо указан, иначе "not_defined".
-        9. rental_term — срок проката.
+        9. rental_term_value — срок проката.
         10. rental_fee_status — "defined" если плата прямо указана, иначе "not_defined".
-        11. rental_fee — размер платы за прокат.
+        11. rental_fee_value — размер платы за прокат.
         12. deposit_status — "defined" если залог / депозит прямо предусмотрен,
             иначе "not_defined".
         13. deposit_details — размер и условия залога / депозита.
@@ -1258,7 +1258,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус описания предмета проката."
           required: true
-        - name: "rental_item"
+        - name: "rental_item_value"
           type: "string"
           presentation: "fact"
           label: "Предмет проката"
@@ -1278,7 +1278,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания идентифицирующих признаков."
           required: false
-        - name: "identifying_features"
+        - name: "identifying_features_value"
           type: "string"
           presentation: "fact"
           label: "Идентификаторы предмета"
@@ -1305,7 +1305,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания срока проката."
           required: true
-        - name: "rental_term"
+        - name: "rental_term_value"
           type: "string"
           presentation: "fact"
           label: "Срок проката"
@@ -1319,7 +1319,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания платы за прокат."
           required: true
-        - name: "rental_fee"
+        - name: "rental_fee_value"
           type: "string"
           presentation: "fact"
           label: "Плата за прокат"

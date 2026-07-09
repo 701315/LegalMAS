@@ -787,16 +787,16 @@ checks_v8:
         Ответ:
         {
           "landlord_details_status": "defined",
-          "landlord_details": "ООО «АвтоПрокат», ИНН 7700000001, ОГРН 1027700000001",
+          "landlord_details_value": "ООО «АвтоПрокат», ИНН 7700000001, ОГРН 1027700000001",
           "landlord_type": "legal_entity",
           "landlord_signatory_status": "defined",
-          "landlord_signatory": "директор Иванов И.И.",
+          "landlord_signatory_value": "директор Иванов И.И.",
           "landlord_signatory_basis": "charter",
           "tenant_details_status": "defined",
-          "tenant_details": "Петров П.П., паспорт серия 4500 № 123456",
+          "tenant_details_value": "Петров П.П., паспорт серия 4500 № 123456",
           "tenant_type": "individual",
           "tenant_signatory_status": "defined",
-          "tenant_signatory": "Петров П.П.",
+          "tenant_signatory_value": "Петров П.П.",
           "tenant_signatory_basis": "not_defined",
           "evidence": [
             {
@@ -813,16 +813,16 @@ checks_v8:
         Ответ:
         {
           "landlord_details_status": "not_defined",
-          "landlord_details": "Данные не определены",
+          "landlord_details_value": "Данные не определены",
           "landlord_type": "not_defined",
           "landlord_signatory_status": "not_defined",
-          "landlord_signatory": "Данные не определены",
+          "landlord_signatory_value": "Данные не определены",
           "landlord_signatory_basis": "not_defined",
           "tenant_details_status": "not_defined",
-          "tenant_details": "Данные не определены",
+          "tenant_details_value": "Данные не определены",
           "tenant_type": "not_defined",
           "tenant_signatory_status": "not_defined",
-          "tenant_signatory": "Данные не определены",
+          "tenant_signatory_value": "Данные не определены",
           "tenant_signatory_basis": "not_defined",
           "evidence": []
         }
@@ -838,16 +838,16 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "landlord_details_status": "<defined / not_defined>",
-          "landlord_details": "<текст или 'Данные не определены'>",
+          "landlord_details_value": "<текст или 'Данные не определены'>",
           "landlord_type": "<legal_entity / individual / individual_entrepreneur / not_defined>",
           "landlord_signatory_status": "<defined / not_defined>",
-          "landlord_signatory": "<текст или 'Данные не определены'>",
+          "landlord_signatory_value": "<текст или 'Данные не определены'>",
           "landlord_signatory_basis": "<charter / poa / order / other / not_defined>",
           "tenant_details_status": "<defined / not_defined>",
-          "tenant_details": "<текст или 'Данные не определены'>",
+          "tenant_details_value": "<текст или 'Данные не определены'>",
           "tenant_type": "<legal_entity / individual / individual_entrepreneur / not_defined>",
           "tenant_signatory_status": "<defined / not_defined>",
-          "tenant_signatory": "<текст или 'Данные не определены'>",
+          "tenant_signatory_value": "<текст или 'Данные не определены'>",
           "tenant_signatory_basis": "<charter / poa / order / other / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -931,22 +931,22 @@ checks_v8:
 
         1. landlord_details_status — "defined" если Арендодатель прямо идентифицирован,
            иначе "not_defined".
-        2. landlord_details — наименование/ФИО и реквизиты.
+        2. landlord_details_value — наименование/ФИО и реквизиты.
         3. landlord_type — "legal_entity" / "individual" / "individual_entrepreneur" /
            "not_defined".
         4. landlord_signatory_status — "defined" если подписант прямо указан,
            иначе "not_defined".
-        5. landlord_signatory — подписант Арендодателя.
+        5. landlord_signatory_value — подписант Арендодателя.
         6. landlord_signatory_basis — "charter" / "poa" / "order" / "other" /
            "not_defined".
         7. tenant_details_status — "defined" если Арендатор прямо идентифицирован,
            иначе "not_defined".
-        8. tenant_details — наименование/ФИО и реквизиты.
+        8. tenant_details_value — наименование/ФИО и реквизиты.
         9. tenant_type — "legal_entity" / "individual" / "individual_entrepreneur" /
            "not_defined".
         10. tenant_signatory_status — "defined" если подписант прямо указан,
             иначе "not_defined".
-        11. tenant_signatory — подписант Арендатора.
+        11. tenant_signatory_value — подписант Арендатора.
         12. tenant_signatory_basis — "charter" / "poa" / "order" / "other" /
             "not_defined".
 
@@ -977,7 +977,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Арендодателя."
           required: true
-        - name: "landlord_details"
+        - name: "landlord_details_value"
           type: "string"
           presentation: "fact"
           label: "Арендодатель: реквизиты"
@@ -997,7 +997,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта Арендодателя."
           required: false
-        - name: "landlord_signatory"
+        - name: "landlord_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Арендодатель: подписант"
@@ -1016,7 +1016,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Арендатора."
           required: true
-        - name: "tenant_details"
+        - name: "tenant_details_value"
           type: "string"
           presentation: "fact"
           label: "Арендатор: реквизиты"
@@ -1036,7 +1036,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта Арендатора."
           required: false
-        - name: "tenant_signatory"
+        - name: "tenant_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Арендатор: подписант"
@@ -1124,15 +1124,15 @@ checks_v8:
         Ответ:
         {
           "lease_type_status": "defined",
-          "lease_type": "without_crew",
+          "lease_type_code": "without_crew",
           "lease_type_details": "без экипажа",
           "vehicle_type": "road_vehicle",
           "vehicle_description_status": "defined",
-          "vehicle_description": "легковой автомобиль Toyota Camry",
+          "vehicle_description_value": "легковой автомобиль Toyota Camry",
           "lease_term_status": "defined",
-          "lease_term": "6 месяцев",
+          "lease_term_value": "6 месяцев",
           "rent_amount_status": "defined",
-          "rent_amount": "50 000 рублей в месяц",
+          "rent_amount_value": "50 000 рублей в месяц",
           "evidence": [
             {
               "clause_ref": "п. 1.1",
@@ -1148,15 +1148,15 @@ checks_v8:
         Ответ:
         {
           "lease_type_status": "not_defined",
-          "lease_type": "not_defined",
+          "lease_type_code": "not_defined",
           "lease_type_details": "Данные не определены",
           "vehicle_type": "not_defined",
           "vehicle_description_status": "not_defined",
-          "vehicle_description": "Данные не определены",
+          "vehicle_description_value": "Данные не определены",
           "lease_term_status": "not_defined",
-          "lease_term": "Данные не определены",
+          "lease_term_value": "Данные не определены",
           "rent_amount_status": "not_defined",
-          "rent_amount": "Данные не определены",
+          "rent_amount_value": "Данные не определены",
           "evidence": []
         }
 
@@ -1172,15 +1172,15 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "lease_type_status": "<defined / not_defined>",
-          "lease_type": "<with_crew / without_crew / not_defined>",
+          "lease_type_code": "<with_crew / without_crew / not_defined>",
           "lease_type_details": "<текст или 'Данные не определены'>",
           "vehicle_type": "<road_vehicle / vessel / aircraft / other / not_defined>",
           "vehicle_description_status": "<defined / not_defined>",
-          "vehicle_description": "<текст или 'Данные не определены'>",
+          "vehicle_description_value": "<текст или 'Данные не определены'>",
           "lease_term_status": "<defined / not_defined>",
-          "lease_term": "<текст или 'Данные не определены'>",
+          "lease_term_value": "<текст или 'Данные не определены'>",
           "rent_amount_status": "<defined / not_defined>",
-          "rent_amount": "<текст или 'Данные не определены'>",
+          "rent_amount_value": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 6
@@ -1262,19 +1262,19 @@ checks_v8:
 
         1. lease_type_status — "defined" если вид аренды прямо указан,
            иначе "not_defined".
-        2. lease_type — "with_crew" / "without_crew" / "not_defined".
+        2. lease_type_code — "with_crew" / "without_crew" / "not_defined".
         3. lease_type_details — формулировка.
         4. vehicle_type — "road_vehicle" / "vessel" / "aircraft" / "other" /
            "not_defined".
         5. vehicle_description_status — "defined" если ТС прямо описано,
            иначе "not_defined".
-        6. vehicle_description — описание ТС.
+        6. vehicle_description_value — описание ТС.
         7. lease_term_status — "defined" если срок прямо указан,
            иначе "not_defined".
-        8. lease_term — срок аренды.
+        8. lease_term_value — срок аренды.
         9. rent_amount_status — "defined" если плата прямо указана,
            иначе "not_defined".
-        10. rent_amount — размер платы.
+        10. rent_amount_value — размер платы.
 
         Если данные отсутствуют:
         - статус = "not_defined"
@@ -1283,7 +1283,7 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - lease_type:
+        - lease_type_code:
             - "with_crew" — аренда с экипажем / с услугами по управлению.
             - "without_crew" — аренда без экипажа.
             - "not_defined" — вид не определён.
@@ -1302,7 +1302,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения вида аренды."
           required: true
-        - name: "lease_type"
+        - name: "lease_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["with_crew", "without_crew", "not_defined"]
@@ -1328,7 +1328,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус описания ТС."
           required: true
-        - name: "vehicle_description"
+        - name: "vehicle_description_value"
           type: "string"
           presentation: "fact"
           label: "Транспортное средство"
@@ -1342,7 +1342,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания срока аренды."
           required: true
-        - name: "lease_term"
+        - name: "lease_term_value"
           type: "string"
           presentation: "fact"
           label: "Срок аренды"
@@ -1356,7 +1356,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания арендной платы."
           required: true
-        - name: "rent_amount"
+        - name: "rent_amount_value"
           type: "string"
           presentation: "fact"
           label: "Арендная плата"
@@ -2901,7 +2901,7 @@ checks_v8:
         Ответ:
         {
           "third_party_liability_holder_status": "defined",
-          "third_party_liability_holder": "tenant",
+          "third_party_liability_holder_code": "tenant",
           "third_party_liability_details": "ответственность за вред третьим лицам несёт Арендатор",
           "hazardous_source_reference_status": "defined",
           "hazardous_source_reference_details": "транспортным средством как источником повышенной опасности",
@@ -2924,7 +2924,7 @@ checks_v8:
         Ответ:
         {
           "third_party_liability_holder_status": "not_defined",
-          "third_party_liability_holder": "not_defined",
+          "third_party_liability_holder_code": "not_defined",
           "third_party_liability_details": "Данные не определены",
           "hazardous_source_reference_status": "not_defined",
           "hazardous_source_reference_details": "Данные не определены",
@@ -2947,7 +2947,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "third_party_liability_holder_status": "<defined / not_defined>",
-          "third_party_liability_holder": "<landlord / tenant / not_defined>",
+          "third_party_liability_holder_code": "<landlord / tenant / not_defined>",
           "third_party_liability_details": "<текст или 'Данные не определены'>",
           "hazardous_source_reference_status": "<defined / not_defined>",
           "hazardous_source_reference_details": "<текст или 'Данные не определены'>",
@@ -3036,7 +3036,7 @@ checks_v8:
         <task>
         1. third_party_liability_holder_status — "defined" если ответственность перед
            третьими лицами прямо распределена, иначе "not_defined".
-        2. third_party_liability_holder — "landlord" / "tenant" / "not_defined".
+        2. third_party_liability_holder_code — "landlord" / "tenant" / "not_defined".
         3. third_party_liability_details — формулировка.
         4. hazardous_source_reference_status — "defined" если ИПО прямо упомянут.
         5. hazardous_source_reference_details — формулировка.
@@ -3050,7 +3050,7 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - third_party_liability_holder:
+        - third_party_liability_holder_code:
             - "landlord" — ответственность на арендодателе.
             - "tenant" — ответственность на арендаторе.
             - "not_defined" — не определено.
@@ -3063,7 +3063,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус распределения ответственности перед третьими лицами."
           required: true
-        - name: "third_party_liability_holder"
+        - name: "third_party_liability_holder_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["landlord", "tenant", "not_defined"]

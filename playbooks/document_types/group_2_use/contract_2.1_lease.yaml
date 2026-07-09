@@ -705,13 +705,13 @@ checks_v8:
         {
           "asset_type": "real_estate",
           "asset_description_status": "defined",
-          "asset_description": "нежилое помещение площадью 150 кв.м на 2-м этаже здания по адресу: г. Москва, ул. Ленина, д. 10, помещение III",
+          "asset_description_value": "нежилое помещение площадью 150 кв.м на 2-м этаже здания по адресу: г. Москва, ул. Ленина, д. 10, помещение III",
           "lease_term_status": "defined",
-          "lease_term": "3 года с даты подписания акта приёма-передачи",
+          "lease_term_value": "3 года с даты подписания акта приёма-передачи",
           "rent_amount_status": "defined",
-          "rent_amount": "250 000 рублей в месяц",
+          "rent_amount_value": "250 000 рублей в месяц",
           "use_purpose_status": "defined",
-          "use_purpose": "исключительно под офис",
+          "use_purpose_value": "исключительно под офис",
           "handover_mechanism": "act",
           "evidence": [
             {
@@ -729,13 +729,13 @@ checks_v8:
         {
           "asset_type": "not_defined",
           "asset_description_status": "not_defined",
-          "asset_description": "Данные не определены",
+          "asset_description_value": "Данные не определены",
           "lease_term_status": "not_defined",
-          "lease_term": "Данные не определены",
+          "lease_term_value": "Данные не определены",
           "rent_amount_status": "not_defined",
-          "rent_amount": "Данные не определены",
+          "rent_amount_value": "Данные не определены",
           "use_purpose_status": "not_defined",
-          "use_purpose": "Данные не определены",
+          "use_pu pose": "Данные не определены",
           "handover_mechanism": "not_defined",
           "evidence": []
         }
@@ -754,13 +754,13 @@ checks_v8:
         {
           "asset_type": "<real_estate / land / equipment / vehicle / other / mixed / not_defined>",
           "asset_description_status": "<defined / not_defined>",
-          "asset_description": "<текст или 'Данные не определены'>",
+          "asset_description_value": "<текст или 'Данные не определены'>",
           "lease_term_status": "<defined / not_defined>",
-          "lease_term": "<текст или 'Данные не определены'>",
+          "lease_term_value": "<текст или 'Данные не определены'>",
           "rent_amount_status": "<defined / not_defined>",
-          "rent_amount": "<текст или 'Данные не определены'>",
+          "rent_amount_value": "<текст или 'Данные не определены'>",
           "use_purpose_status": "<defined / not_defined>",
-          "use_purpose": "<текст или 'Данные не определены'>",
+          "use_purpose_value": "<текст или 'Данные не определены'>",
           "handover_mechanism": "<act / invoice / registration / other / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -846,16 +846,16 @@ checks_v8:
            "mixed" / "not_defined".
         2. asset_description_status — "defined" если объект аренды прямо описан,
            иначе "not_defined".
-        3. asset_description — описание объекта аренды.
+        3. asset_description_value — описание объекта аренды.
         4. lease_term_status — "defined" если срок аренды прямо указан,
            иначе "not_defined".
-        5. lease_term — срок аренды.
+        5. lease_term_value — срок аренды.
         6. rent_amount_status — "defined" если размер арендной платы прямо указан,
            иначе "not_defined".
-        7. rent_amount — размер арендной платы.
+        7. rent_amount_value — размер арендной платы.
         8. use_purpose_status — "defined" если целевое назначение прямо указано,
            иначе "not_defined".
-        9. use_purpose — целевое назначение использования.
+        9. use_purpose_value — целевое назначение использования.
         10. handover_mechanism — "act" / "invoice" / "registration" / "other" /
             "not_defined".
 
@@ -895,7 +895,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус описания объекта аренды."
           required: true
-        - name: "asset_description"
+        - name: "asset_description_value"
           type: "string"
           presentation: "fact"
           label: "Объект аренды"
@@ -909,7 +909,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания срока аренды."
           required: true
-        - name: "lease_term"
+        - name: "lease_term_value"
           type: "string"
           presentation: "fact"
           label: "Срок аренды"
@@ -923,7 +923,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания арендной платы."
           required: true
-        - name: "rent_amount"
+        - name: "rent_amount_value"
           type: "string"
           presentation: "fact"
           label: "Арендная плата"
@@ -937,7 +937,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания целевого назначения."
           required: false
-        - name: "use_purpose"
+        - name: "use_purpose_value"
           type: "string"
           presentation: "fact"
           label: "Целевое назначение"
@@ -1034,17 +1034,17 @@ checks_v8:
         Ответ:
         {
           "cadastral_number_status": "defined",
-          "cadastral_number": "77:06:0001001:123",
+          "cadastral_number_value": "77:06:0001001:123",
           "address_status": "defined",
-          "address": "г. Москва, ул. Ленина, д. 10",
+          "address_value": "г. Москва, ул. Ленина, д. 10",
           "area_status": "defined",
-          "area": "150,5 кв.м",
+          "area_value": "150,5 кв.м",
           "floor_and_unit_status": "defined",
-          "floor_and_unit": "2-й этаж, помещение III",
+          "floor_and_unit_value": "2-й этаж, помещение III",
           "equipment_identifiers_status": "not_defined",
-          "equipment_identifiers": "Данные не определены",
+          "equipment_identifiers_value": "Данные не определены",
           "reference_document_status": "defined",
-          "reference_document": "поэтажный план — Приложение № 1",
+          "reference_document_value": "поэтажный план — Приложение № 1",
           "evidence": [
             {
               "clause_ref": "п. 1.1",
@@ -1060,17 +1060,17 @@ checks_v8:
         Ответ:
         {
           "cadastral_number_status": "not_defined",
-          "cadastral_number": "Данные не определены",
+          "cadastral_number_value": "Данные не определены",
           "address_status": "not_defined",
-          "address": "Данные не определены",
+          "address_value": "Данные не определены",
           "area_status": "not_defined",
-          "area": "Данные не определены",
+          "area_value": "Данные не определены",
           "floor_and_unit_status": "not_defined",
-          "floor_and_unit": "Данные не определены",
+          "floor_and_unit_value": "Данные не определены",
           "equipment_identifiers_status": "not_defined",
-          "equipment_identifiers": "Данные не определены",
+          "equipment_identifiers_value": "Данные не определены",
           "reference_document_status": "not_defined",
-          "reference_document": "Данные не определены",
+          "reference_document_value": "Данные не определены",
           "evidence": []
         }
 
@@ -1088,17 +1088,17 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "cadastral_number_status": "<defined / not_defined>",
-          "cadastral_number": "<текст или 'Данные не определены'>",
+          "cadastral_number_value": "<текст или 'Данные не определены'>",
           "address_status": "<defined / not_defined>",
-          "address": "<текст или 'Данные не определены'>",
+          "address_value": "<текст или 'Данные не определены'>",
           "area_status": "<defined / not_defined>",
-          "area": "<текст или 'Данные не определены'>",
+          "area_value": "<текст или 'Данные не определены'>",
           "floor_and_unit_status": "<defined / not_defined>",
-          "floor_and_unit": "<текст или 'Данные не определены'>",
+          "floor_and_unit_value": "<текст или 'Данные не определены'>",
           "equipment_identifiers_status": "<defined / not_defined>",
-          "equipment_identifiers": "<текст или 'Данные не определены'>",
+          "equipment_identifiers_value": "<текст или 'Данные не определены'>",
           "reference_document_status": "<defined / not_defined>",
-          "reference_document": "<текст или 'Данные не определены'>",
+          "reference_document_value": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 6
@@ -1182,21 +1182,21 @@ checks_v8:
 
         1. cadastral_number_status — "defined" если кадастровый номер прямо указан,
            иначе "not_defined".
-        2. cadastral_number — кадастровый номер объекта.
+        2. cadastral_number_value — кадастровый номер объекта.
         3. address_status — "defined" если адрес прямо указан, иначе "not_defined".
-        4. address — адрес объекта.
+        4. address_value — адрес объекта.
         5. area_status — "defined" если площадь прямо указана, иначе "not_defined".
-        6. area — площадь объекта.
+        6. area_value — площадь объекта.
         7. floor_and_unit_status — "defined" если этаж и/или номер помещения прямо
            указаны, иначе "not_defined".
-        8. floor_and_unit — этаж и номер помещения.
+        8. floor_and_unit_value — этаж и номер помещения.
         9. equipment_identifiers_status — "defined" если серийный номер, VIN или
            инвентарный номер прямо указаны (для оборудования/транспорта),
            иначе "not_defined".
-        10. equipment_identifiers — идентификаторы оборудования/транспорта.
+        10. equipment_identifiers_value — идентификаторы оборудования/транспорта.
         11. reference_document_status — "defined" если есть ссылка на поэтажный план,
             техпаспорт или иной идентифицирующий документ, иначе "not_defined".
-        12. reference_document — формулировка о таком документе.
+        12. reference_document_value — формулировка о таком документе.
 
         Если данные отсутствуют:
         - статус = "not_defined"
@@ -1218,7 +1218,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания кадастрового номера."
           required: false
-        - name: "cadastral_number"
+        - name: "cadastral_number_value"
           type: "string"
           presentation: "fact"
           label: "Кадастровый номер"
@@ -1232,7 +1232,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания адреса."
           required: true
-        - name: "address"
+        - name: "address_value"
           type: "string"
           presentation: "fact"
           label: "Адрес"
@@ -1246,7 +1246,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания площади."
           required: false
-        - name: "area"
+        - name: "area_value"
           type: "string"
           presentation: "fact"
           label: "Площадь"
@@ -1260,7 +1260,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания этажа и номера помещения."
           required: false
-        - name: "floor_and_unit"
+        - name: "floor_and_unit_value"
           type: "string"
           presentation: "fact"
           label: "Этаж / помещение"
@@ -1273,7 +1273,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания серийного номера / VIN / инвентарного номера."
           required: false
-        - name: "equipment_identifiers"
+        - name: "equipment_identifiers_value"
           type: "string"
           presentation: "fact"
           label: "Идентификаторы оборудования"
@@ -1286,7 +1286,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус ссылки на поэтажный план, техпаспорт или иной документ."
           required: false
-        - name: "reference_document"
+        - name: "reference_document_value"
           type: "string"
           presentation: "fact"
           label: "Идентифицирующий документ"
@@ -3621,16 +3621,16 @@ checks_v8:
         Ответ:
         {
           "landlord_details_status": "defined",
-          "landlord_details": "ООО «Альфа», ИНН 7700000001, ОГРН 1027700000001",
+          "landlord_details_value": "ООО «Альфа», ИНН 7700000001, ОГРН 1027700000001",
           "landlord_type": "legal_entity",
           "landlord_signatory_status": "defined",
-          "landlord_signatory": "Генеральный директор Иванов И.И.",
+          "landlord_signatory_value": "Генеральный директор Иванов И.И.",
           "landlord_signatory_basis": "charter",
           "tenant_details_status": "defined",
-          "tenant_details": "ООО «Бета», ИНН 7700000002",
+          "tenant_details_value": "ООО «Бета», ИНН 7700000002",
           "tenant_type": "legal_entity",
           "tenant_signatory_status": "defined",
-          "tenant_signatory": "Директор Петров П.П.",
+          "tenant_signatory_value": "Директор Петров П.П.",
           "tenant_signatory_basis": "poa",
           "corporate_approval_status": "defined",
           "corporate_approval_details": "решение единственного участника Арендатора от 15.01.2024",
@@ -3649,16 +3649,16 @@ checks_v8:
         Ответ:
         {
           "landlord_details_status": "not_defined",
-          "landlord_details": "Данные не определены",
+          "landlord_details_value": "Данные не определены",
           "landlord_type": "not_defined",
           "landlord_signatory_status": "not_defined",
-          "landlord_signatory": "Данные не определены",
+          "landlord_signatory_value": "Данные не определены",
           "landlord_signatory_basis": "not_defined",
           "tenant_details_status": "not_defined",
-          "tenant_details": "Данные не определены",
+          "tenant_details_value": "Данные не определены",
           "tenant_type": "not_defined",
           "tenant_signatory_status": "not_defined",
-          "tenant_signatory": "Данные не определены",
+          "tenant_signatory_value": "Данные не определены",
           "tenant_signatory_basis": "not_defined",
           "corporate_approval_status": "not_defined",
           "corporate_approval_details": "Данные не определены",
@@ -3677,16 +3677,16 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "landlord_details_status": "<defined / not_defined>",
-          "landlord_details": "<текст или 'Данные не определены'>",
+          "landlord_details_value": "<текст или 'Данные не определены'>",
           "landlord_type": "<legal_entity / individual / individual_entrepreneur / not_defined>",
           "landlord_signatory_status": "<defined / not_defined>",
-          "landlord_signatory": "<текст или 'Данные не определены'>",
+          "landlord_signatory_value": "<текст или 'Данные не определены'>",
           "landlord_signatory_basis": "<charter / poa / order / other / not_defined>",
           "tenant_details_status": "<defined / not_defined>",
-          "tenant_details": "<текст или 'Данные не определены'>",
+          "tenant_details_value": "<текст или 'Данные не определены'>",
           "tenant_type": "<legal_entity / individual / individual_entrepreneur / not_defined>",
           "tenant_signatory_status": "<defined / not_defined>",
-          "tenant_signatory": "<текст или 'Данные не определены'>",
+          "tenant_signatory_value": "<текст или 'Данные не определены'>",
           "tenant_signatory_basis": "<charter / poa / order / other / not_defined>",
           "corporate_approval_status": "<defined / not_defined>",
           "corporate_approval_details": "<текст или 'Данные не определены'>",
@@ -3771,22 +3771,22 @@ checks_v8:
 
         1. landlord_details_status — "defined" если Арендодатель прямо идентифицирован,
            иначе "not_defined".
-        2. landlord_details — наименование/ФИО и реквизиты Арендодателя.
+        2. landlord_details_value — наименование/ФИО и реквизиты Арендодателя.
         3. landlord_type — "legal_entity" / "individual" / "individual_entrepreneur" /
            "not_defined".
         4. landlord_signatory_status — "defined" если подписант Арендодателя прямо
            указан, иначе "not_defined".
-        5. landlord_signatory — подписант Арендодателя.
+        5. landlord_signatory_value — подписант Арендодателя.
         6. landlord_signatory_basis — "charter" / "poa" / "order" / "other" /
            "not_defined".
         7. tenant_details_status — "defined" если Арендатор прямо идентифицирован,
            иначе "not_defined".
-        8. tenant_details — наименование/ФИО и реквизиты Арендатора.
+        8. tenant_details_value — наименование/ФИО и реквизиты Арендатора.
         9. tenant_type — "legal_entity" / "individual" / "individual_entrepreneur" /
            "not_defined".
         10. tenant_signatory_status — "defined" если подписант Арендатора прямо
             указан, иначе "not_defined".
-        11. tenant_signatory — подписант Арендатора.
+        11. tenant_signatory_value — подписант Арендатора.
         12. tenant_signatory_basis — "charter" / "poa" / "order" / "other" /
             "not_defined".
         13. corporate_approval_status — "defined" если корпоративное одобрение или
@@ -3822,7 +3822,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Арендодателя."
           required: true
-        - name: "landlord_details"
+        - name: "landlord_details_value"
           type: "string"
           presentation: "fact"
           label: "Арендодатель: реквизиты"
@@ -3842,7 +3842,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта Арендодателя."
           required: false
-        - name: "landlord_signatory"
+        - name: "landlord_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Арендодатель: подписант"
@@ -3861,7 +3861,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Арендатора."
           required: true
-        - name: "tenant_details"
+        - name: "tenant_details_value"
           type: "string"
           presentation: "fact"
           label: "Арендатор: реквизиты"
@@ -3881,7 +3881,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта Арендатора."
           required: false
-        - name: "tenant_signatory"
+        - name: "tenant_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Арендатор: подписант"

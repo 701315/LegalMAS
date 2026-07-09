@@ -711,12 +711,12 @@ checks_v8:
         Ответ:
         {
           "party_A_details_status": "defined",
-          "party_A_details": "ООО «Техника», ИНН 7700000001, ОГРН 1027700000001",
+          "party_A_details_value": "ООО «Техника», ИНН 7700000001, ОГРН 1027700000001",
           "party_A_type": "legal_entity",
           "party_A_signatory": "Директор Иванов А.А.",
           "party_A_signatory_basis": "charter",
           "party_B_details_status": "defined",
-          "party_B_details": "Петров Б.Б., паспорт серия 45 00 № 123456",
+          "party_B_details_value": "Петров Б.Б., паспорт серия 45 00 № 123456",
           "party_B_type": "individual",
           "party_B_signatory": "Петров Б.Б.",
           "party_B_signatory_basis": "personal",
@@ -730,12 +730,12 @@ checks_v8:
         Ответ:
         {
           "party_A_details_status": "not_defined",
-          "party_A_details": "Данные не определены",
+          "party_A_details_value": "Данные не определены",
           "party_A_type": "not_defined",
           "party_A_signatory": "Данные не определены",
           "party_A_signatory_basis": "not_defined",
           "party_B_details_status": "not_defined",
-          "party_B_details": "Данные не определены",
+          "party_B_details_value": "Данные не определены",
           "party_B_type": "not_defined",
           "party_B_signatory": "Данные не определены",
           "party_B_signatory_basis": "not_defined",
@@ -755,12 +755,12 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "party_A_details_status": "<defined / not_defined>",
-          "party_A_details": "<реквизиты или 'Данные не определены'>",
+          "party_A_details_value": "<реквизиты или 'Данные не определены'>",
           "party_A_type": "<legal_entity / individual_entrepreneur / individual / not_defined>",
           "party_A_signatory": "<ФИО или 'Данные не определены'>",
           "party_A_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
           "party_B_details_status": "<defined / not_defined>",
-          "party_B_details": "<реквизиты или 'Данные не определены'>",
+          "party_B_details_value": "<реквизиты или 'Данные не определены'>",
           "party_B_type": "<legal_entity / individual_entrepreneur / individual / not_defined>",
           "party_B_signatory": "<ФИО или 'Данные не определены'>",
           "party_B_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
@@ -843,12 +843,12 @@ checks_v8:
 
         <task>
         1. party_A_details_status — "defined" или "not_defined".
-        2. party_A_details — реквизиты Стороны 1.
+        2. party_A_details_value — реквизиты Стороны 1.
         3. party_A_type — legal_entity / individual_entrepreneur / individual / not_defined.
         4. party_A_signatory — подписант Стороны 1.
         5. party_A_signatory_basis — charter / poa / order / personal / other / not_defined.
         6. party_B_details_status — "defined" или "not_defined".
-        7. party_B_details — реквизиты Стороны 2.
+        7. party_B_details_value — реквизиты Стороны 2.
         8. party_B_type — legal_entity / individual_entrepreneur / individual / not_defined.
         9. party_B_signatory — подписант Стороны 2.
         10. party_B_signatory_basis — charter / poa / order / personal / other / not_defined.
@@ -874,7 +874,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус реквизитов Стороны 1."
           required: true
-        - name: "party_A_details"
+        - name: "party_A_details_value"
           type: "string"
           presentation: "fact"
           label: "Сторона 1"
@@ -907,7 +907,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус реквизитов Стороны 2."
           required: true
-        - name: "party_B_details"
+        - name: "party_B_details_value"
           type: "string"
           presentation: "fact"
           label: "Сторона 2"
@@ -1250,21 +1250,21 @@ checks_v8:
         Ответ:
         {
           "good_A_name_status": "defined",
-          "good_A_name": "автомобиль Toyota Camry",
+          "good_A_name_value": "автомобиль Toyota Camry",
           "good_A_quantity": "1 единица",
           "good_A_value_status": "defined",
-          "good_A_value": "2 500 000 рублей",
+          "good_A_value_value": "2 500 000 рублей",
           "good_A_identifying_features": "VIN XW7BF4FK30S123456, 2020 г.в.",
           "good_B_name_status": "defined",
-          "good_B_name": "нежилое помещение",
+          "good_B_name_value": "нежилое помещение",
           "good_B_quantity": "45 кв.м",
           "good_B_value_status": "defined",
-          "good_B_value": "3 000 000 рублей",
+          "good_B_value_value": "3 000 000 рублей",
           "good_B_identifying_features": "кадастровый номер 77:06:0001001:123",
           "valuation_method_status": "defined",
-          "valuation_method": "appraiser",
+          "valuation_method_code": "appraiser",
           "equivalence_status": "defined",
-          "equivalence": "unequal",
+          "equivalence_code": "unequal",
           "surcharge_status": "defined",
           "surcharge_amount": "500 000 рублей",
           "surcharge_payer": "Сторона 1",
@@ -1278,21 +1278,21 @@ checks_v8:
         Ответ:
         {
           "good_A_name_status": "not_defined",
-          "good_A_name": "Данные не определены",
+          "good_A_name_value": "Данные не определены",
           "good_A_quantity": "Данные не определены",
           "good_A_value_status": "not_defined",
-          "good_A_value": "Данные не определены",
+          "good_A_value_value": "Данные не определены",
           "good_A_identifying_features": "Данные не определены",
           "good_B_name_status": "not_defined",
-          "good_B_name": "Данные не определены",
+          "good_B_name_value": "Данные не определены",
           "good_B_quantity": "Данные не определены",
           "good_B_value_status": "not_defined",
-          "good_B_value": "Данные не определены",
+          "good_B_value_value": "Данные не определены",
           "good_B_identifying_features": "Данные не определены",
           "valuation_method_status": "not_defined",
-          "valuation_method": "not_defined",
+          "valuation_method_code": "not_defined",
           "equivalence_status": "not_defined",
-          "equivalence": "not_defined",
+          "equivalence_code": "not_defined",
           "surcharge_status": "not_defined",
           "surcharge_amount": "Данные не определены",
           "surcharge_payer": "Данные не определены",
@@ -1313,21 +1313,21 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "good_A_name_status": "<defined / not_defined>",
-          "good_A_name": "<наименование или 'Данные не определены'>",
+          "good_A_name_value": "<наименование или 'Данные не определены'>",
           "good_A_quantity": "<количество или 'Данные не определены'>",
           "good_A_value_status": "<defined / not_defined>",
-          "good_A_value": "<стоимость или 'Данные не определены'>",
+          "good_A_value_value": "<стоимость или 'Данные не определены'>",
           "good_A_identifying_features": "<признаки или 'Данные не определены'>",
           "good_B_name_status": "<defined / not_defined>",
-          "good_B_name": "<наименование или 'Данные не определены'>",
+          "good_B_name_value": "<наименование или 'Данные не определены'>",
           "good_B_quantity": "<количество или 'Данные не определены'>",
           "good_B_value_status": "<defined / not_defined>",
-          "good_B_value": "<стоимость или 'Данные не определены'>",
+          "good_B_value_value": "<стоимость или 'Данные не определены'>",
           "good_B_identifying_features": "<признаки или 'Данные не определены'>",
           "valuation_method_status": "<defined / not_defined>",
-          "valuation_method": "<market / appraiser / agreement / formula / not_defined>",
+          "valuation_method_code": "<market / appraiser / agreement / formula / not_defined>",
           "equivalence_status": "<defined / not_defined>",
-          "equivalence": "<equal / unequal / not_defined>",
+          "equivalence_code": "<equal / unequal / not_defined>",
           "surcharge_status": "<defined / not_defined>",
           "surcharge_amount": "<сумма или 'Данные не определены'>",
           "surcharge_payer": "<сторона или 'Данные не определены'>",
@@ -1417,21 +1417,21 @@ checks_v8:
 
         <task>
         1. good_A_name_status — "defined" или "not_defined".
-        2. good_A_name — наименование товара A.
+        2. good_A_name_value — наименование товара A.
         3. good_A_quantity — количество товара A.
         4. good_A_value_status — "defined" или "not_defined".
-        5. good_A_value — стоимость товара A.
+        5. good_A_value_value — стоимость товара A.
         6. good_A_identifying_features — индивидуализирующие признаки товара A.
         7. good_B_name_status — "defined" или "not_defined".
-        8. good_B_name — наименование товара B.
+        8. good_B_name_value — наименование товара B.
         9. good_B_quantity — количество товара B.
         10. good_B_value_status — "defined" или "not_defined".
-        11. good_B_value — стоимость товара B.
+        11. good_B_value_value — стоимость товара B.
         12. good_B_identifying_features — индивидуализирующие признаки товара B.
         13. valuation_method_status — "defined" или "not_defined".
-        14. valuation_method — market / appraiser / agreement / formula / not_defined.
+        14. valuation_method_code — market / appraiser / agreement / formula / not_defined.
         15. equivalence_status — "defined" или "not_defined".
-        16. equivalence — equal / unequal / not_defined.
+        16. equivalence_code — equal / unequal / not_defined.
         17. surcharge_status — "defined" или "not_defined".
         18. surcharge_amount — сумма доплаты.
         19. surcharge_payer — кто платит доплату.
@@ -1459,7 +1459,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус наименования товара A."
           required: true
-        - name: "good_A_name"
+        - name: "good_A_name_value"
           type: "string"
           presentation: "fact"
           label: "Товар A"
@@ -1480,7 +1480,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус стоимости товара A."
           required: true
-        - name: "good_A_value"
+        - name: "good_A_value_value"
           type: "string"
           presentation: "fact"
           label: "Стоимость товара A"
@@ -1501,7 +1501,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус наименования товара B."
           required: true
-        - name: "good_B_name"
+        - name: "good_B_name_value"
           type: "string"
           presentation: "fact"
           label: "Товар B"
@@ -1522,7 +1522,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус стоимости товара B."
           required: true
-        - name: "good_B_value"
+        - name: "good_B_value_value"
           type: "string"
           presentation: "fact"
           label: "Стоимость товара B"
@@ -1543,7 +1543,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус метода оценки."
           required: false
-        - name: "valuation_method"
+        - name: "valuation_method_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["market", "appraiser", "agreement", "formula", "not_defined"]
@@ -1555,7 +1555,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус равноценности."
           required: false
-        - name: "equivalence"
+        - name: "equivalence_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["equal", "unequal", "not_defined"]
@@ -1662,11 +1662,11 @@ checks_v8:
         Ответ:
         {
           "transfer_sequence_status": "defined",
-          "transfer_sequence": "simultaneous",
+          "transfer_sequence_code": "simultaneous",
           "good_A_transfer_deadline_status": "defined",
-          "good_A_transfer_deadline": "15.04.2026",
+          "good_A_transfer_deadline_value": "15.04.2026",
           "good_B_transfer_deadline_status": "defined",
-          "good_B_transfer_deadline": "15.04.2026",
+          "good_B_transfer_deadline_value": "15.04.2026",
           "transfer_location_status": "defined",
           "transfer_location_details": "г. Москва, ул. Ленина, д. 1",
           "transfer_act_status": "defined",
@@ -1679,11 +1679,11 @@ checks_v8:
         Ответ:
         {
           "transfer_sequence_status": "not_defined",
-          "transfer_sequence": "not_defined",
+          "transfer_sequence_code": "not_defined",
           "good_A_transfer_deadline_status": "not_defined",
-          "good_A_transfer_deadline": "Данные не определены",
+          "good_A_transfer_deadline_value": "Данные не определены",
           "good_B_transfer_deadline_status": "not_defined",
-          "good_B_transfer_deadline": "Данные не определены",
+          "good_B_transfer_deadline_value": "Данные не определены",
           "transfer_location_status": "not_defined",
           "transfer_location_details": "Данные не определены",
           "transfer_act_status": "not_defined",
@@ -1702,11 +1702,11 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "transfer_sequence_status": "<defined / not_defined>",
-          "transfer_sequence": "<simultaneous / sequential / not_defined>",
+          "transfer_sequence_code": "<simultaneous / sequential / not_defined>",
           "good_A_transfer_deadline_status": "<defined / not_defined>",
-          "good_A_transfer_deadline": "<срок/дата или 'Данные не определены'>",
+          "good_A_transfer_deadline_value": "<срок/дата или 'Данные не определены'>",
           "good_B_transfer_deadline_status": "<defined / not_defined>",
-          "good_B_transfer_deadline": "<срок/дата или 'Данные не определены'>",
+          "good_B_transfer_deadline_value": "<срок/дата или 'Данные не определены'>",
           "transfer_location_status": "<defined / not_defined>",
           "transfer_location_details": "<место или 'Данные не определены'>",
           "transfer_act_status": "<defined / not_defined>",
@@ -1790,11 +1790,11 @@ checks_v8:
 
         <task>
         1. transfer_sequence_status — "defined" или "not_defined".
-        2. transfer_sequence — simultaneous / sequential / not_defined.
+        2. transfer_sequence_code — simultaneous / sequential / not_defined.
         3. good_A_transfer_deadline_status — "defined" или "not_defined".
-        4. good_A_transfer_deadline — срок или дата передачи товара A.
+        4. good_A_transfer_deadline_value — срок или дата передачи товара A.
         5. good_B_transfer_deadline_status — "defined" или "not_defined".
-        6. good_B_transfer_deadline — срок или дата передачи товара B.
+        6. good_B_transfer_deadline_value — срок или дата передачи товара B.
         7. transfer_location_status — "defined" или "not_defined".
         8. transfer_location_details — место передачи.
         9. transfer_act_status — "defined" или "not_defined".
@@ -1807,7 +1807,7 @@ checks_v8:
         - Только текст договора.
         - simultaneous = обе передачи прямо указаны как одновременные.
         - sequential = передачи прямо указаны как последовательные (одна сторона первой).
-        - Если порядок явно не описан — transfer_sequence = "not_defined".
+        - Если порядок явно не описан — transfer_sequence_code = "not_defined".
         - Верни только JSON.
         </rules>
       fields:
@@ -1817,7 +1817,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус порядка передачи."
           required: true
-        - name: "transfer_sequence"
+        - name: "transfer_sequence_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["simultaneous", "sequential", "not_defined"]
@@ -1829,7 +1829,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус срока передачи товара A."
           required: false
-        - name: "good_A_transfer_deadline"
+        - name: "good_A_transfer_deadline_value"
           type: "string"
           presentation: "fact"
           label: "Срок передачи товара A"
@@ -1843,7 +1843,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус срока передачи товара B."
           required: false
-        - name: "good_B_transfer_deadline"
+        - name: "good_B_transfer_deadline_value"
           type: "string"
           presentation: "fact"
           label: "Срок передачи товара B"
@@ -1946,7 +1946,7 @@ checks_v8:
         Ответ:
         {
           "delivery_responsibility_status": "defined",
-          "delivery_responsibility": "each_own",
+          "delivery_responsibility_code": "each_own",
           "delivery_responsibility_details": "доставка товара A за счёт Стороны 1; товар B — самовывоз за счёт Стороны 2",
           "insurance_status": "defined",
           "insurance_details": "обязуются застраховать товары на период перевозки",
@@ -1966,7 +1966,7 @@ checks_v8:
         Ответ:
         {
           "delivery_responsibility_status": "not_defined",
-          "delivery_responsibility": "not_defined",
+          "delivery_responsibility_code": "not_defined",
           "delivery_responsibility_details": "Данные не определены",
           "insurance_status": "not_defined",
           "insurance_details": "Данные не определены",
@@ -1983,7 +1983,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "delivery_responsibility_status": "<defined / not_defined>",
-          "delivery_responsibility": "<party_A / party_B / each_own / third_party / not_defined>",
+          "delivery_responsibility_code": "<party_A / party_B / each_own / third_party / not_defined>",
           "delivery_responsibility_details": "<текст или 'Данные не определены'>",
           "insurance_status": "<defined / not_defined>",
           "insurance_details": "<текст или 'Данные не определены'>",
@@ -2064,7 +2064,7 @@ checks_v8:
 
         <task>
         1. delivery_responsibility_status — "defined" или "not_defined".
-        2. delivery_responsibility — party_A / party_B / each_own / third_party / not_defined.
+        2. delivery_responsibility_code — party_A / party_B / each_own / third_party / not_defined.
         3. delivery_responsibility_details — кто и как несёт расходы на доставку.
         4. insurance_status — "defined" или "not_defined".
         5. insurance_details — условие страхования товаров.
@@ -2088,7 +2088,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус ответственности за доставку."
           required: true
-        - name: "delivery_responsibility"
+        - name: "delivery_responsibility_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["party_A", "party_B", "each_own", "third_party", "not_defined"]
@@ -2191,9 +2191,9 @@ checks_v8:
         Ответ:
         {
           "security_mechanism_status": "defined",
-          "security_mechanism": "escrow",
+          "security_mechanism_code": "escrow",
           "who_transfers_first_status": "defined",
-          "who_transfers_first": "party_A",
+          "who_transfers_first_code": "party_A",
           "suspension_right_status": "defined",
           "retention_right_status": "not_defined",
           "evidence": [
@@ -2211,9 +2211,9 @@ checks_v8:
         Ответ:
         {
           "security_mechanism_status": "defined",
-          "security_mechanism": "none",
+          "security_mechanism_code": "none",
           "who_transfers_first_status": "defined",
-          "who_transfers_first": "simultaneous",
+          "who_transfers_first_code": "simultaneous",
           "suspension_right_status": "not_defined",
           "retention_right_status": "not_defined",
           "evidence": [
@@ -2226,16 +2226,16 @@ checks_v8:
 
         [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
         1. Есть ли конкретный механизм?
-        2. Если нет механизма — security_mechanism = "none".
+        2. Если нет механизма — security_mechanism_code = "none".
 
         Не выводи шаги. Верни только JSON.
 
         [ФОРМАТ ОТВЕТА]
         {
           "security_mechanism_status": "<defined / not_defined>",
-          "security_mechanism": "<escrow / accreditive / bank_cell / deposit / guarantee / notary_deposit / none / not_defined>",
+          "security_mechanism_code": "<escrow / accreditive / bank_cell / deposit / guarantee / notary_deposit / none / not_defined>",
           "who_transfers_first_status": "<defined / not_defined>",
-          "who_transfers_first": "<party_A / party_B / simultaneous / not_defined>",
+          "who_transfers_first_code": "<party_A / party_B / simultaneous / not_defined>",
           "suspension_right_status": "<defined / not_defined>",
           "retention_right_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -2316,14 +2316,14 @@ checks_v8:
 
         <task>
         1. security_mechanism_status — "defined" или "not_defined".
-        2. security_mechanism — escrow / accreditive / bank_cell / deposit / guarantee / notary_deposit / none / not_defined.
+        2. security_mechanism_code — escrow / accreditive / bank_cell / deposit / guarantee / notary_deposit / none / not_defined.
         3. who_transfers_first_status — "defined" или "not_defined".
-        4. who_transfers_first — party_A / party_B / simultaneous / not_defined.
+        4. who_transfers_first_code — party_A / party_B / simultaneous / not_defined.
         5. suspension_right_status — "defined" или "not_defined".
         6. retention_right_status — "defined" или "not_defined".
 
         Если данных нет: статус = "not_defined".
-        Если механизма нет: security_mechanism = "none".
+        Если механизма нет: security_mechanism_code = "none".
         </task>
 
         <rules>
@@ -2345,7 +2345,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус механизма обеспечения."
           required: true
-        - name: "security_mechanism"
+        - name: "security_mechanism_code"
           type: "string"
           presentation: "signal"
           label: "Механизм обеспечения"
@@ -2360,7 +2360,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения очерёдности передачи."
           required: false
-        - name: "who_transfers_first"
+        - name: "who_transfers_first_code"
           type: "string"
           presentation: "signal"
           label: "Кто передаёт первым"
@@ -2696,11 +2696,11 @@ checks_v8:
           "good_A_quality_warranty_status": "defined",
           "good_A_quality_warranty_level": "detailed",
           "good_A_warranty_period_status": "defined",
-          "good_A_warranty_period": "12 месяцев",
+          "good_A_warranty_period_value": "12 месяцев",
           "good_B_quality_warranty_status": "defined",
           "good_B_quality_warranty_level": "basic",
           "good_B_warranty_period_status": "not_defined",
-          "good_B_warranty_period": "Данные не определены",
+          "good_B_warranty_period_value": "Данные не определены",
           "evidence": [{"clause_ref": "п. 5.1", "quote": "Сторона 1 гарантирует, что автомобиль соответствует техническим характеристикам, указанным в паспорте транспортного средства."}]
         }
 
@@ -2713,11 +2713,11 @@ checks_v8:
           "good_A_quality_warranty_status": "not_defined",
           "good_A_quality_warranty_level": "not_defined",
           "good_A_warranty_period_status": "not_defined",
-          "good_A_warranty_period": "Данные не определены",
+          "good_A_warranty_period_value": "Данные не определены",
           "good_B_quality_warranty_status": "not_defined",
           "good_B_quality_warranty_level": "not_defined",
           "good_B_warranty_period_status": "not_defined",
-          "good_B_warranty_period": "Данные не определены",
+          "good_B_warranty_period_value": "Данные не определены",
           "evidence": []
         }
 
@@ -2736,11 +2736,11 @@ checks_v8:
           "good_A_quality_warranty_status": "<defined / not_defined>",
           "good_A_quality_warranty_level": "<detailed / basic / not_defined>",
           "good_A_warranty_period_status": "<defined / not_defined>",
-          "good_A_warranty_period": "<срок или 'Данные не определены'>",
+          "good_A_warranty_period_value": "<срок или 'Данные не определены'>",
           "good_B_quality_warranty_status": "<defined / not_defined>",
           "good_B_quality_warranty_level": "<detailed / basic / not_defined>",
           "good_B_warranty_period_status": "<defined / not_defined>",
-          "good_B_warranty_period": "<срок или 'Данные не определены'>",
+          "good_B_warranty_period_value": "<срок или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 5
@@ -2822,11 +2822,11 @@ checks_v8:
         1. good_A_quality_warranty_status — "defined" если гарантия качества товара A прямо указана, иначе "not_defined".
         2. good_A_quality_warranty_level — "detailed" (с конкретными характеристиками) / "basic" (общая фраза о надлежащем качестве) / "not_defined".
         3. good_A_warranty_period_status — "defined" если гарантийный срок для товара A прямо указан, иначе "not_defined".
-        4. good_A_warranty_period — конкретный гарантийный срок (месяцев, лет).
+        4. good_A_warranty_period_value — конкретный гарантийный срок (месяцев, лет).
         5. good_B_quality_warranty_status — аналогично для товара B.
         6. good_B_quality_warranty_level — аналогично для товара B.
         7. good_B_warranty_period_status — аналогично для товара B.
-        8. good_B_warranty_period — гарантийный срок товара B.
+        8. good_B_warranty_period_value — гарантийный срок товара B.
 
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
@@ -2859,7 +2859,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения гарантийного срока товара A."
           required: false
-        - name: "good_A_warranty_period"
+        - name: "good_A_warranty_period_value"
           type: "string"
           presentation: "fact"
           label: "Товар A: гарантийный срок"
@@ -2885,7 +2885,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения гарантийного срока товара B."
           required: false
-        - name: "good_B_warranty_period"
+        - name: "good_B_warranty_period_value"
           type: "string"
           presentation: "fact"
           label: "Товар B: гарантийный срок"
@@ -2959,9 +2959,9 @@ checks_v8:
           "acceptance_procedure_status": "defined",
           "hidden_defects_status": "defined",
           "claim_deadline_status": "defined",
-          "claim_deadline": "3 дня — явные недостатки; 6 месяцев — скрытые",
+          "claim_deadline_value": "3 дня — явные недостатки; 6 месяцев — скрытые",
           "defect_consequences_status": "defined",
-          "defect_consequences": "replacement",
+          "defect_consequences_code": "replacement",
           "evidence": [
             {
               "clause_ref": "п. 6.1",
@@ -2979,9 +2979,9 @@ checks_v8:
           "acceptance_procedure_status": "not_defined",
           "hidden_defects_status": "not_defined",
           "claim_deadline_status": "not_defined",
-          "claim_deadline": "Данные не определены",
+          "claim_deadline_value": "Данные не определены",
           "defect_consequences_status": "not_defined",
-          "defect_consequences": "not_defined",
+          "defect_consequences_code": "not_defined",
           "evidence": []
         }
 
@@ -3002,9 +3002,9 @@ checks_v8:
           "acceptance_procedure_status": "<defined / not_defined>",
           "hidden_defects_status": "<defined / not_defined>",
           "claim_deadline_status": "<defined / not_defined>",
-          "claim_deadline": "<срок или 'Данные не определены'>",
+          "claim_deadline_value": "<срок или 'Данные не определены'>",
           "defect_consequences_status": "<defined / not_defined>",
-          "defect_consequences": "<replacement / price_reduction / return / not_defined>",
+          "defect_consequences_code": "<replacement / price_reduction / return / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 5
@@ -3085,9 +3085,9 @@ checks_v8:
         1. acceptance_procedure_status — "defined" если порядок приёмки по качеству прямо указан, иначе "not_defined".
         2. hidden_defects_status — "defined" если режим скрытых недостатков отдельно оговорён, иначе "not_defined".
         3. claim_deadline_status — "defined" если срок предъявления претензий по недостаткам прямо указан, иначе "not_defined".
-        4. claim_deadline — конкретный срок предъявления претензий.
+        4. claim_deadline_value — конкретный срок предъявления претензий.
         5. defect_consequences_status — "defined" если последствия недостатков прямо указаны, иначе "not_defined".
-        6. defect_consequences — "replacement" / "price_reduction" / "return" / "not_defined".
+        6. defect_consequences_code — "replacement" / "price_reduction" / "return" / "not_defined".
 
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
@@ -3124,7 +3124,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока предъявления претензий по недостаткам."
           required: false
-        - name: "claim_deadline"
+        - name: "claim_deadline_value"
           type: "string"
           presentation: "fact"
           label: "Срок претензий по недостаткам"
@@ -3138,7 +3138,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения последствий выявления недостатков."
           required: false
-        - name: "defect_consequences"
+        - name: "defect_consequences_code"
           type: "string"
           presentation: "signal"
           label: "Последствия недостатков"
@@ -3498,9 +3498,9 @@ checks_v8:
         {
           "tax_disclosure_status": "defined",
           "vat_treatment_status": "defined",
-          "vat_treatment": "both_charge",
+          "vat_treatment_code": "both_charge",
           "tax_base_method_status": "defined",
-          "tax_base_method": "market",
+          "tax_base_method_code": "market",
           "invoice_obligation_status": "defined",
           "ndfl_status": "not_defined",
           "evidence": [
@@ -3519,9 +3519,9 @@ checks_v8:
         {
           "tax_disclosure_status": "not_defined",
           "vat_treatment_status": "not_defined",
-          "vat_treatment": "not_defined",
+          "vat_treatment_code": "not_defined",
           "tax_base_method_status": "not_defined",
-          "tax_base_method": "not_defined",
+          "tax_base_method_code": "not_defined",
           "invoice_obligation_status": "not_defined",
           "ndfl_status": "not_defined",
           "evidence": []
@@ -3538,9 +3538,9 @@ checks_v8:
         {
           "tax_disclosure_status": "<defined / not_defined>",
           "vat_treatment_status": "<defined / not_defined>",
-          "vat_treatment": "<both_charge / exempt / not_specified / not_defined>",
+          "vat_treatment_code": "<both_charge / exempt / not_specified / not_defined>",
           "tax_base_method_status": "<defined / not_defined>",
-          "tax_base_method": "<market / contractual / not_defined>",
+          "tax_base_method_code": "<market / contractual / not_defined>",
           "invoice_obligation_status": "<defined / not_defined>",
           "ndfl_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -3620,9 +3620,9 @@ checks_v8:
         <task>
         1. tax_disclosure_status — "defined" или "not_defined".
         2. vat_treatment_status — "defined" или "not_defined".
-        3. vat_treatment — both_charge / exempt / not_specified / not_defined.
+        3. vat_treatment_code — both_charge / exempt / not_specified / not_defined.
         4. tax_base_method_status — "defined" или "not_defined".
-        5. tax_base_method — market / contractual / not_defined.
+        5. tax_base_method_code — market / contractual / not_defined.
         6. invoice_obligation_status — "defined" или "not_defined".
         7. ndfl_status — "defined" или "not_defined".
 
@@ -3651,7 +3651,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия о НДС."
           required: false
-        - name: "vat_treatment"
+        - name: "vat_treatment_code"
           type: "string"
           presentation: "signal"
           label: "Режим НДС"
@@ -3666,7 +3666,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус метода определения налоговой базы."
           required: false
-        - name: "tax_base_method"
+        - name: "tax_base_method_code"
           type: "string"
           presentation: "signal"
           label: "Метод определения налоговой базы"
@@ -3752,7 +3752,7 @@ checks_v8:
           "business_purpose_status": "defined",
           "business_purpose_details": "оптимизация структуры активов сторон",
           "affiliation_disclosure_status": "defined",
-          "affiliation_disclosure": "none_stated",
+          "affiliation_disclosure_code": "none_stated",
           "market_valuation_status": "defined",
           "independent_appraiser_status": "defined",
           "evidence": [
@@ -3772,7 +3772,7 @@ checks_v8:
           "business_purpose_status": "not_defined",
           "business_purpose_details": "Данные не определены",
           "affiliation_disclosure_status": "not_defined",
-          "affiliation_disclosure": "not_defined",
+          "affiliation_disclosure_code": "not_defined",
           "market_valuation_status": "not_defined",
           "independent_appraiser_status": "not_defined",
           "evidence": []
@@ -3790,7 +3790,7 @@ checks_v8:
           "business_purpose_status": "<defined / not_defined>",
           "business_purpose_details": "<текст или 'Данные не определены'>",
           "affiliation_disclosure_status": "<defined / not_defined>",
-          "affiliation_disclosure": "<yes_affiliated / none_stated / not_defined>",
+          "affiliation_disclosure_code": "<yes_affiliated / none_stated / not_defined>",
           "market_valuation_status": "<defined / not_defined>",
           "independent_appraiser_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -3874,7 +3874,7 @@ checks_v8:
         1. business_purpose_status — "defined" или "not_defined".
         2. business_purpose_details — описание деловой цели.
         3. affiliation_disclosure_status — "defined" или "not_defined".
-        4. affiliation_disclosure — yes_affiliated / none_stated / not_defined.
+        4. affiliation_disclosure_code — yes_affiliated / none_stated / not_defined.
         5. market_valuation_status — "defined" или "not_defined".
         6. independent_appraiser_status — "defined" или "not_defined".
 
@@ -3909,7 +3909,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус раскрытия аффилированности."
           required: false
-        - name: "affiliation_disclosure"
+        - name: "affiliation_disclosure_code"
           type: "string"
           presentation: "signal"
           label: "Аффилированность сторон"
@@ -4245,7 +4245,7 @@ checks_v8:
           "force_majeure_status": "defined",
           "force_majeure_details": "стихийные бедствия, военные действия",
           "force_majeure_notice_period_status": "defined",
-          "force_majeure_notice_period": "5 дней",
+          "force_majeure_notice_period_value": "5 дней",
           "evidence": [
             {
               "clause_ref": "п. 9.1",
@@ -4267,7 +4267,7 @@ checks_v8:
           "force_majeure_status": "not_defined",
           "force_majeure_details": "Данные не определены",
           "force_majeure_notice_period_status": "not_defined",
-          "force_majeure_notice_period": "Данные не определены",
+          "force_majeure_notice_period_value": "Данные не определены",
           "evidence": []
         }
 
@@ -4287,7 +4287,7 @@ checks_v8:
           "force_majeure_status": "<defined / not_defined>",
           "force_majeure_details": "<текст или 'Данные не определены'>",
           "force_majeure_notice_period_status": "<defined / not_defined>",
-          "force_majeure_notice_period": "<срок или 'Данные не определены'>",
+          "force_majeure_notice_period_value": "<срок или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 6
@@ -4371,7 +4371,7 @@ checks_v8:
         5. force_majeure_status — "defined" или "not_defined".
         6. force_majeure_details — форс-мажорная оговорка.
         7. force_majeure_notice_period_status — "defined" или "not_defined".
-        8. force_majeure_notice_period — срок уведомления о форс-мажоре.
+        8. force_majeure_notice_period_value — срок уведомления о форс-мажоре.
 
         Если данных нет: статус = "not_defined", текст = "Данные не определены".
         </task>
@@ -4429,7 +4429,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус срока уведомления о форс-мажоре."
           required: false
-        - name: "force_majeure_notice_period"
+        - name: "force_majeure_notice_period_value"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления о форс-мажоре"
@@ -4495,7 +4495,7 @@ checks_v8:
         Ответ:
         {
           "assignment_restriction_status": "defined",
-          "assignment_restriction": "allowed_with_consent",
+          "assignment_restriction_code": "allowed_with_consent",
           "assignment_restriction_details": "допускается только с письменного согласия другой стороны",
           "evidence": [
             {
@@ -4512,7 +4512,7 @@ checks_v8:
         Ответ:
         {
           "assignment_restriction_status": "not_defined",
-          "assignment_restriction": "not_defined",
+          "assignment_restriction_code": "not_defined",
           "assignment_restriction_details": "Данные не определены",
           "evidence": []
         }
@@ -4525,7 +4525,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "assignment_restriction_status": "<defined / not_defined>",
-          "assignment_restriction": "<prohibited / allowed_with_consent / allowed / not_defined>",
+          "assignment_restriction_code": "<prohibited / allowed_with_consent / allowed / not_defined>",
           "assignment_restriction_details": "<условие или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -4599,7 +4599,7 @@ checks_v8:
 
         <task>
         1. assignment_restriction_status — "defined" или "not_defined".
-        2. assignment_restriction — prohibited / allowed_with_consent / allowed / not_defined.
+        2. assignment_restriction_code — prohibited / allowed_with_consent / allowed / not_defined.
         3. assignment_restriction_details — условие об уступке.
 
         Если данных нет: статус = "not_defined", текст = "Данные не определены".
@@ -4620,7 +4620,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус ограничений уступки."
           required: true
-        - name: "assignment_restriction"
+        - name: "assignment_restriction_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["prohibited", "allowed_with_consent", "allowed", "not_defined"]
@@ -4712,9 +4712,9 @@ checks_v8:
         Ответ:
         {
           "object_A_cadastral_status": "defined",
-          "object_A_cadastral": "77:06:0001001:123",
+          "object_A_cadastral_value": "77:06:0001001:123",
           "object_B_cadastral_status": "defined",
-          "object_B_cadastral": "50:20:0010001:456",
+          "object_B_cadastral_value": "50:20:0010001:456",
           "egrn_extract_status": "defined",
           "encumbrances_warranty_status": "not_defined",
           "registration_procedure_status": "defined",
@@ -4738,9 +4738,9 @@ checks_v8:
         Ответ:
         {
           "object_A_cadastral_status": "not_defined",
-          "object_A_cadastral": "Данные не определены",
+          "object_A_cadastral_value": "Данные не определены",
           "object_B_cadastral_status": "not_defined",
-          "object_B_cadastral": "Данные не определены",
+          "object_B_cadastral_value": "Данные не определены",
           "egrn_extract_status": "not_defined",
           "encumbrances_warranty_status": "not_defined",
           "registration_procedure_status": "not_defined",
@@ -4762,9 +4762,9 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "object_A_cadastral_status": "<defined / not_defined>",
-          "object_A_cadastral": "<номер или 'Данные не определены'>",
+          "object_A_cadastral_value": "<номер или 'Данные не определены'>",
           "object_B_cadastral_status": "<defined / not_defined>",
-          "object_B_cadastral": "<номер или 'Данные не определены'>",
+          "object_B_cadastral_value": "<номер или 'Данные не определены'>",
           "egrn_extract_status": "<defined / not_defined>",
           "encumbrances_warranty_status": "<defined / not_defined>",
           "registration_procedure_status": "<defined / not_defined>",
@@ -4853,9 +4853,9 @@ checks_v8:
 
         <task>
         1. object_A_cadastral_status — "defined" или "not_defined".
-        2. object_A_cadastral — кадастровый номер объекта A.
+        2. object_A_cadastral_value — кадастровый номер объекта A.
         3. object_B_cadastral_status — "defined" или "not_defined".
-        4. object_B_cadastral — кадастровый номер объекта B.
+        4. object_B_cadastral_value — кадастровый номер объекта B.
         5. egrn_extract_status — "defined" или "not_defined".
         6. encumbrances_warranty_status — "defined" или "not_defined".
         7. registration_procedure_status — "defined" или "not_defined".
@@ -4883,7 +4883,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус кадастрового номера объекта A."
           required: true
-        - name: "object_A_cadastral"
+        - name: "object_A_cadastral_value"
           type: "string"
           presentation: "fact"
           label: "Кадастровый номер объекта A"
@@ -4898,7 +4898,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус кадастрового номера объекта B."
           required: true
-        - name: "object_B_cadastral"
+        - name: "object_B_cadastral_value"
           type: "string"
           presentation: "fact"
           label: "Кадастровый номер объекта B"
@@ -5030,13 +5030,13 @@ checks_v8:
         Ответ:
         {
           "vehicle_A_vin_status": "defined",
-          "vehicle_A_vin": "XW7BF4FK30S123456",
+          "vehicle_A_vin_value": "XW7BF4FK30S123456",
           "vehicle_B_vin_status": "defined",
-          "vehicle_B_vin": "Z94CB41ABDR000001",
+          "vehicle_B_vin_value": "Z94CB41ABDR000001",
           "pts_transfer_status": "defined",
           "gibdd_registration_status": "defined",
           "gibdd_registration_deadline_status": "defined",
-          "gibdd_registration_deadline": "10 дней",
+          gibdd_registration_deadline_value": "10 дней",
           "technical_condition_status": "not_defined",
           "osago_status": "defined",
           "diagnostic_card_status": "not_defined",
@@ -5056,13 +5056,13 @@ checks_v8:
         Ответ:
         {
           "vehicle_A_vin_status": "not_defined",
-          "vehicle_A_vin": "Данные не определены",
+          "vehicle_A_vin_value": "Данные не определены",
           "vehicle_B_vin_status": "not_defined",
-          "vehicle_B_vin": "Данные не определены",
+          "vehicle_B_vin_value": "Данные не определены",
           "pts_transfer_status": "not_defined",
           "gibdd_registration_status": "not_defined",
           "gibdd_registration_deadline_status": "not_defined",
-          "gibdd_registration_deadline": "Данные не определены",
+          "gibdd_registration_deadline_value": "Данные не определены",
           "technical_condition_status": "not_defined",
           "osago_status": "not_defined",
           "diagnostic_card_status": "not_defined",
@@ -5080,13 +5080,13 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "vehicle_A_vin_status": "<defined / not_defined>",
-          "vehicle_A_vin": "<VIN или 'Данные не определены'>",
+          "vehicle_A_vin_value": "<VIN или 'Данные не определены'>",
           "vehicle_B_vin_status": "<defined / not_defined>",
-          "vehicle_B_vin": "<VIN или 'Данные не определены'>",
+          "vehicle_B_vin_value": "<VIN или 'Данные не определены'>",
           "pts_transfer_status": "<defined / not_defined>",
           "gibdd_registration_status": "<defined / not_defined>",
           "gibdd_registration_deadline_status": "<defined / not_defined>",
-          "gibdd_registration_deadline": "<срок или 'Данные не определены'>",
+          "gibdd_registration_deadline_value": "<срок или 'Данные не определены'>",
           "technical_condition_status": "<defined / not_defined>",
           "osago_status": "<defined / not_defined>",
           "diagnostic_card_status": "<defined / not_defined>",
@@ -5174,13 +5174,13 @@ checks_v8:
 
         <task>
         1. vehicle_A_vin_status — "defined" или "not_defined".
-        2. vehicle_A_vin — VIN ТС A.
+        2. vehicle_A_vin_value — VIN ТС A.
         3. vehicle_B_vin_status — "defined" или "not_defined".
-        4. vehicle_B_vin — VIN ТС B.
+        4. vehicle_B_vin_value — VIN ТС B.
         5. pts_transfer_status — "defined" или "not_defined".
         6. gibdd_registration_status — "defined" или "not_defined".
         7. gibdd_registration_deadline_status — "defined" или "not_defined".
-        8. gibdd_registration_deadline — срок перерегистрации.
+        8. gibdd_registration_deadline_value — срок перерегистрации.
         9. technical_condition_status — "defined" или "not_defined".
         10. osago_status — "defined" или "not_defined".
         11. diagnostic_card_status — "defined" или "not_defined".
@@ -5201,7 +5201,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус VIN ТС A."
           required: true
-        - name: "vehicle_A_vin"
+        - name: "vehicle_A_vin_value"
           type: "string"
           presentation: "fact"
           label: "VIN транспортного средства A"
@@ -5215,7 +5215,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус VIN ТС B."
           required: true
-        - name: "vehicle_B_vin"
+        - name: "vehicle_B_vin_value"
           type: "string"
           presentation: "fact"
           label: "VIN транспортного средства B"
@@ -5241,7 +5241,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус срока регистрации в ГИБДД."
           required: false
-        - name: "gibdd_registration_deadline"
+        - name: "gibdd_registration_deadline_value"
           type: "string"
           presentation: "fact"
           label: "Срок регистрации в ГИБДД"
@@ -5347,7 +5347,7 @@ checks_v8:
           "bank_registration_status": "defined",
           "customs_procedure_status": "defined",
           "counter_delivery_deadline_status": "defined",
-          "counter_delivery_deadline": "не позднее 180 дней с момента экспорта",
+          "counter_delivery_deadline_value": "не позднее 180 дней с момента экспорта",
           "incoterms_status": "defined",
           "incoterms_term": "CIF Шанхай (Incoterms 2020)",
           "sanctions_check_status": "not_defined",
@@ -5369,7 +5369,7 @@ checks_v8:
           "bank_registration_status": "not_defined",
           "customs_procedure_status": "not_defined",
           "counter_delivery_deadline_status": "not_defined",
-          "counter_delivery_deadline": "Данные не определены",
+          "counter_delivery_deadline_value": "Данные не определены",
           "incoterms_status": "not_defined",
           "incoterms_term": "Данные не определены",
           "sanctions_check_status": "not_defined",
@@ -5390,7 +5390,7 @@ checks_v8:
           "bank_registration_status": "<defined / not_defined>",
           "customs_procedure_status": "<defined / not_defined>",
           "counter_delivery_deadline_status": "<defined / not_defined>",
-          "counter_delivery_deadline": "<срок или 'Данные не определены'>",
+          "counter_delivery_deadline_value": "<срок или 'Данные не определены'>",
           "incoterms_status": "<defined / not_defined>",
           "incoterms_term": "<термин или 'Данные не определены'>",
           "sanctions_check_status": "<defined / not_defined>",
@@ -5483,7 +5483,7 @@ checks_v8:
         2. bank_registration_status — "defined" если постановка на учёт в уполномоченном банке прямо упомянута, иначе "not_defined".
         3. customs_procedure_status — "defined" если таможенное оформление прямо описано, иначе "not_defined".
         4. counter_delivery_deadline_status — "defined" если срок встречной поставки прямо указан, иначе "not_defined".
-        5. counter_delivery_deadline — конкретный срок встречной поставки.
+        5. counter_delivery_deadline_value — конкретный срок встречной поставки.
         6. incoterms_status — "defined" если термин Incoterms прямо указан, иначе "not_defined".
         7. incoterms_term — конкретный термин Incoterms (EXW, CIF, FOB и т.п.).
         8. sanctions_check_status — "defined" если санкционный скрининг прямо упомянут, иначе "not_defined".
@@ -5526,7 +5526,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока встречной поставки по ВЭД-бартеру."
           required: false
-        - name: "counter_delivery_deadline"
+        - name: "counter_delivery_deadline_value"
           type: "string"
           presentation: "fact"
           label: "Срок встречной поставки"

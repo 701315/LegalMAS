@@ -632,9 +632,9 @@ checks_v8:
         Ответ:
         {
           "buyer_details_status": "not_defined",
-          "buyer_details": "Данные не определены",
+          "buyer_details_value": "Данные не определены",
           "seller_details_status": "defined",
-          "seller_details": "ООО «Альфа», ИНН 7700000000, ОГРН 1027700000000",
+          "seller_details_value": "ООО «Альфа», ИНН 7700000000, ОГРН 1027700000000",
           "buyer_signatory": "Данные не определены",
           "buyer_signatory_basis": "not_defined",
           "seller_signatory": "Генеральный директор Иванов И.И.",
@@ -654,9 +654,9 @@ checks_v8:
         Ответ:
         {
           "buyer_details_status": "not_defined",
-          "buyer_details": "Данные не определены",
+          "buyer_details_value": "Данные не определены",
           "seller_details_status": "not_defined",
-          "seller_details": "Данные не определены",
+          "seller_details_value": "Данные не определены",
           "buyer_signatory": "Данные не определены",
           "buyer_signatory_basis": "not_defined",
           "seller_signatory": "Данные не определены",
@@ -678,9 +678,9 @@ checks_v8:
         Ответь строго в JSON:
         {
           "buyer_details_status": "<defined / not_defined>",
-          "buyer_details": "<текст или 'Данные не определены'>",
+          "buyer_details_value": "<текст или 'Данные не определены'>",
           "seller_details_status": "<defined / not_defined>",
-          "seller_details": "<текст или 'Данные не определены'>",
+          "seller_details_value": "<текст или 'Данные не определены'>",
           "buyer_signatory": "<текст или 'Данные не определены'>",
           "buyer_signatory_basis": "<charter / poa / order / other / not_defined>",
           "seller_signatory": "<текст или 'Данные не определены'>",
@@ -759,9 +759,9 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
         1. buyer_details_status: "defined" если у Покупателя прямо указаны идентификационные данные или реквизиты, иначе "not_defined".
-        2. buyer_details: Полное наименование и реквизиты (ИНН/ОГРН/Адрес) Покупателя.
+        2. buyer_details_value: Полное наименование и реквизиты (ИНН/ОГРН/Адрес) Покупателя.
         3. seller_details_status: "defined" если у Продавца прямо указаны идентификационные данные или реквизиты, иначе "not_defined".
-        4. seller_details: Полное наименование и реквизиты Продавца.
+        4. seller_details_value: Полное наименование и реквизиты Продавца.
         5. buyer_signatory: ФИО и должность того, кто подписывает от Покупателя.
         6. buyer_signatory_basis: Основание полномочий Покупателя (charter / poa / order / other / not_defined).
         7. seller_signatory: ФИО и должность того, кто подписывает от Продавца.
@@ -792,7 +792,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения Покупателя."
           required: true
-        - name: "buyer_details"
+        - name: "buyer_details_value"
           type: "string"
           presentation: "fact"
           display_in_grid: true
@@ -806,7 +806,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения Продавца."
           required: true
-        - name: "seller_details"
+        - name: "seller_details_value"
           type: "string"
           presentation: "fact"
           display_in_grid: true

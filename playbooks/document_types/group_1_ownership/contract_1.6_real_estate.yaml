@@ -774,12 +774,12 @@ checks_v8:
         Ответ:
         {
           "seller_details_status": "defined",
-          "seller_details": "ООО «Строй-Инвест», ИНН 7700000001, ОГРН 1027700000001",
+          "seller_details_value": "ООО «Строй-Инвест», ИНН 7700000001, ОГРН 1027700000001",
           "seller_type": "legal_entity",
           "seller_signatory": "Генеральный директор Иванов А.А.",
           "seller_signatory_basis": "charter",
           "buyer_details_status": "defined",
-          "buyer_details": "Петров Б.Б., паспорт серия 45 00 № 123456",
+          "buyer_details_value": "Петров Б.Б., паспорт серия 45 00 № 123456",
           "buyer_type": "individual",
           "buyer_signatory": "Петров Б.Б.",
           "buyer_signatory_basis": "personal",
@@ -800,12 +800,12 @@ checks_v8:
         Ответ:
         {
           "seller_details_status": "not_defined",
-          "seller_details": "Данные не определены",
+          "seller_details_value": "Данные не определены",
           "seller_type": "not_defined",
           "seller_signatory": "Данные не определены",
           "seller_signatory_basis": "not_defined",
           "buyer_details_status": "not_defined",
-          "buyer_details": "Данные не определены",
+          "buyer_details_value": "Данные не определены",
           "buyer_type": "not_defined",
           "buyer_signatory": "Данные не определены",
           "buyer_signatory_basis": "not_defined",
@@ -827,12 +827,12 @@ checks_v8:
         Ответь строго в JSON:
         {
           "seller_details_status": "<defined / not_defined>",
-          "seller_details": "<реквизиты или 'Данные не определены'>",
+          "seller_details_value": "<реквизиты или 'Данные не определены'>",
           "seller_type": "<legal_entity / individual / ip / not_defined>",
           "seller_signatory": "<ФИО или 'Данные не определены'>",
           "seller_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
           "buyer_details_status": "<defined / not_defined>",
-          "buyer_details": "<реквизиты или 'Данные не определены'>",
+          "buyer_details_value": "<реквизиты или 'Данные не определены'>",
           "buyer_type": "<legal_entity / individual / ip / not_defined>",
           "buyer_signatory": "<ФИО или 'Данные не определены'>",
           "buyer_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
@@ -925,12 +925,12 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. seller_details_status — "defined" или "not_defined".
-        2. seller_details — реквизиты продавца.
+        2. seller_details_value — реквизиты продавца.
         3. seller_type — legal_entity / individual / ip / not_defined.
         4. seller_signatory — подписант продавца.
         5. seller_signatory_basis — charter / poa / order / personal / other / not_defined.
         6. buyer_details_status — "defined" или "not_defined".
-        7. buyer_details — реквизиты покупателя.
+        7. buyer_details_value — реквизиты покупателя.
         8. buyer_type — legal_entity / individual / ip / not_defined.
         9. buyer_signatory — подписант покупателя.
         10. buyer_signatory_basis — charter / poa / order / personal / other / not_defined.
@@ -955,7 +955,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов продавца."
           required: true
-        - name: "seller_details"
+        - name: "seller_details_value"
           type: "string"
           presentation: "fact"
           label: "Продавец"
@@ -988,7 +988,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов покупателя."
           required: true
-        - name: "buyer_details"
+        - name: "buyer_details_value"
           type: "string"
           presentation: "fact"
           label: "Покупатель"
@@ -1104,12 +1104,12 @@ checks_v8:
         Ответ:
         {
           "cadastral_number_status": "defined",
-          "cadastral_number": "77:06:0001001:123",
+          "cadastral_number_value": "77:06:0001001:123",
           "address_status": "defined",
           "address_details": "г. Москва, ул. Ленина, д. 5, кв. 12",
           "area_status": "defined",
           "area_details": "45,3 кв.м",
-          "object_type": "apartment",
+          "object_type_code": "apartment",
           "egrn_extract_status": "defined",
           "egrn_extract_details": "выписка из ЕГРН от 01.03.2026",
           "title_document_status": "defined",
@@ -1130,12 +1130,12 @@ checks_v8:
         Ответ:
         {
           "cadastral_number_status": "not_defined",
-          "cadastral_number": "Данные не определены",
+          "cadastral_number_value": "Данные не определены",
           "address_status": "not_defined",
           "address_details": "Данные не определены",
           "area_status": "not_defined",
           "area_details": "Данные не определены",
-          "object_type": "not_defined",
+          "object_type_code": "not_defined",
           "egrn_extract_status": "not_defined",
           "egrn_extract_details": "Данные не определены",
           "title_document_status": "not_defined",
@@ -1158,7 +1158,7 @@ checks_v8:
         Ответь строго в JSON:
         {
           "cadastral_number_status": "<defined / not_defined>",
-          "cadastral_number": "<номер или 'Данные не определены'>",
+          "cadastral_number_value": "<номер или 'Данные не определены'>",
           "address_status": "<defined / not_defined>",
           "address_details": "<адрес или 'Данные не определены'>",
           "area_status": "<defined / not_defined>",
@@ -1255,12 +1255,12 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. cadastral_number_status — "defined" или "not_defined".
-        2. cadastral_number — кадастровый номер.
+        2. cadastral_number_value — кадастровый номер.
         3. address_status — "defined" или "not_defined".
         4. address_details — адрес объекта.
         5. area_status — "defined" или "not_defined".
         6. area_details — площадь объекта.
-        7. object_type — apartment / house / land / building / non_residential / share / unfinished / other / not_defined.
+        7. object_type_code — apartment / house / land / building / non_residential / share / unfinished / other / not_defined.
         8. object_type_details — вид объекта, как он назван в договоре.
         9. egrn_extract_status — "defined" или "not_defined".
         10. egrn_extract_details — реквизиты выписки ЕГРН.
@@ -1286,7 +1286,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения кадастрового номера."
           required: true
-        - name: "cadastral_number"
+        - name: "cadastral_number_value"
           type: "string"
           presentation: "fact"
           display_in_grid: true
@@ -1323,7 +1323,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 5
-        - name: "object_type"
+        - name: "object_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["apartment", "house", "land", "building", "non_residential", "share", "unfinished", "other", "not_defined"]
@@ -2162,7 +2162,7 @@ checks_v8:
           display_priority: 3
       store_payload: true
 
-# ──────────────────────────────────────────────────────────────────────────
+  # ──────────────────────────────────────────────────────────────────────────
   # CHECK 6: Цена и коммерческие условия расчётов
   # ──────────────────────────────────────────────────────────────────────────
   - id: commercial_payment_terms_check
@@ -2240,10 +2240,10 @@ checks_v8:
           "price_status": "defined",
           "price_details": "15 000 000 рублей, включая НДС",
           "payment_method_status": "defined",
-          "payment_method": "accreditive",
+          "payment_method_code": "accreditive",
           "payment_method_details": "через аккредитив",
           "deposit_type_status": "defined",
-          "deposit_type": "zadatok",
+          "deposit_type_code": "zadatok",
           "deposit_type_details": "задаток",
           "deposit_amount": "500 000 рублей",
           "deposit_return_status": "defined",
@@ -2262,10 +2262,10 @@ checks_v8:
           "price_status": "not_defined",
           "price_details": "Данные не определены",
           "payment_method_status": "not_defined",
-          "payment_method": "not_defined",
+          "payment_method_code": "not_defined",
           "payment_method_details": "Данные не определены",
           "deposit_type_status": "not_defined",
-          "deposit_type": "not_defined",
+          "deposit_type_code": "not_defined",
           "deposit_type_details": "Данные не определены",
           "deposit_amount": "Данные не определены",
           "deposit_return_status": "not_defined",
@@ -2291,10 +2291,10 @@ checks_v8:
           "price_status": "<defined / not_defined>",
           "price_details": "<цена или 'Данные не определены'>",
           "payment_method_status": "<defined / not_defined>",
-          "payment_method": "<escrow / accreditive / bank_cell / cashless / cash / mixed / not_defined>",
+          "payment_method_code": "<escrow / accreditive / bank_cell / cashless / cash / mixed / not_defined>",
           "payment_method_details": "<текст или 'Данные не определены'>",
           "deposit_type_status": "<defined / not_defined>",
-          "deposit_type": "<advance / zadatok / security_payment / not_defined>",
+          "deposit_type_code": "<advance / zadatok / security_payment / not_defined>",
           "deposit_type_details": "<текст или 'Данные не определены'>",
           "deposit_amount": "<сумма или 'Данные не определены'>",
           "deposit_return_status": "<defined / not_defined>",
@@ -2386,10 +2386,10 @@ checks_v8:
         1. price_status — "defined" или "not_defined".
         2. price_details — цена объекта.
         3. payment_method_status — "defined" или "not_defined".
-        4. payment_method — escrow / accreditive / bank_cell / cashless / cash / mixed / not_defined.
+        4. payment_method_code — escrow / accreditive / bank_cell / cashless / cash / mixed / not_defined.
         5. payment_method_details — способ расчётов как в договоре.
         6. deposit_type_status — "defined" или "not_defined".
-        7. deposit_type — advance / zadatok / security_payment / not_defined.
+        7. deposit_type_code — advance / zadatok / security_payment / not_defined.
         8. deposit_type_details — квалификация платежа.
         9. deposit_amount — сумма.
         10. deposit_return_status — "defined" или "not_defined".
@@ -2405,14 +2405,8 @@ checks_v8:
         <rules>
         - Только текст договора.
         - Не анализируй ипотеку в силу закона.
-        - "аккредитив" = "accreditive".
-        - "эскроу" = "escrow".
-        - "банковская ячейка" = "bank_cell".
-        - "безналичный расчёт" = "cashless".
-        - "наличный расчёт" = "cash".
-        - Если используются несколько способов расчётов, используй "mixed".
-        - "аванс" = "advance".
-        - "задаток" = "zadatok".
+        - payment_method_code: "аккредитив" = "accreditive", "эскроу" = "escrow", "банковская ячейка" = "bank_cell", "безналичный расчёт" = "cashless", "наличный расчёт" = "cash", несколько способов = "mixed".
+        - deposit_type_code: "аванс" = "advance", "задаток" = "zadatok", "обеспечительный платёж" = "security_payment".
         - "обеспечительный платёж" = "security_payment".
         - Верни только JSON.
         </rules>
@@ -2437,7 +2431,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус способа расчётов."
           required: true
-        - name: "payment_method"
+        - name: "payment_method_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["escrow", "accreditive", "bank_cell", "cashless", "cash", "mixed", "not_defined"]
@@ -2457,7 +2451,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус обеспечительного платежа."
           required: false
-        - name: "deposit_type"
+        - name: "deposit_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["advance", "zadatok", "security_payment", "not_defined"]
@@ -3088,7 +3082,7 @@ checks_v8:
           display_in_grid: false
       store_payload: true
 
-# ──────────────────────────────────────────────────────────────────────────
+  # ──────────────────────────────────────────────────────────────────────────
   # CHECK 9: Расторжение договора и уступка прав
   # ──────────────────────────────────────────────────────────────────────────
   - id: contract_lifecycle_check
@@ -3160,7 +3154,7 @@ checks_v8:
           "termination_consequences_status": "defined",
           "termination_consequences_details": "возврат в течение 5 рабочих дней с уплатой неустойки 1% от цены за каждый день просрочки",
           "assignment_restriction_status": "defined",
-          "assignment_restriction": "allowed_with_consent",
+          "assignment_restriction_code": "allowed_with_consent",
           "assignment_restriction_details": "допускается только с письменного согласия Продавца",
           "evidence": [
             {
@@ -3181,7 +3175,7 @@ checks_v8:
           "termination_consequences_status": "not_defined",
           "termination_consequences_details": "Данные не определены",
           "assignment_restriction_status": "not_defined",
-          "assignment_restriction": "not_defined",
+          "assignment_restriction_code": "not_defined",
           "assignment_restriction_details": "Данные не определены",
           "evidence": [
             {
@@ -3205,7 +3199,7 @@ checks_v8:
           "termination_consequences_status": "<defined / not_defined>",
           "termination_consequences_details": "<последствия или 'Данные не определены'>",
           "assignment_restriction_status": "<defined / not_defined>",
-          "assignment_restriction": "<prohibited / allowed_with_consent / allowed / not_defined>",
+          "assignment_restriction_code": "<prohibited / allowed_with_consent / allowed / not_defined>",
           "assignment_restriction_details": "<условие или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -3300,10 +3294,7 @@ checks_v8:
 
         <rules>
         - Только текст договора.
-        - Если уступка прямо запрещена — используй "prohibited".
-        - Если уступка допускается только с согласия другой стороны — используй "allowed_with_consent".
-        - Если уступка свободна без каких-либо ограничений — используй "allowed".
-        - Если вопрос уступки прямо не урегулирован — используй "not_defined".
+        - assignment_restriction_code: запрещена = "prohibited", только с согласия = "allowed_with_consent", свободна = "allowed", не урегулирована = "not_defined".
         - Верни только JSON.
         </rules>
       fields:
@@ -3341,7 +3332,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус ограничений уступки."
           required: false
-        - name: "assignment_restriction"
+        - name: "assignment_restriction_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["prohibited", "allowed_with_consent", "allowed", "not_defined"]
@@ -3672,9 +3663,18 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 400
     extraction:
-      enabled: false
+      enabled: true
       mode: "rules"
-      fields: []
+      fields:
+        - name: "cadastral_number_presence_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["defined", "not_defined"]
+          description: "Наличие кадастрового номера земельного участка."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+          label: "Кадастровый номер (наличие)"
       store_payload: false
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -3742,10 +3742,10 @@ checks_v8:
           "mortgagee_consent_status": "defined",
           "mortgagee_consent_details": "с согласия ПАО «Сбербанк» как залогодержателя, письмо № 123 от 01.04.2026",
           "clearance_mechanism_status": "defined",
-          "clearance_mechanism": "accreditive",
+          "clearance_mechanism_code": "accreditive",
           "simultaneous_registration_status": "defined",
           "mortgage_amount_status": "defined",
-          "mortgage_amount": "8 000 000 рублей",
+          "mortgage_amount_value": "8 000 000 рублей",
           "evidence": [
             {
               "clause_ref": "п. 3.1",
@@ -3763,10 +3763,10 @@ checks_v8:
           "mortgagee_consent_status": "not_defined",
           "mortgagee_consent_details": "Данные не определены",
           "clearance_mechanism_status": "not_defined",
-          "clearance_mechanism": "not_defined",
+          "clearance_mechanism_code": "not_defined",
           "simultaneous_registration_status": "not_defined",
           "mortgage_amount_status": "not_defined",
-          "mortgage_amount": "Данные не определены",
+          "mortgage_amount_value": "Данные не определены",
           "evidence": []
         }
 
@@ -3783,10 +3783,10 @@ checks_v8:
           "mortgagee_consent_status": "<defined / not_defined>",
           "mortgagee_consent_details": "<текст или 'Данные не определены'>",
           "clearance_mechanism_status": "<defined / not_defined>",
-          "clearance_mechanism": "<escrow / accreditive / direct_payment / not_defined>",
+          "clearance_mechanism_code": "<escrow / accreditive / direct_payment / not_defined>",
           "simultaneous_registration_status": "<defined / not_defined>",
           "mortgage_amount_status": "<defined / not_defined>",
-          "mortgage_amount": "<сумма или 'Данные не определены'>",
+          "mortgage_amount_value": "<сумма или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 6
@@ -3875,7 +3875,7 @@ checks_v8:
         6. simultaneous_registration_status — "defined" или "not_defined".
         7. simultaneous_registration_details — условие об одновременном снятии ипотеки и регистрации перехода права.
         8. mortgage_amount_status — "defined" или "not_defined".
-        9. mortgage_amount — сумма ипотечного долга.
+        9. mortgage_amount_value — сумма ипотечного долга.
 
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
@@ -3885,9 +3885,7 @@ checks_v8:
         <rules>
         - Используй только текст договора.
         - Не подставляй банковскую логику, если механизм прямо не описан.
-        - "аккредитив" = "accreditive".
-        - "эскроу" или "счёт эскроу" = "escrow".
-        - "прямой платёж" или "перевод на счёт банка" без специального механизма = "direct_payment".
+        - clearance_mechanism_code: "аккредитив" = "accreditive", "эскроу" / "счёт эскроу" = "escrow", "прямой платёж" / "перевод на счёт банка" = "direct_payment".
         - clearance_mechanism_details передавай кратко и дословно по смыслу договора.
         - Верни только JSON.
         </rules>
@@ -3912,7 +3910,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения механизма погашения ипотеки."
           required: false
-        - name: "clearance_mechanism"
+        - name: "clearance_mechanism_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["escrow", "accreditive", "direct_payment", "not_defined"]
@@ -3946,7 +3944,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения суммы ипотечного долга."
           required: false
-        - name: "mortgage_amount"
+        - name: "mortgage_amount_value"
           type: "string"
           presentation: "fact"
           label: "Сумма ипотечного долга"
@@ -4013,11 +4011,11 @@ checks_v8:
         Ответ:
         {
           "land_rights_transfer_status": "defined",
-          "land_rights_transfer": "ownership",
+          "land_rights_transfer_code": "ownership",
           "land_cadastral_number_status": "defined",
-          "land_cadastral_number": "50:20:0010001:456",
+          "land_cadastral_number_value": "50:20:0010001:456",
           "land_area_status": "defined",
-          "land_area": "1 200 кв.м.",
+          "land_area_value": "1 200 кв.м.",
           "lease_consent_status": "not_defined",
           "evidence": [
             {
@@ -4034,11 +4032,11 @@ checks_v8:
         Ответ:
         {
           "land_rights_transfer_status": "not_defined",
-          "land_rights_transfer": "not_defined",
+          "land_rights_transfer_code": "not_defined",
           "land_cadastral_number_status": "not_defined",
-          "land_cadastral_number": "Данные не определены",
+          "land_cadastral_number_value": "Данные не определены",
           "land_area_status": "not_defined",
-          "land_area": "Данные не определены",
+          "land_area_value": "Данные не определены",
           "lease_consent_status": "not_defined",
           "evidence": []
         }
@@ -4054,11 +4052,11 @@ checks_v8:
         Ответь строго в JSON:
         {
           "land_rights_transfer_status": "<defined / not_defined>",
-          "land_rights_transfer": "<ownership / lease / not_defined>",
+          "land_rights_transfer_code": "<ownership / lease / not_defined>",
           "land_cadastral_number_status": "<defined / not_defined>",
-          "land_cadastral_number": "<номер или 'Данные не определены'>",
+          "land_cadastral_number_value": "<номер или 'Данные не определены'>",
           "land_area_status": "<defined / not_defined>",
-          "land_area": "<площадь или 'Данные не определены'>",
+          "land_area_value": "<площадь или 'Данные не определены'>",
           "lease_consent_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -4159,8 +4157,7 @@ checks_v8:
 
         <rules>
         - Используй только текст договора.
-        - ownership = прямо передаётся право собственности на землю.
-        - lease = прямо передаётся право аренды или иное производное право пользования землёй.
+        - land_rights_transfer_code: собственность = "ownership", аренда / иное производное право = "lease", иное или не указано = "not_defined" (отрази в land_rights_transfer_details).
         - Не выводи права на землю из общих норм закона — только из текста договора.
         - Если вид передаваемых прав назван, но не является ни собственностью, ни арендой — используй "not_defined" и отрази вид прав в land_rights_transfer_details.
         - Верни только JSON.
@@ -4172,7 +4169,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения вида передаваемых прав на землю."
           required: true
-        - name: "land_rights_transfer"
+        - name: "land_rights_transfer_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["ownership", "lease", "not_defined"]
@@ -4192,7 +4189,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения кадастрового номера участка."
           required: false
-        - name: "land_cadastral_number"
+        - name: "land_cadastral_number_value"
           type: "string"
           presentation: "fact"
           label: "Кадастровый номер участка"
@@ -4207,7 +4204,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения площади участка."
           required: false
-        - name: "land_area"
+        - name: "land_area_value"
           type: "string"
           presentation: "fact"
           label: "Площадь участка"

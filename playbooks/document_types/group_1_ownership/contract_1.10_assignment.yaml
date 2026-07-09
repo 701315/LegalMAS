@@ -834,17 +834,17 @@ checks_v8:
         Ответ:
         {
           "cedent_details_status": "defined",
-          "cedent_details": "ООО «Альфа», ИНН 7700000001, ОГРН 1027700000001",
-          "cedent_signatory": "Генеральный директор Иванов И.И.",
+          "cedent_details_value": "ООО «Альфа», ИНН 7700000001, ОГРН 1027700000001",
+          "cedent_signatory_value": "Генеральный директор Иванов И.И.",
           "cedent_signatory_status": "defined",
           "cedent_signatory_basis": "charter",
           "assignee_details_status": "defined",
-          "assignee_details": "ООО «Бета», ИНН 7700000002",
-          "assignee_signatory": "Директор Петров П.П.",
+          "assignee_details_value": "ООО «Бета», ИНН 7700000002",
+          "assignee_signatory_value": "Директор Петров П.П.",
           "assignee_signatory_status": "defined",
           "assignee_signatory_basis": "poa",
           "debtor_details_status": "defined",
-          "debtor_details": "ИП Сидоров С.С., ИНН 770000003",
+          "debtor_details_value": "ИП Сидоров С.С., ИНН 770000003",
           "evidence": [
             {
               "clause_ref": "Преамбула",
@@ -860,17 +860,17 @@ checks_v8:
         Ответ:
         {
           "cedent_details_status": "not_defined",
-          "cedent_details": "Данные не определены",
-          "cedent_signatory": "Данные не определены",
+          "cedent_details_value": "Данные не определены",
+          "cedent_signatory_value": "Данные не определены",
           "cedent_signatory_status": "not_defined",
           "cedent_signatory_basis": "not_defined",
           "assignee_details_status": "not_defined",
-          "assignee_details": "Данные не определены",
-          "assignee_signatory": "Данные не определены",
+          "assignee_details_value": "Данные не определены",
+          "assignee_signatory_value": "Данные не определены",
           "assignee_signatory_status": "not_defined",
           "assignee_signatory_basis": "not_defined",
           "debtor_details_status": "not_defined",
-          "debtor_details": "Данные не определены",
+          "debtor_details_value": "Данные не определены",
           "evidence": []
         }
 
@@ -889,17 +889,17 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "cedent_details_status": "<defined / not_defined>",
-          "cedent_details": "<текст или 'Данные не определены'>",
-          "cedent_signatory": "<текст или 'Данные не определены'>",
+          "cedent_details_value": "<текст или 'Данные не определены'>",
+          "cedent_signatory_value": "<текст или 'Данные не определены'>",
           "cedent_signatory_status": "<defined / not_defined>",
           "cedent_signatory_basis": "<charter / poa / order / other / not_defined>",
           "assignee_details_status": "<defined / not_defined>",
-          "assignee_details": "<текст или 'Данные не определены'>",
-          "assignee_signatory": "<текст или 'Данные не определены'>",
+          "assignee_details_value": "<текст или 'Данные не определены'>",
+          "assignee_signatory_value": "<текст или 'Данные не определены'>",
           "assignee_signatory_status": "<defined / not_defined>",
           "assignee_signatory_basis": "<charter / poa / order / other / not_defined>",
           "debtor_details_status": "<defined / not_defined>",
-          "debtor_details": "<текст или 'Данные не определены'>",
+          "debtor_details_value": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 6
@@ -986,17 +986,17 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. cedent_details_status — "defined" если Цедент прямо идентифицирован, иначе "not_defined".
-        2. cedent_details — наименование/ФИО и реквизиты Цедента.
-        3. cedent_signatory — ФИО/должность подписанта от Цедента.
+        2. cedent_details_value — наименование/ФИО и реквизиты Цедента.
+        3. cedent_signatory_value — ФИО/должность подписанта от Цедента.
         4. cedent_signatory_status — "defined" если подписант Цедента прямо указан, иначе "not_defined".
         5. cedent_signatory_basis — "charter" / "poa" / "order" / "other" / "not_defined".
         6. assignee_details_status — "defined" если Цессионарий прямо идентифицирован, иначе "not_defined".
-        7. assignee_details — наименование/ФИО и реквизиты Цессионария.
-        8. assignee_signatory — ФИО/должность подписанта от Цессионария.
+        7. assignee_details_value — наименование/ФИО и реквизиты Цессионария.
+        8. assignee_signatory_value — ФИО/должность подписанта от Цессионария.
         9. assignee_signatory_status — "defined" если подписант Цессионария прямо указан, иначе "not_defined".
         10. assignee_signatory_basis — "charter" / "poa" / "order" / "other" / "not_defined".
         11. debtor_details_status — "defined" если Должник прямо идентифицирован, иначе "not_defined".
-        12. debtor_details — наименование/ФИО и реквизиты Должника.
+        12. debtor_details_value — наименование/ФИО и реквизиты Должника.
 
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
@@ -1020,7 +1020,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Цедента."
           required: true
-        - name: "cedent_details"
+        - name: "cedent_details_value"
           type: "string"
           presentation: "fact"
           label: "Цедент: реквизиты"
@@ -1028,7 +1028,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 1
-        - name: "cedent_signatory"
+        - name: "cedent_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Цедент: подписант"
@@ -1053,7 +1053,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Цессионария."
           required: true
-        - name: "assignee_details"
+        - name: "assignee_details_value"
           type: "string"
           presentation: "fact"
           label: "Цессионарий: реквизиты"
@@ -1061,7 +1061,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
-        - name: "assignee_signatory"
+        - name: "assignee_signatory_value"
           type: "string"
           presentation: "fact"
           label: "Цессионарий: подписант"
@@ -1086,7 +1086,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации Должника."
           required: true
-        - name: "debtor_details"
+        - name: "debtor_details_value"
           type: "string"
           presentation: "fact"
           label: "Должник: реквизиты"
@@ -4248,7 +4248,7 @@ checks_v8:
           "consideration_type": "paid",
           "price_status": "defined",
           "price_details": "400 000 рублей",
-          "price_vs_nominal": "below",
+          "price_vs_nominal_code": "below",
           "price_vs_nominal_details": "80% от суммы долга 500 000 рублей",
           "payment_deadline_status": "defined",
           "payment_deadline_details": "в течение 10 рабочих дней с даты подписания",
@@ -4274,7 +4274,7 @@ checks_v8:
           "consideration_type": "gratuitous",
           "price_status": "not_defined",
           "price_details": "Данные не определены",
-          "price_vs_nominal": "not_defined",
+          "price_vs_nominal_code": "not_defined",
           "price_vs_nominal_details": "Данные не определены",
           "payment_deadline_status": "not_defined",
           "payment_deadline_details": "Данные не определены",
@@ -4307,7 +4307,7 @@ checks_v8:
           "consideration_type": "<paid / gratuitous / not_defined>",
           "price_status": "<defined / not_defined>",
           "price_details": "<текст или 'Данные не определены'>",
-          "price_vs_nominal": "<equal / below / above / not_defined>",
+          "price_vs_nominal_code": "<equal / below / above / not_defined>",
           "price_vs_nominal_details": "<текст или 'Данные не определены'>",
           "payment_deadline_status": "<defined / not_defined>",
           "payment_deadline_details": "<текст или 'Данные не определены'>",
@@ -4406,7 +4406,7 @@ checks_v8:
         2. consideration_type — "paid" / "gratuitous" / "not_defined".
         3. price_status — "defined" если цена уступки указана, иначе "not_defined".
         4. price_details — цена уступки.
-        5. price_vs_nominal — "equal" / "below" / "above" / "not_defined".
+        5. price_vs_nominal_code — "equal" / "below" / "above" / "not_defined".
         6. price_vs_nominal_details — текст о соотношении цены с номиналом долга.
         7. payment_deadline_status — "defined" если срок оплаты указан, иначе "not_defined".
         8. payment_deadline_details — срок оплаты.
@@ -4457,7 +4457,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 1
-        - name: "price_vs_nominal"
+        - name: "price_vs_nominal_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["equal", "below", "above", "not_defined"]

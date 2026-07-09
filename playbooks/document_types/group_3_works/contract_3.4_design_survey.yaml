@@ -1049,12 +1049,12 @@ checks_v8:
       Ответ:
       {
         "client_details_status": "defined",
-        "client_details": "АО «Застройщик», ИНН 7709876543, ОГРН 1047709876543, г. Москва, ул. Мира, 5",
+        "client_details_value": "АО «Застройщик», ИНН 7709876543, ОГРН 1047709876543, г. Москва, ул. Мира, 5",
         "client_type": "legal_entity",
         "client_signatory": "Петров П.П., директор",
         "client_signatory_basis": "poa",
         "contractor_details_status": "defined",
-        "contractor_details": "ООО «СтройПроект», ИНН 7701234567, ОГРН 1027700123456, г. Москва, ул. Ленина, 1",
+        "contractor_details_value": "ООО «СтройПроект», ИНН 7701234567, ОГРН 1027700123456, г. Москва, ул. Ленина, 1",
         "contractor_type": "legal_entity",
         "contractor_signatory": "Иванов И.И., генеральный директор",
         "contractor_signatory_basis": "charter",
@@ -1072,12 +1072,12 @@ checks_v8:
       Ответ:
       {
         "client_details_status": "not_defined",
-        "client_details": "not_defined",
+        "client_details_value": "not_defined",
         "client_type": "not_defined",
         "client_signatory": "not_defined",
         "client_signatory_basis": "not_defined",
         "contractor_details_status": "not_defined",
-        "contractor_details": "not_defined",
+        "contractor_details_value": "not_defined",
         "contractor_type": "not_defined",
         "contractor_signatory": "not_defined",
         "contractor_signatory_basis": "not_defined",
@@ -1099,12 +1099,12 @@ checks_v8:
       Верни строго JSON без пояснений:
       {
         "client_details_status": "<defined / not_defined>",
-        "client_details": "<реквизиты или not_defined>",
+        "client_details_value": "<реквизиты или not_defined>",
         "client_type": "<legal_entity / state_entity / individual / ip / self_employed / not_defined>",
         "client_signatory": "<ФИО и должность или not_defined>",
         "client_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
         "contractor_details_status": "<defined / not_defined>",
-        "contractor_details": "<реквизиты или not_defined>",
+        "contractor_details_value": "<реквизиты или not_defined>",
         "contractor_type": "<legal_entity / individual / ip / not_defined>",
         "contractor_signatory": "<ФИО и должность или not_defined>",
         "contractor_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
@@ -1187,7 +1187,7 @@ checks_v8:
         (allowed: defined / not_defined).
         "defined" — только если указаны наименование и хотя бы ИНН или ОГРН.
 
-      client_details — фактические реквизиты заказчика: наименование, ИНН, ОГРН, адрес
+      client_details_value — фактические реквизиты заказчика: наименование, ИНН, ОГРН, адрес
         (текстовое значение или not_defined).
 
       client_type — тип заказчика
@@ -1203,7 +1203,7 @@ checks_v8:
         (allowed: defined / not_defined).
         "defined" — только если указаны наименование и хотя бы ИНН или ОГРН.
 
-      contractor_details — фактические реквизиты подрядчика: наименование, ИНН, ОГРН, адрес
+      contractor_details_value — фактические реквизиты подрядчика: наименование, ИНН, ОГРН, адрес
         (текстовое значение или not_defined).
 
       contractor_type — тип подрядчика
@@ -1256,7 +1256,7 @@ checks_v8:
           Определены ли реквизиты заказчика в договоре
           (наименование + ИНН или ОГРН).
         required: true
-      - name: "client_details"
+      - name: "client_details_value"
         type: "string"
         label: "Реквизиты заказчика (факт)"
         presentation: "text"
@@ -1323,7 +1323,7 @@ checks_v8:
           Определены ли реквизиты подрядчика в договоре
           (наименование + ИНН или ОГРН).
         required: true
-      - name: "contractor_details"
+      - name: "contractor_details_value"
         type: "string"
         label: "Реквизиты подрядчика (факт)"
         presentation: "text"
@@ -2880,7 +2880,7 @@ checks_v8:
       1. price_amount_status = "defined" — только если цена указана явно суммой
          или однозначно определена формулой с установленным базисом;
          "not_defined" — если цена не установлена или не извлекается из текста.
-      2. price_amount — числовое значение в рублях без валютного символа
+      2. price_amount_value — числовое значение в рублях без валютного символа
          и без текстовых пояснений; если явная сумма отсутствует, верни null.
       3. price_type = "fixed" — твёрдая/фиксированная цена;
          "approximate" — приблизительная/ориентировочная;
@@ -2906,7 +2906,7 @@ checks_v8:
       Ответ:
       {
         "price_amount_status": "defined",
-        "price_amount": 4500000,
+        "price_amount_value": 4500000,
         "price_type": "fixed",
         "price_includes_vat": "yes",
         "calculation_basis": "по СБЦ",
@@ -2922,7 +2922,7 @@ checks_v8:
       Ответ:
       {
         "price_amount_status": "not_defined",
-        "price_amount": null,
+        "price_amount_value": null,
         "price_type": "not_found",
         "price_includes_vat": "not_found",
         "calculation_basis": "not_found",
@@ -2933,7 +2933,7 @@ checks_v8:
 
       [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
       1. Извлечена ли именно общая цена договора, а не сумма аванса или штрафа?
-      2. Если сумма отсутствует, установлен ли price_amount = null?
+      2. Если сумма отсутствует, установлен ли price_amount_value = null?
       3. Корректно ли нормализован тип цены в allowed_values?
       4. Не перепутан ли НДС с общими налоговыми оговорками?
       5. Все ли ключи JSON совпадают со schema?
@@ -2942,7 +2942,7 @@ checks_v8:
       Верни строго JSON:
       {
         "price_amount_status": "<defined / not_defined>",
-        "price_amount": "<число или null>",
+        "price_amount_value": "<число или null>",
         "price_type": "<fixed / approximate / cost_plus / percentage / sbc / not_found>",
         "price_includes_vat": "<yes / no / not_applicable / unclear / not_found>",
         "calculation_basis": "<текст или not_found>",
@@ -3007,7 +3007,7 @@ checks_v8:
       price_amount_status — определена ли цена работ
         (allowed: defined / not_defined).
 
-      price_amount — сумма цены работ в рублях
+      price_amount_value — сумма цены работ в рублях
         (числовое значение без символа валюты или null, если сумма прямо не указана).
 
       price_type — тип цены
@@ -3021,14 +3021,14 @@ checks_v8:
         "фиксированная сумма", "по смете", или not_found).
 
       Если данные отсутствуют: указывай "not_defined" для price_amount_status,
-      null для price_amount, "not_found" для price_type и calculation_basis,
+      null для price_amount_value, "not_found" для price_type и calculation_basis,
       а для price_includes_vat — "not_found" или "unclear" по смыслу текста.
       </task>
 
       <rules>
       1. price_amount_status = "defined" только если цена прямо указана
          суммой или однозначно определена в договоре.
-      2. price_amount: верни только число в рублях; если суммы нет — null.
+      2. price_amount_value: верни только число в рублях; если суммы нет — null.
       3. price_type: "fixed" — твёрдая/фиксированная; "approximate" —
          приблизительная/ориентировочная; "cost_plus" — затраты плюс;
          "percentage" — процент от стоимости; "sbc" — по СБЦ; "not_found" — не установлен.
@@ -3052,7 +3052,7 @@ checks_v8:
           - "not_defined"
         description: "Определена ли цена работ в договоре."
         required: true
-      - name: "price_amount"
+      - name: "price_amount_value"
         type: "number"
         label: "Цена работ"
         presentation: "number"
@@ -7359,24 +7359,22 @@ checks_v8:
       - "претензионный порядок"
       - "досудебное урегулирование"
       - "срок рассмотрения претензии"
-      - "арбитражный суд"
       - "подсудность"
       - "арбитражная оговорка"
       - "медиация"
     keyword_mode: "any"
     regex_patterns:
       - "(?i)претензионн(ый|ого)\\s+порядк"
-      - "(?i)арбитражн(ый|ого)\\s+суд"
       - "(?i)досудебн(ое|ого)\\s+урегулирован"
   llm:
     prompt_template: |
       [КОНТЕКСТ]
       Ты — юрист, анализирующий договор ПИР.
       Проверяется только один вопрос: наличие и содержание претензионного
-      порядка урегулирования споров и условий о подсудности.
+      порядка урегулирования споров.
 
       Важно:
-      — Анализируй только положения о претензиях, спорах, подсудности и арбитраже.
+      — Анализируй только положения о претензиях, спорах.
       — Не оценивай риск и не смешивай с разделом об ответственности.
       — Если условие не установлено прямо, не домысливай.
 
@@ -7384,8 +7382,7 @@ checks_v8:
       1. Установить, предусмотрен ли обязательный претензионный порядок.
       2. Извлечь срок направления претензии.
       3. Извлечь срок рассмотрения претензии.
-      4. Определить орган разрешения споров.
-      5. Извлечь наименование конкретного суда или арбитража.
+      4. Извлечь наименование конкретного суда или арбитража.
 
       [ПРАВИЛА]
       1. pretension_procedure_present = "yes" — если обязательный претензионный
@@ -7395,35 +7392,24 @@ checks_v8:
          с момента нарушения (текст); если не указан — "not_found".
       3. pretension_review_period — срок рассмотрения претензии
          получателем (текст); если не указан — "not_found".
-      4. dispute_forum = "arbitrazh_court_general" — арбитражный суд
-         без уточнения; "arbitrazh_court_specific" — конкретный арбитражный суд;
-         "arbitration" — третейский суд, МКАС, иной коммерческий арбитраж;
-         "general_court" — суд общей юрисдикции;
-         "not_found" — орган не указан.
-      5. dispute_forum_details — наименование конкретного суда или арбитража;
-         если не указано — "not_found".
-      6. Не путай раздел о спорах с разделом об ответственности.
-      7. Не путай претензионный порядок с порядком замечаний по приёмке.
+      4. Не путай раздел о спорах с разделом об ответственности.
+      5. Не путай претензионный порядок с порядком замечаний по приёмке.
 
       [ПРИМЕРЫ (FEW-SHOT)]
       Пример 1 — претензионный порядок установлен:
       Текст: «Стороны обязуются принять все меры к урегулированию споров
       путём переговоров. Сторона, считающая свои права нарушенными,
       направляет другой стороне письменную претензию. Срок рассмотрения
-      претензии — 30 календарных дней. При недостижении соглашения спор
-      передаётся в Арбитражный суд г. Москвы.»
+      претензии — 30 календарных дней.»
 
       Ответ:
       {
         "pretension_procedure_present": "yes",
         "pretension_sending_period": "not_found",
         "pretension_review_period": "30 календарных дней",
-        "dispute_forum": "arbitrazh_court_specific",
-        "dispute_forum_details": "Арбитражный суд г. Москвы",
         "evidence": [
           "Сторона, считающая свои права нарушенными, направляет другой стороне письменную претензию.",
-          "Срок рассмотрения претензии — 30 календарных дней.",
-          "При недостижении соглашения спор передаётся в Арбитражный суд г. Москвы."
+          "Срок рассмотрения претензии — 30 календарных дней."
         ]
       }
 
@@ -7435,8 +7421,6 @@ checks_v8:
         "pretension_procedure_present": "not_found",
         "pretension_sending_period": "not_found",
         "pretension_review_period": "not_found",
-        "dispute_forum": "not_found",
-        "dispute_forum_details": "not_found",
         "evidence": [
           "Все спорные вопросы решаются в соответствии с законодательством РФ."
         ]
@@ -7455,8 +7439,6 @@ checks_v8:
         "pretension_procedure_present": "<yes / not_found>",
         "pretension_sending_period": "<текст или not_found>",
         "pretension_review_period": "<текст или not_found>",
-        "dispute_forum": "<arbitrazh_court_general / arbitrazh_court_specific / arbitration / general_court / not_found>",
-        "dispute_forum_details": "<текст или not_found>",
         "evidence": ["<цитата 1>", "<цитата 2>"]
       }
     prompt_file: null
@@ -7471,7 +7453,6 @@ checks_v8:
       - "претензия"
       - "претензионный порядок"
       - "досудебное урегулирование"
-      - "арбитражный суд"
       - "подсудность"
     negative_keywords:
       - "акт"
@@ -7522,13 +7503,6 @@ checks_v8:
       pretension_review_period — срок рассмотрения претензии
         (текстовое значение или not_found).
 
-      dispute_forum — орган разрешения споров
-        (allowed: arbitrazh_court_general / arbitrazh_court_specific /
-        arbitration / general_court / not_found).
-
-      dispute_forum_details — наименование суда или арбитража
-        (текстовое значение или not_found).
-
       Если данные отсутствуют: указывай "not_found".
       </task>
 
@@ -7537,13 +7511,8 @@ checks_v8:
          прямо установлена; "not_found" — раздел отсутствует.
       2. pretension_sending_period: текст с указанием срока; или "not_found".
       3. pretension_review_period: текст с указанием срока; или "not_found".
-      4. dispute_forum: "arbitrazh_court_general" — арбитражный суд без уточнения;
-         "arbitrazh_court_specific" — конкретный арбитражный суд;
-         "arbitration" — третейский суд / МКАС; "general_court" —
-         суд общей юрисдикции; "not_found" — орган не указан.
-      5. dispute_forum_details: наименование суда/арбитража; или "not_found".
-      6. Не добавляй ключи, не входящие в список полей.
-      7. Верни только JSON.
+      4. Не добавляй ключи, не входящие в список полей.
+      5. Верни только JSON.
       </rules>
     fields:
       - name: "pretension_procedure_present"
@@ -7574,29 +7543,6 @@ checks_v8:
         display_priority: 2
         description: "Срок рассмотрения претензии другой стороной."
         max_value_chars: 100
-        required: false
-      - name: "dispute_forum"
-        type: "string"
-        label: "Орган разрешения споров"
-        presentation: "badge"
-        display_in_grid: true
-        display_priority: 3
-        allowed_values:
-          - "arbitrazh_court_general"
-          - "arbitrazh_court_specific"
-          - "arbitration"
-          - "general_court"
-          - "not_found"
-        description: "Орган, компетентный рассматривать споры."
-        required: false
-      - name: "dispute_forum_details"
-        type: "string"
-        label: "Наименование суда / арбитража"
-        presentation: "text"
-        display_in_grid: false
-        display_priority: 5
-        description: "Наименование конкретного суда или арбитража."
-        max_value_chars: 200
         required: false
 
 # ──────────────────────────────────────────────────────────────────────────

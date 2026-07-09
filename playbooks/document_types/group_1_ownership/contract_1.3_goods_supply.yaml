@@ -583,11 +583,11 @@ checks_v8:
         Ответ:
         {
           "supplier_details_status": "defined",
-          "supplier_details": "ООО «Альфа», ИНН 7700000000, ОГРН 1027700000000",
+          "supplier_details_value": "ООО «Альфа», ИНН 7700000000, ОГРН 1027700000000",
           "supplier_signatory": "Генеральный директор Иванов И.И.",
           "supplier_signatory_basis": "charter",
           "buyer_details_status": "defined",
-          "buyer_details": "АО «Бета», ИНН 7700000001, ОГРН 1027700000001",
+          "buyer_details_value": "АО «Бета», ИНН 7700000001, ОГРН 1027700000001",
           "buyer_signatory": "Коммерческий директор Петров А.А.",
           "buyer_signatory_basis": "poa",
           "evidence": [
@@ -606,11 +606,11 @@ checks_v8:
         Ответ:
         {
           "supplier_details_status": "not_defined",
-          "supplier_details": "Данные не определены",
+          "supplier_details_value": "Данные не определены",
           "supplier_signatory": "Данные не определены",
           "supplier_signatory_basis": "not_defined",
           "buyer_details_status": "not_defined",
-          "buyer_details": "Данные не определены",
+          "buyer_details_value": "Данные не определены",
           "buyer_signatory": "Данные не определены",
           "buyer_signatory_basis": "not_defined",
           "evidence": []
@@ -629,11 +629,11 @@ checks_v8:
         Ответь строго в JSON:
         {
           "supplier_details_status": "<defined / not_defined>",
-          "supplier_details": "<реквизиты или 'Данные не определены'>",
+          "supplier_details_value": "<реквизиты или 'Данные не определены'>",
           "supplier_signatory": "<ФИО и должность или 'Данные не определены'>",
           "supplier_signatory_basis": "<charter / poa / order / other / not_defined>",
           "buyer_details_status": "<defined / not_defined>",
-          "buyer_details": "<реквизиты или 'Данные не определены'>",
+          "buyer_details_value": "<реквизиты или 'Данные не определены'>",
           "buyer_signatory": "<ФИО и должность или 'Данные не определены'>",
           "buyer_signatory_basis": "<charter / poa / order / other / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -717,7 +717,7 @@ checks_v8:
 
         1. supplier_details_status — "defined" если прямо указаны наименование и реквизиты
            Поставщика (ИНН и/или ОГРН), иначе "not_defined".
-        2. supplier_details — полное наименование и реквизиты Поставщика.
+        2. supplier_details_value — полное наименование и реквизиты Поставщика.
         3. supplier_signatory — ФИО и должность подписанта со стороны Поставщика.
         4. supplier_signatory_basis — основание полномочий подписанта Поставщика:
            - "charter" — если прямо указано "на основании устава"
@@ -727,7 +727,7 @@ checks_v8:
            - "not_defined" — если основание не указано
         5. buyer_details_status — "defined" если прямо указаны наименование и реквизиты
            Покупателя (ИНН и/или ОГРН), иначе "not_defined".
-        6. buyer_details — полное наименование и реквизиты Покупателя.
+        6. buyer_details_value — полное наименование и реквизиты Покупателя.
         7. buyer_signatory — ФИО и должность подписанта со стороны Покупателя.
         8. buyer_signatory_basis — основание полномочий подписанта Покупателя
            (charter / poa / order / other / not_defined — по тем же правилам).
@@ -751,7 +751,7 @@ checks_v8:
           description: "Статус определённости реквизитов поставщика."
           required: true
           allowed_values: ["defined", "not_defined"]
-        - name: "supplier_details"
+        - name: "supplier_details_value"
           type: "string"
           presentation: "fact"
           label: "Поставщик"
@@ -778,7 +778,7 @@ checks_v8:
           description: "Статус определённости реквизитов покупателя."
           required: true
           allowed_values: ["defined", "not_defined"]
-        - name: "buyer_details"
+        - name: "buyer_details_value"
           type: "string"
           presentation: "fact"
           label: "Покупатель"
@@ -1512,7 +1512,7 @@ checks_v8:
         Ответ:
         {
           "payment_method_status": "defined",
-          "payment_method": "postpayment",
+          "payment_method_code": "postpayment",
           "payment_deadline_status": "defined",
           "payment_deadline_details": "в течение 30 дней с момента поставки",
           "risk_transfer_status": "defined",
@@ -1542,7 +1542,7 @@ checks_v8:
         Ответ:
         {
           "payment_method_status": "not_defined",
-          "payment_method": "not_defined",
+          "payment_method_code": "not_defined",
           "payment_deadline_status": "not_defined",
           "payment_deadline_details": "Данные не определены",
           "risk_transfer_status": "not_defined",
@@ -1571,7 +1571,7 @@ checks_v8:
         Ответь строго в JSON:
         {
           "payment_method_status": "<defined / not_defined>",
-          "payment_method": "<prepayment / postpayment / installments / letter_of_credit / not_defined>",
+          "payment_method_code": "<prepayment / postpayment / installments / letter_of_credit / not_defined>",
           "payment_deadline_status": "<defined / not_defined>",
           "payment_deadline_details": "<срок или 'Данные не определены'>",
           "risk_transfer_status": "<defined / not_defined>",
@@ -1664,7 +1664,7 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. payment_method_status — "defined" если форма оплаты прямо определена, иначе "not_defined".
-        2. payment_method — форма оплаты. Используй только:
+        2. payment_method_code — форма оплаты. Используй только:
            - "prepayment" — если оплата прямо производится до поставки
            - "postpayment" — если оплата прямо производится после поставки
            - "installments" — если оплата прямо разбита на части/рассрочку
@@ -1713,7 +1713,7 @@ checks_v8:
           description: "Статус определённости формы оплаты."
           required: true
           allowed_values: ["defined", "not_defined"]
-        - name: "payment_method"
+        - name: "payment_method_code"
           type: "string"
           presentation: "signal"
           description: "Форма оплаты: предоплата, постоплата, рассрочка, аккредитив."
@@ -2539,7 +2539,7 @@ checks_v8:
           "incoterms_rule": "FCA",
           "incoterms_version": "2020",
           "named_place_status": "defined",
-          "named_place": "Москва",
+          "named_place_value": "Москва",
           "cost_allocation_status": "defined",
           "evidence": [
             {
@@ -2559,7 +2559,7 @@ checks_v8:
           "incoterms_rule": "not_defined",
           "incoterms_version": "not_defined",
           "named_place_status": "not_defined",
-          "named_place": "Данные не определены",
+          "named_place_value": "Данные не определены",
           "cost_allocation_status": "not_defined",
           "evidence": []
         }
@@ -2579,7 +2579,7 @@ checks_v8:
           "incoterms_rule": "<EXW / FCA / FAS / FOB / CFR / CIF / CPT / CIP / DAP / DPU / DDP / not_defined>",
           "incoterms_version": "<2020 / 2010 / not_defined>",
           "named_place_status": "<defined / not_defined>",
-          "named_place": "<место или 'Данные не определены'>",
+          "named_place_value": "<место или 'Данные не определены'>",
           "cost_allocation_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -2659,7 +2659,7 @@ checks_v8:
         2. incoterms_rule — EXW / FCA / FAS / FOB / CFR / CIF / CPT / CIP / DAP / DPU / DDP / not_defined.
         3. incoterms_version — 2020 / 2010 / not_defined.
         4. named_place_status — "defined" если именованное место указано.
-        5. named_place — конкретное место.
+        5. named_place_value — конкретное место.
         6. cost_allocation_status — "defined" если распределение расходов ясно определено.
 
         Если данных нет:
@@ -2704,7 +2704,7 @@ checks_v8:
           description: "Статус наличия именованного места поставки по Инкотермс."
           required: false
           allowed_values: ["defined", "not_defined"]
-        - name: "named_place"
+        - name: "named_place_value"
           type: "string"
           presentation: "fact"
           label: "Именованное место"

@@ -752,12 +752,12 @@ checks_v8:
         Ответ:
         {
           "receiver_details_status": "defined",
-          "receiver_details": "Иванова Мария Ивановна, 15.05.1948, паспорт серия 45 00 № 123456",
+          "receiver_details_value": "Иванова Мария Ивановна, 15.05.1948, паспорт серия 45 00 № 123456",
           "receiver_type": "individual",
           "receiver_signatory": "Иванова М.И.",
           "receiver_signatory_basis": "personal",
           "payer_details_status": "defined",
-          "payer_details": "Петров Иван Сергеевич, паспорт серия 45 01 № 654321",
+          "payer_details_value": "Петров Иван Сергеевич, паспорт серия 45 01 № 654321",
           "payer_type": "individual",
           "payer_signatory": "Петров И.С.",
           "payer_signatory_basis": "personal",
@@ -778,12 +778,12 @@ checks_v8:
         Ответ:
         {
           "receiver_details_status": "not_defined",
-          "receiver_details": "Данные не определены",
+          "receiver_details_value": "Данные не определены",
           "receiver_type": "not_defined",
           "receiver_signatory": "Данные не определены",
           "receiver_signatory_basis": "not_defined",
           "payer_details_status": "not_defined",
-          "payer_details": "Данные не определены",
+          "payer_details_value": "Данные не определены",
           "payer_type": "not_defined",
           "payer_signatory": "Данные не определены",
           "payer_signatory_basis": "not_defined",
@@ -804,12 +804,12 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "receiver_details_status": "<defined / not_defined>",
-          "receiver_details": "<реквизиты или 'Данные не определены'>",
+          "receiver_details_value": "<реквизиты или 'Данные не определены'>",
           "receiver_type": "<individual / nco / commercial / not_defined>",
           "receiver_signatory": "<ФИО или 'Данные не определены'>",
           "receiver_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
           "payer_details_status": "<defined / not_defined>",
-          "payer_details": "<реквизиты или 'Данные не определены'>",
+          "payer_details_value": "<реквизиты или 'Данные не определены'>",
           "payer_type": "<individual / legal_entity / not_defined>",
           "payer_signatory": "<ФИО или 'Данные не определены'>",
           "payer_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
@@ -894,12 +894,12 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. receiver_details_status — "defined" если получатель ренты прямо идентифицирован, иначе "not_defined".
-        2. receiver_details — реквизиты получателя ренты.
+        2. receiver_details_value — реквизиты получателя ренты.
         3. receiver_type — "individual" / "nco" / "commercial" / "not_defined".
         4. receiver_signatory — подписант от получателя ренты.
         5. receiver_signatory_basis — "charter" / "poa" / "order" / "personal" / "other" / "not_defined".
         6. payer_details_status — "defined" если плательщик ренты прямо идентифицирован, иначе "not_defined".
-        7. payer_details — реквизиты плательщика ренты.
+        7. payer_details_value — реквизиты плательщика ренты.
         8. payer_type — "individual" / "legal_entity" / "not_defined".
         9. payer_signatory — подписант от плательщика ренты.
         10. payer_signatory_basis — "charter" / "poa" / "order" / "personal" / "other" / "not_defined".
@@ -924,7 +924,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации получателя ренты."
           required: true
-        - name: "receiver_details"
+        - name: "receiver_details_value"
           type: "string"
           presentation: "fact"
           label: "Получатель ренты: реквизиты"
@@ -957,7 +957,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации плательщика ренты."
           required: true
-        - name: "payer_details"
+        - name: "payer_details_value"
           type: "string"
           presentation: "fact"
           label: "Плательщик ренты: реквизиты"
@@ -1068,17 +1068,17 @@ checks_v8:
         Ответ:
         {
           "rent_type_status": "defined",
-          "rent_type": "life_annuity",
+          "rent_type_code": "life_annuity",
           "rent_type_explicitly_stated": "implied",
           "property_description_status": "defined",
-          "property_description": "квартира, г. Москва, ул. Ленина, д. 5, кв. 12, кадастровый номер 77:06:0001001:123",
+          "property_description_value": "квартира, г. Москва, ул. Ленина, д. 5, кв. 12, кадастровый номер 77:06:0001001:123",
           "property_kind": "real_estate",
           "payment_form_status": "defined",
-          "payment_form": "money",
+          "payment_form_code": "money",
           "payment_periodicity_status": "defined",
-          "payment_periodicity": "monthly",
+          "payment_periodicity_code": "monthly",
           "transfer_character_status": "defined",
-          "transfer_character": "free",
+          "transfer_character_code": "free",
           "evidence": [
             {
               "clause_ref": "п. 1.1",
@@ -1094,17 +1094,17 @@ checks_v8:
         Ответ:
         {
           "rent_type_status": "not_defined",
-          "rent_type": "not_defined",
+          "rent_type_code": "not_defined",
           "rent_type_explicitly_stated": "not_defined",
           "property_description_status": "not_defined",
-          "property_description": "Данные не определены",
+          "property_description_value": "Данные не определены",
           "property_kind": "not_defined",
           "payment_form_status": "not_defined",
-          "payment_form": "not_defined",
+          "payment_form_code": "not_defined",
           "payment_periodicity_status": "not_defined",
-          "payment_periodicity": "not_defined",
+          "payment_periodicity_code": "not_defined",
           "transfer_character_status": "not_defined",
-          "transfer_character": "not_defined",
+          "transfer_character_code": "not_defined",
           "evidence": []
         }
 
@@ -1119,17 +1119,17 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "rent_type_status": "<defined / not_defined>",
-          "rent_type": "<permanent / life_annuity / lifetime_maintenance / mixed / not_defined>",
+          "rent_type_code": "<permanent / life_annuity / lifetime_maintenance / mixed / not_defined>",
           "rent_type_explicitly_stated": "<yes / implied / not_defined>",
           "property_description_status": "<defined / not_defined>",
-          "property_description": "<описание или 'Данные не определены'>",
+          "property_description_value": "<описание или 'Данные не определены'>",
           "property_kind": "<real_estate / movable / mixed / not_defined>",
           "payment_form_status": "<defined / not_defined>",
-          "payment_form": "<money / in_kind / mixed / not_defined>",
+          "payment_form_code": "<money / in_kind / mixed / not_defined>",
           "payment_periodicity_status": "<defined / not_defined>",
-          "payment_periodicity": "<monthly / quarterly / yearly / custom / not_defined>",
+          "payment_periodicity_code": "<monthly / quarterly / yearly / custom / not_defined>",
           "transfer_character_status": "<defined / not_defined>",
-          "transfer_character": "<paid / free / not_defined>",
+          "transfer_character_code": "<paid / free / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 7
@@ -1212,17 +1212,17 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. rent_type_status — "defined" если вид ренты определён, иначе "not_defined".
-        2. rent_type — "permanent" / "life_annuity" / "lifetime_maintenance" / "mixed" / "not_defined".
+        2. rent_type_code — "permanent" / "life_annuity" / "lifetime_maintenance" / "mixed" / "not_defined".
         3. rent_type_explicitly_stated — "yes" / "implied" / "not_defined".
         4. property_description_status — "defined" если имущество описано, иначе "not_defined".
-        5. property_description — описание передаваемого имущества.
+        5. property_description_value — описание передаваемого имущества.
         6. property_kind — "real_estate" / "movable" / "mixed" / "not_defined".
         7. payment_form_status — "defined" если форма рентного предоставления указана, иначе "not_defined".
-        8. payment_form — "money" / "in_kind" / "mixed" / "not_defined".
+        8. payment_form_code — "money" / "in_kind" / "mixed" / "not_defined".
         9. payment_periodicity_status — "defined" если периодичность указана, иначе "not_defined".
-        10. payment_periodicity — "monthly" / "quarterly" / "yearly" / "custom" / "not_defined".
+        10. payment_periodicity_code — "monthly" / "quarterly" / "yearly" / "custom" / "not_defined".
         11. transfer_character_status — "defined" если имущество передаётся за плату или бесплатно, иначе "not_defined".
-        12. transfer_character — "paid" / "free" / "not_defined".
+        12. transfer_character_code — "paid" / "free" / "not_defined".
 
         Если данные отсутствуют:
         - статус = "not_defined"
@@ -1249,7 +1249,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения вида ренты."
           required: true
-        - name: "rent_type"
+        - name: "rent_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["permanent", "life_annuity", "lifetime_maintenance", "mixed", "not_defined"]
@@ -1267,7 +1267,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус описания имущества, передаваемого под выплату ренты."
           required: true
-        - name: "property_description"
+        - name: "property_description_value"
           type: "string"
           presentation: "fact"
           label: "Передаваемое имущество"
@@ -1287,7 +1287,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения формы рентного предоставления."
           required: false
-        - name: "payment_form"
+        - name: "payment_form_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["money", "in_kind", "mixed", "not_defined"]
@@ -1299,7 +1299,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения периодичности выплат или содержания."
           required: false
-        - name: "payment_periodicity"
+        - name: "payment_periodicity_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["monthly", "quarterly", "yearly", "custom", "not_defined"]
@@ -1311,7 +1311,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения характера передачи имущества."
           required: false
-        - name: "transfer_character"
+        - name: "transfer_character_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["paid", "free", "not_defined"]
@@ -1383,11 +1383,11 @@ checks_v8:
           "notarization_status": "defined",
           "notarization_level": "clearly_notarial",
           "notary_details_status": "defined",
-          "notary_details": "Иванова А.А., нотариальный округ г. Москвы",
+          "notary_details_value": "Иванова А.А., нотариальный округ г. Москвы",
           "notary_date_status": "defined",
-          "notary_date": "15.03.2026",
+          "notary_date_value": "15.03.2026",
           "registry_number_status": "defined",
-          "registry_number": "77/100-н/77-2026-1-123",
+          "registry_number_value": "77/100-н/77-2026-1-123",
           "nullity_risk": "low",
           "evidence": [
             {
@@ -1406,11 +1406,11 @@ checks_v8:
           "notarization_status": "not_defined",
           "notarization_level": "not_found",
           "notary_details_status": "not_defined",
-          "notary_details": "Данные не определены",
+          "notary_details_value": "Данные не определены",
           "notary_date_status": "not_defined",
-          "notary_date": "Данные не определены",
+          "notary_date_value": "Данные не определены",
           "registry_number_status": "not_defined",
-          "registry_number": "Данные не определены",
+          "registry_number_value": "Данные не определены",
           "nullity_risk": "critical",
           "evidence": []
         }
@@ -1428,11 +1428,11 @@ checks_v8:
           "notarization_status": "<defined / not_defined>",
           "notarization_level": "<clearly_notarial / mentioned / not_found>",
           "notary_details_status": "<defined / not_defined>",
-          "notary_details": "<ФИО нотариуса или 'Данные не определены'>",
+          "notary_details_value": "<ФИО нотариуса или 'Данные не определены'>",
           "notary_date_status": "<defined / not_defined>",
-          "notary_date": "<дата или 'Данные не определены'>",
+          "notary_date_value": "<дата или 'Данные не определены'>",
           "registry_number_status": "<defined / not_defined>",
-          "registry_number": "<номер или 'Данные не определены'>",
+          "registry_number_value": "<номер или 'Данные не определены'>",
           "nullity_risk": "<critical / low>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -1512,11 +1512,11 @@ checks_v8:
         1. notarization_status — "defined" если нотариальная форма прямо подтверждена, иначе "not_defined".
         2. notarization_level — "clearly_notarial" / "mentioned" / "not_found".
         3. notary_details_status — "defined" если данные нотариуса указаны, иначе "not_defined".
-        4. notary_details — ФИО нотариуса и/или нотариальный округ.
+        4. notary_details_value — ФИО нотариуса и/или нотариальный округ.
         5. notary_date_status — "defined" если дата удостоверения указана, иначе "not_defined".
-        6. notary_date — дата удостоверения.
+        6. notary_date_value — дата удостоверения.
         7. registry_number_status — "defined" если реестровый номер указан, иначе "not_defined".
-        8. registry_number — реестровый номер нотариального действия.
+        8. registry_number_value — реестровый номер нотариального действия.
         9. nullity_risk — "low" если нотариальная форма подтверждена, "critical" если не найдена.
 
         Если данные отсутствуют:
@@ -1552,7 +1552,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия реквизитов нотариуса."
           required: false
-        - name: "notary_details"
+        - name: "notary_details_value"
           type: "string"
           presentation: "fact"
           label: "Нотариус"
@@ -1566,7 +1566,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия даты нотариального удостоверения."
           required: false
-        - name: "notary_date"
+        - name: "notary_date_value"
           type: "string"
           presentation: "fact"
           label: "Дата нотариального удостоверения"
@@ -1580,7 +1580,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия реестрового номера нотариального действия."
           required: false
-        - name: "registry_number"
+        - name: "registry_number_value"
           type: "string"
           presentation: "fact"
           label: "Реестровый номер"
@@ -1660,7 +1660,7 @@ checks_v8:
           "property_description": "квартира, г. Москва, ул. Ленина, д. 5, кв. 12, 45 кв.м.",
           "property_kind": "real_estate",
           "cadastral_number_status": "defined",
-          "cadastral_number": "77:06:0001001:123",
+          "cadastral_number_value": "77:06:0001001:123",
           "evidence": [
             {
               "clause_ref": "п. 1.1",
@@ -1679,7 +1679,7 @@ checks_v8:
           "property_description": "Данные не определены",
           "property_kind": "not_defined",
           "cadastral_number_status": "not_defined",
-          "cadastral_number": "Данные не определены",
+          "cadastral_number_value": "Данные не определены",
           "evidence": []
         }
 
@@ -1696,7 +1696,7 @@ checks_v8:
           "property_description": "<описание или 'Данные не определены'>",
           "property_kind": "<real_estate / movable / mixed / not_defined>",
           "cadastral_number_status": "<defined / not_defined>",
-          "cadastral_number": "<номер или 'Данные не определены'>",
+          "cadastral_number_value": "<номер или 'Данные не определены'>",
           "evidence": [{"clause_ref":"<пункт>", "quote":"<точная цитата>"}]
         }
       context_k: 5
@@ -1780,7 +1780,7 @@ checks_v8:
         2. property_description — конкретное описание имущества, передаваемого плательщику ренты.
         3. property_kind — "real_estate" если недвижимость / "movable" если движимое / "mixed" если оба типа / "not_defined".
         4. cadastral_number_status — "defined" если кадастровый номер прямо написан, иначе "not_defined".
-        5. cadastral_number — кадастровый номер в формате NN:NN:NNNNNNN:N.
+        5. cadastral_number_value — кадастровый номер в формате NN:NN:NNNNNNN:N.
 
         Если данных нет:
         - статус = "not_defined"
@@ -1821,7 +1821,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия кадастрового номера."
           required: false
-        - name: "cadastral_number"
+        - name: "cadastral_number_value"
           type: "string"
           presentation: "fact"
           label: "Кадастровый номер"
@@ -2135,13 +2135,13 @@ checks_v8:
         Ответ:
         {
           "rent_amount_status": "defined",
-          "rent_amount": "30 000 рублей ежемесячно",
+          "rent_amount_value": "30 000 рублей ежемесячно",
           "pm_link_status": "defined",
           "pm_link_details": "не менее одного прожиточного минимума, установленного в г. Москве",
           "indexation_status": "defined",
           "indexation_mechanism": "pm_based",
           "payment_periodicity_status": "defined",
-          "payment_periodicity": "monthly",
+          "payment_periodicity_code": "monthly",
           "late_payment_status": "defined",
           "late_payment_details": "пеня 0,1% за каждый день",
           "evidence": [
@@ -2159,13 +2159,13 @@ checks_v8:
         Ответ:
         {
           "rent_amount_status": "not_defined",
-          "rent_amount": "Данные не определены",
+          "rent_amount_value": "Данные не определены",
           "pm_link_status": "not_defined",
           "pm_link_details": "Данные не определены",
           "indexation_status": "not_defined",
           "indexation_mechanism": "not_defined",
           "payment_periodicity_status": "not_defined",
-          "payment_periodicity": "not_defined",
+          "payment_periodicity_code": "not_defined",
           "late_payment_status": "not_defined",
           "late_payment_details": "Данные не определены",
           "evidence": []
@@ -2183,13 +2183,13 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "rent_amount_status": "<defined / not_defined>",
-          "rent_amount": "<сумма или 'Данные не определены'>",
+          "rent_amount_value": "<сумма или 'Данные не определены'>",
           "pm_link_status": "<defined / not_defined>",
           "pm_link_details": "<текст или 'Данные не определены'>",
           "indexation_status": "<defined / not_defined>",
           "indexation_mechanism": "<pm_based / inflation / custom / not_defined>",
           "payment_periodicity_status": "<defined / not_defined>",
-          "payment_periodicity": "<monthly / quarterly / yearly / custom / not_defined>",
+          "payment_periodicity_code": "<monthly / quarterly / yearly / custom / not_defined>",
           "late_payment_status": "<defined / not_defined>",
           "late_payment_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -2269,13 +2269,13 @@ checks_v8:
 
         <task>
         1. rent_amount_status — "defined" если размер ренты прямо указан, иначе "not_defined".
-        2. rent_amount — размер ренты или содержания.
+        2. rent_amount_value — размер ренты или содержания.
         3. pm_link_status — "defined" если есть привязка к прожиточному минимуму, иначе "not_defined".
         4. pm_link_details — текст о привязке к прожиточному минимуму.
         5. indexation_status — "defined" если индексация прямо указана, иначе "not_defined".
         6. indexation_mechanism — "pm_based" / "inflation" / "custom" / "not_defined".
         7. payment_periodicity_status — "defined" если периодичность указана, иначе "not_defined".
-        8. payment_periodicity — "monthly" / "quarterly" / "yearly" / "custom" / "not_defined".
+        8. payment_periodicity_code — "monthly" / "quarterly" / "yearly" / "custom" / "not_defined".
         9. late_payment_status — "defined" если последствия просрочки прямо указаны, иначе "not_defined".
         10. late_payment_details — текст о пене, процентах или иной ответственности за просрочку.
 
@@ -2300,7 +2300,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения размера ренты."
           required: true
-        - name: "rent_amount"
+        - name: "rent_amount_value"
           type: "string"
           presentation: "fact"
           label: "Размер ренты"
@@ -2340,7 +2340,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения периодичности рентных выплат."
           required: false
-        - name: "payment_periodicity"
+        - name: "payment_periodicity_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["monthly", "quarterly", "yearly", "custom", "not_defined"]
@@ -2453,7 +2453,7 @@ checks_v8:
           "funeral_services_status": "defined",
           "funeral_services_details": "организует и оплачивает Плательщик",
           "maintenance_value_status": "defined",
-          "maintenance_value": "не менее 60 000 рублей в месяц",
+          "maintenance_value_value": "не менее 60 000 рублей в месяц",
           "cash_substitution_status": "defined",
           "cash_substitution_details": "допускается только с письменного согласия Получателя ренты",
           "evidence": [
@@ -2480,7 +2480,7 @@ checks_v8:
           "funeral_services_status": "not_defined",
           "funeral_services_details": "Данные не определены",
           "maintenance_value_status": "not_defined",
-          "maintenance_value": "Данные не определены",
+          "maintenance_value_value": "Данные не определены",
           "cash_substitution_status": "not_defined",
           "cash_substitution_details": "Данные не определены",
           "evidence": [
@@ -2511,7 +2511,7 @@ checks_v8:
           "funeral_services_status": "<defined / not_defined>",
           "funeral_services_details": "<текст или 'Данные не определены'>",
           "maintenance_value_status": "<defined / not_defined>",
-          "maintenance_value": "<сумма или 'Данные не определены'>",
+          "maintenance_value_value": "<сумма или 'Данные не определены'>",
           "cash_substitution_status": "<defined / not_defined>",
           "cash_substitution_details": "<текст или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -2603,7 +2603,7 @@ checks_v8:
         8. funeral_services_status — "defined" если ритуальные услуги указаны, иначе "not_defined".
         9. funeral_services_details — текст о ритуальных услугах.
         10. maintenance_value_status — "defined" если стоимость содержания указана, иначе "not_defined".
-        11. maintenance_value — стоимость содержания.
+        11. maintenance_value_value — стоимость содержания.
         12. cash_substitution_status — "defined" если замена содержания деньгами указана, иначе "not_defined".
         13. cash_substitution_details — текст о замене содержания денежными выплатами.
 
@@ -2681,7 +2681,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения стоимости содержания."
           required: false
-        - name: "maintenance_value"
+        - name: "maintenance_value_value"
           type: "string"
           presentation: "fact"
           label: "Стоимость содержания"
@@ -2768,7 +2768,7 @@ checks_v8:
           "buyout_price_status": "defined",
           "buyout_price_details": "1 500 000 рублей",
           "buyout_notice_period_status": "defined",
-          "buyout_notice_period": "не менее 3 месяцев до предполагаемой даты",
+          "buyout_notice_period_value": "не менее 3 месяцев до предполагаемой даты",
           "evidence": [
             {
               "clause_ref": "п. 5.1",
@@ -2788,7 +2788,7 @@ checks_v8:
           "buyout_price_status": "not_defined",
           "buyout_price_details": "Данные не определены",
           "buyout_notice_period_status": "not_defined",
-          "buyout_notice_period": "Данные не определены",
+          "buyout_notice_period_value": "Данные не определены",
           "evidence": []
         }
 
@@ -2807,7 +2807,7 @@ checks_v8:
           "buyout_price_status": "<defined / not_defined>",
           "buyout_price_details": "<сумма/методика или 'Данные не определены'>",
           "buyout_notice_period_status": "<defined / not_defined>",
-          "buyout_notice_period": "<срок или 'Данные не определены'>",
+          "buyout_notice_period_value": "<срок или 'Данные не определены'>",
           "evidence": [{"clause_ref":"<пункт>", "quote":"<точная цитата>"}]
         }
       context_k: 5
@@ -2892,7 +2892,7 @@ checks_v8:
         3. buyout_price_status — "defined" если выкупная цена или методика её расчёта указаны, иначе "not_defined".
         4. buyout_price_details — конкретная сумма или описание методики выкупной цены.
         5. buyout_notice_period_status — "defined" если срок уведомления о выкупе прямо указан, иначе "not_defined".
-        6. buyout_notice_period — конкретный срок уведомления о намерении выкупить ренту.
+        6. buyout_notice_period_value — конкретный срок уведомления о намерении выкупить ренту.
 
         Если данных нет:
         - статус = "not_defined"
@@ -2939,7 +2939,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока уведомления о намерении выкупить ренту."
           required: false
-        - name: "buyout_notice_period"
+        - name: "buyout_notice_period_value"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления о выкупе"
@@ -3228,12 +3228,12 @@ checks_v8:
         Ответ:
         {
           "risk_allocation_status": "defined",
-          "risk_allocation": "payer",
+          "risk_allocation_code": "payer",
           "loss_non_discharge_status": "defined",
           "loss_non_discharge_details": "случайная гибель не освобождает от выплаты ренты",
           "insurance_status": "defined",
           "insurance_beneficiary_status": "defined",
-          "insurance_beneficiary": "Получатель ренты",
+          "insurance_beneficiary_value": "Получатель ренты",
           "evidence": [
             {
               "clause_ref": "п. 5.1",
@@ -3249,12 +3249,12 @@ checks_v8:
         Ответ:
         {
           "risk_allocation_status": "not_defined",
-          "risk_allocation": "not_defined",
+          "risk_allocation_code": "not_defined",
           "loss_non_discharge_status": "not_defined",
           "loss_non_discharge_details": "Данные не определены",
           "insurance_status": "not_defined",
           "insurance_beneficiary_status": "not_defined",
-          "insurance_beneficiary": "Данные не определены",
+          "insurance_beneficiary_value": "Данные не определены",
           "evidence": []
         }
 
@@ -3268,12 +3268,12 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "risk_allocation_status": "<defined / not_defined>",
-          "risk_allocation": "<payer / receiver / not_defined>",
+          "risk_allocation_code": "<payer / receiver / not_defined>",
           "loss_non_discharge_status": "<defined / not_defined>",
           "loss_non_discharge_details": "<текст или 'Данные не определены'>",
           "insurance_status": "<defined / not_defined>",
           "insurance_beneficiary_status": "<defined / not_defined>",
-          "insurance_beneficiary": "<сторона или 'Данные не определены'>",
+          "insurance_beneficiary_value": "<сторона или 'Данные не определены'>",
           "evidence": [{"clause_ref":"<пункт>", "quote":"<точная цитата>"}]
         }
       context_k: 5
@@ -3353,12 +3353,12 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. risk_allocation_status — "defined" если риск случайной гибели прямо распределён, иначе "not_defined".
-        2. risk_allocation — сторона, несущая риск: "payer" / "receiver" / "not_defined".
+        2. risk_allocation_code — сторона, несущая риск: "payer" / "receiver" / "not_defined".
         3. loss_non_discharge_status — "defined" если прямо написано, влияет ли гибель имущества на обязанность выплачивать ренту, иначе "not_defined".
         4. loss_non_discharge_details — текст о влиянии гибели на обязательство.
         5. insurance_status — "defined" если страхование предусмотрено, иначе "not_defined".
         6. insurance_beneficiary_status — "defined" если выгодоприобретатель прямо указан, иначе "not_defined".
-        7. insurance_beneficiary — наименование выгодоприобретателя.
+        7. insurance_beneficiary_value — наименование выгодоприобретателя.
 
         Если данных нет:
         - статус = "not_defined"
@@ -3378,7 +3378,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус распределения риска случайной гибели имущества."
           required: true
-        - name: "risk_allocation"
+        - name: "risk_allocation_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["payer", "receiver", "not_defined"]
@@ -3410,7 +3410,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения выгодоприобретателя по страхованию."
           required: false
-        - name: "insurance_beneficiary"
+        - name: "insurance_beneficiary_value"
           type: "string"
           presentation: "fact"
           label: "Выгодоприобретатель по страхованию"
@@ -3475,7 +3475,7 @@ checks_v8:
         Ответ:
         {
           "late_payment_rate_status": "defined",
-          "late_payment_rate": "0,1% от суммы задолженности за каждый день просрочки",
+          "late_payment_rate_value": "0,1% от суммы задолженности за каждый день просрочки",
           "evidence": [
             {
               "clause_ref": "п. 4.2",
@@ -3491,7 +3491,7 @@ checks_v8:
         Ответ:
         {
           "late_payment_rate_status": "not_defined",
-          "late_payment_rate": "Данные не определены",
+          "late_payment_rate_value": "Данные не определены",
           "evidence": []
         }
 
@@ -3504,7 +3504,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "late_payment_rate_status": "<defined / not_defined>",
-          "late_payment_rate": "<ставка или 'Данные не определены'>",
+          "late_payment_rate_value": "<ставка или 'Данные не определены'>",
           "evidence": [{"clause_ref":"<пункт>", "quote":"<точная цитата>"}]
         }
       context_k: 4
@@ -3580,7 +3580,7 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. late_payment_rate_status — "defined" если ставка пени, процентов или иное правило начисления ответственности за просрочку прямо указаны, иначе "not_defined".
-        2. late_payment_rate — конкретная ставка пени или описание механизма начисления (например, "0,1% за каждый день" или "по ст. 395 ГК РФ").
+        2. late_payment_rate_value — конкретная ставка пени или описание механизма начисления (например, "0,1% за каждый день" или "по ст. 395 ГК РФ").
 
         Если данных нет:
         - статус = "not_defined"
@@ -3598,7 +3598,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия условия о ставке пени или процентов за просрочку рентных платежей."
           required: true
-        - name: "late_payment_rate"
+        - name: "late_payment_rate_value"
           type: "string"
           presentation: "fact"
           label: "Пеня/проценты за просрочку"
@@ -4249,13 +4249,13 @@ checks_v8:
         Ответ:
         {
           "transfer_type_status": "defined",
-          "transfer_type": "paid",
+          "transfer_type_code": "paid",
           "transfer_price_status": "defined",
-          "transfer_price": "500 000 рублей",
+          "transfer_price_value": "500 000 рублей",
           "succession_clause_status": "defined",
           "succession_clause_details": "обязательства переходят к новому собственнику при отчуждении имущества",
           "liability_type_status": "defined",
-          "liability_type": "subsidiary",
+          "liability_type_code": "subsidiary",
           "notification_procedure_status": "defined",
           "evidence": [
             {
@@ -4273,13 +4273,13 @@ checks_v8:
         Ответ:
         {
           "transfer_type_status": "defined",
-          "transfer_type": "free",
+          "transfer_type_code": "free",
           "transfer_price_status": "not_defined",
-          "transfer_price": "Данные не определены",
+          "transfer_price_value": "Данные не определены",
           "succession_clause_status": "not_defined",
           "succession_clause_details": "Данные не определены",
           "liability_type_status": "not_defined",
-          "liability_type": "not_defined",
+          "liability_type_code": "not_defined",
           "notification_procedure_status": "not_defined",
           "evidence": [
             {
@@ -4300,13 +4300,13 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "transfer_type_status": "<defined / not_defined>",
-          "transfer_type": "<paid / free / not_defined>",
+          "transfer_type_code": "<paid / free / not_defined>",
           "transfer_price_status": "<defined / not_defined>",
-          "transfer_price": "<сумма или 'Данные не определены'>",
+          "transfer_price_value": "<сумма или 'Данные не определены'>",
           "succession_clause_status": "<defined / not_defined>",
           "succession_clause_details": "<текст или 'Данные не определены'>",
           "liability_type_status": "<defined / not_defined>",
-          "liability_type": "<subsidiary / solidary / not_defined>",
+          "liability_type_code": "<subsidiary / solidary / not_defined>",
           "notification_procedure_status": "<defined / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
@@ -4386,13 +4386,13 @@ checks_v8:
 
         <task>
         1. transfer_type_status — "defined" если характер передачи указан, иначе "not_defined".
-        2. transfer_type — "paid" / "free" / "not_defined".
+        2. transfer_type_code — "paid" / "free" / "not_defined".
         3. transfer_price_status — "defined" если цена при возмездной передаче указана, иначе "not_defined".
-        4. transfer_price — цена передачи имущества.
+        4. transfer_price_value — цена передачи имущества.
         5. succession_clause_status — "defined" если переход рентных обязательств к новому собственнику указан, иначе "not_defined".
         6. succession_clause_details — текст о переходе обязательств.
         7. liability_type_status — "defined" если вид ответственности прежнего плательщика указан, иначе "not_defined".
-        8. liability_type — "subsidiary" / "solidary" / "not_defined".
+        8. liability_type_code — "subsidiary" / "solidary" / "not_defined".
         9. notification_procedure_status — "defined" если порядок уведомления получателя о смене плательщика указан, иначе "not_defined".
 
         Если данных нет:
@@ -4412,7 +4412,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения характера передачи имущества."
           required: true
-        - name: "transfer_type"
+        - name: "transfer_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["paid", "free", "not_defined"]
@@ -4424,7 +4424,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения цены при возмездной передаче имущества."
           required: false
-        - name: "transfer_price"
+        - name: "transfer_price_value"
           type: "string"
           presentation: "fact"
           label: "Цена передачи имущества"
@@ -4452,7 +4452,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения вида ответственности прежнего плательщика."
           required: false
-        - name: "liability_type"
+        - name: "liability_type_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["subsidiary", "solidary", "not_defined"]

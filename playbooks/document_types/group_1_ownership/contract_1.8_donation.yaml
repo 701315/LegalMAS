@@ -818,12 +818,12 @@ checks_v8:
         Ответ:
         {
           "donor_details_status": "defined",
-          "donor_details": "ООО «Альфа», ИНН 7700000001, ОГРН 1027700000001",
+          "donor_details_value": "ООО «Альфа», ИНН 7700000001, ОГРН 1027700000001",
           "donor_type": "legal_entity",
           "donor_signatory": "Генеральный директор Иванов А.А.",
           "donor_signatory_basis": "charter",
           "donee_details_status": "defined",
-          "donee_details": "Петров Б.Б., паспорт серия 45 00 № 123456",
+          "donee_details_value": "Петров Б.Б., паспорт серия 45 00 № 123456",
           "donee_type": "individual",
           "donee_signatory": "Петров Б.Б.",
           "donee_signatory_basis": "personal",
@@ -847,12 +847,12 @@ checks_v8:
         Ответ:
         {
           "donor_details_status": "not_defined",
-          "donor_details": "Данные не определены",
+          "donor_details_value": "Данные не определены",
           "donor_type": "not_defined",
           "donor_signatory": "Данные не определены",
           "donor_signatory_basis": "not_defined",
           "donee_details_status": "not_defined",
-          "donee_details": "Данные не определены",
+          "donee_details_value": "Данные не определены",
           "donee_type": "not_defined",
           "donee_signatory": "Данные не определены",
           "donee_signatory_basis": "not_defined",
@@ -876,12 +876,12 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "donor_details_status": "<defined / not_defined>",
-          "donor_details": "<реквизиты или 'Данные не определены'>",
+          "donor_details_value": "<реквизиты или 'Данные не определены'>",
           "donor_type": "<legal_entity / individual_entrepreneur / individual / not_defined>",
           "donor_signatory": "<ФИО или 'Данные не определены'>",
           "donor_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
           "donee_details_status": "<defined / not_defined>",
-          "donee_details": "<реквизиты или 'Данные не определены'>",
+          "donee_details_value": "<реквизиты или 'Данные не определены'>",
           "donee_type": "<legal_entity / individual_entrepreneur / individual / not_defined>",
           "donee_signatory": "<ФИО или 'Данные не определены'>",
           "donee_signatory_basis": "<charter / poa / order / personal / other / not_defined>",
@@ -971,12 +971,12 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. donor_details_status — "defined" или "not_defined".
-        2. donor_details — наименование и реквизиты Дарителя (ИНН/ОГРН для ЮЛ, паспорт для физлица).
+        2. donor_details_value — наименование и реквизиты Дарителя (ИНН/ОГРН для ЮЛ, паспорт для физлица).
         3. donor_type — legal_entity / individual_entrepreneur / individual / not_defined.
         4. donor_signatory — ФИО подписанта от Дарителя.
         5. donor_signatory_basis — charter / poa / order / personal / other / not_defined.
         6. donee_details_status — "defined" или "not_defined".
-        7. donee_details — наименование и реквизиты Одаряемого.
+        7. donee_details_value — наименование и реквизиты Одаряемого.
         8. donee_type — legal_entity / individual_entrepreneur / individual / not_defined.
         9. donee_signatory — ФИО подписанта от Одаряемого.
         10. donee_signatory_basis — charter / poa / order / personal / other / not_defined.
@@ -1008,7 +1008,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов Дарителя."
           required: true
-        - name: "donor_details"
+        - name: "donor_details_value"
           type: "string"
           presentation: "fact"
           label: "Даритель: реквизиты"
@@ -1041,7 +1041,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов Одаряемого."
           required: true
-        - name: "donee_details"
+        - name: "donee_details_value"
           type: "string"
           presentation: "fact"
           label: "Одаряемый: реквизиты"
@@ -1182,7 +1182,7 @@ checks_v8:
         Ответ:
         {
           "donation_subject_status": "defined",
-          "donation_subject": "ноутбук Apple MacBook Pro серийный номер C02X12345",
+          "donation_subject_value": "ноутбук Apple MacBook Pro серийный номер C02X12345",
           "donation_subject_type": "thing",
           "subject_specificity": "specific",
           "gratuitousness_status": "defined",
@@ -1206,7 +1206,7 @@ checks_v8:
         Ответ:
         {
           "donation_subject_status": "not_defined",
-          "donation_subject": "Данные не определены",
+          "donation_subject_value": "Данные не определены",
           "donation_subject_type": "not_defined",
           "subject_specificity": "not_defined",
           "gratuitousness_status": "not_defined",
@@ -1234,7 +1234,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "donation_subject_status": "<defined / not_defined>",
-          "donation_subject": "<описание предмета или 'Данные не определены'>",
+          "donation_subject_value": "<описание предмета или 'Данные не определены'>",
           "donation_subject_type": "<thing / right / debt_release / mixed / not_defined>",
           "subject_specificity": "<specific / vague / not_defined>",
           "gratuitousness_status": "<defined / not_defined>",
@@ -1318,7 +1318,7 @@ checks_v8:
         Заполни строго следующие поля:
 
         1. donation_subject_status — "defined" или "not_defined".
-        2. donation_subject — конкретное описание предмета дарения.
+        2. donation_subject_value — конкретное описание предмета дарения.
         3. donation_subject_type — thing / right / debt_release / mixed / not_defined.
         4. subject_specificity — specific / vague / not_defined.
         5. gratuitousness_status — "defined" или "not_defined".
@@ -1355,7 +1355,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения предмета дарения."
           required: true
-        - name: "donation_subject"
+        - name: "donation_subject_value"
           type: "string"
           presentation: "fact"
           label: "Предмет дарения"
@@ -1708,7 +1708,7 @@ checks_v8:
           "promise_of_gift_status": "defined",
           "written_form_status": "defined",
           "subject_specificity_status": "defined",
-          "subject_specificity": "specific",
+          "subject_specificity_code": "specific",
           "triggering_condition_status": "defined",
           "triggering_condition_details": "после окончания обучения Одаряемого",
           "evidence": [
@@ -1728,7 +1728,7 @@ checks_v8:
           "promise_of_gift_status": "defined",
           "written_form_status": "defined",
           "subject_specificity_status": "defined",
-          "subject_specificity": "all_property",
+          "subject_specificity_code": "all_property",
           "triggering_condition_status": "not_defined",
           "triggering_condition_details": "Данные не определены",
           "evidence": [
@@ -1751,7 +1751,7 @@ checks_v8:
           "promise_of_gift_status": "<defined / not_defined>",
           "written_form_status": "<defined / not_defined>",
           "subject_specificity_status": "<defined / not_defined>",
-          "subject_specificity": "<specific / vague / all_property / not_defined>",
+          "subject_specificity_code": "<specific / vague / all_property / not_defined>",
           "triggering_condition_status": "<defined / not_defined>",
           "triggering_condition_details": "<текст условия или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
@@ -1839,7 +1839,7 @@ checks_v8:
            прямо подтверждено, иначе "not_defined".
         3. subject_specificity_status — "defined" если предмет обещания
            конкретно описан, иначе "not_defined".
-        4. subject_specificity — "specific" / "vague" / "all_property" /
+        4. subject_specificity_code — "specific" / "vague" / "all_property" /
            "not_defined".
         5. triggering_condition_status — "defined" если условие вступления
            в силу обещания прямо указано, иначе "not_defined".
@@ -1876,7 +1876,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определённости предмета обещания дарения."
           required: false
-        - name: "subject_specificity"
+        - name: "subject_specificity_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["specific", "vague", "all_property", "not_defined"]
@@ -2787,11 +2787,11 @@ checks_v8:
         Ответ:
         {
           "ownership_regime_status": "defined",
-          "ownership_regime": "joint",
+          "ownership_regime_code": "joint",
           "co_owner_consent_status": "defined",
-          "co_owner_consent": "not_required_stated",
+          "co_owner_consent_code": "not_required_stated",
           "spousal_consent_status": "defined",
-          "spousal_consent": "consent_present",
+          "spousal_consent_code": "consent_present",
           "evidence": [
             {
               "clause_ref": "п. 2.1",
@@ -2807,11 +2807,11 @@ checks_v8:
         Ответ:
         {
           "ownership_regime_status": "defined",
-          "ownership_regime": "sole",
+          "ownership_regime_code": "sole",
           "co_owner_consent_status": "defined",
-          "co_owner_consent": "not_required_stated",
+          "co_owner_consent_code": "not_required_stated",
           "spousal_consent_status": "defined",
-          "spousal_consent": "not_married_confirmed",
+          "spousal_consent_code": "not_married_confirmed",
           "evidence": [
             {
               "clause_ref": "п. 2.1",
@@ -2830,11 +2830,11 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "ownership_regime_status": "<defined / not_defined>",
-          "ownership_regime": "<sole / joint / shared / not_defined>",
+          "ownership_regime_code": "<sole / joint / shared / not_defined>",
           "co_owner_consent_status": "<defined / not_defined>",
-          "co_owner_consent": "<obtained / not_required_stated / not_defined>",
+          "co_owner_consent_code": "<obtained / not_required_stated / not_defined>",
           "spousal_consent_status": "<defined / not_defined>",
-          "spousal_consent": "<consent_present / not_married_confirmed / prenuptial / not_defined>",
+          "spousal_consent_code": "<consent_present / not_married_confirmed / prenuptial / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 6
@@ -2917,16 +2917,16 @@ checks_v8:
 
         1. ownership_regime_status — "defined" если режим собственности прямо
            указан, иначе "not_defined".
-        2. ownership_regime — "sole" (единоличная) / "joint" (совместная) /
+        2. ownership_regime_code — "sole" (единоличная) / "joint" (совместная) /
            "shared" (долевая) / "not_defined".
         3. co_owner_consent_status — "defined" если согласие сособственников
            или заверение об единоличной собственности прямо указано,
            иначе "not_defined".
-        4. co_owner_consent — "obtained" (согласие получено) /
+        4. co_owner_consent_code — "obtained" (согласие получено) /
            "not_required_stated" (заявлено, что не требуется) / "not_defined".
         5. spousal_consent_status — "defined" если согласие супруга или
            подтверждение отсутствия брака прямо указано, иначе "not_defined".
-        6. spousal_consent — "consent_present" / "not_married_confirmed" /
+        6. spousal_consent_code — "consent_present" / "not_married_confirmed" /
            "prenuptial" / "not_defined".
 
         Если данные отсутствуют в тексте:
@@ -2954,7 +2954,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения режима собственности на предмет дарения."
           required: true
-        - name: "ownership_regime"
+        - name: "ownership_regime_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["sole", "joint", "shared", "not_defined"]
@@ -2966,7 +2966,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия согласия сособственников или заверения об его ненужности."
           required: false
-        - name: "co_owner_consent"
+        - name: "co_owner_consent_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["obtained", "not_required_stated", "not_defined"]
@@ -2978,7 +2978,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия согласия супруга или подтверждения отсутствия брака."
           required: false
-        - name: "spousal_consent"
+        - name: "spousal_consent_code"
           type: "string"
           presentation: "signal"
           allowed_values: ["consent_present", "not_married_confirmed", "prenuptial", "not_defined"]
@@ -3333,7 +3333,7 @@ checks_v8:
         Ответ:
         {
           "cadastral_number_status": "defined",
-          "cadastral_number": "77:06:0001001:123",
+          "cadastral_number_value": "77:06:0001001:123",
           "egrn_extract_status": "defined",
           "donor_title_basis_status": "defined",
           "donor_title_basis_details": "договор купли-продажи от 15.06.2015",
@@ -3359,7 +3359,7 @@ checks_v8:
         Ответ:
         {
           "cadastral_number_status": "not_defined",
-          "cadastral_number": "Данные не определены",
+          "cadastral_number_value": "Данные не определены",
           "egrn_extract_status": "not_defined",
           "donor_title_basis_status": "not_defined",
           "donor_title_basis_details": "Данные не определены",
@@ -3384,7 +3384,7 @@ checks_v8:
         [ФОРМАТ ОТВЕТА]
         {
           "cadastral_number_status": "<defined / not_defined>",
-          "cadastral_number": "<номер или 'Данные не определены'>",
+          "cadastral_number_value": "<номер или 'Данные не определены'>",
           "egrn_extract_status": "<defined / not_defined>",
           "donor_title_basis_status": "<defined / not_defined>",
           "donor_title_basis_details": "<основание или 'Данные не определены'>",
@@ -3477,7 +3477,7 @@ checks_v8:
 
         1. cadastral_number_status — "defined" если кадастровый номер объекта
            прямо указан, иначе "not_defined".
-        2. cadastral_number — кадастровый номер в формате NN:NN:NNNNNNN:N.
+        2. cadastral_number_value — кадастровый номер в формате NN:NN:NNNNNNN:N.
         3. egrn_extract_status — "defined" если ссылка на выписку ЕГРН
            прямо указана, иначе "not_defined".
         4. donor_title_basis_status — "defined" если основание права
@@ -3521,7 +3521,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия кадастрового номера объекта дарения."
           required: true
-        - name: "cadastral_number"
+        - name: "cadastral_number_value"
           type: "string"
           presentation: "fact"
           label: "Кадастровый номер объекта"
@@ -3910,13 +3910,13 @@ checks_v8:
         {
           "notarization_status": "defined",
           "share_size_status": "defined",
-          "share_size": "25%",
+          "share_size_value": "25%",
           "share_nominal_value_status": "defined",
           "egrul_procedure_status": "defined",
           "charter_restrictions_status": "defined",
           "participants_consent_status": "defined",
           "preemptive_right_status": "not_defined",
-          "preemptive_right": "not_defined",
+          "preemptive_right_code": "not_defined",
           "evidence": [
             {
               "clause_ref": "п. 1.1",
@@ -3933,13 +3933,13 @@ checks_v8:
         {
           "notarization_status": "not_defined",
           "share_size_status": "not_defined",
-          "share_size": "Данные не определены",
+          "share_size_value": "Данные не определены",
           "share_nominal_value_status": "not_defined",
           "egrul_procedure_status": "not_defined",
           "charter_restrictions_status": "not_defined",
           "participants_consent_status": "not_defined",
           "preemptive_right_status": "not_defined",
-          "preemptive_right": "not_defined",
+          "preemptive_right_code": "not_defined",
           "evidence": []
         }
 
@@ -3954,13 +3954,13 @@ checks_v8:
         {
           "notarization_status": "<defined / not_defined>",
           "share_size_status": "<defined / not_defined>",
-          "share_size": "<размер или 'Данные не определены'>",
+          "share_size_value": "<размер или 'Данные не определены'>",
           "share_nominal_value_status": "<defined / not_defined>",
           "egrul_procedure_status": "<defined / not_defined>",
           "charter_restrictions_status": "<defined / not_defined>",
           "participants_consent_status": "<defined / not_defined>",
           "preemptive_right_status": "<defined / not_defined>",
-          "preemptive_right": "<complied / not_applicable / not_addressed / not_defined>",
+          "preemptive_right_code": "<complied / not_applicable / not_addressed / not_defined>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 7
@@ -4046,10 +4046,10 @@ checks_v8:
            прямо подтверждена или упомянута, иначе "not_defined".
         2. share_size_status — "defined" если размер даримой доли прямо
            указан, иначе "not_defined".
-        3. share_size — размер доли (например, "25%" или "1/4").
+        3. share_size_value — размер доли (например, "25%" или "1/4").
         4. share_nominal_value_status — "defined" если номинальная стоимость
            доли прямо указана, иначе "not_defined".
-        5. share_nominal_value — номинальная стоимость доли в рублях.
+        5. share_nominal_value_value — номинальная стоимость доли в рублях.
         6. egrul_procedure_status — "defined" если порядок внесения изменений
            в ЕГРЮЛ прямо описан, иначе "not_defined".
         7. charter_restrictions_status — "defined" если уставные ограничения
@@ -4058,7 +4058,7 @@ checks_v8:
            общества прямо получено или упомянуто, иначе "not_defined".
         9. preemptive_right_status — "defined" если вопрос преимущественного
            права прямо рассмотрен, иначе "not_defined".
-        10. preemptive_right — "complied" (соблюдено) /
+        10. preemptive_right_code — "complied" (соблюдено) /
             "not_applicable" (не применимо — дарение третьему лицу без
             преимущественного права) / "not_addressed" (не рассмотрено) /
             "not_defined".
@@ -4087,7 +4087,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения размера даримой доли в уставном капитале ООО."
           required: true
-        - name: "share_size"
+        - name: "share_size_value"
           type: "string"
           presentation: "fact"
           label: "Размер даримой доли"
@@ -4101,7 +4101,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения номинальной стоимости даримой доли."
           required: false
-        - name: "share_nominal_value"
+        - name: "share_nominal_value_value"
           type: "string"
           presentation: "fact"
           label: "Номинальная стоимость доли"
@@ -4133,7 +4133,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус рассмотрения вопроса о преимущественном праве участников при дарении доли."
           required: false
-        - name: "preemptive_right"
+        - name: "preemptive_right_code"
           type: "string"
           presentation: "signal"
           label: "Преимущественное право"

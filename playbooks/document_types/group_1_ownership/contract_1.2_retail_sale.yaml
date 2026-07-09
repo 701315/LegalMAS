@@ -576,13 +576,13 @@ checks_v8:
         Ответ:
         {
           "seller_name_status": "defined",
-          "seller_name": "ООО «Ромашка»",
+          "seller_name_value": "ООО «Ромашка»",
           "seller_ogrn_status": "defined",
-          "seller_ogrn": "1027700000001",
+          "seller_ogrn_value": "1027700000001",
           "seller_inn_status": "defined",
-          "seller_inn": "7700000001",
+          "seller_inn_value": "7700000001",
           "seller_address_status": "defined",
-          "seller_address": "г. Москва, ул. Ленина, д. 1",
+          "seller_address_value": "г. Москва, ул. Ленина, д. 1",
           "evidence": [
             {
               "clause_ref": "п. 1",
@@ -598,13 +598,13 @@ checks_v8:
         Ответ:
         {
           "seller_name_status": "not_defined",
-          "seller_name": "Данные не определены",
+          "seller_name_value": "Данные не определены",
           "seller_ogrn_status": "not_defined",
-          "seller_ogrn": "Данные не определены",
+          "seller_ogrn_value": "Данные не определены",
           "seller_inn_status": "not_defined",
-          "seller_inn": "Данные не определены",
+          "seller_inn_value": "Данные не определены",
           "seller_address_status": "not_defined",
-          "seller_address": "Данные не определены",
+          "seller_address_value": "Данные не определены",
           "evidence": []
         }
 
@@ -621,13 +621,13 @@ checks_v8:
         Ответь строго в JSON:
         {
           "seller_name_status": "<defined / not_defined>",
-          "seller_name": "<наименование или 'Данные не определены'>",
+          "seller_name_value": "<наименование или 'Данные не определены'>",
           "seller_ogrn_status": "<defined / not_defined>",
-          "seller_ogrn": "<ОГРН/ОГРНИП или 'Данные не определены'>",
+          "seller_ogrn_value": "<ОГРН/ОГРНИП или 'Данные не определены'>",
           "seller_inn_status": "<defined / not_defined>",
-          "seller_inn": "<ИНН или 'Данные не определены'>",
+          "seller_inn_value": "<ИНН или 'Данные не определены'>",
           "seller_address_status": "<defined / not_defined>",
-          "seller_address": "<адрес или 'Данные не определены'>",
+          "seller_address_value": "<адрес или 'Данные не определены'>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
       context_k: 5
@@ -703,13 +703,13 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
         1. seller_name_status — "defined" если прямо указано наименование продавца, иначе "not_defined".
-        2. seller_name — полное наименование продавца.
+        2. seller_name_value — полное наименование продавца.
         3. seller_ogrn_status — "defined" если указан ОГРН или ОГРНИП, иначе "not_defined".
-        4. seller_ogrn — числовой ОГРН/ОГРНИП.
+        4. seller_ogrn_value — числовой ОГРН/ОГРНИП.
         5. seller_inn_status — "defined" если указан ИНН, иначе "not_defined".
-        6. seller_inn — числовой ИНН.
+        6. seller_inn_value — числовой ИНН.
         7. seller_address_status — "defined" если прямо указан адрес продавца, иначе "not_defined".
-        8. seller_address — адрес продавца.
+        8. seller_address_value — адрес продавца.
 
         Если данных нет:
         - статус = "not_defined"
@@ -730,7 +730,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания наименования продавца."
           required: true
-        - name: "seller_name"
+        - name: "seller_name_value"
           type: "string"
           presentation: "fact"
           label: "Наименование продавца"
@@ -744,7 +744,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания ОГРН/ОГРНИП."
           required: true
-        - name: "seller_ogrn"
+        - name: "seller_ogrn_value"
           type: "string"
           presentation: "fact"
           label: "ОГРН / ОГРНИП"
@@ -758,7 +758,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания ИНН."
           required: true
-        - name: "seller_inn"
+        - name: "seller_inn_value"
           type: "string"
           presentation: "fact"
           label: "ИНН"
@@ -772,7 +772,7 @@ checks_v8:
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания адреса продавца."
           required: false
-        - name: "seller_address"
+        - name: "seller_address_value"
           type: "string"
           presentation: "fact"
           label: "Адрес продавца"
