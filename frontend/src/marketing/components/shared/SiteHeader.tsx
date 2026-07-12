@@ -32,10 +32,24 @@ function useWindowScroll(threshold = 32) {
 }
 
 function useSectionTheme(): Theme {
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>(() => {
+    // Синхронно определяем начальную тему по первой секции на странице
+    if (typeof document === "undefined") return "light";
+    const firstSection = document.querySelector<HTMLElement>("[data-header-theme]");
+    return (firstSection?.dataset.headerTheme as Theme) ?? "light";
+  });
+
   useEffect(() => {
     const sections = document.querySelectorAll<HTMLElement>("[data-header-theme]");
     if (!sections.length) return;
+
+    // При маунте — сразу устанавливаем тему первой секции (для случая SSR/hydration)
+    const first = sections[0] as HTMLElement;
+    if (first) {
+      const t = first.dataset.headerTheme as Theme;
+      if (t) setTheme(t);
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         let best: { ratio: number; theme: Theme } = { ratio: 0, theme: "light" };
@@ -52,6 +66,7 @@ function useSectionTheme(): Theme {
     sections.forEach((s) => observer.observe(s));
     return () => observer.disconnect();
   }, []);
+
   return theme;
 }
 

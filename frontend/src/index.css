@@ -436,11 +436,11 @@ table {
     display: inline-block;
   }
 
-  /* Section title — serif, large */
+  /* Section title — serif, unified scale */
   .section-title {
     font-family: var(--font-display);
-    font-size: clamp(2.5rem, 4vw, 3.75rem);
-    line-height: 1.06;
+    font-size: clamp(2.25rem, 4vw, 3.25rem);
+    line-height: 1.05;
     letter-spacing: -0.03em;
     color: var(--text-primary);
     margin-top: 1rem;

@@ -12,15 +12,20 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  optimizeDeps: {
+    include: [
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+      "react-dom/client",
+      "framer-motion",
+    ],
+  },
   server: {
     proxy: {
-      // всё, что начинается с /api/v1, проксируем на FastAPI
       "/api/v1": {
         target: "http://localhost:8000",
         changeOrigin: true,
-        // путь на бекенде такой же (/api/v1/...), поэтому rewrite не нужен
       },
-      // если где-то в коде есть старые запросы на /api/..., можно добавить:
       "/api": {
         target: "http://localhost:8000",
         changeOrigin: true,
@@ -28,3 +33,5 @@ export default defineConfig({
     },
   },
 });
+
+

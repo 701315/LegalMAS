@@ -1,439 +1,58 @@
 // src/marketing/pages/CapabilitiesPage.tsx
-import React, { useState } from "react";
-import { ArrowRight } from "lucide-react";
-import MarketingEditorialShell from "../components/shared/MarketingEditorialShell";
-import { useContactModal } from "../context/ContactModalContext";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Локальные типы
-// ─────────────────────────────────────────────────────────────────────────────
+import React from "react";
+import SiteHeader from "../components/shared/SiteHeader";
+import MarketingPageFooter from "../components/shared/MarketingPageFooter";
 
-interface FeatureItem {
-  title: string;
-  body: string;
-  bullets: string[];
-}
-
-interface AccordionItem {
-  title: string;
-  bullets: string[];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Контент страницы
-// ─────────────────────────────────────────────────────────────────────────────
-
-const FEATURES: FeatureItem[] = [
-  {
-    title: "От одного документа до полного Data Room",
-    body: "После загрузки каждый документ автоматически классифицируется по типу — например, SPA, NDA, трудовой договор, корпоративный документ и другие категории. Для каждого типа документа применяется собственный сценарий анализа и соответствующий набор проверок.\n\nЭто особенно важно для Due Diligence, где разные документы нельзя проверять по одному шаблону. Вместо общей проверки весь пакет документов проходит единый воспроизводимый процесс анализа, а результаты собираются в структурированный DD grid по типам документов и ключевым findings.\n\nОдин документ или пятьсот — каждый файл проходит один и тот же процесс обработки, обеспечивая единый стандарт анализа при любом объеме проекта.",
-    bullets: [
-      "Автоматическое определение типа каждого документа",
-      "Собственный сценарий анализа и набор проверок для каждого типа",
-      "DD grid по типам документов и ключевым findings",
-      "Единый стандарт анализа при любом объеме проекта",
-    ],
-  },
-  {
-    title: "Анализирует договор и приложения с учетом их роли в документе",
-    body: "Во многих договорах существенные условия находятся не только в основном тексте, но и в приложениях, schedules, annexes и таблицах. Во время обработки Steloom автоматически выделяет структуру документа, отделяет основной договор от приложений и сохраняет связь между ними.\n\nЭто позволяет анализировать положения договора с учетом их места в структуре документа и сохранять связь между основным текстом и приложениями. Юрист сразу видит, где именно находится соответствующее условие — в основном договоре или в приложении — и может оценить его в правильном контексте.",
-    bullets: [
-      "Основной договор и приложения анализируются раздельно",
-      "Каждый finding привязывается к нужной части документа",
-      "Условия в annexes и schedules не теряются при проверке",
-      "Анализ учитывает структуру документа, а не только сплошной текст",
-    ],
-  },
-  {
-    title: "Настраивает анализ под внутренние стандарты организации",
-    body: "Проверка выполняется по правилам вашей организации, а не по универсальному шаблону. Это позволяет учитывать внутреннюю практику команды, compliance-политику, отраслевые требования и утвержденные подходы к анализу.\n\nПомимо встроенных сценариев анализа Steloom поддерживает собственные правила проверки. Команда может добавлять проверки для отдельных типов документов или задавать глобальные правила, применимые ко всему пакету документов сразу.\n\nПо мере развития практики правила можно обновлять, не меняя общий процесс работы. В результате документы оцениваются по единым стандартам независимо от исполнителя и объема проекта.",
-    bullets: [
-      "Проверка по внутренним стандартам, а не по универсальному шаблону",
-      "Собственные проверки для отдельных типов документов",
-      "Глобальные правила для всего пакета документов",
-      "Возможность обновлять правила по мере изменения практики и требований",
-    ],
-  },
-  {
-    title: "Структурированные результаты, которые можно проверить",
-    body: "Результат анализа — не текстовый ответ, а набор findings, рисков и замечаний по документам. Каждый finding содержит ссылку на документ, раздел, положение или приложение, на основании которого был сделан вывод.\n\nЭто позволяет быстро перейти к первоисточнику, проверить контекст и продолжить работу с документом. Структурированные результаты проще обсуждать внутри команды, проверять и использовать при подготовке итоговых материалов.\n\nFindings группируются по типам документов и категориям рисков, формируя DD grid, пригодный для отчетов, внутреннего review и последующей проверки командой.",
-    bullets: [
-      "Проверяемый finding со ссылкой на документ, раздел и положение",
-      "DD grid по типам документов и ключевым рискам",
-      "Быстрый переход от summary к конкретному фрагменту документа",
-      "Результаты пригодны для отчетов, внутренних материалов и дальнейшей работы",
-    ],
-  },
-  {
-    title: "Не меняет методологию работы команды",
-    body: "Steloom не требует перестраивать существующий процесс Due Diligence, внутреннего review или анализа договоров. Документы загружаются из привычных источников, результаты используются в текущих форматах отчетности и внутренней работы команды.\n\nПлатформа помогает применять существующую методологию последовательно независимо от количества документов и участников проекта.\n\nКоманда может начать с одного сценария и постепенно расширять использование платформы, сохраняя существующие процессы и привычные форматы работы.",
-    bullets: [
-      "Начало работы с одного сценария без перестройки процессов",
-      "Сохранение текущего порядка review, DD и подготовки отчетов",
-      "Результаты в привычных рабочих форматах",
-      "Последовательное применение методологии команды при любом объеме документов",
-    ],
-  },
-];
-
-const ACCORDION_ITEMS: AccordionItem[] = [
-  {
-    title: "Обработка документов",
-    bullets: [
-      "PDF, DOCX, XLSX, сканы и смешанные форматы",
-      "OCR при необходимости",
-      "Определение языка документа",
-      "Нормализация структуры и метаданных",
-    ],
-  },
-  {
-    title: "Структурный анализ документа",
-    bullets: [
-      "Разделы и подразделы",
-      "Таблицы, списки и приложения",
-      "Annexes, schedules и appendices",
-      "Разграничение основного договора и приложений",
-      "Привязка findings к конкретной части файла",
-    ],
-  },
-  {
-    title: "Определение типа документа",
-    bullets: [
-      "Автоматическая классификация по типам",
-      "Поддержка разных категорий документов в рамках одного проекта",
-      "Подготовка документов к типоспецифичному анализу",
-    ],
-  },
-  {
-    title: "Извлечение юридически значимой информации",
-    bullets: [
-      "Стороны договора",
-      "Суммы и платежные обязательства",
-      "Даты и сроки",
-      "Ключевые положения договора",
-      "Другие юридически значимые сведения, необходимые для анализа",
-    ],
-  },
-  {
-    title: "Анализ по типу документа",
-    bullets: [
-      "Собственный сценарий анализа для каждого типа документа",
-      "Наборы рисков, характерные для конкретной категории",
-      "Проверка документа в логике его типа",
-      "Формирование результатов для DD grid",
-    ],
-  },
-  {
-    title: "Настраиваемые правила проверки",
-    bullets: [
-      "Собственные проверки для конкретных типов документов",
-      "Глобальные проверки для всех документов",
-      "Настройка под внутреннюю практику команды",
-      "Учет compliance-политики и утвержденных правил",
-      "Обновление правил по мере развития практики",
-    ],
-  },
-  {
-    title: "Работа с пакетами документов",
-    bullets: [
-      "Один документ или полный пакет сделки",
-      "Единая классификация документов по типам",
-      "Формирование общего DD grid по всему пакету",
-      "Последовательное расширение пакета документов с сохранением единого процесса анализа",
-      "Единый процесс анализа независимо от объема проекта",
-    ],
-  },
-  {
-    title: "Формирование результатов",
-    bullets: [
-      "Findings с указанием источника",
-      "Привязка к документу, разделу, положению или приложению",
-      "Структурирование по типам документов и категориям рисков",
-      "DD grid по всему пакету документов",
-      "Возможность повторной проверки каждого вывода",
-    ],
-  },
-  {
-    title: "Экспорт и интеграция в процессы",
-    bullets: [
-      "Экспорт результатов в отчеты и рабочие таблицы",
-      "Использование в текущих внутренних процессах",
-      "Подключение к корпоративным источникам документов",
-      "Работа как часть существующего юридического workflow",
-    ],
-  },
-  {
-    title: "Архитектура и масштабирование",
-    bullets: [
-      "Единый процесс обработки независимо от объема документов",
-      "Параллельная обработка файлов",
-      "Масштабирование под объем проекта",
-      "Поддержка корпоративных сценариев использования",
-    ],
-  },
-  {
-    title: "Безопасность и контроль доступа",
-    bullets: [
-      "Ролевая модель доступа",
-      "Аудит действий пользователей",
-      "Защита данных в корпоративной среде",
-      "Соответствие внутренним требованиям организации",
-    ],
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Subcomponents
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Platform sections ────────────────────────────────────────────────────────
+import PlatformHeroSection from "../components/platform/PlatformHeroSection";
+import PlatformWorkflowSection from "../components/platform/PlatformWorkflowSection";
+import PlatformDocumentStructureSection from "../components/platform/PlatformDocumentStructureSection";
+import PlatformStandardsSection from "../components/platform/PlatformStandardsSection";
+import PlatformFindingsSection from "../components/platform/PlatformFindingsSection";
+import PlatformMethodologySection from "../components/platform/PlatformMethodologySection";
+import PlatformCTASection from "../components/platform/PlatformCTASection";
+import PlatformTechnicalSection from "../components/platform/PlatformTechnicalSection";
 
 /**
- * Bullet list — паттерн SecurityFoundationSection:
- * dot bg-[#C86B52] + текст
+ * CapabilitiesPage — страница /capabilities (внутренне: Platform).
+ *
+ * Header БЕЗ forcedTheme — автоматически подстраивает цвета через
+ * data-header-theme на каждой секции. На тёмной Standards-секции
+ * навигация становится светлой.
+ *
+ * Порядок секций (после упрощения):
+ *   1. Hero
+ *   2. Workflow
+ *   3. Document Structure
+ *   4. Standards (тёмная)
+ *   5. Findings
+ *   6. Methodology
+ *   7. CTA
+ *   8. Technical Accordion (Как устроен Steloom)
+ *
+ * Отключены (файлы оставлены как opt-in на будущее):
+ *   • PlatformFeatureGridSection — «Что внутри / Возможности…»
+ *   • PlatformSummarySection — «Итого» (3 тезиса)
  */
-function BulletList({ items }: { items: string[] }) {
-  return (
-    <ul className="mt-6 space-y-3">
-      {items.map((item) => (
-        <li key={item} className="flex items-start gap-4 text-[#78756F]">
-          <span
-            className="mt-2.5 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[#C86B52]"
-            aria-hidden="true"
-          />
-          <span className="text-[0.9375rem] leading-[1.7]">{item}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/**
- * Feature block — чередует раскладку (текст слева / справа)
- * Паттерн: CapabilitiesPage grid lg:grid-cols-12
- */
-function FeatureBlock({
-  feature,
-  index,
-}: {
-  feature: FeatureItem;
-  index: number;
-}) {
-  const isEven = index % 2 === 0;
-
-  const textBlock = (
-    <div
-      className={`flex flex-col justify-center lg:col-span-7 ${
-        isEven ? "" : "lg:order-2"
-      }`}
-    >
-      <h2 className="font-serif text-[1.75rem] leading-tight tracking-[-0.03em] text-[#1A1917] lg:text-[2rem]">
-        {feature.title}
-      </h2>
-      <div className="mt-5 space-y-4">
-        {feature.body.split("\n\n").map((paragraph, i) => (
-          <p
-            key={i}
-            className="text-[0.9375rem] leading-[1.7] text-[#78756F]"
-          >
-            {paragraph}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-
-  const bulletBlock = (
-    <div
-      className={`flex flex-col justify-center rounded-2xl border border-[#E8E4DD] bg-[#F3F0EB] p-6 lg:col-span-5 lg:p-8 ${
-        isEven ? "" : "lg:order-1"
-      }`}
-    >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#78756F]">
-        Что это даёт юристу
-      </p>
-      <BulletList items={feature.bullets} />
-    </div>
-  );
-
-  return (
-    <div className="grid items-center gap-6 lg:grid-cols-12 lg:gap-10">
-      {isEven ? (
-        <>
-          {textBlock}
-          {bulletBlock}
-        </>
-      ) : (
-        <>
-          {bulletBlock}
-          {textBlock}
-        </>
-      )}
-    </div>
-  );
-}
-
-/**
- * Accordion item — точный паттерн FaqItem из FaqSection.tsx
- */
-function AccordionItem({ item }: { item: AccordionItem }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="border-b border-[#E8E4DD] last:border-b-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-start justify-between gap-4 py-5 text-left transition-colors hover:bg-[#FAF8F5]"
-        aria-expanded={open}
-      >
-        <span className="text-[0.9375rem] font-medium leading-relaxed text-[#1A1917]">
-          {item.title}
-        </span>
-        <span
-          className="mt-1 shrink-0 text-[#A8A29E] transition-transform duration-300"
-          style={{ transform: open ? "rotate(45deg)" : "rotate(0deg)" }}
-          aria-hidden="true"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-          >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </span>
-      </button>
-      <div
-        className="overflow-hidden transition-all duration-300"
-        style={{ maxHeight: open ? 480 : 0, opacity: open ? 1 : 0 }}
-      >
-        <ul className="space-y-2.5 pb-6 pr-8">
-          {item.bullets.map((bullet) => (
-            <li key={bullet} className="flex items-start gap-3 text-[#78756F]">
-              <span
-                className="mt-2 flex h-1.5 w-1.5 shrink-0 rounded-full bg-[#C86B52]"
-                aria-hidden="true"
-              />
-              <span className="text-[0.9375rem] leading-relaxed">{bullet}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Page
-// ─────────────────────────────────────────────────────────────────────────────
-
 const CapabilitiesPage: React.FC = () => {
-  const { openContactModal } = useContactModal();
-
   return (
-    <MarketingEditorialShell
-      title="Анализ юридических документов — от одного договора до полного пакета сделки"
-      description="Steloom помогает юридическим командам последовательно анализировать один договор или пакеты документов в рамках одной сделки. Независимо от объема материалов каждый документ проходит один и тот же воспроизводимый процесс анализа: Steloom определяет тип документа, применяет соответствующие проверки и формирует структурированные результаты с привязкой к источникам."
-    >
-      {/* ── Hero sub-description + CTA (Блок 1 продолжение) ─────────────── */}
-      <div className="mb-16 rounded-2xl border border-[#E8E4DD] bg-[#F3F0EB] p-7 lg:mb-20 lg:p-9">
-        <p className="max-w-3xl text-[0.9375rem] leading-[1.7] text-[#78756F]">
-          На выходе команда получает не длинный текстовый ответ, а результат,
-          пригодный для дальнейшей юридической работы: DD grid по типам
-          документов, список рисков и замечаний с указанием источника и
-          понимание того, на что нужно смотреть в первую очередь.
-        </p>
-        <div className="mt-7 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={openContactModal}
-            className="cta-primary"
-          >
-            Запросить демонстрацию
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={openContactModal}
-            className="cta-secondary"
-          >
-            Связаться с командой
-          </button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917]">
+      <SiteHeader />
 
-      {/* ── Блоки 2–6: Feature blocks ────────────────────────────────────── */}
-      <div className="space-y-10">
-        {FEATURES.map((feature, index) => (
-          <FeatureBlock key={feature.title} feature={feature} index={index} />
-        ))}
-      </div>
+      <main style={{ paddingTop: 68 }}>
+        <PlatformHeroSection />
+        <PlatformWorkflowSection />
+        <PlatformDocumentStructureSection />
+        <PlatformStandardsSection />
+        <PlatformFindingsSection />
+        <PlatformMethodologySection />
+        <PlatformCTASection />
+        <PlatformTechnicalSection />
+      </main>
 
-      {/* ── Блок 7: CTA section ──────────────────────────────────────────── */}
-      <div className="mt-16 rounded-2xl border border-[#E8E4DD] bg-[#F3F0EB] p-7 lg:mt-20 lg:p-10">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-tight tracking-[-0.03em] text-[#1A1917]">
-            Посмотрите, как Steloom работает с вашими документами
-          </h2>
-          <p className="mt-5 text-[0.9375rem] leading-[1.7] text-[#78756F]">
-            Во время демонстрации мы покажем полный путь анализа: загрузку
-            документов, определение их типа, применение проверок, формирование
-            findings и DD grid с привязкой к источникам.
-          </p>
-          <p className="mt-3 text-[0.9375rem] leading-[1.7] text-[#78756F]">
-            Если у вас есть собственные договоры или материалы сделки, их
-            можно использовать в качестве примера. Это позволит оценить работу
-            платформы в условиях, максимально приближенных к вашим задачам и
-            внутренним процессам.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={openContactModal}
-              className="cta-primary"
-            >
-              Запросить демонстрацию
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={openContactModal}
-              className="cta-secondary"
-            >
-              Связаться с командой
-            </button>
-          </div>
-          <p className="mt-5 text-[0.8125rem] text-[#A8A29E]">
-            Среднее время демонстрации: 30–45 минут · Формат: онлайн или очно
-          </p>
-        </div>
-      </div>
-
-      {/* ── Блок 8: Технические возможности (Accordion) ─────────────────── */}
-      <div className="mt-16 lg:mt-20">
-        <div className="mb-8">
-          <div className="eyebrow">Технические возможности</div>
-          <h2 className="mt-4 font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-tight tracking-[-0.03em] text-[#1A1917]">
-            Как устроен Steloom
-          </h2>
-        </div>
-
-        <div className="rounded-2xl border border-[#E8E4DD] bg-white px-6 lg:px-8">
-          {ACCORDION_ITEMS.map((item) => (
-            <AccordionItem key={item.title} item={item} />
-          ))}
-        </div>
-
-        {/* Финальная фраза */}
-        <p className="mt-10 max-w-3xl text-[0.9375rem] leading-[1.7] text-[#78756F]">
-          Steloom помогает юридическим командам применять единый воспроизводимый
-          процесс анализа документов, в котором каждый вывод имеет ссылку на
-          источник и может быть проверен.
-        </p>
-      </div>
-    </MarketingEditorialShell>
+      <MarketingPageFooter />
+    </div>
   );
 };
 
