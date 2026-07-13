@@ -1,4 +1,3 @@
-// src/marketing/components/home/FounderSection.tsx
 import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
@@ -6,78 +5,86 @@ import { useScrollReveal } from "../../../hooks/useScrollReveal";
 import photoVladimir from "../assets/photos/vladimir.jpg";
 
 const FounderSection: React.FC = () => {
-  const content = useScrollReveal(0);
-  const quote = useScrollReveal(120);
+  const left = useScrollReveal(0);
+  const right = useScrollReveal(120);
 
   return (
     <section
-      className="bg-[#FAF8F5] py-20 lg:py-28"
+      id="founder"
+      className="relative bg-[#FAF8F5] py-20 lg:py-28 border-y border-[#E8E4DD] scroll-mt-0"
       data-header-theme="light"
     >
       <div
-        className="mx-auto px-6 lg:px-8"
+        className="mx-auto w-full px-6 lg:px-8"
         style={{ maxWidth: "var(--container-max-width)" }}
       >
-        <div className="grid gap-12 lg:grid-cols-[1fr_1.6fr] lg:gap-20 lg:items-start">
+        {/* Используем ту же сетку и выравнивание по верхнему краю (items-start) */}
+        <div className="grid items-start gap-12 lg:grid-cols-12 lg:gap-20">
           
-          {/* ── Левая: Attribution ─────────────────────────── */}
+          {/* ── Левая колонка: Attribution (5 колонок как в примере) ── */}
           <div
-            ref={content.ref as React.Ref<HTMLDivElement>}
-            style={content.style}
+            ref={left.ref as React.Ref<HTMLDivElement>}
+            style={left.style}
+            className="lg:col-span-5 flex flex-col"
           >
             <div className="mb-10">
               <span className="eyebrow">От основателя</span>
             </div>
 
-            <div className="mb-6">
-              <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-[#E8E4DD]">
+            <div className="flex flex-col gap-6">
+              <div className="h-16 w-16 overflow-hidden rounded-full border border-[#E8E4DD] grayscale-[0.2] hover:grayscale-0 transition-all duration-700">
                 <img
                   src={photoVladimir}
                   alt="Vladimir Gorelov"
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-cover scale-105"
                 />
               </div>
+              
+              <div>
+                <div className="text-[1rem] font-semibold text-[#1A1917] tracking-tight">
+                  Владимир Горелов
+                </div>
+                <div className="mt-1 text-[0.875rem] text-[#78756F]">
+                  Steloom
+                </div>
+              </div>
             </div>
 
-            <div className="mb-8">
-              <div className="text-[0.9375rem] font-medium text-[#1A1917]">
-                Vladimir Gorelov
-              </div>
-              <div className="mt-1 text-sm text-[#78756F]">
-                Основатель и CEO, Steloom
-              </div>
+            <div className="mt-12">
+              <Link to="/about" className="cta-link">
+                О команде
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-
-            <Link to="/about" className="cta-link mt-8">
-              О команде и миссии
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
           </div>
 
-          {/* ── Правая: Цитата ─────────────────────────────── */}
+          {/* ── Правая колонка: Цитата (7 колонок) ── */}
           <div
-            ref={quote.ref as React.Ref<HTMLDivElement>}
-            style={quote.style}
+            ref={right.ref as React.Ref<HTMLDivElement>}
+            style={right.style}
+            className="lg:col-span-7 relative"
           >
-            <blockquote>
-              <p
-                className="font-serif leading-[1.4] tracking-[-0.02em] text-[#1A1917]"
-                style={{ fontSize: "clamp(1.75rem, 2.8vw, 2.5rem)" }}
-              >
-                «Юридическим командам не нужен ещё один AI, который просто даёт быстрые ответы.
-                Им нужна система, где каждый вывод можно проследить до источника —
-                и где логика достаточно прозрачна, чтобы на неё можно было опереться в решении».
-              </p>
+            {/* Линия и отступ в точном соответствии с визуальным весом примера */}
+            <div className="relative border-l border-[#C86B52]/30 pl-8 lg:pl-12">
+              <blockquote className="flex flex-col gap-10">
+                <p
+                  className="font-serif leading-[1.3] tracking-tight text-[#1A1917]"
+                  style={{ fontSize: "clamp(1.75rem, 2.8vw, 2.25rem)" }}
+                >
+                  «Современные AI-системы умеют быстро отвечать на вопросы. Но в юридической практике этого недостаточно. Каждое заключение должно опираться на документы, быть проверяемым и выдерживать профессиональную оценку».
+                </p>
 
-              <p
-                className="mt-8 font-serif leading-[1.5] tracking-[-0.01em] text-[#78756F]"
-                style={{ fontSize: "clamp(1.25rem, 1.8vw, 1.75rem)" }}
-              >
-                «Steloom — это именно такая система. Не shortcut к ответу,
-                а основание для защищаемого и проверяемого вывода».
-              </p>
-            </blockquote>
+                <p className="text-[1.0625rem] leading-[1.7] text-[#78756F] max-w-2xl italic">
+                  «Именно поэтому мы создали Steloom - платформу, которая не заменяет юридическое мышление, а помогает принимать решения на основе прозрачного анализа, подтверждённых фактов и полной прослеживаемости каждого вывода».
+                </p>
+              </blockquote>
+
+              <div className="mt-12 flex items-center gap-4 opacity-30">
+
+              </div>
+            </div>
           </div>
+
         </div>
       </div>
     </section>

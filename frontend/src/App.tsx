@@ -1,5 +1,3 @@
-// src/App.tsx
-
 import React from "react";
 import { Routes, Route, Navigate, useParams } from "react-router-dom";
 import "./App.css";
@@ -7,10 +5,22 @@ import "./App.css";
 // ── Marketing pages ───────────────────────────────────────────
 import HomePage from "./marketing/pages/HomePage";
 import SecurityPage from "./marketing/pages/SecurityPage";
-import SolutionsPage from "./marketing/pages/SolutionsPage";
 import CapabilitiesPage from "./marketing/pages/CapabilitiesPage";
 import DemoPage from "./marketing/pages/DemoPage";
 import AboutPage from "./marketing/pages/AboutPage";
+
+// ✅ Solution pages (Существующие)
+import MaDueDiligencePage from "./marketing/pages/solutions/MaDueDiligencePage";
+import ContractReviewPage from "./marketing/pages/solutions/ContractReviewPage";
+import CompliancePage from "./marketing/pages/solutions/CompliancePage";
+import InternalAuditPage from "./marketing/pages/solutions/InternalAuditPage";
+import LawFirmsPage from "./marketing/pages/solutions/LawFirmsPage";
+import CorporateLegalPage from "./marketing/pages/solutions/CorporateLegalPage";
+import AuditCompliancePage from "./marketing/pages/solutions/AuditCompliancePage";
+
+// ✅ Solution pages (Новые: Расширенный анализ)
+import CounterpartiesPage from "./marketing/pages/solutions/CounterpartiesPage";
+import RealEstatePage from "./marketing/pages/solutions/RealEstatePage";
 
 // ── App pages ─────────────────────────────────────────────────
 import LoginPage from "./pages/LoginPage";
@@ -40,9 +50,10 @@ import AppShell from "./components/layout/AppShell";
 // ── Context Providers ─────────────────────────────────────────
 import { ContactModalProvider } from "./marketing/context/ContactModalContext";
 
-
 const POLL_INTERVAL = 4000;
 
+// ─────────────────────────────────────────────────────────────
+// Deal wrapper
 // ─────────────────────────────────────────────────────────────
 function DealRouteWrapper() {
   const { dealId } = useParams<{ dealId: string }>();
@@ -55,43 +66,25 @@ function DealRouteWrapper() {
         : false,
   });
 
-  if (isLoading)
-    return (
-      <div className="min-h-screen bg-[var(--bg-base)] px-6 py-10">
-        <div className="mx-auto max-w-7xl animate-fadein">
-          <div className="skeleton h-5 w-48" />
-          <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
-            <div className="skeleton mb-4 h-6 w-64" />
-            <div className="skeleton mb-3 h-4 w-full" />
-            <div className="skeleton mb-3 h-4 w-11/12" />
-            <div className="skeleton h-4 w-9/12" />
-          </div>
-        </div>
-      </div>
-    );
+  if (isLoading) return <div>Loading...</div>;
 
-  if (isError || !deal)
+  if (isError || !deal) {
     return (
-      <div className="min-h-screen bg-[var(--bg-base)] px-6 py-10">
-        <div className="mx-auto max-w-3xl">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
-            <h1 className="text-lg font-semibold text-[var(--text-primary)]">
-              Не удалось загрузить проект
-            </h1>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              {error instanceof Error
-                ? error.message
-                : "Проект не найден или временно недоступен."}
-            </p>
-          </div>
-        </div>
+      <div>
+        {error instanceof Error
+          ? error.message
+          : "Ошибка загрузки проекта"}
       </div>
     );
+  }
 
   return <DealPage deal={deal} />;
 }
 
 // ─────────────────────────────────────────────────────────────
+// Guards
+// ─────────────────────────────────────────────────────────────
+
 function RequireAuth({ children }: { children: React.ReactElement }) {
   const { userId } = useAuth();
   if (!userId) return <Navigate to="/login" replace />;
@@ -121,24 +114,41 @@ function RequireAdminOrSuperadmin({
 }
 
 // ─────────────────────────────────────────────────────────────
+// App
+// ─────────────────────────────────────────────────────────────
+
 function App() {
   return (
     <ContactModalProvider>
-      <div className="min-h-screen w-full bg-[var(--bg-base)] text-[var(--text-primary)]">
+      <div className="min-h-screen w-full bg-[var(--bg-base)]">
         <ScrollToAnchor />
+
         <Routes>
-          {/* ── Public marketing routes ──────────────────────── */}
+          {/* ── Marketing routes ───────────────────────────── */}
           <Route path="/" element={<HomePage />} />
           <Route path="/capabilities" element={<CapabilitiesPage />} />
           <Route path="/security" element={<SecurityPage />} />
-          <Route path="/solutions" element={<SolutionsPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/demo" element={<DemoPage />} />
+
+          {/* Solutions (По направлению и По пользователю) */}
+          <Route path="/solutions/ma-due-diligence" element={<MaDueDiligencePage />} />
+          <Route path="/solutions/contract-review" element={<ContractReviewPage />} />
+          <Route path="/solutions/compliance" element={<CompliancePage />} />
+          <Route path="/solutions/internal-audit" element={<InternalAuditPage />} />
+          <Route path="/solutions/law-firms" element={<LawFirmsPage />} />
+          <Route path="/solutions/corporate-legal" element={<CorporateLegalPage />} />
+          <Route path="/solutions/audit-compliance" element={<AuditCompliancePage />} />
+
+          {/* ✅ Solutions (Новые: Расширенный анализ) */}
+          <Route path="/solutions/counterparties" element={<CounterpartiesPage />} />
+          <Route path="/solutions/real-estate" element={<RealEstatePage />} />
 
           {/* Auth */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* ── Protected app routes ─────────────────────────── */}
+          {/* ── Protected app routes ───────────────────────── */}
+
           <Route
             path="/dashboard"
             element={
@@ -161,7 +171,6 @@ function App() {
             }
           />
 
-          {/* Создание нового проекта: superadmin и tenant_admin */}
           <Route
             path="/projects/new"
             element={
@@ -236,7 +245,6 @@ function App() {
             }
           />
 
-          {/* Эти админские страницы пока доступны superadmin и tenant_admin */}
           <Route
             path="/admin/model-configs"
             element={
@@ -259,7 +267,6 @@ function App() {
             }
           />
 
-          {/* Панель администратора клиента: tenant_admin и superadmin */}
           <Route
             path="/tenant-admin"
             element={
@@ -271,7 +278,6 @@ function App() {
             }
           />
 
-          {/* ── System Admin Panel (только superadmin) ───────────────────── */}
           <Route
             path="/admin"
             element={

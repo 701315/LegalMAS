@@ -1,5 +1,3 @@
-// src/marketing/pages/HomePage.tsx
-
 import React from "react";
 import SiteHeader from "../components/shared/SiteHeader";
 import PremiumHeroSection from "../components/home/PremiumHeroSection";
@@ -16,37 +14,21 @@ import { ContactModalProvider } from "../context/ContactModalContext";
 const HomePage: React.FC = () => {
   return (
     <ContactModalProvider>
-      <SiteHeader />
+      <SiteHeader variant="landing" />
 
-      <main>
-        <section data-header-theme="dark">
-          <PremiumHeroSection />
-          <ConceptTagsSection />
-        </section>
-
-        <section data-header-theme="light">
-          <KnowledgeGrowthSection />
-        </section>
-
-        <section data-header-theme="light">
-          <SecurityFoundationSection />
-        </section>
-
-        <section data-header-theme="light">
-          <ApplicationSection />
-        </section>
-
-        <section data-header-theme="light">
-          <FounderSection />
-        </section>
-
-        <section data-header-theme="light">
-          <FaqSection />
-        </section>
-
-        <section data-header-theme="light">
-          <PremiumFinalCtaSection />
-        </section>
+      <main className="text-[#1A1917]"> {/* Фиксируем основной цвет для всего контента */}
+        <PremiumHeroSection />
+        
+        {/* Каждую светлую секцию на всякий случай подтверждаем цветом */}
+        <div className="bg-[#FAF8F5] text-[#1A1917]">
+           <ConceptTagsSection />
+           <KnowledgeGrowthSection />
+           <SecurityFoundationSection />
+           <ApplicationSection />
+           <FounderSection />
+           <FaqSection />
+           <PremiumFinalCtaSection />
+        </div>
       </main>
 
       <SiteFooter />
@@ -55,3 +37,4 @@ const HomePage: React.FC = () => {
 };
 
 export default HomePage;
+

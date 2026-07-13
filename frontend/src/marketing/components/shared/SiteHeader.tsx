@@ -1,205 +1,183 @@
-// src/marketing/components/shared/SiteHeader.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowRight, Menu } from "lucide-react";
+import { ArrowRight, Menu, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import SteloomWordmark from "./primitives/SteloomWordmark";
 import MobileMenu from "./MobileMenu";
-import { SITE_NAV, SITE_CTA } from "../../content/siteNav";
+import { SITE_NAV, SITE_CTA, SOLUTIONS_MEGA_MENU } from "../../content/siteNav";
 import { useContactModal } from "../../context/ContactModalContext";
 
-type Theme = "light" | "dark";
+interface SiteHeaderProps { variant?: "landing" | "default"; hideLogin?: boolean; }
 
-interface SiteHeaderProps {
-  forcedTheme?: Theme;
-  hideLogin?: boolean;
-}
-
-// Утилита: нормализует путь (убирает trailing slash, кроме корня)
-function normalizePath(path: string): string {
-  if (path === "/") return "/";
-  return path.replace(/\/+$/, "");
-}
-
-function useWindowScroll(threshold = 32) {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > threshold);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [threshold]);
-  return scrolled;
-}
-
-function useSectionTheme(): Theme {
-  const [theme, setTheme] = useState<Theme>(() => {
-    // Синхронно определяем начальную тему по первой секции на странице
-    if (typeof document === "undefined") return "light";
-    const firstSection = document.querySelector<HTMLElement>("[data-header-theme]");
-    return (firstSection?.dataset.headerTheme as Theme) ?? "light";
-  });
-
-  useEffect(() => {
-    const sections = document.querySelectorAll<HTMLElement>("[data-header-theme]");
-    if (!sections.length) return;
-
-    // При маунте — сразу устанавливаем тему первой секции (для случая SSR/hydration)
-    const first = sections[0] as HTMLElement;
-    if (first) {
-      const t = first.dataset.headerTheme as Theme;
-      if (t) setTheme(t);
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        let best: { ratio: number; theme: Theme } = { ratio: 0, theme: "light" };
-        entries.forEach((entry) => {
-          if (entry.intersectionRatio > best.ratio) {
-            const t = (entry.target as HTMLElement).dataset.headerTheme as Theme;
-            best = { ratio: entry.intersectionRatio, theme: t ?? "light" };
-          }
-        });
-        if (best.ratio > 0) setTheme(best.theme);
-      },
-      { threshold: [0, 0.1, 0.5, 0.9, 1], rootMargin: "-68px 0px 0px 0px" }
-    );
-    sections.forEach((s) => observer.observe(s));
-    return () => observer.disconnect();
-  }, []);
-
-  return theme;
-}
-
-const SiteHeader: React.FC<SiteHeaderProps> = ({ forcedTheme, hideLogin = false }) => {
+const SiteHeader: React.FC<SiteHeaderProps> = ({ variant = "default", hideLogin = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const scrolled = useWindowScroll(32);
-  const sectionTheme = useSectionTheme();
-  const [menuOpen, setMenuOpen] = useState(false);
   const { openContactModal } = useContactModal();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [solutionsOpen, setSolutionsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [isLandingZone, setIsLandingZone] = useState(variant === "landing");
+  const solutionsRef = useRef<HTMLDivElement>(null);
+  const currentPath = location.pathname;
 
-  const theme: Theme = forcedTheme ?? sectionTheme;
-  const isDark = theme === "dark";
+  useEffect(() => {
+    const hero = document.getElementById("landing-hero");
+    const checkPos = () => {
+      setScrolled(window.scrollY > 32);
+      if (variant === "landing" && hero) {
+        const rect = hero.getBoundingClientRect();
+        setIsLandingZone(rect.bottom > 68);
+      } else {
+        setIsLandingZone(false);
+      }
+    };
+    checkPos();
+    window.addEventListener("scroll", checkPos, { passive: true });
+    return () => window.removeEventListener("scroll", checkPos);
+  }, [variant, currentPath]);
 
-  // Нормализованный текущий путь
-  const currentPath = normalizePath(location.pathname);
+  useEffect(() => {
+    const clickOutside = (e: MouseEvent) => {
+      if (solutionsRef.current && !solutionsRef.current.contains(e.target as Node)) setSolutionsOpen(false);
+    };
+    if (solutionsOpen) document.addEventListener("mousedown", clickOutside);
+    return () => document.removeEventListener("mousedown", clickOutside);
+  }, [solutionsOpen]);
+
+  const isDark = isLandingZone;
+  const colorPrimary = isDark ? "#FFFFFF" : "#1A1917";
+  const colorSecondary = isDark ? "rgba(255, 255, 255, 0.7)" : "#78756F";
+  const bgHeader = isDark 
+    ? (scrolled ? "rgba(26, 25, 23, 0.85)" : "transparent") 
+    : "rgba(250, 248, 245, 0.95)";
+
+  const navItemStyle = {
+    fontSize: "15px",
+    fontWeight: 500,
+    letterSpacing: "-0.01em",
+    lineHeight: "1",
+    display: "inline-flex",
+    alignItems: "center",
+    transition: "color 0.3s ease, opacity 0.3s ease",
+    border: "none",
+    background: "none",
+    padding: 0,
+    cursor: "pointer"
+  };
 
   return (
     <>
-      <header
-        className="fixed top-0 left-0 right-0 z-30 transition-all duration-300"
-        style={{
-          background: scrolled
-            ? isDark
-              ? "rgba(26, 25, 23, 0.92)"
-              : "rgba(250, 248, 245, 0.92)"
-            : "transparent",
-          backdropFilter: scrolled ? "blur(16px)" : "none",
-          WebkitBackdropFilter: scrolled ? "blur(16px)" : "none",
-          borderBottom: scrolled
-            ? `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`
-            : "1px solid transparent",
+      <header 
+        className="fixed top-0 left-0 right-0 z-[9999] transition-all duration-500"
+        style={{ 
+          backgroundColor: bgHeader, 
+          backdropFilter: (isDark && !scrolled) ? "none" : "blur(20px)",
+          boxShadow: (!isDark && scrolled) ? "0 4px 20px rgba(0,0,0,0.06)" : "none"
         }}
       >
-        <div
-          className="mx-auto flex h-[68px] w-full items-center justify-between px-6 lg:px-8"
-          style={{ maxWidth: "var(--container-max-width)" }}
+        <div 
+          className="mx-auto flex w-full items-center justify-between px-6 lg:px-8 transition-all duration-500"
+          style={{ maxWidth: "1400px", height: scrolled ? "60px" : "72px" }}
         >
-          {/* Logo */}
-          <Link
-            to="/"
-            aria-label="Steloom — главная"
-            className="flex items-center transition-opacity hover:opacity-60"
-            style={{ color: isDark ? "#FAF8F5" : "#1A1917" }}
-          >
+          <Link to="/" style={{ color: colorPrimary, display: "flex", alignItems: "center" }}>
             <SteloomWordmark height={32} />
           </Link>
 
-          {/* Desktop Nav */}
-          <nav className="hidden items-center gap-8 lg:flex" aria-label="Основная навигация">
+          <nav className="hidden items-center gap-8 lg:flex">
             {SITE_NAV.map((item) => {
-              // ✅ Нормализованное сравнение путей
-              const itemPath = normalizePath(item.href);
-              const isActive = currentPath === itemPath;
+              const isSolutionsTrigger = item.href === "/solutions";
+              const isParentActive = isSolutionsTrigger && currentPath.startsWith("/solutions");
+              const isActive = currentPath === item.href || isParentActive;
+
+              if (!isSolutionsTrigger) {
+                return (
+                  <Link 
+                    key={item.href} 
+                    to={item.href} 
+                    className="relative group"
+                    style={{ ...navItemStyle, color: isActive ? colorPrimary : colorSecondary }}
+                  >
+                    {item.label}
+                    {isActive && (
+                      <span className="absolute -bottom-1.5 left-0 right-0 h-[1px]" style={{ backgroundColor: colorPrimary, opacity: 0.4 }} />
+                    )}
+                  </Link>
+                );
+              }
 
               return (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  className="relative text-[0.9375rem] font-medium transition-colors"
-                  style={{
-                    color: isActive
-                      ? isDark ? "#FAF8F5" : "#1A1917"
-                      : isDark ? "rgba(250,248,245,0.65)" : "#78756F",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = isDark ? "#FAF8F5" : "#1A1917";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = isActive
-                      ? isDark ? "#FAF8F5" : "#1A1917"
-                      : isDark ? "rgba(250,248,245,0.65)" : "#78756F";
-                  }}
-                >
-                  {item.label}
-                  {isActive && (
-                    <span
-                      className="absolute -bottom-1 left-0 right-0 h-px"
-                      style={{ background: isDark ? "#FAF8F5" : "#1A1917", opacity: 0.3 }}
+                <div key="solutions" ref={solutionsRef} className="relative flex items-center">
+                  <button 
+                    type="button"
+                    onClick={() => setSolutionsOpen(!solutionsOpen)}
+                    style={{ ...navItemStyle, color: isActive ? colorPrimary : colorSecondary }}
+                  >
+                    {item.label}
+                    <ChevronDown 
+                      className={`ml-1.5 h-3.5 w-3.5 transition-transform duration-300 ${solutionsOpen ? "rotate-180" : ""}`} 
+                      strokeWidth={2.5}
                     />
-                  )}
-                </Link>
+                    {isActive && (
+                      <span className="absolute -bottom-1.5 left-0 right-1.5 h-[1px]" style={{ backgroundColor: colorPrimary, opacity: 0.4 }} />
+                    )}
+                  </button>
+                  
+                  <AnimatePresence>
+                    {solutionsOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}
+                        className="absolute left-0 top-full mt-5 w-[1140px] rounded-2xl bg-white shadow-[0_40px_80px_rgba(0,0,0,0.15)] p-12 border border-gray-100 overflow-hidden"
+                      >
+                        <div className="grid grid-cols-3 gap-12 relative z-10"> {/* Сетка на 3 колонки */}
+                          {SOLUTIONS_MEGA_MENU.sections.map((s) => (
+                            <div key={s.title}>
+                              <h3 className="mb-6 text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">{s.title}</h3>
+                              <ul className="space-y-5">
+                                {s.items.map((i) => (
+                                  <li key={i.href}>
+                                    <Link to={i.href} onClick={() => setSolutionsOpen(false)} className="group block">
+                                      <p className="text-[15px] font-semibold text-[#1A1917] group-hover:text-[#C86B52] transition-colors">{i.label}</p>
+                                      <p className="text-[13px] text-gray-500 font-normal leading-relaxed mt-1">{i.description}</p>
+                                    </Link>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               );
             })}
           </nav>
 
-          {/* Desktop Actions */}
-          <div className="hidden items-center gap-3 lg:flex">
+          <div className="hidden items-center gap-5 lg:flex">
             {!hideLogin && (
-              <button
-                type="button"
+              <button 
                 onClick={() => navigate(SITE_CTA.login.href)}
-                className="rounded-full px-4 py-2 text-[0.9375rem] font-medium transition-colors"
-                style={{
-                  color: isDark ? "rgba(250,248,245,0.8)" : "#78756F",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = isDark ? "#FAF8F5" : "#1A1917";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = isDark ? "rgba(250,248,245,0.8)" : "#78756F";
-                }}
+                style={{ ...navItemStyle, color: colorSecondary }}
               >
                 {SITE_CTA.login.label}
               </button>
             )}
-            <button type="button" onClick={openContactModal} className="cta-primary">
+            <button 
+              onClick={openContactModal} 
+              className="cta-primary h-10 px-5"
+              style={{ fontSize: "14px", fontWeight: 500 }}
+            >
               {SITE_CTA.demo.label}
-              <ArrowRight className="h-3.5 w-3.5" />
+              <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
             </button>
           </div>
 
-          {/* Mobile */}
-          <div className="flex items-center gap-2 lg:hidden">
-            <button type="button" onClick={openContactModal} className="cta-primary px-4 py-2 text-sm">
-              Демо
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setMenuOpen(true)}
-              aria-label="Открыть меню"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors"
-              style={{
-                color: isDark ? "#FAF8F5" : "#1A1917",
-              }}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-          </div>
+          <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2" style={{ color: colorPrimary }}>
+            <Menu className="h-6 w-6" />
+          </button>
         </div>
       </header>
-      <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <MobileMenu open={mobileOpen} onClose={() => setMobileOpen(false)} />
     </>
   );
 };

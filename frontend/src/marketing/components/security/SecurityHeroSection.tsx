@@ -232,7 +232,7 @@ const VideoWithLayersOverlay: React.FC = () => {
 // Security Layers Stack — тёмная версия, увеличенный текст
 // ─────────────────────────────────────────────────────────────────────────────
 
-const LAYERS = ['Infrastructure', 'Data', 'Access', 'Processing', 'Audit'];
+const LAYERS = ['Инфраструктура', 'Данные', 'Доступ', 'Обработка', 'Аудит и логирование', 'Контроль внешнего AI'];
 
 const SecurityLayersStackDark: React.FC = () => {
   return (
@@ -255,7 +255,7 @@ const SecurityLayersStackDark: React.FC = () => {
           textShadow: '0 2px 12px rgba(0,0,0,0.5)',
         }}
       >
-        Пять слоёв защиты
+        Шесть слоёв защиты
       </motion.p>
 
       <ol className="space-y-5 pl-7">

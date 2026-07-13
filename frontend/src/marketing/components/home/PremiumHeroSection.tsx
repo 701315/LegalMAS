@@ -1,9 +1,11 @@
 // src/marketing/components/home/PremiumHeroSection.tsx
+
 import React, { useEffect, useState } from "react";
 import { landingContent } from "../../content/landingContent";
 
 const PremiumHeroSection: React.FC = () => {
   const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
     return () => clearTimeout(t);
@@ -19,67 +21,53 @@ const PremiumHeroSection: React.FC = () => {
 
   return (
     <section
+      id="landing-hero"
       className="relative flex min-h-screen overflow-hidden bg-[#1A1917]"
-      data-header-theme="dark"
     >
-      {/* Видео на всю ширину */}
+      {/* 1. Видео — самый нижний слой */}
       <video
         autoPlay
         loop
         muted
         playsInline
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover z-0"
         style={{
-          filter: "sepia(0.25) saturate(0.75) hue-rotate(-10deg) brightness(0.9)",
+          filter: "sepia(0.25) saturate(0.75) hue-rotate(-10deg) brightness(0.8)",
         }}
       >
         <source src="/video/hero-bg.mp4" type="video/mp4" />
       </video>
 
-      {/* Тёмный оверлей для читаемости текста */}
+      {/* 2. Тёмный оверлей */}
       <div
         aria-hidden="true"
-        className="absolute inset-0"
+        className="absolute inset-0 z-10"
         style={{
-          background:
-            "linear-gradient(135deg, rgba(26, 25, 23, 0.8) 0%, rgba(26, 25, 23, 0.6) 100%)",
+          background: "linear-gradient(135deg, rgba(26, 25, 23, 0.85) 0%, rgba(26, 25, 23, 0.7) 100%)",
         }}
       />
 
-      {/* Subtle radial glow — terracotta */}
+      {/* 3. Контент — выше оверлеев */}
       <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(200,107,82,0.15) 0%, transparent 70%)",
-        }}
-      />
-
-      {/* Контент — текст на 2/3 высоты от низа (≈33% от верха) */}
-      <div
-        className="relative z-10 mx-auto flex w-full px-6 lg:px-8"
+        className="relative z-30 mx-auto flex w-full px-6 lg:px-8"
         style={{ maxWidth: "var(--container-max-width)", minHeight: "100vh", paddingTop: "33vh" }}
       >
         <div className="grid w-full grid-cols-12 items-start gap-8">
-          
-          {/* Левая колонка — Заголовок */}
           <div className="col-span-12 lg:col-span-6" style={fadeIn(0)}>
-            <h1 className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.05] tracking-[-0.03em] text-[#FAF8F5]">
+            <h1 className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.05] tracking-[-0.03em] text-white">
               {hero.title.split("\n")[0]}
               <br />
-              <span style={{ color: "#E8B4A0" }}>
+              <span className="text-[#E8B4A0]">
                 {hero.title.split("\n")[1]}
               </span>
             </h1>
           </div>
 
-          {/* Правая колонка — Граф + Описание */}
           <div className="col-span-12 lg:col-span-6 lg:ml-auto relative" style={fadeIn(200)}>
-            {/* SVG-граф абсолютно позиционирован над текстом */}
-            <div className="absolute bottom-full mb-[-3rem] h-[280px] w-full opacity-0.7">
+            {/* Графическая фигура (Граф) — z-20 (под текстом) */}
+            <div className="absolute bottom-full mb-[-3rem] h-[280px] w-full opacity-70 z-20 pointer-events-none">
               <svg viewBox="0 0 520 420" fill="none" className="h-full w-full" aria-hidden="true">
-                <circle cx="260" cy="210" r="5.5" fill="#C86B52" opacity="1" />
+                <circle cx="260" cy="210" r="5.5" fill="#C86B52" />
                 <circle cx="140" cy="130" r="3.5" fill="#C86B52" opacity="0.85" />
                 <circle cx="380" cy="130" r="3.5" fill="#C86B52" opacity="0.85" />
                 <circle cx="100" cy="290" r="3" fill="#C86B52" opacity="0.7" />
@@ -97,10 +85,14 @@ const PremiumHeroSection: React.FC = () => {
               </svg>
             </div>
 
-            {/* Описание */}
-            <p className="max-w-md text-[1.0625rem] leading-[1.7] text-[#D6D0C7]">
-              {hero.description}
-            </p>
+            {/* Описание — исправлено для вывода массива строк */}
+            <div className="max-w-md text-[1.0625rem] leading-[1.7] text-[#D6D0C7]">
+              {hero.description.map((paragraph: string, idx: number) => (
+                <p key={idx} className={idx > 0 ? "mt-4" : ""}>
+                  {paragraph}
+                </p>
+              ))}
+            </div>
           </div>
         </div>
       </div>

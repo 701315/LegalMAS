@@ -36,7 +36,6 @@ style={{ maxWidth: 720 }}
 {/* Верхний тонкий якорь */}
 <div className="h-px w-16 bg-[#D6D0C7]" aria-hidden="true" />
 
-text
 
         {/* Заголовок */}
         <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">          {CTA_CONTENT.title}
