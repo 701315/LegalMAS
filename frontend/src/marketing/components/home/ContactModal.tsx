@@ -56,7 +56,7 @@ const ContactModal: React.FC<ContactModalProps> = ({
             </h3>
 
             <p className="mt-4 max-w-md text-sm leading-7 text-[#78756F] lg:text-base">
-              Расскажи о типах документов, playbooks и текущем процессе review —
+              Расскажите о типах документов, playbooks и текущем процессе review -
               так демо можно сделать предметным, а не общим.
             </p>
 
@@ -121,7 +121,7 @@ const ContactModal: React.FC<ContactModalProps> = ({
                 </div>
 
                 <div className="rounded-lg border border-[#C86B52]/20 bg-[#F5EBE7] px-4 py-3 text-xs leading-relaxed text-[#C86B52]">
-                  Если у тебя чувствительный сценарий, можно сразу указать требования
+                  Если у Вас чувствительный сценарий, можно сразу указать требования
                   к local-first обработке, ограничения по cloud LLM и ожидания по security review.
                 </div>
 

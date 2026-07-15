@@ -1,86 +1,73 @@
-// src/marketing/components/platform/PlatformStandardsSection.tsx
-
 import React from "react";
 import Reveal from "../../motion/Reveal";
-import { STANDARDS_CONTENT } from "./content/platformContent";
-import StandardsDiagram from "./diagrams/StandardsDiagram";
+import { METHODOLOGY_CONTENT } from "./content/platformContent";
 
 /**
- * PlatformStandardsSection — Section 3 (ЕДИНСТВЕННАЯ ТЁМНАЯ СЕКЦИЯ).
- *
- * Композиция:
- *   • Full-width тёмный фон (#1A1917)
- *   • Split: слева StandardsDiagram (архитектурная схема правил),
- *     справа заголовок + editorial текст (без bullets — они визуально шумят
- *     на тёмном; на тёмном фоне читаемость обеспечивается только крупной
- *     типографикой)
- *   • Крупные вертикальные отступы (py-32 / py-40) — секция «дышит»
- *
- * Атрибут data-header-theme="dark" сигнализирует SiteHeader переключить
- * цвета навигации на светлые, когда секция попадает в viewport.
- * Это работает автоматически через useSectionTheme() в SiteHeader,
- * если в CapabilitiesPage у SiteHeader НЕ передан forcedTheme.
+ * PlatformMethodologySection — Иммерсивная темная версия.
+ * 
+ * Параметры:
+ *   • Фон секции: Глубокий черный (#1A1917).
+ *   • Картинка: /platform-1-1.png на ВСЮ площадь (fullscreen background).
+ *   • Оверлей: Градиентный переход от черного слева к прозрачному справа.
  */
 
-const PlatformStandardsSection: React.FC = () => {
+const PlatformMethodologySection: React.FC = () => {
   return (
     <section
-      className="relative"
-      style={{ background: "#1A1917" }}
+      className="relative overflow-hidden bg-[#1A1917]"
       data-header-theme="dark"
     >
-      {/* Мягкий верхний градиент — визуальное смягчение перехода от светлой
-          секции к тёмной. Никакого «obvious разлома» между секциями. */}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-24"
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(26,25,23,0) 0%, rgba(26,25,23,0.6) 100%)",
-        }}
-        aria-hidden="true"
-      />
+      
+      {/* ── Background Layer: Картинка на всю площадь секции ────────── */}
+      <div className="absolute inset-0 z-0">
+        <img 
+          src="/platform-1-1.png" 
+          alt="" 
+          className="h-full w-full object-cover object-center opacity-40 lg:opacity-50"
+          aria-hidden="true"
+        />
+        {/* Радиально-линейный градиент для фокуса на тексте слева */}
+        <div 
+          className="absolute inset-0" 
+          style={{
+            background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.85) 30%, rgba(26,25,23,0.2) 60%, transparent 100%)'
+          }} 
+        />
+      </div>
 
+      {/* ── Content Layer: Текст поверх изображения ─────────────────── */}
       <div
-        className="relative mx-auto w-full px-6 py-32 lg:px-8 lg:py-40"
+        className="relative z-10 mx-auto w-full px-6 py-32 lg:px-8 lg:py-48"
         style={{ maxWidth: "var(--container-max-width)" }}
       >
-        <div className="grid items-center gap-16 lg:grid-cols-12 lg:gap-20">
-          {/* ── Left: StandardsDiagram ──────────────────────────────────── */}
-          <div className="lg:col-span-6 lg:order-1">
-            <Reveal>
-              <div className="mx-auto flex justify-center lg:justify-start">
-                <StandardsDiagram
-                  sources={STANDARDS_CONTENT.diagram.sources}
-                  core={STANDARDS_CONTENT.diagram.core}
-                  targets={STANDARDS_CONTENT.diagram.targets}
-                />
-              </div>
-            </Reveal>
-          </div>
-
-          {/* ── Right: заголовок + текст ────────────────────────────────── */}
-          <Reveal className="lg:col-span-6 lg:order-2" delay={0.1}>
-            <div className="max-w-xl">
-              <div
-                className="text-[11px] font-medium uppercase tracking-[0.22em]"
-                style={{ color: "rgba(250, 248, 245, 0.55)" }}
-              >
-                {STANDARDS_CONTENT.eyebrow}
+        <div className="grid gap-16 lg:grid-cols-12 lg:gap-20">
+          <Reveal className="lg:col-span-7">
+            <div className="max-w-2xl">
+              
+              {/* Eyebrow */}
+              <div className="eyebrow !text-[var(--color-accent)] brightness-110">
+                {METHODOLOGY_CONTENT.eyebrow}
               </div>
 
-              <h2
-                className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em]"
-                style={{ color: "#FAF8F5" }}
-              >
-                {STANDARDS_CONTENT.title}
+              {/* Заголовок — Off-white */}
+              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#FAF8F5]">
+                {METHODOLOGY_CONTENT.title}
               </h2>
 
-              <div className="mt-7 space-y-5">
-                {STANDARDS_CONTENT.paragraphs.map((p, i) => (
+              {/* Lead-in — Serif Italic */}
+              <p
+                className="mt-6 font-serif text-[1.25rem] italic leading-[1.5] text-[#FAF8F5]/90"
+                style={{ maxWidth: 560 }}
+              >
+                {METHODOLOGY_CONTENT.leadIn}
+              </p>
+
+              {/* Основной текст — Muted Grey для темной темы */}
+              <div className="mt-8 space-y-6" style={{ maxWidth: 620 }}>
+                {METHODOLOGY_CONTENT.paragraphs.map((p, i) => (
                   <p
                     key={i}
-                    className="text-[1rem] leading-[1.75]"
-                    style={{ color: "rgba(250, 248, 245, 0.72)" }}
+                    className="text-[1.0625rem] leading-[1.75] text-[#A8A29E]"
                   >
                     {p}
                   </p>
@@ -88,22 +75,15 @@ const PlatformStandardsSection: React.FC = () => {
               </div>
             </div>
           </Reveal>
+
+          {/* Правая колонка остается свободной для визуального баланса */}
+          <div className="hidden lg:block lg:col-span-5" />
         </div>
       </div>
-
-      {/* Мягкий нижний градиент — симметричный переход к светлой секции ниже. */}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-24"
-        style={{
-          background:
-            "linear-gradient(0deg, rgba(26,25,23,0) 0%, rgba(26,25,23,0.6) 100%)",
-        }}
-        aria-hidden="true"
-      />
     </section>
   );
 };
 
-export default PlatformStandardsSection;
+export default PlatformMethodologySection;
 
 

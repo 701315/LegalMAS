@@ -185,12 +185,12 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
         {/* Логотип */}
         <div className="flex shrink-0 items-center gap-3 px-4 py-5">
           <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--accent-primary)] text-xs font-semibold text-white shadow-sm">
-            <span className="tracking-tight">LM</span>
+            <span className="tracking-tight">S</span>
           </div>
           {!collapsed && (
             <div className="min-w-0">
               <div className="text-[length:var(--font-size-body-sm)] leading-[var(--line-height-body-sm)] font-semibold tracking-tight text-[var(--text-primary)]">
-                LegalMAS
+                Steloom
               </div>
             </div>
           )}
