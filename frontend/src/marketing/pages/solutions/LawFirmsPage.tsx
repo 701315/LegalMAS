@@ -86,7 +86,7 @@ function HeroSection({ onDemo }: { onDemo: () => void }) {
                 lineHeight: 1.05,
               }}
             >
-              Рутину берёт на себя система - <br />
+              Рутину берёт на себя платформа - <br />
               <span className="italic font-light text-[var(--color-accent)]">
                 решение остаётся за юристом.
               </span>
@@ -124,21 +124,6 @@ function HowSteloomHelpsSection() {
       title: "Прослеживаемость и доказательность",
       text: "Каждое заключение сопровождается ссылкой на конкретный абзац первоисточника. Готовая доказательная база для клиента или регулятора.",
     },
-    {
-      image: "/lf-1-4.png",
-      title: "Рутина съедает billable hours",
-      text: "До 63% рабочего времени уходит на non-billable обработку документов - вычитку, поиск отклонений, сортировку. Время, которое могло бы стать клиентским.",
-    },
-    {
-      image: "/lf-1-5.png",
-      title: "Разный уровень анализа",
-      text: "Качество проверки зависит от опыта конкретного юриста - единый стандарт сложно поддерживать при росте числа проектов и команды.",
-    },
-    {
-      image: "/lf-1-6.png",
-      title: "Объём при due diligence",
-      text: "При сделках M&A нужно проанализировать сотни документов за ограниченное время. Выборочный подход приводит к пропуску рисков.",
-    },
   ];
 
   return (
@@ -155,17 +140,6 @@ function HowSteloomHelpsSection() {
               </p>
             </RevealItem>
 
-            <RevealItem>
-              <h2
-                className="font-serif tracking-[-0.02em] text-[#1A1917]"
-                style={{
-                  fontSize: "clamp(1.75rem, 3vw, 2.5rem)",
-                  lineHeight: 1.15,
-                }}
-              >
-                Рутинные задачи фирмы - в едином потоке анализа
-              </h2>
-            </RevealItem>
           </div>
 
           <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
@@ -341,7 +315,7 @@ function CapabilitiesSection() {
             Что автоматизирует Steloom
           </p>
           <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] tracking-[-0.02em] text-[#1A1917] mb-16 max-w-none">
-            Рутинные задачи фирмы - в едином потоке анализа
+            Ключевые задачи фирмы - в едином потоке анализа
           </h2>
           <div className="mt-16">
             {capabilities.map((item) => (

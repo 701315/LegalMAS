@@ -36,7 +36,7 @@ const FounderSection: React.FC = () => {
               <div className="aspect-[4/5] w-full overflow-hidden rounded-[2.5rem] border border-[#E8E4DD] bg-[#F3F0EB] shadow-sm transition-all duration-1000">
                 <img
                   src={photoVladimir}
-                  alt="Владимир Горелов"
+                  alt="Владимир"
                   className="h-full w-full object-cover grayscale-[0.3] group-hover:grayscale-0 transition-all duration-1000 scale-[1.02] group-hover:scale-105"
                 />
               </div>
@@ -44,10 +44,10 @@ const FounderSection: React.FC = () => {
               {/* Подпись под фото */}
               <div className="mt-8">
                 <div className="text-[1.125rem] font-serif italic text-[#1A1917]">
-                  Владимир Горелов
+                  Владимир
                 </div>
                 <div className="mt-1 text-[0.8125rem] uppercase tracking-widest text-[#C86B52] font-bold">
-                  Основатель Steloom
+                  Steloom
                 </div>
               </div>
             </div>
