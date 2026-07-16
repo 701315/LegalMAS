@@ -3,12 +3,11 @@
 """
 Repository for DocumentVersion CRUD operations.
 
-...
-
 - Здесь мы храним не только legacy refs (raw/sanitized), но и новые refs
   для одноязычного пайплайна:
   - layout_primary_ref;
   - layout_primary_sanitized_ref;
+  - pii_mapping_ref — зашифрованный PII-маппинг для reveal;
   - file_graph_ref, segments_count — структура файла (v2);
   - chunks_manifest_v2_ref — file-level манифест чанков (CHUNKS v2);
   - segment_chunks_ref — ссылки на чанки сегментов лежат в DocumentSegment.
@@ -133,7 +132,6 @@ class DocumentVersionRepository:
         result = await self.session.execute(stmt)
         versions = list(result.scalars().all())
 
-        # Возвращаем словарь вида {document_id: latest_version}
         return {version.document_id: version for version in versions}
 
     async def update_chunks_v2_ref(
@@ -152,7 +150,6 @@ class DocumentVersionRepository:
             chunks_manifest_v2_ref=chunks_manifest_v2_ref,
         )
 
-    # В сигнатуре — добавить после chunks_manifest_v2_ref:
     async def update_refs(
         self,
         version_id: uuid.UUID,
@@ -169,7 +166,8 @@ class DocumentVersionRepository:
         file_graph_ref: str | None = None,
         segments_count: int | None = None,
         chunks_manifest_v2_ref: str | None = None,
-        chunk_plan_ref: str | None = None,          # ← NEW
+        chunk_plan_ref: str | None = None,
+        pii_mapping_ref: str | None = None,
     ) -> DocumentVersion | None:
         """
         Update artifact references and processing metadata on a document version.
@@ -183,7 +181,7 @@ class DocumentVersionRepository:
             raw_ref, layout_primary_ref, extraction_strategy,
             ocr_confidence, pipeline_strategy
         - pii_sanitizer:
-            sanitized_ref, layout_primary_sanitized_ref
+            sanitized_ref, layout_primary_sanitized_ref, pii_mapping_ref
         - structure_builder:
             clause_tree_ref, file_graph_ref, segments_count
         - chunk_builder:
@@ -195,6 +193,8 @@ class DocumentVersionRepository:
           контракт для одноязычного downstream-пайплайна;
         - primary_source_ref — одноязычный source (PDF) до extract;
         - chunks_manifest_v2_ref — file-level манифест чанков (CHUNKS v2);
+        - pii_mapping_ref — S3 URI к зашифрованному PII mapping (.enc),
+          необходим для PII reveal операций;
         - None означает "не обновлять это поле";
         - если version_id не найден, метод возвращает None.
         """
@@ -239,10 +239,11 @@ class DocumentVersionRepository:
         if chunks_manifest_v2_ref is not None:
             values["chunks_manifest_v2_ref"] = chunks_manifest_v2_ref
 
-        # В теле — добавить в блок if chunk_plan_ref is not None:
-        # (после chunks_manifest_v2_ref блока)
         if chunk_plan_ref is not None:
             values["chunk_plan_ref"] = chunk_plan_ref
+
+        if pii_mapping_ref is not None:
+            values["pii_mapping_ref"] = pii_mapping_ref
 
         if not values:
             return await self.get_by_id(version_id)
@@ -264,3 +265,6 @@ class DocumentVersionRepository:
             await self.session.flush()
 
         return version
+    
+
+    

@@ -354,6 +354,17 @@ class DocumentVersion(Base):
         ),
     )
 
+    pii_mapping_ref: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment=(
+            "S3 URI to encrypted PII mapping artifact (.enc). "
+            "Written by pii_sanitizer after successful sanitization. "
+            "Required for PII reveal/restore operations. "
+            "Path: ArtifactPath.pii_mapping(tenant_id, deal_id, document_id)."
+        ),
+    )
+
     clause_tree_ref: Mapped[str | None] = mapped_column(
         String(1000),
         nullable=True,

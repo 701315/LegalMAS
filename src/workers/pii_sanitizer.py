@@ -180,13 +180,15 @@ class PIISanitizer:
             # ВАЖНО:
             # - sanitized_path указывает на одноязычный sanitized layout
             #   (ArtifactPath.layout_primary_sanitized).
-            # - Через update_refs мы записываем эту ссылку в колонку
-            #   layout_primary_sanitized_ref, которая должна быть основным
-            #   источником истины для всех следующих стадий (structure,
-            #   DocumentContentService, checks).
+            # - mapping_path — зашифрованный PII mapping для reveal операций.
+            # - Через update_refs мы записываем обе ссылки в DocumentVersion,
+            #   чтобы layout_primary_sanitized_ref был основным source of truth
+            #   для downstream стадий (structure, DocumentContentService, checks),
+            #   а pii_mapping_ref — канонической ссылкой для PII reveal.
             await self.version_repo.update_refs(
                 version_id=version.id,
                 layout_primary_sanitized_ref=sanitized_path,
+                pii_mapping_ref=mapping_path,
             )
             await self.doc_repo.update_status(
                 doc_id=doc.id,
