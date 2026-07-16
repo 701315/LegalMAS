@@ -10,8 +10,13 @@ PII Tokenizer.
   TOKENIZE  → заменить сущность на стабильный токен (PERSON1, PHONE1, EMAIL1 ...)
   PRESERVE  → оставить как есть (номера, которые нужны LLM в оригинале:
               ИНН, ОГРН, кадастровый номер и т.п.)
-  ROLE_MAP  → для имён сторон договора пытаться заменить имя на роль
-              (SELLER/BUYER/LESSOR/...), используя словарь ролей
+  ROLE_MAP  → ОПЦИОНАЛЬНЫЙ HINT: для имён сторон договора пытаться заменить имя
+              на роль (SELLER/BUYER/LESSOR/...) по ближайшему keyword слева.
+              Disabled by default (PII_PRESERVE_PARTY_ROLES=False).
+              Primary goal of PII layer is privacy (TOKENIZE), not legal role
+              assignment. Role resolution belongs to downstream semantic analysis.
+              Enable via PII_PRESERVE_PARTY_ROLES=True only when role hints
+              are explicitly needed by downstream consumers.
 
 Основные компоненты:
 - PIIPolicy — описывает, какие типы PII токенизировать/сохранять/маппить в роль
@@ -79,7 +84,8 @@ class PIIPolicy:
         }
     )
     preserve_types: set[PIIEntityType] = field(default_factory=lambda: set(get_preserve_types()))
-    use_role_map: bool = True  # активируется если applicable_triggers не пуст
+    use_role_map: bool = False  # opt-in only; enabled via build_policy_from_triggers
+                                # when PII_PRESERVE_PARTY_ROLES=True AND triggers present
 
     # словарь из YAML playbook: {keyword_lower: ROLE_ID}
     # None = использовать дефолтный словарь

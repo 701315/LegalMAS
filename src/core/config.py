@@ -128,7 +128,11 @@ class Settings(BaseSettings):
     PII_PRESERVE_INN: bool = True
     PII_PRESERVE_OGRN: bool = True
     PII_PRESERVE_CADASTRAL: bool = True
-    PII_PRESERVE_PARTY_ROLES: bool = True
+    # Role mapping (PERSON_NAME → SELLER/BUYER/...) is an optional hint, disabled by default.
+    # PII sanitization primary goal is privacy (PERSON → PERSONAMEn), not legal role assignment.
+    # Legal role resolution belongs to downstream semantic analysis (classification/enrichment).
+    # Enable explicitly only when applicable_triggers are present AND role hints are needed.
+    PII_PRESERVE_PARTY_ROLES: bool = False
     PII_AUDIT_ENABLED: bool = True
     PII_SKIP_IF_ALREADY_SANITIZED: bool = True
 
