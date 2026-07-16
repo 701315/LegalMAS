@@ -57,20 +57,20 @@ class PIIEntity:
 # Паттерны с контекстом (высокий приоритет)
 _CONTEXT_PATTERNS: list[tuple[PIIEntityType, re.Pattern]] = [
     # ИНН с контекстом — высший приоритет
-    (PIIEntityType.INN, re.compile(r"(?:ИНН|инн|INN)\s*[:.]?\s*(\d{10}|\d{12})", re.IGNORECASE)),
+    (PIIEntityType.INN, re.compile(
+        r"(?:ИНН|инн|INN)\s*[:.]?\s*(\d{10}|\d{12})",
+        re.IGNORECASE,
+    )),
     # ОГРН с контекстом
-    (
-        PIIEntityType.OGRN,
-        re.compile(r"(?:ОГРН|огрн|ОГРНИП|огрнип)\s*[:.]?\s*(\d{13}|\d{15})", re.IGNORECASE),
-    ),
-    # Паспорт с контекстом
-    (
-        PIIEntityType.PASSPORT,
-        re.compile(
-            r"(?:паспорт|серия|passport)\s*[:.]?\s*(\d{2}\s?\d{2})\s*(?:№|номер|N|n)?\s*[:.]?\s*(\d{6})",
-            re.IGNORECASE,
-        ),
-    ),
+    (PIIEntityType.OGRN, re.compile(
+        r"(?:ОГРН|огрн|ОГРНИП|огрнип)\s*[:.]?\s*(\d{13}|\d{15})",
+        re.IGNORECASE,
+    )),
+    # Паспорт с контекстом — capture group захватывает только номерную часть
+    (PIIEntityType.PASSPORT, re.compile(
+        r"(?:паспорт|серия|passport)\s*[:.]?\s*(\d{2}\s?\d{2}\s*(?:№|номер|N|n)?\s*[:.]?\s*\d{6})",
+        re.IGNORECASE,
+    )),
 ]
 
 # Паттерны без контекста (проверяются после контекстных)
@@ -239,13 +239,25 @@ class PIIDetector:
         # 1. Контекстные паттерны (высокий приоритет)
         for entity_type, pattern in _CONTEXT_PATTERNS:
             for match in pattern.finditer(text):
-                # Берём полное совпадение
+                # Если паттерн имеет capture-группу — берём её span,
+                # чтобы не захватывать триггерное слово ("паспорт", "ИНН", "ОГРН").
+                # Это сохраняет label-слово в тексте для downstream-анализа.
+                # Иначе берём полное совпадение.
+                if pattern.groups > 0 and match.lastindex and match.group(1):
+                    start = match.start(1)
+                    end = match.end(1)
+                    matched_text = match.group(1)
+                else:
+                    start = match.start()
+                    end = match.end()
+                    matched_text = match.group()
+
                 entities.append(
                     PIIEntity(
                         type=entity_type,
-                        start=match.start(),
-                        end=match.end(),
-                        text=match.group(),
+                        start=start,
+                        end=end,
+                        text=matched_text,
                         confidence=1.0,
                         source="regex_context",
                     )
