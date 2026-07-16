@@ -124,29 +124,21 @@ class PIITokenizer:
             text: Исходный текст элемента
             entities: Найденные PII-сущности (отсортированы по позиции)
             policy: Политика обработки
-            context_window: Первые N символов текста для определения роли
-            value_to_token: Разделяемый маппинг normalized_value → token.
-                Передаётся из _process_elements() через все элементы документа,
-                обеспечивая стабильность: одна и та же сущность всегда получает
-                один токен во всех элементах документа.
-                None → локальный scope (backward compatibility, тесты).
-            counters: Разделяемые счётчики type_key → current_max_index.
-                Передаётся вместе с value_to_token для монотонного роста
-                индексов через весь документ.
-                None → локальный scope (backward compatibility, тесты).
+            context_window: Оставлен для backward compatibility, не используется
+                в ROLE_MAP — заменён proximity-поиском по full_text + entity.start.
+            value_to_token: Разделяемый маппинг normalized_value → token через документ.
+                None = локальный scope (backward compatibility).
+            counters: Разделяемые счётчики type_key → current_max_index через документ.
+                None = локальный scope (backward compatibility).
 
         Returns:
             TokenizationResult с mapping только для ЭТОГО элемента.
-            Глобальный маппинг строится в _process_elements() через
-            global_mapping.update(result.mapping).
         """
-        # Разделяемое состояние (передано снаружи) или локальное (backward compat)
         _value_to_token: dict[str, str] = value_to_token if value_to_token is not None else {}
         _counters: dict[str, int] = counters if counters is not None else {}
 
         local_mapping: dict[str, str] = {}
         result = list(text)
-        context_lower = context_window.lower()
 
         stats = {"tokenized": 0, "preserved": 0, "role_mapped": 0}
 
@@ -161,7 +153,8 @@ class PIITokenizer:
             token: str | None = None
 
             if action == PIITokenPolicy.ROLE_MAP:
-                token = self._detect_party_role(entity.text, context_lower, policy)
+                # Proximity-поиск: ближайший keyword слева от entity.start в full text
+                token = self._detect_party_role(entity.text, text, entity.start, policy)
                 if token:
                     stats["role_mapped"] += 1
                 else:
@@ -169,15 +162,10 @@ class PIITokenizer:
                     action = PIITokenPolicy.TOKENIZE
 
             if action == PIITokenPolicy.TOKENIZE:
-                # Нормализация: "Иванов И.И." и "иванов и.и." → один ключ
                 normalized = entity.text.strip().lower()
-
                 if normalized in _value_to_token:
-                    # Сущность уже видели в другом элементе → переиспользуем токен
-                    # stats["tokenized"] не растёт: это не новая токенизация
                     token = _value_to_token[normalized]
                 else:
-                    # Новая сущность → выдать следующий токен
                     type_key = entity.type.value.upper().replace("_", "")
                     _counters[type_key] = _counters.get(type_key, 0) + 1
                     token = f"{type_key}{_counters[type_key]}"
@@ -197,26 +185,61 @@ class PIITokenizer:
         )
 
     @staticmethod
-    def _detect_party_role(name: str, context_lower: str, policy: PIIPolicy) -> str | None:
+    def _detect_party_role(
+        name: str,
+        full_text: str,
+        entity_start: int,
+        policy: PIIPolicy,
+        window: int = 200,
+    ) -> str | None:
         """
-        Найти роль стороны в контексте рядом с именем.
+        Найти роль стороны по ближайшему ключевому слову СЛЕВА от сущности.
 
-        Приоритет:
-        1) словарь из PIIPolicy.party_role_keywords (из YAML essential_elements.party_roles)
-        2) дефолтный _PARTY_ROLE_KEYWORDS_DEFAULT
+        Алгоритм:
+        - Берём окно текста длиной window символов непосредственно перед entity_start.
+        - Для каждого keyword ищем его последнее вхождение в этом окне (rfind).
+        - Побеждает keyword с наименьшим расстоянием до entity_start.
+        - Если ни одного keyword не найдено — возвращаем None (fallback на TOKENIZE).
 
-        ИСПРАВЛЕНО: пустой dict {} теперь корректно fallback на дефолт
+        Почему rfind и левое окно:
+        - В юридических документах роль указывается ПЕРЕД именем или сразу после.
+        - Поиск в полном тексте давал ложные срабатывания при нескольких сторонах
+        в одном элементе: "продавец" стоит первым в словаре и выигрывал
+        у "покупателя" даже когда покупатель был ближе к имени.
+
+        Args:
+            name: Текст сущности (зарезервирован для future use / logging).
+            full_text: Полный текст элемента layout.
+            entity_start: Позиция начала сущности в full_text.
+            policy: Политика с опциональным кастомным словарём ролей.
+            window: Количество символов слева от entity_start для поиска.
+
+        Returns:
+            Строка-роль (SELLER, BUYER, LESSOR, ...) или None.
         """
-        # Используем кастомные keywords только если они заданы И не пустые
-        if policy.party_role_keywords:
-            keywords = policy.party_role_keywords
-        else:
-            keywords = _PARTY_ROLE_KEYWORDS_DEFAULT
+        keywords = policy.party_role_keywords or _PARTY_ROLE_KEYWORDS_DEFAULT
+
+        # Левое окно: window символов до entity_start
+        search_start = max(0, entity_start - window)
+        left_context = full_text[search_start:entity_start].lower()
+
+        if not left_context:
+            return None
+
+        best_role: str | None = None
+        best_distance: int | None = None
 
         for keyword, role in keywords.items():
-            if keyword in context_lower:
-                return role
-        return None
+            idx = left_context.rfind(keyword)
+            if idx == -1:
+                continue
+            # Расстояние: сколько символов от конца keyword до entity_start
+            distance = len(left_context) - (idx + len(keyword))
+            if best_distance is None or distance < best_distance:
+                best_role = role
+                best_distance = distance
+
+        return best_role
 
     @staticmethod
     def build_policy_from_triggers(
