@@ -74,6 +74,81 @@ _CONTEXT_PATTERNS: list[tuple[PIIEntityType, re.Pattern]] = [
 ]
 
 # Паттерны без контекста (проверяются после контекстных)
+
+# Address pattern: structured and bounded.
+# Принципы:
+# - стартуем только с "улица/проспект/переулок/road/street/..." уровня,
+#   а не с "дом/квартира", чтобы не ловить произвольные фразы типа
+#   "дом 15, именуемый Арендатор";
+# - поддерживаем mixed/latin документы: ul., street, st., avenue, ave., road, rd.;
+# - разрешаем ограниченный набор адресных компонентов после street-name;
+# - не матчим переносы строк и не выходим за пределы разумной address span.
+_ADDRESS_STREET_PREFIX = (
+    r"(?:"
+    r"ул\.|улица|"
+    r"пр\.|проспект|"
+    r"пер\.|переулок|"
+    r"ul\.|street|st\.|avenue|ave\.|lane|ln\.|road|rd\."
+    r")"
+)
+
+_ADDRESS_TOKEN = r"[A-Za-zА-ЯЁа-яё0-9]+(?:[-/][A-Za-zА-ЯЁа-яё0-9]+)?"
+
+_ADDRESS_STREET_NAME = (
+    _ADDRESS_TOKEN
+    + r"(?:\s+"
+    + _ADDRESS_TOKEN
+    + r"){0,5}"
+)
+
+_ADDRESS_HOUSE = (
+    r"(?:"
+    r"(?:,\s*|\s+)"
+    r"(?:д\.|дом|d\.|house)\s*"
+    + _ADDRESS_TOKEN +
+    r")?"
+)
+
+_ADDRESS_BUILDING = (
+    r"(?:"
+    r"(?:,\s*|\s+)"
+    r"(?:корп\.|корпус|стр\.|строение|bldg\.?)\s*"
+    + _ADDRESS_TOKEN +
+    r")?"
+)
+
+_ADDRESS_APARTMENT = (
+    r"(?:"
+    r"(?:,\s*|\s+)"
+    r"(?:кв\.|квартира|apt\.?|apartment)\s*"
+    + _ADDRESS_TOKEN +
+    r")?"
+)
+
+_ADDRESS_LOCALITY = (
+    r"(?:"
+    r"(?:,\s*|\s+)"
+    r"(?:г\.|город|city)\s+"
+    + _ADDRESS_TOKEN +
+    r"(?:\s+"
+    + _ADDRESS_TOKEN +
+    r"){0,4}"
+    r")?"
+)
+
+_ADDRESS_PATTERN = re.compile(
+    _ADDRESS_STREET_PREFIX
+    + r"\s+"
+    + _ADDRESS_STREET_NAME
+    + _ADDRESS_HOUSE
+    + _ADDRESS_BUILDING
+    + _ADDRESS_APARTMENT
+    + _ADDRESS_LOCALITY
+    + r"(?=[,.;:\n\r]|\Z)",
+    re.IGNORECASE,
+)
+
+
 _PATTERNS: dict[PIIEntityType, re.Pattern] = {
     # Паспорт: ОБЯЗАТЕЛЬНЫЙ пробел между серией и номером (4+6 цифр)
     # Это отличает от 10-значного ИНН без пробела
@@ -85,11 +160,9 @@ _PATTERNS: dict[PIIEntityType, re.Pattern] = {
     # Email
     PIIEntityType.EMAIL: re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}", re.IGNORECASE),
     # Адрес
-    PIIEntityType.ADDRESS: re.compile(
-        r"(?:ул\.|улица|пр\.|проспект|пер\.|переулок|д\.|дом|кв\.|квартира)"
-        r"\s+[А-ЯЁа-яёA-Za-z0-9\s,\.\-]+",
-        re.IGNORECASE,
-    ),
+
+    PIIEntityType.ADDRESS: _ADDRESS_PATTERN,
+
     # ИНН без контекста — только 12 цифр (физлицо), чтобы не конфликтовать с паспортом
     # 10-значный ИНН требует контекста "ИНН"
     PIIEntityType.INN: re.compile(r"\b(\d{12})\b"),
