@@ -57,15 +57,12 @@ class PIIEntity:
 # Паттерны с контекстом (высокий приоритет)
 _CONTEXT_PATTERNS: list[tuple[PIIEntityType, re.Pattern]] = [
     # ИНН с контекстом — высший приоритет
-    (PIIEntityType.INN, re.compile(
-        r"(?:ИНН|инн|INN)\s*[:.]?\s*(\d{10}|\d{12})",
-        re.IGNORECASE,
-    )),
+    (PIIEntityType.INN, re.compile(r"(?:ИНН|инн|INN)\s*[:.]?\s*(\d{12}|\d{10})(?!\d)", re.IGNORECASE)),
     # ОГРН с контекстом
-    (PIIEntityType.OGRN, re.compile(
-        r"(?:ОГРН|огрн|ОГРНИП|огрнип)\s*[:.]?\s*(\d{13}|\d{15})",
-        re.IGNORECASE,
-    )),
+    (
+        PIIEntityType.OGRN,
+        re.compile(r"(?:ОГРН|огрн|ОГРНИП|огрнип)\s*[:.]?\s*(\d{15}|\d{13})(?!\d)", re.IGNORECASE),
+    ),
     # Паспорт с контекстом — capture group захватывает только номерную часть
     (PIIEntityType.PASSPORT, re.compile(
         r"(?:паспорт|серия|passport)\s*[:.]?\s*(\d{2}\s?\d{2}\s*(?:№|номер|N|n)?\s*[:.]?\s*\d{6})",
@@ -172,6 +169,31 @@ _PATTERNS: dict[PIIEntityType, re.Pattern] = {
     PIIEntityType.CADASTRAL: re.compile(r"\b\d{2}:\d{2}:\d{6,7}:\d{1,6}\b"),
 }
 
+def _is_valid_inn_checksum(digits: str) -> bool:
+    """
+    Проверить checksum российского ИНН физического лица (12 цифр).
+
+    Важно:
+    - Здесь валидируем только 12-значный ИНН, потому что именно он
+      допускается no-context паттерном.
+    - 10-значный ИНН в текущем пайплайне распознаётся только по контексту "ИНН",
+      поэтому отдельная no-context валидация для него не требуется.
+
+    Returns:
+        True если checksum валиден, иначе False.
+    """
+    if len(digits) != 12 or not digits.isdigit():
+        return False
+
+    nums = [int(ch) for ch in digits]
+
+    weights_11 = [7, 2, 4, 10, 3, 5, 9, 4, 6, 8]
+    weights_12 = [3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8]
+
+    control_11 = sum(n * w for n, w in zip(nums[:10], weights_11)) % 11 % 10
+    control_12 = sum(n * w for n, w in zip(nums[:11], weights_12)) % 11 % 10
+
+    return nums[10] == control_11 and nums[11] == control_12
 
 def get_preserve_types() -> frozenset[PIIEntityType]:
     """
@@ -266,12 +288,22 @@ class PIIDetector:
         # 2. Обычные паттерны
         for entity_type, pattern in _PATTERNS.items():
             for match in pattern.finditer(text):
+                matched_text = match.group()
+
+                # No-context 12-digit INN requires checksum validation.
+                # Без контекста словообразного сигнала ("ИНН") любое 12-значное
+                # число слишком неоднозначно и даёт много false positives.
+                if entity_type == PIIEntityType.INN:
+                    digits = match.group(1) if pattern.groups > 0 and match.lastindex else matched_text
+                    if not _is_valid_inn_checksum(digits):
+                        continue
+
                 entities.append(
                     PIIEntity(
                         type=entity_type,
                         start=match.start(),
                         end=match.end(),
-                        text=match.group(),
+                        text=matched_text,
                         confidence=1.0,
                         source="regex",
                     )
