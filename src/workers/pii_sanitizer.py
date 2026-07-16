@@ -299,15 +299,27 @@ class PIISanitizer:
         """
         Обработать элементы layout'а.
 
-
         Возвращает:
-          sanitized_elements, global_mapping, stats
+        sanitized_elements, global_mapping, stats
+
+        Инвариант стабильности токенов:
+        value_to_token и doc_counters создаются ОДИН РАЗ на документ
+        и передаются через все вызовы tokenize(). Это гарантирует что
+        одна и та же PII-сущность (например "Иванов И.И.") получает
+        один токен во всех элементах layout'а, а не разные токены
+        в разных элементах.
         """
         sanitized_elements = []
         global_mapping: dict[str, str] = {}
         stats = {"detected": 0, "tokenized": 0, "preserved": 0, "role_mapped": 0}
 
         preserve_types = get_preserve_types()
+
+        # Разделяемое состояние через все элементы документа.
+        # value_to_token: normalized_entity_value → assigned_token
+        # doc_counters:   type_key → current_max_index
+        value_to_token: dict[str, str] = {}
+        doc_counters: dict[str, int] = {}
 
         for elem in elements:
             raw_text = elem.get("text", "")
@@ -327,13 +339,15 @@ class PIISanitizer:
                 stats["preserved"] += len(all_entities)
                 continue
 
-            # Токенизируем
+            # Токенизируем с разделяемым состоянием через весь документ
             context = raw_text[:500]
             result = self.tokenizer.tokenize(
                 raw_text,
                 pii_entities,
                 policy,
                 context_window=context,
+                value_to_token=value_to_token,
+                counters=doc_counters,
             )
 
             global_mapping.update(result.mapping)

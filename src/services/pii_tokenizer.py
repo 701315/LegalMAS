@@ -114,27 +114,43 @@ class PIITokenizer:
         entities: list[PIIEntity],
         policy: PIIPolicy,
         context_window: str = "",
+        value_to_token: dict[str, str] | None = None,
+        counters: dict[str, int] | None = None,
     ) -> TokenizationResult:
         """
         Токенизировать текст согласно политике.
 
         Args:
-            text: Исходный текст
+            text: Исходный текст элемента
             entities: Найденные PII-сущности (отсортированы по позиции)
             policy: Политика обработки
             context_window: Первые N символов текста для определения роли
+            value_to_token: Разделяемый маппинг normalized_value → token.
+                Передаётся из _process_elements() через все элементы документа,
+                обеспечивая стабильность: одна и та же сущность всегда получает
+                один токен во всех элементах документа.
+                None → локальный scope (backward compatibility, тесты).
+            counters: Разделяемые счётчики type_key → current_max_index.
+                Передаётся вместе с value_to_token для монотонного роста
+                индексов через весь документ.
+                None → локальный scope (backward compatibility, тесты).
 
         Returns:
-            TokenizationResult
+            TokenizationResult с mapping только для ЭТОГО элемента.
+            Глобальный маппинг строится в _process_elements() через
+            global_mapping.update(result.mapping).
         """
-        mapping: dict[str, str] = {}
-        counters: dict[str, int] = {}
+        # Разделяемое состояние (передано снаружи) или локальное (backward compat)
+        _value_to_token: dict[str, str] = value_to_token if value_to_token is not None else {}
+        _counters: dict[str, int] = counters if counters is not None else {}
+
+        local_mapping: dict[str, str] = {}
         result = list(text)
         context_lower = context_window.lower()
 
         stats = {"tokenized": 0, "preserved": 0, "role_mapped": 0}
 
-        # Обрабатываем с конца, чтобы не сбивать индексы
+        # Обрабатываем с конца, чтобы не сбивать индексы при замене
         for entity in reversed(entities):
             action = policy.get_action(entity.type)
 
@@ -149,22 +165,32 @@ class PIITokenizer:
                 if token:
                     stats["role_mapped"] += 1
                 else:
-                    # fallback на обычную токенизацию, если роль не определилась
+                    # fallback: роль не определена → обычная токенизация
                     action = PIITokenPolicy.TOKENIZE
 
             if action == PIITokenPolicy.TOKENIZE:
-                type_key = entity.type.value.upper().replace("_", "")
-                counters[type_key] = counters.get(type_key, 0) + 1
-                token = f"{type_key}{counters[type_key]}"
-                stats["tokenized"] += 1
+                # Нормализация: "Иванов И.И." и "иванов и.и." → один ключ
+                normalized = entity.text.strip().lower()
+
+                if normalized in _value_to_token:
+                    # Сущность уже видели в другом элементе → переиспользуем токен
+                    # stats["tokenized"] не растёт: это не новая токенизация
+                    token = _value_to_token[normalized]
+                else:
+                    # Новая сущность → выдать следующий токен
+                    type_key = entity.type.value.upper().replace("_", "")
+                    _counters[type_key] = _counters.get(type_key, 0) + 1
+                    token = f"{type_key}{_counters[type_key]}"
+                    _value_to_token[normalized] = token
+                    stats["tokenized"] += 1
 
             if token:
-                mapping[token] = entity.text
+                local_mapping[token] = entity.text
                 result[entity.start : entity.end] = list(token)
 
         return TokenizationResult(
             sanitized_text="".join(result),
-            mapping=mapping,
+            mapping=local_mapping,
             entities_tokenized=stats["tokenized"],
             entities_preserved=stats["preserved"],
             entities_role_mapped=stats["role_mapped"],
