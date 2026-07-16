@@ -38,8 +38,10 @@ class Deal(Base):
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="PROTECT"), # Явная связь
         nullable=False,
         index=True,
+        comment="Owner of the deal. Cannot be changed after creation."
     )
 
     name: Mapped[str] = mapped_column(

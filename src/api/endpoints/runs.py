@@ -25,9 +25,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
-from api.deps.security import require_project_role
-from api.schemas.pagination import PaginatedResponse as PaginatedResponseSchema
-from api.schemas.results import CheckResultResponse
+from api.deps.security import get_scoped_run, get_scoped_deal, require_project_role
 from api.schemas.runs import (
     ClassificationReportResponse,
     DealRunSummaryResponse,
@@ -35,6 +33,13 @@ from api.schemas.runs import (
     RunPipelineProgressResponse,
     RunResponse,
 )
+
+from db.models.run import Run
+from db.models.deal import Deal
+from db.repositories.run_repo import RunRepository
+
+from api.schemas.pagination import PaginatedResponse as PaginatedResponseSchema
+from api.schemas.results import CheckResultResponse
 from core.config import settings
 from core.constants import LanguageDiscoveryStatus, RunStatus
 from core.error_catalog import render_error_message
@@ -44,7 +49,6 @@ from db.repositories.deal_repo import DealRepository
 from db.repositories.export_repo import ExportRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
-from db.repositories.run_repo import RunRepository
 from db.session import get_db
 from mas_queue.task_dispatcher import send_task_with_context
 from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
@@ -408,195 +412,65 @@ async def start_run(
     return await _start_run_core(deal_uuid, data, db, user)
 
 
-@router.get(
-    "/deal/{deal_id}",
-    response_model=list[RunResponse],
-    summary="Список запусков анализа для сделки",
-)
+@router.get("/deal/{deal_id}", response_model=list[RunResponse])
 async def list_runs_for_deal(
-    deal_id: uuid.UUID,
-    include_classification_stats: bool = Query(
-        default=False,
-        description="Если true — добавить блок classification_stats к каждому run",
-    ),
+    # СИСТЕМНЫЙ ФИКС: Проверка тенанта через scoped зависимость
+    deal: Deal = Depends(get_scoped_deal),
+    include_classification_stats: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Вернуть все runs для указанной сделки (новые сначала).
-
-    Если include_classification_stats=True — для каждого run
-    дополнительно будет подсчитан блок статистики классификации.
-
-    TODO:
-    - при необходимости добавить проверку, что пользователь имеет доступ
-      к этой сделке (viewer/editor/admin).
-    """
     run_repo = RunRepository(db)
-
-    runs = await run_repo.get_by_deal(deal_id)
+    runs = await run_repo.get_by_deal(deal.id)
     result = [RunResponse.model_validate(r) for r in runs]
-
     if include_classification_stats and runs:
-        # Подгружаем статистику классификации для каждого run
         for i, run_obj in enumerate(runs):
             stats = await run_repo.get_classification_stats_for_run(run_obj.id)
             result[i].classification_stats = stats
-
     return result
 
 
-@router.get(
-    "/{run_id}",
-    response_model=RunResponse,
-    summary="Получить статус run и статистику классификации",
-)
+# --- Раньше был ручной поиск, теперь одной строкой ---
+
+@router.get("/{run_id}", response_model=RunResponse)
 async def get_run(
-    run_id: uuid.UUID,
-    include_classification_stats: bool = Query(
-        default=False,
-        description="Если true — добавить блок classification_stats",
-    ),
+    run: Run = Depends(get_scoped_run), # СИСТЕМНЫЙ ФИКС: Изоляция тенанта автоматом
+    include_classification_stats: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Возвращает состояние run.
-
-    Если include_classification_stats=True — дополнительно возвращает
-    блок статистики классификации (L0–L4, low_confidence_count и т.п.).
-
-    Доступ:
-    - только участники проекта (viewer/editor/admin) для сделки этого run.
-    """
-    run_repo = RunRepository(db)
-    run = await run_repo.get_by_id(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
-
-    # Проверка доступа по проектной роли (любой участник)
-    await require_project_role(
-        db=db,
-        user=user,
-        deal_id=run.deal_id,
-        allowed_roles=("admin", "editor", "viewer"),
-    )
-
+    # Теперь нам не нужен if not run и manual require_project_role для базового просмотра
     run_out = RunResponse.model_validate(run)
 
     if include_classification_stats:
-        stats = await run_repo.get_classification_stats_for_run(run_id)
-        # stats должен быть уже в виде ClassificationStats или dict под него
+        stats = await RunRepository(db).get_classification_stats_for_run(run.id)
         run_out.classification_stats = stats
 
-    # Человекочитаемое сообщение об ошибке уровня Run (если есть).
     if getattr(run, "error_details", None):
         run_out.error_user_message = render_error_message(run.error_details)
 
     return run_out
 
-
-@router.get(
-    "/{run_id}/progress",
-    response_model=RunPipelineProgressResponse,
-    summary="Подробный pipeline progress по run",
-)
+@router.get("/{run_id}/progress", response_model=RunPipelineProgressResponse)
 async def get_run_pipeline_progress(
-    run_id: uuid.UUID,
+    run: Run = Depends(get_scoped_run), # СИСТЕМНЫЙ ФИКС
     db: AsyncSession = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Подробный user-facing progress для страницы обзора сделки.
-
-    В отличие от legacy SSE /events, этот endpoint возвращает:
-    - стадии document pipeline;
-    - substeps;
-    - live sub_progress для долгих этапов;
-    - stale detection;
-    - pseudo-steps для deal_checks и finalization.
-
-    Доступ:
-    - только участники проекта (viewer/editor/admin) для сделки этого run.
-    """
-    run_repo = RunRepository(db)
-    run = await run_repo.get_by_id(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
-
-    await require_project_role(
-        db=db,
-        user=user,
-        deal_id=run.deal_id,
-        allowed_roles=("admin", "editor", "viewer"),
-    )
-
     service = RunPipelineProgressService(db)
     return await service.build_progress(run)
 
-
-@router.get(
-    "/{run_id}/events",
-    summary="SSE-стрим прогресса Run (status + completed/total)",
-)
+@router.get("/{run_id}/events")
 async def stream_run_events(
-    run_id: uuid.UUID,
     request: Request,
+    run: Run = Depends(get_scoped_run), # СИСТЕМНЫЙ ФИКС
     db: AsyncSession = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    SSE-эндпоинт для прогресса Run.
-
-    URL: GET /api/v1/runs/{run_id}/events
-    Формат событий:
-      data: {"run_id": "...", "status": "...", "completed_checks": 10, "total_checks": 100, ...}
-
-    Важно:
-    - request-scoped db используется только для preflight-проверки run и доступа;
-    - сам стрим НЕ использует эту session;
-    - subscribe_run_progress открывает свои короткоживущие session на каждый poll;
-    - при отключении клиента stream завершается через request.is_disconnected().
-
-    Доступ:
-    - только участники проекта (viewer/editor/admin) для сделки этого run.
-    """
-    run_repo = RunRepository(db)
-    run = await run_repo.get_by_id(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
-
-    # Проверка доступа по проектной роли (любой участник)
-    await require_project_role(
-        db=db,
-        user=user,
-        deal_id=run.deal_id,
-        allowed_roles=("admin", "editor", "viewer"),
-    )
-
+    # Логика SSE остается прежней, но проверка прав теперь в одной строке параметров
     async def event_generator():
-        async for event in subscribe_run_progress(run_id):
-            # Если клиент отключился — корректно выходим из генератора
+        async for event in subscribe_run_progress(run.id):
             if await request.is_disconnected():
-                logger.info(
-                    "run_progress_client_disconnected",
-                    extra={"run_id": str(run_id)},
-                )
                 break
+            yield f"data: {json.dumps(event.model_dump(mode='json'), ensure_ascii=False)}\n\n"
 
-            # by_alias=True и mode="json" -> UUID и datetime станут строками
-            payload = event.model_dump(mode="json")
-            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 def get_run_analytics_service(
@@ -611,32 +485,25 @@ def get_run_analytics_service(
     summary="Подробный отчёт о качестве классификации для run",
 )
 async def get_classification_report(
-    run_id: uuid.UUID,
+    # СИСТЕМНЫЙ ФИКС: Используем защищенную зависимость для автоматической изоляции тенанта
+    run: Run = Depends(get_scoped_run), 
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
     service: RunAnalyticsService = Depends(get_run_analytics_service),
 ):
-    """
-    Подробный отчёт о качестве классификации для run.
-
-    Доступ:
-    - только участники проекта (viewer/editor/admin) для сделки этого run.
-    """
-    try:
-        report = await service.build_classification_report(run_id)
-    except RunNotFoundError:
-        raise HTTPException(status_code=404, detail="Run not found")
-
-    # report должен содержать deal_id run'а (как минимум в модели сервиса).
-    # Здесь проверяем доступ по проектной роли.
+    # 1. Проверяем проектную роль (внутри require_project_role теперь есть проверка тенанта)
     await require_project_role(
         db=db,
         user=user,
-        deal_id=report.deal_id,
+        deal_id=run.deal_id,
         allowed_roles=("admin", "editor", "viewer"),
     )
 
-    return report
+    # 2. Вызываем сервис, используя ID из уже проверенного объекта 'run'
+    try:
+        return await service.build_classification_report(run.id)
+    except RunNotFoundError:
+        raise HTTPException(status_code=404, detail="Classification report not found")
 
 
 class RunExportCreate(BaseModel):
@@ -675,28 +542,19 @@ class RunExportResponse(BaseModel):
     summary="Запустить экспорт результатов по run",
 )
 async def start_run_export(
-    run_id: uuid.UUID,
     data: RunExportCreate,
+    # СИСТЕМНЫЙ ФИКС: Автоматическая проверка тенанта и существования рана
+    run: Run = Depends(get_scoped_run), 
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Запускает экспорт результатов анализа для указанного run.
-
-    ВАЖНО:
-    - Экспорт разрешён только для пользователей с ролью "admin" или "editor"
-      в проекте (сделке), к которому относится этот run.
-    - Экспорт разрешён для run в статусах "completed" и "completed_with_errors".
+    Запускает экспорт результатов анализа.
+    Доступ: только admin/editor текущего тенанта.
     """
-    run_repo = RunRepository(db)
     export_repo = ExportRepository(db)
 
-    # 1. Находим run
-    run = await run_repo.get_by_id(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
-
-    # 2. Проверяем проектную роль (admin/editor) по deal_id
+    # 1. Проверяем проектную роль (admin/editor) по deal_id из уже проверенного объекта run
     await require_project_role(
         db=db,
         user=user,
@@ -704,21 +562,18 @@ async def start_run_export(
         allowed_roles=("admin", "editor"),
     )
 
-    # 3. Проверяем статус run — допускаем completed и completed_with_errors
+    # 2. Проверяем статус run — допускаем только завершенные
     if run.status not in (RunStatus.COMPLETED.value, "completed_with_errors"):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Run status must be 'completed' or 'completed_with_errors' "
-                f"to export, got '{run.status}'"
-            ),
+            detail=f"Run status must be completed to export, got '{run.status}'",
         )
 
-    # 4. Определяем audit-поля: requested_by / requester_role
+    # 3. Определяем данные для аудита
     requested_by = getattr(user, "id", None)
     requester_role = getattr(user, "global_role", "user")
 
-    # 5. Создаём запись экспорта
+    # 4. Создаём запись экспорта
     export = await export_repo.create(
         deal_id=run.deal_id,
         run_id=run.id,
@@ -728,93 +583,29 @@ async def start_run_export(
         status="pending",
     )
 
-    # ВАЖНО: сначала фиксируем запись в БД, потом ставим задачу в очередь
+    # Фиксируем в БД перед постановкой задачи
     await db.commit()
     await db.refresh(export)
 
-    logger.info(
-        "Export record created",
-        extra={
-            "export_id": str(export.id),
-            "run_id": str(run.id),
-            "deal_id": str(run.deal_id),
-            "export_type": export.export_type,
-            "status": export.status,
-            "requested_by": str(requested_by) if requested_by else None,
-            "requester_role": requester_role,
-        },
-    )
-
-    # 6. Ставим задачу на экспорт в Celery — передаём export_id
+    # 5. Ставим задачу в Celery
     try:
         send_task_with_context(
             "workers.export_by_id",
-            kwargs={
-                "export_id": str(export.id),
-            },
+            kwargs={"export_id": str(export.id)},
             queue="default",
         )
-
-        logger.info(
-            "Export task queued",
-            extra={
-                "export_id": str(export.id),
-                "run_id": str(run.id),
-                "deal_id": str(run.deal_id),
-                "export_type": export.export_type,
-                "task_name": "workers.export_by_id",
-            },
-        )
+        
+        logger.info("Export task queued", extra={"export_id": str(export.id), "run_id": str(run.id)})
 
     except Exception as e:
-        msg = str(e)
-        lower_msg = msg.lower()
-
-        if any(
-            token in lower_msg
-            for token in (
-                "connection refused",
-                "connectionerror",
-                "timeout",
-                "broker",
-                "rabbitmq",
-                "redis",
-            )
-        ):
-            reason = "queue_unavailable"
-            http_detail = (
-                "Не удалось запустить экспорт: очередь задач временно "
-                "недоступна. Попробуйте ещё раз позже."
-            )
-        else:
-            reason = "infrastructure_error"
-            http_detail = "Не удалось запустить экспорт: внутренняя ошибка инфраструктуры."
-
-        logger.error(
-            "Failed to queue export task",
-            extra={
-                "export_id": str(export.id),
-                "run_id": str(run.id),
-                "deal_id": str(run.deal_id),
-                "export_type": export.export_type,
-                "reason": reason,
-                "error": msg,
-            },
-        )
-
+        # Если очередь упала - помечаем экспорт как failed
         await export_repo.update_status(
             export.id,
             status="failed",
-            error_details={
-                "stage": "export",
-                "type": "infrastructure_error",
-                "reason": reason,
-                "message": msg,
-            },
+            error_details={"stage": "export", "type": "infrastructure_error", "message": str(e)},
         )
         await db.commit()
-
-        raise HTTPException(status_code=503, detail=http_detail)
+        raise HTTPException(status_code=503, detail="Queue unavailable, try again later")
 
     return RunExportResponse(
         id=export.id,

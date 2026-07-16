@@ -12,61 +12,39 @@
 """
 
 import uuid
-
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
+from api.deps.security import get_scoped_run # Наша защищенная зависимость
 from db.models.result import CheckResult
+from db.models.document import Document
+from db.models.deal import Deal
 from db.repositories.result_repo import ResultRepository
 from db.session import get_db
-
 from ..schemas.results import CheckResultResponse
 
 router = APIRouter(prefix="/results", tags=["results"])
 
-
+# Респонс схема остается без изменений...
 class EvidenceResponse(BaseModel):
-    """
-    Структура ответа с доказательствами (evidence) для одного результата проверки.
-
-    Эту структуру читает фронтенд через src/api/evidence.ts как EvidenceDetail.
-    Часть полей (doc_type, yaml_instruction_ref) пока заполняем None,
-    позже их можно будет обогатить связями c документом и плейбуком.
-    """
-
-    # Идентификаторы
     result_id: uuid.UUID
     document_id: uuid.UUID
     run_id: uuid.UUID
-
-    # Основная информация о результате
     severity: str
-    result: str  # fail / pass / unclear
-
-    # Текстовое описание найденного (краткое)
+    result: str
     value_text: str | None = None
-
-    # Указатель на место в документе / артефакт
     evidence_ref: str | None = None
-
-    # Метаданные для навигации и подсветки
     page: int | None = None
     clause_uid: str | None = None
     element_id: str | None = None
     bbox: dict | None = None
-
-    # Служебные поля детектора
     confidence: float | None = None
     detector_used: str | None = None
     origin: str | None = None
-
-    # Расширения для фронта (пока не заполняем)
-    doc_type: str | None = None
-    yaml_instruction_ref: str | None = None
-
     chunk_id: str | None = None
     chunk_index: int | None = None
     segment_id: str | None = None
@@ -75,95 +53,48 @@ class EvidenceResponse(BaseModel):
     display_text: str | None = None
     review_status: str | None = None
     review_message: str | None = None
+    doc_type: str | None = None
+    yaml_instruction_ref: str | None = None
 
-
-@router.get(
-    "",
-    response_model=list[CheckResultResponse],
-    summary="Список результатов проверок с фильтрами",
-)
+@router.get("", response_model=list[CheckResultResponse])
 async def list_results(
-    deal_id: str | None = Query(default=None),
-    run_id: str | None = Query(default=None),
-    conditional_only: bool | None = Query(
-        default=None,
-        description="Если true — вернуть только условные проверки",
-    ),
-    has_structured_data: bool | None = Query(
-        default=None,
-        description="Если true — вернуть только результаты с structured_data",
-    ),
+    run_id: uuid.UUID = Query(...), # Сделали обязательным
+    conditional_only: bool | None = Query(default=None),
+    has_structured_data: bool | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Возвращает список результатов проверок.
-
-    Фильтры:
-    - deal_id: по сделке;
-    - run_id: по run;
-    - conditional_only: только условные проверки;
-    - has_structured_data: только результаты, где structured_data не пустой.
-
-    ВАЖНО:
-    - Сейчас этот эндпоинт не проверяет, есть ли у пользователя доступ
-      к указанной сделке/run. Он предполагается как admin/diagnostic.
-    - Когда будет готова полная ACL, можно:
-        * либо ограничить его только для глобальных админов;
-        * либо проверять доступ через deal_id/run_id и роли проекта.
-    """
+    # ПРОВЕРКА ДОСТУПА
+    await get_scoped_run(run_id=run_id, user=user, db=db)
 
     repo = ResultRepository(db)
+    raw_results = await repo.get_by_run_with_docs(run_id)
+    out = [CheckResultResponse.model_validate(r) for r in raw_results]
 
-    # Базовая загрузка — подстрой под свой репозиторий:
-    if run_id:
-        # Используем вариант с join документов и уже готовыми dict'ами
-        raw_results = await repo.get_by_run_with_docs(uuid.UUID(run_id))
-        out: list[CheckResultResponse] = [
-            CheckResultResponse.model_validate(r) for r in raw_results
-        ]
-    elif deal_id:
-        # TODO: когда появится get_by_deal / list_latest, сюда можно
-        # добавить полноценную реализацию выборки по сделке.
-        results = await repo.get_by_run_with_docs(uuid.UUID(run_id)) if run_id else []
-        out = [CheckResultResponse.model_validate(r) for r in results]
-    else:
-        # Пока без дополнительных фильтров — возвращаем пустой список.
-        # При необходимости можно будет добавить выборку "последнего run по проекту".
-        out = []
-
-    # Фильтр: только условные проверки
-    if conditional_only is True:
+    if conditional_only:
         out = [r for r in out if r.conditional_check_triggered]
-
-    # Фильтр: только с structured_data
-    if has_structured_data is True:
+    if has_structured_data:
         out = [r for r in out if r.structured_data]
-
     return out
 
-
-@router.get(
-    "/{result_id}/evidence",
-    response_model=EvidenceResponse,
-    summary="Получить доказательства (evidence) по результату проверки",
-)
+@router.get("/{result_id}/evidence", response_model=EvidenceResponse)
 async def get_evidence(
-    result_id: str,
+    result_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    try:
-        result_uuid = uuid.UUID(result_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid result_id format")
-
-    stmt = select(CheckResult).where(CheckResult.id == result_uuid)
+    # ЖЕСТКАЯ ПРОВЕРКА ТЕНАНТА ЧЕРЕЗ JOIN
+    stmt = (
+        select(CheckResult)
+        .join(Document, CheckResult.document_id == Document.id)
+        .join(Deal, Document.deal_id == Deal.id)
+        .where(CheckResult.id == result_id, Deal.tenant_id == user.tenant_id)
+    )
     db_result = await db.execute(stmt)
-    check_result: CheckResult | None = db_result.scalar_one_or_none()
+    check_result = db_result.scalar_one_or_none()
 
     if check_result is None:
-        raise HTTPException(status_code=404, detail="Result not found")
+        raise HTTPException(status_code=404, detail="Evidence not found")
 
     return EvidenceResponse(
         result_id=check_result.id,
@@ -180,7 +111,6 @@ async def get_evidence(
         confidence=check_result.confidence,
         detector_used=check_result.detector_used,
         origin=check_result.origin,
-        # Добавляем новые провенанс поля:
         chunk_id=check_result.chunk_id,
         chunk_index=check_result.chunk_index,
         segment_id=check_result.segment_id,
@@ -193,38 +123,19 @@ async def get_evidence(
         yaml_instruction_ref=None,
     )
 
-
 @router.get(
     "/debug/{result_id}",
-    summary="DEBUG: проверить, есть ли CheckResult с таким id",
+    summary="DEBUG: только для superadmin",
 )
 async def debug_check_result(
-    result_id: str,
+    result_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    DEBUG-эндпоинт для проверки наличия CheckResult по id.
-
-    ВАЖНО:
-    - Доступен ТОЛЬКО для глобальной роли superadmin.
-    - Возвращает внутренние идентификаторы (run_id, document_id),
-      поэтому должен быть максимально ограничен.
-    """
-
-    # NEW: защита по глобальной роли
     if user.global_role != "superadmin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Superadmin only",
-        )
+        raise HTTPException(status_code=403, detail="Superadmin only")
 
-    try:
-        result_uuid = uuid.UUID(result_id)
-    except ValueError:
-        return {"ok": False, "reason": "invalid_uuid"}
-
-    stmt = select(CheckResult).where(CheckResult.id == result_uuid)
+    stmt = select(CheckResult).where(CheckResult.id == result_id)
     db_result = await db.execute(stmt)
     obj = db_result.scalar_one_or_none()
 
@@ -236,8 +147,6 @@ async def debug_check_result(
         "result_id": str(obj.id),
         "run_id": str(obj.run_id),
         "document_id": str(obj.document_id),
-        "has_evidence_ref": bool(obj.evidence_ref),
-        "page": obj.page,
-        "clause_uid": obj.clause_uid,
-        "element_id": obj.element_id,
     }
+
+

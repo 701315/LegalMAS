@@ -264,13 +264,16 @@ async def get_check_provenance(
     doc_result = await db.execute(stmt_doc)
     doc = doc_result.scalar_one_or_none()
 
-    if doc:
-        await require_project_role(
-            db=db,
-            user=user,
-            deal_id=doc.deal_id,
-            allowed_roles=("viewer", "editor", "admin"),
-        )
+    # FAIL-CLOSED: Если документ не найден, доступ запрещен.
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Provenance source not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
 
     # Нормализуем context_trace
     raw_trace = cr.context_trace or []

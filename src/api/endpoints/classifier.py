@@ -29,12 +29,11 @@ RBAC:
 """
 
 import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
-from api.deps.security import require_project_role
+from api.deps.security import require_project_role, get_scoped_deal # Наш Hardening
 from core.config import settings
 from core.logging import get_logger
 from db.repositories.runner_repo import RunnerRepository
@@ -56,97 +55,45 @@ async def run_deal_classification(
     user: CurrentUser = Depends(get_current_user),
 ) -> dict:
     """
-    Запустить классификацию всех non-duplicate документов сделки через Celery-воркеры.
-
-    Для непрофессионального программиста:
-    - Этот эндпоинт НЕ делает классификацию сам.
-    - Он только ставит задачи в очередь Celery (workers.classify_document) по каждому документу.
-    - Сами воркеры обновят статус документов и при необходимости запустят checks.
-
-    В production:
-    - Доступ ограничен ролями (например, admin/editor) через require_project_role.
+    Запустить классификацию всех документов сделки через Celery.
+    Доступ: только admin/editor текущего тенанта.
     """
-    # RBAC: в dev-окружении можно ослабить проверку, в prod — требуем роль.
-    if settings.ENVIRONMENT == "production":
-        await require_project_role(
-            db=db,
-            user=user,
-            project_id=None,  # если есть привязка к проекту, подставь сюда
-            required_roles={"admin", "editor"},
-        )
-    else:
-        logger.warning(
-            "RBAC check skipped in development mode",
-            extra={
-                "endpoint": "POST /classifier/runs",
-                "user_id": str(user.id),
-                "deal_id": deal_id,
-            },
-        )
-
-    # Валидация deal_id как UUID
+    # Валидация UUID
     try:
         deal_uuid = uuid.UUID(deal_id)
     except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid deal_id format",
-        )
+        raise HTTPException(status_code=400, detail="Invalid deal_id format")
 
-    # 1. Получаем non-duplicate документы сделки
+    # 1. ПРОВЕРКА ТЕНАНТА: get_scoped_deal выбросит 404, если сделка чужая
+    await get_scoped_deal(deal_id=deal_uuid, user=user, db=db)
+
+    # 2. RBAC: Проверка ролей внутри проекта
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_uuid,
+        allowed_roles=("admin", "editor"), # Исправлено: allowed_roles вместо required_roles
+    )
+
+    # 3. Логика запуска (без изменений)
     runner_repo = RunnerRepository(db)
     docs = await runner_repo.get_non_duplicate_docs(deal_uuid)
 
-    docs_total = len(docs)
-    if docs_total == 0:
-        logger.info(
-            "Classifier API: no non-duplicate documents for deal",
-            extra={"deal_id": deal_id},
-        )
-        return {
-            "deal_id": deal_id,
-            "docs_total": 0,
-            "tasks_scheduled": 0,
-        }
+    if not docs:
+        return {"deal_id": deal_id, "docs_total": 0, "tasks_scheduled": 0}
 
-    logger.info(
-        "Classifier API: scheduling classification tasks for deal",
-        extra={"deal_id": deal_id, "docs_total": docs_total},
-    )
-
-    # 2. Ставим Celery-задачи workers.classify_document для каждого документа
     tasks_scheduled = 0
     for doc in docs:
         try:
             send_task_with_context(
                 "workers.classify_document",
-                kwargs={
-                    "document_id": str(doc.id),
-                    "deal_id": str(deal_id),
-                },
+                kwargs={"document_id": str(doc.id), "deal_id": str(deal_id)},
             )
             tasks_scheduled += 1
         except Exception as e:
-            logger.error(
-                "Classifier API: failed to schedule classification task",
-                extra={
-                    "deal_id": deal_id,
-                    "doc_id": str(getattr(doc, "id", None)),
-                    "error": str(e),
-                },
-            )
+            logger.error("Classifier API task failed", extra={"doc_id": str(doc.id), "error": str(e)})
 
-    logger.info(
-        "Classifier API: classification tasks scheduled",
-        extra={
-            "deal_id": deal_id,
-            "docs_total": docs_total,
-            "tasks_scheduled": tasks_scheduled,
-        },
-    )
+    return {"deal_id": deal_id, "docs_total": len(docs), "tasks_scheduled": tasks_scheduled}
 
-    return {
-        "deal_id": deal_id,
-        "docs_total": docs_total,
-        "tasks_scheduled": tasks_scheduled,
-    }
+
+

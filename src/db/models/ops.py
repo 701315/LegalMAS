@@ -32,7 +32,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint, text
+from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint, text, ForeignKey
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -136,6 +136,13 @@ class AuditLog(Base):
 
 class DLQRecord(Base):
     __tablename__ = "dlq_records"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     job_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
