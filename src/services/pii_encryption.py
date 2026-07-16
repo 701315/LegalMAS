@@ -207,7 +207,7 @@ _encryptor_instance: PIIEncryptor | None = None
 
 def get_pii_encryptor(encryption_key: str | None = None) -> PIIEncryptor:
     """
-    Получить singleton‑экземпляр энкриптора.
+    Получить singleton-экземпляр энкриптора.
 
     Логика:
         - Если экземпляр ещё не создан:
@@ -216,10 +216,15 @@ def get_pii_encryptor(encryption_key: str | None = None) -> PIIEncryptor:
             * создаём PIIEncryptor.
         - Если экземпляр уже есть, всегда возвращаем его же.
 
-    Важно:
-        - Если settings.PII_ENCRYPTION_KEY задан, но невалиден,
-          инициализация упадёт с PIIEncryptionError при первом вызове
-          get_pii_encryptor() — это желаемое поведение для production.
+    Production-guard:
+        - Если ENVIRONMENT=production и ключ пустой —
+          поднимаем PIIEncryptionError немедленно, не создавая encryptor.
+        - Это дублирует проверку из config.py _validate_production_secrets,
+          но добавляет защиту на случай если config validation была обойдена
+          (например, при прямом создании PIIEncryptor в тестах или скриптах).
+
+    Raises:
+        PIIEncryptionError: Если ключ пустой в production или невалиден.
     """
     global _encryptor_instance
 
@@ -227,9 +232,21 @@ def get_pii_encryptor(encryption_key: str | None = None) -> PIIEncryptor:
         if encryption_key is None:
             encryption_key = settings.PII_ENCRYPTION_KEY
 
-        # На этом шаге либо валидный ключ, либо пустая строка (dev‑режим),
-        # либо поднятие PIIEncryptionError внутри конструктора.
-        _encryptor_instance = PIIEncryptor(encryption_key or "")
+        resolved_key = (encryption_key or "").strip()
+
+        # Defense-in-depth: второй рубеж после config validator.
+        # Срабатывает если: production окружение И ключ пустой.
+        # config._validate_production_secrets уже должен был поймать это при
+        # старте приложения, но прямые вызовы get_pii_encryptor() в скриптах
+        # могут обойти config validation.
+        if not resolved_key and settings.ENVIRONMENT == "production":
+            raise PIIEncryptionError(
+                "PII_ENCRYPTION_KEY is required in production environment. "
+                "Generate a key with: python -c \"from services.pii_encryption import "
+                "PIIEncryptor; print(PIIEncryptor.generate_key())\""
+            )
+
+        _encryptor_instance = PIIEncryptor(resolved_key)
 
     return _encryptor_instance
 

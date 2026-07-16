@@ -676,6 +676,49 @@ class Settings(BaseSettings):
             )
         return self
 
+    @model_validator(mode="after")
+    def _validate_production_secrets(self) -> "Settings":
+        """
+        Блокирует запуск с небезопасными дефолтами в production.
+
+        Проверяет:
+        - PII_ENCRYPTION_KEY: обязателен в production, должен быть непустым.
+          Пустой ключ означает plaintext-хранение PII (паспорта, ИНН, адреса).
+        - JWT_SECRET_KEY: дефолтное значение недопустимо в production.
+        - MINIO_SECRET_KEY: дефолтное значение недопустимо в production.
+
+        Не срабатывает в development/test окружениях.
+        ENVIRONMENT задаётся через переменную окружения ENVIRONMENT=production.
+        """
+        if self.ENVIRONMENT != "production":
+            return self
+
+        insecure: list[str] = []
+
+        if not self.PII_ENCRYPTION_KEY:
+            insecure.append(
+                "PII_ENCRYPTION_KEY is empty — PII data would be stored in plaintext"
+            )
+
+        if self.JWT_SECRET_KEY == "dev-secret-key-change-in-production":
+            insecure.append(
+                "JWT_SECRET_KEY is set to insecure default value"
+            )
+
+        if self.MINIO_SECRET_KEY == "minioadmin123":
+            insecure.append(
+                "MINIO_SECRET_KEY is set to insecure default value"
+            )
+
+        if insecure:
+            raise ValueError(
+                "Insecure configuration detected for ENVIRONMENT=production:\n"
+                + "\n".join(f"  - {msg}" for msg in insecure)
+            )
+
+        return self
+
+
 
 # Singleton
 settings = Settings()
