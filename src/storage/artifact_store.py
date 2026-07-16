@@ -423,6 +423,7 @@ class ArtifactStore:
 
         self._endpoint = s.MINIO_ENDPOINT
         self._secure = s.MINIO_SECURE
+        self._environment = str(getattr(s, "ENVIRONMENT", "development")).lower()
 
     def _ensure_bucket(self) -> None:
         """Create bucket if it does not exist."""
@@ -532,12 +533,26 @@ class ArtifactStore:
 
     def get_http_url(self, path: str) -> str:
         """
-        Вернуть HTTP/HTTPS URL для объекта в MinIO по s3://... или
-        относительному пути.
+        Вернуть прямой HTTP/HTTPS URL для объекта в MinIO.
 
-        На dev-стенде этого достаточно, чтобы браузер смог открыть/скачать файл.
-        При желании можно заменить реализацию на presigned URL.
+        ВАЖНО:
+        - Это DEV-ONLY helper.
+        - В production прямые object URLs запрещены, потому что они не содержат
+          подписи/expiry и могут обойти ожидаемую модель доступа.
+        - Для production используйте get_presigned_get_url().
+
+        Args:
+            path: s3://bucket/... URI или относительный object path.
+
+        Raises:
+            PermanentError: Если метод вызван в production.
         """
+        if self._environment == "production":
+            raise PermanentError(
+                "Direct HTTP artifact URLs are disabled in production. "
+                "Use get_presigned_get_url() instead."
+            )
+
         clean_path = self._normalize_object_path(path)
         object_name = quote(clean_path, safe="/")
         scheme = "https" if self._secure else "http"
