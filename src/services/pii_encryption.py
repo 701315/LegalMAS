@@ -131,18 +131,6 @@ class PIIEncryptor:
         return self._fernet is not None
 
     def encrypt_mapping(self, mapping: dict[str, Any]) -> bytes:
-        """
-        Зашифровать маппинг {TOKEN: original_text}.
-
-        В dev‑режиме (без ключа) возвращает JSON в открытом виде.
-        В production‑режиме возвращает зашифрованный blob (bytes).
-
-        Аргументы:
-            mapping: Словарь с PII‑данными.
-
-        Возвращает:
-            bytes: Зашифрованные данные либо JSON в открытом виде (dev).
-        """
         raw = json.dumps(mapping, ensure_ascii=False).encode("utf-8")
 
         if self._fernet:
@@ -150,13 +138,17 @@ class PIIEncryptor:
                 return self._fernet.encrypt(raw)
             except Exception as e:
                 raise PIIEncryptionError(f"Ошибка при шифровании PII: {e}") from e
-        else:
-            # Явно логируем, чтобы в логах было видно, что продакшн‑шифрования нет
-            logger.warning(
-                "PII_ENCRYPTION_KEY не задан — PII‑данные сохраняются в открытом виде "
-                "(dev‑режим, не использовать в production)."
+        
+        # СИСТЕМНЫЙ ФИКС: Запрет plaintext в продакшене
+        if settings.ENVIRONMENT == "production":
+            raise PIIEncryptionError(
+                "CRITICAL: Attempted to encrypt PII data in production without PII_ENCRYPTION_KEY!"
             )
-            return raw
+            
+        logger.warning(
+            "PII_ENCRYPTION_KEY не задан — PII‑данные сохраняются в открытом виде (DEV MODE)."
+        )
+        return raw
 
     def decrypt_mapping(self, encrypted: bytes) -> dict[str, Any]:
         """

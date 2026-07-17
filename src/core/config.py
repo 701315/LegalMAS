@@ -684,43 +684,49 @@ class Settings(BaseSettings):
     def _validate_production_secrets(self) -> "Settings":
         """
         Блокирует запуск с небезопасными дефолтами в production.
-
-        Проверяет:
-        - PII_ENCRYPTION_KEY: обязателен в production, должен быть непустым.
-          Пустой ключ означает plaintext-хранение PII (паспорта, ИНН, адреса).
-        - JWT_SECRET_KEY: дефолтное значение недопустимо в production.
-        - MINIO_SECRET_KEY: дефолтное значение недопустимо в production.
-
-        Не срабатывает в development/test окружениях.
-        ENVIRONMENT задаётся через переменную окружения ENVIRONMENT=production.
         """
         if self.ENVIRONMENT != "production":
             return self
 
         insecure: list[str] = []
 
-        if not self.PII_ENCRYPTION_KEY:
-            insecure.append(
-                "PII_ENCRYPTION_KEY is empty — PII data would be stored in plaintext"
-            )
+        # 1. PII Key (Находка №1)
+        if not self.PII_ENCRYPTION_KEY or len(self.PII_ENCRYPTION_KEY) < 16:
+            insecure.append("PII_ENCRYPTION_KEY is missing or too short (min 16 chars)")
 
+        # 2. JWT Secret (Находка №4)
         if self.JWT_SECRET_KEY == "dev-secret-key-change-in-production":
-            insecure.append(
-                "JWT_SECRET_KEY is set to insecure default value"
-            )
+            insecure.append("JWT_SECRET_KEY is set to insecure default value")
 
+        # 3. MinIO Secret (Находка №4)
         if self.MINIO_SECRET_KEY == "minioadmin123":
-            insecure.append(
-                "MINIO_SECRET_KEY is set to insecure default value"
-            )
+            insecure.append("MINIO_SECRET_KEY is set to insecure default value")
+
+        # 4. Database Password (NEW)
+        if "mas_dev_password" in self.DATABASE_URL:
+            insecure.append("DATABASE_URL contains default development password")
+
+        # 5. Localhost check for Prod (NEW)
+        if "localhost" in self.DATABASE_URL or "127.0.0.1" in self.DATABASE_URL:
+            _config_logger.warning("DATABASE_URL points to localhost in production mode!")
 
         if insecure:
             raise ValueError(
-                "Insecure configuration detected for ENVIRONMENT=production:\n"
+                "CRITICAL: Insecure configuration detected for ENVIRONMENT=production:\n"
                 + "\n".join(f"  - {msg}" for msg in insecure)
             )
 
         return self
+
+    @property
+    def CELERY_BROKER_VISIBILITY_TIMEOUT(self) -> int:
+        """
+        СИСТЕМНЫЙ ФИКС (Находка №6): 
+        Таймаут видимости брокера должен быть больше самой длинной задачи LLM,
+        иначе Celery решит, что воркер упал, и запустит задачу повторно.
+        """
+        # Берем лимит самой долгой стадии (Semantic Enrichment) + 5 минут запаса
+        return self.SEMANTIC_ENRICHMENT_WORKER_TIME_LIMIT_SECONDS + 300
 
 
 
