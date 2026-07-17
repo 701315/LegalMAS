@@ -523,7 +523,8 @@ class DDGridDrawerDTO(BaseModel):
     - detection_level / confidence / quality_flags дают прозрачность результата;
     - qc_* поля содержат audit trail QC без отдельного round-trip;
     - execution_status возвращается в API-контракте:
-      SUCCESS | FAILED | TIMEOUT | SKIPPED | PARTIAL.
+      SUCCESS | PARTIAL | FAILED | TIMEOUT | SKIPPED | IN_PROGRESS.
+      IN_PROGRESS означает что check ещё выполняется (Run не завершён).
     """
 
     check_id: str
@@ -536,7 +537,16 @@ class DDGridDrawerDTO(BaseModel):
     display_text: str | None = None
 
     execution_status: str | None = None
-    """SUCCESS | FAILED | TIMEOUT | SKIPPED | PARTIAL"""
+    """
+    Статус выполнения check:
+      SUCCESS     — выполнен успешно, все поля найдены.
+      PARTIAL     — выполнен, часть полей не найдена.
+      FAILED      — техническая ошибка (COMPUTE_FAILED / PERSIST_FAILED / FAILED).
+      TIMEOUT     — превышен таймаут.
+      SKIPPED     — не применим к doc_type или ещё не начался (PENDING).
+      IN_PROGRESS — активно выполняется (RUNNING); возможно при просмотре
+                    Grid до завершения Run.
+    """
 
     detection_level: DDGridDetectionLevel | None = None
     """L1 | L2 | L3 | L4"""

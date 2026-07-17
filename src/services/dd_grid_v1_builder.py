@@ -37,7 +37,12 @@ _FAILED_EXECUTION_STATUSES: frozenset[str] = frozenset(
     {"FAILED", "COMPUTE_FAILED", "PERSIST_FAILED"}
 )
 _TIMEOUT_EXECUTION_STATUSES: frozenset[str] = frozenset({"TIMEOUT"})
-_NON_TERMINAL_EXECUTION_STATUSES: frozenset[str] = frozenset({"PENDING", "RUNNING"})
+# PENDING и RUNNING разделены намеренно — у них разная семантика:
+# PENDING  → check ещё не начался → эквивалентно отсутствию результата → SKIPPED
+# RUNNING  → check активно выполняется прямо сейчас → IN_PROGRESS
+# Оба НЕ являются ошибкой. Маппинг в FAILED был некорректен.
+_PENDING_EXECUTION_STATUSES: frozenset[str] = frozenset({"PENDING"})
+_RUNNING_EXECUTION_STATUSES: frozenset[str] = frozenset({"RUNNING"})
 _SUCCESS_EXECUTION_STATUSES: frozenset[str] = frozenset({"SUCCESS"})
 
 _NOT_DEFINED_STATUS_VALUES: frozenset[str] = frozenset({"missing", "not_defined", "not_found"})
@@ -1010,12 +1015,17 @@ def _normalize_execution_status_for_api(
     """
     Нормализовать внутренний execution_status к публичному API-контракту.
 
-    API enum:
-    - SUCCESS
-    - FAILED
-    - TIMEOUT
-    - SKIPPED
-    - PARTIAL
+    API значения:
+    - SUCCESS      — check выполнен успешно, все поля найдены
+    - PARTIAL      — check выполнен, часть полей не найдена
+    - FAILED       — техническая ошибка выполнения (COMPUTE_FAILED, PERSIST_FAILED, FAILED)
+    - TIMEOUT      — превышен таймаут выполнения
+    - SKIPPED      — check не применим или ещё не начался (PENDING)
+    - IN_PROGRESS  — check активно выполняется прямо сейчас (RUNNING)
+
+    Важно: RUNNING и PENDING — не ошибки.
+    RUNNING → IN_PROGRESS (пользователь открыл Grid до завершения Run).
+    PENDING → SKIPPED (check ещё в очереди, результата нет).
     """
     states = [cell.cell_state for _, cell in column_cells]
 
@@ -1043,14 +1053,27 @@ def _normalize_execution_status_for_api(
     if raw_status in _FAILED_EXECUTION_STATUSES:
         return "FAILED"
 
-    if raw_status in _NON_TERMINAL_EXECUTION_STATUSES:
-        logger.warning(
-            "DD Grid V1: non-terminal execution_status encountered in response builder",
+    if raw_status in _RUNNING_EXECUTION_STATUSES:
+        # Check активно выполняется. Пользователь открыл Grid пока Run ещё не завершён.
+        # Показывать FAILED — ложная информация. IN_PROGRESS честно отражает состояние.
+        logger.info(
+            "DD Grid V1: check is still running, returning IN_PROGRESS",
             raw_status=raw_status,
             check_id=_safe_str_or_none(check_result.get("check_id")),
             document_id=_safe_str_or_none(check_result.get("document_id")),
         )
-        return "FAILED"
+        return "IN_PROGRESS"
+
+    if raw_status in _PENDING_EXECUTION_STATUSES:
+        # Check ещё не начался — в очереди. Семантически эквивалентно not_executed.
+        # SKIPPED корректен: нет результата, нет ошибки.
+        logger.info(
+            "DD Grid V1: check is pending (queued), returning SKIPPED",
+            raw_status=raw_status,
+            check_id=_safe_str_or_none(check_result.get("check_id")),
+            document_id=_safe_str_or_none(check_result.get("document_id")),
+        )
+        return "SKIPPED"
 
     if raw_status in _SUCCESS_EXECUTION_STATUSES:
         return "PARTIAL" if is_partial else "SUCCESS"
