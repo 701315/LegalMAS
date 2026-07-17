@@ -14,6 +14,24 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _config_logger = logging.getLogger(__name__)
 
 
+def _split_csv_config(raw_value: str | None) -> list[str]:
+    """
+    Разобрать comma-separated env setting в список непустых строк.
+
+    Примеры:
+      "http://a,http://b" -> ["http://a", "http://b"]
+      "*"                 -> ["*"]
+      "" / None           -> []
+    """
+    if raw_value is None:
+        return []
+
+    return [
+        item.strip()
+        for item in str(raw_value).split(",")
+        if item and item.strip()
+    ]
+
 class Settings(BaseSettings):
     """
     All application settings.
@@ -42,6 +60,29 @@ class Settings(BaseSettings):
     # --- Application ---
     BASE_DIR: str = str(Path(__file__).resolve().parent.parent.parent)
     ENVIRONMENT: str = "development"
+
+    # --- CORS ---
+    #
+    # Храним как comma-separated env strings, а не как Python list / JSON,
+    # чтобы .env оставался простым и операционно удобным.
+    #
+    # Примеры:
+    #   CORS_ALLOW_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+    #   CORS_ALLOW_METHODS=GET,POST,PUT,DELETE,OPTIONS
+    #   CORS_ALLOW_HEADERS=Authorization,Content-Type
+    #
+    # ВАЖНО:
+    # - при CORS_ALLOW_CREDENTIALS=true нельзя использовать origin "*";
+    #   validator ниже блокирует такую конфигурацию fail-fast на старте.
+    CORS_ALLOW_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    CORS_ALLOW_CREDENTIALS: bool = True
+    CORS_ALLOW_METHODS: str = "*"
+    CORS_ALLOW_HEADERS: str = "*"
+
+
+
+
+
     # --- Tenant ---
     # Фиксированный dev-tenant UUID.
     # Используется вместо zero UUID (00000000-...) до появления
@@ -650,10 +691,77 @@ class Settings(BaseSettings):
         "workers.reap_stale_stage_executions"
     )
     
+    @property
+    def cors_allow_origins_list(self) -> list[str]:
+        """
+        CORS origins из comma-separated env в список строк.
+
+        Пример:
+          "http://a,http://b" -> ["http://a", "http://b"]
+        """
+        return _split_csv_config(self.CORS_ALLOW_ORIGINS)
+
+    @property
+    def cors_allow_methods_list(self) -> list[str]:
+        """
+        CORS methods из comma-separated env в список строк.
+
+        Нормализуем HTTP methods к upper-case, кроме wildcard "*".
+        """
+        values = _split_csv_config(self.CORS_ALLOW_METHODS)
+        return [value if value == "*" else value.upper() for value in values]
+
+    @property
+    def cors_allow_headers_list(self) -> list[str]:
+        """
+        CORS headers из comma-separated env в список строк.
+
+        Сохраняем исходный регистр заголовков — это безопаснее для
+        операторов и читабельнее в конфигурации.
+        """
+        return _split_csv_config(self.CORS_ALLOW_HEADERS)
+    
     # ---------------------------------------------------------------------------
     # --- Validators ---
     # ---------------------------------------------------------------------------
 
+    @model_validator(mode="after")
+    def _validate_cors_settings(self) -> "Settings":
+        """
+        Validate CORS configuration at startup.
+
+        Инварианты:
+        - origins/methods/headers не должны быть пустыми;
+        - при allow_credentials=true origin "*" запрещён:
+          это небезопасная и фактически невалидная browser-конфигурация.
+        """
+        origins = self.cors_allow_origins_list
+        methods = self.cors_allow_methods_list
+        headers = self.cors_allow_headers_list
+
+        if not origins:
+            raise ValueError(
+                "CORS_ALLOW_ORIGINS must contain at least one origin"
+            )
+
+        if not methods:
+            raise ValueError(
+                "CORS_ALLOW_METHODS must contain at least one method or '*'"
+            )
+
+        if not headers:
+            raise ValueError(
+                "CORS_ALLOW_HEADERS must contain at least one header or '*'"
+            )
+
+        if self.CORS_ALLOW_CREDENTIALS and "*" in origins:
+            raise ValueError(
+                "CORS_ALLOW_ORIGINS cannot contain '*' when "
+                "CORS_ALLOW_CREDENTIALS=true"
+            )
+
+        return self
+    
     @model_validator(mode="after")
     def _sync_llm_context_limit(self) -> "Settings":
         """

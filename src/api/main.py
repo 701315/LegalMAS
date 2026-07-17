@@ -43,6 +43,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from classifiers.yaml_registry import YAMLRegistry
+from core.config import settings
 from core.logging import get_logger, setup_logging
 from core.tracing import instrument_fastapi_app, setup_tracing_provider, shutdown_tracing
 from db.session import engine
@@ -147,10 +148,17 @@ app = FastAPI(
 
 setup_metrics(app)
 
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+cors_allow_origins = settings.cors_allow_origins_list
+cors_allow_methods = settings.cors_allow_methods_list
+cors_allow_headers = settings.cors_allow_headers_list
+
+logger.info(
+    "Configuring CORS middleware",
+    allow_origins=cors_allow_origins,
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_methods=cors_allow_methods,
+    allow_headers=cors_allow_headers,
+)
 
 # ---------------------------------------------------------------------------
 # Регистрируем middleware приложения.
@@ -170,10 +178,10 @@ app.add_middleware(AuditMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=cors_allow_origins,
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_methods=cors_allow_methods,
+    allow_headers=cors_allow_headers,
 )
 
 # Авторизация / логин.
