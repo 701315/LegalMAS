@@ -13,12 +13,13 @@ Each provider returns a standardized LLMResponse.
 The client handles timeouts, retries, and error normalization.
 """
 
+import gc
 import json
 import os
 import re
 import time
 import asyncio
-import gc
+import random
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -33,7 +34,6 @@ from ops.metrics import METRICS
 
 
 # ── Tracing: импортируем лениво чтобы не ломать если OTEL выключен ───────────
-# get_stage_tracer() возвращает Tracer или None — обе ситуации обрабатываем.
 try:
     from core.tracing import get_stage_tracer as _get_stage_tracer
     _TRACING_AVAILABLE = True
@@ -46,10 +46,66 @@ logger = get_logger(__name__)
 _VALID_RESPONSE_FORMATS: frozenset[str | None] = frozenset({None, "json_object"})
 
 
+# =============================================================================
+# Backoff helpers
+# =============================================================================
+
+def _compute_backoff_delay(
+    attempt: int,
+    base: float,
+    cap: float,
+    jitter_range: float,
+) -> float:
+    """
+    Вычислить задержку перед retry с экспоненциальным backoff и jitter.
+
+    Формула: min(base * 2^(attempt-1), cap) + uniform(0, jitter_range)
+
+    Аргументы:
+        attempt:      номер попытки, начиная с 1.
+                      attempt=1 → base * 1 (первый retry)
+                      attempt=2 → base * 2
+                      attempt=3 → base * 4 (но не более cap)
+        base:         базовая задержка в секундах (LLM_RETRY_BASE_DELAY_SECONDS)
+        cap:          максимальная задержка в секундах (LLM_RETRY_MAX_DELAY_SECONDS)
+        jitter_range: диапазон случайного сдвига в секундах (LLM_RETRY_JITTER_SECONDS)
+
+    Возвращает:
+        Задержку в секундах (float >= 0).
+
+    Свойства:
+        - Pure function: детерминирована при фиксированном random seed.
+        - Никогда не возвращает отрицательное значение.
+        - cap защищает от бесконечного роста при большом attempt.
+        - jitter разбрасывает retry N воркеров во времени (thundering herd protection).
+
+    Пример для base=1.0, cap=30.0, jitter_range=1.0:
+        attempt=1 → ~1.0-2.0s
+        attempt=2 → ~2.0-3.0s
+        attempt=3 → ~4.0-5.0s
+        attempt=5 → ~16.0-17.0s
+        attempt=6 → ~30.0-31.0s  (cap сработал)
+    """
+    if attempt < 1:
+        attempt = 1
+    if base < 0:
+        base = 0.0
+    if cap < 0:
+        cap = 0.0
+    if jitter_range < 0:
+        jitter_range = 0.0
+
+    exponential = min(base * (2 ** (attempt - 1)), cap)
+    jitter = random.uniform(0.0, jitter_range)  # noqa: S311 — не криптографический контекст
+    return exponential + jitter
+
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
 def _safe_non_negative_int(value: Any) -> int | None:
-    """
-    Привести значение к неотрицательному int или вернуть None.
-    """
+    """Привести значение к неотрицательному int или вернуть None."""
     if value is None or isinstance(value, bool):
         return None
     try:
@@ -63,9 +119,7 @@ def _extract_prompt_tokens_from_raw_response(
     provider: str,
     raw_response: dict[str, Any] | None,
 ) -> int | None:
-    """
-    Извлечь prompt tokens из provider-specific raw response.
-    """
+    """Извлечь prompt tokens из provider-specific raw response."""
     if not isinstance(raw_response, dict):
         return None
 
@@ -89,9 +143,7 @@ def _extract_completion_tokens_from_raw_response(
     provider: str,
     raw_response: dict[str, Any] | None,
 ) -> int | None:
-    """
-    Извлечь completion tokens из provider-specific raw response.
-    """
+    """Извлечь completion tokens из provider-specific raw response."""
     if not isinstance(raw_response, dict):
         return None
 
@@ -120,20 +172,7 @@ def build_llm_telemetry_from_response(
     """
     Построить normalized telemetry dict из LLMResponse.
 
-    Это единый внутренний контракт observability-метаданных,
-    который можно безопасно прокидывать через detector -> executor -> persistence.
-
-    Returns:
-        {
-            "provider": str | None,
-            "model": str | None,
-            "tokens_used": int | None,
-            "prompt_tokens": int | None,
-            "completion_tokens": int | None,
-            "duration_ms": int | None,
-            "llm_attempts": int | None,
-            "parse_success": bool | None,
-        }
+    Единый внутренний контракт observability-метаданных.
     """
     provider = str(response.provider or "").strip()
     raw_response = response.raw_response if isinstance(response.raw_response, dict) else {}
@@ -173,11 +212,7 @@ def _resolve_structured_output_strategy(
     """
     Determine the actual structured output strategy for logging/diagnostics.
 
-    Returns a human-readable strategy name:
-    - "none"             — no structured output requested
-    - "ollama_json_mode" — Ollama format: json
-    - "llamacpp_gbnf"    — llama.cpp with GBNF grammar file
-    - "prompt_only"      — JSON requested but provider has no native support
+    Returns: "none" | "ollama_json_mode" | "llamacpp_gbnf" | "prompt_only"
     """
     if response_format != "json_object" and not grammar_path:
         return "none"
@@ -190,15 +225,12 @@ def _resolve_structured_output_strategy(
     return "none"
 
 
-
 class LLMContextLimitError(PermanentError):
     """
     Prompt + max_tokens превышают контекстное окно модели.
 
-    Отличается от общего PermanentError тем, что:
-    - не требует ретраев (контекст не уменьшится сам по себе);
-    - вызывающий код (HybridDetector) выставляет llm_error_type='context_limit'
-      и может корректно сформировать execution_status=FAILED.
+    Не требует retry — контекст не уменьшится сам по себе.
+    HybridDetector выставляет llm_error_type='context_limit'.
     """
 
 
@@ -206,15 +238,15 @@ class LLMContextLimitError(PermanentError):
 class LLMResponse:
     """Standardized response from an LLM call."""
 
-    text: str  # Raw response text
-    found: bool | None = None  # Parsed: was the condition found?
-    evidence: str = ""  # Parsed: evidence snippet from response
-    clause: str = ""  # Parsed: clause reference
-    confidence: float = 0.0  # Parsed: confidence (if LLM provides it)
-    provider: str = ""  # Which provider was used
-    model: str = ""  # Which model was used
-    tokens_used: int = 0  # Approximate tokens consumed
-    parse_success: bool = False  # Was the JSON response parsed successfully?
+    text: str
+    found: bool | None = None
+    evidence: str = ""
+    clause: str = ""
+    confidence: float = 0.0
+    provider: str = ""
+    model: str = ""
+    tokens_used: int = 0
+    parse_success: bool = False
     raw_response: dict = field(default_factory=dict)
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
@@ -239,37 +271,36 @@ class LLMClient:
         if hasattr(self, "_initialized"):
             return
         self._initialized = True
-        self.provider = settings.LLM_PROVIDER  # "none" | "openai" | "ollama" | "llamacpp"
+        self.provider = settings.LLM_PROVIDER
         self.timeout = settings.LLM_TIMEOUT_SECONDS
         self._llama_model: Any = None
         self._llama_grammar_cache: dict[str, Any] = {}
         self._llamacpp_semaphore: asyncio.Semaphore | None = None
-        # Futures активных llamacpp-вызовов, запущенных через run_in_executor.
-        # Нужны для безопасного reset: нельзя закрывать native runtime,
-        # пока хотя бы один inference ещё физически выполняется.
         self._llamacpp_inflight_futures: set[Any] = set()
 
+    # -------------------------------------------------------------------------
+    # ИСПРАВЛЕНО: используем settings.LLM_MAX_RETRIES (typed field),
+    # а не getattr(settings, "LLM_MAX_RETRIES", 2) (phantom setting).
+    # Теперь значение из .env корректно читается Pydantic-ом.
+    # -------------------------------------------------------------------------
+    @property
+    def _default_max_retries(self) -> int:
+        """
+        Число retry по умолчанию из конфига.
 
-    # - 0 означает «ровно один вызов без ретраев»;
-    # - 2 означает «до трёх вызовов: первая попытка + 2 повтора».
-    _DEFAULT_MAX_RETRIES = getattr(settings, "LLM_MAX_RETRIES", 2)
-
+        Property вместо class-level атрибута потому что:
+        - LLMClient — singleton, создаётся при первом импорте;
+        - settings может быть переопределён в тестах через monkeypatch;
+        - class-level атрибут читается один раз при загрузке модуля.
+        """
+        return settings.LLM_MAX_RETRIES
 
     # =========================================================================
     # Tracing helpers
-    # Вызываются только из call() и call_async().
-    # Defensive: никогда не бросают исключение наружу.
     # =========================================================================
 
     def _get_tracer(self):
-        """
-        Вернуть tracer или None.
-
-        Вызываем _get_stage_tracer() лениво (не в __init__) потому что:
-        - LLMClient — singleton, создаётся при первом импорте;
-        - OTEL может инициализироваться позже;
-        - в worker-system процессе OTEL_ENABLED=false, get_stage_tracer() вернёт None.
-        """
+        """Вернуть tracer или None."""
         if not _TRACING_AVAILABLE:
             return None
         try:
@@ -285,11 +316,7 @@ class LLMClient:
         error_type: "str | None",
         exc: "Exception | None",
     ) -> None:
-        """
-        Обогатить span llm.call атрибутами после завершения вызова.
-
-        Вызывается из finally блока — никогда не бросает исключение.
-        """
+        """Обогатить span llm.call атрибутами после завершения вызова."""
         try:
             from opentelemetry.trace import StatusCode
 
@@ -300,14 +327,11 @@ class LLMClient:
                 span.set_attribute("llm.error_type", error_type)
 
             if isinstance(result, LLMResponse):
-                # tokens_used — это total (prompt + completion)
-                # Для Ollama пробуем вытащить prompt/completion отдельно из raw_response
                 span.set_attribute("llm.tokens_total", result.tokens_used)
 
                 raw = result.raw_response or {}
 
                 if self.provider == "ollama":
-                    # Ollama возвращает prompt_eval_count и eval_count в raw response
                     prompt_tokens = raw.get("prompt_eval_count")
                     completion_tokens = raw.get("eval_count")
                     if isinstance(prompt_tokens, int):
@@ -316,7 +340,6 @@ class LLMClient:
                         span.set_attribute("llm.completion_tokens", completion_tokens)
 
                 elif self.provider == "openai":
-                    # OpenAI возвращает usage.prompt_tokens и usage.completion_tokens
                     usage = raw.get("usage", {}) or {}
                     prompt_tokens = usage.get("prompt_tokens")
                     completion_tokens = usage.get("completion_tokens")
@@ -326,7 +349,6 @@ class LLMClient:
                         span.set_attribute("llm.completion_tokens", completion_tokens)
 
                 elif self.provider == "llamacpp":
-                    # llamacpp возвращает usage.prompt_tokens и usage.completion_tokens
                     usage = raw.get("usage", {}) or {}
                     prompt_tokens = usage.get("prompt_tokens")
                     completion_tokens = usage.get("completion_tokens")
@@ -335,7 +357,6 @@ class LLMClient:
                     if isinstance(completion_tokens, int):
                         span.set_attribute("llm.completion_tokens", completion_tokens)
 
-            # Статус span
             if exc is not None:
                 span.record_exception(exc)
                 span.set_status(StatusCode.ERROR, str(exc))
@@ -345,29 +366,18 @@ class LLMClient:
                 span.set_status(StatusCode.OK)
 
         except Exception:
-            # Tracing никогда не ломает бизнес-код
             pass
 
     def is_available(self) -> bool:
         """Check if any LLM provider is configured."""
         return self.provider in ("openai", "ollama", "llamacpp")
 
-
     def reset_local_runtime_state(self) -> None:
         """
         Сбросить process-local runtime state для llama-cpp.
 
-        Важно:
-        - reset безопасен только если в процессе нет активных in-flight
-          llamacpp-вызовов, запущенных через run_in_executor;
-        - если такой вызов ещё работает, закрывать native runtime нельзя:
-          это может привести к SIGSEGV.
-
-        Что сбрасывается:
-        - self._llama_model
-        - self._llama_grammar_cache
-
-        Для non-llamacpp provider метод ничего не делает.
+        Безопасен только если нет активных in-flight llamacpp-вызовов.
+        Для non-llamacpp provider ничего не делает.
         """
         if self.provider != "llamacpp":
             return
@@ -404,12 +414,7 @@ class LLMClient:
         )
 
     def reset_local_runtime_state_best_effort(self) -> None:
-        """
-        Best-effort обёртка над reset_local_runtime_state().
-
-        Никогда не бросает исключение наружу — cleanup не должен ломать
-        основную задачу worker-а.
-        """
+        """Best-effort обёртка над reset_local_runtime_state()."""
         try:
             self.reset_local_runtime_state()
         except Exception as exc:
@@ -428,8 +433,7 @@ class LLMClient:
         """
         Fail-fast check: влезает ли prompt + requested_max_tokens в окно модели.
 
-        Вызывающий код (LLMDetector) отвечает за то, чтобы prompt был правильного размера.
-        Этот метод только проверяет финальный инвариант и выбрасывает LLMContextLimitError.
+        Выбрасывает LLMContextLimitError если не влезает.
         """
         model_limit = getattr(settings, "LLM_CONTEXT_LIMIT", None)
         safety_margin = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 512))
@@ -476,11 +480,7 @@ class LLMClient:
         grammar_path: str | None = None,
         response_format: str | None = None,
     ) -> LLMResponse | None:
-        """
-        Call the configured LLM provider.
-        ... (docstring без изменений) ...
-        """
-        # P8.5: validate response_format
+        """Call the configured LLM provider (sync, single attempt)."""
         if response_format not in _VALID_RESPONSE_FORMATS:
             raise PermanentError(
                 f"Invalid response_format={response_format!r}. "
@@ -521,15 +521,10 @@ class LLMClient:
             prompt_preview=prompt[:200],
             grammar_requested=bool(grammar_path),
             prompt_tokens=budget_info.get("prompt_tokens"),
-            reserved_output_tokens=budget_info.get("reserved_output_tokens"),
             effective_max_tokens=budget_info.get("effective_max_tokens"),
             token_budget=budget_info,
         )
 
-        # ── Tracing: открываем span llm.call ─────────────────────────────────
-        # Span становится child от stage.run_single_check автоматически
-        # через OpenTelemetry context propagation.
-        # Если tracer=None (OTEL выключен) — используем nullcontext().
         _tracer = self._get_tracer()
         _llm_span_ctx = (
             _tracer.start_as_current_span(
@@ -548,12 +543,11 @@ class LLMClient:
             if _tracer is not None
             else __import__("contextlib").nullcontext()
         )
-        # ─────────────────────────────────────────────────────────────────────
 
         start_time = time.time()
         error_type_for_metrics: str | None = None
         result: LLMResponse | None = None
-        _last_exc: Exception | None = None  # для span.record_exception
+        _last_exc: Exception | None = None
 
         with _llm_span_ctx as _llm_span:
             try:
@@ -597,7 +591,6 @@ class LLMClient:
                 duration = time.time() - start_time
                 duration_ms = int(duration * 1000)
 
-                # ── Обогащаем span после завершения вызова ────────────────────
                 if _llm_span is not None:
                     self._enrich_llm_span(
                         span=_llm_span,
@@ -606,7 +599,6 @@ class LLMClient:
                         error_type=error_type_for_metrics,
                         exc=_last_exc,
                     )
-                # ─────────────────────────────────────────────────────────────
 
                 try:
                     METRICS.llm_request_duration_seconds.labels(
@@ -634,33 +626,39 @@ class LLMClient:
         max_tokens: int | None = None,
         grammar_path: str | None = None,
         max_retries: int | None = None,
-        response_format: str | None = None,  # P8.5
+        response_format: str | None = None,
     ) -> tuple[LLMResponse | None, dict]:
         """
-        Вызов LLM с повторами при временных ошибках.
+        Вызов LLM с повторами при временных ошибках (sync).
 
-        Порядок обработки исключений важен:
-        - LLMContextLimitError (подкласс PermanentError) — ловим первым,
-          возвращаем error_type='context_limit' без retry;
-        - PermanentError — ловим вторым, возвращаем error_type='permanent_error';
-        - TransientError — retry до max_retries;
-        - Exception — не повторяем, возвращаем error_type='unexpected_error'.
+        Порядок обработки исключений:
+        - LLMContextLimitError → no retry (permanent, контекст не уменьшится)
+        - PermanentError       → no retry
+        - TransientError       → retry с exponential backoff + jitter
+        - Exception            → no retry
 
         Возвращает:
             (response_or_none, error_details_dict)
 
         error_details содержит:
-        - llm_attempts: сколько реальных попыток было сделано;
-        - error_type: None | 'context_limit' | 'permanent_error' |
-                      'transient_error' | 'unexpected_error' | 'unavailable';
-        - error_message: текст ошибки (если была).
+            llm_attempts:  число реальных попыток
+            error_type:    None | 'context_limit' | 'permanent_error' |
+                           'transient_error' | 'unexpected_error' | 'unavailable'
+            error_message: текст ошибки (если была)
+
+        Backoff (sync):
+            Использует time.sleep() — корректно для Celery workers.
+            НЕ вызывать из async-контекста (блокирует event loop).
+            Для async используйте call_with_retries_async().
         """
         attempts = 0
         last_error_type: str | None = None
         last_error_message: str | None = None
 
+        # ИСПРАВЛЕНО: используем settings.LLM_MAX_RETRIES (typed field),
+        # а не getattr(settings, "LLM_MAX_RETRIES", 2) (phantom setting).
         retries = (
-            max_retries if max_retries is not None else getattr(settings, "LLM_MAX_RETRIES", 2)
+            max_retries if max_retries is not None else self._default_max_retries
         )
 
         while True:
@@ -671,7 +669,7 @@ class LLMClient:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     grammar_path=grammar_path,
-                    response_format=response_format,  # P8.5
+                    response_format=response_format,
                 )
 
                 if response is None:
@@ -688,8 +686,8 @@ class LLMClient:
                 }
 
             except LLMContextLimitError as e:
-                # ── Контекстный лимит: retry бессмысленен, промпт не изменится ──
-                # Важно поймать ДО общего PermanentError, иначе тип потеряется.
+                # Контекстный лимит: retry бессмысленен.
+                # Важно поймать ДО общего PermanentError.
                 logger.warning(
                     "LLMClient context limit exceeded, no retries",
                     provider=self.provider,
@@ -705,19 +703,39 @@ class LLMClient:
             except TransientError as e:
                 last_error_type = "transient_error"
                 last_error_message = str(e)
+
+                if attempts > retries:
+                    # Retries исчерпаны — выходим из цикла.
+                    break
+
+                # =============================================================
+                # ИСПРАВЛЕНО: exponential backoff + jitter перед retry.
+                #
+                # Ранее: немедленный continue (нулевая пауза).
+                # Теперь: задержка растёт экспоненциально с каждой попыткой,
+                # ограничена LLM_RETRY_MAX_DELAY_SECONDS.
+                # Jitter разбрасывает retry N воркеров во времени.
+                #
+                # time.sleep() корректен в sync Celery worker контексте.
+                # Для async используется call_with_retries_async().
+                # =============================================================
+                delay = _compute_backoff_delay(
+                    attempt=attempts,
+                    base=settings.LLM_RETRY_BASE_DELAY_SECONDS,
+                    cap=settings.LLM_RETRY_MAX_DELAY_SECONDS,
+                    jitter_range=settings.LLM_RETRY_JITTER_SECONDS,
+                )
                 logger.warning(
-                    "LLMClient transient error, will retry if attempts left",
+                    "LLMClient transient error, retrying with backoff",
                     provider=self.provider,
                     attempt=attempts,
                     max_retries=retries,
+                    delay_seconds=round(delay, 2),
                     error=str(e),
                 )
-                if attempts > retries:
-                    break
-                continue
+                time.sleep(delay)
 
             except PermanentError as e:
-                # Общие постоянные ошибки (не context_limit).
                 last_error_type = "permanent_error"
                 last_error_message = str(e)
                 logger.warning(
@@ -747,45 +765,25 @@ class LLMClient:
                     "error_message": last_error_message,
                 }
 
-        # Исчерпали retries на transient ошибках.
+        # Retries исчерпаны на transient ошибках.
         return None, {
             "llm_attempts": attempts,
             "error_type": last_error_type or "transient_error",
             "error_message": last_error_message,
         }
 
-
     # =========================================================================
-    # Phase 14.1: Async API
-    # Добавлено рядом со sync API. Sync методы сохранены без изменений.
-    # llamacpp: не блокирует event loop через run_in_executor + Semaphore(1).
-    # ollama/openai: реальный async I/O через httpx.AsyncClient.
+    # Async API
     # =========================================================================
 
     def _get_llamacpp_semaphore(self) -> asyncio.Semaphore:
-        """
-        Semaphore(1) для сериализации вызовов llamacpp.
-
-        llamacpp (_llama_model) не является thread-safe для
-        параллельных инференсов. Semaphore(1) гарантирует что в любой
-        момент времени через run_in_executor выполняется не более
-        одного вызова модели.
-
-        Создаётся лениво при первом async вызове — не в __init__,
-        потому что event loop может ещё не существовать в момент
-        создания LLMClient singleton.
-        """
+        """Semaphore(1) для сериализации вызовов llamacpp."""
         if self._llamacpp_semaphore is None:
             self._llamacpp_semaphore = asyncio.Semaphore(1)
         return self._llamacpp_semaphore
 
-
     def _register_llamacpp_inflight_future(self, future: Any) -> None:
-        """
-        Зарегистрировать in-flight future llamacpp-вызова.
-
-        Future удаляется из реестра автоматически после завершения.
-        """
+        """Зарегистрировать in-flight future llamacpp-вызова."""
         self._llamacpp_inflight_futures.add(future)
 
         def _cleanup(done_future: Any) -> None:
@@ -794,16 +792,11 @@ class LLMClient:
         future.add_done_callback(_cleanup)
 
     def _count_active_llamacpp_futures(self) -> int:
-        """
-        Посчитать реально активные llamacpp futures.
-
-        done()-futures не считаются активными.
-        """
+        """Посчитать реально активные llamacpp futures."""
         return sum(
             1 for future in self._llamacpp_inflight_futures
             if not future.done()
         )
-    
 
     async def _call_openai_async(
         self,
@@ -811,12 +804,7 @@ class LLMClient:
         temperature: float,
         max_tokens: int,
     ) -> LLMResponse:
-        """
-        Async OpenAI call через httpx.AsyncClient.
-
-        Идентична sync _call_openai() по логике,
-        но не блокирует event loop во время сетевого I/O.
-        """
+        """Async OpenAI call через httpx.AsyncClient."""
         url = f"{settings.LLM_OPENAI_BASE_URL}/chat/completions"
         headers = {
             "Authorization": f"Bearer {settings.LLM_OPENAI_API_KEY}",
@@ -846,7 +834,6 @@ class LLMClient:
         data = response.json()
         text = data["choices"][0]["message"]["content"]
         tokens_used = data.get("usage", {}).get("total_tokens", 0)
-
         usage = data.get("usage", {}) or {}
 
         result = LLMResponse(
@@ -865,17 +852,9 @@ class LLMClient:
         prompt: str,
         temperature: float,
         max_tokens: int,
-        response_format: str | None = None,  # P8.5
+        response_format: str | None = None,
     ) -> LLMResponse:
-        """
-        Async Ollama call через httpx.AsyncClient.
-
-        Идентична sync _call_ollama() по логике,
-        но не блокирует event loop во время сетевого I/O.
-
-        P8.5: when response_format="json_object", adds "format": "json"
-        to the request body, forcing Ollama to return valid JSON.
-        """
+        """Async Ollama call через httpx.AsyncClient."""
         url = f"{settings.LLM_OLLAMA_BASE_URL}/api/generate"
         body: dict = {
             "model": settings.LLM_OLLAMA_MODEL,
@@ -887,7 +866,6 @@ class LLMClient:
             },
         }
 
-        # P8.5: Ollama JSON mode
         if response_format == "json_object":
             body["format"] = "json"
 
@@ -927,12 +905,8 @@ class LLMClient:
         """
         Async llamacpp через run_in_executor + Semaphore(1).
 
-        Важная деталь:
-        - native llamacpp-вызов нельзя безопасно "оборвать" через asyncio cancel;
-        - поэтому при отмене outer coroutine мы не отпускаем semaphore сразу,
-          а дожидаемся завершения in-flight executor future;
-        - это предотвращает гонку, когда runtime закрывают или переиспользуют,
-          пока native inference ещё физически работает в thread pool.
+        asyncio.shield() предотвращает освобождение semaphore при отмене,
+        пока native inference физически выполняется в thread pool.
         """
         sem = self._get_llamacpp_semaphore()
         loop = asyncio.get_running_loop()
@@ -958,8 +932,6 @@ class LLMClient:
                     pid=os.getpid(),
                 )
                 try:
-                    # Дожидаемся фактического завершения native inference,
-                    # чтобы не освободить semaphore и не допустить unsafe reset.
                     await asyncio.shield(future)
                 except Exception as exec_exc:
                     logger.warning(
@@ -978,10 +950,7 @@ class LLMClient:
         grammar_path: str | None = None,
         response_format: str | None = None,
     ) -> LLMResponse | None:
-        """
-        Async версия call().
-        ... (docstring без изменений) ...
-        """
+        """Async версия call() — один вызов без retry."""
         if response_format not in _VALID_RESPONSE_FORMATS:
             raise PermanentError(
                 f"Invalid response_format={response_format!r}. "
@@ -1028,9 +997,6 @@ class LLMClient:
             effective_max_tokens=budget_info.get("effective_max_tokens"),
         )
 
-        # ── Tracing: открываем span llm.call (async версия) ──────────────────
-        # Для async используем start_as_current_span как обычный context manager.
-        # OpenTelemetry поддерживает это в async контексте корректно.
         _tracer = self._get_tracer()
         _llm_span_ctx = (
             _tracer.start_as_current_span(
@@ -1049,7 +1015,6 @@ class LLMClient:
             if _tracer is not None
             else __import__("contextlib").nullcontext()
         )
-        # ─────────────────────────────────────────────────────────────────────
 
         start_time = time.time()
         error_type_for_metrics: str | None = None
@@ -1081,9 +1046,7 @@ class LLMClient:
                 _last_exc = e
                 raise TransientError(f"LLM timeout ({self.provider})")
             except httpx.ConnectError as e:
-                logger.warning(
-                    "LLM async connection failed", provider=self.provider
-                )
+                logger.warning("LLM async connection failed", provider=self.provider)
                 error_type_for_metrics = "connect_error"
                 _last_exc = e
                 raise TransientError(f"LLM connection failed ({self.provider})")
@@ -1106,7 +1069,6 @@ class LLMClient:
                 duration = time.time() - start_time
                 duration_ms = int(duration * 1000)
 
-                # ── Обогащаем span ────────────────────────────────────────────
                 if _llm_span is not None:
                     self._enrich_llm_span(
                         span=_llm_span,
@@ -1115,7 +1077,6 @@ class LLMClient:
                         error_type=error_type_for_metrics,
                         exc=_last_exc,
                     )
-                # ─────────────────────────────────────────────────────────────
 
                 try:
                     METRICS.llm_request_duration_seconds.labels(
@@ -1145,25 +1106,23 @@ class LLMClient:
         max_tokens: int | None = None,
         grammar_path: str | None = None,
         max_retries: int | None = None,
-        response_format: str | None = None,  # P8.5
+        response_format: str | None = None,
     ) -> tuple[LLMResponse | None, dict]:
         """
         Async версия call_with_retries().
 
-        Та же retry логика (context_limit → no retry, transient → retry,
-        permanent → no retry), но через await call_async().
+        Та же retry логика, но через await call_async().
+        Backoff использует asyncio.sleep() — не блокирует event loop.
 
         Возвращает (response_or_none, error_details_dict).
-        error_details содержит: llm_attempts, error_type, error_message.
         """
         attempts = 0
         last_error_type: str | None = None
         last_error_message: str | None = None
 
+        # ИСПРАВЛЕНО: используем settings.LLM_MAX_RETRIES (typed field).
         retries = (
-            max_retries
-            if max_retries is not None
-            else getattr(settings, "LLM_MAX_RETRIES", 2)
+            max_retries if max_retries is not None else self._default_max_retries
         )
 
         while True:
@@ -1174,7 +1133,7 @@ class LLMClient:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     grammar_path=grammar_path,
-                    response_format=response_format,  # P8.5
+                    response_format=response_format,
                 )
 
                 if response is None:
@@ -1206,16 +1165,32 @@ class LLMClient:
             except TransientError as e:
                 last_error_type = "transient_error"
                 last_error_message = str(e)
+
+                if attempts > retries:
+                    break
+
+                # =============================================================
+                # ИСПРАВЛЕНО: exponential backoff + jitter перед async retry.
+                #
+                # Ранее: немедленный continue (нулевая пауза).
+                # Теперь: asyncio.sleep() — не блокирует event loop,
+                # освобождает для других coroutine во время ожидания.
+                # =============================================================
+                delay = _compute_backoff_delay(
+                    attempt=attempts,
+                    base=settings.LLM_RETRY_BASE_DELAY_SECONDS,
+                    cap=settings.LLM_RETRY_MAX_DELAY_SECONDS,
+                    jitter_range=settings.LLM_RETRY_JITTER_SECONDS,
+                )
                 logger.warning(
-                    "LLMClient async transient error, will retry if attempts left",
+                    "LLMClient async transient error, retrying with backoff",
                     provider=self.provider,
                     attempt=attempts,
                     max_retries=retries,
+                    delay_seconds=round(delay, 2),
                     error=str(e),
                 )
-                if attempts > retries:
-                    break
-                continue
+                await asyncio.sleep(delay)
 
             except PermanentError as e:
                 last_error_type = "permanent_error"
@@ -1253,8 +1228,9 @@ class LLMClient:
             "error_message": last_error_message,
         }
 
-
-    # --- OpenAI-compatible provider ---
+    # =========================================================================
+    # Provider implementations (без изменений)
+    # =========================================================================
 
     def _call_openai(
         self,
@@ -1290,7 +1266,6 @@ class LLMClient:
         data = response.json()
         text = data["choices"][0]["message"]["content"]
         tokens_used = data.get("usage", {}).get("total_tokens", 0)
-
         usage = data.get("usage", {}) or {}
 
         result = LLMResponse(
@@ -1304,22 +1279,14 @@ class LLMClient:
         )
         return _parse_llm_response(result)
 
-    # --- Ollama local provider ---
-
     def _call_ollama(
         self,
         prompt: str,
         temperature: float,
         max_tokens: int,
-        response_format: str | None = None,  # P8.5
+        response_format: str | None = None,
     ) -> LLMResponse:
-        """
-        Call Ollama local API.
-
-        P8.5: when response_format="json_object", adds "format": "json"
-        to the request body, forcing Ollama to return valid JSON.
-        This is the practical equivalent of json_any_object.gbnf for llamacpp.
-        """
+        """Call Ollama local API."""
         url = f"{settings.LLM_OLLAMA_BASE_URL}/api/generate"
         body: dict = {
             "model": settings.LLM_OLLAMA_MODEL,
@@ -1331,7 +1298,6 @@ class LLMClient:
             },
         }
 
-        # P8.5: Ollama JSON mode
         if response_format == "json_object":
             body["format"] = "json"
 
@@ -1359,8 +1325,6 @@ class LLMClient:
         )
         return _parse_llm_response(result)
 
-    # --- llama-cpp provider (optional, CPU/GPU local model) ---
-
     def _call_llamacpp(
         self,
         prompt: str,
@@ -1380,14 +1344,14 @@ class LLMClient:
         if self._llama_model is None:
             logger.info(
                 "LLMClient: загрузка модели с диска (первый вызов в этом процессе)",
-                extra={"pid": __import__("os").getpid()},
+                extra={"pid": os.getpid()},
             )
 
             try:
                 from llama_cpp import Llama
             except ImportError as e:
                 raise PermanentError(
-                    "llama-cpp-python is not installed. " "Install it or switch LLM_PROVIDER."
+                    "llama-cpp-python is not installed. Install it or switch LLM_PROVIDER."
                 ) from e
 
             logger.info(
@@ -1404,7 +1368,7 @@ class LLMClient:
             )
             logger.info(
                 "LLMClient: модель загружена успешно",
-                extra={"pid": __import__("os").getpid()},
+                extra={"pid": os.getpid()},
             )
 
         from llama_cpp import LlamaGrammar
@@ -1439,6 +1403,7 @@ class LLMClient:
 
         text = output["choices"][0]["text"].strip()
         tokens_used = output.get("usage", {}).get("total_tokens", 0)
+        usage = output.get("usage", {}) or {}
 
         logger.info(
             "LLM response",
@@ -1446,8 +1411,6 @@ class LLMClient:
             tokens_used=tokens_used,
             text_preview=text[:200],
         )
-
-        usage = output.get("usage", {}) or {}
 
         result = LLMResponse(
             text=text,
@@ -1461,15 +1424,18 @@ class LLMClient:
         return _parse_llm_response(result)
 
 
+# =============================================================================
+# Response parsing (без изменений)
+# =============================================================================
+
 def _parse_llm_response(response: LLMResponse) -> LLMResponse:
     """
     Parse LLM response text to extract structured data.
 
-    Expects JSON: {"found": true/false, "evidence": "...", "clause": "...", "confidence": 0.0-1.0}
+    Expects JSON: {"found": bool, "evidence": str, "clause": str, "confidence": float}
     Falls back to text analysis if JSON parsing fails.
     """
     text = response.text.strip()
-
     json_data = _extract_json(text)
 
     if json_data:
@@ -1501,10 +1467,7 @@ def _extract_json(text: str) -> dict | None:
     """
     Extract JSON object from LLM response text.
 
-    Handles:
-    - Pure JSON: {"found": true}
-    - JSON in markdown: ```json\n{"found": true}\n```
-    - JSON embedded in text: Some text {"found": true} more text
+    Handles: pure JSON, markdown code blocks, JSON embedded in text.
     """
     try:
         return json.loads(text)

@@ -217,6 +217,7 @@ def run_deal_checks(
                             "playbook_version_id": str(run_snap.playbook_version_id),
                             "checks_mode": run_snap.checks_mode,
                             "force": False,
+                            "tenant_id": tenant_id,        
                         },
                         queue="heavy_llm_checks",
                     )
@@ -349,6 +350,7 @@ def run_single_check(
     playbook_version_id: str | None = None,
     checks_mode: str | None = None,
     force: bool = False,
+    tenant_id: str | None = None,
     stage_execution_id: str | None = None,
     orchestration_strategy: str | None = None,
     **kwargs: Any,
@@ -658,7 +660,13 @@ def run_single_check(
                     try:
                         send_task_with_context(
                             "workers.finalize_run_if_ready",
-                            kwargs={"run_id": run_id},
+                            kwargs={
+                                "run_id": run_id,
+                                # tenant_id приходит из параметров задачи run_single_check.
+                                # Передаём явно, чтобы finalize_run_if_ready мог корректно
+                                # атрибутировать audit записи финализации Run.
+                                "tenant_id": tenant_id,
+                            },
                             queue="default",
                         )
                     except Exception:
@@ -674,7 +682,6 @@ def run_single_check(
 
 # ─── finalize_run_if_ready ────────────────────────────────────────────────────
 
-
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
@@ -685,6 +692,10 @@ def run_single_check(
 def finalize_run_if_ready(
     self,
     run_id: str,
+    # ИСПРАВЛЕНО: добавлен tenant_id.
+    # Ранее отсутствовал — audit записи финализации Run записывались с
+    # tenant_id=uuid.UUID(int=0) (zero UUID = несуществующий tenant).
+    tenant_id: str | None = None,
     stage_execution_id: str | None = None,
     orchestration_strategy: str | None = None,
     **kwargs: Any,
@@ -695,6 +706,7 @@ def finalize_run_if_ready(
     logger.info(
         "Finalize run task received",
         run_id=run_id,
+        tenant_id=tenant_id,
     )
 
     run_uuid = uuid.UUID(run_id)
@@ -710,7 +722,6 @@ def finalize_run_if_ready(
             if run_obj is None:
                 raise ValueError(f"Run not found: {run_uuid}")
 
-            # Снимаем snapshot сразу после загрузки ORM-объекта Run.
             run_snap: RunSnapshot = snapshot_run(run_obj)
 
             finished_checks = await result_repo.count_finished_checks_for_run(run_uuid)
@@ -719,7 +730,7 @@ def finalize_run_if_ready(
             active_stage_executions = await dse_repo.count_active_for_run(run_uuid)
             if active_stage_executions > 0:
                 logger.info(
-                    "finalize_run_if_ready: active document stage executions remain, postponing run finalization",
+                    "finalize_run_if_ready: active document stage executions remain, postponing",
                     run_id=run_id,
                     active_stage_executions=active_stage_executions,
                     finished_checks=finished_checks,
@@ -737,8 +748,6 @@ def finalize_run_if_ready(
             if updated_run is None:
                 raise ValueError(f"Run not found during finalize: {run_uuid}")
 
-            # Снимаем snapshot финализированного Run сразу после получения,
-            # до следующего await.
             updated_snap: RunSnapshot = snapshot_run(updated_run)
 
             logger.info(
@@ -752,7 +761,6 @@ def finalize_run_if_ready(
                 has_errors=updated_snap.has_errors,
             )
 
-            # Если Run перешёл в терминальный статус — пишем аудит.
             if updated_snap.status in (
                 RunStatus.COMPLETED.value,
                 RunStatus.COMPLETED_WITH_ERRORS.value,
@@ -765,9 +773,31 @@ def finalize_run_if_ready(
                 else:
                     action = "ANALYSIS_FAILED"
 
+                # ИСПРАВЛЕНО: используем tenant_id из параметра задачи.
+                # Ранее: uuid.UUID(int=0) — zero UUID, несуществующий tenant.
+                # Теперь: реальный tenant_id из run_single_check → finalize_run_if_ready.
+                # Fallback: run_snap.tenant_id если доступен, иначе zero UUID с предупреждением.
+                if tenant_id:
+                    effective_tenant_id = uuid.UUID(tenant_id)
+                elif hasattr(run_snap, "tenant_id") and run_snap.tenant_id:
+                    effective_tenant_id = run_snap.tenant_id
+                    logger.warning(
+                        "finalize_run_if_ready: tenant_id not passed explicitly, "
+                        "using tenant_id from run_snap",
+                        run_id=run_id,
+                        tenant_id=str(effective_tenant_id),
+                    )
+                else:
+                    effective_tenant_id = uuid.UUID(int=0)
+                    logger.error(
+                        "finalize_run_if_ready: tenant_id unavailable, "
+                        "audit record will use zero UUID — check task dispatch",
+                        run_id=run_id,
+                    )
+
                 try:
                     await audit_repo.log(
-                        tenant_id=uuid.UUID(int=0),
+                        tenant_id=effective_tenant_id,
                         deal_id=updated_snap.deal_id,
                         action=action,
                         actor="system",
@@ -784,7 +814,7 @@ def finalize_run_if_ready(
                     )
                 except Exception:
                     logger.warning(
-                        "finalize_run_if_ready: failed to write audit log for run finalization",
+                        "finalize_run_if_ready: failed to write audit log",
                         run_id=run_id,
                         status=updated_snap.status,
                     )
@@ -798,7 +828,7 @@ def finalize_run_if_ready(
 
             if run_snap.total_checks <= 0:
                 logger.error(
-                    "finalize_run_if_ready: zero-check run is still non-terminal after repository finalize",
+                    "finalize_run_if_ready: zero-check run is still non-terminal after finalize",
                     run_id=run_id,
                     status=updated_snap.status,
                     run_total_checks=updated_snap.total_checks,
@@ -820,5 +850,8 @@ def finalize_run_if_ready(
             }
 
     return run_async(_run())
+
+
+
 
     

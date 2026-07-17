@@ -315,6 +315,43 @@ class Settings(BaseSettings):
     LLM_CLOUD_API_KEY: str = ""
     LLM_DEFAULT_CONFIDENCE: float = 0.70
 
+    # ---------------------------------------------------------------------------
+    # --- LLM Retry & Backoff ---
+    #
+    # LLM_MAX_RETRIES — максимальное число повторных попыток при TransientError.
+    #   0 = без повторов (один вызов).
+    #   2 = до 3 вызовов итого: первый + 2 retry.
+    #
+    #   ВАЖНО: ранее это значение читалось через getattr(settings, "LLM_MAX_RETRIES", 2),
+    #   что делало его "phantom setting" — Pydantic не знал о поле, значение из .env
+    #   молча игнорировалось. Теперь это полноценный typed field.
+    #
+    # LLM_RETRY_BASE_DELAY_SECONDS — базовая задержка перед первым retry.
+    #   Формула задержки: min(base * 2^(attempt-1), cap) + jitter
+    #   attempt=1 → base * 1 = base
+    #   attempt=2 → base * 2
+    #   attempt=3 → base * 4  (но не более cap)
+    #
+    # LLM_RETRY_MAX_DELAY_SECONDS — потолок задержки.
+    #   Защищает от бесконечного ожидания при большом числе retry.
+    #   Рекомендации по провайдерам:
+    #     openai:   30s — rate limit window обычно 60s, 30s даёт второй шанс
+    #     ollama:   15s — локальный сервис восстанавливается быстро
+    #     llamacpp: 60s — CPU inference занимает долго, пауза оправдана
+    #
+    # LLM_RETRY_JITTER_SECONDS — максимальный случайный сдвиг задержки.
+    #   Защита от thundering herd: когда N Celery-воркеров одновременно
+    #   получают TransientError (например, Ollama перезапускается), они
+    #   не должны синхронно retry-ть через одинаковые интервалы.
+    #   Jitter разбрасывает retry во времени.
+    #   Значение 1.0 означает uniform(0, 1.0) секунды добавляется к задержке.
+    # ---------------------------------------------------------------------------
+    LLM_MAX_RETRIES: int = 2
+    LLM_RETRY_BASE_DELAY_SECONDS: float = 1.0
+    LLM_RETRY_MAX_DELAY_SECONDS: float = 30.0
+    LLM_RETRY_JITTER_SECONDS: float = 1.0
+
+
     # --- Structure LLM Refiner ---
     STRUCTURE_ENABLE_LLM_REFINER: bool = True
 
