@@ -90,21 +90,15 @@ def _normalize_str_tuple(value: Any) -> tuple[str, ...]:
 
 @dataclass(frozen=True, slots=True)
 class RunSnapshot:
-    """
-    Immutable snapshot Run.
-
-    Содержит superset полей, которые реально используются в:
-    - run_orchestrator
-    - check_runner_worker
-    - finalize flow
-
-    Не все поля обязательны для каждого caller'а.
-    """
-
     id: uuid.UUID
     status: str
 
     deal_id: uuid.UUID | None = None
+
+    # tenant_id — первичный источник истины для orchestration/audit.
+    # Читается из Run.tenant_id при снятии snapshot.
+    # Не должен передаваться через task kwargs или logging context.
+    tenant_id: uuid.UUID | None = None
 
     pipeline_strategy: str | None = None
 
@@ -134,11 +128,14 @@ def snapshot_run(run: Any) -> RunSnapshot:
     Снять immutable snapshot с ORM-объекта Run.
 
     Вызывать сразу после загрузки ORM-объекта, до первого await.
+    tenant_id читается напрямую из Run — это первичный источник истины
+    для orchestration/audit цепочки.
     """
     return RunSnapshot(
         id=run.id,
         status=str(getattr(run, "status", "") or ""),
         deal_id=getattr(run, "deal_id", None),
+        tenant_id=getattr(run, "tenant_id", None),
         pipeline_strategy=_normalize_optional_str(getattr(run, "pipeline_strategy", None)),
         checks_mode=_normalize_optional_str(getattr(run, "checks_mode", None)),
         checks_scope=getattr(run, "checks_scope", None),

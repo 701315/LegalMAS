@@ -67,6 +67,38 @@ logger = get_logger(__name__)
 _shared_llm_client = LLMClient()
 
 
+def _resolve_effective_tenant_id(
+    task_tenant_id: str | None,
+    run_snap: RunSnapshot,
+) -> uuid.UUID | None:
+    """
+    Определить эффективный tenant_id для audit/orchestration.
+
+    Приоритет:
+    1. task_tenant_id из kwargs задачи — явно переданный вызывающим кодом.
+    2. run_snap.tenant_id — прочитан из Run при snapshot, первичный источник истины.
+    3. None — tenant определить невозможно.
+
+    НЕ возвращает zero UUID (uuid.UUID(int=0)).
+    Если tenant не найден — это должно обрабатываться вызывающим кодом явно:
+    - либо fail-fast (для orchestration),
+    - либо пропуск audit (для best-effort audit paths).
+    """
+    if task_tenant_id:
+        try:
+            return uuid.UUID(task_tenant_id)
+        except (ValueError, AttributeError):
+            logger.warning(
+                "check_runner_worker: invalid tenant_id in task kwargs, falling back to run_snap",
+                raw_tenant_id=str(task_tenant_id)[:64],
+            )
+
+    if run_snap.tenant_id is not None:
+        return run_snap.tenant_id
+
+    return None
+
+
 # ─── run_deal_checks ──────────────────────────────────────────────────────────
 
 
@@ -224,24 +256,34 @@ def run_deal_checks(
                     scheduled += 1
 
                 try:
-                    await audit_repo.log(
-                        tenant_id=uuid.UUID(tenant_id) if tenant_id else uuid.UUID(int=0),
-                        deal_id=deal_uuid,
-                        action="CHECKS_SCHEDULED",
+                    # Резолюция tenant_id: task kwargs → run_snap → None.
+                    # Если tenant не определён — audit пропускается, не пишем в zero UUID.
+                    effective_tenant = _resolve_effective_tenant_id(tenant_id, run_snap)
+                    if effective_tenant is None:
+                        logger.error(
+                            "run_deal_checks: tenant_id unavailable, skipping CHECKS_SCHEDULED audit",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                        )
+                    else:
+                        await audit_repo.log(
+                            tenant_id=effective_tenant,
+                            deal_id=deal_uuid,
+                            action="CHECKS_SCHEDULED",
                         actor="system",
                         actor_role="worker",
-                        details={
-                            "run_id": run_id,
-                            "playbook_version_id": str(run_snap.playbook_version_id),
-                            "checks_mode": run_snap.checks_mode,
-                            "checks_scope": run_snap.checks_scope,
-                            "processed_docs": processed_docs,
-                            "total_checks": total_checks,
-                            "pairs_count": len(pairs),
-                            "scheduled_checks": scheduled,
-                            "planning_errors": errors,
-                        },
-                    )
+                            details={
+                                "run_id": run_id,
+                                "playbook_version_id": str(run_snap.playbook_version_id),
+                                "checks_mode": run_snap.checks_mode,
+                                "checks_scope": run_snap.checks_scope,
+                                "processed_docs": processed_docs,
+                                "total_checks": total_checks,
+                                "pairs_count": len(pairs),
+                                "scheduled_checks": scheduled,
+                                "planning_errors": errors,
+                            },
+                        )
                 except Exception:
                     logger.warning(
                         "run_deal_checks: failed to write audit log for CHECKS_SCHEDULED",
@@ -777,47 +819,42 @@ def finalize_run_if_ready(
                 # Ранее: uuid.UUID(int=0) — zero UUID, несуществующий tenant.
                 # Теперь: реальный tenant_id из run_single_check → finalize_run_if_ready.
                 # Fallback: run_snap.tenant_id если доступен, иначе zero UUID с предупреждением.
-                if tenant_id:
-                    effective_tenant_id = uuid.UUID(tenant_id)
-                elif hasattr(run_snap, "tenant_id") and run_snap.tenant_id:
-                    effective_tenant_id = run_snap.tenant_id
-                    logger.warning(
-                        "finalize_run_if_ready: tenant_id not passed explicitly, "
-                        "using tenant_id from run_snap",
-                        run_id=run_id,
-                        tenant_id=str(effective_tenant_id),
-                    )
-                else:
-                    effective_tenant_id = uuid.UUID(int=0)
+                # Резолюция tenant_id: task kwargs → run_snap.tenant_id → None.
+                # Если tenant не определён — audit пропускается.
+                # Лучше пропустить audit запись, чем записать её в zero UUID.
+                effective_tenant_id = _resolve_effective_tenant_id(tenant_id, updated_snap)
+
+                if effective_tenant_id is None:
                     logger.error(
                         "finalize_run_if_ready: tenant_id unavailable, "
-                        "audit record will use zero UUID — check task dispatch",
-                        run_id=run_id,
-                    )
-
-                try:
-                    await audit_repo.log(
-                        tenant_id=effective_tenant_id,
-                        deal_id=updated_snap.deal_id,
-                        action=action,
-                        actor="system",
-                        actor_role="worker",
-                        details={
-                            "run_id": run_id,
-                            "status": updated_snap.status,
-                            "total_checks": updated_snap.total_checks,
-                            "completed_checks": updated_snap.completed_checks,
-                            "materialized_checks": materialized_checks,
-                            "finished_checks": finished_checks,
-                            "has_errors": updated_snap.has_errors,
-                        },
-                    )
-                except Exception:
-                    logger.warning(
-                        "finalize_run_if_ready: failed to write audit log",
+                        "skipping audit — check task dispatch chain",
                         run_id=run_id,
                         status=updated_snap.status,
                     )
+                else:
+                    try:
+                        await audit_repo.log(
+                            tenant_id=effective_tenant_id,
+                            deal_id=updated_snap.deal_id,
+                            action=action,
+                            actor="system",
+                            actor_role="worker",
+                            details={
+                                "run_id": run_id,
+                                "status": updated_snap.status,
+                                "total_checks": updated_snap.total_checks,
+                                "completed_checks": updated_snap.completed_checks,
+                                "materialized_checks": materialized_checks,
+                                "finished_checks": finished_checks,
+                                "has_errors": updated_snap.has_errors,
+                            },
+                        )
+                    except Exception:
+                        logger.warning(
+                            "finalize_run_if_ready: failed to write audit log",
+                            run_id=run_id,
+                            status=updated_snap.status,
+                        )
 
                 return {
                     "status": updated_snap.status,

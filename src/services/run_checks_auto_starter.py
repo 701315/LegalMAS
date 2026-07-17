@@ -205,16 +205,28 @@ async def maybe_start_run_checks(
         job_id=job_id_str,
     )
 
-    # Важно:
-    # tenant_id здесь специально НЕ передаём как None.
-    # Если в текущем logging context уже есть tenant_id/request_id/actor_role,
-    # helper автоматически подмешает их в kwargs.
+    # tenant_id передаём явно из Run.tenant_id — первичный источник истины.
+    # Не полагаемся на implicit logging context:
+    # он может отсутствовать в worker-triggered paths.
+    run_tenant_id_str: str | None = (
+        str(run_obj.tenant_id) if getattr(run_obj, "tenant_id", None) is not None else None
+    )
+
+    if run_tenant_id_str is None:
+        logger.error(
+            "maybe_start_run_checks: run has no tenant_id, "
+            "run_deal_checks will run without tenant context",
+            run_id=run_id_str,
+            deal_id=deal_id_str,
+        )
+
     send_task_with_context(
         "workers.run_deal_checks",
         kwargs={
             "run_id": run_id_str,
             "deal_id": deal_id_str,
             "job_id": job_id_str,
+            "tenant_id": run_tenant_id_str,
         },
     )
 
