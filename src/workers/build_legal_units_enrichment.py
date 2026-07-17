@@ -50,6 +50,7 @@ from core.constants import (
     RunStatus,
     SemanticEnrichmentStageOutcome,
 )
+from core.semantic_enrichment_degradation import derive_semantic_enrichment_degradation
 from core.exceptions import PermanentError
 from core.logging import get_logger
 from core.stage_trace import build_stage_trace_fragment
@@ -797,11 +798,17 @@ async def _enrichment_finalize(
 
     Выполняется в короткой DB-транзакции.
     Задачи:
-    - bulk update segment_meta["legal_units_enrichment_ref"] через explicit UPDATE
+    - bulk JSONB patch segment_meta["legal_units_enrichment_ref"] — один SQL-запрос
     - Document.status = ENRICHED
     - mark_succeeded
     - audit log
     - commit
+
+    Изменение vs предыдущей реализации:
+    - Убран цикл N × (SELECT + UPDATE) по каждому сегменту.
+    - Заменён на один UPDATE ... SET segment_meta = jsonb_set(...) WHERE ANY(...).
+    - Расхождение между enriched_refs и реально обновлёнными сегментами
+      логируется явно как warning с набором missing_ids.
     """
     log_base = {
         "document_id": document_id,
@@ -828,26 +835,48 @@ async def _enrichment_finalize(
     segments_skipped_budget: int = llm_result["segments_skipped_budget"]
     budget_exhausted: bool = llm_result["budget_exhausted"]
 
-    # ── Обновить segment_meta через explicit UPDATE (не через ORM-объект) ─────
-    for segment_id, sidecar_ref in enriched_refs.items():
-        # Загружаем текущий segment_meta из БД, чтобы сделать merge, а не overwrite.
-        seg = await seg_repo.get_by_segment_id(version_uuid, segment_id)
-        if seg is not None:
-            existing_meta = dict(seg.segment_meta or {})
-            existing_meta["legal_units_enrichment_ref"] = sidecar_ref
-            await seg_repo.update_segment_artifacts(
-                document_version_id=version_uuid,
-                segment_id=segment_id,
-                segment_meta=existing_meta,
+    # ── Bulk JSONB patch: один SQL-запрос вместо N×(SELECT+UPDATE) ───────────
+    persist_mismatch_count = 0
+
+    if enriched_refs:
+        items: list[tuple[str, str]] = list(enriched_refs.items())
+        updated_segment_ids = await seg_repo.bulk_set_enrichment_refs(
+            document_version_id=version_uuid,
+            items=items,
+        )
+
+        expected_segment_ids = set(enriched_refs.keys())
+        missing_ids = expected_segment_ids - updated_segment_ids
+
+        if missing_ids:
+            missing_count = len(missing_ids)
+            persist_mismatch_count = missing_count
+            # Корректируем ОБА счётчика:
+            # - segments_enriched: только реально записанные в БД
+            # - segments_failed: +missing_count, чтобы terminal outcome
+            #   корректно отразил DEGRADED вместо ложного COMPLETED.
+            segments_enriched = len(updated_segment_ids)
+            segments_failed += missing_count
+            logger.warning(
+                "Semantic enrichment stage: some segment_ids from LLM phase "
+                "were not found in DB during finalize — sidecar refs NOT persisted",
+                **log_base,
+                missing_segment_ids=sorted(missing_ids),
+                missing_count=missing_count,
+                expected_count=len(expected_segment_ids),
+                updated_count=len(updated_segment_ids),
             )
         else:
-            logger.warning(
-                "Semantic enrichment stage: segment not found during finalize, skipping meta update",
+            logger.debug(
+                "Semantic enrichment stage: bulk meta update complete",
                 **log_base,
-                segment_id=segment_id,
+                updated_count=len(updated_segment_ids),
             )
+    else:
+        updated_segment_ids = set()
 
     # ── Проверить primary segments ────────────────────────────────────────────
+    # list_by_version — один SELECT, допустимо.
     all_segments = await seg_repo.list_by_version(version_uuid)
     primary_missing = [
         seg for seg in all_segments
@@ -855,13 +884,14 @@ async def _enrichment_finalize(
         and _extract_legal_units_ref(dict(seg.segment_meta or {}))
         and not dict(seg.segment_meta or {}).get("legal_units_enrichment_ref")
     ]
+    primary_missing_count = len(primary_missing)
     if primary_missing:
-        missing_ids = [s.segment_id for s in primary_missing]
+        missing_primary_ids = [s.segment_id for s in primary_missing]
         logger.warning(
             "Semantic enrichment stage: primary segment(s) missing enrichment — "
             "retrieval will degrade to unknown clause_function for these segments",
             **log_base,
-            primary_segments_without_enrichment=missing_ids,
+            primary_segments_without_enrichment=missing_primary_ids,
         )
 
     # ── Определить терминальный исход ─────────────────────────────────────────
@@ -890,6 +920,8 @@ async def _enrichment_finalize(
         segments_failed=segments_failed,
         segments_skipped_budget=segments_skipped_budget,
         budget_exhausted=budget_exhausted,
+        persist_mismatch_count=persist_mismatch_count,
+        primary_missing_count=primary_missing_count,
         log_base=log_base,
     )
 
@@ -913,6 +945,8 @@ async def _finalize_enrichment_stage(
     segments_skipped_budget: int,
     budget_exhausted: bool,
     log_base: dict[str, Any],
+    persist_mismatch_count: int = 0,
+    primary_missing_count: int = 0,
 ) -> dict[str, Any]:
     """
     Завершить стадию семантического обогащения:
@@ -930,6 +964,17 @@ async def _finalize_enrichment_stage(
       после возврата из этой функции, но guard идемпотентности в
       _async_mark_execution_succeeded() пропустит его, если execution уже terminal.
     """
+    degradation = derive_semantic_enrichment_degradation(
+        outcome=outcome,
+        segments_enriched=segments_enriched,
+        segments_with_legal_units_ref=segments_with_legal_units_ref,
+        segments_timed_out=segments_timed_out,
+        segments_failed=segments_failed,
+        segments_skipped_budget=segments_skipped_budget,
+        persist_mismatch_count=persist_mismatch_count,
+        primary_missing_count=primary_missing_count,
+    )
+
     result_payload: dict[str, Any] = {
         "terminal_outcome": outcome.value,
         "segments_total": segments_total,
@@ -941,7 +986,16 @@ async def _finalize_enrichment_stage(
         "budget_exhausted": budget_exhausted,
         "document_budget_seconds": settings.SEMANTIC_ENRICHMENT_DOCUMENT_BUDGET_SECONDS,
         "segment_timeout_seconds": settings.SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS,
+        # ── Degradation analysis ───────────────────────────────────────────
+        **degradation,
     }
+
+    warnings: list[str] = []
+    if budget_exhausted:
+        warnings.append("budget_exhausted")
+    if degradation["degraded"]:
+        severity = degradation["degradation_severity"]
+        warnings.append(f"degraded:{severity}")
 
     result_details = build_stage_trace_fragment(
         strategy="semantic_enrichment_llm",
@@ -958,14 +1012,21 @@ async def _finalize_enrichment_stage(
             "segments_failed": segments_failed,
             "segments_skipped_budget": segments_skipped_budget,
             "budget_exhausted": budget_exhausted,
+            # ── Degradation analysis ───────────────────────────────────────
+            "degraded": degradation["degraded"],
+            "degradation_severity": degradation["degradation_severity"],
+            "enrichment_ratio": degradation["enrichment_ratio"],
+            "degraded_segments": degradation["degraded_segments"],
+            "degradation_reasons": degradation["degradation_reasons"],
+            "degraded_reason": degradation["degraded_reason"],
         },
-        warnings=(
-            ["budget_exhausted"] if budget_exhausted else []
-        ),
+        warnings=warnings,
         artifact_refs={},
         decision_details={
             "document_budget_seconds": settings.SEMANTIC_ENRICHMENT_DOCUMENT_BUDGET_SECONDS,
             "segment_timeout_seconds": settings.SEMANTIC_ENRICHMENT_SEGMENT_TIMEOUT_SECONDS,
+            "persist_mismatch_count": degradation["persist_mismatch_count"],
+            "primary_missing_count": degradation["primary_missing_count"],
         },
     )
 
@@ -1041,6 +1102,8 @@ async def _finalize_enrichment_stage(
         "budget_exhausted": budget_exhausted,
         "committed": True,
         "stage_execution_result_details": result_details,
+        # ── Degradation analysis ───────────────────────────────────────────
+        **degradation,
     }
 
 

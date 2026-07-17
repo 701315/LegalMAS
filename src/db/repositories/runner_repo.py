@@ -3,46 +3,42 @@
 """
 Repository for Runner integration (Stage 7–10).
 
-Этот репозиторий инкапсулирует всю работу Runner‑слоя с документами:
+Этот репозиторий инкапсулирует работу Runner-слоя с документами:
 
 - для Stage 7:
-  - получение non‑duplicate документов для запуска пайплайна;
+  - получение non-duplicate документов для запуска пайплайна;
   - работа с семьями документов (DocumentFamily / DocumentFamilyMember);
-  - поиск master‑документа в семье по правилам из YAMLRegistry.
+  - поиск master-документа в семье.
 
 - для Stage 9–10:
   - загрузка документов и результатов проверок по run_id
     в удобном для Aggregator формате;
-  - подготовка данных для UI‑API (обзор сделки, грид проверок,
+  - подготовка данных для UI-API (обзор сделки, грид проверок,
     условные проверки, извлечённые значения).
 
-Таким образом, бизнес‑логика Runner и UI‑слой не обращаются к ORM
-напрямую, а используют этот репозиторий как единую точку доступа.
-
-Spec v2:
-- load_documents_for_run(...) дополнительно прокидывает
-  classification_requires_review, потому что DD Matrix / review UI
-  уже используют этот флаг для requires_manual_review badge на уровне документа.
-- load_check_results_for_run(...) дополнительно прокидывает
-  canonical display semantics поля:
-    * ui_mode
-    * display_text
-    * machine_reason_code
-    * review_status
-    * review_message
-    * needs_manual_review
+Источник истины для dedup/master selection:
+- persisted DocumentFamily.master_doc_id;
+- fallback только при неконсистентных family data.
 """
 
 import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from classifiers.yaml_registry import YAMLRegistry
+from core.logging import get_logger
+from services.document_family_dedup import (
+    filter_non_duplicate_documents,
+    select_family_representative,
+    sort_documents_stably,
+)
 
 from ..models.document import Document
 from ..models.relation import DocumentFamily, DocumentFamilyMember
 from ..models.result import CheckResult
+
+logger = get_logger(__name__)
 
 
 class RunnerRepository:
@@ -50,84 +46,175 @@ class RunnerRepository:
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        # Используем singleton, который сам возьмёт путь из settings.CLASSIFIER_REGISTRY_PATH
-        self._registry = YAMLRegistry.get_instance()
 
-    async def get_non_duplicate_docs(self, deal_id: uuid.UUID) -> list[Document]:
+    async def _get_family_by_doc_id(self, doc_id: uuid.UUID) -> DocumentFamily | None:
         """
-        Получить документы для Runner.
-
-        На текущем этапе:
-        - файловые дубликаты по SHA256 отсекаются ещё в Import Worker,
-          поэтому в таблице documents уже нет точных дублей по содержимому.
-        - дополнительный Stage 7 dedup (по содержанию/семьям) работает
-          через relations и DocumentFamily, а не через поле is_duplicate.
-
-        TODO (Stage 7): если появится явный флаг/статус дубликата в documents
-        или отдельная таблица, здесь можно будет добавить соответствующую
-        фильтрацию.
+        Найти семью документа и сразу подгрузить members.
         """
-        stmt = select(Document).where(Document.deal_id == deal_id).order_by(Document.created_at)
-        result = await self.session.execute(stmt)
-        return list(result.scalars().all())
-
-    async def get_document_family(self, doc_id: uuid.UUID) -> list[Document] | None:
-        """
-        Получить семью документа (все документы семейства).
-
-        1) Находим DocumentFamily через DocumentFamilyMember.doc_id.
-        2) По списку members.doc_id вытаскиваем все Document.
-        """
-        # 1. Найти семью по doc_id
-        stmt_family = (
+        stmt = (
             select(DocumentFamily)
+            .options(selectinload(DocumentFamily.members))
             .join(DocumentFamilyMember, DocumentFamilyMember.family_id == DocumentFamily.id)
             .where(DocumentFamilyMember.doc_id == doc_id)
             .limit(1)
         )
-        result_family = await self.session.execute(stmt_family)
-        family = result_family.scalar_one_or_none()
-        if not family:
-            return None
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
-        # 2. Получить все doc_id членов семьи
-        member_ids = [m.doc_id for m in family.members]
+    async def _load_family_documents(self, family: DocumentFamily) -> list[Document]:
+        """
+        Загрузить документы одной семьи в детерминированном порядке.
+        """
+        member_ids = [
+            member.doc_id
+            for member in (family.members or [])
+            if getattr(member, "doc_id", None) is not None
+        ]
         if not member_ids:
             return []
 
-        stmt_docs = select(Document).where(Document.id.in_(member_ids))
-        result_docs = await self.session.execute(stmt_docs)
-        return list(result_docs.scalars().all())
+        stmt = (
+            select(Document)
+            .where(Document.id.in_(member_ids))
+            .order_by(Document.created_at.asc(), Document.id.asc())
+        )
+        result = await self.session.execute(stmt)
+        docs = list(result.scalars().all())
+        return sort_documents_stably(docs)
+
+    async def get_non_duplicate_docs(self, deal_id: uuid.UUID) -> list[Document]:
+        """
+        Получить non-duplicate документы сделки.
+
+        Правила:
+        - документы вне family возвращаются как есть;
+        - из каждой family остаётся ровно один representative/master;
+        - primary truth = DocumentFamily.master_doc_id;
+        - если family неконсистентна и master отсутствует среди документов сделки,
+          применяется детерминированный fallback и пишется warning.
+
+        Порядок результата детерминированный:
+        created_at ASC, id ASC.
+        """
+        docs_stmt = (
+            select(Document)
+            .where(Document.deal_id == deal_id)
+            .order_by(Document.created_at.asc(), Document.id.asc())
+        )
+        docs_result = await self.session.execute(docs_stmt)
+        documents = list(docs_result.scalars().all())
+
+        if not documents:
+            return []
+
+        families_stmt = (
+            select(DocumentFamily)
+            .options(selectinload(DocumentFamily.members))
+            .where(DocumentFamily.deal_id == deal_id)
+            .order_by(DocumentFamily.created_at.asc(), DocumentFamily.id.asc())
+        )
+        families_result = await self.session.execute(families_stmt)
+        families = list(families_result.scalars().all())
+
+        if not families:
+            return documents
+
+        doc_ids = {doc.id for doc in documents}
+
+        for family in families:
+            present_member_ids = {
+                member.doc_id
+                for member in (family.members or [])
+                if getattr(member, "doc_id", None) in doc_ids
+            }
+            if present_member_ids and family.master_doc_id not in doc_ids:
+                logger.warning(
+                    "RunnerRepository.get_non_duplicate_docs: family master_doc_id "
+                    "missing from deal documents, deterministic fallback will be used",
+                    extra={
+                        "deal_id": str(deal_id),
+                        "family_id": str(family.id),
+                        "master_doc_id": str(family.master_doc_id),
+                        "present_member_ids": sorted(str(doc_id) for doc_id in present_member_ids),
+                    },
+                )
+
+        return filter_non_duplicate_documents(
+            documents=documents,
+            families=families,
+        )
+
+    async def get_document_family(self, doc_id: uuid.UUID) -> list[Document] | None:
+        """
+        Получить все документы семьи указанного документа.
+
+        Возвращает:
+        - None, если документ не состоит в семье;
+        - список документов семьи в детерминированном порядке — иначе.
+        """
+        family = await self._get_family_by_doc_id(doc_id)
+        if family is None:
+            return None
+
+        return await self._load_family_documents(family)
 
     async def get_master_document(self, doc_id: uuid.UUID) -> Document | None:
         """
         Найти master-документ семьи.
 
-        Приоритет:
+        Правила:
         1) Если документ не в семье — вернуть его самого.
-        2) Среди членов семьи первым делом ищем doc_type в master_doc_types (YAMLRegistry).
-        3) Fallback: возвращаем первый документ семьи.
+        2) Если семья есть и master_doc_id присутствует — вернуть master.
+        3) Если family data неконсистентны — warning + детерминированный fallback.
         """
-        family_docs = await self.get_document_family(doc_id)
-        if not family_docs:
+        family = await self._get_family_by_doc_id(doc_id)
+
+        if family is None:
             stmt = select(Document).where(Document.id == doc_id)
             result = await self.session.execute(stmt)
             return result.scalar_one_or_none()
 
-        master_types = self._registry.get_master_doc_types()
+        family_docs = await self._load_family_documents(family)
+        if not family_docs:
+            logger.warning(
+                "RunnerRepository.get_master_document: family found but no family documents loaded",
+                extra={
+                    "doc_id": str(doc_id),
+                    "family_id": str(family.id),
+                    "master_doc_id": str(family.master_doc_id),
+                },
+            )
+            stmt = select(Document).where(Document.id == doc_id)
+            result = await self.session.execute(stmt)
+            return result.scalar_one_or_none()
 
-        for doc in family_docs:
-            if doc.doc_type in master_types:
-                return doc
+        docs_by_id = {doc.id: doc for doc in family_docs}
+        master_doc = docs_by_id.get(family.master_doc_id)
+        if master_doc is not None:
+            return master_doc
 
-        return family_docs[0] if family_docs else None
+        logger.warning(
+            "RunnerRepository.get_master_document: master_doc_id missing from family documents, "
+            "using deterministic fallback",
+            extra={
+                "doc_id": str(doc_id),
+                "family_id": str(family.id),
+                "master_doc_id": str(family.master_doc_id),
+                "family_doc_ids": [str(doc.id) for doc in family_docs],
+            },
+        )
+
+        return select_family_representative(
+            family_documents=family_docs,
+            master_doc_id=None,
+        )
 
     async def load_documents_for_run(self, run_id: uuid.UUID) -> dict[str, dict]:
         """
         Вернуть словарь {document_id: {...}} для всех документов,
         участвовавших в указанном run_id.
 
-        Эти данные используются Aggregator'ом и UI‑API для построения
+        Эти данные используются Aggregator'ом и UI-API для построения
         обзора сделки.
 
         Spec v2:
@@ -140,6 +227,7 @@ class RunnerRepository:
             .join(CheckResult, CheckResult.document_id == Document.id)
             .where(CheckResult.run_id == run_id)
             .distinct()
+            .order_by(Document.created_at.asc(), Document.id.asc())
         )
         result = await self.session.execute(stmt)
         docs = result.scalars().all()
@@ -199,12 +287,10 @@ class RunnerRepository:
                     "conditional_check_triggered": r.conditional_check_triggered or False,
                     "trigger_name": r.trigger_name or "",
                     "origin": r.origin or None,
-                    # Viewer/highlight fields
                     "page": r.page,
                     "clause_uid": r.clause_uid or "",
                     "element_id": r.element_id,
                     "bbox": r.bbox,
-                    # Segment-aware provenance
                     "segment_id": r.segment_id,
                     "segment_type": r.segment_type,
                     "segment_title": r.segment_title,
@@ -213,26 +299,23 @@ class RunnerRepository:
                     "chunk_id": r.chunk_id,
                     "chunk_index": r.chunk_index,
                     "context_trace": r.context_trace,
-                    # ── Spec v2: canonical display semantics ──────────────────
                     "ui_mode": r.ui_mode,
                     "display_text": r.display_text,
                     "machine_reason_code": r.machine_reason_code,
                     "review_status": r.review_status,
                     "review_message": r.review_message,
                     "needs_manual_review": bool(r.needs_manual_review or False),
-                    # Execution technical status — нужен для cell_state в DD Grid V1
                     "execution_status": r.execution_status or "PENDING",
-                    # QC audit trail — полный набор для drawer content
                     "qc_by": r.qc_by,
                     "qc_at": r.qc_at,
                     "qc_comment": r.qc_comment,
-                    # Observability — для P1 read path
                     "started_at": r.started_at,
                     "finished_at": r.finished_at,
                 }
             )
 
         return out
-    
+
+        
 
     

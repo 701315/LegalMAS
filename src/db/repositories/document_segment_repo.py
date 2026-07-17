@@ -21,7 +21,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select, update, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from classifiers.yaml_registry import YAMLRegistry
@@ -29,7 +29,6 @@ from core.logging import get_logger
 from db.repositories.document_type_instruction_version_repo import (
     DocumentTypeInstructionVersionRepository,
 )
-
 from ..models.document import DocumentSegment
 
 logger = get_logger(__name__)
@@ -484,6 +483,105 @@ class DocumentSegmentRepository:
             await self.session.execute(stmt)
 
         await self.session.flush()
+
+
+
+
+
+    async def bulk_set_enrichment_refs(
+        self,
+        *,
+        document_version_id: uuid.UUID,
+        items: Sequence[tuple[str, str]],
+    ) -> set[str]:
+        """
+        Атомарно обновить legal_units_enrichment_ref для набора сегментов
+        через один SQL-запрос с JSONB patch.
+
+        Почему именно так:
+        - JSONB jsonb_set() обновляет только один ключ, не перезаписывает
+          весь segment_meta — другие ключи (legal_units_ref, detected_by и т.п.)
+          остаются нетронутыми.
+        - COALESCE(segment_meta, '{}') корректно обрабатывает NULL segment_meta.
+        - Один UPDATE с ANY(:segment_ids) вместо N SELECT + N UPDATE round-trips.
+        - RETURNING segment_id позволяет точно знать, какие строки реально
+          обновились (защита от несовпадения segment_id между snapshot и БД).
+
+        Параметры:
+            document_version_id: версия документа (scope для всех сегментов).
+            items: список (segment_id, sidecar_ref) для обновления.
+
+        Возвращает:
+            set[str] реально обновлённых segment_id.
+            Если segment_id из items не найден в БД — он просто не попадёт
+            в результат (не ошибка, но caller должен логировать расхождение).
+
+        Raises:
+            SQLAlchemyError — пробрасывается наверх, UoW делает rollback.
+        """
+        if not items:
+            return set()
+
+        # Разбиваем на параллельные списки для bindparam.
+        # Порядок соответствует: segment_ids[i] ↔ sidecar_refs[i]
+        segment_ids: list[str] = [seg_id for seg_id, _ in items]
+        sidecar_refs: list[str] = [ref for _, ref in items]
+
+        # Строим CASE WHEN ... END для per-row значений sidecar_ref.
+        # Альтернатива — unnest + JOIN, но CASE WHEN читабельнее и
+        # не требует дополнительных типов на стороне asyncpg.
+        #
+        # Итоговый SQL (упрощённо):
+        #
+        #   UPDATE document_segments
+        #   SET segment_meta = jsonb_set(
+        #       COALESCE(segment_meta, '{}'),
+        #       '{legal_units_enrichment_ref}',
+        #       to_jsonb(CASE segment_id
+        #           WHEN 'uuid-1' THEN 'ref-1'
+        #           WHEN 'uuid-2' THEN 'ref-2'
+        #           ...
+        #       END)
+        #   )
+        #   WHERE document_version_id = :version_id
+        #     AND segment_id = ANY(:segment_ids)
+        #   RETURNING segment_id
+        #
+        # Это один round-trip независимо от числа сегментов.
+
+        case_branches = " ".join(
+            f"WHEN :seg_{i} THEN :ref_{i}"
+            for i in range(len(items))
+        )
+        case_expr = f"CASE segment_id {case_branches} END"
+
+        raw_sql = f"""
+            UPDATE document_segments
+            SET segment_meta = jsonb_set(
+                COALESCE(segment_meta, '{{}}'::jsonb),
+                '{{legal_units_enrichment_ref}}',
+                to_jsonb(({case_expr})::text)
+            )
+            WHERE document_version_id = :version_id
+              AND segment_id = ANY(:segment_ids)
+            RETURNING segment_id
+        """  # noqa: S608  (не пользовательский ввод — только внутренние UUID)
+
+        bind_params: dict[str, object] = {
+            "version_id": document_version_id,
+            "segment_ids": segment_ids,
+        }
+        for i, (seg_id, ref) in enumerate(items):
+            bind_params[f"seg_{i}"] = seg_id
+            bind_params[f"ref_{i}"] = ref
+
+        result = await self.session.execute(text(raw_sql), bind_params)
+        updated: set[str] = {row[0] for row in result.fetchall()}
+
+        if updated:
+            await self.session.flush()
+
+        return updated
 
     # -------------------------------------------------------------------------
     # Обновление segment-level классификации

@@ -6,7 +6,8 @@ Repository for ClassificationCalibration operations.
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import Float, cast, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.calibration import ClassificationCalibration
@@ -40,37 +41,57 @@ class CalibrationRepository:
         correct: bool,
     ) -> None:
         """
-        Update calibration running average.
-        Called after QC or golden dataset validation.
+        Atomically upsert calibration running average.
+
+        Concurrency safety:
+        - first sample inserts a new row;
+        - subsequent samples use PostgreSQL ON CONFLICT DO UPDATE;
+        - sample_count increments in the database atomically;
+        - calibrated_confidence is recalculated from the persisted aggregate
+          and the incoming sample in one SQL statement.
+
+        This removes both:
+        - lost update in read-modify-write flows;
+        - insert race when two writers create the same bucket simultaneously.
         """
-        existing = await self.get_calibration(doc_type, level, bucket)
+        sample_value = 1.0 if correct else 0.0
+        now = datetime.now(UTC)
 
-        if existing is None:
-            # Create new calibration record
-            calibration = ClassificationCalibration(
-                doc_type=doc_type,
-                level=level,
-                raw_confidence_bucket=bucket,
-                calibrated_confidence=1.0 if correct else 0.0,
-                sample_count=1,
-                last_updated=datetime.now(UTC),
-            )
-            self.session.add(calibration)
-        else:
-            # Update running average
-            n = existing.sample_count
-            new_value = 1.0 if correct else 0.0
-            new_avg = (existing.calibrated_confidence * n + new_value) / (n + 1)
+        table = ClassificationCalibration.__table__
 
-            stmt = (
-                update(ClassificationCalibration)
-                .where(ClassificationCalibration.id == existing.id)
-                .values(
-                    calibrated_confidence=new_avg,
-                    sample_count=n + 1,
-                    last_updated=datetime.now(UTC),
-                )
-            )
-            await self.session.execute(stmt)
+        insert_stmt = insert(table).values(
+            doc_type=doc_type,
+            level=level,
+            raw_confidence_bucket=bucket,
+            calibrated_confidence=sample_value,
+            sample_count=1,
+            last_updated=now,
+        )
 
+        existing_count = table.c.sample_count
+        existing_avg = table.c.calibrated_confidence
+        incoming_value = insert_stmt.excluded.calibrated_confidence
+
+        updated_avg = (
+            (existing_avg * cast(existing_count, Float()) + incoming_value)
+            / cast(existing_count + 1, Float())
+        )
+
+        stmt = insert_stmt.on_conflict_do_update(
+            index_elements=[
+                table.c.doc_type,
+                table.c.level,
+                table.c.raw_confidence_bucket,
+            ],
+            set_={
+                "calibrated_confidence": updated_avg,
+                "sample_count": existing_count + 1,
+                "last_updated": now,
+            },
+        )
+
+        await self.session.execute(stmt)
         await self.session.flush()
+
+
+        

@@ -27,6 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
+import db
 from db.models.playbook import PlaybookVersion
 from db.models.result import CheckResult
 from db.repositories import (
@@ -87,33 +88,37 @@ async def _load_check_results(run_id: str, db: AsyncSession) -> list[dict[str, A
     return rows
 
 
-async def _load_documents_metadata(deal_id: str, db: AsyncSession) -> dict[str, dict[str, Any]]:
+async def _load_documents_metadata(run_id: str, db: AsyncSession) -> dict[str, dict[str, Any]]:
     """
-    Загрузить метаданные документов по сделке.
-    Ключ словаря — document_id в строковом виде.
+    Загрузить метаданные документов, реально участвовавших в указанном run_id.
+
+    Это корректнее, чем смотреть на "текущие non-duplicate документы сделки":
+    export должен быть привязан к фактическому составу документов данного run.
     """
     repo = RunnerRepository(db)
-    documents = await repo.get_non_duplicate_docs(uuid.UUID(deal_id))
+    documents = await repo.load_documents_for_run(uuid.UUID(run_id))
 
     logger.info(
-        "Export: loading documents metadata",
+        "Export: loading documents metadata for run",
         extra={
-            "deal_id": str(deal_id),
+            "run_id": str(run_id),
             "documents_count": len(documents),
         },
     )
 
     docs: dict[str, dict[str, Any]] = {}
-
-    for d in documents:
-        docs[str(d.id)] = {
-            "name": getattr(d, "filename", None) or getattr(d, "name", ""),
-            "folder_path": getattr(d, "folder_path", "") or "",
-            "doc_type": getattr(d, "doc_type", "Generic") or "Generic",
-            "status": getattr(d, "status", "active") or "active",
-            "classification_level": getattr(d, "classification_level", "") or "",
-            "classification_confidence": getattr(d, "classification_confidence", 0.0) or 0.0,
-            "applicable_triggers": getattr(d, "applicable_triggers", []) or [],
+    for document_id, payload in documents.items():
+        docs[document_id] = {
+            "name": payload.get("name") or "",
+            "folder_path": payload.get("folder_path") or "",
+            "doc_type": payload.get("doc_type") or "Generic",
+            "status": payload.get("status") or "active",
+            "classification_level": payload.get("classification_level") or "",
+            "classification_confidence": payload.get("classification_confidence") or 0.0,
+            "applicable_triggers": payload.get("applicable_triggers") or [],
+            "classification_requires_review": bool(
+                payload.get("classification_requires_review") or False
+            ),
         }
 
     return docs
@@ -198,7 +203,7 @@ async def export_core(
     logger.info("Загрузка данных для экспорта", run_id=run_id, deal_id=deal_id)
 
     check_results = await _load_check_results(run_id, db)
-    documents = await _load_documents_metadata(deal_id, db)
+    documents = await _load_documents_metadata(run_id, db)
     deal_name = await _load_deal_name(deal_id, db)
 
     # 1.1. Загружаем Run и Playbook для целей воспроизводимости отчёта.

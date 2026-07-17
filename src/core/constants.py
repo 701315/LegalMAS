@@ -47,6 +47,27 @@ class SemanticEnrichmentStageOutcome(str, Enum):
     UNAVAILABLE = "unavailable"
 
 
+class SemanticEnrichmentDegradationSeverity(str, Enum):
+    """
+    Степень деградации при terminal outcome DEGRADED
+    для стадии semantic enrichment.
+
+    Semantics:
+    - MINOR    — обогащено ≥ 80% кандидат-сегментов;
+                 retrieval и checks остаются полезными.
+    - PARTIAL  — обогащено 20–79% кандидат-сегментов;
+                 частичный рабочий результат.
+    - CRITICAL — обогащено < 20% кандидат-сегментов;
+                 почти полная деградация, retrieval существенно ограничен.
+
+    Используется только когда terminal_outcome == DEGRADED.
+    При COMPLETED / SKIPPED / TIMED_OUT / UNAVAILABLE — None.
+    """
+    MINOR = "minor"
+    PARTIAL = "partial"
+    CRITICAL = "critical"
+
+
 class Severity(str, Enum):
     """Risk severity level for a check result."""
 

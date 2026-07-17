@@ -33,12 +33,18 @@ from sqlalchemy import case, distinct, func, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.check_result_persist_errors import (
+    CheckResultPersistPermanentError,
+    CheckResultPersistTransientError,
+)
 from core.constants import CheckExecutionStatus
+from core.logging import get_logger
 from db.repositories.check_result_persist_error_repo import CheckResultPersistErrorRepository
 
 from ..models.document import Document
 from ..models.result import CheckResult
 
+logger = get_logger(__name__)
 
 def normalize_origin_type(origin: str | None) -> str | None:
     """
@@ -837,27 +843,45 @@ class ResultRepository:
             }
 
             persist_error_repo = CheckResultPersistErrorRepository(self.session)
-            await persist_error_repo.log_error(
-                run_id=run_id,
-                document_id=document_id,
-                check_id=check_id,
-                payload=payload,
-                error_type=("permanent_db_error" if permanent else "transient_db_error"),
-                sqlstate=sqlstate,
-                error_message=str(err),
-                retryable=not permanent,
-            )
+            try:
+                await persist_error_repo.log_error(
+                    run_id=run_id,
+                    document_id=document_id,
+                    check_id=check_id,
+                    payload=payload,
+                    error_type=("permanent_db_error" if permanent else "transient_db_error"),
+                    sqlstate=sqlstate,
+                    error_message=str(err),
+                    retryable=not permanent,
+                )
+            except Exception as log_exc:
+                logger.warning(
+                    "ResultRepository.upsert_single_check_result: failed to log persist error",
+                    extra={
+                        "run_id": str(run_id),
+                        "document_id": str(document_id),
+                        "check_id": check_id,
+                        "sqlstate": sqlstate,
+                        "logging_error": str(log_exc),
+                    },
+                )
 
             if permanent:
-                raise RuntimeError(
-                    f"Permanent DB error while upserting check_result "
-                    f"(run_id={run_id}, document_id={document_id}, check_id={check_id}): {err}"
+                raise CheckResultPersistPermanentError(
+                    (
+                        "Permanent DB error while upserting check_result "
+                        f"(run_id={run_id}, document_id={document_id}, check_id={check_id}): {err}"
+                    ),
+                    sqlstate=sqlstate,
                 ) from err
-            else:
-                raise RuntimeError(
-                    f"Transient DB error while upserting check_result "
+
+            raise CheckResultPersistTransientError(
+                (
+                    "Transient DB error while upserting check_result "
                     f"(run_id={run_id}, document_id={document_id}, check_id={check_id}): {err}"
-                ) from err
+                ),
+                sqlstate=sqlstate,
+            ) from err
 
     async def count_distinct_checks_for_run(self, run_id: uuid.UUID) -> int:
         """

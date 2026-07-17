@@ -39,6 +39,11 @@ from typing import Any
 
 from celery.exceptions import SoftTimeLimitExceeded
 
+from core.check_result_persist_errors import (
+    CheckFailureAction,
+    CheckResultPersistError,
+    decide_check_failure_action,
+)
 from core.constants import CheckExecutionStatus, RunStatus
 from core.logging import get_logger
 from core.pipeline_snapshots import (
@@ -453,6 +458,8 @@ def run_single_check(
                 doc_repo = DocumentRepository(uow.session)
                 result_repo = ResultRepository(uow.session)
 
+                effective_pb_version_id = pb_version_uuid
+
                 try:
                     run_obj = await run_repo.get(run_uuid)
                     if run_obj is None:
@@ -633,7 +640,7 @@ def run_single_check(
                         conditional_check_triggered=False,
                         trigger_name=None,
                         origin=None,
-                        playbook_version_id=pb_version_uuid,
+                        playbook_version_id=effective_pb_version_id,
                         page=None,
                         clause_uid=None,
                         element_id=None,
@@ -641,6 +648,79 @@ def run_single_check(
                         execution_status=CheckExecutionStatus.TIMEOUT.value,
                         error_details={"type": "soft_time_limit", "message": str(e)},
                     )
+                    raise
+
+                except CheckResultPersistError as e:
+                    action = decide_check_failure_action(e)
+
+                    if action == CheckFailureAction.RETRY:
+                        logger.warning(
+                            "run_single_check: transient check_result persist error, retrying task",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                            doc_id=doc_id,
+                            check_id=check_id,
+                            sqlstate=e.sqlstate,
+                            error=str(e),
+                        )
+                        raise self.retry(exc=e, countdown=30)
+
+                    logger.exception(
+                        "run_single_check: permanent check_result persist error",
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        doc_id=doc_id,
+                        check_id=check_id,
+                        sqlstate=e.sqlstate,
+                        error=str(e),
+                    )
+
+                    try:
+                        await result_repo.upsert_single_check_result(
+                            run_id=run_uuid,
+                            document_id=doc_uuid,
+                            check_id=check_id,
+                            check_name=check_id,
+                            result="unclear",
+                            severity="unclear",
+                            value_text="persist_error",
+                            evidence_ref=None,
+                            confidence=None,
+                            detector_used=None,
+                            quality_flags={
+                                "raw": {
+                                    "source": "persist_exception",
+                                    "error_message": str(e),
+                                    "sqlstate": e.sqlstate,
+                                    "retryable": e.retryable,
+                                }
+                            },
+                            structured_data=None,
+                            conditional_check_triggered=False,
+                            trigger_name=None,
+                            origin=None,
+                            playbook_version_id=effective_pb_version_id,
+                            page=None,
+                            clause_uid=None,
+                            element_id=None,
+                            bbox=None,
+                            execution_status=CheckExecutionStatus.PERSIST_FAILED.value,
+                            error_details={
+                                "type": "persist_error",
+                                "message": str(e),
+                                "sqlstate": e.sqlstate,
+                                "retryable": e.retryable,
+                            },
+                        )
+                    except Exception:
+                        logger.exception(
+                            "run_single_check: failed to persist PERSIST_FAILED sentinel row",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                            doc_id=doc_id,
+                            check_id=check_id,
+                        )
+
                     raise
 
                 except Exception as e:
@@ -651,12 +731,6 @@ def run_single_check(
                         doc_id=doc_id,
                         check_id=check_id,
                         error=str(e),
-                    )
-
-                    message = str(e)
-
-                    is_transient_db_error = message.startswith(
-                        "Transient DB error while upserting check_result"
                     )
 
                     try:
@@ -671,30 +745,27 @@ def run_single_check(
                             evidence_ref=None,
                             confidence=None,
                             detector_used=None,
-                            quality_flags={"raw": {"source": "exception", "error_message": message}},
+                            quality_flags={"raw": {"source": "exception", "error_message": str(e)}},
                             structured_data=None,
                             conditional_check_triggered=False,
                             trigger_name=None,
                             origin=None,
-                            playbook_version_id=pb_version_uuid,
+                            playbook_version_id=effective_pb_version_id,
                             page=None,
                             clause_uid=None,
                             element_id=None,
                             bbox=None,
                             execution_status=CheckExecutionStatus.COMPUTE_FAILED.value,
-                            error_details={"type": "exception", "message": message},
+                            error_details={"type": "exception", "message": str(e)},
                         )
                     except Exception:
                         logger.exception(
-                            "run_single_check: failed to persist FAILED status after exception",
+                            "run_single_check: failed to persist COMPUTE_FAILED status after exception",
                             run_id=run_id,
                             deal_id=deal_id,
                             doc_id=doc_id,
                             check_id=check_id,
                         )
-
-                    if is_transient_db_error:
-                        raise self.retry(exc=e, countdown=30)
 
                     raise
 
