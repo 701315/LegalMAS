@@ -573,7 +573,7 @@ async def _build_primary_language_source_async(
     )
 
     deal_repo = DealRepository(db)
-    deal_after_lang_update = await deal_repo.get_by_id(deal_uuid)
+    deal_after_lang_update = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
     logger.info(
         "Primary source build: deal languages after update",
         **log_extra_base,
@@ -603,7 +603,7 @@ async def _build_primary_language_source_async(
     resolved_target_language = _normalize_lang(target_language)
 
     if not resolved_target_language:
-        deal = await deal_repo.get_by_id(deal_uuid)
+        deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
         resolved_target_language = _normalize_lang(
             getattr(deal, "primary_language", None) if deal is not None else None
         )

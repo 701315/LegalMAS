@@ -65,6 +65,20 @@ class DealRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_by_tenant(self, tenant_id: uuid.UUID) -> list[Deal]:
+        """
+        Вернуть все сделки указанного тенанта.
+        Используется для tenant_admin роли.
+        """
+        stmt = (
+            select(Deal)
+            .where(Deal.tenant_id == tenant_id)
+            .order_by(Deal.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+
     async def internal_unsafe_get_by_id(self, deal_id: uuid.UUID) -> Deal | None:
         """
         Найти сделку без проверки тенанта.

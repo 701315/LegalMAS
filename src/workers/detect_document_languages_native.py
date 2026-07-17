@@ -205,7 +205,7 @@ async def _detect_document_languages_native_async(
     if not document:
         raise PermanentError(f"Document {document_id} not found for language detection")
 
-    deal = await deal_repo.get_by_id(deal_uuid)
+    deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
     if not deal:
         raise PermanentError(f"Deal {deal_id} not found for document language detection")
 

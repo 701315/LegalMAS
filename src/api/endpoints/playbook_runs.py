@@ -103,7 +103,10 @@ async def get_current_deal_playbook_config(
     deal_repo = DealRepository(db)
     playbook_repo = PlaybookRepository(db)
 
-    deal = await deal_repo.get_by_id(deal_id)
+    deal = await deal_repo.get_by_id(
+        deal_id,
+        tenant_id=user.tenant_id,
+    )
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
 
@@ -192,7 +195,10 @@ async def rebuild_playbook_and_rerun(
     else:
         checks_mode = "global_and_doc_type"
 
-    deal = await deal_repo.get_by_id(deal_id)
+    deal = await deal_repo.get_by_id(
+        deal_id,
+        tenant_id=user.tenant_id,
+    )
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
 

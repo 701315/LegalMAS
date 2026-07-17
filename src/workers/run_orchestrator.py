@@ -387,7 +387,7 @@ async def _resolve_tenant_id(
         return str(uuid.UUID(tenant_id))
 
     deal_repo = DealRepository(db)
-    deal_obj = await deal_repo.get_by_id(deal_uuid)
+    deal_obj = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
     deal_tenant_id = getattr(deal_obj, "tenant_id", None) if deal_obj is not None else None
     if deal_tenant_id and deal_tenant_id != _ZERO_UUID:
         resolved = str(deal_tenant_id)
@@ -618,7 +618,7 @@ async def _start_run_pipeline_async(
     # ── READ + SNAPSHOT: Deal ─────────────────────────────────────────────────
 
     deal_repo = DealRepository(db)
-    deal = await deal_repo.get_by_id(deal_uuid)
+    deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
 
     if deal is None:
         await run_repo.update_status(

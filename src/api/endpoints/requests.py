@@ -100,7 +100,7 @@ async def create_dd_request_for_deal(
 
     # Опционально: проверяем, что сделка существует
     deal_repo = DealRepository(db)
-    deal = await deal_repo.get_by_id(deal_id)
+    deal = await deal_repo.get_by_id(deal_id, tenant_id=user.tenant_id)
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
 

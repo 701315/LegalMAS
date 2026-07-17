@@ -156,8 +156,8 @@ async def analyze_document_languages(
     Возвращает DocumentLanguageDecision с route="proceed" или route="quarantine".
     """
     deal_repo = DealRepository(db)
-    deal_before = await deal_repo.get_by_id(deal_id)
-
+    deal_before = await deal_repo.internal_unsafe_get_by_id(deal_id)
+    
     deal_primary_before = _normalize_lang(
         getattr(deal_before, "primary_language", None) if deal_before else None
     )
@@ -177,7 +177,7 @@ async def analyze_document_languages(
         new_languages=detected_languages,
     )
 
-    deal_after = await deal_repo.get_by_id(deal_id)
+    deal_after = await deal_repo.internal_unsafe_get_by_id(deal_id)
     deal_primary_after = _normalize_lang(
         getattr(deal_after, "primary_language", None) if deal_after else None
     )

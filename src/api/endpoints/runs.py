@@ -84,8 +84,11 @@ async def _start_run_core(
     playbook_repo = PlaybookRepository(db)
     audit_repo = AuditRepository(db)
 
-    # 1. Проверяем, что сделка существует
-    deal = await deal_repo.get_by_id(deal_uuid)
+    # 1. Проверяем, что сделка существует в рамках tenant пользователя
+    deal = await deal_repo.get_by_id(
+        deal_uuid,
+        tenant_id=user.tenant_id,
+    )
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
 
@@ -715,7 +718,10 @@ async def get_deal_run_summary(
     Это endpoint для status/progress блока фронта.
     """
     deal_repo = DealRepository(db)
-    deal = await deal_repo.get_by_id(deal_id)
+    deal = await deal_repo.get_by_id(
+        deal_id,
+        tenant_id=user.tenant_id,
+    )
 
     if not deal or not deal.last_run_id:
         raise HTTPException(status_code=404, detail="Run not found for this deal")

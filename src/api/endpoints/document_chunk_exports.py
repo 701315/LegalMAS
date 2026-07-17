@@ -121,7 +121,7 @@ async def get_document_chunk_view(
     #    - у сделки есть tenant_id (арендатор в системе),
     #    - поэтому путь в MinIO строится по паре (tenant_id, deal_id).
     deal_repo = DealRepository(db)
-    deal = await deal_repo.get_by_id(doc.deal_id)
+    deal = await deal_repo.get_by_id(doc.deal_id, tenant_id=user.tenant_id)
     if deal is None:
         # Это аномальная ситуация: документ ссылается на несуществующую сделку.
         logger.error(

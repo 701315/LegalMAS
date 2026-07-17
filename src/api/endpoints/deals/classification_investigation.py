@@ -69,7 +69,7 @@ async def get_classification_investigation_page(
     - после этого возвращает summary и страницу investigation-элементов.
     """
     deal_repo = DealRepository(db)
-    deal = await deal_repo.get_by_id(deal_id)
+    deal = await deal_repo.get_by_id(deal_id, tenant_id=user.tenant_id)
     if deal is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

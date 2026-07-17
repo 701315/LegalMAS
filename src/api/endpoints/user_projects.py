@@ -1,5 +1,3 @@
-# src/api/endpoints/user_projects.py
-
 """
 User projects API.
 
@@ -33,6 +31,14 @@ class UserProject(BaseModel):
     contact_person: str | None = None
 
 
+def _contact_person(deal) -> str | None:
+    """Безопасно извлечь contact_person из metadata_."""
+    meta = getattr(deal, "metadata_", None)
+    if meta is None:
+        return None
+    return meta.get("contact_person")
+
+
 @router.get("/{user_id}/projects", response_model=list[UserProject])
 async def list_user_projects(
     user_id: str,
@@ -60,18 +66,14 @@ async def list_user_projects(
     role_repo = ProjectRoleRepository(db)
 
     if current_user.global_role == "superadmin":
-        deals = await deal_repo.get_all()
+        deals = await deal_repo.unsafe_get_all_platform_admin_only()
         return [
             UserProject(
                 deal_id=str(d.id),
                 deal_name=d.name,
                 role="admin",
                 created_at=d.created_at.isoformat(),
-                contact_person=(
-                    (d.metadata_ or {}).get("contact_person")
-                    if getattr(d, "metadata_", None) is not None
-                    else None
-                ),
+                contact_person=_contact_person(d),
             )
             for d in deals
         ]
@@ -84,20 +86,20 @@ async def list_user_projects(
                 deal_name=d.name,
                 role="admin",
                 created_at=d.created_at.isoformat(),
-                contact_person=(
-                    (d.metadata_ or {}).get("contact_person")
-                    if getattr(d, "metadata_", None) is not None
-                    else None
-                ),
+                contact_person=_contact_person(d),
             )
             for d in deals
         ]
 
+    # member: только проекты через deal_members
     memberships = await role_repo.list_deals_for_user(current_user.id)
 
     projects: list[UserProject] = []
     for membership in memberships:
-        deal = await deal_repo.get_by_id(membership.deal_id)
+        deal = await deal_repo.get_by_id(
+            deal_id=membership.deal_id,
+            tenant_id=current_user.tenant_id,
+        )
         if deal is None:
             continue
 
@@ -107,11 +109,7 @@ async def list_user_projects(
                 deal_name=deal.name,
                 role=membership.role,
                 created_at=deal.created_at.isoformat(),
-                contact_person=(
-                    (deal.metadata_ or {}).get("contact_person")
-                    if getattr(deal, "metadata_", None) is not None
-                    else None
-                ),
+                contact_person=_contact_person(deal),
             )
         )
 

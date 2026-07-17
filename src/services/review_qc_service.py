@@ -159,7 +159,7 @@ async def load_review_qc_scope(
             detail="RUN_NOT_FOUND",
         )
 
-    deal = await deal_repo.get_by_id(run.deal_id)
+    deal = await deal_repo.internal_unsafe_get_by_id(run.deal_id)
     if deal is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

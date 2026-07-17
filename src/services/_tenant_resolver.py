@@ -110,7 +110,7 @@ async def resolve_artifact_tenant_id(
             )
 
     deal_repo = DealRepository(session)
-    deal = await deal_repo.get_by_id(parsed_deal_id)
+    deal = await deal_repo.internal_unsafe_get_by_id(parsed_deal_id)
     deal_tenant_uuid = _parse_uuid_or_none(getattr(deal, "tenant_id", None) if deal else None)
 
     if _is_non_zero_uuid(deal_tenant_uuid):

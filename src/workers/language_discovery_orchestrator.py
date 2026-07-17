@@ -338,10 +338,9 @@ async def _start_language_discovery_async(
 
     # ── READ + validate: Deal ─────────────────────────────────────────────────
 
-    deal = await deal_repo.get_by_id(deal_uuid)
+    deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
     if not deal:
         raise PermanentError(f"Deal {deal_id} not found for language discovery orchestration")
-    # deal ORM-объект больше не используется после этой точки
 
     await _write_deal_audit(
         db=db,

@@ -229,7 +229,7 @@ async def _prepare_document_for_language_discovery_async(
     if not document:
         raise PermanentError(f"Document {document_id} not found for prepare language discovery")
 
-    deal = await deal_repo.get_by_id(deal_uuid)
+    deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
     if not deal:
         raise PermanentError(f"Deal {deal_id} not found for prepare language discovery")
 

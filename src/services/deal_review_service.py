@@ -93,7 +93,10 @@ async def load_aggregated_results(
 
         documents = await runner_repo.load_documents_for_run(run_uuid)
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
-        deal = await deal_repo.get_by_id(deal_uuid)
+        # internal service path: tenant authorization должен обеспечиваться выше,
+        # здесь нужен только факт существования сделки и её имя
+        deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
+
 
     deal_name = deal.name if deal else f"Deal {deal_id}"
 
@@ -1029,7 +1032,10 @@ async def build_dd_grid_v1_response(
 
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
         documents = await runner_repo.load_documents_for_run(run_uuid)
-        await deal_repo.get_by_id(deal_uuid)
+        # Валидация: deal должен существовать. tenant scope не нужен — это internal call.
+        deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
+        if not deal:
+            raise ValueError(f"Deal {deal_id} not found")
 
     playbook = load_playbook_from_version(pb_version)
 

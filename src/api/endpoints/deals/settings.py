@@ -86,7 +86,7 @@ async def set_deal_playbook(
     deal_repo = DealRepository(db)
     audit_repo = AuditRepository(db)
 
-    deal = await deal_repo.get_by_id(deal_id)
+    deal = await deal_repo.get_by_id(deal_id, tenant_id=user.tenant_id)
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
 
@@ -164,7 +164,7 @@ async def set_deal_model_config(
     pb_repo = PlaybookRepository(db)
     audit_repo = AuditRepository(db)
 
-    deal = await deal_repo.get_by_id(deal_id)
+    deal = await deal_repo.get_by_id(deal_id, tenant_id=user.tenant_id)
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
 
@@ -240,7 +240,7 @@ async def set_deal_primary_language(
     audit_repo = AuditRepository(db)  # [+] инстанцируем audit_repo
     outbox = OutboxService(db)  # [+] инстанцируем outbox
 
-    deal = await deal_repo.get_by_id(deal_id)
+    deal = await deal_repo.get_by_id(deal_id, tenant_id=user.tenant_id)
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
 

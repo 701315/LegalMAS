@@ -61,7 +61,7 @@ async def update_deal_languages(
     - если сделка не найдена, функция просто выходит без ошибок.
     """
     repo = DealRepository(db)
-    deal = await repo.get_by_id(deal_id)
+    deal = await repo.internal_unsafe_get_by_id(deal_id)
     if not deal:
         return
 
