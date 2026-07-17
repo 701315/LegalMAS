@@ -15,6 +15,7 @@ dict-чанками, и с новыми объектами RetrievalChunk.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from typing import Any
 
@@ -24,6 +25,110 @@ from rank_bm25 import BM25Okapi
 from core.config import settings
 from engine.retrieval.models import RetrievalChunk
 from services.embeddings.embedding_service import embedding_service
+
+
+# =============================================================================
+# Module-level tokenization
+# =============================================================================
+
+# Паттерн для удаления пунктуации из текста перед BM25-токенизацией.
+#
+# Оставляем: буквы (любые Unicode), цифры, underscore (\w), пробелы (\s).
+# Удаляем: всё остальное — точки, запятые, скобки, кавычки и т.д.
+#
+# Почему \w а не [a-zа-яё]:
+#   \w в Python с Unicode покрывает все буквы и цифры без явного перечисления
+#   алфавитов. Работает корректно для русского, английского и смешанных текстов.
+#
+# Почему НЕ разбиваем дополнительно по точке:
+#   "3.1.2"   → после sub → "3 1 2"   → токены ["3", "1", "2"]
+#   "п.3.1.2" → после sub → "п 3 1 2" → токены ["п", "3", "1", "2"]
+#   Запрос "п.3.1.2" даёт те же токены → BM25 матчинг корректен.
+#   Разбивать отдельно не нужно — re.sub справляется автоматически.
+_PUNCT_RE = re.compile(r"[^\w\s]", re.UNICODE)
+
+
+def _tokenize(text: str) -> list[str]:
+    """
+    Нормализованная токенизация для BM25-индекса и BM25-запросов.
+
+    Алгоритм:
+      1. lower()         — привести к нижнему регистру
+      2. re.sub(punct)   — заменить пунктуацию на пробел
+      3. split()         — разбить по пробелам
+      4. filter(None)    — убрать пустые токены
+
+    Симметричность:
+      ОБЯЗАТЕЛЬНО использовать одну и ту же функцию для индексирования
+      корпуса (__init__) и для токенизации запроса (search).
+      Нарушение симметрии → BM25 scores деградируют к нулю.
+
+    Примеры:
+      "ПОКУПАТЕЛЬ обязан," → ["покупатель", "обязан"]
+      "force-majeure"      → ["force", "majeure"]
+      "Статья 3.1.2:"      → ["статья", "3", "1", "2"]
+      "party's obligation" → ["party", "s", "obligation"]
+      "обязан."            → ["обязан"]
+
+    Args:
+        text: исходный текст чанка или поисковый запрос.
+
+    Returns:
+        Список нормализованных токенов, готовых для BM25Okapi.
+    """
+    if not text:
+        return []
+    lowered = text.lower()
+    cleaned = _PUNCT_RE.sub(" ", lowered)
+    return [tok for tok in cleaned.split() if tok]
+
+
+# =============================================================================
+# Module-level profile helpers
+# =============================================================================
+
+def _resolve_profile_topics(retrieval_profile_id: str | None) -> frozenset[str]:
+    """
+    Загрузить required_topics из retrieval profile — один раз до цикла по чанкам.
+
+    Вызывается в _compute_metadata_scores() перед итерацией по чанкам,
+    чтобы не делать N вызовов get_profile() — по одному на каждый чанк.
+
+    Изоляция отказов:
+      Любое исключение (profile не найден, реестр недоступен, импорт упал)
+      → возвращаем пустой frozenset, scoring продолжается без topic boost.
+      Это намеренно: profile topics — дополнительный сигнал, не критичный путь.
+
+    Args:
+        retrieval_profile_id: идентификатор профиля или None.
+
+    Returns:
+        frozenset нормализованных (lower().strip()) topic-меток,
+        или frozenset() если профиль не задан / не найден / ошибка.
+    """
+    if not retrieval_profile_id:
+        return frozenset()
+
+    try:
+        from engine.playbook.retrieval_profiles import get_profile as _get_profile
+
+        profile = _get_profile(retrieval_profile_id)
+        if profile is None:
+            return frozenset()
+
+        required = profile.required_topics
+        if not required:
+            return frozenset()
+
+        return frozenset(
+            t.lower().strip()
+            for t in required
+            if isinstance(t, str) and t.strip()
+        )
+    except Exception:
+        # Намеренно проглатываем: profile topics — опциональный сигнал.
+        # Если реестр недоступен — retrieval продолжается без topic boost.
+        return frozenset()
 
 
 class RetrievalEngine:
@@ -184,8 +289,11 @@ class RetrievalEngine:
             return
 
         # BM25 ожидает список списков токенов (слов).
-        # Для простоты сейчас токенизация — это обычный split по пробелам.
-        self.tokenized = [t.split() for t in texts_for_index]
+        # Используем _tokenize() — нормализованную токенизацию с удалением
+        # пунктуации и приведением к нижнему регистру.
+        # ВАЖНО: та же функция используется в search() для токенизации запроса.
+        # Симметрия corpus/query токенизации — обязательное условие корректного BM25.
+        self.tokenized = [_tokenize(t) for t in texts_for_index]
 
         # Если после токенизации нет ни одного токена — тоже деградируем,
         # чтобы BM25Okapi не падал на пустом корпусе.
@@ -234,7 +342,9 @@ class RetrievalEngine:
         top_k = top_k or settings.RUNNER_RETRIEVAL_TOP_K
 
         # 1. BM25 scores (sparse)
-        tokenized_query = query.split()
+        # _tokenize() симметрична токенизации корпуса в __init__.
+        # Нарушение симметрии corpus/query → BM25 scores деградируют к нулю.
+        tokenized_query = _tokenize(query)
         bm25_scores = np.array(self.bm25.get_scores(tokenized_query), dtype=np.float32)
 
         # 2. Dense scores (cosine similarity), если включены
@@ -408,20 +518,16 @@ class RetrievalEngine:
             meta = ch.get("metadata", {}) or {}
             text = str(ch.get("text", "") or "").lower()
 
-            # Load retrieval profile for profile-aware scoring.
-            # Profile-based boosts are applied only when enriched metadata
-            # (topic_tags, clause_function) is available from legal unit enrichment.
-            profile_required_topics: frozenset[str] = frozenset()
-            if self.retrieval_profile_id:
-                try:
-                    from engine.playbook.retrieval_profiles import get_profile as _get_profile
-                    _profile = _get_profile(self.retrieval_profile_id)
-                    if _profile:
-                        profile_required_topics = frozenset(
-                            t.lower().strip() for t in (_profile.required_topics or [])
-                        )
-                except Exception:
-                    pass
+        # Загружаем required_topics из retrieval profile один раз до цикла.
+        # get_profile() может обращаться к реестру/файлу — вызывать N раз
+        # (по одному на каждый чанк) недопустимо.
+        # _resolve_profile_topics() изолирует любые исключения и возвращает
+        # frozenset() при любой ошибке — scoring продолжается корректно.
+        profile_required_topics: frozenset[str] = _resolve_profile_topics(
+            self.retrieval_profile_id
+        )
+
+        for idx, ch in enumerate(self.chunks):
 
             kind = str(meta.get("chunk_kind") or meta.get("kind") or "").lower()
             if kind in ("legal_unit", "subclause"):
