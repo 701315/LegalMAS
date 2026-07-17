@@ -1,118 +1,19 @@
-# Web framework
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
+-r requirements-base.txt
 
-# Database
-sqlalchemy[asyncio]==2.0.36
-asyncpg==0.30.0
-alembic==1.14.1
+# Default runtime profile: CPU-only PyTorch wheels.
+#
+# Архитектурное правило:
+# - requirements.txt = production/runtime default for CPU environments;
+# - GPU deployments must NOT use this profile directly;
+# - GPU runtime installs torch via Docker build arg ACCELERATOR=gpu
+#   or Make target install-runtime-gpu / install-dev-gpu.
+#
+# Такой split делает install reproducible:
+# - CPU machines не тянут CUDA wheels;
+# - GPU deployments получают явный install path;
+# - runtime code later can autodetect device (cuda/cpu), но wheel variant
+#   выбирается на этапе install, а не во время работы.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1+cpu
 
-# Task queue
-celery[redis]==5.4.0
-redis==5.2.1
 
-# Object storage
-minio==7.2.12
-
-# Configuration
-pydantic-settings==2.7.1
-pydantic==2.10.4
-
-# Logging
-structlog==24.4.0
-
-# Testing
-pytest==8.3.4
-pytest-asyncio==0.25.0
-pytest-cov==6.0.0
-pytest-mock==3.14.0
-
-# Linting
-ruff==0.8.6
-
-# Type checking
-mypy==1.14.1
-
-# ML & NLP
-sentence-transformers==3.3.1
-torch==2.5.1
-transformers==4.47.1
-
-# Document processing
-pdfplumber==0.11.4
-pdf2image==1.17.0
-pytesseract==0.3.13
-Pillow==11.1.0
-fpdf2>=2.7.0
-
-# Additional utils
-python-dotenv==1.0.1
-PyYAML==6.0.2
-
-# Excel export
-openpyxl==3.1.5
-
-# PDF generation for test fixtures
-reportlab==4.2.5
-
-# Import Worker
-python-docx==1.1.2
-
-# Auth
-bcrypt==4.2.1
-PyJWT==2.10.1
-
-# PII Sanitization
-cryptography==44.0.0
-natasha==1.6.0
-langdetect==1.0.9
-setuptools<81
-
-# Structure + Classifier
-llama-cpp-python>=0.2.0,<0.4.0
-
-# Dedup & Relations
-thefuzz==0.22.1
-python-Levenshtein==0.25.1
-
-# Runner Core Engine
-rank-bm25==0.2.2
-httpx==0.28.1
-numpy==2.2.3
-tiktoken==0.9.0
-jsonschema==4.23.0
-
-# Для метрик
-prometheus-client==0.21.0
-prometheus-fastapi-instrumentator==7.0.0
-
-# Rate limiting
-limits==3.13.0
-
-# Для FastAPI-сервиса конвертера
-python-multipart
-
-requests>=2.31.0
-urllib3>=2.0,<3.0
-
-# Ядро OpenTelemetry
-opentelemetry-api==1.28.2
-opentelemetry-sdk==1.28.2
-opentelemetry-semantic-conventions==0.49b2
-
-# Экспортёр — отправляет трейсы в Tempo по протоколу OTLP HTTP
-opentelemetry-exporter-otlp-proto-http==1.28.2
-
-# Авто-инструментация FastAPI — автоматически создаёт span для каждого HTTP запроса
-opentelemetry-instrumentation-fastapi==0.49b2
-
-# Авто-инструментация SQLAlchemy — создаёт span для каждого SQL запроса к БД
-opentelemetry-instrumentation-sqlalchemy==0.49b2
-
-# Авто-инструментация httpx — создаёт span для каждого внешнего HTTP вызова
-# (LLM, конвертер документов, proxy к Alertmanager и т.д.)
-opentelemetry-instrumentation-httpx==0.49b2
-
-# Авто-инструментация Celery — создаёт span для publish и execute задач
-# Подключается во второй волне (Phase 2), здесь только устанавливается
-opentelemetry-instrumentation-celery==0.49b2

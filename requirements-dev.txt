@@ -1,0 +1,23 @@
+# Dev/test/tooling dependencies only.
+# Runtime dependencies intentionally stay out of this file.
+# Install flow:
+# - CPU dev:  make install-dev
+# - GPU dev:  make install-dev-gpu
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+pytest-cov==6.0.0
+pytest-mock==3.14.0
+
+# Linting / static analysis
+ruff==0.8.6
+mypy==1.14.1
+
+# Security audit
+pip-audit==2.7.3
+
+# PDF generation for test fixtures
+reportlab==4.2.5
+
+

@@ -3,7 +3,9 @@
 	monitoring-up monitoring-down monitoring-logs \
 	ollama-check ollama-warm \
 	worker worker-dev worker-system worker-heavy worker-heavy-enrichment worker-heavy-segment-classification worker-heavy-checks beat dev-help \
-	test-pii test-pii-unit test-pii-integration pii-keygen pii-smoke
+	test-pii test-pii-unit test-pii-integration pii-keygen pii-smoke \
+	install-runtime install-runtime-gpu install-dev install-dev-gpu \
+	security-audit security-audit-runtime
 
 
 # ============================================================================
@@ -12,6 +14,9 @@
 
 PYTHONPATH_ENV = PYTHONPATH=src
 CELERY_APP = mas_queue.celery_app:celery_app
+
+TORCH_VERSION = 2.5.1
+TORCH_CUDA_VARIANT ?= cu121
 
 # Имена контейнеров должны совпадать с docker-compose.yml
 POSTGRES_CONTAINER = mas_dd_postgres
@@ -222,6 +227,48 @@ test-unit:
 
 test-integration:
 	python -m pytest tests/integration/ -v --tb=short
+
+# ============================================================================
+# Dependency installation profiles
+# ============================================================================
+
+# CPU runtime profile (default local/prod profile)
+install-runtime:
+	python -m pip install --upgrade pip
+	python -m pip install -r requirements.txt
+
+# GPU runtime profile
+# Пример:
+#   make install-runtime-gpu TORCH_CUDA_VARIANT=cu121
+#   make install-runtime-gpu TORCH_CUDA_VARIANT=cu124
+install-runtime-gpu:
+	python -m pip install --upgrade pip
+	python -m pip install --extra-index-url https://download.pytorch.org/whl/$(TORCH_CUDA_VARIANT) "torch==$(TORCH_VERSION)+$(TORCH_CUDA_VARIANT)"
+	python -m pip install -r requirements-base.txt
+
+# CPU dev profile = runtime(cpu) + tooling
+install-dev: install-runtime
+	python -m pip install -r requirements-dev.txt
+
+# GPU dev profile = runtime(gpu) + tooling
+install-dev-gpu: install-runtime-gpu
+	python -m pip install -r requirements-dev.txt
+
+# ============================================================================
+# Dependency security audit
+# ============================================================================
+
+# Full local audit:
+# - runtime prod profile
+# - dev/test/tooling profile
+security-audit:
+	python -m pip install --upgrade pip pip-audit==2.7.3
+	python -m pip_audit -r requirements.txt
+	python -m pip_audit -r requirements-dev.txt
+
+security-audit-runtime:
+	python -m pip install --upgrade pip pip-audit==2.7.3
+	python -m pip_audit -r requirements.txt
 
 lint:
 	python -m ruff check src/ tests/
