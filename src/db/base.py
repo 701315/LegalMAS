@@ -37,9 +37,3 @@ class Base(DeclarativeBase):
         onupdate=func.now(),
         nullable=False,
     )
-
-
-# ✅ КРИТИЧНО: регистрируем все модели для Alembic
-import src.db.models  # noqa
-
-
