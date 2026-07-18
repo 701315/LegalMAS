@@ -95,6 +95,12 @@ class Run(Base):
         ),
     )
 
+    instruction_versions: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Фиксированные версии инструкций для этого Run: {doc_type: version_id}",
+    )
+    
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

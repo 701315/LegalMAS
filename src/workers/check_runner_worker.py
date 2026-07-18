@@ -1,3 +1,5 @@
+# src/workers/check_runner_worker.py
+
 """
 CheckRunner Worker — запуск playbook-checks по уже классифицированным документам сделки.
 
@@ -8,6 +10,7 @@ CheckRunner Worker — запуск playbook-checks по уже классифи
 - Для одного Run по deal_id:
   - вытаскивает все non-duplicate документы сделки;
   - строит execution plan (пары doc_id/check_id);
+  - фиксирует instruction_versions для воспроизводимости review path;
   - публикует отдельные Celery-задачи run_single_check;
   - сохраняет прогресс и статус Run;
   - финализирует Run, когда все checks достигают terminal execution_status.
@@ -28,6 +31,16 @@ CheckRunner Worker — запуск playbook-checks по уже классифи
   после загрузки объекта, до следующего await-вызова.
 - Shared snapshot-контракты живут в core.pipeline_snapshots и переиспользуются
   всеми orchestration/worker файлами.
+
+Instruction versioning:
+- После построения плана (plan_checks_for_run) и до отправки run_single_check задач
+  worker фиксирует instruction_versions в Run.
+- Для каждого уникального doc_type из плана резолвится или создаётся
+  DocumentTypeInstructionVersion через YAMLRegistry + DocumentTypeInstructionVersionRepository.
+- Зафиксированная карта {doc_type: version_id} сохраняется в Run.instruction_versions.
+- Это гарантирует, что DD Grid review path использует те же версии инструкций,
+  которые были актуальны в момент запуска Run, даже если YAML на диске изменился.
+- Ошибка фиксации НЕ роняет Run — это вспомогательная операция.
 """
 
 from __future__ import annotations
@@ -39,6 +52,7 @@ from typing import Any
 
 from celery.exceptions import SoftTimeLimitExceeded
 
+from classifiers.yaml_registry import YAMLRegistry
 from core.check_result_persist_errors import (
     CheckFailureAction,
     CheckResultPersistError,
@@ -53,6 +67,9 @@ from core.pipeline_snapshots import (
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
+from db.repositories.document_type_instruction_version_repo import (
+    DocumentTypeInstructionVersionRepository,
+)
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
 from db.repositories.run_repo import RunRepository
@@ -104,6 +121,144 @@ def _resolve_effective_tenant_id(
     return None
 
 
+# ─── _fix_instruction_versions ────────────────────────────────────────────────
+
+
+async def _fix_instruction_versions(
+    *,
+    run_uuid: uuid.UUID,
+    pairs: list[dict[str, str]],
+    run_repo: RunRepository,
+    session: Any,
+) -> dict[str, str]:
+    """
+    Зафиксировать версии инструкций для Run на основе плана checks.
+
+    Для каждого уникального doc_type из pairs:
+    - получает DocumentTypeConfig из YAMLRegistry (singleton, thread-safe);
+    - резолвит или создаёт DocumentTypeInstructionVersion (race-safe ON CONFLICT);
+    - собирает карту {doc_type: version_id_str}.
+
+    Сохраняет результат в Run.instruction_versions через run_repo.
+
+    Args:
+        run_uuid:  UUID запущенного Run.
+        pairs:     Список пар из plan_checks_for_run.
+                   Каждый элемент содержит "doc_id", "check_id", "doc_type".
+        run_repo:  RunRepository в рамках текущего UoW.
+        session:   AsyncSession текущего UoW (для DocumentTypeInstructionVersionRepository).
+
+    Returns:
+        Зафиксированная карта {doc_type: version_id_str}.
+        Пустой словарь если нет typed документов или все резолюции упали.
+
+    Raises:
+        Не поднимает исключений — все ошибки логируются как warning.
+        Caller должен оборачивать вызов в try/except на случай
+        непредвиденных ошибок уровня сессии.
+    """
+    run_id_str = str(run_uuid)
+
+    # Шаг 1: Собрать уникальные doc_type из pairs.
+    # pairs[i]["doc_type"] добавлен в CheckPlanner.plan_checks_for_run().
+    unique_doc_types: set[str] = set()
+    for pair in pairs:
+        doc_type_raw = pair.get("doc_type")
+        if not doc_type_raw or not isinstance(doc_type_raw, str):
+            continue
+        doc_type_normalized = doc_type_raw.strip()
+        if doc_type_normalized and doc_type_normalized.lower() != "unknown":
+            unique_doc_types.add(doc_type_normalized)
+
+    logger.info(
+        "fix_instruction_versions: collected unique doc_types",
+        run_id=run_id_str,
+        unique_doc_types_count=len(unique_doc_types),
+        unique_doc_types=sorted(unique_doc_types)[:20],
+    )
+
+    # Шаг 2: Нет typed документов — записываем пустой словарь.
+    # Это валидный случай для runs с Generic/Unknown документами.
+    if not unique_doc_types:
+        logger.info(
+            "fix_instruction_versions: no typed documents, "
+            "writing empty instruction_versions",
+            run_id=run_id_str,
+            pairs_count=len(pairs),
+        )
+        await run_repo.update_instruction_versions(run_uuid, {})
+        return {}
+
+    # Шаг 3: Получить YAMLRegistry (singleton, thread-safe, без I/O).
+    registry = YAMLRegistry.get_instance()
+
+    # Шаг 4: Получить репозиторий версий инструкций.
+    version_repo = DocumentTypeInstructionVersionRepository(session)
+
+    # Шаг 5: Для каждого doc_type резолвим или создаём version.
+    instruction_versions: dict[str, str] = {}
+    missing_configs: list[str] = []
+
+    for doc_type in sorted(unique_doc_types):
+        cfg = registry.get_config(doc_type)
+        if cfg is None:
+            logger.warning(
+                "fix_instruction_versions: doc_type not found in registry",
+                run_id=run_id_str,
+                doc_type=doc_type,
+            )
+            missing_configs.append(doc_type)
+            continue
+
+        try:
+            result = await version_repo.resolve_or_create_from_config(cfg)
+            instruction_versions[doc_type] = str(result.version.id)
+
+            if result.created:
+                logger.info(
+                    "fix_instruction_versions: instruction version created",
+                    run_id=run_id_str,
+                    doc_type=doc_type,
+                    version_id=str(result.version.id),
+                    lookup_key=result.lookup_key,
+                )
+            else:
+                logger.debug(
+                    "fix_instruction_versions: instruction version resolved",
+                    run_id=run_id_str,
+                    doc_type=doc_type,
+                    version_id=str(result.version.id),
+                    lookup_key=result.lookup_key,
+                )
+
+        except Exception as resolve_exc:
+            logger.warning(
+                "fix_instruction_versions: failed to resolve version for doc_type",
+                run_id=run_id_str,
+                doc_type=doc_type,
+                error=str(resolve_exc),
+                error_type=type(resolve_exc).__name__,
+            )
+            missing_configs.append(doc_type)
+
+    # Шаг 6: Атомарно сохранить instruction_versions в Run.
+    # Записываем даже если словарь пустой — это означает "typed документы есть,
+    # но все config lookup / resolve упали". Лучше записать пустой факт попытки,
+    # чем оставить NULL (который означает "фиксация никогда не выполнялась").
+    await run_repo.update_instruction_versions(run_uuid, instruction_versions)
+
+    logger.info(
+        "fix_instruction_versions: completed",
+        run_id=run_id_str,
+        fixed_count=len(instruction_versions),
+        fixed_doc_types=sorted(instruction_versions.keys())[:20],
+        missing_count=len(missing_configs),
+        missing_doc_types=sorted(missing_configs)[:10],
+    )
+
+    return instruction_versions
+
+
 # ─── run_deal_checks ──────────────────────────────────────────────────────────
 
 
@@ -127,6 +282,7 @@ def run_deal_checks(
     Celery-task scheduler уровня Run:
     - загружает Run и Playbook;
     - строит пары (doc_id, check_id);
+    - фиксирует instruction_versions для воспроизводимости;
     - публикует отдельные задачи run_single_check;
     - переводит Run в RUNNING и обновляет total_checks;
     - при total_checks == 0 детерминированно финализирует Run.
@@ -236,6 +392,48 @@ def run_deal_checks(
                         pairs_count=len(pairs),
                     )
 
+                # ─────────────────────────────────────────────────────────────
+                # Фиксация instruction_versions
+                #
+                # Выполняется ПОСЛЕ построения плана и ДО отправки задач.
+                # Гарантирует, что DD Grid review path использует те же версии
+                # инструкций, что были актуальны в момент запуска Run.
+                #
+                # Ошибка фиксации НЕ роняет весь Run:
+                # - Run продолжает работу в штатном режиме.
+                # - DD Grid для этого Run будет использовать FilesystemProvider
+                #   (fallback на текущие YAML на диске).
+                # - Это допустимо для runs, созданных до введения versioning,
+                #   или при временной недоступности БД на этапе фиксации.
+                # ─────────────────────────────────────────────────────────────
+                try:
+                    fixed_versions = await _fix_instruction_versions(
+                        run_uuid=run_uuid,
+                        pairs=pairs,
+                        run_repo=run_repo,
+                        session=uow.session,
+                    )
+                    logger.info(
+                        "Run deal checks scheduler: instruction_versions fixed",
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        fixed_doc_types_count=len(fixed_versions),
+                    )
+                except Exception as version_exc:
+                    # Best-effort: не роняем Run из-за ошибки фиксации версий.
+                    logger.warning(
+                        "Run deal checks scheduler: failed to fix instruction_versions, "
+                        "review path will fall back to FilesystemProvider",
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        error=str(version_exc),
+                        error_type=type(version_exc).__name__,
+                    )
+
+                # ─────────────────────────────────────────────────────────────
+                # Конец блока фиксации instruction_versions
+                # ─────────────────────────────────────────────────────────────
+
                 await run_repo.update_status(
                     run_uuid,
                     RunStatus.RUNNING.value,
@@ -254,7 +452,7 @@ def run_deal_checks(
                             "playbook_version_id": str(run_snap.playbook_version_id),
                             "checks_mode": run_snap.checks_mode,
                             "force": False,
-                            "tenant_id": tenant_id,        
+                            "tenant_id": tenant_id,
                         },
                         queue="heavy_llm_checks",
                     )
@@ -262,11 +460,13 @@ def run_deal_checks(
 
                 try:
                     # Резолюция tenant_id: task kwargs → run_snap → None.
-                    # Если tenant не определён — audit пропускается, не пишем в zero UUID.
+                    # Если tenant не определён — audit пропускается,
+                    # не пишем в zero UUID.
                     effective_tenant = _resolve_effective_tenant_id(tenant_id, run_snap)
                     if effective_tenant is None:
                         logger.error(
-                            "run_deal_checks: tenant_id unavailable, skipping CHECKS_SCHEDULED audit",
+                            "run_deal_checks: tenant_id unavailable, "
+                            "skipping CHECKS_SCHEDULED audit",
                             run_id=run_id,
                             deal_id=deal_id,
                         )
@@ -275,8 +475,8 @@ def run_deal_checks(
                             tenant_id=effective_tenant,
                             deal_id=deal_uuid,
                             action="CHECKS_SCHEDULED",
-                        actor="system",
-                        actor_role="worker",
+                            actor="system",
+                            actor_role="worker",
                             details={
                                 "run_id": run_id,
                                 "playbook_version_id": str(run_snap.playbook_version_id),
@@ -321,7 +521,8 @@ def run_deal_checks(
 
                 if total_checks == 0:
                     logger.warning(
-                        "Run deal checks scheduler: zero checks planned, finalizing run immediately",
+                        "Run deal checks scheduler: zero checks planned, "
+                        "finalizing run immediately",
                         run_id=run_id,
                         deal_id=deal_id,
                         processed_docs=processed_docs,
@@ -332,7 +533,9 @@ def run_deal_checks(
 
                     finalized = await run_repo.finalize_run_if_finished(run_uuid)
                     if finalized is None:
-                        raise ValueError(f"Run not found during zero-check finalize: {run_uuid}")
+                        raise ValueError(
+                            f"Run not found during zero-check finalize: {run_uuid}"
+                        )
 
                     # Снимаем snapshot финализированного Run сразу после получения.
                     finalized_snap: RunSnapshot = snapshot_run(finalized)
@@ -805,9 +1008,6 @@ def run_single_check(
 def finalize_run_if_ready(
     self,
     run_id: str,
-    # ИСПРАВЛЕНО: добавлен tenant_id.
-    # Ранее отсутствовал — audit записи финализации Run записывались с
-    # tenant_id=uuid.UUID(int=0) (zero UUID = несуществующий tenant).
     tenant_id: str | None = None,
     stage_execution_id: str | None = None,
     orchestration_strategy: str | None = None,
@@ -886,10 +1086,6 @@ def finalize_run_if_ready(
                 else:
                     action = "ANALYSIS_FAILED"
 
-                # ИСПРАВЛЕНО: используем tenant_id из параметра задачи.
-                # Ранее: uuid.UUID(int=0) — zero UUID, несуществующий tenant.
-                # Теперь: реальный tenant_id из run_single_check → finalize_run_if_ready.
-                # Fallback: run_snap.tenant_id если доступен, иначе zero UUID с предупреждением.
                 # Резолюция tenant_id: task kwargs → run_snap.tenant_id → None.
                 # Если tenant не определён — audit пропускается.
                 # Лучше пропустить audit запись, чем записать её в zero UUID.
@@ -958,8 +1154,6 @@ def finalize_run_if_ready(
             }
 
     return run_async(_run())
-
-
 
 
     

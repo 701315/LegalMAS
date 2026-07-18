@@ -31,6 +31,7 @@ from collections.abc import Iterable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.exceptions import PermanentError
 from db.repositories.deal_repo import DealRepository
 
 SUPPORTED_DOCUMENT_LANGUAGES = {"ru", "en"}
@@ -65,6 +66,13 @@ async def update_deal_languages(
     if not deal:
         return
 
+    tenant_id = getattr(deal, "tenant_id", None)
+    if tenant_id is None:
+        raise PermanentError(
+            "Deal has no tenant_id; cannot update deal languages safely",
+            details={"deal_id": str(deal_id)},
+        )
+
     existing_languages = _normalize_lang_iterable(getattr(deal, "languages", None))
     current_primary = _normalize_lang(getattr(deal, "primary_language", None))
     incoming_languages = _normalize_lang_iterable(new_languages)
@@ -85,12 +93,14 @@ async def update_deal_languages(
     if merged_languages != existing_languages_sorted:
         await repo.update_languages(
             deal_id=deal_id,
+            tenant_id=tenant_id,
             languages=merged_languages,
         )
 
     if new_primary != current_primary:
         await repo.update_primary_language(
             deal_id=deal_id,
+            tenant_id=tenant_id,
             primary_language=new_primary,
         )
 
@@ -160,3 +170,6 @@ def _normalize_lang_iterable(values: Iterable[str] | None) -> set[str]:
             normalized.add(lang)
 
     return normalized
+
+
+

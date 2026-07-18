@@ -514,20 +514,16 @@ class RetrievalEngine:
             except (TypeError, ValueError):
                 position_range = None
 
-        for idx, ch in enumerate(self.chunks):
-            meta = ch.get("metadata", {}) or {}
-            text = str(ch.get("text", "") or "").lower()
-
         # Загружаем required_topics из retrieval profile один раз до цикла.
-        # get_profile() может обращаться к реестру/файлу — вызывать N раз
-        # (по одному на каждый чанк) недопустимо.
-        # _resolve_profile_topics() изолирует любые исключения и возвращает
-        # frozenset() при любой ошибке — scoring продолжается корректно.
         profile_required_topics: frozenset[str] = _resolve_profile_topics(
             self.retrieval_profile_id
         )
 
         for idx, ch in enumerate(self.chunks):
+            # ИСПРАВЛЕНО: метаданные и текст теперь извлекаются внутри основного цикла.
+            # Ранее из-за лишнего цикла выше переменные meta/text всегда указывали на последний чанк.
+            meta = ch.get("metadata", {}) or {}
+            text = str(ch.get("text", "") or "").lower()
 
             kind = str(meta.get("chunk_kind") or meta.get("kind") or "").lower()
             if kind in ("legal_unit", "subclause"):

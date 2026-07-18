@@ -42,12 +42,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 from core.constants import DocumentClassificationOutcome, RunStatus
+from core.logging import get_logger
 
 from ..models.document import Document
 from ..models.result import CheckResult
 from ..models.run import Job, Run
 from .result_repo import ResultRepository
 
+
+logger = get_logger(__name__)
 
 
 class RunRepository:
@@ -437,6 +440,82 @@ class RunRepository:
             error_details=payload,
         )
 
+    async def update_instruction_versions(
+        self,
+        run_id: uuid.UUID,
+        versions: dict[str, str],
+    ) -> Run | None:
+        """
+        Атомарно записать зафиксированные версии инструкций для Run.
+
+        Args:
+            run_id: Идентификатор Run.
+            versions: Карта {doc_type: version_id_str}.
+                      Ключи — строковые doc_type codes.
+                      Значения — строковые UUID версий инструкций.
+
+        Returns:
+            Обновлённый Run если запись успешна, иначе None.
+
+        Behaviour:
+        - Атомарная запись через UPDATE ... RETURNING.
+        - Пустой словарь {} валиден и будет записан (zero-check run).
+        - None не валиден — для отсутствия данных используется NULL в БД,
+          но этот метод не должен вызываться для такого случая.
+        - Метод идемпотентен: повторная запись того же словаря безопасна.
+
+        Используется:
+        - check_worker.py при старте Run для фиксации версий инструкций.
+        """
+        if versions is None:
+            logger.warning(
+                "run_repo.update_instruction_versions: versions is None, "
+                "refusing to overwrite with NULL — use empty dict {} for zero-check runs",
+                run_id=str(run_id),
+            )
+            return None
+
+        if not isinstance(versions, dict):
+            logger.error(
+                "run_repo.update_instruction_versions: versions is not a dict, refusing to write",
+                run_id=str(run_id),
+                versions_type=type(versions).__name__,
+            )
+            return None
+
+        # Защита: логируем если словарь пустой (валидно для zero-check runs),
+        # но информируем для диагностики.
+        if not versions:
+            logger.info(
+                "run_repo.update_instruction_versions: empty versions dict (zero-check run?)",
+                run_id=str(run_id),
+            )
+
+        stmt = (
+            update(Run)
+            .where(Run.id == run_id)
+            .values(instruction_versions=versions)
+            .returning(Run)
+        )
+        result = await self.session.execute(stmt)
+        run = result.scalar_one_or_none()
+
+        if run:
+            await self.session.flush()
+            logger.info(
+                "run_repo.update_instruction_versions: successfully updated",
+                run_id=str(run_id),
+                doc_types_count=len(versions),
+                doc_types=sorted(versions.keys())[:10],  # первые 10 для логов
+            )
+        else:
+            logger.warning(
+                "run_repo.update_instruction_versions: Run not found",
+                run_id=str(run_id),
+            )
+
+        return run
+
 
 
 class JobRepository:
@@ -480,3 +559,6 @@ class JobRepository:
         if job:
             await self.session.flush()
         return job
+    
+
+    

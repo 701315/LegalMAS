@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, Dict, Optional # Добавлено
 
 import yaml
 from pydantic import ValidationError
@@ -71,22 +71,74 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+class InstructionProvider(Protocol):
+    """Интерфейс источника инструкций (диск или база данных)."""
+    def get_instruction_data(self, doc_type: str) -> Optional[dict]: ...
+
+class FilesystemInstructionProvider:
+    """Провайдер для режима разработки/администрирования: читает живые файлы."""
+
+    def __init__(self, registry_dir: Optional[str] = None):
+        self._dir = Path(registry_dir or settings.CLASSIFIER_REGISTRY_PATH)
+        # In-memory кэш: doc_type → результат чтения YAML (dict или None).
+        # None в кэше означает «файл не найден» — повторный disk I/O не нужен.
+        # Кэш живёт столько же, сколько экземпляр провайдера.
+        # Для получения свежих данных создать новый экземпляр.
+        self._cache: dict[str, Optional[dict]] = {}
+
+    def get_instruction_data(self, doc_type: str) -> Optional[dict]:
+        if doc_type not in self._cache:
+            self._cache[doc_type] = self._load_from_disk(doc_type)
+        return self._cache[doc_type]
+
+    def _load_from_disk(self, doc_type: str) -> Optional[dict]:
+        """Читает YAML с диска. Вызывается максимум один раз на doc_type."""
+        direct = self._dir / f"{doc_type}.yaml"
+        if direct.exists():
+            try:
+                with direct.open(encoding="utf-8") as f:
+                    return yaml.safe_load(f) or {}
+            except Exception:
+                return None
+
+        pattern = f"**/{doc_type}.yaml"
+        # ИСПРАВЛЕНО: сортировка по глубине пути (ближайший к корню первый).
+        # Лексикографическая сортировка могла выбирать файл из более глубокой
+        # подпапки при коллизии имён в разных директориях.
+        candidates = sorted(self._dir.glob(pattern), key=lambda p: len(p.parts))
+        if candidates:
+            try:
+                with candidates[0].open(encoding="utf-8") as f:
+                    return yaml.safe_load(f) or {}
+            except Exception:
+                return None
+        return None
+
+class DatabaseInstructionProvider:
+    """Провайдер для режима Execution/Review: читает зафиксированные snapshot'ы из БД."""
+    def __init__(self, instruction_versions: Dict[str, dict]):
+        # Карта: doc_type -> compiled_payload (уже распарсенный JSON)
+        self._data = instruction_versions
+
+    def get_instruction_data(self, doc_type: str) -> Optional[dict]:
+        return self._data.get(doc_type)
+
+
 class DocTypeCheckLoader:
     """
-    Загружает специфические проверки из YAML-файла типа документа.
-
-    Архитектура:
-    - Горячая загрузка: YAML читается при каждом вызове (нет долгосрочного кэша).
-      Это позволяет обновлять YAML-файлы без перезапуска сервера.
-    - Изоляция ошибок: ошибка в одном check не ломает остальные.
-    - Лимит: не более MAX_CHECKS checks на документ.
+    Загружает специфические проверки через внедренный провайдер.
     """
 
     MAX_CHECKS = getattr(settings, "DOC_TYPE_MAX_CHECKS_PER_DOC", 1000)
 
-    def __init__(self, registry_dir: str | None = None) -> None:
-        self._dir = Path(registry_dir or settings.CLASSIFIER_REGISTRY_PATH)
+    def __init__(self, provider: Optional[InstructionProvider] = None) -> None:
+        # По умолчанию (для API/Admin) используем диск, если провайдер не передан.
+        self.provider = provider or FilesystemInstructionProvider()
 
+    def _load_yaml(self, doc_type: str) -> dict | None:
+        """Делегирует загрузку провайдеру."""
+        return self.provider.get_instruction_data(doc_type)
+    
     # ──────────────────────────────────────────────────────────────
     # ПУБЛИЧНЫЕ МЕТОДЫ
     # ──────────────────────────────────────────────────────────────
@@ -205,52 +257,7 @@ class DocTypeCheckLoader:
     # ВНУТРЕННИЕ МЕТОДЫ
     # ──────────────────────────────────────────────────────────────
 
-    def _load_yaml(self, doc_type: str) -> dict | None:
-        """
-        Загрузить YAML-файл для типа документа.
-        """
-        direct = self._dir / f"{doc_type}.yaml"
-        if direct.exists():
-            try:
-                with direct.open(encoding="utf-8") as f:
-                    return yaml.safe_load(f) or {}
-            except Exception as e:
-                logger.warning(
-                    "DocTypeCheckLoader: cannot read YAML (direct path)",
-                    extra={"doc_type": doc_type, "path": str(direct), "error": str(e)},
-                )
-                return None
 
-        pattern = f"**/{doc_type}.yaml"
-        candidates = sorted(self._dir.glob(pattern))
-
-        if not candidates:
-            logger.debug(
-                "DocTypeCheckLoader: no YAML for doc_type",
-                extra={"doc_type": doc_type, "path": str(direct)},
-            )
-            return None
-
-        yaml_path: Path = candidates[0]
-        if len(candidates) > 1:
-            logger.warning(
-                "DocTypeCheckLoader: multiple YAML files for doc_type, using first",
-                extra={
-                    "doc_type": doc_type,
-                    "selected": str(yaml_path),
-                    "candidates": [str(p) for p in candidates],
-                },
-            )
-
-        try:
-            with yaml_path.open(encoding="utf-8") as f:
-                return yaml.safe_load(f) or {}
-        except Exception as e:
-            logger.warning(
-                "DocTypeCheckLoader: cannot read YAML (recursive search)",
-                extra={"doc_type": doc_type, "path": str(yaml_path), "error": str(e)},
-            )
-            return None
 
     def _trigger_matches(self, item: dict, trigger_set: set[str]) -> bool:
         """

@@ -77,6 +77,8 @@ class CheckPlanner:
         doc_type_loader: DocTypeCheckLoader | None = None,
     ):
         self.checks_mode = checks_mode
+        # В режиме execution/review лоадер должен быть инициализирован 
+        # правильным DatabaseProvider'ом извне (из CheckRunner или ReviewService)
         self.doc_type_loader = doc_type_loader or DocTypeCheckLoader()
 
     # ── Вспомогательные методы для построения контекста ────────────
@@ -353,6 +355,11 @@ class CheckPlanner:
         - Цикл планирования работает только со snapshot-данными.
         - Это предотвращает случайное обращение к ORM-атрибутам
           после await-границы в будущих изменениях метода.
+
+        ИЗМЕНЕНО (Instruction Versioning):
+        - Каждый элемент pairs теперь содержит дополнительное поле "doc_type".
+        - Это позволяет worker фиксировать instruction versions без повторного
+          запроса к БД для получения doc_type.
         """
         processed_docs = 0
         total_checks = 0
@@ -423,12 +430,14 @@ class CheckPlanner:
                     check_id = getattr(check, "id", None)
                     if not check_id:
                         continue
-                    pairs.append(
-                        {
-                            "doc_id": doc_snap.document_id_str,
-                            "check_id": str(check_id),
-                        }
-                    )
+                    
+                    # ИЗМЕНЕНО: добавлено поле "doc_type" для фиксации instruction versions
+                    # в worker без дополнительного SQL-запроса.
+                    pairs.append({
+                        "doc_id": doc_snap.document_id_str,
+                        "check_id": str(check_id),
+                        "doc_type": doc_type,  # ← НОВОЕ ПОЛЕ
+                    })
                     total_checks += 1
 
                 processed_docs += 1
@@ -461,3 +470,6 @@ class CheckPlanner:
             "total_checks": total_checks,
             "errors": errors,
         }
+    
+
+    
