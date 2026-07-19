@@ -280,3 +280,34 @@ class DocumentTypeInstructionVersionRepository:
             },
         )
         return payload
+
+    async def get_latest_by_doc_type_code(
+        self,
+        doc_type_code: str,
+        *,
+        published_only: bool = True,
+    ) -> DocumentTypeInstructionVersion | None:
+        """
+        Вернуть самую свежую persisted instruction version для doc_type_code.
+
+        Используется для staleness detection override и для snapshot
+        resolution в RunSnapshotService: "какая версия инструкции сейчас
+        актуальна для этого типа документа".
+
+        Args:
+            doc_type_code: Код типа документа.
+            published_only: Если True — учитывать только is_published=True.
+                RunSnapshotService должен использовать published_only=True,
+                чтобы draft-версии не попадали в исполняемые Run.
+        """
+        stmt = select(DocumentTypeInstructionVersion).where(
+            DocumentTypeInstructionVersion.doc_type_code == doc_type_code
+        )
+        if published_only:
+            stmt = stmt.where(DocumentTypeInstructionVersion.is_published.is_(True))
+
+        stmt = stmt.order_by(DocumentTypeInstructionVersion.created_at.desc()).limit(1)
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+    

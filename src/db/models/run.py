@@ -101,6 +101,24 @@ class Run(Base):
         comment="Фиксированные версии инструкций для этого Run: {doc_type: version_id}",
     )
     
+    instruction_snapshot_manifest: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Frozen manifest of instruction references for this Run: "
+            "{doc_type: {version_id, content_hash, override_id}}"
+        ),
+    )
+
+    instruction_snapshot_payload: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Frozen effective compiled instruction payload used at runtime: "
+            "{doc_type: compiled_payload}"
+        ),
+    )
+
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

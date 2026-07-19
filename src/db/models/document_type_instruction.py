@@ -16,7 +16,11 @@ from __future__ import annotations
 from sqlalchemy import Index, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+import uuid
+from datetime import datetime
 
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from ..base import Base
 
 
@@ -88,6 +92,34 @@ class DocumentTypeInstructionVersion(Base):
         nullable=True,
         comment="Optional normalized/compiled representation of the instruction.",
     )
+
+    is_published: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="Whether this instruction version is published for runtime usage.",
+    )
+
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When this version was published.",
+    )
+
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="User who created this instruction version.",
+    )
+
+    change_summary: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment="Human-readable summary of changes in this version.",
+    )
+
+
 
     __table_args__ = (
         Index(

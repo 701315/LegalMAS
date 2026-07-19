@@ -21,6 +21,7 @@ from .playbook import ModelConfig, Playbook, PlaybookLineItem, PlaybookVersion
 from .relation import DocumentFamily, DocumentFamilyMember, DocumentRelation
 from .result import CheckResult
 from .run import Job, Run
+from .instruction_override import InstructionOverride
 
 __all__ = [
     "AuditLog",
@@ -51,4 +52,5 @@ __all__ = [
     "PlaybookLineItem",
     "PlaybookVersion",
     "Run",
+    "InstructionOverride",
 ]
