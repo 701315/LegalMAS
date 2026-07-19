@@ -74,6 +74,7 @@ from api.schemas.deal_review import (
     DDGridDrawerDTO,
     DDGridDrawerFieldDTO,
     DDGridGlobalGroupDTO,
+    DDGridInstructionSnapshotDTO,
 )
 
 logger = get_logger(__name__)
@@ -185,16 +186,76 @@ def build_dd_matrix(
 # DD Grid V1 — оркестрация с persisted instruction snapshots
 # ---------------------------------------------------------------------------
 
+def _extract_doc_type_check_summaries(payload: dict[str, Any] | None) -> list[dict[str, str]]:
+    """
+    Извлечь человекочитаемый список doc-type checks (name + description) из
+    compiled_payload doc_type-конфига (весь raw YAML этого типа документа).
+
+    Технические детали (llm.prompt_template, extraction schema, retrieval,
+    regex-паттерны) игнорируются намеренно: юристу нужен смысл проверки,
+    зафиксированный в snapshot, а не её техническая реализация.
+    """
+    if not payload:
+        return []
+    summaries: list[dict[str, str]] = []
+    for section_key in ("checks_v8", "doc_type_checks", "compliance_rules"):
+        for check in payload.get(section_key) or []:
+            if not isinstance(check, dict):
+                continue
+            name = str(check.get("name", "") or "").strip()
+            if not name:
+                continue
+            description = str(check.get("description", "") or "").strip()
+            summaries.append(
+                {"id": str(check.get("id", "")), "name": name, "description": description}
+            )
+    return summaries
+
+
+def _extract_global_check_summaries(
+    playbook_checks: list[CheckDefinition],
+    doc_type: str,
+) -> list[dict[str, str]]:
+    """
+    Извлечь человекочитаемый список глобальных проверок (GLOBAL_PLAYBOOK),
+    применимых к данному doc_type.
+
+    Глобальные checks хранятся не в compiled_payload doc_type-конфига, а в
+    playbook.checks (CheckDefinition.origin == "GLOBAL_PLAYBOOK"). Применимость
+    к doc_type определяется тем же правилом, что и в
+    PlaybookDefinition.get_checks_for_doc_type: check.doc_types пустой ->
+    применяется ко всем doc_type, иначе только если doc_type в списке.
+    """
+    summaries: list[dict[str, str]] = []
+    for check in playbook_checks:
+        if not check.doc_types or doc_type in check.doc_types:
+            summaries.append(
+                {"id": check.id, "name": check.name, "description": check.description or ""}
+            )
+    return summaries
 
 def _map_dd_grid_v1_to_response(
     data: DDGridV1Data,
     deal_id: str,
     run_id: str,
+    instruction_versions: dict[str, str],
+    compiled_payloads: dict[str, dict[str, Any]],
+    global_playbook_checks: list[CheckDefinition],
 ) -> DDGridV1ResponseDTO:
     """
     Перепаковать DDGridV1Data (runtime dataclasses) в Pydantic API DTO.
     Тонкий маппинг: никакой бизнес-логики, только конвертация типов.
+
+    instruction_versions: {doc_type: version_id_str} из run.instruction_versions.
+    Используется для построения instruction_snapshot в documents_meta —
+    без дополнительных запросов к БД (чистый dict lookup).
+    
+    global_playbook_checks: list[CheckDefinition] из playbook.checks — глобальные
+    проверки (origin=GLOBAL_PLAYBOOK), применяемые ко всем документам вне
+    зависимости от doc_type. Смешиваются с doc-type checks в instruction_snapshot.
+
     """
+
     # Column registry
     column_registry_dto: dict[str, DDGridColumnDTO] = {
         col_id: DDGridColumnDTO(
@@ -324,6 +385,22 @@ def _map_dd_grid_v1_to_response(
         for doc_id, doc_drawers in data.drawer_contents.items()
     }
 
+
+    def _build_instruction_snapshot(
+        doc_type: str | None,
+    ) -> DDGridInstructionSnapshotDTO | None:
+        if not doc_type:
+            return None
+        version_id = instruction_versions.get(doc_type)
+        payload = compiled_payloads.get(doc_type)
+        return DDGridInstructionSnapshotDTO(
+            doc_type=doc_type,
+            version_id=version_id,
+            is_persisted_snapshot=doc_type in instruction_versions,
+            global_checks=_extract_global_check_summaries(global_playbook_checks, doc_type),
+            doc_type_checks=_extract_doc_type_check_summaries(payload),
+        )
+
     documents_meta_dto = [
         DDGridDocumentMetaDTO(
             document_id=dm.document_id,
@@ -331,6 +408,7 @@ def _map_dd_grid_v1_to_response(
             doc_type=dm.doc_type,
             status=dm.status,
             folder_path=dm.folder_path,
+            instruction_snapshot=_build_instruction_snapshot(dm.doc_type),
         )
         for dm in data.documents_meta
     ]
@@ -579,6 +657,11 @@ async def build_dd_grid_v1_response(
         registry=registry,
     )
 
-    return _map_dd_grid_v1_to_response(grid_data, deal_id, run_id)
-
-
+    return _map_dd_grid_v1_to_response(
+        grid_data,
+        deal_id,
+        run_id,
+        instruction_versions=run.instruction_versions or {},
+        compiled_payloads=compiled_map,
+        global_playbook_checks=playbook.checks,
+    )

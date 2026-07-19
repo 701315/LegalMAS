@@ -634,12 +634,28 @@ export interface DDGridV1DrawerContentDTO {
 /**
  * Метаданные документа, попавшего в ответ DD Grid V1.
  */
+
+export interface DDGridV1CheckSummaryDTO {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface DDGridV1InstructionSnapshotDTO {
+  doc_type: string;
+  version_id: string | null;
+  is_persisted_snapshot: boolean;
+  global_checks: DDGridV1CheckSummaryDTO[];
+  doc_type_checks: DDGridV1CheckSummaryDTO[];
+}
+
 export interface DDGridV1DocumentMetaDTO {
   document_id: string;
   filename: string;
-  doc_type: string;
+  doc_type: string | null;
   status: string;
   folder_path: string | null;
+  instruction_snapshot: DDGridV1InstructionSnapshotDTO | null;
 }
 
 /**

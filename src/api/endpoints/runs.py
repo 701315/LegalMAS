@@ -33,6 +33,7 @@ from api.schemas.runs import (
     RunPipelineProgressResponse,
     RunResponse,
 )
+from api.schemas.instructions import EffectiveInstructionResponse
 
 from db.models.run import Run
 from db.models.deal import Deal
@@ -51,6 +52,10 @@ from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
 from db.session import get_db
 from mas_queue.task_dispatcher import send_task_with_context
+from services.effective_instruction_service import (
+    EffectiveInstructionNotFoundError,
+    EffectiveInstructionService,
+)
 from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
 from services.run_pipeline_progress_service import RunPipelineProgressService
 from services.run_progress_service import subscribe_run_progress
@@ -481,6 +486,47 @@ def get_run_analytics_service(
 ) -> RunAnalyticsService:
     return RunAnalyticsService(db)
 
+def get_effective_instruction_service(
+    db: AsyncSession = Depends(get_db),
+) -> EffectiveInstructionService:
+    return EffectiveInstructionService(db)
+
+
+@router.get(
+    "/{run_id}/documents/{document_id}/effective-instruction",
+    response_model=EffectiveInstructionResponse,
+    summary="Единая инструкция (global + doc-type checks), применённая к документу в этом Run",
+)
+async def get_effective_instruction(
+    document_id: uuid.UUID,
+    run: Run = Depends(get_scoped_run),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+    service: EffectiveInstructionService = Depends(get_effective_instruction_service),
+):
+    """
+    Вернуть единую инструкцию, реально применённую к документу в данном Run.
+
+    Доступ: любой участник проекта (admin/editor/viewer) — read-only.
+
+    is_frozen_snapshot=True означает, что doc_type_checks взяты из
+    зафиксированного в момент запуска Run snapshot (гарантированная
+    воспроизводимость). False — fallback на текущий live YAML
+    (для Run, созданных до введения snapshot-логики).
+    """
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=run.deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
+    try:
+        result = await service.get_for_document(run_id=run.id, document_id=document_id)
+    except EffectiveInstructionNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return EffectiveInstructionResponse(**result)
 
 @router.get(
     "/{run_id}/classification-report",

@@ -560,7 +560,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
     <aside
       role="complementary"
       aria-label={drawerTitle}
-      className="fixed right-0 top-0 z-40 flex h-full w-full max-w-xl flex-col border-l border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-2xl"
+      className="flex h-full w-full flex-col"
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">

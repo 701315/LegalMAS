@@ -730,6 +730,37 @@ class DDGridDocTypeClassDTO(BaseModel):
     types: list[DDGridDocTypeNodeDTO]
 
 
+class DDGridCheckSummaryDTO(BaseModel):
+    """
+    Человекочитаемое summary одной проверки (check) из зафиксированного
+    doc_type-снапшота. Только name + description — без технических
+    деталей (llm-промптов, extraction schema, retrieval config).
+    """
+
+    id: str
+    name: str
+    description: str = ""
+
+
+class DDGridInstructionSnapshotDTO(BaseModel):
+    """
+    Снапшот инструкции проверки, применённой к doc_type документа
+    в рамках конкретного Run.
+
+    Разделён на два слоя, отражающих реальную архитектуру проверок:
+    - global_checks: проверки из global playbook (origin=GLOBAL_PLAYBOOK),
+      применяются вне зависимости от doc_type.
+    - doc_type_checks: проверки, специфичные для doc_type документа
+      (origin=DOCUMENT_TYPE), из зафиксированного compiled_payload.
+    """
+
+    doc_type: str
+    version_id: str | None = None
+    is_persisted_snapshot: bool
+    global_checks: list[DDGridCheckSummaryDTO] = Field(default_factory=list)
+    doc_type_checks: list[DDGridCheckSummaryDTO] = Field(default_factory=list)
+
+
 class DDGridDocumentMetaDTO(BaseModel):
     """Метаданные документа для DD Grid V1."""
 
@@ -738,6 +769,11 @@ class DDGridDocumentMetaDTO(BaseModel):
     doc_type: str | None = None
     status: str
     folder_path: str | None = None
+    instruction_snapshot: DDGridInstructionSnapshotDTO | None = None
+    """
+    Снапшот инструкции для doc_type этого документа.
+    None если doc_type не задан (документ не классифицирован).
+    """
 
 
 class DDGridV1ResponseDTO(BaseModel):

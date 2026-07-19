@@ -21,6 +21,7 @@ import type {
   DDGridV1DocumentMetaDTO,
   DDGridV1DrawerContentDTO,
   DDGridV1GlobalGroupDTO,
+  DDGridV1InstructionSnapshotDTO,
   DDGridV1LocationConfidence,
 } from "../../../types/dealReview";
 
@@ -164,9 +165,12 @@ export interface DDGridV1MatrixRow {
 
   documentId: string;
   filename: string;
-  docType: string;
+  /** null если документ не классифицирован (doc_type не определён). */
+  docType: string | null;
   status: string;
   folderPath: string | null;
+
+  instructionSnapshot: DDGridV1InstructionSnapshotDTO | null;
 
   /** Исходный DTO (для drawer и служебных колонок). */
   meta: DDGridV1DocumentMetaDTO;

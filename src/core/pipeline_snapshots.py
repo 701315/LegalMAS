@@ -107,6 +107,9 @@ class RunSnapshot:
 
     playbook_version_id: uuid.UUID | None = None
     instruction_versions: dict[str, str] | None = None  # {doc_type: version_id_str}
+    instruction_snapshot_manifest: dict[str, Any] | None = None  # {doc_type: {version_id, content_hash, override_id}}
+    instruction_snapshot_payload: dict[str, Any] | None = None  # {doc_type: full_yaml_dict}
+
 
     total_checks: int = 0
     completed_checks: int = 0
@@ -146,6 +149,8 @@ def snapshot_run(run: Any) -> RunSnapshot:
         completed_checks=_normalize_int(getattr(run, "completed_checks", 0), default=0),
         has_errors=_normalize_bool(getattr(run, "has_errors", False)),
         instruction_versions=getattr(run, "instruction_versions", None),
+        instruction_snapshot_manifest=getattr(run, "instruction_snapshot_manifest", None),
+        instruction_snapshot_payload=getattr(run, "instruction_snapshot_payload", None),
     )
 
 

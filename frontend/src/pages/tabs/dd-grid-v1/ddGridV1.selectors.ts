@@ -215,6 +215,7 @@ function buildMatrixRow(meta: DDGridV1DocumentMetaDTO): DDGridV1MatrixRow {
     docType: meta.doc_type,
     status: meta.status,
     folderPath: meta.folder_path,
+    instructionSnapshot: meta.instruction_snapshot ?? null,
     meta,
   };
 }
@@ -390,8 +391,11 @@ export function resolveDDGridV1CellView(
     effectiveState = rawCell.cell_state;
   } else if (
     runtimeColumn.applicableDocTypeCodes.length > 0 &&
-    !runtimeColumn.applicableDocTypeCodes.includes(row.docType)
+    (row.docType === null ||
+      !runtimeColumn.applicableDocTypeCodes.includes(row.docType))
   ) {
+    // Документ без doc_type не может быть applicable ни к одной
+    // docType-scoped колонке — по определению applicableDocTypeCodes.
     effectiveState = "not_applicable";
     effectiveRawCell = null;
   } else {

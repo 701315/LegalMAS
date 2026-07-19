@@ -516,6 +516,84 @@ class RunRepository:
 
         return run
 
+    async def update_instruction_snapshot(
+        self,
+        run_id: uuid.UUID,
+        versions: dict[str, str],
+        manifest: dict[str, dict],
+        payload: dict[str, dict],
+    ) -> Run | None:
+        """
+        Атомарно зафиксировать полный frozen snapshot doc-type инструкций для Run.
+
+        Args:
+            run_id:   Идентификатор Run.
+            versions: {doc_type: version_id_str} — обратная совместимость
+                      с существующим полем instruction_versions.
+            manifest: {doc_type: {version_id, content_hash, override_id}} —
+                      метаданные снапшота для аудита/UI.
+            payload:  {doc_type: full_yaml_dict} — передаётся в
+                      DatabaseInstructionProvider для исполнения checks.
+
+        Returns:
+            Обновлённый Run если запись успешна, иначе None.
+
+        Behaviour:
+        - Атомарная запись всех трёх полей одним UPDATE ... RETURNING.
+        - Пустые словари валидны (zero typed-document run).
+        - None для любого аргумента не валиден — caller должен передавать {}.
+        - Идемпотентен.
+        """
+        for name, value in (
+            ("versions", versions),
+            ("manifest", manifest),
+            ("payload", payload),
+        ):
+            if value is None:
+                logger.warning(
+                    "run_repo.update_instruction_snapshot: %s is None, "
+                    "refusing to overwrite with NULL — use empty dict {} instead",
+                    name,
+                    run_id=str(run_id),
+                )
+                return None
+            if not isinstance(value, dict):
+                logger.error(
+                    "run_repo.update_instruction_snapshot: %s is not a dict, refusing to write",
+                    name,
+                    run_id=str(run_id),
+                    value_type=type(value).__name__,
+                )
+                return None
+
+        stmt = (
+            update(Run)
+            .where(Run.id == run_id)
+            .values(
+                instruction_versions=versions,
+                instruction_snapshot_manifest=manifest,
+                instruction_snapshot_payload=payload,
+            )
+            .returning(Run)
+        )
+        result = await self.session.execute(stmt)
+        run = result.scalar_one_or_none()
+
+        if run:
+            await self.session.flush()
+            logger.info(
+                "run_repo.update_instruction_snapshot: successfully updated",
+                run_id=str(run_id),
+                doc_types_count=len(versions),
+                doc_types=sorted(versions.keys())[:10],
+            )
+        else:
+            logger.warning(
+                "run_repo.update_instruction_snapshot: Run not found",
+                run_id=str(run_id),
+            )
+
+        return run
 
 
 class JobRepository:

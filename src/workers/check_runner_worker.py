@@ -70,6 +70,11 @@ from db.repositories.document_stage_execution_repo import DocumentStageExecution
 from db.repositories.document_type_instruction_version_repo import (
     DocumentTypeInstructionVersionRepository,
 )
+from db.repositories.runner_repo import RunnerRepository
+from engine.checks.instruction_snapshot import (
+    build_doc_type_loader,
+    freeze_instruction_snapshot,
+)
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
 from db.repositories.run_repo import RunRepository
@@ -119,144 +124,6 @@ def _resolve_effective_tenant_id(
         return run_snap.tenant_id
 
     return None
-
-
-# ─── _fix_instruction_versions ────────────────────────────────────────────────
-
-
-async def _fix_instruction_versions(
-    *,
-    run_uuid: uuid.UUID,
-    pairs: list[dict[str, str]],
-    run_repo: RunRepository,
-    session: Any,
-) -> dict[str, str]:
-    """
-    Зафиксировать версии инструкций для Run на основе плана checks.
-
-    Для каждого уникального doc_type из pairs:
-    - получает DocumentTypeConfig из YAMLRegistry (singleton, thread-safe);
-    - резолвит или создаёт DocumentTypeInstructionVersion (race-safe ON CONFLICT);
-    - собирает карту {doc_type: version_id_str}.
-
-    Сохраняет результат в Run.instruction_versions через run_repo.
-
-    Args:
-        run_uuid:  UUID запущенного Run.
-        pairs:     Список пар из plan_checks_for_run.
-                   Каждый элемент содержит "doc_id", "check_id", "doc_type".
-        run_repo:  RunRepository в рамках текущего UoW.
-        session:   AsyncSession текущего UoW (для DocumentTypeInstructionVersionRepository).
-
-    Returns:
-        Зафиксированная карта {doc_type: version_id_str}.
-        Пустой словарь если нет typed документов или все резолюции упали.
-
-    Raises:
-        Не поднимает исключений — все ошибки логируются как warning.
-        Caller должен оборачивать вызов в try/except на случай
-        непредвиденных ошибок уровня сессии.
-    """
-    run_id_str = str(run_uuid)
-
-    # Шаг 1: Собрать уникальные doc_type из pairs.
-    # pairs[i]["doc_type"] добавлен в CheckPlanner.plan_checks_for_run().
-    unique_doc_types: set[str] = set()
-    for pair in pairs:
-        doc_type_raw = pair.get("doc_type")
-        if not doc_type_raw or not isinstance(doc_type_raw, str):
-            continue
-        doc_type_normalized = doc_type_raw.strip()
-        if doc_type_normalized and doc_type_normalized.lower() != "unknown":
-            unique_doc_types.add(doc_type_normalized)
-
-    logger.info(
-        "fix_instruction_versions: collected unique doc_types",
-        run_id=run_id_str,
-        unique_doc_types_count=len(unique_doc_types),
-        unique_doc_types=sorted(unique_doc_types)[:20],
-    )
-
-    # Шаг 2: Нет typed документов — записываем пустой словарь.
-    # Это валидный случай для runs с Generic/Unknown документами.
-    if not unique_doc_types:
-        logger.info(
-            "fix_instruction_versions: no typed documents, "
-            "writing empty instruction_versions",
-            run_id=run_id_str,
-            pairs_count=len(pairs),
-        )
-        await run_repo.update_instruction_versions(run_uuid, {})
-        return {}
-
-    # Шаг 3: Получить YAMLRegistry (singleton, thread-safe, без I/O).
-    registry = YAMLRegistry.get_instance()
-
-    # Шаг 4: Получить репозиторий версий инструкций.
-    version_repo = DocumentTypeInstructionVersionRepository(session)
-
-    # Шаг 5: Для каждого doc_type резолвим или создаём version.
-    instruction_versions: dict[str, str] = {}
-    missing_configs: list[str] = []
-
-    for doc_type in sorted(unique_doc_types):
-        cfg = registry.get_config(doc_type)
-        if cfg is None:
-            logger.warning(
-                "fix_instruction_versions: doc_type not found in registry",
-                run_id=run_id_str,
-                doc_type=doc_type,
-            )
-            missing_configs.append(doc_type)
-            continue
-
-        try:
-            result = await version_repo.resolve_or_create_from_config(cfg)
-            instruction_versions[doc_type] = str(result.version.id)
-
-            if result.created:
-                logger.info(
-                    "fix_instruction_versions: instruction version created",
-                    run_id=run_id_str,
-                    doc_type=doc_type,
-                    version_id=str(result.version.id),
-                    lookup_key=result.lookup_key,
-                )
-            else:
-                logger.debug(
-                    "fix_instruction_versions: instruction version resolved",
-                    run_id=run_id_str,
-                    doc_type=doc_type,
-                    version_id=str(result.version.id),
-                    lookup_key=result.lookup_key,
-                )
-
-        except Exception as resolve_exc:
-            logger.warning(
-                "fix_instruction_versions: failed to resolve version for doc_type",
-                run_id=run_id_str,
-                doc_type=doc_type,
-                error=str(resolve_exc),
-                error_type=type(resolve_exc).__name__,
-            )
-            missing_configs.append(doc_type)
-
-    # Шаг 6: Атомарно сохранить instruction_versions в Run.
-    # Записываем даже если словарь пустой — это означает "typed документы есть,
-    # но все config lookup / resolve упали". Лучше записать пустой факт попытки,
-    # чем оставить NULL (который означает "фиксация никогда не выполнялась").
-    await run_repo.update_instruction_versions(run_uuid, instruction_versions)
-
-    logger.info(
-        "fix_instruction_versions: completed",
-        run_id=run_id_str,
-        fixed_count=len(instruction_versions),
-        fixed_doc_types=sorted(instruction_versions.keys())[:20],
-        missing_count=len(missing_configs),
-        missing_doc_types=sorted(missing_configs)[:10],
-    )
-
-    return instruction_versions
 
 
 # ─── run_deal_checks ──────────────────────────────────────────────────────────
@@ -351,12 +218,53 @@ def run_deal_checks(
                     checks_scope=run_snap.checks_scope,
                 )
 
+                docs_for_snapshot = await RunnerRepository(uow.session).get_non_duplicate_docs(
+                    deal_uuid
+                )
+                doc_types_for_snapshot = {
+                    getattr(d, "doc_type", None) for d in docs_for_snapshot
+                }
+                doc_types_for_snapshot.discard(None)
+
+                try:
+                    fixed_versions = await freeze_instruction_snapshot(
+                        run_uuid=run_uuid,
+                        doc_types=doc_types_for_snapshot,
+                        run_repo=run_repo,
+                        session=uow.session,
+                    )
+                    logger.info(
+                        "Run deal checks scheduler: instruction snapshot fixed",
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        fixed_doc_types_count=len(fixed_versions),
+                    )
+                except Exception as version_exc:
+                    fixed_versions = {}
+                    # Best-effort: не роняем Run из-за ошибки фиксации снапшота.
+                    # CheckRunner ниже упадёт на FilesystemInstructionProvider.
+                    logger.warning(
+                        "Run deal checks scheduler: failed to fix instruction snapshot, "
+                        "checks execution will fall back to FilesystemInstructionProvider",
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        error=str(version_exc),
+                        error_type=type(version_exc).__name__,
+                    )
+
+                # Перечитываем Run, чтобы snapshot содержал только что
+                # зафиксированный instruction_snapshot_payload.
+                run_obj_refreshed = await run_repo.get(run_uuid)
+                run_snap = snapshot_run(run_obj_refreshed)
+                doc_type_loader = build_doc_type_loader(run_snap)
+
                 runner = CheckRunner(
                     llm_client=_shared_llm_client,
                     playbook_version_id=run_snap.playbook_version_id,
                     checks_mode=run_snap.checks_mode or "global_and_doc_type",
                     run_repo=run_repo,
                     checks_scope=run_snap.checks_scope,
+                    doc_type_loader=doc_type_loader,
                 )
 
                 plan = await runner.plan_checks_for_run(
@@ -391,48 +299,6 @@ def run_deal_checks(
                         total_checks=total_checks,
                         pairs_count=len(pairs),
                     )
-
-                # ─────────────────────────────────────────────────────────────
-                # Фиксация instruction_versions
-                #
-                # Выполняется ПОСЛЕ построения плана и ДО отправки задач.
-                # Гарантирует, что DD Grid review path использует те же версии
-                # инструкций, что были актуальны в момент запуска Run.
-                #
-                # Ошибка фиксации НЕ роняет весь Run:
-                # - Run продолжает работу в штатном режиме.
-                # - DD Grid для этого Run будет использовать FilesystemProvider
-                #   (fallback на текущие YAML на диске).
-                # - Это допустимо для runs, созданных до введения versioning,
-                #   или при временной недоступности БД на этапе фиксации.
-                # ─────────────────────────────────────────────────────────────
-                try:
-                    fixed_versions = await _fix_instruction_versions(
-                        run_uuid=run_uuid,
-                        pairs=pairs,
-                        run_repo=run_repo,
-                        session=uow.session,
-                    )
-                    logger.info(
-                        "Run deal checks scheduler: instruction_versions fixed",
-                        run_id=run_id,
-                        deal_id=deal_id,
-                        fixed_doc_types_count=len(fixed_versions),
-                    )
-                except Exception as version_exc:
-                    # Best-effort: не роняем Run из-за ошибки фиксации версий.
-                    logger.warning(
-                        "Run deal checks scheduler: failed to fix instruction_versions, "
-                        "review path will fall back to FilesystemProvider",
-                        run_id=run_id,
-                        deal_id=deal_id,
-                        error=str(version_exc),
-                        error_type=type(version_exc).__name__,
-                    )
-
-                # ─────────────────────────────────────────────────────────────
-                # Конец блока фиксации instruction_versions
-                # ─────────────────────────────────────────────────────────────
 
                 await run_repo.update_status(
                     run_uuid,
@@ -688,7 +554,10 @@ def run_single_check(
                         raise ValueError(f"PlaybookVersion not found: {effective_pb_version_id}")
                     playbook = load_playbook_from_version(pb_version)
 
+                    doc_type_loader = build_doc_type_loader(run_snap)
+
                     doc = await doc_repo.get_by_id(doc_uuid)
+
                     if doc is None:
                         raise ValueError(f"Document not found: {doc_uuid}")
 
@@ -752,6 +621,7 @@ def run_single_check(
                         checks_mode=effective_checks_mode,
                         run_repo=run_repo,
                         checks_scope=run_snap.checks_scope,
+                        doc_type_loader=doc_type_loader,
                     )
 
                     # doc здесь — живой ORM Document, загруженный в этом UoW.
