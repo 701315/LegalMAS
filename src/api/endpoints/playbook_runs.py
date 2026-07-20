@@ -275,7 +275,7 @@ async def rebuild_playbook_and_rerun(
 
     # 6. Новая PlaybookVersion
     new_semver = bump_semver(current_playbook.semver, part="minor")
-    new_status = PlaybookStatus.STABLE.value
+    new_status = PlaybookStatus.PUBLISHED.value
 
     new_playbook = await playbook_repo.create_version(
         name=current_playbook.name,

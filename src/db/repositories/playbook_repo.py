@@ -8,7 +8,8 @@ Repository for Playbook, PlaybookVersion and ModelConfig operations.
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
-
+import hashlib
+import json
 from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +23,25 @@ from ..models.playbook import (
     PlaybookVersion,
 )
 from ..models.run import Run
+
+
+def compute_source_payload_hash(source_payload: dict) -> str:
+    """
+    Compute deterministic SHA256 of canonical JSON serialization.
+
+    Canonicalization:
+    - sorted keys
+    - no whitespace
+    - UTF-8 encoding
+    """
+    canonical = json.dumps(
+        source_payload,
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
 
 
 @dataclass
@@ -48,6 +68,10 @@ class PlaybookRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    def _ensure_not_published(self, pv: PlaybookVersion):
+        if pv.status == PlaybookStatus.PUBLISHED.value:
+            raise Exception("PUBLISHED_VERSION_IMMUTABLE")
+        
     # --- ModelConfig operations ---
 
     async def create_model_config(
@@ -401,6 +425,7 @@ class PlaybookRepository:
         compiled_checks: dict | None = None,
         status: str = PlaybookStatus.DRAFT.value,
         playbook_id: uuid.UUID | None = None,
+        source_payload: dict | None = None,
     ) -> PlaybookVersion:
         """
         Create a new playbook version.
@@ -408,14 +433,19 @@ class PlaybookRepository:
         If status='default', automatically archives the previous default version
         to ensure only one default exists at any time (global default).
         """
-        if status == PlaybookStatus.DEFAULT.value:
+        is_default = status == PlaybookStatus.DEFAULT.value
+        if is_default:
+            # Снимаем is_default со всех существующих
             await self.session.execute(
-                text(
-                    "UPDATE playbook_versions "
-                    "SET status = 'archived' "
-                    "WHERE status = 'default'"
-                )
+                update(PlaybookVersion)
+                .where(PlaybookVersion.is_default.is_(True))
+                .values(is_default=False)
             )
+            status = PlaybookStatus.PUBLISHED.value
+
+        source_payload_sha256: str | None = None
+        if source_payload is not None:
+            source_payload_sha256 = compute_source_payload_hash(source_payload)
 
         pv = PlaybookVersion(
             playbook_id=playbook_id,
@@ -426,15 +456,18 @@ class PlaybookRepository:
             yaml_sha256=yaml_sha256,
             compiled_checks=compiled_checks,
             status=status,
+            is_default=is_default,
+            source_payload=source_payload,
+            source_payload_sha256=source_payload_sha256,
         )
         self.session.add(pv)
         await self.session.flush()
         return pv
 
     async def get_default(self) -> PlaybookVersion | None:
-        """Get the playbook version with status='default'. Only one should exist."""
+        """Get the global default playbook version."""
         result = await self.session.execute(
-            select(PlaybookVersion).where(PlaybookVersion.status == PlaybookStatus.DEFAULT.value)
+            select(PlaybookVersion).where(PlaybookVersion.is_default.is_(True))
         )
         return result.scalar_one_or_none()
 
@@ -466,19 +499,23 @@ class PlaybookRepository:
 
     async def promote_to_default(self, version_id: uuid.UUID) -> PlaybookVersion | None:
         """
-        Переводит все текущие DEFAULT-версии в STABLE,
-        затем устанавливает DEFAULT для version_id.
+        Назначить version как глобальный default.
+
+        Снимает is_default со всех остальных версий,
+        ставит is_default=True на указанную.
         """
+        # Снимаем is_default со всех
         await self.session.execute(
             update(PlaybookVersion)
-            .where(PlaybookVersion.status == PlaybookStatus.DEFAULT.value)
-            .values(status=PlaybookStatus.STABLE.value)
+            .where(PlaybookVersion.is_default.is_(True))
+            .values(is_default=False)
         )
 
+        # Ставим is_default на target
         await self.session.execute(
             update(PlaybookVersion)
             .where(PlaybookVersion.id == version_id)
-            .values(status=PlaybookStatus.DEFAULT.value)
+            .values(is_default=True)
         )
 
         await self.session.flush()
@@ -487,3 +524,21 @@ class PlaybookRepository:
             select(PlaybookVersion).where(PlaybookVersion.id == version_id)
         )
         return result.scalar_one_or_none()
+
+    async def update_draft_compiled_checks(
+        self,
+        version_id: uuid.UUID,
+        compiled_checks: dict,
+    ) -> PlaybookVersion:
+
+        pv = await self.get_by_id(version_id)
+        if not pv:
+            return None
+
+        self._ensure_not_published(pv)
+
+        pv.compiled_checks = compiled_checks
+        await self.session.flush()
+        return pv
+
+

@@ -12,9 +12,17 @@ Instruction snapshot service.
   который читает из БД (DatabaseInstructionProvider), а не с диска,
   когда для Run есть frozen snapshot.
 
-Используется в:
-- workers/check_runner_worker.py::run_deal_checks (freeze до plan_checks_for_run)
-- workers/check_runner_worker.py::run_single_check (build_doc_type_loader для CheckRunner)
+Strict mode (snapshot_schema_version >= 1):
+- payload содержит compiled_payload из persisted DocumentTypeInstructionVersion;
+- filesystem fallback запрещён;
+- отсутствие payload для doc_type = ConfigurationIntegrityError.
+
+Legacy mode (snapshot_schema_version IS NULL):
+- filesystem fallback разрешён;
+- is_reproducible = False.
+
+Snapshot фиксируется атомарно одним вызовом update_instruction_snapshot
+включая snapshot_schema_version — нет промежуточного состояния.
 """
 
 from __future__ import annotations
@@ -29,7 +37,16 @@ from db.repositories.document_type_instruction_version_repo import (
     DocumentTypeInstructionVersionRepository,
 )
 from db.repositories.run_repo import RunRepository
-from engine.doc_type_checks.loader import DatabaseInstructionProvider, DocTypeCheckLoader
+from engine.checks.snapshot_policy import (
+    SNAPSHOT_SCHEMA_VERSION_CURRENT,
+    resolve_doc_type_payload,
+)
+from engine.doc_type_checks.loader import (
+    DatabaseInstructionProvider,
+    DocTypeCheckLoader,
+    FilesystemInstructionProvider,
+)
+from services.instruction_compiler import InstructionCompiler
 
 logger = get_logger(__name__)
 
@@ -45,27 +62,18 @@ async def freeze_instruction_snapshot(
     Зафиксировать frozen snapshot doc-type инструкций для Run.
 
     Для каждого уникального doc_type:
-    - получает DocumentTypeConfig из YAMLRegistry (singleton, thread-safe);
+    - получает DocumentTypeConfig из YAMLRegistry;
     - резолвит или создаёт DocumentTypeInstructionVersion;
-    - сохраняет cfg.raw (полный YAML документа) как payload для БД-провайдера.
+    - сохраняет compiled_payload (не raw) как payload.
 
-    Args:
-        run_uuid:  UUID запущенного Run.
-        doc_types: Множество doc_type документов сделки (реальные документы,
-                    не результат планирования — избегаем циклической зависимости
-                    "план нужен для снапшота, снапшот нужен для плана").
-        run_repo:  RunRepository в рамках текущего UoW.
-        session:   AsyncSession текущего UoW.
+    Атомарно выставляет snapshot_schema_version=1 вместе со snapshot —
+    нет промежуточного состояния между "snapshot записан" и "version выставлена".
 
     Returns:
-        {doc_type: version_id_str}. Пустой словарь, если нет typed документов
-        или все резолюции упали.
-
-    Raises:
-        Не поднимает исключений — все ошибки логируются как warning.
-        Caller оборачивает вызов в try/except для непредвиденных ошибок сессии.
+        {doc_type: version_id_str}
     """
     run_id_str = str(run_uuid)
+    compiler = InstructionCompiler()
 
     unique_doc_types = {
         dt.strip()
@@ -85,7 +93,13 @@ async def freeze_instruction_snapshot(
             "freeze_instruction_snapshot: no typed documents, writing empty snapshot",
             run_id=run_id_str,
         )
-        await run_repo.update_instruction_snapshot(run_uuid, {}, {}, {})
+        await run_repo.update_instruction_snapshot(
+            run_uuid,
+            {},
+            {},
+            {},
+            snapshot_schema_version=SNAPSHOT_SCHEMA_VERSION_CURRENT,
+        )
         return {}
 
     registry = YAMLRegistry.get_instance()
@@ -110,15 +124,37 @@ async def freeze_instruction_snapshot(
         try:
             result = await version_repo.resolve_or_create_from_config(cfg)
             version_id_str = str(result.version.id)
-            raw_yaml = getattr(cfg, "raw", None) or {}
+
+            compiled_payload = result.version.compiled_payload
+            if not compiled_payload:
+                try:
+                    compiled = compiler.compile_doc_type_instruction(
+                        doc_type_code=doc_type,
+                        source=result.version.source_yaml or cfg.raw,
+                    )
+                    compiled_payload = compiled.compiled_payload
+                except Exception as compile_exc:
+                    logger.warning(
+                        "freeze_instruction_snapshot: compile fallback failed, using raw",
+                        run_id=run_id_str,
+                        doc_type=doc_type,
+                        error=str(compile_exc),
+                    )
+                    compiled_payload = getattr(cfg, "raw", None) or {}
+
+            content_hash = (
+                result.version.immutable_content_hash
+                or getattr(cfg, "source_sha256", None)
+            )
 
             versions[doc_type] = version_id_str
             manifest[doc_type] = {
                 "version_id": version_id_str,
-                "content_hash": getattr(cfg, "source_sha256", None),
+                "content_hash": content_hash,
                 "override_id": None,
+                "schema_version": SNAPSHOT_SCHEMA_VERSION_CURRENT,
             }
-            payload[doc_type] = raw_yaml
+            payload[doc_type] = compiled_payload
 
             logger.info(
                 "freeze_instruction_snapshot: instruction version resolved",
@@ -126,7 +162,7 @@ async def freeze_instruction_snapshot(
                 doc_type=doc_type,
                 version_id=version_id_str,
                 created=result.created,
-                payload_keys=list(raw_yaml.keys())[:10],
+                has_compiled_payload=bool(compiled_payload),
             )
 
         except Exception as resolve_exc:
@@ -139,10 +175,18 @@ async def freeze_instruction_snapshot(
             )
             missing_configs.append(doc_type)
 
-    await run_repo.update_instruction_snapshot(run_uuid, versions, manifest, payload)
+    # Атомарная запись snapshot + schema_version в одном UPDATE
+    await run_repo.update_instruction_snapshot(
+        run_uuid,
+        versions,
+        manifest,
+        payload,
+        snapshot_schema_version=SNAPSHOT_SCHEMA_VERSION_CURRENT,
+    )
 
     logger.info(
-        "freeze_instruction_snapshot: completed",
+        "freeze_instruction_snapshot: completed, snapshot_schema_version=%d",
+        SNAPSHOT_SCHEMA_VERSION_CURRENT,
         run_id=run_id_str,
         fixed_count=len(versions),
         fixed_doc_types=sorted(versions.keys())[:20],
@@ -157,34 +201,47 @@ def build_doc_type_loader(run_snap: RunSnapshot) -> DocTypeCheckLoader:
     """
     Построить DocTypeCheckLoader для исполнения checks в рамках Run.
 
-    Если у Run есть frozen instruction_snapshot_payload (непустой) —
-    используем DatabaseInstructionProvider поверх зафиксированных данных
-    (гарантированная воспроизводимость: тот же payload, что был на момент
-    запуска Run, независимо от изменений YAML на диске позже).
+    Strict mode (snapshot_schema_version >= 1):
+    - payload обязателен;
+    - filesystem fallback ЗАПРЕЩЁН;
+    - возвращает loader с DatabaseInstructionProvider.
 
-    Иначе (старые Run без снапшота, или снапшот пуст/не был зафиксирован
-    из-за ошибки в freeze_instruction_snapshot) — fallback на дефолтный
-    FilesystemInstructionProvider (текущие YAML на диске).
-
-    Args:
-        run_snap: RunSnapshot (из core.pipeline_snapshots.snapshot_run).
-
-    Returns:
-        DocTypeCheckLoader, готовый к передаче в CheckRunner(doc_type_loader=...).
+    Legacy mode (snapshot_schema_version IS NULL):
+    - если payload есть — используем DatabaseInstructionProvider;
+    - если payload нет — filesystem fallback с предупреждением.
     """
     payload = getattr(run_snap, "instruction_snapshot_payload", None)
+    is_strict = getattr(run_snap, "is_strict_snapshot", False)
+    run_id = str(run_snap.id) if hasattr(run_snap, "id") else "unknown"
 
-    if payload:
+    if is_strict:
+        if not payload:
+            from engine.checks.snapshot_policy import ConfigurationIntegrityError
+            raise ConfigurationIntegrityError(
+                run_id=run_id,
+                doc_type="<all>",
+            )
         logger.debug(
-            "build_doc_type_loader: using DatabaseInstructionProvider (frozen snapshot)",
-            run_id=str(run_snap.id) if hasattr(run_snap, "id") else None,
+            "build_doc_type_loader: strict mode, using DatabaseInstructionProvider",
+            run_id=run_id,
             doc_types_count=len(payload),
         )
         return DocTypeCheckLoader(provider=DatabaseInstructionProvider(payload))
 
-    logger.debug(
-        "build_doc_type_loader: no frozen snapshot, falling back to FilesystemInstructionProvider",
+    if payload:
+        logger.debug(
+            "build_doc_type_loader: legacy mode with payload, using DatabaseInstructionProvider",
+            run_id=run_id,
+            doc_types_count=len(payload),
+        )
+        return DocTypeCheckLoader(provider=DatabaseInstructionProvider(payload))
+
+    logger.warning(
+        "build_doc_type_loader: legacy mode without payload, "
+        "falling back to FilesystemInstructionProvider. "
+        "This run is not reproducible.",
+        run_id=run_id,
     )
-    return DocTypeCheckLoader()
+    return DocTypeCheckLoader(provider=FilesystemInstructionProvider())
 
 

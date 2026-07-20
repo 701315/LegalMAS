@@ -22,6 +22,7 @@ from .relation import DocumentFamily, DocumentFamilyMember, DocumentRelation
 from .result import CheckResult
 from .run import Job, Run
 from .instruction_override import InstructionOverride
+from .run_check_plan_item import RunCheckPlanItem
 
 __all__ = [
     "AuditLog",
@@ -53,4 +54,5 @@ __all__ = [
     "PlaybookVersion",
     "Run",
     "InstructionOverride",
+    "RunCheckPlanItem",
 ]

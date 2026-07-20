@@ -141,14 +141,8 @@ class CheckRunner:
                 summary["total_checks"] += checks_count
                 summary["failed_checks"] += failed_count
 
-                if self.run_repo is not None:
-                    try:
-                        await self.run_repo.increment_completed_checks(run_id)
-                    except Exception as e:
-                        logger.warning(
-                            "CheckRunner: failed to increment completed_checks",
-                            extra={"run_id": str(run_id), "error": str(e)},
-                        )
+                # Progress for Run is derived from RunCheckPlanItem terminal states.
+                # Manual increment of Run.completed_checks is intentionally removed.
 
             except Exception as e:
                 summary["errors"] += 1
@@ -200,6 +194,7 @@ class CheckRunner:
         playbook,
         check_id: str,
         safe_chunks: list[dict] | None = None,
+        plan_item_id: uuid.UUID | None = None,
     ) -> dict[str, Any]:
         """Выполнить одну проверку и сохранить результат."""
         if self.executor is None:
@@ -225,6 +220,7 @@ class CheckRunner:
                 doc=doc_snap,
                 check_id=check_id,
                 playbook_version_id=self.playbook_version_id,
+                plan_item_id=plan_item_id,
             )
             return {"exec_result": None, "failed": False}
 
@@ -248,6 +244,7 @@ class CheckRunner:
             check=check,
             exec_result=exec_result,
             playbook_version_id=self.playbook_version_id,
+            plan_item_id=plan_item_id,
         )
         return {
             "exec_result": exec_result,
@@ -303,9 +300,9 @@ class CheckRunner:
                         continue
 
                     ctx = self._planner.build_context_for_segment(
-                        doc_snap,
-                        version.id,
-                        SegmentInfo(
+                        doc=doc_snap,
+                        document_version_id=version.id,
+                        segment_info=SegmentInfo(
                             seg_id,
                             seg_type,
                             tuple(getattr(segment, "segment_applicable_triggers", None) or []),

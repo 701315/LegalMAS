@@ -26,6 +26,12 @@ from api.schemas.playbooks import (
     PlaybookTopicInfo,
     PlaybookVersionDetail,
     PlaybookVersionShort,
+    PlaybookDraftUpdateRequest,
+    PlaybookVersionDiffResponse,
+)
+from services.playbooks.publishing import (
+    PlaybookPublishingService,
+    PublishedVersionImmutableError,
 )
 from core.playbooks.compiler import (
     BUNDLES_DIR,
@@ -36,6 +42,11 @@ from core.playbooks.compiler import (
 from db.repositories.playbook_repo import PlaybookRepository
 from db.session import get_db
 from services.playbooks.catalog import load_global_checks_catalog
+from core.constants import PlaybookStatus
+from services.playbooks.diff import (
+    PlaybookVersionDiffService,
+    PlaybookDiffError,
+)
 
 router = APIRouter(
     prefix="/playbooks",
@@ -300,6 +311,18 @@ async def create_playbook_version(
     semver = payload.semver or "0.1.0"
     status_value = payload.status or PlaybookStatus.DRAFT.value
 
+    # Build canonical source_payload (edit lifecycle layer)
+    source_payload = {
+        "schema_version": 1,
+        "bundles": payload.bundles or [],
+        "include_ids": payload.include_ids or [],
+        "exclude_ids": payload.exclude_ids or [],
+        "profile": payload.profile,
+        "model_config_id": str(payload.model_config_id),
+        "playbook_id": str(payload.playbook_id) if payload.playbook_id else None,
+        "from_line_id": str(payload.from_line_id) if payload.from_line_id else None,
+    }
+
     pv = await repo.create_version(
         name=name,
         semver=semver,
@@ -309,6 +332,7 @@ async def create_playbook_version(
         compiled_checks=compiled,
         status=status_value,
         playbook_id=payload.playbook_id,
+        source_payload=source_payload,
     )
 
     await db.commit()
@@ -388,6 +412,8 @@ async def get_playbook_version_detail(
         dd_request_templates=pv.dd_request_templates,
         section_markers=pv.section_markers,
         classification_config=pv.classification_config,
+        source_payload=pv.source_payload,
+        source_payload_sha256=pv.source_payload_sha256,
     )
 
 
@@ -648,6 +674,12 @@ async def set_playbook_version_model_config(
     if pv is None:
         raise HTTPException(status_code=404, detail="Playbook version not found.")
 
+    if pv.status == PlaybookStatus.PUBLISHED.value:
+        raise HTTPException(
+            status_code=409,
+            detail="PUBLISHED_VERSION_IMMUTABLE",
+        )
+
     # Если профиль не меняется — просто возвращаем текущее состояние
     if pv.model_config_id == payload.model_config_id:
         return PlaybookVersionDetail(
@@ -691,3 +723,185 @@ async def set_playbook_version_model_config(
         section_markers=pv.section_markers,
         classification_config=pv.classification_config,
     )
+
+
+@router.post(
+    "/{version_id}/publish",
+    response_model=PlaybookVersionDetail,
+)
+async def publish_playbook_version(
+    version_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+):
+    repo = PlaybookRepository(db)
+    pv = await repo.get_by_id(version_id)
+    if not pv:
+        raise HTTPException(status_code=404)
+
+    service = PlaybookPublishingService(db)
+
+    try:
+        pv = await service.publish(pv)
+    except PublishedVersionImmutableError:
+        raise HTTPException(
+            status_code=409,
+            detail="PUBLISHED_VERSION_IMMUTABLE",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    await db.commit()
+    await db.refresh(pv)
+
+    return pv
+
+@router.patch(
+    "/{version_id}",
+    response_model=PlaybookVersionDetail,
+    summary="Обновить draft-версию плейбука",
+)
+async def update_playbook_draft(
+    version_id: uuid.UUID,
+    payload: PlaybookDraftUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+):
+    from core.constants import PlaybookStatus
+
+    repo = PlaybookRepository(db)
+    pv = await repo.get_by_id(version_id)
+    if not pv:
+        raise HTTPException(status_code=404)
+
+    if pv.status != PlaybookStatus.DRAFT.value:
+        raise HTTPException(
+            status_code=409,
+            detail="PUBLISHED_VERSION_IMMUTABLE",
+        )
+
+    # Обновляем source_payload
+    source = dict(pv.source_payload or {})
+    if payload.bundles is not None:
+        source["bundles"] = payload.bundles
+    source["include_ids"] = payload.include_ids or source.get("include_ids", [])
+    source["exclude_ids"] = payload.exclude_ids or source.get("exclude_ids", [])
+    source["profile"] = payload.profile or source.get("profile")
+
+    pv.source_payload = source
+
+    # Пересобираем compiled_checks
+    all_checks = load_global_checks()
+
+    compiled = build_compiled_checks(
+        all_checks=all_checks,
+        bundles=source.get("bundles"),
+        include_ids=source.get("include_ids"),
+        exclude_ids=source.get("exclude_ids"),
+        profile=source.get("profile"),
+        primary_bundle_id=(
+            source.get("bundles")[0]
+            if source.get("bundles")
+            else None
+        ),
+    )
+
+    pv.compiled_checks = compiled
+
+    # Пересчитываем source hash
+    from db.repositories.playbook_repo import compute_source_payload_hash
+    pv.source_payload_sha256 = compute_source_payload_hash(source)
+
+    if payload.name:
+        pv.name = payload.name
+
+    await db.commit()
+    await db.refresh(pv)
+
+    return pv
+
+
+@router.get(
+    "/{version_id}/diff",
+    response_model=PlaybookVersionDiffResponse,
+    summary="Diff между двумя версиями плейбука",
+)
+async def diff_playbook_versions(
+    version_id: uuid.UUID,
+    against: uuid.UUID = Query(..., description="ID версии для сравнения"),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+):
+    repo = PlaybookRepository(db)
+
+    base = await repo.get_by_id(version_id)
+    other = await repo.get_by_id(against)
+
+    if not base or not other:
+        raise HTTPException(status_code=404)
+
+    service = PlaybookVersionDiffService()
+
+    try:
+        changes = service.diff(base, other)
+    except PlaybookDiffError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return PlaybookVersionDiffResponse(
+        base_version_id=base.id,
+        compare_version_id=other.id,
+        has_changes=len(changes) > 0,
+        diff=changes,
+    )
+
+
+@router.post(
+    "/{version_id}/archive",
+    response_model=PlaybookVersionDetail,
+)
+async def archive_playbook_version(
+    version_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+):
+    repo = PlaybookRepository(db)
+    pv = await repo.get_by_id(version_id)
+    if not pv:
+        raise HTTPException(status_code=404)
+
+    service = PlaybookPublishingService(db)
+
+    try:
+        pv = await service.archive(pv)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    await db.commit()
+    await db.refresh(pv)
+
+    return pv
+
+@router.post(
+    "/{version_id}/clone",
+    response_model=PlaybookVersionDetail,
+)
+async def clone_playbook_version(
+    version_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+):
+    repo = PlaybookRepository(db)
+    pv = await repo.get_by_id(version_id)
+    if not pv:
+        raise HTTPException(status_code=404)
+
+    service = PlaybookPublishingService(db)
+
+    new_version = await service.clone_to_draft(pv)
+
+    await db.commit()
+    await db.refresh(new_version)
+
+    return new_version
+
+

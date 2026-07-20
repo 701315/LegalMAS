@@ -41,3 +41,5 @@ class OutboxMessage(Base):
         Index("ix_outbox_messages_status_available_at", "status", "available_at"),
         Index("ix_outbox_messages_aggregate", "aggregate_type", "aggregate_id"),
     )
+
+

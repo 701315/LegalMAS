@@ -3,44 +3,36 @@
 """
 Document type instruction version model.
 
-Хранит исторический snapshot YAML-инструкции для конкретного doc_type.
+Хранит версионированную инструкцию для конкретного doc_type.
 
-Зачем это нужно:
-- чтобы понимать, по какой именно версии YAML-инструкции был классифицирован документ;
-- чтобы можно было воспроизвести или показать пользователю использованную инструкцию;
-- чтобы не зависеть от текущего состояния runtime YAMLRegistry для historical analysis.
+Lifecycle:
+  draft → published → archived
+
+Инварианты:
+- только draft может быть изменён;
+- published версия immutable: YAML, compiled_payload, hash не меняются;
+- только одна published версия на doc_type (partial unique index);
+- immutable_content_hash выставляется единожды при publish.
 """
 
 from __future__ import annotations
 
-from sqlalchemy import Index, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
 from ..base import Base
 
 
 class DocumentTypeInstructionVersion(Base):
-    """
-    Историческая версия YAML-инструкции для одного типа документа.
-
-    Для непрофессионального программиста:
-    - одна запись = один сохранённый snapshot YAML;
-    - doc_type_code говорит, к какому типу документа относится инструкция;
-    - source_yaml хранит полный текст YAML;
-    - source_sha256 позволяет понять, что это именно эта версия файла.
-    """
-
     __tablename__ = "document_type_instruction_versions"
 
     doc_type_code: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
-        index=True,
         comment="Machine-readable document type code, e.g. 'nda', 'real_estate_sale'.",
     )
 
@@ -90,14 +82,37 @@ class DocumentTypeInstructionVersion(Base):
     compiled_payload: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
-        comment="Optional normalized/compiled representation of the instruction.",
+        comment="Normalized compiled representation of the instruction.",
     )
 
-    is_published: Mapped[bool] = mapped_column(
+    version_status: Mapped[str] = mapped_column(
+        String(20),
         nullable=False,
-        default=False,
-        server_default="false",
-        comment="Whether this instruction version is published for runtime usage.",
+        default="draft",
+        server_default=text("'draft'"),
+        comment="Lifecycle status: draft | published | archived",
+    )
+
+    immutable_content_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment=(
+            "Canonical SHA256 of compiled_payload. "
+            "Set once at publish time, never changed after."
+        ),
+    )
+
+    validation_report: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Validation diagnostics produced at compile/publish time.",
+    )
+
+    parent_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_type_instruction_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Version this draft was derived from (for audit trail).",
     )
 
     published_at: Mapped[datetime | None] = mapped_column(
@@ -119,8 +134,6 @@ class DocumentTypeInstructionVersion(Base):
         comment="Human-readable summary of changes in this version.",
     )
 
-
-
     __table_args__ = (
         Index(
             "idx_doc_type_instruction_versions_doc_type_code",
@@ -130,9 +143,23 @@ class DocumentTypeInstructionVersion(Base):
             "idx_doc_type_instruction_versions_sha256",
             "source_sha256",
         ),
+        Index(
+            "idx_doc_type_instruction_versions_status",
+            "doc_type_code",
+            "version_status",
+        ),
+        Index(
+            "uix_doc_type_instruction_versions_one_published",
+            "doc_type_code",
+            unique=True,
+            postgresql_where=text("version_status = 'published'"),
+        ),
         UniqueConstraint(
             "doc_type_code",
             "source_sha256",
             name="uq_doc_type_instruction_versions_doc_type_code_sha256",
         ),
     )
+
+
+    

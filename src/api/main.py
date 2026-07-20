@@ -59,6 +59,7 @@ from .endpoints import (
     document_pipeline_view,
     document_types,
     exports,
+    instruction_versions,
     model_configs,
     playbook_runs,
     playbooks,
@@ -237,6 +238,9 @@ app.include_router(playbooks.router, prefix="/api/v1")
 
 # Типы документов.
 app.include_router(document_types.router, prefix="/api/v1")
+
+# Lifecycle API для instruction versions.
+app.include_router(instruction_versions.router, prefix="/api/v1")
 
 # История и пересборка плейбука по сделке.
 app.include_router(playbook_runs.router, prefix="/api/v1")

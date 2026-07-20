@@ -232,6 +232,16 @@ def _build_language_discovery_outbox_dedup_key(
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _build_finalize_run_outbox_dedup_key(run_id: str, plan_item_id: str) -> str:
+    """
+    Построить стабильный dedup key для outbox-события финализации Run.
+
+    Привязываем к plan_item_id чтобы каждый завершённый check
+    инициировал ровно одну попытку финализации, без дублей.
+    """
+    return f"finalize_run_if_ready:{run_id}:{plan_item_id}"
+
+
 def _get_content_type(filetype: str) -> str:
     """
     Преобразовать внутренний тип файла в стандартный MIME content-type.

@@ -151,6 +151,40 @@ class InstructionOverrideRepository:
         )
         return override
 
+
+    async def mark_stale_for_instruction_version(
+        self,
+        instruction_version_id: uuid.UUID,
+    ) -> int:
+        """
+        Помечает stale все override, построенные на конкретной instruction version.
+
+        Это низкоуровневая lifecycle-операция.
+        Полезна для service-слоя, если нужно явно инвалидировать overrides
+        для одной конкретной базовой версии.
+        """
+        stmt = (
+            update(InstructionOverride)
+            .where(
+                InstructionOverride.instruction_version_id == instruction_version_id,
+                InstructionOverride.is_stale.is_(False),
+            )
+            .values(is_stale=True)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+
+        affected = result.rowcount or 0
+        logger.info(
+            "InstructionOverrides marked stale for exact instruction version",
+            extra={
+                "instruction_version_id": str(instruction_version_id),
+                "affected_count": affected,
+            },
+        )
+        return affected
+
+
     async def mark_stale_where_base_outdated(
         self,
         doc_type_code: str,

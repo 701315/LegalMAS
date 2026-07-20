@@ -47,7 +47,7 @@ from core.logging import get_logger
 from ..models.document import Document
 from ..models.result import CheckResult
 from ..models.run import Job, Run
-from .result_repo import ResultRepository
+from .run_check_plan_item_repo import RunCheckPlanItemRepository
 
 
 logger = get_logger(__name__)
@@ -160,22 +160,6 @@ class RunRepository:
         if run:
             await self.session.flush()
         return run
-
-
-    async def increment_completed_checks(self, run_id: uuid.UUID) -> int:
-        """
-        Увеличить счётчик completed_checks на 1 и вернуть новое значение.
-        """
-        stmt = (
-            update(Run)
-            .where(Run.id == run_id)
-            .values(completed_checks=Run.completed_checks + 1)
-            .returning(Run.completed_checks)
-        )
-        result = await self.session.execute(stmt)
-        new_count = result.scalar_one()
-        await self.session.flush()
-        return new_count
 
 
     async def get_counts(self, run_id: uuid.UUID) -> tuple[int, int]:
@@ -318,42 +302,31 @@ class RunRepository:
 
     async def finalize_run_if_finished(self, run_id: uuid.UUID) -> Run | None:
         """
-        Синхронизировать прогресс Run по CheckResult и, если все checks завершены,
-        перевести Run в финальный статус.
-
+        Синхронизировать прогресс Run по RunCheckPlanItem и, если все plan items
+        достигли terminal status, перевести Run в финальный статус.
 
         Инварианты:
-        - source of truth для ожидаемого объёма checks — Run.total_checks,
-          который выставляет scheduler;
-        - materialized_checks — это факт появления CheckResult, а не план;
-        - zero-check run не должен бесконечно оставаться RUNNING.
+        - source of truth для прогресса и финализации Run — run_check_plan_items;
+        - Run.total_checks = количество plan items;
+        - Run.completed_checks = количество terminal plan items;
+        - zero-check run — валидный terminal scenario.
         """
         run = await self.get_by_id(run_id)
         if run is None:
             return None
 
+        plan_item_repo = RunCheckPlanItemRepository(self.session)
+        stats = await plan_item_repo.get_run_progress_stats(run_id)
 
-        result_repo = ResultRepository(self.session)
-
-
-        planned_total_checks = int(getattr(run, "total_checks", 0) or 0)
-        materialized_checks = await result_repo.count_distinct_checks_for_run(run_id)
-        completed_checks = await result_repo.count_finished_checks_for_run(run_id)
-        has_failed_checks = await result_repo.has_failed_or_timed_out_checks(run_id)
-
+        total_items = int(stats["total_items"] or 0)
+        terminal_items = int(stats["terminal_items"] or 0)
+        has_errors = bool(stats["has_errors"])
 
         values: dict = {
-            "completed_checks": completed_checks,
-            "has_errors": has_failed_checks,
+            "total_checks": total_items,
+            "completed_checks": terminal_items,
+            "has_errors": has_errors,
         }
-
-
-        # total_checks уже определён scheduler'ом как execution plan.
-        # Перетираем его только если в Run он ещё не был выставлен.
-        if planned_total_checks <= 0 and materialized_checks > 0:
-            planned_total_checks = materialized_checks
-            values["total_checks"] = planned_total_checks
-
 
         if run.status in (
             RunStatus.COMPLETED.value,
@@ -361,48 +334,40 @@ class RunRepository:
             RunStatus.FAILED.value,
         ):
             stale_updates = {}
-            if (run.completed_checks or 0) != completed_checks:
-                stale_updates["completed_checks"] = completed_checks
-            if bool(getattr(run, "has_errors", False)) != has_failed_checks:
-                stale_updates["has_errors"] = has_failed_checks
+            if (run.total_checks or 0) != total_items:
+                stale_updates["total_checks"] = total_items
+            if (run.completed_checks or 0) != terminal_items:
+                stale_updates["completed_checks"] = terminal_items
+            if bool(getattr(run, "has_errors", False)) != has_errors:
+                stale_updates["has_errors"] = has_errors
             if stale_updates:
                 return await self.update_status(run_id, run.status, **stale_updates)
             return run
 
-
-        # zero-check run — валидный terminal scenario
-        if planned_total_checks <= 0:
+        if total_items <= 0:
             final_status = (
                 RunStatus.COMPLETED_WITH_ERRORS.value
-                if has_failed_checks
+                if has_errors
                 else RunStatus.COMPLETED.value
             )
-            values["total_checks"] = 0
             return await self.update_status(
                 run_id,
                 final_status,
                 **values,
             )
 
-
-        # checks есть, но ещё не все в terminal execution_status
-        if completed_checks < planned_total_checks:
-            values["total_checks"] = planned_total_checks
+        if terminal_items < total_items:
             return await self.update_status(
                 run_id,
                 RunStatus.RUNNING.value,
                 **values,
             )
 
-
         final_status = (
             RunStatus.COMPLETED_WITH_ERRORS.value
-            if has_failed_checks
+            if has_errors
             else RunStatus.COMPLETED.value
         )
-
-
-        values["total_checks"] = planned_total_checks
         return await self.update_status(
             run_id,
             final_status,
@@ -522,6 +487,7 @@ class RunRepository:
         versions: dict[str, str],
         manifest: dict[str, dict],
         payload: dict[str, dict],
+        snapshot_schema_version: int | None = None,
     ) -> Run | None:
         """
         Атомарно зафиксировать полный frozen snapshot doc-type инструкций для Run.
@@ -534,14 +500,18 @@ class RunRepository:
                       метаданные снапшота для аудита/UI.
             payload:  {doc_type: full_yaml_dict} — передаётся в
                       DatabaseInstructionProvider для исполнения checks.
+            snapshot_schema_version: если передан, выставляется атомарно
+                      вместе со snapshot. None = не менять.
 
         Returns:
             Обновлённый Run если запись успешна, иначе None.
 
         Behaviour:
-        - Атомарная запись всех трёх полей одним UPDATE ... RETURNING.
+        - Атомарная запись всех полей одним UPDATE ... RETURNING.
+        - snapshot_schema_version пишется в тот же UPDATE — нет
+          промежуточного состояния.
         - Пустые словари валидны (zero typed-document run).
-        - None для любого аргумента не валиден — caller должен передавать {}.
+        - None для dict-аргументов не валиден.
         - Идемпотентен.
         """
         for name, value in (
@@ -566,14 +536,19 @@ class RunRepository:
                 )
                 return None
 
+        update_values: dict = {
+            "instruction_versions": versions,
+            "instruction_snapshot_manifest": manifest,
+            "instruction_snapshot_payload": payload,
+        }
+
+        if snapshot_schema_version is not None:
+            update_values["snapshot_schema_version"] = snapshot_schema_version
+
         stmt = (
             update(Run)
             .where(Run.id == run_id)
-            .values(
-                instruction_versions=versions,
-                instruction_snapshot_manifest=manifest,
-                instruction_snapshot_payload=payload,
-            )
+            .values(**update_values)
             .returning(Run)
         )
         result = await self.session.execute(stmt)
@@ -586,6 +561,7 @@ class RunRepository:
                 run_id=str(run_id),
                 doc_types_count=len(versions),
                 doc_types=sorted(versions.keys())[:10],
+                snapshot_schema_version=snapshot_schema_version,
             )
         else:
             logger.warning(

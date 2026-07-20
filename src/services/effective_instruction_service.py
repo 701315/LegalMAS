@@ -102,22 +102,39 @@ class EffectiveInstructionService:
         if not doc_type:
             return [], None, False
 
-        instruction_versions = getattr(run, "instruction_versions", None) or {}
-        snapshot_payload = getattr(run, "instruction_snapshot_payload", None) or {}
-        version_id = instruction_versions.get(doc_type)
+        from engine.checks.snapshot_policy import (
+            ConfigurationIntegrityError,
+            resolve_doc_type_payload,
+        )
 
-        if doc_type in snapshot_payload:
-            loader = DocTypeCheckLoader(
-                provider=DatabaseInstructionProvider({doc_type: snapshot_payload[doc_type]})
+        instruction_versions = getattr(run, "instruction_versions", None) or {}
+        version_id = instruction_versions.get(doc_type)
+        snapshot_schema_version = getattr(run, "snapshot_schema_version", None)
+        snapshot_payload = getattr(run, "instruction_snapshot_payload", None)
+
+        try:
+            resolution = resolve_doc_type_payload(
+                run_id=str(run.id),
+                snapshot_schema_version=snapshot_schema_version,
+                instruction_snapshot_payload=snapshot_payload,
+                doc_type=doc_type,
             )
-            is_frozen = True
-        else:
-            logger.info(
-                "effective_instruction_service: no frozen snapshot for doc_type, "
-                "falling back to FilesystemInstructionProvider",
+        except ConfigurationIntegrityError:
+            logger.error(
+                "effective_instruction_service: ConfigurationIntegrityError "
+                "for strict run — doc_type has no frozen payload",
                 run_id=str(run.id),
                 doc_type=doc_type,
             )
+            return [], version_id, False
+
+        if resolution.payload is not None:
+            loader = DocTypeCheckLoader(
+                provider=DatabaseInstructionProvider({doc_type: resolution.payload})
+            )
+            is_frozen = True
+        else:
+            # Legacy run без payload для этого doc_type
             loader = DocTypeCheckLoader()
             is_frozen = False
 
@@ -131,6 +148,27 @@ class EffectiveInstructionService:
 
     @staticmethod
     def _serialize_check(check: Any, *, origin: str) -> dict[str, Any]:
+        raw_origin = getattr(check, "origin", None)
+
+        # Если origin пришёл как Enum
+        if hasattr(raw_origin, "value"):
+            raw_origin = raw_origin.value
+
+        raw_origin = str(raw_origin or origin).strip().lower()
+
+        # Канонизируем к API-контракту
+        if raw_origin in {"global", "global_playbook"}:
+            normalized_origin = "global"
+        elif raw_origin in {
+            "document_type",
+            "document_type_playbook",
+            "doc_type",
+            "doctype",
+        }:
+            normalized_origin = "document_type"
+        else:
+            normalized_origin = origin
+
         return {
             "check_id": getattr(check, "id", None),
             "name": getattr(check, "name", None),
@@ -138,7 +176,7 @@ class EffectiveInstructionService:
             "description": getattr(check, "description", None),
             "detector_type": getattr(getattr(check, "detector_type", None), "value", None),
             "conditional": bool(getattr(check, "conditional", None)),
-            "origin": getattr(check, "origin", None) or origin,
+            "origin": normalized_origin,
         }
     
     

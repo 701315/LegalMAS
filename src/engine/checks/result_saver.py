@@ -66,6 +66,7 @@ async def save_check_result(
     check,
     exec_result: dict,
     playbook_version_id: uuid.UUID | None = None,
+    plan_item_id: uuid.UUID | None = None,
 ) -> Any:
     """
     Сохранить результат одной проверки в check_results идемпотентно
@@ -113,7 +114,7 @@ async def save_check_result(
     # Гарантируем валидное имя проверки для записи в БД.
     persisted_check_name = _resolve_persisted_check_name(
         check_id=exec_result["check_id"],
-        check_name=exec_result.get("check_name"),
+        check_name=exec_result.get("check_name") or getattr(check, "name", None),
     )
 
     try:
@@ -137,6 +138,7 @@ async def save_check_result(
             trigger_name=normalized["trigger_name"],
             origin=normalized["origin"],
             playbook_version_id=playbook_version_id,
+            plan_item_id=plan_item_id,
             page=normalized["page"],
             clause_uid=normalized["clause_uid"],
             element_id=normalized["element_id"],
@@ -180,6 +182,7 @@ async def save_not_applicable_result(
     doc,
     check_id: str,
     playbook_version_id: uuid.UUID | None = None,
+    plan_item_id: uuid.UUID | None = None,
 ) -> Any:
     """
     Сохранить результат для check, который не применим к документу.
@@ -263,6 +266,7 @@ async def save_not_applicable_result(
             trigger_name=normalized["trigger_name"],
             origin=normalized["origin"],
             playbook_version_id=playbook_version_id,
+            plan_item_id=plan_item_id,
             page=normalized["page"],
             clause_uid=normalized["clause_uid"],
             element_id=normalized["element_id"],

@@ -115,11 +115,35 @@ class CheckExecutionStatus(str, Enum):
 
 
 class PlaybookStatus(str, Enum):
-    """Lifecycle status of a playbook version."""
+    """
+    Lifecycle status of a playbook version.
+
+    Lifecycle: draft → published → archived
+    Selection: is_default flag (separate from lifecycle)
+
+    Legacy mapping:
+    - 'stable' treated as 'published' at runtime
+    - 'default' treated as 'published' + is_default=True at runtime
+    """
 
     DRAFT = "draft"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+    # Legacy values — kept for backward compatibility with existing DB rows.
+    # New code should use PUBLISHED instead of STABLE/DEFAULT.
     STABLE = "stable"
     DEFAULT = "default"
+
+    @property
+    def is_runtime_ready(self) -> bool:
+        """True if this version can be used for execution."""
+        return self in (self.PUBLISHED, self.STABLE, self.DEFAULT)
+
+    @property
+    def is_immutable(self) -> bool:
+        """True if content of this version must not be changed."""
+        return self in (self.PUBLISHED, self.STABLE, self.DEFAULT, self.ARCHIVED)
 
 
 class RelationType(str, Enum):

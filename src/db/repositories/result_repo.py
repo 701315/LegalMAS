@@ -9,18 +9,6 @@ Repository for CheckResult operations.
 - пагинацию для DD Grid;
 - обновление QC-статуса.
 
-Важно:
-- этот слой не решает "что такое structured_data",
-  он только аккуратно отдаёт то, что записал раннер
-  (ExtractionExecutor / CheckRunner) в CheckResult.structured_data.
-- контракт structured_data задаётся в api/schemas/results.py
-  (StructuredField / LocationField и т.п.).
-
-Spec v2:
-- upsert_single_check_result принимает 6 новых canonical display semantics полей:
-  ui_mode, display_text, machine_reason_code, review_status,
-  review_message, needs_manual_review.
-- get_by_run_with_docs и get_page_for_run прокидывают эти поля в output dict.
 """
 
 import uuid
@@ -369,9 +357,9 @@ class ResultRepository:
                 CheckResult.run_id == run_id,
                 CheckResult.document_id == document_id,
                 CheckResult.check_id == check_id,
-                CheckResult.segment_id == segment_id
-                if segment_id
-                else CheckResult.segment_id.is_(None),
+                CheckResult.segment_id.is_(None)
+                if segment_id is None
+                else CheckResult.segment_id == segment_id,
             )
             .values(
                 qc_status=qc_status,
@@ -624,6 +612,7 @@ class ResultRepository:
         trigger_name: str | None,
         origin: str | None,
         playbook_version_id: uuid.UUID | None,
+        plan_item_id: uuid.UUID | None = None,
         page: int | None,
         clause_uid: str | None,
         element_id: str | None,
@@ -723,6 +712,7 @@ class ResultRepository:
                         trigger_name=trigger_name,
                         origin=origin,
                         playbook_version_id=playbook_version_id,
+                        plan_item_id=plan_item_id,
                         page=page,
                         clause_uid=clause_uid,
                         element_id=element_id,
@@ -765,6 +755,7 @@ class ResultRepository:
                 existing.trigger_name = trigger_name
                 existing.origin = origin
                 existing.playbook_version_id = playbook_version_id
+                existing.plan_item_id = plan_item_id
                 existing.page = page
                 existing.clause_uid = clause_uid
                 existing.element_id = element_id
@@ -820,6 +811,7 @@ class ResultRepository:
                 "trigger_name": trigger_name,
                 "origin": origin,
                 "playbook_version_id": (str(playbook_version_id) if playbook_version_id else None),
+                "plan_item_id": (str(plan_item_id) if plan_item_id else None),
                 "page": page,
                 "clause_uid": clause_uid,
                 "element_id": element_id,
@@ -831,7 +823,13 @@ class ResultRepository:
                 "is_primary_segment": is_primary_segment,
                 "chunk_id": chunk_id,
                 "chunk_index": chunk_index,
-                "execution_status": execution_status,
+                "context_trace": context_trace,
+                "execution_status": status_value,
+                "raw_execution_status": (
+                    execution_status.value
+                    if isinstance(execution_status, CheckExecutionStatus)
+                    else execution_status
+                ),
                 "error_details": error_details,
                 # ── Spec v2: включаем в payload для диагностики ───────────────
                 "ui_mode": ui_mode,
@@ -906,35 +904,43 @@ class ResultRepository:
 
     async def count_finished_checks_for_run(self, run_id: uuid.UUID) -> int:
         """
-        Сколько уникальных пар (document_id, check_id) уже в финальном execution_status.
+        Количество уникальных (document_id, check_id), для которых
+        все materialized storage-rows уже находятся в terminal execution_status.
 
-        Финальные статусы: SUCCESS, COMPUTE_FAILED, PERSIST_FAILED, TIMEOUT
-        (и legacy FAILED для обратной совместимости).
-
-        ВАЖНО:
-        - мы по-прежнему считаем по (document_id, check_id), без segment_id.
-        - то есть, если хотя бы один сегмент по check'у в финальном статусе,
-          этот (doc, check) считается "finished".
+        Это важно для segment-aware хранения:
+        - один doc/check может материализоваться в несколько rows по segment_id;
+        - finished считается только если нет ни одной non-terminal row
+        внутри того же (document_id, check_id).
         """
-        finished_statuses = [
+        finished_statuses = (
             CheckExecutionStatus.SUCCESS.value,
             CheckExecutionStatus.FAILED.value,
             CheckExecutionStatus.COMPUTE_FAILED.value,
             CheckExecutionStatus.PERSIST_FAILED.value,
             CheckExecutionStatus.TIMEOUT.value,
-        ]
+        )
 
-        stmt = select(func.count()).select_from(
+        per_check = (
             select(
-                distinct(CheckResult.document_id),
-                CheckResult.check_id,
+                CheckResult.document_id.label("document_id"),
+                CheckResult.check_id.label("check_id"),
+                func.count().label("total_rows"),
+                func.sum(
+                    case(
+                        (CheckResult.execution_status.in_(finished_statuses), 1),
+                        else_=0,
+                    )
+                ).label("finished_rows"),
             )
-            .where(
-                CheckResult.run_id == run_id,
-                CheckResult.execution_status.in_(finished_statuses),
-            )
+            .where(CheckResult.run_id == run_id)
+            .group_by(CheckResult.document_id, CheckResult.check_id)
             .subquery()
         )
+
+        stmt = select(func.count()).select_from(per_check).where(
+            per_check.c.total_rows == per_check.c.finished_rows
+        )
+
         result = await self.session.execute(stmt)
         return int(result.scalar_one() or 0)
 

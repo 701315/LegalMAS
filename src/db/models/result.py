@@ -205,6 +205,13 @@ class CheckResult(Base):
         comment="Версия плейбука, которой был выполнен этот check (для аудита)",
     )
 
+    plan_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("run_check_plan_items.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Execution plan item that produced this result",
+    )
+
     # --- Execution status fields ---
 
     execution_status: Mapped[str] = mapped_column(
@@ -360,3 +367,5 @@ class CheckResult(Base):
             postgresql_where=(needs_manual_review.is_(True)),
         ),
     )
+
+

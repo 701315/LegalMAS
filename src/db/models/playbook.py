@@ -16,7 +16,7 @@ PlaybookLineItem — элементы логического плейбука (�
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -171,8 +171,52 @@ class PlaybookVersion(Base):
         String(20),
         nullable=False,
         default=PlaybookStatus.DRAFT.value,
-        comment="draft, stable, default (only one default allowed)",
+        comment="Lifecycle: draft, published, archived. Legacy: stable, default.",
     )
+
+    is_default: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="True if this is the global default version for new deals.",
+    )
+
+    immutable_content_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="Canonical SHA256 of compiled_checks. Set at publish, never changed after.",
+    )
+
+    validation_report: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Validation diagnostics from compile/publish.",
+    )
+
+    parent_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("playbook_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Version this draft was derived from.",
+    )
+
+    source_payload: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Canonical source specification used to build this version. "
+            "Contains bundles/include_ids/exclude_ids/profile/"
+            "model_config_id/from_line_id. "
+            "NULL for legacy YAML-based versions."
+        ),
+    )
+
+    source_payload_sha256: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="Deterministic SHA256 of canonical JSON serialization of source_payload.",
+    )
+
 
     model_config_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
@@ -180,10 +224,16 @@ class PlaybookVersion(Base):
         nullable=True,
     )
 
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When this version was published (immutable).",
+    )
+
     promoted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
-        comment="When this version was promoted to default",
+        comment="When this version was promoted to default.",
     )
 
     trigger_definitions: Mapped[dict | None] = mapped_column(
@@ -222,8 +272,15 @@ class PlaybookVersion(Base):
         ),
     )
 
-    __table_args__ = (Index("idx_playbook_status", "status"),)
-
+    __table_args__ = (
+        Index("idx_playbook_versions_status", "status"),
+        Index(
+            "uix_playbook_versions_one_default",
+            "is_default",
+            unique=True,
+            postgresql_where=text("is_default = true"),
+        ),
+    )
 
 class PlaybookLineItem(Base):
     """

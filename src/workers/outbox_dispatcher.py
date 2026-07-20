@@ -59,10 +59,15 @@ def outbox_dispatcher(
 
         for message in messages:
             try:
+                raw_headers = message.headers or {}
+                queue = raw_headers.get("queue")
+                headers = {k: v for k, v in raw_headers.items() if k != "queue"}
+
                 celery_app.send_task(
                     message.task_name,
                     kwargs=message.payload,
-                    headers=message.headers or {},
+                    headers=headers,
+                    queue=queue,
                 )
 
                 async with db_uow() as uow:
@@ -104,3 +109,6 @@ def outbox_dispatcher(
         }
 
     return run_async(_wrapper())
+
+
+

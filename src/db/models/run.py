@@ -119,6 +119,12 @@ class Run(Base):
         ),
     )
 
+    snapshot_schema_version: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="NULL for legacy runs, 1 for strict snapshot-backed runs",
+    )
+
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
@@ -237,3 +243,5 @@ class Job(Base):
     )
 
     __table_args__ = (Index("idx_jobs_run_status", "run_id", "status"),)
+
+

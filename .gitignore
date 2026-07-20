@@ -55,3 +55,7 @@ alembic/versions/__pycache__/
 
 # LLM модели
 LLMmodel/
+
+# Runtime artifacts
+logs/
+celerybeat-schedule

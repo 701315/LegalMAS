@@ -5,7 +5,7 @@ Integration test: run_deal_checks вызывает freeze_instruction_snapshot
 """
 
 from __future__ import annotations
-
+import pytest
 import uuid
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -136,10 +136,14 @@ def test_freeze_instruction_snapshot_called_with_doc_types_from_deal_documents()
     assert call_kwargs["doc_types"] == {"nda", "spa"}
 
 
-def test_freeze_instruction_snapshot_failure_does_not_crash_run():
+def test_freeze_instruction_snapshot_failure_marks_run_failed_and_aborts():
     """
-    Если freeze_instruction_snapshot падает с исключением, Run продолжает
-    выполняться (fallback на FilesystemInstructionProvider), а не крашится.
+    Если freeze_instruction_snapshot падает с исключением, scheduling не должен
+    продолжаться. Run помечается failed, а worker поднимает исключение.
+
+    Новый strict snapshot contract:
+    - никакого fallback на FilesystemInstructionProvider для новых Run;
+    - planning/disaptch без frozen snapshot запрещены.
     """
     run_id = str(uuid.uuid4())
     deal_id = str(uuid.uuid4())
@@ -168,6 +172,8 @@ def test_freeze_instruction_snapshot_failure_does_not_crash_run():
     mock_runner_instance = MagicMock()
     mock_runner_instance.plan_checks_for_run = AsyncMock(return_value=fake_plan)
 
+    mark_run_failed_mock = AsyncMock(return_value=MagicMock())
+
     with patch.object(check_runner_worker, "db_uow", _fake_db_uow), \
          patch.object(
              check_runner_worker.RunRepository, "get", new=AsyncMock(return_value=run_obj)
@@ -176,6 +182,11 @@ def test_freeze_instruction_snapshot_failure_does_not_crash_run():
              check_runner_worker.RunRepository,
              "try_start_run",
              new=AsyncMock(return_value=True),
+         ), \
+         patch.object(
+             check_runner_worker.RunRepository,
+             "mark_run_failed",
+             new=mark_run_failed_mock,
          ), \
          patch.object(check_runner_worker, "snapshot_run", return_value=run_snap), \
          patch.object(
@@ -198,19 +209,22 @@ def test_freeze_instruction_snapshot_failure_does_not_crash_run():
          ), \
          patch.object(
              check_runner_worker, "build_doc_type_loader", return_value=MagicMock()
-         ), \
+         ) as build_loader_mock, \
          patch.object(
              check_runner_worker, "CheckRunner", return_value=mock_runner_instance
-         ):
+         ) as check_runner_cls_mock:
 
-        result = check_runner_worker.run_deal_checks(
-            run_id=run_id,
-            deal_id=deal_id,
-            tenant_id=None,
-            job_id=None,
-        )
+        with pytest.raises(RuntimeError, match="Strict instruction snapshot freeze failed"):
+            check_runner_worker.run_deal_checks(
+                run_id=run_id,
+                deal_id=deal_id,
+                tenant_id=None,
+                job_id=None,
+            )
 
-    assert result is not None
+    mark_run_failed_mock.assert_awaited_once()
+    build_loader_mock.assert_not_called()
+    check_runner_cls_mock.assert_not_called()
 
 
     

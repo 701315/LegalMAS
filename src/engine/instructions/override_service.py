@@ -129,10 +129,7 @@ class InstructionOverrideService:
           instruction_version_id != latest.id) -> StaleBaseError, требуется
           явный rebase пользователем.
         """
-        latest_version = await self.version_repo.get_latest_by_doc_type_code(
-            doc_type_code,
-            published_only=True,
-        )
+        latest_version = await self.version_repo.get_latest_published(doc_type_code)
         if latest_version is None:
             raise BaseVersionNotFoundError(
                 f"No published instruction version found for doc_type_code={doc_type_code}"

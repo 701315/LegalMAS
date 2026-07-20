@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from typing import Any, Literal
 from uuid import UUID
-
 from pydantic import BaseModel, Field
 
 
@@ -79,7 +78,7 @@ class PlaybookCreateRequest(BaseModel):
         description="Профиль глубины проверки: core/full/quick и т.п.",
     )
 
-    model_config_id: UUID | None = Field(
+    model_config_id: UUID = Field(
         description=(
             "ID ModelConfig, который будет использоваться раннером. "
             "Обязательное поле: версия плейбука всегда должна быть привязана "
@@ -91,10 +90,12 @@ class PlaybookCreateRequest(BaseModel):
         default=None,
         description="Явное значение semver (если нужно задать с фронта).",
     )
-    status: str | None = Field(
+
+    status: Literal["draft", "published", "archived"] | None = Field(
         default=None,
-        description="Статус версии плейбука: draft/stable/default. По умолчанию draft.",
+        description="Статус версии плейбука: draft/published/archived. По умолчанию draft.",
     )
+    
 
     playbook_id: UUID | None = Field(
         default=None,
@@ -112,6 +113,19 @@ class PlaybookCreateRequest(BaseModel):
         ),
     )
 
+class PlaybookDraftUpdateRequest(BaseModel):
+    """
+    Частичное обновление draft-версии плейбука.
+
+    Разрешено только для status=draft.
+    Published/archived версии менять нельзя.
+    """
+
+    name: str | None = None
+    bundles: list[str] | None = None
+    include_ids: list[str] | None = None
+    exclude_ids: list[str] | None = None
+    profile: str | None = None
 
 class PlaybookCreateResponse(BaseModel):
     """Ответ с ID созданной версии плейбука."""
@@ -160,7 +174,8 @@ class PlaybookVersionDetail(BaseModel):
     dd_request_templates: dict[str, Any] | None = None
     section_markers: dict[str, Any] | None = None
     classification_config: dict[str, Any] | None = None
-
+    source_payload: dict[str, Any] | None = None
+    source_payload_sha256: str | None = None
 
 class PlaybookLineShort(BaseModel):
     """
@@ -280,3 +295,23 @@ class ModelConfigUpdateRequest(BaseModel):
     dense_weight: float | None = None
     sparse_weight: float | None = None
     metadata_boost: float | None = None
+
+class PlaybookVersionDiffField(BaseModel):
+    field: str
+    old: Any | None = None
+    new: Any | None = None
+
+
+class PlaybookVersionDiffResponse(BaseModel):
+    """
+    Разница между двумя версиями Playbook по source_payload.
+
+    diff — список изменений по полям source_payload.
+    """
+
+    base_version_id: UUID
+    compare_version_id: UUID
+    has_changes: bool
+    diff: list[PlaybookVersionDiffField]
+
+    

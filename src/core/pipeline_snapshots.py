@@ -94,26 +94,32 @@ class RunSnapshot:
     status: str
 
     deal_id: uuid.UUID | None = None
-
-    # tenant_id — первичный источник истины для orchestration/audit.
-    # Читается из Run.tenant_id при снятии snapshot.
-    # Не должен передаваться через task kwargs или logging context.
     tenant_id: uuid.UUID | None = None
-
     pipeline_strategy: str | None = None
-
     checks_mode: str | None = None
     checks_scope: dict[str, Any] | None = None
-
     playbook_version_id: uuid.UUID | None = None
-    instruction_versions: dict[str, str] | None = None  # {doc_type: version_id_str}
-    instruction_snapshot_manifest: dict[str, Any] | None = None  # {doc_type: {version_id, content_hash, override_id}}
-    instruction_snapshot_payload: dict[str, Any] | None = None  # {doc_type: full_yaml_dict}
+    instruction_versions: dict[str, str] | None = None
+    instruction_snapshot_manifest: dict[str, Any] | None = None
+    instruction_snapshot_payload: dict[str, Any] | None = None
 
+    # NULL = legacy run (без frozen snapshot, filesystem fallback разрешён)
+    # >= 1 = strict run (только frozen payload, filesystem fallback запрещён)
+    snapshot_schema_version: int | None = None
 
     total_checks: int = 0
     completed_checks: int = 0
     has_errors: bool = False
+
+    @property
+    def is_strict_snapshot(self) -> bool:
+        """True если Run требует строгого snapshot mode."""
+        return self.snapshot_schema_version is not None and self.snapshot_schema_version >= 1
+
+    @property
+    def is_legacy(self) -> bool:
+        """True если Run создан до введения strict snapshot."""
+        return self.snapshot_schema_version is None
 
     @property
     def run_id(self) -> uuid.UUID:
@@ -129,13 +135,6 @@ class RunSnapshot:
 
 
 def snapshot_run(run: Any) -> RunSnapshot:
-    """
-    Снять immutable snapshot с ORM-объекта Run.
-
-    Вызывать сразу после загрузки ORM-объекта, до первого await.
-    tenant_id читается напрямую из Run — это первичный источник истины
-    для orchestration/audit цепочки.
-    """
     return RunSnapshot(
         id=run.id,
         status=str(getattr(run, "status", "") or ""),
@@ -151,6 +150,7 @@ def snapshot_run(run: Any) -> RunSnapshot:
         instruction_versions=getattr(run, "instruction_versions", None),
         instruction_snapshot_manifest=getattr(run, "instruction_snapshot_manifest", None),
         instruction_snapshot_payload=getattr(run, "instruction_snapshot_payload", None),
+        snapshot_schema_version=getattr(run, "snapshot_schema_version", None),
     )
 
 

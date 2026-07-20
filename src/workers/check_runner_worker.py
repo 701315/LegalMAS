@@ -40,7 +40,7 @@ Instruction versioning:
 - Зафиксированная карта {doc_type: version_id} сохраняется в Run.instruction_versions.
 - Это гарантирует, что DD Grid review path использует те же версии инструкций,
   которые были актуальны в момент запуска Run, даже если YAML на диске изменился.
-- Ошибка фиксации НЕ роняет Run — это вспомогательная операция.
+- Ошибка фиксации роняет Run в FAILED — strict snapshot обязателен для новых Run.
 """
 
 from __future__ import annotations
@@ -52,7 +52,6 @@ from typing import Any
 
 from celery.exceptions import SoftTimeLimitExceeded
 
-from classifiers.yaml_registry import YAMLRegistry
 from core.check_result_persist_errors import (
     CheckFailureAction,
     CheckResultPersistError,
@@ -67,9 +66,7 @@ from core.pipeline_snapshots import (
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
-from db.repositories.document_type_instruction_version_repo import (
-    DocumentTypeInstructionVersionRepository,
-)
+
 from db.repositories.runner_repo import RunnerRepository
 from engine.checks.instruction_snapshot import (
     build_doc_type_loader,
@@ -85,8 +82,11 @@ from engine.playbook.loader import load_playbook_from_version
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
-from mas_queue.task_dispatcher import send_task_with_context
+from services.outbox_service import OutboxService
 from ops.metrics import get_metrics
+from db.repositories.run_check_plan_item_repo import RunCheckPlanItemRepository
+from engine.checks.snapshot_policy import ConfigurationIntegrityError
+from services.import_helpers import _build_finalize_run_outbox_dedup_key
 
 logger = get_logger(__name__)
 
@@ -128,6 +128,40 @@ def _resolve_effective_tenant_id(
 
 # ─── run_deal_checks ──────────────────────────────────────────────────────────
 
+async def _enqueue_finalize_via_outbox(
+    *,
+    session: Any,
+    run_id: str,
+    plan_item_id: str,
+    tenant_id: str | None,
+) -> None:
+    """
+    Зарегистрировать finalize_run_if_ready через outbox в текущей транзакции.
+
+    Этот outbox event будет опубликован в Celery только после commit транзакции.
+    Гарантирует: finalize увидит уже закоммиченный mark_terminal.
+    """
+    dedup_key = _build_finalize_run_outbox_dedup_key(run_id, plan_item_id)
+    outbox = OutboxService(session)
+
+    try:
+        await outbox.enqueue_task(
+            task_name="workers.finalize_run_if_ready",
+            payload={
+                "run_id": run_id,
+                "tenant_id": tenant_id,
+            },
+            aggregate_type="run",
+            aggregate_id=run_id,
+            dedup_key=dedup_key,
+            headers={"queue": "default"},
+        )
+    except Exception:
+        get_logger(__name__).exception(
+            "run_single_check: failed to enqueue finalize_run_if_ready via outbox",
+            run_id=run_id,
+            plan_item_id=plan_item_id,
+        )
 
 @celery_app.task(
     base=MASBaseTask,
@@ -172,6 +206,7 @@ def run_deal_checks(
             run_repo = RunRepository(uow.session)
             pb_repo = PlaybookRepository(uow.session)
             audit_repo = AuditRepository(uow.session)
+            plan_item_repo = RunCheckPlanItemRepository(uow.session)
 
             try:
                 logger.info(
@@ -238,19 +273,21 @@ def run_deal_checks(
                         run_id=run_id,
                         deal_id=deal_id,
                         fixed_doc_types_count=len(fixed_versions),
+                        snapshot_schema_version=1,
                     )
                 except Exception as version_exc:
-                    fixed_versions = {}
-                    # Best-effort: не роняем Run из-за ошибки фиксации снапшота.
-                    # CheckRunner ниже упадёт на FilesystemInstructionProvider.
-                    logger.warning(
-                        "Run deal checks scheduler: failed to fix instruction snapshot, "
-                        "checks execution will fall back to FilesystemInstructionProvider",
+                    logger.exception(
+                        "Run deal checks scheduler: failed to freeze strict instruction snapshot; "
+                        "aborting scheduling",
                         run_id=run_id,
                         deal_id=deal_id,
                         error=str(version_exc),
                         error_type=type(version_exc).__name__,
                     )
+                    raise RuntimeError(
+                        "Strict instruction snapshot freeze failed; "
+                        "checks scheduling aborted"
+                    ) from version_exc
 
                 # Перечитываем Run, чтобы snapshot содержал только что
                 # зафиксированный instruction_snapshot_payload.
@@ -300,28 +337,61 @@ def run_deal_checks(
                         pairs_count=len(pairs),
                     )
 
+                materialized_items = []
+                for pair in pairs:
+                    item = await plan_item_repo.create_planned(
+                        run_id=run_uuid,
+                        deal_id=deal_uuid,
+                        document_id=uuid.UUID(pair["doc_id"]),
+                        check_id=pair["check_id"],
+                        playbook_version_id=run_snap.playbook_version_id,
+                        segment_id=pair.get("segment_id"),
+                        doc_type=pair.get("doc_type"),
+                        check_name=pair.get("check_name"),
+                        check_origin=pair.get("check_origin"),
+                    )
+                    materialized_items.append(item)
+
+                materialized_count = len(materialized_items)
+
                 await run_repo.update_status(
                     run_uuid,
                     RunStatus.RUNNING.value,
-                    total_checks=total_checks,
+                    total_checks=materialized_count,
                 )
 
                 scheduled = 0
-                for pair in pairs:
-                    send_task_with_context(
-                        "workers.run_single_check",
-                        kwargs={
+                outbox_service = OutboxService(uow.session)
+
+                for item in materialized_items:
+                    outbox_message_id = await outbox_service.enqueue_task(
+                        task_name="workers.run_single_check",
+                        payload={
                             "run_id": run_id,
                             "deal_id": deal_id,
-                            "doc_id": pair["doc_id"],
-                            "check_id": pair["check_id"],
+                            "doc_id": str(item.document_id),
+                            "check_id": item.check_id,
+                            "plan_item_id": str(item.id),
                             "playbook_version_id": str(run_snap.playbook_version_id),
                             "checks_mode": run_snap.checks_mode,
                             "force": False,
                             "tenant_id": tenant_id,
                         },
-                        queue="heavy_llm_checks",
+                        aggregate_type="run",
+                        aggregate_id=run_id,
+                        dedup_key=f"run_single_check:{run_id}:{item.id}",
+                        headers={
+                            "queue": "heavy_llm_checks",
+                        },
                     )
+
+                    marked_item = await plan_item_repo.mark_dispatched(item.id, outbox_message_id)
+                    if marked_item is None:
+                        raise RuntimeError(
+                            f"Failed to mark dispatched for plan_item={item.id}: "
+                            "item is not in planned status"
+                        )
+
                     scheduled += 1
 
                 try:
@@ -349,7 +419,7 @@ def run_deal_checks(
                                 "checks_mode": run_snap.checks_mode,
                                 "checks_scope": run_snap.checks_scope,
                                 "processed_docs": processed_docs,
-                                "total_checks": total_checks,
+                                "total_checks": materialized_count,
                                 "pairs_count": len(pairs),
                                 "scheduled_checks": scheduled,
                                 "planning_errors": errors,
@@ -379,13 +449,13 @@ def run_deal_checks(
                     deal_id=deal_id,
                     duration_sec=round(duration, 2),
                     processed_docs=processed_docs,
-                    planned_checks=total_checks,
+                    planned_checks=materialized_count,
                     scheduled_checks=scheduled,
                     planning_errors=errors,
                     status=RunStatus.RUNNING.value,
                 )
 
-                if total_checks == 0:
+                if materialized_count == 0:
                     logger.warning(
                         "Run deal checks scheduler: zero checks planned, "
                         "finalizing run immediately",
@@ -409,7 +479,7 @@ def run_deal_checks(
                     return {
                         "status": finalized_snap.status,
                         "processed_docs": processed_docs,
-                        "total_checks": total_checks,
+                        "total_checks": materialized_count,
                         "scheduled_checks": scheduled,
                         "errors": errors,
                         "duration_sec": round(duration, 2),
@@ -418,7 +488,7 @@ def run_deal_checks(
                 return {
                     "status": RunStatus.RUNNING.value,
                     "processed_docs": processed_docs,
-                    "total_checks": total_checks,
+                    "total_checks": materialized_count,
                     "scheduled_checks": scheduled,
                     "errors": errors,
                     "duration_sec": round(duration, 2),
@@ -462,6 +532,7 @@ def run_single_check(
     deal_id: str,
     doc_id: str,
     check_id: str,
+    plan_item_id: str,
     *,
     playbook_version_id: str | None = None,
     checks_mode: str | None = None,
@@ -502,6 +573,7 @@ def run_single_check(
     deal_uuid = uuid.UUID(deal_id)
     doc_uuid = uuid.UUID(doc_id)
     pb_version_uuid = uuid.UUID(playbook_version_id) if playbook_version_id else None
+    plan_item_uuid = uuid.UUID(plan_item_id)
 
     async def _run() -> dict:
         from core.tracing import get_stage_tracer  # noqa: PLC0415
@@ -526,10 +598,55 @@ def run_single_check(
                 pb_repo = PlaybookRepository(uow.session)
                 doc_repo = DocumentRepository(uow.session)
                 result_repo = ResultRepository(uow.session)
+                plan_item_repo = RunCheckPlanItemRepository(uow.session)
 
                 effective_pb_version_id = pb_version_uuid
 
                 try:
+                    item = await plan_item_repo.get_by_id(plan_item_uuid)
+                    if item is None:
+                        raise ValueError(f"RunCheckPlanItem not found: {plan_item_uuid}")
+
+                    if (
+                        item.run_id != run_uuid
+                        or item.document_id != doc_uuid
+                        or item.check_id != check_id
+                    ):
+                        
+                        raise ValueError(
+                            "RunCheckPlanItem mismatch with task payload: "
+                            f"item_id={plan_item_uuid}, run_id={item.run_id}, "
+                            f"document_id={item.document_id}, check_id={item.check_id}"
+                        )
+                    
+
+                    if (
+                        pb_version_uuid is not None
+                        and item.playbook_version_id is not None
+                        and item.playbook_version_id != pb_version_uuid
+                    ):
+                        raise ValueError(
+                            "RunCheckPlanItem playbook_version_id mismatch with task payload: "
+                            f"item_id={plan_item_uuid}, "
+                            f"item_playbook_version_id={item.playbook_version_id}, "
+                            f"task_playbook_version_id={pb_version_uuid}"
+                        )
+
+                    started_item = await plan_item_repo.mark_started(plan_item_uuid)
+                    if started_item is None:
+                        logger.info(
+                            "run_single_check: plan item already terminal or not startable",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                            doc_id=doc_id,
+                            check_id=check_id,
+                            plan_item_id=plan_item_id,
+                        )
+                        return {
+                            "status": "SKIPPED",
+                            "reason": "plan_item_not_startable",
+                        }
+
                     run_obj = await run_repo.get(run_uuid)
                     if run_obj is None:
                         raise ValueError(f"Run not found: {run_uuid}")
@@ -610,6 +727,13 @@ def run_single_check(
                             check_id=check_id,
                             force=force,
                         )
+                        await plan_item_repo.mark_terminal(plan_item_uuid, "skipped")
+                        await _enqueue_finalize_via_outbox(
+                            session=uow.session,
+                            run_id=run_id,
+                            plan_item_id=plan_item_id,
+                            tenant_id=tenant_id,
+                        )
                         return {
                             "status": "SKIPPED",
                             "reason": "already_success",
@@ -634,6 +758,7 @@ def run_single_check(
                         run_id=run_uuid,
                         playbook=playbook,
                         check_id=check_id,
+                        plan_item_id=plan_item_uuid,
                     )
 
                     exec_result = outcome["exec_result"]
@@ -647,6 +772,13 @@ def run_single_check(
                             doc_id=doc_id,
                             check_id=check_id,
                             duration_sec=round(duration, 2),
+                        )
+                        await plan_item_repo.mark_terminal(plan_item_uuid, "skipped")
+                        await _enqueue_finalize_via_outbox(
+                            session=uow.session,
+                            run_id=run_id,
+                            plan_item_id=plan_item_id,
+                            tenant_id=tenant_id,
                         )
                         return {
                             "status": "SUCCESS",
@@ -681,6 +813,15 @@ def run_single_check(
                     except Exception:  # noqa: BLE001
                         pass
 
+                    await plan_item_repo.mark_terminal(plan_item_uuid, "succeeded")
+
+                    await _enqueue_finalize_via_outbox(
+                        session=uow.session,
+                        run_id=run_id,
+                        plan_item_id=plan_item_id,
+                        tenant_id=tenant_id,
+                    )
+
                     return {
                         "status": "SUCCESS",
                         "result": exec_result.get("result"),
@@ -714,6 +855,7 @@ def run_single_check(
                         trigger_name=None,
                         origin=None,
                         playbook_version_id=effective_pb_version_id,
+                        plan_item_id=plan_item_uuid,
                         page=None,
                         clause_uid=None,
                         element_id=None,
@@ -721,6 +863,20 @@ def run_single_check(
                         execution_status=CheckExecutionStatus.TIMEOUT.value,
                         error_details={"type": "soft_time_limit", "message": str(e)},
                     )
+
+                    await plan_item_repo.mark_terminal(
+                        plan_item_uuid,
+                        "timeout",
+                        error_details={"type": "soft_time_limit", "message": str(e)},
+                    )
+
+                    await _enqueue_finalize_via_outbox(
+                        session=uow.session,
+                        run_id=run_id,
+                        plan_item_id=plan_item_id,
+                        tenant_id=tenant_id,
+                    )
+
                     raise
 
                 except CheckResultPersistError as e:
@@ -773,6 +929,7 @@ def run_single_check(
                             trigger_name=None,
                             origin=None,
                             playbook_version_id=effective_pb_version_id,
+                            plan_item_id=plan_item_uuid,
                             page=None,
                             clause_uid=None,
                             element_id=None,
@@ -785,6 +942,25 @@ def run_single_check(
                                 "retryable": e.retryable,
                             },
                         )
+
+                        await plan_item_repo.mark_terminal(
+                            plan_item_uuid,
+                            "failed",
+                            error_details={
+                                "type": "persist_error",
+                                "message": str(e),
+                                "sqlstate": e.sqlstate,
+                                "retryable": e.retryable,
+                            },
+                        )
+
+                        await _enqueue_finalize_via_outbox(
+                            session=uow.session,
+                            run_id=run_id,
+                            plan_item_id=plan_item_id,
+                            tenant_id=tenant_id,
+                        )
+
                     except Exception:
                         logger.exception(
                             "run_single_check: failed to persist PERSIST_FAILED sentinel row",
@@ -795,6 +971,79 @@ def run_single_check(
                         )
 
                     raise
+
+                except ConfigurationIntegrityError as e:
+                    logger.exception(
+                        "run_single_check failed: strict snapshot configuration integrity error",
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        doc_id=doc_id,
+                        check_id=check_id,
+                        error=str(e),
+                    )
+
+                    try:
+                        await result_repo.upsert_single_check_result(
+                            run_id=run_uuid,
+                            document_id=doc_uuid,
+                            check_id=check_id,
+                            check_name=check_id,
+                            result="unclear",
+                            severity="unclear",
+                            value_text="configuration_integrity_error",
+                            evidence_ref=None,
+                            confidence=None,
+                            detector_used=None,
+                            quality_flags={
+                                "raw": {
+                                    "source": "configuration_integrity",
+                                    "error_message": str(e),
+                                }
+                            },
+                            structured_data=None,
+                            conditional_check_triggered=False,
+                            trigger_name=None,
+                            origin=None,
+                            playbook_version_id=effective_pb_version_id,
+                            plan_item_id=plan_item_uuid,
+                            page=None,
+                            clause_uid=None,
+                            element_id=None,
+                            bbox=None,
+                            execution_status=CheckExecutionStatus.COMPUTE_FAILED.value,
+                            error_details={
+                                "type": "configuration_integrity",
+                                "message": str(e),
+                            },
+                        )
+
+                        await plan_item_repo.mark_terminal(
+                            plan_item_uuid,
+                            "failed",
+                            error_details={
+                                "type": "configuration_integrity",
+                                "message": str(e),
+                            },
+                        )
+
+                        await _enqueue_finalize_via_outbox(
+                            session=uow.session,
+                            run_id=run_id,
+                            plan_item_id=plan_item_id,
+                            tenant_id=tenant_id,
+                        )
+
+                    except Exception:
+                        logger.exception(
+                            "run_single_check: failed to persist configuration integrity failure sentinel",
+                            run_id=run_id,
+                            deal_id=deal_id,
+                            doc_id=doc_id,
+                            check_id=check_id,
+                        )
+
+                    raise
+
 
                 except Exception as e:
                     logger.exception(
@@ -824,6 +1073,7 @@ def run_single_check(
                             trigger_name=None,
                             origin=None,
                             playbook_version_id=effective_pb_version_id,
+                            plan_item_id=plan_item_uuid,
                             page=None,
                             clause_uid=None,
                             element_id=None,
@@ -831,6 +1081,20 @@ def run_single_check(
                             execution_status=CheckExecutionStatus.COMPUTE_FAILED.value,
                             error_details={"type": "exception", "message": str(e)},
                         )
+
+                        await plan_item_repo.mark_terminal(
+                            plan_item_uuid,
+                            "failed",
+                            error_details={"type": "exception", "message": str(e)},
+                        )
+
+                        await _enqueue_finalize_via_outbox(
+                            session=uow.session,
+                            run_id=run_id,
+                            plan_item_id=plan_item_id,
+                            tenant_id=tenant_id,
+                        )
+
                     except Exception:
                         logger.exception(
                             "run_single_check: failed to persist COMPUTE_FAILED status after exception",
@@ -843,25 +1107,13 @@ def run_single_check(
                     raise
 
                 finally:
-                    try:
-                        send_task_with_context(
-                            "workers.finalize_run_if_ready",
-                            kwargs={
-                                "run_id": run_id,
-                                # tenant_id приходит из параметров задачи run_single_check.
-                                # Передаём явно, чтобы finalize_run_if_ready мог корректно
-                                # атрибутировать audit записи финализации Run.
-                                "tenant_id": tenant_id,
-                            },
-                            queue="default",
-                        )
-                    except Exception:
-                        logger.exception(
-                            "run_single_check: failed to enqueue finalize_run_if_ready",
-                            run_id=run_id,
-                            doc_id=doc_id,
-                            check_id=check_id,
-                        )
+                    # finalize_run_if_ready публикуется через outbox в той же транзакции,
+                    # что и mark_terminal / upsert_result.
+                    # outbox_dispatcher сам доставит задачу после commit.
+                    # Прямой send_task_with_context здесь запрещён:
+                    # он бы отправил задачу ДО commit, и finalize мог бы
+                    # увидеть незафиксированные данные.
+                    pass
 
     return run_async(_run())
 
@@ -897,7 +1149,7 @@ def finalize_run_if_ready(
     async def _run() -> dict:
         async with db_uow() as uow:
             run_repo = RunRepository(uow.session)
-            result_repo = ResultRepository(uow.session)
+            plan_item_repo = RunCheckPlanItemRepository(uow.session)
             audit_repo = AuditRepository(uow.session)
             dse_repo = DocumentStageExecutionRepository(uow.session)
 
@@ -907,8 +1159,11 @@ def finalize_run_if_ready(
 
             run_snap: RunSnapshot = snapshot_run(run_obj)
 
-            finished_checks = await result_repo.count_finished_checks_for_run(run_uuid)
-            materialized_checks = await result_repo.count_distinct_checks_for_run(run_uuid)
+            progress_stats = await plan_item_repo.get_run_progress_stats(run_uuid)
+            terminal_items = int(progress_stats["terminal_items"] or 0)
+            total_items = int(progress_stats["total_items"] or 0)
+            active_items = int(progress_stats["active_items"] or 0)
+            has_plan_errors = bool(progress_stats["has_errors"])
 
             active_stage_executions = await dse_repo.count_active_for_run(run_uuid)
             if active_stage_executions > 0:
@@ -916,14 +1171,18 @@ def finalize_run_if_ready(
                     "finalize_run_if_ready: active document stage executions remain, postponing",
                     run_id=run_id,
                     active_stage_executions=active_stage_executions,
-                    finished_checks=finished_checks,
-                    materialized_checks=materialized_checks,
+                    terminal_items=terminal_items,
+                    total_items=total_items,
+                    active_items=active_items,
+                    has_plan_errors=has_plan_errors,
                 )
                 return {
                     "status": "WAITING_FOR_STAGE_EXECUTIONS",
                     "active_stage_executions": active_stage_executions,
-                    "finished_checks": finished_checks,
-                    "materialized_checks": materialized_checks,
+                    "terminal_items": terminal_items,
+                    "total_items": total_items,
+                    "active_items": active_items,
+                    "has_errors": has_plan_errors,
                     "run_status": run_snap.status,
                 }
 
@@ -939,8 +1198,9 @@ def finalize_run_if_ready(
                 status=updated_snap.status,
                 run_total_checks=updated_snap.total_checks,
                 run_completed_checks=updated_snap.completed_checks,
-                materialized_checks=materialized_checks,
-                finished_checks=finished_checks,
+                terminal_items=terminal_items,
+                total_items=total_items,
+                active_items=active_items,
                 has_errors=updated_snap.has_errors,
             )
 
@@ -981,8 +1241,9 @@ def finalize_run_if_ready(
                                 "status": updated_snap.status,
                                 "total_checks": updated_snap.total_checks,
                                 "completed_checks": updated_snap.completed_checks,
-                                "materialized_checks": materialized_checks,
-                                "finished_checks": finished_checks,
+                                "terminal_items": terminal_items,
+                                "total_items": total_items,
+                                "active_items": active_items,
                                 "has_errors": updated_snap.has_errors,
                             },
                         )
@@ -1007,8 +1268,9 @@ def finalize_run_if_ready(
                     status=updated_snap.status,
                     run_total_checks=updated_snap.total_checks,
                     run_completed_checks=updated_snap.completed_checks,
-                    materialized_checks=materialized_checks,
-                    finished_checks=finished_checks,
+                    terminal_items=terminal_items,
+                    total_items=total_items,
+                    active_items=active_items,
                     has_errors=updated_snap.has_errors,
                 )
                 raise RuntimeError(
@@ -1017,9 +1279,12 @@ def finalize_run_if_ready(
 
             return {
                 "status": "NOT_READY",
-                "total_checks": run_snap.total_checks,
-                "finished_checks": finished_checks,
-                "materialized_checks": materialized_checks,
+                "total_checks": updated_snap.total_checks,
+                "completed_checks": updated_snap.completed_checks,
+                "terminal_items": terminal_items,
+                "total_items": total_items,
+                "active_items": active_items,
+                "has_errors": updated_snap.has_errors,
                 "run_status": updated_snap.status,
             }
 

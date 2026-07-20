@@ -116,7 +116,9 @@ async def test_get_for_document_no_snapshot_falls_back(service):
         playbook_version_id=uuid.uuid4(),
         instruction_versions={},
         instruction_snapshot_payload={},
+        snapshot_schema_version=None,  # legacy run
     )
+
     fake_doc = MagicMock(deal_id=deal_id, doc_type="spa", applicable_triggers=[])
 
     service.run_repo.get = AsyncMock(return_value=fake_run)
@@ -142,6 +144,8 @@ async def test_get_for_document_no_snapshot_falls_back(service):
     assert result["doc_type_instruction_version_id"] is None
 
 
+
+
 @pytest.mark.asyncio
 async def test_get_for_document_no_doc_type_skips_doc_type_checks(service):
     run_id = uuid.uuid4()
@@ -150,6 +154,7 @@ async def test_get_for_document_no_doc_type_skips_doc_type_checks(service):
     fake_run = MagicMock(
         id=run_id, deal_id=deal_id, playbook_version_id=uuid.uuid4(),
         instruction_versions={}, instruction_snapshot_payload={},
+        snapshot_schema_version=None,  # legacy run
     )
     fake_doc = MagicMock(deal_id=deal_id, doc_type=None, applicable_triggers=[])
 

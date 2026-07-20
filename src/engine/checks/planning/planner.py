@@ -98,7 +98,11 @@ class CheckPlanner:
         document_version_id можно получить заранее через
         DocumentVersionRepository.get_latest(doc.id).
         """
-        raw_doc_type = getattr(doc, "doc_type", "") or ""
+        raw_doc_type = (
+            getattr(doc, "doc_type", None)
+            or getattr(doc, "doctype", None)
+            or ""
+        )
         raw_triggers = getattr(doc, "applicable_triggers", None) or []
         trigger_list = _normalize_triggers(raw_triggers)
 
@@ -266,7 +270,11 @@ class CheckPlanner:
 
         Новый код должен использовать build_context_for_document.
         """
-        raw_doc_type = getattr(doc, "doc_type", "") or ""
+        raw_doc_type = (
+            getattr(doc, "doc_type", None)
+            or getattr(doc, "doctype", None)
+            or ""
+        )
         raw_triggers = getattr(doc, "applicable_triggers", None) or []
         applicable_triggers = _normalize_triggers(raw_triggers)
 
@@ -364,7 +372,7 @@ class CheckPlanner:
         processed_docs = 0
         total_checks = 0
         errors = 0
-        pairs: list[dict[str, str]] = []
+        pairs: list[dict[str, Any]] = []
 
         doc_repo = DocumentRepository(session)
         docs = await doc_repo.list_by_deal_id(deal_id)
@@ -436,7 +444,7 @@ class CheckPlanner:
                     pairs.append({
                         "doc_id": doc_snap.document_id_str,
                         "check_id": str(check_id),
-                        "doc_type": doc_type,  # ← НОВОЕ ПОЛЕ
+                        "doc_type": effective_doc_type,
                     })
                     total_checks += 1
 
