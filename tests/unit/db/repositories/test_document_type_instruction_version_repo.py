@@ -13,6 +13,8 @@ from db.repositories.document_type_instruction_version_repo import (
     DocumentTypeInstructionVersionRepository,
     ResolveInstructionVersionResult,
 )
+from db.repositories.document_type_instruction_version_repo import TenantOwnershipError
+
 
 
 def _make_execute_result(*, scalar=None, scalars_all=None) -> MagicMock:
@@ -35,12 +37,16 @@ def _make_version(
     doc_type_code: str = "nda",
     source_sha256: str = "abc123",
     version_status: str = "draft",
+    owner_scope: str = "platform",
+    tenant_id: uuid.UUID | None = None,
 ) -> MagicMock:
     version = MagicMock(spec=DocumentTypeInstructionVersion)
     version.id = version_id or uuid.uuid4()
     version.doc_type_code = doc_type_code
     version.source_sha256 = source_sha256
     version.version_status = version_status
+    version.owner_scope = owner_scope
+    version.tenant_id = tenant_id
     version.created_at = None
     version.source_yaml = "foo: bar"
     version.compiled_payload = {"checks": []}
@@ -52,6 +58,7 @@ def _make_version(
     version.change_summary = None
     version.immutable_content_hash = None
     version.parent_version_id = None
+    version.derived_from_version_id = None
     version.published_at = None
     return version
 
@@ -116,9 +123,28 @@ class TestDocumentTypeInstructionVersionRepository:
         affected = await repo.archive_previous_published(
             doc_type_code="nda",
             exclude_version_id=uuid.uuid4(),
+            owner_scope="platform",
+            tenant_id=None,
         )
 
         assert affected == 3
+        mock_session.flush.assert_awaited_once()
+
+    async def test_archive_previous_published_tenant_scope(self, mock_session: MagicMock) -> None:
+        execute_result = MagicMock()
+        execute_result.rowcount = 1
+        mock_session.execute.return_value = execute_result
+
+        tenant_id = uuid.uuid4()
+        repo = DocumentTypeInstructionVersionRepository(mock_session)
+        affected = await repo.archive_previous_published(
+            doc_type_code="nda",
+            exclude_version_id=uuid.uuid4(),
+            owner_scope="tenant",
+            tenant_id=tenant_id,
+        )
+
+        assert affected == 1
         mock_session.flush.assert_awaited_once()
 
     async def test_update_version_updates_fields_and_flushes(self, mock_session: MagicMock) -> None:
@@ -204,6 +230,67 @@ class TestDocumentTypeInstructionVersionRepository:
                 semver=None,
                 compiled_payload=None,
             )
+
+    async def test_get_latest_published_platform_scope(self, mock_session: MagicMock) -> None:
+        version = _make_version(version_status="published", owner_scope="platform")
+        mock_session.execute.return_value = _make_execute_result(scalar=version)
+
+        repo = DocumentTypeInstructionVersionRepository(mock_session)
+        result = await repo.get_latest_published("nda")
+
+        assert result is version
+        assert result.owner_scope == "platform"
+
+    async def test_get_latest_published_prefers_tenant_version(self, mock_session: MagicMock) -> None:
+        tenant_id = uuid.uuid4()
+        tenant_version = _make_version(
+            version_status="published",
+            owner_scope="tenant",
+            tenant_id=tenant_id,
+        )
+        # First call returns tenant version
+        mock_session.execute.return_value = _make_execute_result(scalar=tenant_version)
+
+        repo = DocumentTypeInstructionVersionRepository(mock_session)
+        result = await repo.get_latest_published("nda", tenant_id=tenant_id)
+
+        assert result is tenant_version
+        assert result.owner_scope == "tenant"
+
+    async def test_assert_tenant_owns_raises_for_platform_version(self, mock_session: MagicMock) -> None:
+        platform_version = _make_version(owner_scope="platform", tenant_id=None)
+        mock_session.execute.return_value = _make_execute_result(scalar=platform_version)
+
+        tenant_id = uuid.uuid4()
+        repo = DocumentTypeInstructionVersionRepository(mock_session)
+
+        with pytest.raises(TenantOwnershipError):
+            await repo.assert_tenant_owns(platform_version.id, tenant_id)
+
+    async def test_build_persistence_payload_has_platform_scope(self, mock_session: MagicMock) -> None:
+        from types import SimpleNamespace
+        cfg = SimpleNamespace(
+            type_code="nda",
+            name="NDA",
+            source_yaml="foo: bar",
+            source_sha256="sha123",
+            source_path="/tmp/nda.yaml",
+            source_kind="file",
+            raw={"checks": []},
+        )
+
+        repo = DocumentTypeInstructionVersionRepository(mock_session)
+        payload = repo._build_persistence_payload(
+            cfg,
+            git_commit=None,
+            semver=None,
+            compiled_payload=None,
+        )
+
+        assert payload["owner_scope"] == "platform"
+        assert payload["tenant_id"] is None
+        assert payload["derived_from_version_id"] is None
+
 
 
             

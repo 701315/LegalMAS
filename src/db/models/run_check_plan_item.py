@@ -56,6 +56,13 @@ class RunCheckPlanItem(Base):
         comment="ID логического сегмента (NULL для single-document файлов)",
     )
 
+    doc_type: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Resolved document type at planning time for audit/debug/coverage",
+    )
+
+
     check_id: Mapped[str] = mapped_column(
         String(100),
         nullable=False,

@@ -119,11 +119,22 @@ class Run(Base):
         ),
     )
 
+    execution_manifest: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Frozen execution manifest V1: "
+            "{schema_version, playbook:{version_id, immutable_hash, model_config_id}, "
+            "doc_type_instructions:{doc_type:{version_id}}}"
+        ),
+    )
+
     snapshot_schema_version: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
         comment="NULL for legacy runs, 1 for strict snapshot-backed runs",
     )
+
 
     status: Mapped[str] = mapped_column(
         String(50),
@@ -183,6 +194,8 @@ class Run(Base):
         JSONB,
         nullable=True,
     )
+
+
 
 
 class Job(Base):

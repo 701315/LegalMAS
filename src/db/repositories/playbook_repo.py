@@ -4,7 +4,7 @@
 """
 Repository for Playbook, PlaybookVersion and ModelConfig operations.
 """
-
+from uuid import UUID
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -542,3 +542,71 @@ class PlaybookRepository:
         return pv
 
 
+    async def get_effective_version_for_deal(
+        self,
+        deal_id: UUID,
+    ) -> PlaybookVersion | None:
+        """
+        Возвращает версию playbook для запуска Run.
+
+        Приоритет:
+
+        1. Если у сделки явно указан playbook_version_id:
+        - если status in (published, active) → использовать
+        - если draft или archived → ошибка
+
+        2. Иначе:
+        - последняя published версия
+        - fallback на legacy active
+        """
+
+        # --- 1️⃣ Проверяем, есть ли явно привязанная версия у сделки ---
+
+        result = await self.session.execute(
+            select(Deal.playbook_version_id).where(Deal.id == deal_id)
+        )
+        deal_playbook_id = result.scalar_one_or_none()
+
+        if deal_playbook_id:
+            pv = await self.get_by_id(deal_playbook_id)
+            if pv is None:
+                return None
+
+            # Разрешаем published и legacy active
+            if pv.status in (
+                PlaybookStatus.PUBLISHED.value,
+                "active",  # legacy fallback
+            ):
+                return pv
+
+            # draft / archived запрещены для Run
+            raise Exception("PLAYBOOK_VERSION_NOT_RUNNABLE")
+
+        # --- 2️⃣ Нет явной версии → ищем published ---
+
+        stmt = (
+            select(PlaybookVersion)
+            .where(PlaybookVersion.status == PlaybookStatus.PUBLISHED.value)
+            .order_by(PlaybookVersion.published_at.desc())
+            .limit(1)
+        )
+
+        result = await self.session.execute(stmt)
+        published = result.scalar_one_or_none()
+
+        if published:
+            return published
+
+        # --- 3️⃣ Fallback на legacy active ---
+
+        stmt = (
+            select(PlaybookVersion)
+            .where(PlaybookVersion.status == "active")
+            .order_by(PlaybookVersion.created_at.desc())
+            .limit(1)
+        )
+
+        result = await self.session.execute(stmt)
+        legacy = result.scalar_one_or_none()
+
+        return legacy

@@ -4,20 +4,28 @@
 Repository для работы с instruction overrides.
 
 Override — это diff (JSON Patch, RFC 6902) поверх конкретной версии
-инструкции типа документа (DocumentTypeInstructionVersion), привязанный
-к конкретной сделке (deal_id).
+инструкции типа документа (DocumentTypeInstructionVersion).
+
+Поддерживаемые scope:
+- tenant override: override_scope='tenant', deal_id=NULL
+- deal override: override_scope='deal', deal_id=<uuid>
+
+Lifecycle:
+- draft → active → archived
+
+Инварианты на уровне БД:
+- одна неархивная tenant override на (tenant_id, instruction_version_id)
+- одна неархивная deal override на (deal_id, instruction_version_id)
 
 Этот модуль инкапсулирует:
 - создание override (с фиксацией base_content_hash);
-- получение override по deal_id + instruction_version_id;
-- получение override по id;
-- список всех override для сделки;
-- пометку override как is_stale (когда базовая версия инструкции изменилась);
-- обновление patch_ops при rebase override на новую базовую версию.
+- получение override по различным scope/filter комбинациям;
+- lifecycle transitions (draft → active → archived);
+- staleness management;
+- rebase на новую base version.
 
-Важно: сам apply patch (генерация эффективного YAML/dict) находится
-в InstructionOverrideService, а не здесь — репозиторий отвечает только
-за persistence, не за бизнес-логику patch/conflict.
+ВАЖНО: сам apply patch (генерация эффективного YAML/dict) находится
+в InstructionOverrideService, а не здесь.
 """
 
 from __future__ import annotations
@@ -34,6 +42,14 @@ from ..models.instruction_override import InstructionOverride
 logger = get_logger(__name__)
 
 
+class TenantOwnershipError(Exception):
+    """Override не принадлежит данному tenant'у."""
+
+
+class InvalidLifecycleTransitionError(Exception):
+    """Lifecycle transition не разрешён для данного override."""
+
+
 class InstructionOverrideRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -42,18 +58,32 @@ class InstructionOverrideRepository:
 
     async def create(
         self,
-        deal_id: uuid.UUID,
+        *,
+        tenant_id: uuid.UUID,
+        override_scope: str,
+        deal_id: uuid.UUID | None,
         instruction_version_id: uuid.UUID,
         base_content_hash: str,
         patch_ops: list[dict],
+        status: str = "draft",
         change_summary: str | None = None,
         created_by: uuid.UUID | None = None,
     ) -> InstructionOverride:
+        """
+        Создать override.
+
+        override_scope='tenant' → deal_id должен быть None.
+        override_scope='deal' → deal_id обязателен.
+        status по умолчанию 'draft'.
+        """
         override = InstructionOverride(
+            tenant_id=tenant_id,
+            override_scope=override_scope,
             deal_id=deal_id,
             instruction_version_id=instruction_version_id,
             base_content_hash=base_content_hash,
             patch_ops=patch_ops,
+            status=status,
             change_summary=change_summary,
             created_by=created_by,
         )
@@ -63,9 +93,12 @@ class InstructionOverrideRepository:
         logger.info(
             "InstructionOverride created",
             extra={
-                "deal_id": str(deal_id),
+                "tenant_id": str(tenant_id),
+                "override_scope": override_scope,
+                "deal_id": str(deal_id) if deal_id else None,
                 "instruction_version_id": str(instruction_version_id),
                 "override_id": str(override.id),
+                "status": status,
             },
         )
         return override
@@ -79,21 +112,87 @@ class InstructionOverrideRepository:
         )
         return result.scalar_one_or_none()
 
+    async def assert_tenant_owns(
+        self,
+        override_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+    ) -> InstructionOverride:
+        """
+        Загрузить override и проверить tenant ownership.
+
+        Raises: TenantOwnershipError если override не принадлежит tenant.
+        Используется как guard в service/endpoint layer.
+        """
+        override = await self.get_by_id(override_id)
+        if override is None:
+            raise TenantOwnershipError(
+                f"Override {override_id} not found."
+            )
+        if override.tenant_id != tenant_id:
+            raise TenantOwnershipError(
+                f"Override {override_id} does not belong to tenant {tenant_id}. "
+                f"override.tenant_id={override.tenant_id}"
+            )
+        return override
+
+    # ── Scope-aware reads ─────────────────────────────────────────────────────
+
     async def get_by_deal_and_version(
+        self,
+        deal_id: uuid.UUID,
+        instruction_version_id: uuid.UUID,
+        *,
+        status: str | None = None,
+    ) -> InstructionOverride | None:
+        """
+        Вернуть deal-scope override для конкретной сделки и base version.
+
+        Если status задан — фильтрует по нему.
+        Если status не задан — возвращает любой (включая archived).
+
+        Используется InstructionOverrideService при resolving effective
+        instruction set для snapshot creation.
+        """
+        stmt = select(InstructionOverride).where(
+            InstructionOverride.deal_id == deal_id,
+            InstructionOverride.instruction_version_id == instruction_version_id,
+            InstructionOverride.override_scope == "deal",
+        )
+        if status is not None:
+            stmt = stmt.where(InstructionOverride.status == status)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_active_deal_override(
         self,
         deal_id: uuid.UUID,
         instruction_version_id: uuid.UUID,
     ) -> InstructionOverride | None:
         """
-        Вернуть override для конкретной сделки и конкретной base version.
+        Активный deal-level override для данной base version и сделки.
+        status='active', override_scope='deal'.
+        """
+        return await self.get_by_deal_and_version(
+            deal_id,
+            instruction_version_id,
+            status="active",
+        )
 
-        Используется InstructionOverrideService при resolving effective
-        instruction set для snapshot creation.
+    async def get_active_tenant_override(
+        self,
+        tenant_id: uuid.UUID,
+        instruction_version_id: uuid.UUID,
+    ) -> InstructionOverride | None:
+        """
+        Активный tenant-level override для данной base version.
+        status='active', override_scope='tenant'.
         """
         result = await self.session.execute(
             select(InstructionOverride).where(
-                InstructionOverride.deal_id == deal_id,
+                InstructionOverride.tenant_id == tenant_id,
                 InstructionOverride.instruction_version_id == instruction_version_id,
+                InstructionOverride.override_scope == "tenant",
+                InstructionOverride.status == "active",
             )
         )
         return result.scalar_one_or_none()
@@ -101,27 +200,146 @@ class InstructionOverrideRepository:
     async def list_for_deal(
         self,
         deal_id: uuid.UUID,
+        *,
+        status: str | None = None,
     ) -> list[InstructionOverride]:
-        result = await self.session.execute(
-            select(InstructionOverride)
-            .where(InstructionOverride.deal_id == deal_id)
-            .order_by(InstructionOverride.created_at.asc())
+        """
+        Все deal-level overrides для данной сделки.
+        Если status задан — фильтрует по нему.
+        """
+        stmt = select(InstructionOverride).where(
+            InstructionOverride.deal_id == deal_id,
+            InstructionOverride.override_scope == "deal",
         )
+        if status is not None:
+            stmt = stmt.where(InstructionOverride.status == status)
+        stmt = stmt.order_by(InstructionOverride.created_at.asc())
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_for_tenant_scope(
+        self,
+        tenant_id: uuid.UUID,
+        *,
+        status: str | None = None,
+    ) -> list[InstructionOverride]:
+        """
+        Все tenant-level overrides (override_scope='tenant') для данного tenant.
+        Если status задан — фильтрует по нему.
+        """
+        stmt = select(InstructionOverride).where(
+            InstructionOverride.tenant_id == tenant_id,
+            InstructionOverride.override_scope == "tenant",
+        )
+        if status is not None:
+            stmt = stmt.where(InstructionOverride.status == status)
+        stmt = stmt.order_by(InstructionOverride.created_at.asc())
+        result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
     async def list_stale_for_deal(
         self,
         deal_id: uuid.UUID,
     ) -> list[InstructionOverride]:
+        """
+        Stale deal-level overrides для данной сделки.
+        """
         result = await self.session.execute(
             select(InstructionOverride).where(
                 InstructionOverride.deal_id == deal_id,
+                InstructionOverride.override_scope == "deal",
                 InstructionOverride.is_stale.is_(True),
             )
         )
         return list(result.scalars().all())
 
-    # ── Mutations ─────────────────────────────────────────────────────────────
+    async def list_stale_for_tenant(
+        self,
+        tenant_id: uuid.UUID,
+    ) -> list[InstructionOverride]:
+        """
+        Stale tenant-level overrides для данного tenant.
+        """
+        result = await self.session.execute(
+            select(InstructionOverride).where(
+                InstructionOverride.tenant_id == tenant_id,
+                InstructionOverride.override_scope == "tenant",
+                InstructionOverride.is_stale.is_(True),
+            )
+        )
+        return list(result.scalars().all())
+
+    async def find_any_override_for_doc_type(
+        self,
+        *,
+        deal_id: uuid.UUID | None = None,
+        tenant_id: uuid.UUID | None = None,
+        doc_type_code: str,
+        scope: str,
+    ) -> InstructionOverride | None:
+        """
+        Найти override для deal/tenant, привязанный к ЛЮБОЙ версии
+        данного doc_type_code.
+
+        Используется для staleness detection: если override ссылается
+        на старую версию инструкции, нужно предупредить пользователя.
+        """
+        from db.models.document_type_instruction import DocumentTypeInstructionVersion
+
+        stmt = select(InstructionOverride).where(
+            InstructionOverride.override_scope == scope,
+            InstructionOverride.instruction_version_id.in_(
+                select(DocumentTypeInstructionVersion.id).where(
+                    DocumentTypeInstructionVersion.doc_type_code == doc_type_code,
+                )
+            ),
+        )
+        if scope == "deal" and deal_id is not None:
+            stmt = stmt.where(InstructionOverride.deal_id == deal_id)
+        elif scope == "tenant" and tenant_id is not None:
+            stmt = stmt.where(InstructionOverride.tenant_id == tenant_id)
+
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
+    # ── Lifecycle transitions ─────────────────────────────────────────────────
+
+    async def transition_status(
+        self,
+        override_id: uuid.UUID,
+        *,
+        from_status: str,
+        to_status: str,
+        tenant_id: uuid.UUID,
+    ) -> InstructionOverride | None:
+        """
+        Атомарный lifecycle transition с ownership check.
+
+        Raises: TenantOwnershipError если override не принадлежит tenant.
+        Raises: InvalidLifecycleTransitionError если from_status не совпадает.
+        """
+        override = await self.assert_tenant_owns(override_id, tenant_id)
+        if override.status != from_status:
+            raise InvalidLifecycleTransitionError(
+                f"Override {override_id} has status='{override.status}', "
+                f"expected='{from_status}'. Cannot transition to '{to_status}'."
+            )
+        stmt = (
+            update(InstructionOverride)
+            .where(
+                InstructionOverride.id == override_id,
+                InstructionOverride.status == from_status,
+            )
+            .values(status=to_status)
+            .returning(InstructionOverride)
+        )
+        result = await self.session.execute(stmt)
+        updated = result.scalar_one_or_none()
+        if updated:
+            await self.session.flush()
+        return updated
+
+    # ── Staleness management ──────────────────────────────────────────────────
 
     async def mark_stale(
         self,
@@ -130,8 +348,7 @@ class InstructionOverrideRepository:
         """
         Помечает override как stale.
 
-        Вызывается, когда базовая instruction version, на которой
-        построен override, была изменена/republished с новым content_hash.
+        Вызывается, когда базовая instruction version изменилась.
         Не удаляет и не мутирует patch_ops — только флаг.
         """
         stmt = (
@@ -151,7 +368,6 @@ class InstructionOverrideRepository:
         )
         return override
 
-
     async def mark_stale_for_instruction_version(
         self,
         instruction_version_id: uuid.UUID,
@@ -159,9 +375,7 @@ class InstructionOverrideRepository:
         """
         Помечает stale все override, построенные на конкретной instruction version.
 
-        Это низкоуровневая lifecycle-операция.
-        Полезна для service-слоя, если нужно явно инвалидировать overrides
-        для одной конкретной базовой версии.
+        Независимо от scope (tenant/deal).
         """
         stmt = (
             update(InstructionOverride)
@@ -184,7 +398,6 @@ class InstructionOverrideRepository:
         )
         return affected
 
-
     async def mark_stale_where_base_outdated(
         self,
         doc_type_code: str,
@@ -194,9 +407,8 @@ class InstructionOverrideRepository:
         Помечает stale все override для данного doc_type_code, чья
         instruction_version_id не совпадает с latest_version_id.
 
-        Вызывается после публикации новой instruction version для
-        doc_type_code — все override, построенные на предыдущих версиях,
-        считаются stale и требуют явного rebase.
+        Вызывается после публикации новой instruction version.
+        Охватывает и tenant, и deal overrides.
         """
         from ..models.document_type_instruction import DocumentTypeInstructionVersion
 
@@ -227,6 +439,8 @@ class InstructionOverrideRepository:
         )
         return affected
 
+    # ── Rebase ────────────────────────────────────────────────────────────────
+
     async def rebase(
         self,
         override_id: uuid.UUID,
@@ -238,8 +452,8 @@ class InstructionOverrideRepository:
         Пересобирает override на новую базовую версию инструкции.
 
         Явная операция rebase — вызывается только пользователем через UI
-        conflict resolution, никогда автоматически. is_stale сбрасывается
-        в False только после успешного rebase.
+        conflict resolution, никогда автоматически.
+        is_stale сбрасывается в False только после успешного rebase.
         """
         stmt = (
             update(InstructionOverride)
@@ -278,4 +492,6 @@ class InstructionOverrideRepository:
             extra={"override_id": str(override_id)},
         )
         return True
+    
+
     

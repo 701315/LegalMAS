@@ -59,6 +59,8 @@ from .endpoints import (
     document_pipeline_view,
     document_types,
     exports,
+    instruction_overrides,
+    instruction_preview,
     instruction_versions,
     model_configs,
     playbook_runs,
@@ -241,6 +243,12 @@ app.include_router(document_types.router, prefix="/api/v1")
 
 # Lifecycle API для instruction versions.
 app.include_router(instruction_versions.router, prefix="/api/v1")
+
+# Lifecycle API для instruction overrides (tenant/deal level).
+app.include_router(instruction_overrides.router, prefix="/api/v1")
+
+# Unified instruction preview endpoint.
+app.include_router(instruction_preview.router, prefix="/api/v1")
 
 # История и пересборка плейбука по сделке.
 app.include_router(playbook_runs.router, prefix="/api/v1")

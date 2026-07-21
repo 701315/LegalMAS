@@ -8,11 +8,20 @@ Document type instruction version model.
 Lifecycle:
   draft → published → archived
 
+Ownership scopes:
+  - platform: tenant_id IS NULL, видима всем tenant'ам на чтение
+  - tenant:   tenant_id IS NOT NULL, принадлежит одному tenant'у
+
 Инварианты:
 - только draft может быть изменён;
 - published версия immutable: YAML, compiled_payload, hash не меняются;
-- только одна published версия на doc_type (partial unique index);
-- immutable_content_hash выставляется единожды при publish.
+- только одна published platform версия на doc_type;
+- только одна published tenant версия на (doc_type, tenant_id);
+- immutable_content_hash выставляется единожды при publish;
+- tenant не редактирует platform instruction inplace;
+- identical source snapshots могут существовать:
+  - один раз на platform уровне;
+  - по одному разу в каждом tenant-space.
 """
 
 from __future__ import annotations
@@ -20,7 +29,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,6 +49,24 @@ class DocumentTypeInstructionVersion(Base):
         String(300),
         nullable=True,
         comment="Optional display name of the document type instruction.",
+    )
+
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
+        comment=(
+            "NULL = platform-owned instruction visible to all tenants. "
+            "Non-null = tenant-owned instruction visible only inside this tenant."
+        ),
+    )
+
+    owner_scope: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="platform",
+        server_default=text("'platform'"),
+        comment="Ownership scope: platform | tenant",
     )
 
     source_format: Mapped[str] = mapped_column(
@@ -115,6 +142,16 @@ class DocumentTypeInstructionVersion(Base):
         comment="Version this draft was derived from (for audit trail).",
     )
 
+    derived_from_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_type_instruction_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        comment=(
+            "If this tenant-owned instruction was copied/derived from another "
+            "instruction version, stores the source version id."
+        ),
+    )
+
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
@@ -140,6 +177,10 @@ class DocumentTypeInstructionVersion(Base):
             "doc_type_code",
         ),
         Index(
+            "ix_document_type_instruction_versions_tenant_id",
+            "tenant_id",
+        ),
+        Index(
             "idx_doc_type_instruction_versions_sha256",
             "source_sha256",
         ),
@@ -149,15 +190,41 @@ class DocumentTypeInstructionVersion(Base):
             "version_status",
         ),
         Index(
-            "uix_doc_type_instruction_versions_one_published",
-            "doc_type_code",
-            unique=True,
-            postgresql_where=text("version_status = 'published'"),
-        ),
-        UniqueConstraint(
+            "uix_doc_type_instruction_versions_platform_source_sha256",
             "doc_type_code",
             "source_sha256",
-            name="uq_doc_type_instruction_versions_doc_type_code_sha256",
+            unique=True,
+            postgresql_where=text("owner_scope = 'platform'"),
+        ),
+        Index(
+            "uix_doc_type_instruction_versions_tenant_source_sha256",
+            "doc_type_code",
+            "source_sha256",
+            "tenant_id",
+            unique=True,
+            postgresql_where=text("owner_scope = 'tenant'"),
+        ),
+        Index(
+            "uix_doc_type_instr_ver_one_published_platform",
+            "doc_type_code",
+            unique=True,
+            postgresql_where=text(
+                "version_status = 'published' AND owner_scope = 'platform'"
+            ),
+        ),
+        Index(
+            "uix_doc_type_instr_ver_one_published_tenant",
+            "doc_type_code",
+            "tenant_id",
+            unique=True,
+            postgresql_where=text(
+                "version_status = 'published' AND owner_scope = 'tenant'"
+            ),
+        ),
+        CheckConstraint(
+            "((owner_scope = 'platform' AND tenant_id IS NULL) "
+            "OR (owner_scope = 'tenant' AND tenant_id IS NOT NULL))",
+            name="ck_doc_type_instruction_versions_owner_scope_tenant",
         ),
     )
 

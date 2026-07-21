@@ -536,10 +536,41 @@ class RunRepository:
                 )
                 return None
 
+        # --- Build minimal execution manifest V1 ---
+
+        current_run = await self.get_by_id(run_id)
+        if not current_run:
+            return None
+
+        from db.repositories.playbook_repo import PlaybookRepository
+
+        playbook_repo = PlaybookRepository(self.session)
+        pb_version = await playbook_repo.get_by_id(current_run.playbook_version_id)
+
+        execution_manifest = {
+            "schema_version": 1,
+            "playbook": {
+                "version_id": str(current_run.playbook_version_id),
+                "immutable_content_hash": getattr(pb_version, "immutable_content_hash", None),
+                "model_config_id": (
+                    str(current_run.model_config_id)
+                    if current_run.model_config_id
+                    else None
+                ),
+            },
+            "doc_type_instructions": {
+                doc_type: {
+                    "version_id": versions.get(doc_type),
+                }
+                for doc_type in versions.keys()
+            },
+        }
+
         update_values: dict = {
             "instruction_versions": versions,
             "instruction_snapshot_manifest": manifest,
             "instruction_snapshot_payload": payload,
+            "execution_manifest": execution_manifest,
         }
 
         if snapshot_schema_version is not None:

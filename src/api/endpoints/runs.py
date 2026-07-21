@@ -59,6 +59,8 @@ from services.effective_instruction_service import (
 from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
 from services.run_pipeline_progress_service import RunPipelineProgressService
 from services.run_progress_service import subscribe_run_progress
+from api.schemas.instruction_overrides import RunInstructionSnapshotResponse
+from engine.checks.snapshot_policy import check_snapshot_integrity
 
 logger = get_logger(__name__)
 
@@ -812,3 +814,58 @@ async def get_deal_run_summary(
     )
 
     
+@router.get(
+    "/{run_id}/instruction-snapshot",
+    response_model=RunInstructionSnapshotResponse,
+    summary="Frozen instruction snapshot для исторического Run",
+)
+async def get_run_instruction_snapshot(
+    run: Run = Depends(get_scoped_run),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> RunInstructionSnapshotResponse:
+    """
+    Вернуть frozen instruction snapshot для Run.
+
+    Показывает:
+    - exact instruction versions, зафиксированные на момент запуска;
+    - snapshot manifest с hashes;
+    - execution manifest;
+    - is_reproducible — можно ли воспроизвести Run.
+
+    Доступ: viewer/editor/admin проекта.
+    is_reproducible=False для legacy runs (до введения strict snapshot).
+    """
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=run.deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
+    snapshot_schema_version = getattr(run, "snapshot_schema_version", None)
+    instruction_versions = getattr(run, "instruction_versions", None) or {}
+    instruction_snapshot_manifest = getattr(run, "instruction_snapshot_manifest", None)
+    execution_manifest = getattr(run, "execution_manifest", None)
+
+    is_valid, warning = check_snapshot_integrity(
+        run_id=str(run.id),
+        snapshot_schema_version=snapshot_schema_version,
+        instruction_snapshot_payload=getattr(run, "instruction_snapshot_payload", None),
+    )
+
+    is_reproducible = (snapshot_schema_version is not None and is_valid)
+
+    return RunInstructionSnapshotResponse(
+        run_id=str(run.id),
+        deal_id=str(run.deal_id),
+        snapshot_schema_version=snapshot_schema_version,
+        is_reproducible=is_reproducible,
+        instruction_versions=instruction_versions,
+        instruction_snapshot_manifest=instruction_snapshot_manifest,
+        execution_manifest=execution_manifest,
+        doc_types_count=len(instruction_versions),
+        warning=warning,
+    )
+
+

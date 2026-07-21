@@ -32,6 +32,7 @@ class RunCheckPlanItemRepository:
         check_id: str,
         playbook_version_id: uuid.UUID | None = None,
         segment_id: str | None = None,
+        doc_type: str | None = None,
         check_name: str | None = None,
         check_origin: str | None = None,
     ) -> RunCheckPlanItem:
@@ -40,6 +41,7 @@ class RunCheckPlanItemRepository:
             deal_id=deal_id,
             document_id=document_id,
             segment_id=segment_id,
+            doc_type=doc_type,
             check_id=check_id,
             check_name=check_name,
             check_origin=check_origin,

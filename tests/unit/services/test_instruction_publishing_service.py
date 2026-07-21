@@ -59,11 +59,15 @@ def _version(
     version_id: uuid.UUID | None = None,
     doc_type_code: str = "nda",
     version_status: str = "draft",
+    owner_scope: str = "platform",
+    tenant_id: uuid.UUID | None = None,
 ):
     v = MagicMock()
     v.id = version_id or uuid.uuid4()
     v.doc_type_code = doc_type_code
     v.version_status = version_status
+    v.owner_scope = owner_scope
+    v.tenant_id = tenant_id
     v.name = "NDA"
     v.source_yaml = "foo: bar"
     v.source_sha256 = "sha123"
@@ -75,6 +79,7 @@ def _version(
     v.change_summary = "initial"
     v.immutable_content_hash = None
     v.parent_version_id = None
+    v.derived_from_version_id = None
     v.published_at = None
     return v
 
