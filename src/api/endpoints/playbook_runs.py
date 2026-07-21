@@ -293,6 +293,7 @@ async def rebuild_playbook_and_rerun(
     # 8. Создаём новый Run
     new_run = await run_repo.create(
         deal_id=deal_id,
+        tenant_id=deal.tenant_id,
         playbook_version_id=new_playbook.id,
         model_config_id=new_playbook.model_config_id,
         bundle_id=None,
@@ -310,7 +311,7 @@ async def rebuild_playbook_and_rerun(
         kwargs={
             "run_id": str(new_run.id),
             "deal_id": str(deal_id),
-            "tenant_id": str(deal.tenant_id),
+            "tenant_id": str(new_run.tenant_id),
             "force_reclassify": False,
             "checks_mode": checks_mode,
         },

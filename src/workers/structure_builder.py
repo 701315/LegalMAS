@@ -63,7 +63,7 @@ from mas_queue.celery_app import celery_app
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from services.structure.builder import StructureBuilder
 from storage.artifact_store import ArtifactPath, ArtifactStore
-from workers._tenant_resolver import resolve_artifact_tenant_id
+from core.tenant_resolver import resolve_artifact_tenant_id
 from services.structure.pipeline import build_file_structure_with_chunk_plan
 
 logger = get_logger(__name__)

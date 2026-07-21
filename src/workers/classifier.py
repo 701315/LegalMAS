@@ -56,6 +56,7 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from ops.metrics import get_metrics
 from services.run_orchestrator_trigger import retrigger_run_pipeline
+from core.tenant_resolver import resolve_artifact_tenant_id
 
 logger = get_logger(__name__)
 
@@ -395,14 +396,13 @@ async def _classify_document_async(
                     )
 
                 try:
-                    tenant_id_value = None
-                    if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
-                        tenant_id_value = doc.deal.tenant_id
-                    elif hasattr(doc, "tenant_id") and getattr(doc, "tenant_id", None):
-                        tenant_id_value = doc.tenant_id
+                    resolved_tenant_id = await resolve_artifact_tenant_id(
+                        session=uow.session,
+                        deal_id=doc.deal_id,
+                    )
 
                     await audit_repo.log(
-                        tenant_id=tenant_id_value or uuid.UUID(int=0),
+                        tenant_id=resolved_tenant_id,
                         deal_id=doc.deal_id,
                         action="CLASSIFY_COMPLETED",
                         actor="system",
@@ -553,14 +553,13 @@ async def _mark_failed(
         return
 
     try:
-        tenant_id_value = None
-        if hasattr(document, "deal") and document.deal and hasattr(document.deal, "tenant_id"):
-            tenant_id_value = document.deal.tenant_id
-        elif hasattr(document, "tenant_id") and getattr(document, "tenant_id", None):
-            tenant_id_value = document.tenant_id
+        resolved_tenant_id = await resolve_artifact_tenant_id(
+            session=uow.session,
+            deal_id=document.deal_id,
+        )
 
         await audit_repo.log(
-            tenant_id=tenant_id_value or uuid.UUID(int=0),
+            tenant_id=resolved_tenant_id,
             deal_id=document.deal_id,
             action="CLASSIFY_FAILED",
             actor="system",

@@ -15,7 +15,7 @@ async def test_orchestrator_resolve_tenant_id_ignores_zero_payload(monkeypatch):
         def __init__(self, session):
             self.session = session
 
-        async def get_by_id(self, requested_deal_id):
+        async def internal_unsafe_get_by_id(self, requested_deal_id):
             assert requested_deal_id == deal_id
             return SimpleNamespace(id=deal_id, tenant_id=db_tenant_id)
 
@@ -39,7 +39,7 @@ async def test_orchestrator_resolve_tenant_id_ignores_invalid_payload(monkeypatc
         def __init__(self, session):
             self.session = session
 
-        async def get_by_id(self, requested_deal_id):
+        async def internal_unsafe_get_by_id(self, requested_deal_id):
             assert requested_deal_id == deal_id
             return SimpleNamespace(id=deal_id, tenant_id=db_tenant_id)
 
@@ -52,6 +52,3 @@ async def test_orchestrator_resolve_tenant_id_ignores_invalid_payload(monkeypatc
     )
 
     assert resolved == str(db_tenant_id)
-
-
-    

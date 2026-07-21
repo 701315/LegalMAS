@@ -82,7 +82,7 @@ from services.structure.semantic_enrichment._types import (
     SemanticEnrichmentPolicy,
 )
 from storage.artifact_store import ArtifactPath, ArtifactStore
-from workers._tenant_resolver import resolve_artifact_tenant_id
+from core.tenant_resolver import resolve_artifact_tenant_id
 
 logger = get_logger(__name__)
 

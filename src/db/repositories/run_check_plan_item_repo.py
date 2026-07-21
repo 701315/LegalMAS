@@ -169,6 +169,47 @@ class RunCheckPlanItemRepository:
             "active_items": active_items,
             "has_errors": has_errors,
         }
+
+    async def list_by_run_id(
+        self,
+        run_id: uuid.UUID,
+        *,
+        status: str | None = None,
+    ) -> list[RunCheckPlanItem]:
+        """
+        Read-контракт для GET /runs/{run_id}/check-plan.
+
+        Сортировка по document_id/check_id для стабильного, детерминированного
+        порядка в UI (важно для diff-подобных экранов на фронте).
+        """
+        stmt = select(RunCheckPlanItem).where(RunCheckPlanItem.run_id == run_id)
+        if status is not None:
+            stmt = stmt.where(RunCheckPlanItem.status == status)
+        stmt = stmt.order_by(
+            RunCheckPlanItem.document_id,
+            RunCheckPlanItem.check_id,
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_by_id_scoped(
+        self,
+        item_id: uuid.UUID,
+        run_id: uuid.UUID,
+    ) -> RunCheckPlanItem | None:
+        """
+        Read-контракт для GET /runs/{run_id}/check-plan/{plan_item_id}.
+
+        Scoped по run_id — предотвращает cross-run leakage, если plan_item_id
+        валиден, но принадлежит другому run (даже в рамках одного tenant).
+        """
+        result = await self.session.execute(
+            select(RunCheckPlanItem).where(
+                RunCheckPlanItem.id == item_id,
+                RunCheckPlanItem.run_id == run_id,
+            )
+        )
+        return result.scalar_one_or_none()
     
 
     

@@ -66,7 +66,7 @@ def test_check_with_labeled_facts_passes_validation():
         id="c2", name="C2", ui_mode="field_extraction",
         detector_type=DetectorType.RULES,
         extraction=ExtractionConfig(enabled=True, fields=[
-            _field("seller_details", label="Продавец", presentation="fact"),
+            _field("seller_summary", label="Продавец", presentation="fact"),
             _field("seller_details_status", presentation="signal"),
             _field("reason", presentation="diagnostic"),
         ]),
@@ -80,12 +80,12 @@ def test_check_without_summary_and_without_labels_fails():
             id="c3", name="C3", ui_mode="field_extraction",
             detector_type=DetectorType.RULES,
             extraction=ExtractionConfig(enabled=True, fields=[
-                _field("seller_details", description="Prompt instruction here"),
-                _field("seller_details_status", presentation="signal"),
+                _field("seller_name", description="Prompt instruction here"),
+                _field("purchase_price", description="Another fact without label"),
             ]),
         )
     assert "missing explicit `label`" in str(exc_info.value)
-    assert "seller_details" in str(exc_info.value)
+    assert "seller_name" in str(exc_info.value)
 
 
 def test_risk_detection_check_skips_validation():

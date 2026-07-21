@@ -105,11 +105,38 @@ def export_results(
             run_uuid = uuid.UUID(run_id)
             deal_uuid = uuid.UUID(deal_id)
 
-            # tenant_id может быть строкой "default" — безопасно конвертируем
+            run_obj = await run_repo.get_by_id(run_uuid)
+            if run_obj is None:
+                raise ValueError(f"Run not found: {run_id}")
+
+            task_tenant_uuid: uuid.UUID | None = None
             try:
-                tenant_uuid = uuid.UUID(tenant_id)
-            except (ValueError, AttributeError):
-                tenant_uuid = uuid.UUID(int=0)
+                task_tenant_uuid = uuid.UUID(tenant_id)
+            except (ValueError, AttributeError, TypeError):
+                task_tenant_uuid = None
+
+            if getattr(run_obj, "tenant_id", None) is None:
+                if task_tenant_uuid is None:
+                    raise ValueError(
+                        f"Run {run_id} has no tenant_id and task tenant_id is invalid: {tenant_id}"
+                    )
+                tenant_uuid = task_tenant_uuid
+                logger.warning(
+                    "export_results: using task tenant_id because run.tenant_id is missing",
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    tenant_id=str(tenant_uuid),
+                )
+            else:
+                tenant_uuid = run_obj.tenant_id
+                if task_tenant_uuid is not None and task_tenant_uuid != tenant_uuid:
+                    logger.warning(
+                        "export_results: task tenant_id differs from run.tenant_id; using run.tenant_id",
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        task_tenant_id=str(task_tenant_uuid),
+                        run_tenant_id=str(tenant_uuid),
+                    )
 
             try:
                 result = await export_core(
@@ -301,9 +328,21 @@ def export_by_id(
             requested_by = export.requested_by or "unknown"
             requester_role = export.requester_role or "user"
 
-            # deal_id и tenant_id как UUID для аудита
+            # deal_id и tenant_id как UUID для аудита.
+            # Tenant ownership берём из Run — canonical source of truth.
             deal_uuid = uuid.UUID(deal_id)
-            tenant_uuid = uuid.UUID(int=0)  # TODO: заменить на реальный tenant_id из Export
+
+            run_repo = RunRepository(uow.session)
+            run_obj = await run_repo.get_by_id(export.run_id)
+            if run_obj is None:
+                raise ValueError(f"Run not found for export {export_id}: {export.run_id}")
+
+            if getattr(run_obj, "tenant_id", None) is None:
+                raise ValueError(
+                    f"Run {run_obj.id} has no tenant_id while processing export {export_id}"
+                )
+
+            tenant_uuid = run_obj.tenant_id
 
             logger.info(
                 "Export job started",

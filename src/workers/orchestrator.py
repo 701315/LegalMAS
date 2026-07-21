@@ -160,8 +160,16 @@ async def _create_run(*, deal_id: str, tenant_id: str) -> str:
             )
             raise PermanentError("No playbook found for deal and no global default")
 
+        deal_obj = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
+        if deal_obj is None:
+            raise PermanentError(
+                "Cannot create run: deal not found",
+                details={"deal_id": deal_id},
+            )
+
         run = await run_repo.create(
             deal_id=deal_uuid,
+            tenant_id=deal_obj.tenant_id,
             playbook_version_id=playbook.id,
             model_config_id=playbook.model_config_id,
             bundle_id=None,

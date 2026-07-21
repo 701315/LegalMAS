@@ -232,9 +232,8 @@ class PlaybookRepository:
 
         items — итерируемый список словарей:
         {
-            "kind": "topic" | "check",
-            "topic_code": str | None,
-            "check_code": str | None,
+            "kind": "check",
+            "instruction_code": str,
             "order_index": int,
         }
         """
@@ -254,10 +253,9 @@ class PlaybookRepository:
         for payload in items:
             item = PlaybookLineItem(
                 line_id=playbook.id,
-                kind=payload["kind"],
-                topic_code=payload.get("topic_code"),
-                check_code=payload.get("check_code"),
-                order_index=payload["order_index"],
+                kind=payload.get("kind"),
+                instruction_code=payload.get("instruction_code"),
+                order_index=payload.get("order_index") or 0,
             )
             self.session.add(item)
             line_items.append(item)
@@ -300,11 +298,10 @@ class PlaybookRepository:
         line_items: list[PlaybookLineItem] = []
         for payload in items:
             item = PlaybookLineItem(
-                line_id=line_id,
-                kind=payload["kind"],
-                topic_code=payload.get("topic_code"),
-                check_code=payload.get("check_code"),
-                order_index=payload["order_index"],
+                line_id=playbook.id,
+                kind=payload.get("kind"),
+                instruction_code=payload.get("instruction_code"),
+                order_index=payload.get("order_index") or 0,
             )
             self.session.add(item)
             line_items.append(item)
@@ -610,3 +607,26 @@ class PlaybookRepository:
         legacy = result.scalar_one_or_none()
 
         return legacy
+    
+    async def list_versions_for_playbook(
+        self,
+        playbook_id: uuid.UUID,
+    ) -> list[PlaybookVersion]:
+        """
+        Вернуть все версии, относящиеся к конкретному logical Playbook.
+
+        Используется facade API:
+        GET /api/v1/admin/instructions/global/{playbook_id}/versions
+        """
+        stmt = (
+            select(PlaybookVersion)
+            .where(PlaybookVersion.playbook_id == playbook_id)
+            .order_by(
+                PlaybookVersion.published_at.desc().nullslast(),
+                PlaybookVersion.created_at.desc(),
+            )
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+    
+

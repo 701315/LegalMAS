@@ -167,3 +167,5 @@ def load_global_checks_catalog() -> list[PlaybookTopicInfo]:
         total_checks=sum(len(t.checks) for t in topics.values()),
     )
     return sorted(topics.values(), key=lambda t: t.topic_code)
+
+

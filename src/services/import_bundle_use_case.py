@@ -61,7 +61,7 @@ import zipfile
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from services._tenant_resolver import resolve_artifact_tenant_id
+from core.tenant_resolver import resolve_artifact_tenant_id
 from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import IdempotencyConflictError, PermanentError

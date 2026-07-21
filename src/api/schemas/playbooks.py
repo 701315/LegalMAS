@@ -223,9 +223,8 @@ class PlaybookTopicInfo(BaseModel):
 
 
 class PlaybookLineItemPayload(BaseModel):
-    kind: Literal["topic", "check"]
-    topic_code: str | None = None
-    check_code: str | None = None
+    kind: Literal["check"]
+    instruction_code: str
     order_index: int
 
 

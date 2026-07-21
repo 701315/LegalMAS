@@ -8,8 +8,7 @@ ModelConfig — configuration of ML models used by the runner.
 
 Дополнительно:
 PlaybookLineItem — элементы логического плейбука (строки конструктора):
-- либо ссылка на тему (topic_code),
-- либо ссылка на конкретную проверку (check_code),
+- ссылка на конкретную инструкцию из global instruction catalog (instruction_code),
 - с порядком отображения (order_index).
 """
 
@@ -286,10 +285,8 @@ class PlaybookLineItem(Base):
     """
     Элемент логического плейбука (строка конструктора).
 
-    Один элемент может быть:
-    - либо темой (kind='topic', topic_code заполнен, check_code пустой),
-    - либо конкретной проверкой (kind='check', check_code заполнен, topic_code опционален).
-    order_index задаёт порядок отображения в UI и порядок при компиляции.
+    Один элемент = одна инструкция из instruction/global catalog.
+    Компиляция плейбука опирается на instruction_code напрямую.
     """
 
     __tablename__ = "playbook_line_items"
@@ -301,7 +298,6 @@ class PlaybookLineItem(Base):
         comment="Primary key",
     )
 
-    # ID логического плейбука, которому принадлежит элемент.
     line_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("playbooks.id", ondelete="CASCADE"),
@@ -310,28 +306,18 @@ class PlaybookLineItem(Base):
         comment="Playbook (logical line) this item belongs to.",
     )
 
-    # Тип элемента: тема или конкретная проверка.
     kind: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        comment="Element type: 'topic' or 'check'.",
+        comment="Element type. Currently supported: 'check'.",
     )
 
-    # Код темы (группы проверок), берётся из каталога топиков.
-    topic_code: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-        comment="Topic code, e.g. 'corporate', 'tax', 'real_estate'.",
+    instruction_code: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+        comment="Canonical instruction code from global instruction catalog.",
     )
 
-    # Код конкретной проверки (из YAML / global_checks).
-    check_code: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-        comment="Check code, e.g. 'encumbrances_warranty'.",
-    )
-
-    # Порядок элементов внутри шаблона.
     order_index: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -339,7 +325,6 @@ class PlaybookLineItem(Base):
         comment="Order of items within the playbook line for UI/compilation.",
     )
 
-    # Обратная связь на Playbook.
     playbook: Mapped[Playbook] = relationship(
         "Playbook",
         back_populates="line_items",

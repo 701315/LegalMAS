@@ -71,7 +71,7 @@ from services.document_language_pipeline import (
 from services.primary_pdf_builder import build_pdf_from_layout
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from storage.artifact_store import ArtifactPath, ArtifactStore
-from workers._tenant_resolver import resolve_artifact_tenant_id
+from core.tenant_resolver import resolve_artifact_tenant_id
 
 logger = get_logger(__name__)
 

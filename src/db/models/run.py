@@ -35,6 +35,18 @@ class Run(Base):
         index=True,
     )
 
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+        comment=(
+            "Owner tenant of this Run. "
+            "Frozen copy of Deal.tenant_id at run creation time. "
+            "Never changes after creation."
+        ),
+    )
+
     bundle_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("bundles.id", ondelete="SET NULL"),

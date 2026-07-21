@@ -41,7 +41,7 @@ from dataclasses import dataclass
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
-from services._tenant_resolver import resolve_artifact_tenant_id
+from core.tenant_resolver import resolve_artifact_tenant_id
 from core.config import settings
 from core.exceptions import PermanentError, TransientError
 from db.repositories.document_version_repo import DocumentVersionRepository

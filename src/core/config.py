@@ -79,18 +79,6 @@ class Settings(BaseSettings):
     CORS_ALLOW_METHODS: str = "*"
     CORS_ALLOW_HEADERS: str = "*"
 
-
-
-
-
-    # --- Tenant ---
-    # Фиксированный dev-tenant UUID.
-    # Используется вместо zero UUID (00000000-...) до появления
-    # полноценного tenant management layer с реальной регистрацией клиентов.
-    # Значение совпадает с seed-записью в таблице tenants (миграция B1).
-    # В production каждый клиент получит свой UUID из таблицы tenants.
-    DEV_TENANT_ID: str = "11111111-1111-1111-1111-111111111111"
-
     # --- Auth (JWT) ---
     # Секретный ключ для подписи JWT-токенов.
     # В production ОБЯЗАТЕЛЬНО заменить на случайную строку длиной >= 32 символов.

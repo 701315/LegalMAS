@@ -137,20 +137,14 @@ class AuditMiddleware(BaseHTTPMiddleware):
             response.headers.setdefault("X-Request-Id", request_id)
 
             # После call_next() request.state уже может быть заполнен
-            # Depends(get_current_user), поэтому здесь читаем real identity.
-            resolved_actor = (
-                user_id_header
-                or getattr(request.state, "user_id", None)
-                or "unknown"
-            )
-            resolved_tenant_id_value = (
-                tenant_id_header
-                or getattr(request.state, "tenant_id", None)
-            )
-            resolved_actor_role = (
-                actor_role_header
-                or getattr(request.state, "actor_role", None)
-            )
+            # Depends(get_current_user), поэтому здесь читаем canonical server-side identity.
+            #
+            # ВАЖНО:
+            # Клиентские X-User-Id / X-Tenant-Id / X-Actor-Role не являются
+            # trusted source for audit identity. Иначе возможен spoofing.
+            resolved_actor = getattr(request.state, "user_id", None) or "unknown"
+            resolved_tenant_id_value = getattr(request.state, "tenant_id", None)
+            resolved_actor_role = getattr(request.state, "actor_role", None)
 
             # -----------------------------------------------------------------
             # Response log — фиксируем статус ответа и время.
@@ -176,28 +170,40 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 return response
 
             try:
-                tenant_uuid = (
-                    uuid.UUID(str(resolved_tenant_id_value))
-                    if resolved_tenant_id_value
-                    else uuid.UUID(int=0)
-                )
-
-                async with get_session() as session:
-                    repo = AuditRepository(session)
-                    await repo.log(
-                        tenant_id=tenant_uuid,
+                if not resolved_tenant_id_value:
+                    logger.warning(
+                        "Audit middleware: skipping audit log — no tenant_id in request context",
+                        path=path,
                         action=action,
-                        actor=str(resolved_actor),
-                        deal_id=None,
-                        actor_role=resolved_actor_role,
-                        details={
-                            "request_id": request_id,
-                            "path": path,
-                            "method": method,
-                            "status_code": response.status_code,
-                        },
+                        method=method,
                     )
-                    await session.commit()
+                else:
+                    try:
+                        tenant_uuid = uuid.UUID(str(resolved_tenant_id_value))
+                    except (ValueError, AttributeError):
+                        logger.warning(
+                            "Audit middleware: invalid tenant_id format, skipping audit",
+                            path=path,
+                            action=action,
+                            raw_tenant_id=str(resolved_tenant_id_value)[:64],
+                        )
+                    else:
+                        async with get_session() as session:
+                            repo = AuditRepository(session)
+                            await repo.log(
+                                tenant_id=tenant_uuid,
+                                action=action,
+                                actor=str(resolved_actor),
+                                deal_id=None,
+                                actor_role=resolved_actor_role,
+                                details={
+                                    "request_id": request_id,
+                                    "path": path,
+                                    "method": method,
+                                    "status_code": response.status_code,
+                                },
+                            )
+                            await session.commit()
 
             except Exception:
                 logger.exception(

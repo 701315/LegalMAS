@@ -201,9 +201,9 @@ async def create_playbook_version(
 
     Источники состава (checks):
 
-    1) bundles + include_ids / exclude_ids — старый режим.
-    2) from_line_id — новый режим: берём PlaybookLine и его items,
-       маппим topic_code + check_code к глобальным checks и строим include_ids.
+    1) bundles + include_ids / exclude_ids — прямой compile contract.
+    2) from_line_id — берём PlaybookLine и его items,
+       читаем instruction_code и строим include_ids напрямую.
     """
 
     repo = PlaybookRepository(db)
@@ -220,36 +220,14 @@ async def create_playbook_version(
                 detail="Playbook line not found for from_line_id.",
             )
 
-        # Загружаем каталог тем/проверок, чтобы маппить topic_code/check_code -> global_check_id
-        topics = load_global_checks_catalog()
-        topic_by_code = {t.topic_code: t for t in topics}
-
         for item in items:
-            # Нас интересуют только элементы типа "check"
             if item.kind != "check":
                 continue
-            if not item.topic_code or not item.check_code:
+            if not item.instruction_code:
                 continue
 
-            topic = topic_by_code.get(item.topic_code)
-            if not topic:
-                continue
-
-            # В каталоге PlaybookTopicInfo.checks у нас PlaybookCheckInfo,
-            # где сейчас есть code (и, при необходимости, можно добавить global_check_id).
-            check = next(
-                (c for c in topic.checks if c.code == item.check_code),
-                None,
-            )
-            if not check:
-                continue
-
-            # ВАЖНО: если в PlaybookCheckInfo позже появится явный global_check_id,
-            # то здесь лучше использовать его. Пока используем code как ID.
-            global_check_id = check.code
-
-            if global_check_id not in include_ids:
-                include_ids.append(global_check_id)
+            if item.instruction_code not in include_ids:
+                include_ids.append(item.instruction_code)
 
         # Если playbook_id не задан, логично привязать версию к этой линии
         if not payload.playbook_id:
@@ -444,8 +422,7 @@ async def get_playbook_line(
         items=[
             PlaybookLineItemPayload(
                 kind=i.kind,
-                topic_code=i.topic_code,
-                check_code=i.check_code,
+                instruction_code=i.instruction_code,
                 order_index=i.order_index,
             )
             for i in items
@@ -467,7 +444,7 @@ async def create_playbook_line(
     repo = PlaybookRepository(db)
 
     # Преобразуем Pydantic-объекты в dict, чтобы репозиторий не зависел от Pydantic
-    items_payload = [item.dict() for item in payload.items]
+    items_payload = [item.model_dump() for item in payload.items]
 
     line, items = await repo.create_line_with_items(
         title=payload.title,
@@ -492,8 +469,7 @@ async def create_playbook_line(
         items=[
             PlaybookLineItemPayload(
                 kind=i.kind,
-                topic_code=i.topic_code,
-                check_code=i.check_code,
+                instruction_code=i.instruction_code,
                 order_index=i.order_index,
             )
             for i in items
@@ -514,8 +490,8 @@ async def update_playbook_line(
 ):
     repo = PlaybookRepository(db)
 
-    items_payload = [item.dict() for item in payload.items]
-
+    items_payload = [item.model_dump() for item in payload.items]
+    
     line, items = await repo.update_line_with_items(
         line_id=line_id,
         title=payload.title,
@@ -543,8 +519,7 @@ async def update_playbook_line(
         items=[
             PlaybookLineItemPayload(
                 kind=i.kind,
-                topic_code=i.topic_code,
-                check_code=i.check_code,
+                instruction_code=i.instruction_code,
                 order_index=i.order_index,
             )
             for i in items

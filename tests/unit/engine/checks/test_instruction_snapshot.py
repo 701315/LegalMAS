@@ -1,299 +1,328 @@
-"""
-Unit-тесты для engine.checks.instruction_snapshot и snapshot_policy.
-"""
-from __future__ import annotations
-
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from engine.checks.instruction_snapshot import (
-    build_doc_type_loader,
-    freeze_instruction_snapshot,
-)
-from engine.checks.snapshot_policy import (
-    ConfigurationIntegrityError,
-    resolve_doc_type_payload,
-)
-from engine.doc_type_checks.loader import (
-    DatabaseInstructionProvider,
-    DocTypeCheckLoader,
-    FilesystemInstructionProvider,
+from engine.checks import instruction_snapshot
+from engine.instructions.override_service import (
+    BaseVersionNotFoundError,
+    EffectiveInstructionPayload,
+    StaleBaseError,
 )
 
-
-@pytest.fixture
-def mock_run_repo():
-    repo = AsyncMock()
-    repo.update_instruction_snapshot = AsyncMock(return_value=MagicMock())
-    return repo
+pytestmark = pytest.mark.asyncio
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# freeze_instruction_snapshot tests
-# ──────────────────────────────────────────────────────────────────────────────
+def _build_run_repo():
+    run_repo = Mock()
+    run_repo.update_instruction_snapshot = AsyncMock(return_value=object())
+    return run_repo
 
-@pytest.mark.asyncio
-async def test_freeze_instruction_snapshot_no_doc_types_writes_empty(mock_run_repo):
-    result = await freeze_instruction_snapshot(
-        run_uuid=uuid.uuid4(),
-        doc_types=set(),
-        run_repo=mock_run_repo,
-        session=MagicMock(),
+
+def _snapshot_update_call(run_repo):
+    call = run_repo.update_instruction_snapshot.await_args
+    return {
+        "run_id": call.args[0],
+        "versions": call.args[1],
+        "manifest": call.args[2],
+        "payload": call.args[3],
+        "snapshot_schema_version": call.kwargs["snapshot_schema_version"],
+    }
+
+
+async def test_freeze_instruction_snapshot_uses_effective_override_chain(monkeypatch):
+    run_id = uuid.uuid4()
+    tenant_id = uuid.uuid4()
+    deal_id = uuid.uuid4()
+    base_version_id = uuid.uuid4()
+    tenant_override_id = uuid.uuid4()
+    deal_override_id = uuid.uuid4()
+
+    registry = Mock()
+    monkeypatch.setattr(
+        instruction_snapshot.YAMLRegistry,
+        "get_instance",
+        Mock(return_value=registry),
     )
 
-    assert result == {}
-    mock_run_repo.update_instruction_snapshot.assert_called_once()
-    call_args = mock_run_repo.update_instruction_snapshot.call_args[0]
-    assert call_args[1] == {} and call_args[2] == {} and call_args[3] == {}
-
-
-@pytest.mark.asyncio
-async def test_freeze_instruction_snapshot_filters_unknown_doc_type(mock_run_repo):
-    result = await freeze_instruction_snapshot(
-        run_uuid=uuid.uuid4(),
-        doc_types={"unknown", "UNKNOWN", "", None},
-        run_repo=mock_run_repo,
-        session=MagicMock(),
+    version_repo = Mock()
+    version_repo.get_latest_published = AsyncMock()
+    version_repo.resolve_or_create_from_config = AsyncMock()
+    monkeypatch.setattr(
+        instruction_snapshot,
+        "DocumentTypeInstructionVersionRepository",
+        lambda session: version_repo,
     )
-    assert result == {}
 
-
-@pytest.mark.asyncio
-async def test_freeze_instruction_snapshot_resolves_valid_doc_type(mock_run_repo):
-    fake_cfg = MagicMock()
-    fake_cfg.raw = {"checks_v8": [{"id": "chk_1"}]}
-    fake_cfg.source_sha256 = "hash123"
-    fake_cfg.source_yaml = "checks_v8:\n  - id: chk_1\n"
-
-    fake_version = MagicMock()
-    fake_version.id = uuid.uuid4()
-    fake_version.compiled_payload = {"checks_v8": [{"id": "chk_1"}]}
-    fake_version.immutable_content_hash = "hash123"
-    fake_version.source_yaml = "checks_v8:\n  - id: chk_1\n"
-
-    fake_resolve_result = MagicMock(version=fake_version, created=True)
-
-    with patch("engine.checks.instruction_snapshot.YAMLRegistry") as mock_registry_cls, \
-         patch("engine.checks.instruction_snapshot.DocumentTypeInstructionVersionRepository") as mock_version_repo_cls:
-
-        mock_registry = MagicMock()
-        mock_registry.get_config.return_value = fake_cfg
-        mock_registry_cls.get_instance.return_value = mock_registry
-
-        mock_version_repo = AsyncMock()
-        mock_version_repo.resolve_or_create_from_config = AsyncMock(
-            return_value=fake_resolve_result
+    override_service = Mock()
+    override_service.resolve_effective_payload = AsyncMock(
+        return_value=EffectiveInstructionPayload(
+            doc_type_code="nda",
+            base_version_id=base_version_id,
+            base_content_hash="base-content-hash",
+            tenant_override_id=tenant_override_id,
+            deal_override_id=deal_override_id,
+            effective_payload={"checks": [{"id": "custom-check"}]},
+            effective_hash="effective-hash",
+            is_overridden=True,
+            provenance={"source": "test"},
         )
-        mock_version_repo_cls.return_value = mock_version_repo
-
-        result = await freeze_instruction_snapshot(
-            run_uuid=uuid.uuid4(),
-            doc_types={"nda"},
-            run_repo=mock_run_repo,
-            session=MagicMock(),
-        )
-
-    assert result == {"nda": str(fake_version.id)}
-
-    call_args = mock_run_repo.update_instruction_snapshot.call_args[0]
-    versions, manifest, payload = call_args[1], call_args[2], call_args[3]
-    assert versions == {"nda": str(fake_version.id)}
-    assert manifest["nda"]["content_hash"] == "hash123"
-    # Strict: payload = compiled_payload, не raw
-    assert payload["nda"] == {"checks_v8": [{"id": "chk_1"}]}
-    # snapshot_schema_version должен быть выставлен атомарно вместе со snapshot
-    call_kwargs = mock_run_repo.update_instruction_snapshot.call_args
-    # Проверяем что snapshot_schema_version передан в тот же вызов
-    assert call_kwargs is not None
-
-
-@pytest.mark.asyncio
-async def test_freeze_instruction_snapshot_missing_config_does_not_raise(mock_run_repo):
-    with patch("engine.checks.instruction_snapshot.YAMLRegistry") as mock_registry_cls:
-        mock_registry = MagicMock()
-        mock_registry.get_config.return_value = None
-        mock_registry_cls.get_instance.return_value = mock_registry
-
-        result = await freeze_instruction_snapshot(
-            run_uuid=uuid.uuid4(),
-            doc_types={"nonexistent_type"},
-            run_repo=mock_run_repo,
-            session=MagicMock(),
-        )
-
-    assert result == {}
-    mock_run_repo.update_instruction_snapshot.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_freeze_instruction_snapshot_resolve_exception_isolated(mock_run_repo):
-    fake_cfg = MagicMock()
-    fake_cfg.raw = {}
-    fake_cfg.source_yaml = ""
-
-    with patch("engine.checks.instruction_snapshot.YAMLRegistry") as mock_registry_cls, \
-         patch("engine.checks.instruction_snapshot.DocumentTypeInstructionVersionRepository") as mock_version_repo_cls:
-
-        mock_registry = MagicMock()
-        mock_registry.get_config.return_value = fake_cfg
-        mock_registry_cls.get_instance.return_value = mock_registry
-
-        mock_version_repo = AsyncMock()
-        mock_version_repo.resolve_or_create_from_config = AsyncMock(
-            side_effect=Exception("DB connection lost")
-        )
-        mock_version_repo_cls.return_value = mock_version_repo
-
-        result = await freeze_instruction_snapshot(
-            run_uuid=uuid.uuid4(),
-            doc_types={"nda"},
-            run_repo=mock_run_repo,
-            session=MagicMock(),
-        )
-
-    assert result == {}
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# build_doc_type_loader tests
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_build_doc_type_loader_strict_mode_uses_db_provider():
-    """Strict Run с payload → DatabaseInstructionProvider."""
-    run_snap = MagicMock()
-    run_snap.instruction_snapshot_payload = {"nda": {"checks_v8": []}}
-    run_snap.is_strict_snapshot = True
-    run_snap.id = uuid.uuid4()
-
-    loader = build_doc_type_loader(run_snap)
-
-    assert isinstance(loader, DocTypeCheckLoader)
-    assert isinstance(loader.provider, DatabaseInstructionProvider)
-
-
-def test_build_doc_type_loader_strict_mode_no_payload_raises():
-    """Strict Run без payload → ConfigurationIntegrityError."""
-    run_snap = MagicMock()
-    run_snap.instruction_snapshot_payload = None
-    run_snap.is_strict_snapshot = True
-    run_snap.id = uuid.uuid4()
-
-    with pytest.raises(ConfigurationIntegrityError):
-        build_doc_type_loader(run_snap)
-
-
-def test_build_doc_type_loader_strict_mode_empty_payload_raises():
-    """Strict Run с пустым payload → ConfigurationIntegrityError."""
-    run_snap = MagicMock()
-    run_snap.instruction_snapshot_payload = {}
-    run_snap.is_strict_snapshot = True
-    run_snap.id = uuid.uuid4()
-
-    with pytest.raises(ConfigurationIntegrityError):
-        build_doc_type_loader(run_snap)
-
-
-def test_build_doc_type_loader_legacy_with_payload_uses_db_provider():
-    """Legacy Run с payload → DatabaseInstructionProvider (не filesystem)."""
-    run_snap = MagicMock()
-    run_snap.instruction_snapshot_payload = {"nda": {"checks_v8": []}}
-    run_snap.is_strict_snapshot = False
-    run_snap.id = uuid.uuid4()
-
-    loader = build_doc_type_loader(run_snap)
-
-    assert isinstance(loader.provider, DatabaseInstructionProvider)
-
-
-def test_build_doc_type_loader_legacy_without_payload_uses_filesystem():
-    """Legacy Run без payload → FilesystemInstructionProvider."""
-    run_snap = MagicMock()
-    run_snap.instruction_snapshot_payload = None
-    run_snap.is_strict_snapshot = False
-    run_snap.id = uuid.uuid4()
-
-    loader = build_doc_type_loader(run_snap)
-
-    assert isinstance(loader.provider, FilesystemInstructionProvider)
-
-
-def test_build_doc_type_loader_legacy_empty_payload_uses_filesystem():
-    """Legacy Run с пустым dict payload → FilesystemInstructionProvider."""
-    run_snap = MagicMock()
-    run_snap.instruction_snapshot_payload = {}
-    run_snap.is_strict_snapshot = False
-    run_snap.id = uuid.uuid4()
-
-    loader = build_doc_type_loader(run_snap)
-
-    assert isinstance(loader.provider, FilesystemInstructionProvider)
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# resolve_doc_type_payload tests (snapshot_policy)
-# ──────────────────────────────────────────────────────────────────────────────
-
-def test_resolve_payload_legacy_no_payload_returns_none_not_raises():
-    result = resolve_doc_type_payload(
-        run_id="run-1",
-        snapshot_schema_version=None,
-        instruction_snapshot_payload=None,
-        doc_type="nda",
     )
-    assert result.is_legacy is True
-    assert result.payload is None
-    assert result.is_reproducible is False
-    assert result.warning is not None
-
-
-def test_resolve_payload_legacy_with_payload_returns_value():
-    payload = {"nda": {"checks_v8": []}}
-    result = resolve_doc_type_payload(
-        run_id="run-1",
-        snapshot_schema_version=None,
-        instruction_snapshot_payload=payload,
-        doc_type="nda",
+    monkeypatch.setattr(
+        instruction_snapshot,
+        "InstructionOverrideService",
+        lambda session: override_service,
     )
-    assert result.is_legacy is True
-    assert result.payload == {"checks_v8": []}
 
+    run_repo = _build_run_repo()
 
-def test_resolve_payload_strict_missing_all_payload_raises():
-    with pytest.raises(ConfigurationIntegrityError) as exc_info:
-        resolve_doc_type_payload(
-            run_id="run-1",
-            snapshot_schema_version=1,
-            instruction_snapshot_payload=None,
-            doc_type="nda",
-        )
-    assert exc_info.value.run_id == "run-1"
-    assert exc_info.value.doc_type == "nda"
-
-
-def test_resolve_payload_strict_missing_doc_type_raises():
-    payload = {"sla": {"checks_v8": []}}
-    with pytest.raises(ConfigurationIntegrityError):
-        resolve_doc_type_payload(
-            run_id="run-1",
-            snapshot_schema_version=1,
-            instruction_snapshot_payload=payload,
-            doc_type="nda",
-        )
-
-
-def test_resolve_payload_strict_with_valid_payload_succeeds():
-    payload = {"nda": {"checks_v8": [{"id": "c1"}]}}
-    result = resolve_doc_type_payload(
-        run_id="run-1",
-        snapshot_schema_version=1,
-        instruction_snapshot_payload=payload,
-        doc_type="nda",
+    result = await instruction_snapshot.freeze_instruction_snapshot(
+        run_uuid=run_id,
+        doc_types={"nda"},
+        run_repo=run_repo,
+        session=object(),
+        tenant_id=tenant_id,
+        deal_id=deal_id,
     )
-    assert result.is_legacy is False
-    assert result.payload == {"checks_v8": [{"id": "c1"}]}
-    assert result.is_reproducible is True
-    assert result.warning is None
+
+    assert result == {"nda": str(base_version_id)}
+
+    saved = _snapshot_update_call(run_repo)
+    assert saved["run_id"] == run_id
+    assert saved["versions"] == {"nda": str(base_version_id)}
+    assert saved["payload"] == {"nda": {"checks": [{"id": "custom-check"}]}}
+    assert saved["snapshot_schema_version"] == 1
+
+    manifest = saved["manifest"]["nda"]
+    assert manifest["version_id"] == str(base_version_id)
+    assert manifest["override_id"] == str(deal_override_id)
+    assert manifest["tenant_override_id"] == str(tenant_override_id)
+    assert manifest["deal_override_id"] == str(deal_override_id)
+    assert manifest["is_overridden"] is True
+    assert manifest["effective_hash"] == "effective-hash"
+    assert manifest["resolution_strategy"] == "effective_override_chain"
+
+    registry.get_config.assert_not_called()
+    version_repo.resolve_or_create_from_config.assert_not_awaited()
+
+
+async def test_freeze_instruction_snapshot_falls_back_to_registry_seed_when_no_published_base(
+    monkeypatch,
+):
+    run_id = uuid.uuid4()
+    tenant_id = uuid.uuid4()
+    deal_id = uuid.uuid4()
+    seeded_version_id = uuid.uuid4()
+
+    cfg = SimpleNamespace(
+        type_code="nda",
+        name="NDA",
+        source_yaml="checks:\n  - id: base-check\n",
+        source_sha256="cfg-sha",
+        raw={"checks": [{"id": "base-check"}]},
+    )
+
+    registry = Mock()
+    registry.get_config = Mock(return_value=cfg)
+    monkeypatch.setattr(
+        instruction_snapshot.YAMLRegistry,
+        "get_instance",
+        Mock(return_value=registry),
+    )
+
+    seeded_version = SimpleNamespace(
+        id=seeded_version_id,
+        compiled_payload={"checks": [{"id": "base-check"}]},
+        immutable_content_hash="seeded-immutable-hash",
+        source_sha256="cfg-sha",
+        source_yaml=cfg.source_yaml,
+        owner_scope="platform",
+    )
+    resolve_result = SimpleNamespace(
+        version=seeded_version,
+        created=True,
+        lookup_key="nda:cfg-sha",
+    )
+
+    version_repo = Mock()
+    version_repo.get_latest_published = AsyncMock(return_value=None)
+    version_repo.resolve_or_create_from_config = AsyncMock(return_value=resolve_result)
+    monkeypatch.setattr(
+        instruction_snapshot,
+        "DocumentTypeInstructionVersionRepository",
+        lambda session: version_repo,
+    )
+
+    override_service = Mock()
+    override_service.resolve_effective_payload = AsyncMock(
+        side_effect=BaseVersionNotFoundError("no published base")
+    )
+    monkeypatch.setattr(
+        instruction_snapshot,
+        "InstructionOverrideService",
+        lambda session: override_service,
+    )
+
+    run_repo = _build_run_repo()
+
+    result = await instruction_snapshot.freeze_instruction_snapshot(
+        run_uuid=run_id,
+        doc_types={"nda"},
+        run_repo=run_repo,
+        session=object(),
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+    )
+
+    assert result == {"nda": str(seeded_version_id)}
+
+    saved = _snapshot_update_call(run_repo)
+    assert saved["versions"] == {"nda": str(seeded_version_id)}
+    assert saved["payload"] == {"nda": {"checks": [{"id": "base-check"}]}}
+
+    manifest = saved["manifest"]["nda"]
+    assert manifest["version_id"] == str(seeded_version_id)
+    assert manifest["override_id"] is None
+    assert manifest["tenant_override_id"] is None
+    assert manifest["deal_override_id"] is None
+    assert manifest["is_overridden"] is False
+    assert manifest["resolution_strategy"] == "registry_seeded_base"
+
+    version_repo.resolve_or_create_from_config.assert_awaited_once_with(cfg)
+
+
+async def test_freeze_instruction_snapshot_is_all_or_nothing_when_any_doc_type_resolution_fails(
+    monkeypatch,
+):
+    run_id = uuid.uuid4()
+    tenant_id = uuid.uuid4()
+    deal_id = uuid.uuid4()
+    successful_base_version_id = uuid.uuid4()
+
+    registry = Mock()
+    monkeypatch.setattr(
+        instruction_snapshot.YAMLRegistry,
+        "get_instance",
+        Mock(return_value=registry),
+    )
+
+    version_repo = Mock()
+    version_repo.get_latest_published = AsyncMock(return_value=None)
+    version_repo.resolve_or_create_from_config = AsyncMock()
+    monkeypatch.setattr(
+        instruction_snapshot,
+        "DocumentTypeInstructionVersionRepository",
+        lambda session: version_repo,
+    )
+
+    async def _resolve_effective_payload(*, doc_type_code, tenant_id, deal_id):
+        if doc_type_code == "nda":
+            return EffectiveInstructionPayload(
+                doc_type_code="nda",
+                base_version_id=successful_base_version_id,
+                base_content_hash="base-hash",
+                tenant_override_id=None,
+                deal_override_id=None,
+                effective_payload={"checks": [{"id": "ok"}]},
+                effective_hash="ok-hash",
+                is_overridden=False,
+                provenance={"source": "test"},
+            )
+        raise StaleBaseError("override is stale")
+
+    override_service = Mock()
+    override_service.resolve_effective_payload = AsyncMock(
+        side_effect=_resolve_effective_payload
+    )
+    monkeypatch.setattr(
+        instruction_snapshot,
+        "InstructionOverrideService",
+        lambda session: override_service,
+    )
+
+    run_repo = _build_run_repo()
+
+    with pytest.raises(instruction_snapshot.InstructionSnapshotFreezeError) as exc_info:
+        await instruction_snapshot.freeze_instruction_snapshot(
+            run_uuid=run_id,
+            doc_types={"nda", "msa"},
+            run_repo=run_repo,
+            session=object(),
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+        )
+
+    assert run_repo.update_instruction_snapshot.await_count == 0
+    assert exc_info.value.run_id == str(run_id)
+    assert any(item["doc_type"] == "msa" for item in exc_info.value.errors)
+    assert any(item["error_type"] == "StaleBaseError" for item in exc_info.value.errors)
+
+
+async def test_freeze_instruction_snapshot_uses_published_platform_base_without_tenant_context(
+    monkeypatch,
+):
+    run_id = uuid.uuid4()
+    published_version_id = uuid.uuid4()
+
+    registry = Mock()
+    registry.get_config = Mock(return_value=None)
+    monkeypatch.setattr(
+        instruction_snapshot.YAMLRegistry,
+        "get_instance",
+        Mock(return_value=registry),
+    )
+
+    published_version = SimpleNamespace(
+        id=published_version_id,
+        compiled_payload={"checks": [{"id": "published-check"}]},
+        immutable_content_hash="published-immutable-hash",
+        source_sha256="published-source-sha",
+        source_yaml="checks:\n  - id: published-check\n",
+        owner_scope="platform",
+    )
+
+    version_repo = Mock()
+    version_repo.get_latest_published = AsyncMock(return_value=published_version)
+    version_repo.resolve_or_create_from_config = AsyncMock()
+    monkeypatch.setattr(
+        instruction_snapshot,
+        "DocumentTypeInstructionVersionRepository",
+        lambda session: version_repo,
+    )
+
+    override_service = Mock()
+    override_service.resolve_effective_payload = AsyncMock()
+    monkeypatch.setattr(
+        instruction_snapshot,
+        "InstructionOverrideService",
+        lambda session: override_service,
+    )
+
+    run_repo = _build_run_repo()
+
+    result = await instruction_snapshot.freeze_instruction_snapshot(
+        run_uuid=run_id,
+        doc_types={"nda"},
+        run_repo=run_repo,
+        session=object(),
+        tenant_id=None,
+        deal_id=None,
+    )
+
+    assert result == {"nda": str(published_version_id)}
+
+    saved = _snapshot_update_call(run_repo)
+    assert saved["versions"] == {"nda": str(published_version_id)}
+    assert saved["payload"] == {"nda": {"checks": [{"id": "published-check"}]}}
+
+    manifest = saved["manifest"]["nda"]
+    assert manifest["version_id"] == str(published_version_id)
+    assert manifest["override_id"] is None
+    assert manifest["is_overridden"] is False
+    assert manifest["resolution_strategy"] == "published_platform_base"
+
+    version_repo.resolve_or_create_from_config.assert_not_awaited()
+
 
     

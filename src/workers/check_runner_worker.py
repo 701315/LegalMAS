@@ -32,15 +32,18 @@ CheckRunner Worker — запуск playbook-checks по уже классифи
 - Shared snapshot-контракты живут в core.pipeline_snapshots и переиспользуются
   всеми orchestration/worker файлами.
 
-Instruction versioning:
-- После построения плана (plan_checks_for_run) и до отправки run_single_check задач
-  worker фиксирует instruction_versions в Run.
-- Для каждого уникального doc_type из плана резолвится или создаётся
-  DocumentTypeInstructionVersion через YAMLRegistry + DocumentTypeInstructionVersionRepository.
-- Зафиксированная карта {doc_type: version_id} сохраняется в Run.instruction_versions.
-- Это гарантирует, что DD Grid review path использует те же версии инструкций,
-  которые были актуальны в момент запуска Run, даже если YAML на диске изменился.
-- Ошибка фиксации роняет Run в FAILED — strict snapshot обязателен для новых Run.
+Instruction snapshot freeze:
+- После построения document scope и до отправки run_single_check задач
+  worker фиксирует frozen instruction snapshot в Run.
+- Для каждого уникального doc_type freeze path резолвит canonical effective payload:
+    published base → tenant active override → deal active override.
+- Если published base version пока отсутствует, используется controlled
+  registry-backed seed fallback для platform path.
+- Зафиксированная карта {doc_type: version_id} сохраняет БАЗОВЫЕ instruction versions,
+  а instruction_snapshot_payload хранит final effective payload для исполнения.
+- Это гарантирует, что DD Grid review path и runtime checks используют
+  одинаковую frozen конфигурацию конкретного Run.
+- Ошибка freeze роняет Run в FAILED — strict snapshot обязателен для новых Run.
 """
 
 from __future__ import annotations
@@ -267,6 +270,8 @@ def run_deal_checks(
                         doc_types=doc_types_for_snapshot,
                         run_repo=run_repo,
                         session=uow.session,
+                        tenant_id=run_snap.tenant_id,
+                        deal_id=run_snap.deal_id or deal_uuid,
                     )
                     logger.info(
                         "Run deal checks scheduler: instruction snapshot fixed",

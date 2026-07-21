@@ -15,7 +15,6 @@ from db.repositories.playbook_repo import PlaybookRepository
 from db.session import get_db
 
 from .classification_investigation import router as classification_investigation_router
-from .debug import router as debug_router
 from .documents import router as documents_router
 from .history import router as history_router
 from .runs import router as runs_router
@@ -132,6 +131,5 @@ router.include_router(documents_router)
 router.include_router(runs_router)
 router.include_router(settings_router)
 router.include_router(history_router)
-router.include_router(debug_router)
 
 

@@ -3,7 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import workers._tenant_resolver as tenant_resolver
+import core.tenant_resolver as tenant_resolver
+from core.exceptions import PermanentError
 
 
 @pytest.mark.asyncio
@@ -24,7 +25,7 @@ async def test_resolve_artifact_tenant_id_prefers_db_tenant_over_zero_payload(mo
         def __init__(self, session):
             self.session = session
 
-        async def get_by_id(self, requested_deal_id):
+        async def internal_unsafe_get_by_id(self, requested_deal_id):
             assert requested_deal_id == deal_id
             return SimpleNamespace(id=deal_id, tenant_id=db_tenant_id)
 
@@ -37,7 +38,7 @@ async def test_resolve_artifact_tenant_id_prefers_db_tenant_over_zero_payload(mo
         payload_tenant_id=str(uuid.UUID(int=0)),
     )
 
-    assert resolved == str(db_tenant_id)
+    assert resolved == db_tenant_id
 
 
 @pytest.mark.asyncio
@@ -49,7 +50,7 @@ async def test_resolve_artifact_tenant_id_falls_back_to_payload_when_db_tenant_m
         def __init__(self, session):
             self.session = session
 
-        async def get_by_id(self, requested_deal_id):
+        async def internal_unsafe_get_by_id(self, requested_deal_id):
             assert requested_deal_id == deal_id
             return SimpleNamespace(id=deal_id, tenant_id=None)
 
@@ -61,30 +62,28 @@ async def test_resolve_artifact_tenant_id_falls_back_to_payload_when_db_tenant_m
         payload_tenant_id=str(payload_tenant_id),
     )
 
-    assert resolved == str(payload_tenant_id)
+    assert resolved == payload_tenant_id
 
 
 @pytest.mark.asyncio
-async def test_resolve_artifact_tenant_id_falls_back_to_deal_id_surrogate(monkeypatch):
+async def test_resolve_artifact_tenant_id_raises_when_db_tenant_missing_and_payload_invalid(
+    monkeypatch,
+):
     deal_id = uuid.uuid4()
 
     class FakeDealRepository:
         def __init__(self, session):
             self.session = session
 
-        async def get_by_id(self, requested_deal_id):
+        async def internal_unsafe_get_by_id(self, requested_deal_id):
             assert requested_deal_id == deal_id
             return SimpleNamespace(id=deal_id, tenant_id=uuid.UUID(int=0))
 
     monkeypatch.setattr(tenant_resolver, "DealRepository", FakeDealRepository)
 
-    resolved = await tenant_resolver.resolve_artifact_tenant_id(
-        session=object(),
-        deal_id=deal_id,
-        payload_tenant_id="not-a-uuid",
-    )
-
-    assert resolved == str(deal_id)
-
-
-    
+    with pytest.raises(PermanentError):
+        await tenant_resolver.resolve_artifact_tenant_id(
+            session=object(),
+            deal_id=deal_id,
+            payload_tenant_id="not-a-uuid",
+        )

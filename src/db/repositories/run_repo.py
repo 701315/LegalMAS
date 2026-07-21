@@ -61,6 +61,7 @@ class RunRepository:
     async def create(
         self,
         deal_id: uuid.UUID,
+        tenant_id: uuid.UUID,
         playbook_version_id: uuid.UUID,
         model_config_id: uuid.UUID | None = None,
         bundle_id: uuid.UUID | None = None,
@@ -73,20 +74,13 @@ class RunRepository:
         """
         Создать новый запуск анализа (Run) для сделки.
 
-
-        Для юриста это означает:
-        - «я запустил новый анализ по сделке»;
-        - в дальнейшем именно по этому Run будут считаться прогресс и статусы.
-
-
-        Важно:
-        - pipeline_strategy описывает, как запуск использует существующие артефакты;
-        - checks_mode определяет общий режим проверок;
-        - checks_scope определяет область документа, по которой запускать checks
-          (например, только primary, только appendices, или оба типа сегментов).
+        tenant_id обязателен и должен передаваться как Deal.tenant_id.
+        Это frozen ownership snapshot: Run принадлежит tenant'у сделки
+        в момент создания и никогда не меняет ownership.
         """
         run = Run(
             deal_id=deal_id,
+            tenant_id=tenant_id,
             bundle_id=bundle_id,
             playbook_version_id=playbook_version_id,
             model_config_id=model_config_id,
@@ -496,10 +490,12 @@ class RunRepository:
             run_id:   Идентификатор Run.
             versions: {doc_type: version_id_str} — обратная совместимость
                       с существующим полем instruction_versions.
-            manifest: {doc_type: {version_id, content_hash, override_id}} —
-                      метаданные снапшота для аудита/UI.
-            payload:  {doc_type: full_yaml_dict} — передаётся в
-                      DatabaseInstructionProvider для исполнения checks.
+            manifest: {doc_type: {...}} —
+                      provenance frozen snapshot:
+                      version_id, content_hash, effective_hash,
+                      tenant/deal override ids, resolution_strategy.
+            payload:  {doc_type: effective_compiled_payload_dict} —
+                      frozen effective payload для DatabaseInstructionProvider.
             snapshot_schema_version: если передан, выставляется атомарно
                       вместе со snapshot. None = не менять.
 
@@ -547,6 +543,19 @@ class RunRepository:
         playbook_repo = PlaybookRepository(self.session)
         pb_version = await playbook_repo.get_by_id(current_run.playbook_version_id)
 
+        doc_type_execution_manifest = {}
+        for doc_type, version_id in versions.items():
+            doc_manifest = manifest.get(doc_type) or {}
+            doc_type_execution_manifest[doc_type] = {
+                "version_id": version_id,
+                "override_id": doc_manifest.get("override_id"),
+                "tenant_override_id": doc_manifest.get("tenant_override_id"),
+                "deal_override_id": doc_manifest.get("deal_override_id"),
+                "effective_hash": doc_manifest.get("effective_hash"),
+                "is_overridden": bool(doc_manifest.get("is_overridden", False)),
+                "resolution_strategy": doc_manifest.get("resolution_strategy"),
+            }
+
         execution_manifest = {
             "schema_version": 1,
             "playbook": {
@@ -558,12 +567,7 @@ class RunRepository:
                     else None
                 ),
             },
-            "doc_type_instructions": {
-                doc_type: {
-                    "version_id": versions.get(doc_type),
-                }
-                for doc_type in versions.keys()
-            },
+            "doc_type_instructions": doc_type_execution_manifest,
         }
 
         update_values: dict = {

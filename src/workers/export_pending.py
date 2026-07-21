@@ -88,7 +88,7 @@ async def _export_process_pending_async(tenant_id: str) -> bool:
                     audit_repo = AuditRepository(uow.session)
                     await audit_repo.log(
                         tenant_id=tenant_uuid,
-                        deal_id=uuid.UUID(int=0),
+                        deal_id=None,
                         action=("EXPORT_PENDING_PROCESSED" if processed else "EXPORT_PENDING_IDLE"),
                         actor="system",
                         actor_role="worker",
@@ -130,7 +130,7 @@ async def _export_process_pending_async(tenant_id: str) -> bool:
                     audit_repo = AuditRepository(uow_status.session)
                     await audit_repo.log(
                         tenant_id=tenant_uuid,
-                        deal_id=uuid.UUID(int=0),
+                        deal_id=None,
                         action="EXPORT_PENDING_FAILED",
                         actor="system",
                         actor_role="worker",

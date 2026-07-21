@@ -46,7 +46,7 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from storage.artifact_store import ArtifactPath, ArtifactStore
-from workers._tenant_resolver import resolve_artifact_tenant_id
+from core.tenant_resolver import resolve_artifact_tenant_id
 
 logger = get_logger(__name__)
 

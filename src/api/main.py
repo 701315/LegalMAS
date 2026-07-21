@@ -62,6 +62,7 @@ from .endpoints import (
     instruction_overrides,
     instruction_preview,
     instruction_versions,
+    instructions_global,
     model_configs,
     playbook_runs,
     playbooks,
@@ -237,6 +238,9 @@ app.include_router(project_members.router, prefix="/api/v1")
 
 # Плейбуки.
 app.include_router(playbooks.router, prefix="/api/v1")
+
+# Global instruction facade over playbook domain.
+app.include_router(instructions_global.router, prefix="/api/v1")
 
 # Типы документов.
 app.include_router(document_types.router, prefix="/api/v1")

@@ -61,6 +61,8 @@ from services.run_pipeline_progress_service import RunPipelineProgressService
 from services.run_progress_service import subscribe_run_progress
 from api.schemas.instruction_overrides import RunInstructionSnapshotResponse
 from engine.checks.snapshot_policy import check_snapshot_integrity
+from api.schemas.run_check_plan import RunCheckPlanItemResponse, RunCheckPlanResponse
+from db.repositories.run_check_plan_item_repo import RunCheckPlanItemRepository
 
 logger = get_logger(__name__)
 
@@ -207,6 +209,7 @@ async def _start_run_core(
 
     run = await run_repo.create(
         deal_id=deal_uuid,
+        tenant_id=deal.tenant_id,
         playbook_version_id=playbook_version_id,
         model_config_id=model_config_id,
         bundle_id=None,
@@ -220,6 +223,7 @@ async def _start_run_core(
         extra={
             "run_id": str(run.id),
             "deal_id": str(deal_uuid),
+            "tenant_id": str(deal.tenant_id),
             "playbook_version_id": str(playbook_version_id),
             "model_config_id": str(model_config_id),
             "pipeline_strategy": pipeline_strategy,
@@ -247,10 +251,11 @@ async def _start_run_core(
     await db.commit()
     await db.refresh(run)
 
-    # 6.1. Аудит: пользователь запросил запуск анализа по сделке
+    # 6.1. Аудит: пользователь запросил запуск анализа.
+    # Tenant берётся из deal — canonical source of truth ownership.
     try:
         await audit_repo.log(
-            tenant_id=getattr(user, "tenant_id", None) or uuid.UUID(settings.DEV_TENANT_ID),
+            tenant_id=deal.tenant_id,
             deal_id=deal_uuid,
             action="ANALYSIS_REQUESTED",
             actor=str(getattr(user, "id", None)) if getattr(user, "id", None) else "unknown",
@@ -264,11 +269,11 @@ async def _start_run_core(
                 "checks_mode": data.checks_mode,
                 "pipeline_strategy": pipeline_strategy,
                 "force_reclassify": bool(
-                    data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
+                    data.force_reclassify
+                    and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
                 ),
             },
         )
-        # commit уже был, аудит пойдёт в рамках того же транзакционного контекста
     except Exception as e:
         logger.warning(
             "Failed to write audit log for ANALYSIS_REQUESTED",
@@ -279,45 +284,29 @@ async def _start_run_core(
             },
         )
 
-    # 7. Ставим одну оркестрационную Celery-задачу для run
-    # Воркер workers.start_run_pipeline должен:
-    # - по run_id найти deal и playbook;
-    # - обойти все документы сделки;
-    # - с учётом их статусов (PENDING/EXTRACTED/STRUCTURED/CLASSIFIED/COMPLETED)
-    #   запустить или дозапустить пайплайн до run_checks.
-    tenant_id = getattr(user, "tenant_id", None)
-
+    # 7. Ставим Celery-задачу.
+    # tenant_id берётся из run — он уже зафиксирован в БД из deal.tenant_id.
     try:
         logger.info(
             "Scheduling start_run_pipeline",
             extra={
                 "run_id": str(run.id),
                 "deal_id": str(deal_uuid),
+                "tenant_id": str(run.tenant_id),
             },
         )
 
-        task_kwargs = {
-            "run_id": str(run.id),
-            "deal_id": str(deal_uuid),
-            "force_reclassify": bool(
-                data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
-            ),
-        }
-
-        normalized_tenant_id = (
-            str(tenant_id)
-            if tenant_id and str(tenant_id) not in (
-                "00000000-0000-0000-0000-000000000000",
-                settings.DEV_TENANT_ID,
-            )
-            else None
-        )
-        if normalized_tenant_id is not None:
-            task_kwargs["tenant_id"] = normalized_tenant_id
-
         send_task_with_context(
             "workers.start_run_pipeline",
-            kwargs=task_kwargs,
+            kwargs={
+                "run_id": str(run.id),
+                "deal_id": str(deal_uuid),
+                "tenant_id": str(run.tenant_id),
+                "force_reclassify": bool(
+                    data.force_reclassify
+                    and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
+                ),
+            },
         )
 
     except Exception as e:
@@ -868,4 +857,69 @@ async def get_run_instruction_snapshot(
         warning=warning,
     )
 
+@router.get(
+    "/{run_id}/check-plan",
+    response_model=RunCheckPlanResponse,
+    summary="Execution ledger проверок для Run (check-plan)",
+)
+async def get_run_check_plan(
+    run: Run = Depends(get_scoped_run),
+    status: str | None = Query(
+        default=None,
+        description="Фильтр по статусу: planned/dispatched/started/succeeded/failed/skipped/timeout/cancelled",
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> RunCheckPlanResponse:
+    """
+    Вернуть execution ledger (source-of-truth прогресса) для Run.
 
+    Доступ: viewer/editor/admin проекта, read-only.
+    """
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=run.deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
+    repo = RunCheckPlanItemRepository(db)
+    items = await repo.list_by_run_id(run.id, status=status)
+    stats = await repo.get_run_progress_stats(run.id)
+
+    return RunCheckPlanResponse(
+        run_id=run.id,
+        items=[RunCheckPlanItemResponse.model_validate(i) for i in items],
+        summary=stats,
+    )
+
+
+@router.get(
+    "/{run_id}/check-plan/{plan_item_id}",
+    response_model=RunCheckPlanItemResponse,
+    summary="Один элемент execution ledger по ID",
+)
+async def get_run_check_plan_item(
+    plan_item_id: uuid.UUID,
+    run: Run = Depends(get_scoped_run),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+) -> RunCheckPlanItemResponse:
+    """
+    Вернуть один check-plan item, scoped по run_id (защита от cross-run leakage).
+
+    Доступ: viewer/editor/admin проекта, read-only.
+    """
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=run.deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
+    repo = RunCheckPlanItemRepository(db)
+    item = await repo.get_by_id_scoped(plan_item_id, run.id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Check plan item not found")
+
+    return RunCheckPlanItemResponse.model_validate(item)

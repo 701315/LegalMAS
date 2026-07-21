@@ -377,11 +377,15 @@ async def _resolve_tenant_id(
 ) -> str:
     """
     Резолвит tenant_id для оркестратора.
+
     Приоритет:
-    1) явный tenant_id из kwargs (не None, не нулевой UUID);
-    2) tenant_id из deals (явный DB-запрос, не lazy-load);
-    3) deal_id как surrogate — допустимо только в dev/single-tenant окружении,
-       когда deals.tenant_id = NULL или нулевой UUID.
+    1. явный tenant_id из task kwargs — primary source
+       (всегда передаётся из run.tenant_id при dispatch);
+    2. deal.tenant_id из БД — defensive fallback для integrity repair.
+
+    Surrogate deal_id как tenant удалён.
+    Если tenant не резолвится — это integrity violation,
+    оркестратор поднимает ValueError.
     """
     if _is_non_zero_uuid_str(tenant_id):
         return str(uuid.UUID(tenant_id))
@@ -389,23 +393,20 @@ async def _resolve_tenant_id(
     deal_repo = DealRepository(db)
     deal_obj = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
     deal_tenant_id = getattr(deal_obj, "tenant_id", None) if deal_obj is not None else None
+
     if deal_tenant_id and deal_tenant_id != _ZERO_UUID:
         resolved = str(deal_tenant_id)
-        logger.info(
-            "tenant_id resolved from deal",
+        logger.warning(
+            "tenant_id resolved from deal (fallback — task kwargs had no valid tenant_id)",
             deal_id=str(deal_uuid),
             tenant_id=resolved,
         )
         return resolved
 
-    surrogate = str(deal_uuid)
-    logger.warning(
-        "tenant_id not resolvable, using deal_id as surrogate tenant",
-        deal_id=surrogate,
-        payload_tenant_id=tenant_id,
-        deal_tenant_id=str(deal_tenant_id) if deal_tenant_id else None,
+    raise ValueError(
+        f"Cannot resolve tenant_id for deal {deal_uuid}: "
+        "neither task kwargs nor deal.tenant_id provided valid tenant"
     )
-    return surrogate
 
 
 # ─── Async core ───────────────────────────────────────────────────────────────
@@ -513,23 +514,29 @@ async def _start_run_pipeline_async(
                 run_id=run_id,
             )
         else:
-            try:
-                await audit_repo.log(
-                    tenant_id=uuid.UUID(tenant_id) if tenant_id else uuid.UUID(int=0),
-                    deal_id=run_snap.deal_id,
-                    action="ANALYSIS_STARTED",
-                    actor="system",
-                    actor_role="worker",
-                    details={
-                        "run_id": run_id,
-                        "deal_id": run_snap.deal_id_str,
-                        "pipeline_strategy": run_snap.pipeline_strategy,
-                        "force_reclassify": force_reclassify,
-                    },
-                )
-            except Exception:
-                logger.warning(
-                    "Failed to write audit log for ANALYSIS_STARTED",
+            if run_snap.tenant_id is not None:
+                try:
+                    await audit_repo.log(
+                        tenant_id=run_snap.tenant_id,
+                        deal_id=run_snap.deal_id,
+                        action="ANALYSIS_STARTED",
+                        actor="system",
+                        actor_role="worker",
+                        details={
+                            "run_id": run_id,
+                            "deal_id": run_snap.deal_id_str,
+                            "pipeline_strategy": run_snap.pipeline_strategy,
+                            "force_reclassify": force_reclassify,
+                        },
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to write audit log for ANALYSIS_STARTED",
+                        run_id=run_id,
+                    )
+            else:
+                logger.error(
+                    "ANALYSIS_STARTED audit skipped: run has no tenant_id — integrity violation",
                     run_id=run_id,
                 )
 
@@ -1414,3 +1421,5 @@ def _send_task(
     )
     result = send_task_with_context(plan.task_name, kwargs=kwargs)
     return result.id
+
+
