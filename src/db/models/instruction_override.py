@@ -96,6 +96,20 @@ class InstructionOverride(Base):
         comment="Base instruction version this override is derived from.",
     )
 
+
+    global_instruction_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("global_instruction_versions.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        comment=(
+            "Global instruction version this override is derived from. "
+            "Mutually exclusive with instruction_version_id: "
+            "exactly one must be non-null."
+        ),
+    )
+
+
     override_scope: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
@@ -183,6 +197,11 @@ class InstructionOverride(Base):
         CheckConstraint(
             "status IN ('draft', 'active', 'archived')",
             name="ck_instruction_overrides_status",
+        ),
+        CheckConstraint(
+            "((instruction_version_id IS NOT NULL AND global_instruction_version_id IS NULL) "
+            "OR (instruction_version_id IS NULL AND global_instruction_version_id IS NOT NULL))",
+            name="ck_instruction_overrides_version_id_xor",
         ),
     )
 

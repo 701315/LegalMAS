@@ -256,5 +256,144 @@ class InstructionCompiler:
         )
         return DocumentTypeConfig._compute_sha256(canonical_json)
     
+# Добавить в src/services/instruction_compiler.py
 
+# Новый dataclass для global:
+@dataclass(slots=True)
+class CompiledGlobalInstruction:
+    instruction_code: str
+    name: str | None
+    group: str | None
+    source_yaml: str
+    source_sha256: str
+    compiled_payload: dict[str, Any]
+    compiled_payload_sha256: str
+    diagnostics: list[CompilationDiagnostic]
+    validation_report: dict[str, Any]
+    is_valid: bool
+
+
+# Добавить в класс InstructionCompiler:
+
+VALID_DETECTOR_TYPES = ("rules", "llm", "hybrid")
+
+def compile_global_instruction(
+    self,
+    *,
+    instruction_code: str,
+    source: str | dict[str, Any],
+) -> CompiledGlobalInstruction:
+    """
+    Compile и validate global instruction YAML.
+
+    Global instruction — это один check в формате GlobalCheckConfig
+    (core/playbooks/compiler.py). В отличие от doc-type instruction,
+    где YAML содержит массив checks_v8, здесь YAML описывает один check.
+
+    Валидация:
+    - обязательные поля (id, name, detector_type)
+    - id в YAML совпадает с instruction_code
+    - detector_type валиден
+    - совместимость с GlobalCheckConfig pydantic model
+    """
+    instruction_code = str(instruction_code or "").strip()
+    if not instruction_code:
+        raise InstructionCompilationError("instruction_code is required")
+
+    raw = self._parse_source_to_dict(source)
+    canonical_yaml = DocumentTypeConfig._dump_canonical_yaml(raw)
+    source_sha256 = DocumentTypeConfig._compute_sha256(canonical_yaml)
+
+    diagnostics: list[CompilationDiagnostic] = []
+
+    # Обязательные поля
+    for field_name in ("id", "name", "detector_type"):
+        if not raw.get(field_name):
+            diagnostics.append(CompilationDiagnostic(
+                level="error",
+                message=f"Required field '{field_name}' is missing or empty.",
+                path=field_name,
+            ))
+
+    # id должен совпадать с instruction_code
+    yaml_id = str(raw.get("id") or "").strip()
+    if yaml_id and yaml_id != instruction_code:
+        diagnostics.append(CompilationDiagnostic(
+            level="error",
+            message=(
+                f"YAML 'id' field ('{yaml_id}') does not match "
+                f"instruction_code ('{instruction_code}')."
+            ),
+            path="id",
+        ))
+
+    # detector_type
+    detector_type = str(raw.get("detector_type") or "").strip()
+    if detector_type and detector_type not in self.VALID_DETECTOR_TYPES:
+        diagnostics.append(CompilationDiagnostic(
+            level="error",
+            message=(
+                f"Invalid detector_type '{detector_type}'. "
+                f"Expected one of: {', '.join(self.VALID_DETECTOR_TYPES)}."
+            ),
+            path="detector_type",
+        ))
+
+    # Совместимость с GlobalCheckConfig (если нет ошибок до этого)
+    if not any(d.level == "error" for d in diagnostics):
+        try:
+            from core.playbooks.compiler import GlobalCheckConfig
+            GlobalCheckConfig(**raw)
+        except Exception as exc:
+            diagnostics.append(CompilationDiagnostic(
+                level="error",
+                message=f"GlobalCheckConfig validation failed: {exc}",
+                path=None,
+            ))
+
+    # Предупреждения
+    if not raw.get("description"):
+        diagnostics.append(CompilationDiagnostic(
+            level="warning",
+            message="Field 'description' is empty or missing.",
+            path="description",
+        ))
+    if not raw.get("group"):
+        diagnostics.append(CompilationDiagnostic(
+            level="warning",
+            message=(
+                "Field 'group' is empty or missing. "
+                "This instruction will appear ungrouped in the catalog."
+            ),
+            path="group",
+        ))
+
+    is_valid = not any(d.level == "error" for d in diagnostics)
+    compiled_payload = raw
+    compiled_payload_sha256 = self._compute_payload_sha256(compiled_payload)
+
+    name = str(raw.get("name") or "").strip() or None
+    group = str(raw.get("group") or "").strip() or None
+
+    validation_report = {
+        "is_valid": is_valid,
+        "instruction_code": instruction_code,
+        "diagnostics": [
+            {"level": d.level, "message": d.message, "path": d.path}
+            for d in diagnostics
+        ],
+    }
+
+    return CompiledGlobalInstruction(
+        instruction_code=instruction_code,
+        name=name,
+        group=group,
+        source_yaml=canonical_yaml,
+        source_sha256=source_sha256,
+        compiled_payload=compiled_payload,
+        compiled_payload_sha256=compiled_payload_sha256,
+        diagnostics=diagnostics,
+        validation_report=validation_report,
+        is_valid=is_valid,
+    )
     

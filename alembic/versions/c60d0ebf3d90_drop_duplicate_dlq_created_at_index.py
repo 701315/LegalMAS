@@ -8,7 +8,6 @@ Create Date: 2026-05-18 14:13:29.984573
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -19,13 +18,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_index("dlq_records_created_at_idx", table_name="dlq_records")
+    # Безопасно для fresh bootstrap:
+    # если индекс уже отсутствует — не падаем.
+    op.execute("DROP INDEX IF EXISTS dlq_records_created_at_idx")
 
 
 def downgrade() -> None:
-    op.create_index(
-        "dlq_records_created_at_idx",
-        "dlq_records",
-        ["created_at"],
-        unique=False,
-    )
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS dlq_records_created_at_idx
+        ON dlq_records (created_at)
+    """)
+
+
+    

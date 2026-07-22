@@ -494,4 +494,76 @@ class InstructionOverrideRepository:
         return True
     
 
-    
+    async def mark_stale_where_global_base_outdated(
+        self,
+        instruction_code: str,
+        latest_version_id: uuid.UUID,
+    ) -> int:
+        """
+        Пометить stale все overrides для данного instruction_code,
+        чья global_instruction_version_id не совпадает с latest_version_id.
+
+        Зеркало mark_stale_where_base_outdated для global instructions.
+        """
+        from ..models.global_instruction import GlobalInstructionVersion
+
+        stmt = (
+            update(InstructionOverride)
+            .where(
+                InstructionOverride.global_instruction_version_id.in_(
+                    select(GlobalInstructionVersion.id).where(
+                        GlobalInstructionVersion.instruction_code == instruction_code,
+                        GlobalInstructionVersion.id != latest_version_id,
+                    )
+                ),
+                InstructionOverride.is_stale.is_(False),
+            )
+            .values(is_stale=True)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+
+        affected = result.rowcount or 0
+        logger.info(
+            "GlobalInstructionOverrides marked stale (base outdated)",
+            extra={
+                "instruction_code": instruction_code,
+                "latest_version_id": str(latest_version_id),
+                "affected_count": affected,
+            },
+        )
+        return affected
+
+    async def get_active_tenant_global_override(
+        self,
+        tenant_id: uuid.UUID,
+        global_instruction_version_id: uuid.UUID,
+    ) -> InstructionOverride | None:
+        result = await self.session.execute(
+            select(InstructionOverride).where(
+                InstructionOverride.tenant_id == tenant_id,
+                InstructionOverride.global_instruction_version_id == global_instruction_version_id,
+                InstructionOverride.override_scope == "tenant",
+                InstructionOverride.status == "active",
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_active_deal_global_override(
+        self,
+        deal_id: uuid.UUID,
+        global_instruction_version_id: uuid.UUID,
+    ) -> InstructionOverride | None:
+        result = await self.session.execute(
+            select(InstructionOverride).where(
+                InstructionOverride.deal_id == deal_id,
+                InstructionOverride.global_instruction_version_id == global_instruction_version_id,
+                InstructionOverride.override_scope == "deal",
+                InstructionOverride.status == "active",
+            )
+        )
+        return result.scalar_one_or_none()
+
+
+
+        

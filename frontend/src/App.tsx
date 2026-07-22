@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import React from "react";
 import { Routes, Route, Navigate, useParams } from "react-router-dom";
 import "./App.css";
@@ -9,7 +11,7 @@ import CapabilitiesPage from "./marketing/pages/CapabilitiesPage";
 import DemoPage from "./marketing/pages/DemoPage";
 import AboutPage from "./marketing/pages/AboutPage";
 
-// ✅ Solution pages (Существующие)
+// ── Solution pages ────────────────────────────────────────────
 import MaDueDiligencePage from "./marketing/pages/solutions/MaDueDiligencePage";
 import ContractReviewPage from "./marketing/pages/solutions/ContractReviewPage";
 import CompliancePage from "./marketing/pages/solutions/CompliancePage";
@@ -17,12 +19,10 @@ import InternalAuditPage from "./marketing/pages/solutions/InternalAuditPage";
 import LawFirmsPage from "./marketing/pages/solutions/LawFirmsPage";
 import CorporateLegalPage from "./marketing/pages/solutions/CorporateLegalPage";
 import AuditCompliancePage from "./marketing/pages/solutions/AuditCompliancePage";
-
-// ✅ Solution pages (Новые: Расширенный анализ)
 import CounterpartiesPage from "./marketing/pages/solutions/CounterpartiesPage";
 import RealEstatePage from "./marketing/pages/solutions/RealEstatePage";
 
-// ── App pages ─────────────────────────────────────────────────
+// ── App pages — существующие ──────────────────────────────────
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import DealPage from "./pages/DealPage";
@@ -39,6 +39,32 @@ import TenantAdminPage from "./pages/TenantAdminPage";
 import AdminTenantNewPage from "./pages/AdminTenantNewPage";
 import AdminTenantDetailPage from "./pages/AdminTenantDetailPage";
 
+// ── Instructions — global playbooks (superadmin) ──────────────
+import InstructionsIndexPage from "./pages/instructions/InstructionsIndexPage";
+import GlobalPlaybooksPage from "./pages/instructions/GlobalPlaybooksPage";
+import GlobalPlaybookDetailPage from "./pages/instructions/GlobalPlaybookDetailPage";
+import PlaybookVersionDetailPage from "./pages/instructions/PlaybookVersionDetailPage";
+
+// ── Instructions — global checks lifecycle (superadmin) ───────
+import GlobalInstructionsPage from "./pages/instructions/GlobalInstructionsPage";
+import GlobalInstructionDetailPage from "./pages/instructions/GlobalInstructionDetailPage";
+import GlobalInstructionVersionDetailPage from "./pages/instructions/GlobalInstructionVersionDetailPage";
+
+// ── Instructions — doc-type (superadmin) ──────────────────────
+import DocTypeInstructionsPage from "./pages/instructions/DocTypeInstructionsPage";
+import DocTypeDetailPage from "./pages/instructions/DocTypeDetailPage";
+import DocTypeVersionDetailPage from "./pages/instructions/DocTypeVersionDetailPage";
+
+// ── Instructions — tenant-level (tenant_admin) ────────────────
+import TenantInstructionsPage from "./pages/tenant-instructions/TenantInstructionsPage";
+import TenantOverridesPage from "./pages/tenant-instructions/TenantOverridesPage";
+import TenantOverrideDetailPage from "./pages/tenant-instructions/TenantOverrideDetailPage";
+
+// ── Instructions — deal-level (project member) ────────────────
+import DealInstructionsPage from "./pages/deal-instructions/DealInstructionsPage";
+import DealOverridesPage from "./pages/deal-instructions/DealOverridesPage";
+import DealOverrideDetailPage from "./pages/deal-instructions/DealOverrideDetailPage";
+
 // ── Utilities ─────────────────────────────────────────────────
 import { shouldPollDealLanguageDiscovery } from "./utils/languageDiscovery";
 import { useDeal } from "./api/deals";
@@ -46,8 +72,6 @@ import { useAuth } from "./hooks/useAuth";
 import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
 import ScrollToAnchor from "./components/routing/ScrollToAnchor";
 import AppShell from "./components/layout/AppShell";
-
-// ── Context Providers ─────────────────────────────────────────
 import { ContactModalProvider } from "./marketing/context/ContactModalContext";
 
 const POLL_INTERVAL = 4000;
@@ -55,9 +79,15 @@ const POLL_INTERVAL = 4000;
 // ─────────────────────────────────────────────────────────────
 // Deal wrapper
 // ─────────────────────────────────────────────────────────────
+
 function DealRouteWrapper() {
   const { dealId } = useParams<{ dealId: string }>();
-  const { data: deal, isLoading, isError, error } = useDeal(dealId ?? null, {
+  const {
+    data: deal,
+    isLoading,
+    isError,
+    error,
+  } = useDeal(dealId ?? null, {
     refetchInterval: (query) =>
       shouldPollDealLanguageDiscovery(
         query.state.data?.language_discovery_status,
@@ -71,9 +101,7 @@ function DealRouteWrapper() {
   if (isError || !deal) {
     return (
       <div>
-        {error instanceof Error
-          ? error.message
-          : "Ошибка загрузки проекта"}
+        {error instanceof Error ? error.message : "Ошибка загрузки проекта"}
       </div>
     );
   }
@@ -82,7 +110,7 @@ function DealRouteWrapper() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Guards
+// Route Guards
 // ─────────────────────────────────────────────────────────────
 
 function RequireAuth({ children }: { children: React.ReactElement }) {
@@ -94,9 +122,7 @@ function RequireAuth({ children }: { children: React.ReactElement }) {
 function RequireSuperadmin({ children }: { children: React.ReactElement }) {
   const { userId, globalRole } = useAuth();
   if (!userId) return <Navigate to="/login" replace />;
-  if (globalRole !== "superadmin") {
-    return <Navigate to="/dashboard" replace />;
-  }
+  if (globalRole !== "superadmin") return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -124,37 +150,67 @@ function App() {
         <ScrollToAnchor />
 
         <Routes>
-          {/* ── Marketing routes ───────────────────────────── */}
+          {/* ── Marketing ──────────────────────────────────── */}
           <Route path="/" element={<HomePage />} />
           <Route path="/capabilities" element={<CapabilitiesPage />} />
           <Route path="/security" element={<SecurityPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/demo" element={<DemoPage />} />
-
-          {/* Solutions (По направлению и По пользователю) */}
-          <Route path="/solutions/ma-due-diligence" element={<MaDueDiligencePage />} />
-          <Route path="/solutions/contract-review" element={<ContractReviewPage />} />
-          <Route path="/solutions/compliance" element={<CompliancePage />} />
-          <Route path="/solutions/internal-audit" element={<InternalAuditPage />} />
+          <Route
+            path="/solutions/ma-due-diligence"
+            element={<MaDueDiligencePage />}
+          />
+          <Route
+            path="/solutions/contract-review"
+            element={<ContractReviewPage />}
+          />
+          <Route
+            path="/solutions/compliance"
+            element={<CompliancePage />}
+          />
+          <Route
+            path="/solutions/internal-audit"
+            element={<InternalAuditPage />}
+          />
           <Route path="/solutions/law-firms" element={<LawFirmsPage />} />
-          <Route path="/solutions/corporate-legal" element={<CorporateLegalPage />} />
-          <Route path="/solutions/audit-compliance" element={<AuditCompliancePage />} />
+          <Route
+            path="/solutions/corporate-legal"
+            element={<CorporateLegalPage />}
+          />
+          <Route
+            path="/solutions/audit-compliance"
+            element={<AuditCompliancePage />}
+          />
+          <Route
+            path="/solutions/counterparties"
+            element={<CounterpartiesPage />}
+          />
+          <Route
+            path="/solutions/real-estate"
+            element={<RealEstatePage />}
+          />
 
-          {/* ✅ Solutions (Новые: Расширенный анализ) */}
-          <Route path="/solutions/counterparties" element={<CounterpartiesPage />} />
-          <Route path="/solutions/real-estate" element={<RealEstatePage />} />
-
-          {/* Auth */}
+          {/* ── Auth ───────────────────────────────────────── */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* ── Protected app routes ───────────────────────── */}
-
+          {/* ── Dashboard & Projects ───────────────────────── */}
           <Route
             path="/dashboard"
             element={
               <RequireAuth>
                 <AppShell>
                   <DashboardPage />
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/deals"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <DealListPage />
                 </AppShell>
               </RequireAuth>
             }
@@ -179,17 +235,6 @@ function App() {
                   <NewProjectPage />
                 </AppShell>
               </RequireAdminOrSuperadmin>
-            }
-          />
-
-          <Route
-            path="/deals"
-            element={
-              <RequireAuth>
-                <AppShell>
-                  <DealListPage />
-                </AppShell>
-              </RequireAuth>
             }
           />
 
@@ -245,6 +290,47 @@ function App() {
             }
           />
 
+          {/* ── Deal-level Instructions ─────────────────────── */}
+          <Route
+            path="/projects/:dealId/instructions"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <ProjectRouteGuard requiredCapability="canManageRequests">
+                    <DealInstructionsPage />
+                  </ProjectRouteGuard>
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/projects/:dealId/instructions/overrides"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <ProjectRouteGuard requiredCapability="canManageRequests">
+                    <DealOverridesPage />
+                  </ProjectRouteGuard>
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/projects/:dealId/instructions/overrides/:docType"
+            element={
+              <RequireAuth>
+                <AppShell>
+                  <ProjectRouteGuard requiredCapability="canManageRequests">
+                    <DealOverrideDetailPage />
+                  </ProjectRouteGuard>
+                </AppShell>
+              </RequireAuth>
+            }
+          />
+
+          {/* ── Admin — Model Configs & Playbook Versions ───── */}
           <Route
             path="/admin/model-configs"
             element={
@@ -267,6 +353,121 @@ function App() {
             }
           />
 
+          {/* ── Admin — Instructions index ──────────────────── */}
+          <Route
+            path="/admin/instructions"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <InstructionsIndexPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          {/* ── Admin — Global Playbooks ────────────────────── */}
+          <Route
+            path="/admin/instructions/global-playbooks"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <GlobalPlaybooksPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          <Route
+            path="/admin/instructions/global-playbooks/:playbookId"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <GlobalPlaybookDetailPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          <Route
+            path="/admin/instructions/global-playbooks/:playbookId/versions/:versionId"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <PlaybookVersionDetailPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          {/* ── Admin — Global Instructions lifecycle ───────── */}
+          <Route
+            path="/admin/instructions/global-checks"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <GlobalInstructionsPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          <Route
+            path="/admin/instructions/global-checks/:instructionCode"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <GlobalInstructionDetailPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          <Route
+            path="/admin/instructions/global-checks/:instructionCode/versions/:versionId"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <GlobalInstructionVersionDetailPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          {/* ── Admin — Doc-Type Instructions ───────────────── */}
+          <Route
+            path="/admin/instructions/doc-types"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <DocTypeInstructionsPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          <Route
+            path="/admin/instructions/doc-types/:docType"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <DocTypeDetailPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          <Route
+            path="/admin/instructions/doc-types/:docType/versions/:versionId"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <DocTypeVersionDetailPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          {/* ── Tenant Admin ────────────────────────────────── */}
           <Route
             path="/tenant-admin"
             element={
@@ -278,6 +479,41 @@ function App() {
             }
           />
 
+          {/* ── Tenant-level Instructions ───────────────────── */}
+          <Route
+            path="/tenant-admin/instructions"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantInstructionsPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          <Route
+            path="/tenant-admin/instructions/overrides"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantOverridesPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          <Route
+            path="/tenant-admin/instructions/overrides/:docType"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantOverrideDetailPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          {/* ── Admin — Tenants ─────────────────────────────── */}
           <Route
             path="/admin"
             element={

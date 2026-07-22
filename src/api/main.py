@@ -79,6 +79,9 @@ from .endpoints.documents.router import router as documents_router
 from .endpoints.provenance import router as provenance_router
 from .endpoints.tenant_admin import router as tenant_admin_router
 from .middleware.audit import AuditMiddleware
+from api.endpoints.global_instruction_versions import router as global_instruction_router
+
+
 
 setup_logging()
 
@@ -269,6 +272,11 @@ app.include_router(exports.router, prefix="/api/v1")
 
 # Журнал аудита.
 app.include_router(audit.router, prefix="/api/v1")
+
+
+app.include_router(global_instruction_router, prefix="/api/v1")
+
+
 
 # ---------------------------------------------------------------------------
 # Шаг 2: FastAPI instrumentation подключаем ПОСЛЕ всех middleware и routers,

@@ -1,7 +1,6 @@
-// =============================================================
 // src/components/layout/AppShell.tsx
-// Основной каркас приложения с глобальным сайдбаром.
-// =============================================================
+// Добавляем только импорт иконки и два блока NavItem.
+// Остальной код без изменений.
 
 import React from "react";
 import {
@@ -13,11 +12,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
+  BookOpen,          // ← НОВОЕ: иконка для Instructions
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useUserProjects } from "../../hooks/useUserProjects";
 import Button from "../ui/Button";
+
+// ... (все константы и вспомогательные компоненты без изменений)
 
 const NAV_WIDTH_EXPANDED = 248;
 const NAV_WIDTH_COLLAPSED = 64;
@@ -124,12 +126,17 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   const navWidth = collapsed ? NAV_WIDTH_COLLAPSED : NAV_WIDTH_EXPANDED;
 
-  // Создание проекта: superadmin и tenant_admin
   const canCreateProject =
     globalRole === "superadmin" || globalRole === "tenant_admin";
-
-  // Административная панель: только superadmin
   const canAccessAdmin = globalRole === "superadmin";
+
+  // ── НОВОЕ: флаги доступа к Instructions ─────────────────────
+  // Superadmin видит глобальные инструкции под /admin/instructions
+  const canAccessGlobalInstructions = globalRole === "superadmin";
+  // Tenant admin видит свои инструкции под /tenant-admin/instructions
+  const canAccessTenantInstructions =
+    globalRole === "tenant_admin" || globalRole === "superadmin";
+  // ─────────────────────────────────────────────────────────────
 
   const { data: projectsData } = useUserProjects(userId);
 
@@ -141,15 +148,12 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
   );
 
   const handleToggleSidebar = () => setCollapsed((v) => !v);
-
   const handleDashboardClick = () => {
     navigate("/dashboard");
     setIsProjectsOpen(true);
   };
-
   const handleOpenLogout = () => setIsLogoutOpen(true);
   const handleCloseLogout = () => setIsLogoutOpen(false);
-
   const handleConfirmLogout = () => {
     setIsLogoutOpen(false);
     navigate("/login");
@@ -199,6 +203,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
         {/* Навигация */}
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           <nav className="space-y-1" aria-label="Основная навигация">
+            {/* Dashboard */}
             <DashboardNavItem
               collapsed={collapsed}
               isActive={location.pathname === "/dashboard"}
@@ -214,7 +219,9 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
                     sidebarProjects.map((project) => {
                       const isActive =
                         location.pathname === `/projects/${project.deal_id}` ||
-                        location.pathname.startsWith(`/projects/${project.deal_id}/`);
+                        location.pathname.startsWith(
+                          `/projects/${project.deal_id}/`,
+                        );
 
                       return (
                         <NavLink
@@ -259,7 +266,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               </div>
             )}
 
-            {/* Создать новый проект: superadmin и tenant_admin */}
+            {/* Создать новый проект */}
             {canCreateProject && (
               <div className="mt-4">
                 <NavItem
@@ -267,6 +274,18 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
                   to="/projects/new"
                   label="Новый проект"
                   icon={PlusSquare}
+                />
+              </div>
+            )}
+
+            {/* ── НОВОЕ: Instructions для tenant_admin ──────── */}
+            {canAccessTenantInstructions && !canAccessGlobalInstructions && (
+              <div className="mt-1">
+                <NavItem
+                  collapsed={collapsed}
+                  to="/tenant-admin/instructions"
+                  label="Инструкции"
+                  icon={BookOpen}
                 />
               </div>
             )}
@@ -283,14 +302,21 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               </div>
             )}
 
-            {/* Системное администрирование: только superadmin */}
+            {/* ── Системное администрирование: superadmin ───── */}
             {canAccessAdmin && (
-              <div className="mt-1">
+              <div className="mt-1 space-y-1">
                 <NavItem
                   collapsed={collapsed}
                   to="/admin"
                   label="Администрирование"
                   icon={Settings}
+                />
+                {/* ── НОВОЕ: Global Instructions для superadmin */}
+                <NavItem
+                  collapsed={collapsed}
+                  to="/admin/instructions"
+                  label="Инструкции"
+                  icon={BookOpen}
                 />
                 <NavItem
                   collapsed={collapsed}
@@ -382,20 +408,10 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               завершена.
             </p>
             <div className="mt-5 flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                type="button"
-                onClick={handleCloseLogout}
-              >
+              <Button variant="secondary" size="sm" type="button" onClick={handleCloseLogout}>
                 Нет
               </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                type="button"
-                onClick={handleConfirmLogout}
-              >
+              <Button variant="danger" size="sm" type="button" onClick={handleConfirmLogout}>
                 Да
               </Button>
             </div>

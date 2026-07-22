@@ -19,15 +19,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "documents",
-        sa.Column(
-            "processing_error_details",
-            postgresql.JSONB,
-            nullable=True,
-        ),
-    )
+    # IF NOT EXISTS — безопасно при накатке с нуля если initial_schema
+    # уже содержит эту колонку
+    op.execute("""
+        ALTER TABLE documents
+        ADD COLUMN IF NOT EXISTS processing_error_details JSONB
+    """)
 
 
 def downgrade() -> None:
     op.drop_column("documents", "processing_error_details")
+
+
+    
