@@ -3,15 +3,13 @@
 """
 DB-backed loader для global checks.
 
-Заменяет file-based load_global_checks() из core/playbooks/compiler.py.
-Используется runtime (planner, playbook_runs) когда USE_DB_GLOBAL_CHECKS=true.
-
-Возвращает dict[str, GlobalCheckConfig] — тот же контракт что и file-based loader.
+DB-first strategy:
+- сначала читаем published platform global instructions из БД;
+- если БД пуста, безопасно fallback на file-based load_global_checks();
+- возвращаем тот же контракт: dict[str, GlobalCheckConfig].
 """
 
 from __future__ import annotations
-
-import os
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,34 +21,50 @@ from db.repositories.global_instruction_version_repo import (
 
 logger = get_logger(__name__)
 
-_USE_DB = os.getenv("USE_DB_GLOBAL_CHECKS", "false").lower() in ("1", "true", "yes")
-
 
 async def load_global_checks_from_db(
     session: AsyncSession,
 ) -> dict[str, GlobalCheckConfig]:
-    """
-    Load published platform global instructions from DB.
+    checks, _refs = await load_global_checks_with_refs_from_db(session)
+    return checks
 
-    Falls back to file-based loader if USE_DB_GLOBAL_CHECKS=false.
-    Same return contract as load_global_checks().
+
+async def load_global_checks_with_refs_from_db(
+    session: AsyncSession,
+) -> tuple[dict[str, GlobalCheckConfig], dict[str, str]]:
     """
-    if not _USE_DB:
-        logger.debug(
-            "USE_DB_GLOBAL_CHECKS=false — falling back to file-based loader"
+    Load published platform global instructions from DB together with version refs.
+
+    Returns:
+        (
+            {instruction_code: GlobalCheckConfig},
+            {instruction_code: version_id_str},
         )
-        return load_global_checks()
 
+    Fallback:
+    - если published global instructions в БД отсутствуют → fallback на файлы;
+    - в fallback режиме refs пустые, потому что file-based source не имеет DB version ids.
+    """
     repo = GlobalInstructionVersionRepository(session)
     versions = await repo.list_all_published_platform()
 
+    if not versions:
+        logger.warning(
+            "No published platform global instructions in DB — falling back to file-based loader"
+        )
+        return load_global_checks(), {}
+
     checks: dict[str, GlobalCheckConfig] = {}
+    refs: dict[str, str] = {}
+
     for version in versions:
         payload = version.compiled_payload
+
         if not isinstance(payload, dict):
             logger.warning(
-                "GlobalInstructionVersion %s has non-dict compiled_payload, skipping",
-                version.instruction_code,
+                "Published global instruction has non-dict compiled_payload, skipping",
+                instruction_code=version.instruction_code,
+                version_id=str(version.id),
             )
             continue
 
@@ -58,28 +72,33 @@ async def load_global_checks_from_db(
             cfg = GlobalCheckConfig(**payload)
         except Exception as exc:
             logger.error(
-                "Failed to build GlobalCheckConfig from version %s (%s): %s",
-                version.id,
-                version.instruction_code,
-                exc,
+                "Failed to build GlobalCheckConfig from DB row, skipping",
+                instruction_code=version.instruction_code,
+                version_id=str(version.id),
+                error=str(exc),
+                error_type=type(exc).__name__,
             )
             continue
 
         if cfg.id in checks:
             logger.warning(
-                "Duplicate global check id='%s' from DB version %s, skipping",
-                cfg.id,
-                version.id,
+                "Duplicate global check id from DB, skipping later row",
+                check_id=cfg.id,
+                instruction_code=version.instruction_code,
+                version_id=str(version.id),
             )
             continue
 
         checks[cfg.id] = cfg
+        refs[cfg.id] = str(version.id)
 
     logger.info(
-        "Loaded %d global checks from DB",
-        len(checks),
+        "Loaded global checks with refs from DB",
+        count=len(checks),
+        refs_count=len(refs),
+        source="database",
     )
-    return checks
+    return checks, refs
 
 
 

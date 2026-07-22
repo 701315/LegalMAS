@@ -3,20 +3,32 @@
 """
 Endpoints для lifecycle instruction overrides.
 
-Tenant-level overrides:
+Tenant-level overrides (doc-type):
     GET  /api/v1/tenants/{tenant_id}/instruction-overrides
     POST /api/v1/tenants/{tenant_id}/instruction-overrides/draft
     POST /api/v1/tenants/{tenant_id}/instruction-overrides/{override_id}/validate
     POST /api/v1/tenants/{tenant_id}/instruction-overrides/{override_id}/activate
     POST /api/v1/tenants/{tenant_id}/instruction-overrides/{override_id}/archive
 
-Deal-level overrides:
+Tenant-level overrides (global instructions):
+    POST /api/v1/tenants/{tenant_id}/global-instruction-overrides/draft
+    POST /api/v1/tenants/{tenant_id}/global-instruction-overrides/{override_id}/validate
+    POST /api/v1/tenants/{tenant_id}/global-instruction-overrides/{override_id}/activate
+    POST /api/v1/tenants/{tenant_id}/global-instruction-overrides/{override_id}/archive
+
+Deal-level overrides (doc-type):
     GET  /api/v1/deals/{deal_id}/instruction-overrides
     POST /api/v1/deals/{deal_id}/instruction-overrides/draft
     POST /api/v1/deals/{deal_id}/instruction-overrides/{override_id}/validate
     POST /api/v1/deals/{deal_id}/instruction-overrides/{override_id}/activate
     POST /api/v1/deals/{deal_id}/instruction-overrides/{override_id}/archive
     POST /api/v1/deals/{deal_id}/instruction-overrides/{override_id}/rebase
+
+Deal-level overrides (global instructions):
+    POST /api/v1/deals/{deal_id}/global-instruction-overrides/draft
+    POST /api/v1/deals/{deal_id}/global-instruction-overrides/{override_id}/validate
+    POST /api/v1/deals/{deal_id}/global-instruction-overrides/{override_id}/activate
+    POST /api/v1/deals/{deal_id}/global-instruction-overrides/{override_id}/archive
 
 Access model:
     Tenant endpoints:
@@ -49,6 +61,7 @@ from api.deps.security import (
     require_tenant_scope_access,
 )
 from api.schemas.instruction_overrides import (
+    GlobalInstructionOverrideDraftRequest,
     InstructionOverrideDraftRequest,
     InstructionOverrideItem,
     InstructionOverrideListResponse,
@@ -85,7 +98,16 @@ def get_override_service(
 def _serialize_override(override: InstructionOverride) -> InstructionOverrideItem:
     return InstructionOverrideItem(
         id=str(override.id),
-        instruction_version_id=str(override.instruction_version_id),
+        instruction_version_id=(
+            str(override.instruction_version_id)
+            if override.instruction_version_id is not None
+            else None
+        ),
+        global_instruction_version_id=(
+            str(override.global_instruction_version_id)
+            if override.global_instruction_version_id is not None
+            else None
+        ),
         override_scope=override.override_scope,
         tenant_id=str(override.tenant_id),
         deal_id=str(override.deal_id) if override.deal_id else None,
@@ -544,4 +566,336 @@ async def rebase_deal_override(
         raise _map_override_exception(exc) from exc
 
 
+# ── Tenant-level global instruction override endpoints ─────────────────────────
+
+@router.post(
+    "/tenants/{tenant_id}/global-instruction-overrides/draft",
+    response_model=InstructionOverrideResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Создать draft tenant-level override (global instruction)",
+)
+async def create_tenant_global_override_draft(
+    tenant_id: uuid.UUID,
+    body: GlobalInstructionOverrideDraftRequest,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+    service: InstructionOverrideService = Depends(get_override_service),
+) -> InstructionOverrideResponse:
+    """
+    Создать draft tenant-level override для global instruction.
+
+    Global instruction — универсальные проверки (confidentiality, governing_law,
+    term_and_renewal и др.), не привязанные к конкретному doc_type.
+
+    Dry-run apply до сохранения — patch проверяется на применимость к
+    compiled_payload базовой global instruction version.
+
+    Доступ:
+    - superadmin → любой tenant
+    - tenant_admin → только свой tenant
+    - member → forbidden
+    """
+    require_tenant_scope_access(user, tenant_id)
+
+    try:
+        override = await service.create_tenant_global_override_draft(
+            tenant_id=tenant_id,
+            global_instruction_version_id=body.global_instruction_version_id,
+            patch_ops=body.patch_ops,
+            change_summary=body.change_summary,
+            created_by=uuid.UUID(str(user.id)),
+        )
+        item = _serialize_override(override)
+        await db.commit()
+        return InstructionOverrideResponse(item=item)
+    except Exception as exc:
+        await db.rollback()
+        raise _map_override_exception(exc) from exc
+
+
+@router.post(
+    "/tenants/{tenant_id}/global-instruction-overrides/{override_id}/validate",
+    response_model=InstructionOverrideValidationResponse,
+    summary="Валидировать tenant-level override (global instruction)",
+)
+async def validate_tenant_global_override(
+    tenant_id: uuid.UUID,
+    override_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+    service: InstructionOverrideService = Depends(get_override_service),
+) -> InstructionOverrideValidationResponse:
+    """
+    Проверить global instruction override без изменения статуса.
+
+    Проверяет: staleness, patch conflict, effective payload структуру.
+
+    Доступ:
+    - superadmin → любой tenant
+    - tenant_admin → только свой tenant
+    - member → forbidden
+    """
+    require_tenant_scope_access(user, tenant_id)
+
+    try:
+        result = await service.validate_global_override(
+            override_id=override_id,
+            tenant_id=tenant_id,
+        )
+        return InstructionOverrideValidationResponse(
+            override_id=str(override_id),
+            is_valid=result.get("is_valid", False),
+            errors=result.get("errors", []),
+            warnings=result.get("warnings", []),
+            checks_count=result.get("checks_count"),
+            effective_payload=result.get("effective_payload"),
+            validation_report=result.get("validation_report"),
+        )
+    except Exception as exc:
+        raise _map_override_exception(exc) from exc
+
+
+@router.post(
+    "/tenants/{tenant_id}/global-instruction-overrides/{override_id}/activate",
+    response_model=InstructionOverrideResponse,
+    summary="Активировать tenant-level override (global instruction)",
+)
+async def activate_tenant_global_override(
+    tenant_id: uuid.UUID,
+    override_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+    service: InstructionOverrideService = Depends(get_override_service),
+) -> InstructionOverrideResponse:
+    """
+    Активировать tenant-level global instruction override: draft → active.
+
+    Нельзя активировать stale override.
+
+    Доступ:
+    - superadmin → любой tenant
+    - tenant_admin → только свой tenant
+    - member → forbidden
+    """
+    require_tenant_scope_access(user, tenant_id)
+
+    try:
+        override = await service.activate_override(
+            override_id=override_id,
+            tenant_id=tenant_id,
+        )
+        item = _serialize_override(override)
+        await db.commit()
+        return InstructionOverrideResponse(item=item)
+    except Exception as exc:
+        await db.rollback()
+        raise _map_override_exception(exc) from exc
+
+
+@router.post(
+    "/tenants/{tenant_id}/global-instruction-overrides/{override_id}/archive",
+    response_model=InstructionOverrideResponse,
+    summary="Архивировать tenant-level override (global instruction)",
+)
+async def archive_tenant_global_override(
+    tenant_id: uuid.UUID,
+    override_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+    service: InstructionOverrideService = Depends(get_override_service),
+) -> InstructionOverrideResponse:
+    """
+    Архивировать tenant-level global instruction override.
+
+    Доступ:
+    - superadmin → любой tenant
+    - tenant_admin → только свой tenant
+    - member → forbidden
+    """
+    require_tenant_scope_access(user, tenant_id)
+
+    try:
+        override = await service.archive_override(
+            override_id=override_id,
+            tenant_id=tenant_id,
+        )
+        item = _serialize_override(override)
+        await db.commit()
+        return InstructionOverrideResponse(item=item)
+    except Exception as exc:
+        await db.rollback()
+        raise _map_override_exception(exc) from exc
+
+
+# ── Deal-level global instruction override endpoints ───────────────────────────
+
+@router.post(
+    "/deals/{deal_id}/global-instruction-overrides/draft",
+    response_model=InstructionOverrideResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Создать draft deal-level override (global instruction)",
+)
+async def create_deal_global_override_draft(
+    deal_id: uuid.UUID,
+    body: GlobalInstructionOverrideDraftRequest,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+    service: InstructionOverrideService = Depends(get_override_service),
+) -> InstructionOverrideResponse:
+    """
+    Создать draft deal-level override для global instruction.
+
+    Global instruction — универсальные проверки, применимые к любому
+    doc_type в рамках этой сделки.
+
+    Dry-run apply до сохранения — patch проверяется на применимость к
+    compiled_payload базовой global instruction version.
+
+    Доступ: editor/admin проекта.
+    """
+    deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
+    try:
+        override = await service.create_deal_global_override_draft(
+            tenant_id=deal.tenant_id,
+            deal_id=deal_id,
+            global_instruction_version_id=body.global_instruction_version_id,
+            patch_ops=body.patch_ops,
+            change_summary=body.change_summary,
+            created_by=uuid.UUID(str(user.id)),
+        )
+        item = _serialize_override(override)
+        await db.commit()
+        return InstructionOverrideResponse(item=item)
+    except Exception as exc:
+        await db.rollback()
+        raise _map_override_exception(exc) from exc
+
+
+@router.post(
+    "/deals/{deal_id}/global-instruction-overrides/{override_id}/validate",
+    response_model=InstructionOverrideValidationResponse,
+    summary="Валидировать deal-level override (global instruction)",
+)
+async def validate_deal_global_override(
+    deal_id: uuid.UUID,
+    override_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+    service: InstructionOverrideService = Depends(get_override_service),
+) -> InstructionOverrideValidationResponse:
+    """
+    Проверить global instruction deal override без изменения статуса.
+
+    Доступ: viewer/editor/admin проекта.
+    """
+    deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
+    try:
+        result = await service.validate_global_override(
+            override_id=override_id,
+            tenant_id=deal.tenant_id,
+        )
+        return InstructionOverrideValidationResponse(
+            override_id=str(override_id),
+            is_valid=result.get("is_valid", False),
+            errors=result.get("errors", []),
+            warnings=result.get("warnings", []),
+            checks_count=result.get("checks_count"),
+            effective_payload=result.get("effective_payload"),
+            validation_report=result.get("validation_report"),
+        )
+    except Exception as exc:
+        raise _map_override_exception(exc) from exc
+
+
+@router.post(
+    "/deals/{deal_id}/global-instruction-overrides/{override_id}/activate",
+    response_model=InstructionOverrideResponse,
+    summary="Активировать deal-level override (global instruction)",
+)
+async def activate_deal_global_override(
+    deal_id: uuid.UUID,
+    override_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+    service: InstructionOverrideService = Depends(get_override_service),
+) -> InstructionOverrideResponse:
+    """
+    Активировать deal-level global instruction override: draft → active.
+
+    Нельзя активировать stale override.
+    Доступ: editor/admin проекта.
+    """
+    deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
+    try:
+        override = await service.activate_override(
+            override_id=override_id,
+            tenant_id=deal.tenant_id,
+        )
+        item = _serialize_override(override)
+        await db.commit()
+        return InstructionOverrideResponse(item=item)
+    except Exception as exc:
+        await db.rollback()
+        raise _map_override_exception(exc) from exc
+
+
+@router.post(
+    "/deals/{deal_id}/global-instruction-overrides/{override_id}/archive",
+    response_model=InstructionOverrideResponse,
+    summary="Архивировать deal-level override (global instruction)",
+)
+async def archive_deal_global_override(
+    deal_id: uuid.UUID,
+    override_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+    service: InstructionOverrideService = Depends(get_override_service),
+) -> InstructionOverrideResponse:
+    """
+    Архивировать deal-level global instruction override.
+
+    Доступ: editor/admin проекта.
+    """
+    deal = await get_scoped_deal(deal_id=deal_id, user=user, db=db)
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
+    try:
+        override = await service.archive_override(
+            override_id=override_id,
+            tenant_id=deal.tenant_id,
+        )
+        item = _serialize_override(override)
+        await db.commit()
+        return InstructionOverrideResponse(item=item)
+    except Exception as exc:
+        await db.rollback()
+        raise _map_override_exception(exc) from exc
+
+    
         

@@ -80,6 +80,7 @@ from .endpoints.provenance import router as provenance_router
 from .endpoints.tenant_admin import router as tenant_admin_router
 from .middleware.audit import AuditMiddleware
 from api.endpoints.global_instruction_versions import router as global_instruction_router
+from api.endpoints.instruction_sync import router as instruction_sync_router
 
 
 
@@ -276,6 +277,9 @@ app.include_router(audit.router, prefix="/api/v1")
 
 app.include_router(global_instruction_router, prefix="/api/v1")
 
+
+# Sync API для платформенных инструкций (superadmin only).
+app.include_router(instruction_sync_router, prefix="/api/v1")
 
 
 # ---------------------------------------------------------------------------

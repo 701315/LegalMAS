@@ -125,6 +125,13 @@ class PlaybookMeta(BaseModel):
         default_factory=list,
         description="Итоговый список чеков после всех include/exclude.",
     )
+    global_instruction_refs: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Ссылки на published global instruction versions, использованные "
+            "при сборке плейбука: {instruction_code: version_id}"
+        ),
+    )
     version_schema: int = Field(
         default=1,
         description="Версия схемы compiled_checks/meta.",
@@ -433,6 +440,7 @@ def build_compiled_checks(
     exclude_ids: list[str] | None = None,
     profile: str | None = None,
     primary_bundle_id: str | None = None,
+    global_instruction_refs: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Собрать структуру для PlaybookVersion.compiled_checks.
 
@@ -472,6 +480,8 @@ def build_compiled_checks(
     bundles = bundles or []
     include_ids = include_ids or []
     exclude_ids = exclude_ids or []
+    global_instruction_refs = global_instruction_refs or {}
+
 
     # 1. базовый набор id: все чек-id из выбранных bundles
     base_ids: list[str] = []
@@ -530,6 +540,11 @@ def build_compiled_checks(
             ),
             bundle_id=primary_bundle_id,
             check_ids=final_ids,
+            global_instruction_refs={
+                cid: global_instruction_refs[cid]
+                for cid in final_ids
+                if cid in global_instruction_refs
+            },
             version_schema=1,
             source_type="global_checks_v1",
         ),

@@ -54,11 +54,15 @@ from core.playbooks.compiler import (
     BUNDLES_DIR,
     BundleConfig,
     build_compiled_checks,
-    load_global_checks,
+)
+from services.global_checks_db_loader import (
+    load_global_checks_from_db,
+    load_global_checks_with_refs_from_db,
 )
 from db.repositories.playbook_repo import PlaybookRepository
 from db.session import get_db
-from services.playbooks.catalog import load_global_checks_catalog
+from services.playbooks.catalog import load_global_checks_catalog_from_db
+
 from core.constants import PlaybookStatus
 from services.playbooks.diff import (
     PlaybookVersionDiffService,
@@ -67,8 +71,8 @@ from services.playbooks.diff import (
 from services.playbooks.line_items import (
     PlaybookLineItemValidationError,
     extract_unique_instruction_codes_from_items,
-    validate_instruction_codes,
-    validate_line_item_payloads,
+    validate_instruction_codes_from_db,
+    validate_line_item_payloads_from_db,
 )
 
 router = APIRouter(
@@ -132,9 +136,9 @@ async def require_playbook_admin(
     summary="Каталог глобальных чеков (темы и инструкции)",
 )
 async def get_playbooks_catalog(
-    db: AsyncSession = Depends(get_db),  # задел на будущее (кэш/ACL)
+    db: AsyncSession = Depends(get_db),
 ):
-    return load_global_checks_catalog()
+    return await load_global_checks_catalog_from_db(db)
 
 
 @router.get(
@@ -146,7 +150,8 @@ async def list_global_checks(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    all_checks = load_global_checks()
+    all_checks, global_refs = await load_global_checks_with_refs_from_db(db)
+
     return [
         GlobalCheckInfo(
             id=cfg.id,
@@ -157,7 +162,7 @@ async def list_global_checks(
             severity=cfg.severity,
             doc_types=cfg.doc_types,
         )
-        for cfg in all_checks.values()
+        for cfg in sorted(all_checks.values(), key=lambda item: item.id)
     ]
 
 
@@ -276,8 +281,9 @@ async def create_playbook_version(
             )
 
         try:
-            line_codes = validate_instruction_codes(
-                extract_unique_instruction_codes_from_items(items)
+            line_codes = await validate_instruction_codes_from_db(
+                extract_unique_instruction_codes_from_items(items),
+                db,
             )
         except PlaybookLineItemValidationError as exc:
             raise api_error(
@@ -296,7 +302,7 @@ async def create_playbook_version(
             payload.playbook_id = line.id
 
     try:
-        include_ids = validate_instruction_codes(include_ids)
+        include_ids = await validate_instruction_codes_from_db(include_ids, db)
     except PlaybookLineItemValidationError as exc:
         raise api_error(
             status.HTTP_400_BAD_REQUEST,
@@ -313,8 +319,8 @@ async def create_playbook_version(
             "At least one bundle, include_ids, or from_line_id must be provided.",
         )
 
-    # Загружаем все глобальные проверки
-    all_checks = load_global_checks()
+    # Загружаем все глобальные проверки вместе с refs
+    all_checks, global_refs = await load_global_checks_with_refs_from_db(db)
     if not all_checks:
         raise api_error(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -331,6 +337,7 @@ async def create_playbook_version(
             exclude_ids=payload.exclude_ids,
             profile=payload.profile,
             primary_bundle_id=payload.bundles[0] if payload.bundles else None,
+            global_instruction_refs=global_refs,
         )
     except KeyError as e:
         raise api_error(
@@ -524,7 +531,7 @@ async def create_playbook_line(
     repo = PlaybookRepository(db)
 
     try:
-        validate_line_item_payloads(payload.items)
+        await validate_line_item_payloads_from_db(payload.items, db)
     except PlaybookLineItemValidationError as exc:
         raise api_error(
             status.HTTP_400_BAD_REQUEST,
@@ -590,7 +597,7 @@ async def update_playbook_line(
     ensure_if_match(getattr(existing_line, "updated_at", None), if_match)
 
     try:
-        validate_line_item_payloads(payload.items)
+        await validate_line_item_payloads_from_db(payload.items, db)
     except PlaybookLineItemValidationError as exc:
         raise api_error(
             status.HTTP_400_BAD_REQUEST,
@@ -890,8 +897,8 @@ async def update_playbook_draft(
     pv.source_payload = source
 
     # Пересобираем compiled_checks
-    all_checks = load_global_checks()
-
+    all_checks, global_refs = await load_global_checks_with_refs_from_db(db)
+    
     compiled = build_compiled_checks(
         all_checks=all_checks,
         bundles=source.get("bundles"),
@@ -903,6 +910,7 @@ async def update_playbook_draft(
             if source.get("bundles")
             else None
         ),
+        global_instruction_refs=global_refs,
     )
 
     pv.compiled_checks = compiled

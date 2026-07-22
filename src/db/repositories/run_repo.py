@@ -556,6 +556,8 @@ class RunRepository:
                 "resolution_strategy": doc_manifest.get("resolution_strategy"),
             }
 
+        playbook_meta = ((getattr(pb_version, "compiled_checks", None) or {}).get("meta") or {})
+
         execution_manifest = {
             "schema_version": 1,
             "playbook": {
@@ -568,6 +570,7 @@ class RunRepository:
                 ),
             },
             "doc_type_instructions": doc_type_execution_manifest,
+            "global_instructions": playbook_meta.get("global_instruction_refs", {}) or {},
         }
 
         update_values: dict = {

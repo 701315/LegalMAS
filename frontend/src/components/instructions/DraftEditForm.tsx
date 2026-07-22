@@ -2,18 +2,19 @@
 // Форма редактирования draft instruction version.
 //
 // Поддерживает оба типа инструкций: doc-type и global.
-// Параметризуется через prop `adapters` (ETagConcurrencyAdapters).
+// Для global инструкций доступен визуальный редактор (таб "Редактор").
+// Для doc-type — только YAML.
 //
-// Поля: name, source_yaml (textarea), semver, change_summary.
 // Autosave на blur каждого поля.
-// Показывает ConcurrencyStatusBar для ETag flow.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import Field from "../ui/Field";
 import Button from "../ui/Button";
+import { Tabs, TabsList, TabsTrigger } from "../ui/Tabs";
 import ConcurrencyStatusBar from "./ConcurrencyStatusBar";
+import { GlobalInstructionEditor } from "./GlobalInstructionEditor";
 import {
   useETagConcurrency,
   docTypeETagAdapters,
@@ -35,34 +36,22 @@ const inputClassName =
 const textareaClassName =
   "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60 resize-y";
 
-// ── Props ─────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────
 
 type AnyVersionDetailItem =
   | InstructionVersionDetailItem
   | GlobalInstructionVersionDetailItem;
 
-/**
- * instructionType — определяет:
- * 1. Какие ETag adapters использовать (doc-type vs global endpoints).
- * 2. Какой query key инвалидировать после успешного сохранения.
- *
- * По умолчанию "doc-type" — backward compatible.
- */
 export type DraftEditFormInstructionType = "doc-type" | "global";
 
 interface DraftEditFormProps {
   versionId: string;
   initialData: AnyVersionDetailItem;
   onSaveSuccess?: () => void;
-  /**
-   * Тип инструкции. Определяет endpoint и query cache key.
-   * "doc-type" (default) → /admin/instruction-versions/:id
-   * "global"             → /admin/global-instruction-versions/:id
-   */
   instructionType?: DraftEditFormInstructionType;
 }
 
-// ── Component ─────────────────────────────────────────────────
+// ── Component ──────────────────────────────────────────────────
 
 const DraftEditForm: React.FC<DraftEditFormProps> = ({
   versionId,
@@ -72,15 +61,19 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
 }) => {
   const queryClient = useQueryClient();
 
-  // ── Adapters ─────────────────────────────────────────────────
-  // Стабильная ссылка — не меняется между рендерами для одного типа.
+  // ── Edit mode tabs (только для global) ────────────────────────
+  // "editor" — визуальный редактор
+  // "yaml"   — raw YAML textarea
+  const [editMode, setEditMode] = useState<"editor" | "yaml">("editor");
+
+  // ── ETag adapters ─────────────────────────────────────────────
   const adapters: ETagConcurrencyAdapters = useMemo(
     () =>
       instructionType === "global" ? globalETagAdapters : docTypeETagAdapters,
     [instructionType],
   );
 
-  // ── Local form state ─────────────────────────────────────────
+  // ── Form state ────────────────────────────────────────────────
   const [name, setName] = useState(initialData.name ?? "");
   const [sourceYaml, setSourceYaml] = useState(
     initialData.source_yaml ?? "",
@@ -90,7 +83,6 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
     initialData.change_summary ?? "",
   );
 
-  // Синхронизируем форму если initialData изменился снаружи
   useEffect(() => {
     setName(initialData.name ?? "");
     setSourceYaml(initialData.source_yaml ?? "");
@@ -98,7 +90,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
     setChangeSummary(initialData.change_summary ?? "");
   }, [initialData]);
 
-  // ── ETag concurrency ─────────────────────────────────────────
+  // ── ETag concurrency ──────────────────────────────────────────
   const {
     concurrencyState,
     loadDetail,
@@ -106,14 +98,11 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
     resetConcurrencyState,
   } = useETagConcurrency(versionId, adapters);
 
-  // Загружаем ETag при первом монтировании
   useEffect(() => {
     void loadDetail();
   }, [loadDetail]);
 
-  // ── Инвалидация кэша ─────────────────────────────────────────
-  // После успешного сохранения инвалидируем нужный query key
-  // в зависимости от типа инструкции.
+  // ── Cache invalidation ────────────────────────────────────────
   const invalidateCache = useCallback(() => {
     if (instructionType === "global") {
       queryClient.invalidateQueries({
@@ -126,7 +115,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
     }
   }, [instructionType, queryClient, versionId]);
 
-  // ── Save ─────────────────────────────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     const success = await saveDraft(
       {
@@ -153,7 +142,6 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
     onSaveSuccess,
   ]);
 
-  // Autosave on blur
   const handleBlurSave = useCallback(() => {
     if (
       concurrencyState.status === "loading" ||
@@ -164,6 +152,23 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
     void handleSave();
   }, [concurrencyState.status, handleSave]);
 
+  // При изменении YAML через визуальный редактор — автосохранение
+  const handleEditorYamlChange = useCallback(
+    (newYaml: string) => {
+      setSourceYaml(newYaml);
+    },
+    [],
+  );
+
+  // При переключении с editor → yaml: yaml уже актуален (синхронизирован)
+  // При переключении с yaml → editor: editor сам реагирует на sourceYaml
+  const handleEditModeChange = useCallback(
+    (mode: string) => {
+      setEditMode(mode as "editor" | "yaml");
+    },
+    [],
+  );
+
   const isBusy =
     concurrencyState.status === "loading" ||
     concurrencyState.status === "saving";
@@ -172,7 +177,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
   const hasYaml = sourceYaml.trim().length > 0;
   const canSave = hasName && hasYaml && !isBusy;
 
-  // ── Render ───────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4">
@@ -183,7 +188,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
         onDismissConflict={resetConcurrencyState}
       />
 
-      {/* Conflict data hint */}
+      {/* Conflict hint */}
       {concurrencyState.status === "conflict" &&
         concurrencyState.conflictData && (
           <div className="rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-4 py-3">
@@ -213,13 +218,13 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
               </div>
             </div>
             <p className="mt-2 text-[11px] text-[#b91c1c]">
-              Обновите форму вручную с учётом свежих данных, затем
-              нажмите «Сохранить».
+              Обновите форму вручную с учётом свежих данных, затем нажмите
+              «Сохранить».
             </p>
           </div>
         )}
 
-      {/* Form fields */}
+      {/* Metadata fields (общие для обоих типов) */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Название версии" required>
           <input
@@ -258,27 +263,67 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
             />
           </Field>
         </div>
-
-        <div className="sm:col-span-2">
-          <Field label="Source YAML" required>
-            <textarea
-              value={sourceYaml}
-              onChange={(e) => setSourceYaml(e.target.value)}
-              onBlur={handleBlurSave}
-              disabled={isBusy}
-              className={textareaClassName}
-              rows={16}
-              placeholder="# Вставьте YAML-конфигурацию инструкции..."
-              spellCheck={false}
-            />
-          </Field>
-        </div>
       </div>
 
-      {/* Manual save button */}
+      {/* Source YAML / Visual Editor */}
+      {instructionType === "global" ? (
+        // Global: tabs Редактор / YAML
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-[var(--text-secondary)]">
+              Содержимое инструкции
+            </span>
+            <Tabs value={editMode} onChange={handleEditModeChange}>
+              <TabsList aria-label="Режим редактирования">
+                <TabsTrigger value="editor">Редактор</TabsTrigger>
+                <TabsTrigger value="yaml">YAML</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {editMode === "editor" ? (
+            <GlobalInstructionEditor
+              sourceYaml={sourceYaml}
+              onChange={handleEditorYamlChange}
+              disabled={isBusy}
+            />
+          ) : (
+            <Field label="Source YAML" required>
+              <textarea
+                value={sourceYaml}
+                onChange={(e) => setSourceYaml(e.target.value)}
+                onBlur={handleBlurSave}
+                disabled={isBusy}
+                className={textareaClassName}
+                rows={24}
+                placeholder="# Вставьте YAML-конфигурацию инструкции..."
+                spellCheck={false}
+              />
+            </Field>
+          )}
+        </div>
+      ) : (
+        // Doc-type: только YAML
+        <Field label="Source YAML" required>
+          <textarea
+            value={sourceYaml}
+            onChange={(e) => setSourceYaml(e.target.value)}
+            onBlur={handleBlurSave}
+            disabled={isBusy}
+            className={textareaClassName}
+            rows={16}
+            placeholder="# Вставьте YAML-конфигурацию инструкции..."
+            spellCheck={false}
+          />
+        </Field>
+      )}
+
+      {/* Save button */}
       <div className="flex items-center justify-between border-t border-[var(--border)] pt-3">
         <p className="text-[11px] text-[var(--text-muted)]">
-          Черновик сохраняется автоматически при переходе между полями.
+          {instructionType === "global" && editMode === "editor"
+            ? "Изменения в редакторе применяются сразу. Сохраните черновик вручную."
+            : "Черновик сохраняется автоматически при переходе между полями."}
         </p>
         <Button
           variant="secondary"

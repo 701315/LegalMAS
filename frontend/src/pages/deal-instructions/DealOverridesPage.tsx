@@ -29,7 +29,9 @@ const OverrideCard: React.FC<OverrideCardProps> = ({ override, onClick }) => (
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-[var(--text-primary)]">
-            Deal Override
+            {override.global_instruction_version_id
+              ? "Deal Global Override"
+              : "Deal Override"}
           </span>
           <span className="font-mono text-[10px] text-[var(--text-muted)]">
             {override.id.slice(0, 8)}…
@@ -42,7 +44,12 @@ const OverrideCard: React.FC<OverrideCardProps> = ({ override, onClick }) => (
         )}
         <div className="mt-1 text-[10px] text-[var(--text-muted)]">
           {override.patch_ops.length} patch ops ·{" "}
-          base: {override.instruction_version_id.slice(0, 8)}…
+          base:{" "}
+          {override.global_instruction_version_id
+            ? `global ${override.global_instruction_version_id.slice(0, 8)}…`
+            : override.instruction_version_id
+              ? `${override.instruction_version_id.slice(0, 8)}…`
+              : "—"}
         </div>
       </div>
       <OverrideStatusBadge

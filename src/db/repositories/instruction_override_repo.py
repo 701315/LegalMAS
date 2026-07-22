@@ -62,7 +62,8 @@ class InstructionOverrideRepository:
         tenant_id: uuid.UUID,
         override_scope: str,
         deal_id: uuid.UUID | None,
-        instruction_version_id: uuid.UUID,
+        instruction_version_id: uuid.UUID | None = None,
+        global_instruction_version_id: uuid.UUID | None = None,
         base_content_hash: str,
         patch_ops: list[dict],
         status: str = "draft",
@@ -72,15 +73,25 @@ class InstructionOverrideRepository:
         """
         Создать override.
 
+        XOR: ровно одно из instruction_version_id / global_instruction_version_id
+        должно быть задано.
+
         override_scope='tenant' → deal_id должен быть None.
         override_scope='deal' → deal_id обязателен.
         status по умолчанию 'draft'.
         """
+        if (instruction_version_id is None) == (global_instruction_version_id is None):
+            raise ValueError(
+                "Exactly one of instruction_version_id or global_instruction_version_id "
+                "must be provided (XOR constraint)."
+            )
+
         override = InstructionOverride(
             tenant_id=tenant_id,
             override_scope=override_scope,
             deal_id=deal_id,
             instruction_version_id=instruction_version_id,
+            global_instruction_version_id=global_instruction_version_id,
             base_content_hash=base_content_hash,
             patch_ops=patch_ops,
             status=status,
@@ -96,7 +107,8 @@ class InstructionOverrideRepository:
                 "tenant_id": str(tenant_id),
                 "override_scope": override_scope,
                 "deal_id": str(deal_id) if deal_id else None,
-                "instruction_version_id": str(instruction_version_id),
+                "instruction_version_id": str(instruction_version_id) if instruction_version_id else None,
+                "global_instruction_version_id": str(global_instruction_version_id) if global_instruction_version_id else None,
                 "override_id": str(override.id),
                 "status": status,
             },

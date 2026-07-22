@@ -54,14 +54,15 @@ from core.constants import PlaybookStatus
 from core.playbooks.compiler import (
     PlaybookConfig,
     build_compiled_checks,
-    load_global_checks,
 )
+from services.global_checks_db_loader import load_global_checks_from_db
 from core.utils.semver import bump_semver
 from db.models.playbook import PlaybookVersion
 from db.repositories.deal_repo import DealRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.run_repo import RunRepository
 from db.session import get_db
+from services.global_checks_db_loader import load_global_checks_with_refs_from_db
 
 router = APIRouter(
     prefix="/deals",
@@ -241,7 +242,8 @@ async def rebuild_playbook_and_rerun(
         profile = payload.profile or current_config.profile
 
     # 5. Собираем новый compiled_checks
-    all_checks = load_global_checks()
+    all_checks, global_refs = await load_global_checks_with_refs_from_db(db)
+
     if not all_checks:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -256,6 +258,7 @@ async def rebuild_playbook_and_rerun(
             exclude_ids=exclude_ids,
             profile=profile,
             primary_bundle_id=bundles[0] if bundles else meta.get("bundle_id"),
+            global_instruction_refs=global_refs,
         )
     except KeyError as e:
         raise HTTPException(

@@ -8,6 +8,7 @@ import type {
   InstructionOverrideResponse,
   InstructionOverrideValidationResponse,
   CreateOverrideDraftRequest,
+  CreateGlobalOverrideDraftRequest,
   RebaseOverrideRequest,
   InstructionOverrideItem,
 } from "../../types/instructions";
@@ -15,6 +16,7 @@ import type {
 // Реэкспортируем для удобства импорта из hooks
 export type {
   CreateOverrideDraftRequest,
+  CreateGlobalOverrideDraftRequest,
   RebaseOverrideRequest,
 };
 
@@ -174,3 +176,116 @@ export async function rebaseDealOverride(
 }
 
 
+// ─────────────────────────────────────────────────────────────
+// Tenant-level GLOBAL instruction overrides
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/tenants/:tenantId/global-instruction-overrides/draft
+ */
+export async function createTenantGlobalOverrideDraft(
+  tenantId: string,
+  body: CreateGlobalOverrideDraftRequest,
+): Promise<InstructionOverrideItem> {
+  const res = await client.post<InstructionOverrideResponse>(
+    `/api/v1/tenants/${tenantId}/global-instruction-overrides/draft`,
+    body,
+  );
+  return res.data.item;
+}
+
+/**
+ * POST /api/v1/tenants/:tenantId/global-instruction-overrides/:overrideId/validate
+ */
+export async function validateTenantGlobalOverride(
+  tenantId: string,
+  overrideId: string,
+): Promise<InstructionOverrideValidationResponse> {
+  const res = await client.post<InstructionOverrideValidationResponse>(
+    `/api/v1/tenants/${tenantId}/global-instruction-overrides/${overrideId}/validate`,
+  );
+  return res.data;
+}
+
+/**
+ * POST /api/v1/tenants/:tenantId/global-instruction-overrides/:overrideId/activate
+ */
+export async function activateTenantGlobalOverride(
+  tenantId: string,
+  overrideId: string,
+): Promise<InstructionOverrideItem> {
+  const res = await client.post<InstructionOverrideResponse>(
+    `/api/v1/tenants/${tenantId}/global-instruction-overrides/${overrideId}/activate`,
+  );
+  return res.data.item;
+}
+
+/**
+ * POST /api/v1/tenants/:tenantId/global-instruction-overrides/:overrideId/archive
+ */
+export async function archiveTenantGlobalOverride(
+  tenantId: string,
+  overrideId: string,
+): Promise<InstructionOverrideItem> {
+  const res = await client.post<InstructionOverrideResponse>(
+    `/api/v1/tenants/${tenantId}/global-instruction-overrides/${overrideId}/archive`,
+  );
+  return res.data.item;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Deal-level GLOBAL instruction overrides
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/deals/:dealId/global-instruction-overrides/draft
+ */
+export async function createDealGlobalOverrideDraft(
+  dealId: string,
+  body: CreateGlobalOverrideDraftRequest,
+): Promise<InstructionOverrideItem> {
+  const res = await client.post<InstructionOverrideResponse>(
+    `/api/v1/deals/${dealId}/global-instruction-overrides/draft`,
+    body,
+  );
+  return res.data.item;
+}
+
+/**
+ * POST /api/v1/deals/:dealId/global-instruction-overrides/:overrideId/validate
+ */
+export async function validateDealGlobalOverride(
+  dealId: string,
+  overrideId: string,
+): Promise<InstructionOverrideValidationResponse> {
+  const res = await client.post<InstructionOverrideValidationResponse>(
+    `/api/v1/deals/${dealId}/global-instruction-overrides/${overrideId}/validate`,
+  );
+  return res.data;
+}
+
+/**
+ * POST /api/v1/deals/:dealId/global-instruction-overrides/:overrideId/activate
+ */
+export async function activateDealGlobalOverride(
+  dealId: string,
+  overrideId: string,
+): Promise<InstructionOverrideItem> {
+  const res = await client.post<InstructionOverrideResponse>(
+    `/api/v1/deals/${dealId}/global-instruction-overrides/${overrideId}/activate`,
+  );
+  return res.data.item;
+}
+
+/**
+ * POST /api/v1/deals/:dealId/global-instruction-overrides/:overrideId/archive
+ */
+export async function archiveDealGlobalOverride(
+  dealId: string,
+  overrideId: string,
+): Promise<InstructionOverrideItem> {
+  const res = await client.post<InstructionOverrideResponse>(
+    `/api/v1/deals/${dealId}/global-instruction-overrides/${overrideId}/archive`,
+  );
+  return res.data.item;
+}

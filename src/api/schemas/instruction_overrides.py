@@ -19,7 +19,8 @@ class InstructionOverrideItem(BaseModel):
     """Один override в списке или ответе."""
 
     id: str
-    instruction_version_id: str
+    instruction_version_id: str | None = None
+    global_instruction_version_id: str | None = None
     override_scope: Literal["tenant", "deal"]
     tenant_id: str
     deal_id: str | None = None
@@ -32,6 +33,15 @@ class InstructionOverrideItem(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+
+class GlobalInstructionOverrideDraftRequest(BaseModel):
+    global_instruction_version_id: UUID
+    patch_ops: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="RFC 6902 JSON Patch operations",
+    )
+    change_summary: str | None = None
+    
 
 class InstructionOverrideListResponse(BaseModel):
     items: list[InstructionOverrideItem] = Field(default_factory=list)

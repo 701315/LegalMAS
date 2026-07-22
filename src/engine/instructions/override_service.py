@@ -1,5 +1,3 @@
-# src/engine/instructions/override_service.py
-
 """
 Instruction override service.
 
@@ -30,13 +28,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
 from db.models.instruction_override import InstructionOverride
+from db.repositories.document_type_instruction_version_repo import (
+    DocumentTypeInstructionVersionRepository,
+)
+from db.repositories.global_instruction_version_repo import (
+    GlobalInstructionVersionRepository,
+)
 from db.repositories.instruction_override_repo import (
     InstructionOverrideRepository,
     InvalidLifecycleTransitionError,
     TenantOwnershipError,
-)
-from db.repositories.document_type_instruction_version_repo import (
-    DocumentTypeInstructionVersionRepository,
 )
 from services.instruction_compiler import InstructionCompiler
 
@@ -62,11 +63,12 @@ class OverrideNotActiveError(Exception):
 @dataclass(frozen=True, slots=True)
 class EffectiveInstructionPayload:
     """
-    Результат resolve effective payload для (doc_type_code, tenant/deal).
+    Результат resolve effective payload для (doc_type_code / instruction_code, tenant/deal).
 
     Содержит финальный payload и полную provenance-информацию
     для snapshot/manifest записи.
     """
+
     doc_type_code: str
     base_version_id: uuid.UUID
     base_content_hash: str
@@ -83,9 +85,10 @@ class InstructionOverrideService:
         self.session = session
         self.override_repo = InstructionOverrideRepository(session)
         self.version_repo = DocumentTypeInstructionVersionRepository(session)
+        self.global_version_repo = GlobalInstructionVersionRepository(session)
         self.compiler = InstructionCompiler()
 
-    # ── Создание overrides ────────────────────────────────────────────────────
+    # ── Создание doc-type overrides ───────────────────────────────────────────
 
     async def create_tenant_override_draft(
         self,
@@ -108,7 +111,7 @@ class InstructionOverrideService:
                 f"Instruction version {instruction_version_id} not found"
             )
 
-        base_payload = base_version.compiled_payload or {}
+        base_payload = dict(base_version.compiled_payload or {})
         self._apply_patch(base_payload, patch_ops)
 
         override = await self.override_repo.create(
@@ -116,6 +119,7 @@ class InstructionOverrideService:
             override_scope="tenant",
             deal_id=None,
             instruction_version_id=instruction_version_id,
+            global_instruction_version_id=None,
             base_content_hash=base_version.source_sha256,
             patch_ops=patch_ops,
             status="draft",
@@ -155,7 +159,7 @@ class InstructionOverrideService:
                 f"Instruction version {instruction_version_id} not found"
             )
 
-        base_payload = base_version.compiled_payload or {}
+        base_payload = dict(base_version.compiled_payload or {})
         self._apply_patch(base_payload, patch_ops)
 
         override = await self.override_repo.create(
@@ -163,6 +167,7 @@ class InstructionOverrideService:
             override_scope="deal",
             deal_id=deal_id,
             instruction_version_id=instruction_version_id,
+            global_instruction_version_id=None,
             base_content_hash=base_version.source_sha256,
             patch_ops=patch_ops,
             status="draft",
@@ -181,6 +186,102 @@ class InstructionOverrideService:
         )
         return override
 
+    # ── Создание global overrides ─────────────────────────────────────────────
+
+    async def create_tenant_global_override_draft(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        global_instruction_version_id: uuid.UUID,
+        patch_ops: list[dict],
+        change_summary: str | None = None,
+        created_by: uuid.UUID | None = None,
+    ) -> InstructionOverride:
+        """
+        Создать draft tenant-level override для global instruction.
+        """
+        base_version = await self.global_version_repo.get_by_id(
+            global_instruction_version_id
+        )
+        if base_version is None:
+            raise BaseVersionNotFoundError(
+                f"Global instruction version {global_instruction_version_id} not found"
+            )
+
+        base_payload = dict(base_version.compiled_payload or {})
+        self._apply_patch(base_payload, patch_ops)
+
+        override = await self.override_repo.create(
+            tenant_id=tenant_id,
+            override_scope="tenant",
+            deal_id=None,
+            instruction_version_id=None,
+            global_instruction_version_id=global_instruction_version_id,
+            base_content_hash=base_version.source_sha256,
+            patch_ops=patch_ops,
+            status="draft",
+            change_summary=change_summary,
+            created_by=created_by,
+        )
+
+        logger.info(
+            "Tenant GlobalInstructionOverride draft created",
+            extra={
+                "tenant_id": str(tenant_id),
+                "global_instruction_version_id": str(global_instruction_version_id),
+                "override_id": str(override.id),
+            },
+        )
+        return override
+
+    async def create_deal_global_override_draft(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        deal_id: uuid.UUID,
+        global_instruction_version_id: uuid.UUID,
+        patch_ops: list[dict],
+        change_summary: str | None = None,
+        created_by: uuid.UUID | None = None,
+    ) -> InstructionOverride:
+        """
+        Создать draft deal-level override для global instruction.
+        """
+        base_version = await self.global_version_repo.get_by_id(
+            global_instruction_version_id
+        )
+        if base_version is None:
+            raise BaseVersionNotFoundError(
+                f"Global instruction version {global_instruction_version_id} not found"
+            )
+
+        base_payload = dict(base_version.compiled_payload or {})
+        self._apply_patch(base_payload, patch_ops)
+
+        override = await self.override_repo.create(
+            tenant_id=tenant_id,
+            override_scope="deal",
+            deal_id=deal_id,
+            instruction_version_id=None,
+            global_instruction_version_id=global_instruction_version_id,
+            base_content_hash=base_version.source_sha256,
+            patch_ops=patch_ops,
+            status="draft",
+            change_summary=change_summary,
+            created_by=created_by,
+        )
+
+        logger.info(
+            "Deal GlobalInstructionOverride draft created",
+            extra={
+                "tenant_id": str(tenant_id),
+                "deal_id": str(deal_id),
+                "global_instruction_version_id": str(global_instruction_version_id),
+                "override_id": str(override.id),
+            },
+        )
+        return override
+
     # ── Lifecycle: validate / activate / archive ──────────────────────────────
 
     async def validate_override(
@@ -190,13 +291,13 @@ class InstructionOverrideService:
         tenant_id: uuid.UUID,
     ) -> dict[str, Any]:
         """
-        Проверить override:
+        Проверить doc-type override:
         - ownership
         - base version не stale
         - patch_ops применяются без конфликта
         - effective payload валиден через InstructionCompiler
 
-        Возвращает validation result, не меняет статус.
+        Для global overrides используй validate_global_override().
         """
         override = await self.override_repo.assert_tenant_owns(override_id, tenant_id)
 
@@ -204,7 +305,24 @@ class InstructionOverrideService:
             return {
                 "is_valid": False,
                 "errors": ["Override is stale. Rebase required before activation."],
+                "warnings": [],
+                "checks_count": None,
                 "effective_payload": None,
+                "validation_report": None,
+            }
+
+        if override.instruction_version_id is None:
+            # Global override попал в doc-type validate — перенаправляем
+            return {
+                "is_valid": False,
+                "errors": [
+                    "This is a global instruction override. "
+                    "Use the /global-instruction-overrides/{id}/validate endpoint."
+                ],
+                "warnings": [],
+                "checks_count": None,
+                "effective_payload": None,
+                "validation_report": None,
             }
 
         base_version = await self.version_repo.get_by_id(
@@ -214,10 +332,13 @@ class InstructionOverrideService:
             return {
                 "is_valid": False,
                 "errors": [f"Base version {override.instruction_version_id} not found."],
+                "warnings": [],
+                "checks_count": None,
                 "effective_payload": None,
+                "validation_report": None,
             }
 
-        base_payload = base_version.compiled_payload or {}
+        base_payload = dict(base_version.compiled_payload or {})
 
         try:
             effective_payload = self._apply_patch(base_payload, override.patch_ops)
@@ -225,7 +346,10 @@ class InstructionOverrideService:
             return {
                 "is_valid": False,
                 "errors": [f"Patch conflict: {e}"],
+                "warnings": [],
+                "checks_count": None,
                 "effective_payload": None,
+                "validation_report": None,
             }
 
         try:
@@ -237,7 +361,10 @@ class InstructionOverrideService:
             return {
                 "is_valid": False,
                 "errors": [f"Compilation failed: {e}"],
+                "warnings": [],
+                "checks_count": None,
                 "effective_payload": effective_payload,
+                "validation_report": None,
             }
 
         return {
@@ -253,6 +380,113 @@ class InstructionOverrideService:
             "validation_report": compiled.validation_report,
         }
 
+    async def validate_global_override(
+        self,
+        *,
+        override_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+    ) -> dict[str, Any]:
+        """
+        Проверить global instruction override:
+        - ownership
+        - override ссылается на global_instruction_version_id (не doc-type)
+        - base version не stale
+        - patch_ops применяются без конфликта к compiled_payload
+        - структурная проверка effective payload
+
+        Не требует InstructionCompiler — global checks не имеют
+        doc_type_code для compile_doc_type_instruction().
+        """
+        override = await self.override_repo.assert_tenant_owns(override_id, tenant_id)
+
+        errors: list[str] = []
+        warnings: list[str] = []
+
+        # Staleness check
+        if override.is_stale:
+            errors.append(
+                "Override is stale: base global instruction version has been "
+                "updated. Rebase required before activation."
+            )
+
+        # Проверяем что это действительно global override
+        if override.global_instruction_version_id is None:
+            return {
+                "is_valid": False,
+                "errors": [
+                    "This is a doc-type override, not a global instruction override. "
+                    "Use the /instruction-overrides/{id}/validate endpoint."
+                ],
+                "warnings": [],
+                "checks_count": None,
+                "effective_payload": None,
+                "validation_report": None,
+            }
+
+        # Загружаем base global instruction version
+        base_version = await self.global_version_repo.get_by_id(
+            override.global_instruction_version_id
+        )
+        if base_version is None:
+            errors.append(
+                f"Base global instruction version "
+                f"{override.global_instruction_version_id} not found."
+            )
+            return {
+                "is_valid": False,
+                "errors": errors,
+                "warnings": warnings,
+                "checks_count": None,
+                "effective_payload": None,
+                "validation_report": None,
+            }
+
+        # Patch apply check
+        effective_payload: dict[str, Any] | None = None
+        base_payload = dict(base_version.compiled_payload or {})
+
+        try:
+            effective_payload = self._apply_patch(base_payload, override.patch_ops)
+        except PatchConflictError as e:
+            errors.append(f"Patch conflict: {e}")
+
+        # Структурная проверка effective payload
+        if effective_payload is not None:
+            # id / instruction_code обязателен
+            has_id = (
+                "id" in effective_payload
+                or "instruction_code" in effective_payload
+                or "check_id" in effective_payload
+            )
+            if not has_id:
+                warnings.append(
+                    "Effective payload is missing 'id' or 'instruction_code' field."
+                )
+
+            # name желателен
+            if "name" not in effective_payload:
+                warnings.append(
+                    "Effective payload is missing 'name' field."
+                )
+
+        is_valid = len(errors) == 0
+
+        return {
+            "is_valid": is_valid,
+            "errors": errors,
+            "warnings": warnings,
+            "checks_count": 1 if effective_payload is not None else None,
+            "effective_payload": effective_payload,
+            "validation_report": {
+                "validated": True,
+                "is_stale": override.is_stale,
+                "base_version_id": str(override.global_instruction_version_id),
+                "base_version_status": base_version.version_status,
+                "instruction_code": base_version.instruction_code,
+                "patch_ops_count": len(override.patch_ops or []),
+            },
+        }
+
     async def activate_override(
         self,
         *,
@@ -261,9 +495,6 @@ class InstructionOverrideService:
     ) -> InstructionOverride:
         """
         Активировать override: draft → active.
-
-        Guard: нельзя активировать stale.
-        Guard: ownership check.
         """
         override = await self.override_repo.assert_tenant_owns(override_id, tenant_id)
 
@@ -301,8 +532,6 @@ class InstructionOverrideService:
     ) -> InstructionOverride:
         """
         Архивировать override: active | draft → archived.
-
-        Ownership check.
         """
         override = await self.override_repo.assert_tenant_owns(override_id, tenant_id)
 
@@ -341,10 +570,7 @@ class InstructionOverrideService:
         """
         Rebase override на новую base version.
 
-        Всегда явная операция пользователя.
-        Dry-run apply новых patch_ops.
-        is_stale → False после успешного rebase.
-        Ownership check.
+        Сейчас generic rebase реализован для doc-type overrides.
         """
         await self.override_repo.assert_tenant_owns(override_id, tenant_id)
 
@@ -354,7 +580,7 @@ class InstructionOverrideService:
                 f"New base instruction version {new_base_version_id} not found"
             )
 
-        base_payload = new_base_version.compiled_payload or {}
+        base_payload = dict(new_base_version.compiled_payload or {})
         self._apply_patch(base_payload, new_patch_ops)
 
         updated = await self.override_repo.rebase(
@@ -374,7 +600,7 @@ class InstructionOverrideService:
         )
         return updated
 
-    # ── Effective payload resolution ──────────────────────────────────────────
+    # ── Effective payload resolution: doc-type ────────────────────────────────
 
     async def resolve_effective_payload(
         self,
@@ -384,18 +610,13 @@ class InstructionOverrideService:
         deal_id: uuid.UUID | None = None,
     ) -> EffectiveInstructionPayload:
         """
-        Canonical effective payload resolution chain.
+        Canonical effective payload resolution chain for doc-type instructions.
 
         Priority: deal override > tenant override > base published version
-
-        1. Published platform OR tenant instruction version
-        2. Apply tenant active override (если есть)
-        3. Apply deal active override (если есть)
-        4. Вернуть effective payload + effective_hash + provenance
-
-        Raises StaleBaseError если override stale.
-        Raises BaseVersionNotFoundError если нет published version.
         """
+        import hashlib
+        import json
+
         base_version = await self.version_repo.get_latest_published(
             doc_type_code,
             tenant_id=tenant_id,
@@ -405,12 +626,11 @@ class InstructionOverrideService:
                 f"No published instruction version found for doc_type_code={doc_type_code}"
             )
 
-        base_payload = base_version.compiled_payload or {}
+        base_payload = dict(base_version.compiled_payload or {})
         effective_payload = base_payload
         tenant_override_id: uuid.UUID | None = None
         deal_override_id: uuid.UUID | None = None
 
-        # Step 1: apply tenant override
         tenant_override = await self.override_repo.get_active_tenant_override(
             tenant_id=tenant_id,
             instruction_version_id=base_version.id,
@@ -421,10 +641,11 @@ class InstructionOverrideService:
                     f"Tenant override {tenant_override.id} is stale for "
                     f"doc_type_code={doc_type_code}; rebase required"
                 )
-            effective_payload = self._apply_patch(effective_payload, tenant_override.patch_ops)
+            effective_payload = self._apply_patch(
+                effective_payload, tenant_override.patch_ops
+            )
             tenant_override_id = tenant_override.id
 
-        # Step 2: apply deal override
         if deal_id is not None:
             deal_override = await self.override_repo.get_active_deal_override(
                 deal_id=deal_id,
@@ -436,13 +657,15 @@ class InstructionOverrideService:
                         f"Deal override {deal_override.id} is stale for "
                         f"doc_type_code={doc_type_code}; rebase required"
                     )
-                effective_payload = self._apply_patch(effective_payload, deal_override.patch_ops)
+                effective_payload = self._apply_patch(
+                    effective_payload, deal_override.patch_ops
+                )
                 deal_override_id = deal_override.id
 
-        is_overridden = (tenant_override_id is not None or deal_override_id is not None)
+        is_overridden = (
+            tenant_override_id is not None or deal_override_id is not None
+        )
 
-        import json
-        import hashlib
         effective_hash = hashlib.sha256(
             json.dumps(effective_payload, sort_keys=True, ensure_ascii=False).encode()
         ).hexdigest()
@@ -451,8 +674,12 @@ class InstructionOverrideService:
             "base_version_id": str(base_version.id),
             "base_owner_scope": base_version.owner_scope,
             "base_content_hash": base_version.source_sha256,
-            "tenant_override_id": str(tenant_override_id) if tenant_override_id else None,
-            "deal_override_id": str(deal_override_id) if deal_override_id else None,
+            "tenant_override_id": (
+                str(tenant_override_id) if tenant_override_id else None
+            ),
+            "deal_override_id": (
+                str(deal_override_id) if deal_override_id else None
+            ),
             "is_overridden": is_overridden,
             "effective_hash": effective_hash,
         }
@@ -469,7 +696,111 @@ class InstructionOverrideService:
             provenance=provenance,
         )
 
-    # ── Staleness propagation ────────────────────────────────────────────────
+    # ── Effective payload resolution: global ──────────────────────────────────
+
+    async def resolve_effective_global_payload(
+        self,
+        *,
+        instruction_code: str,
+        tenant_id: uuid.UUID,
+        deal_id: uuid.UUID | None = None,
+    ) -> EffectiveInstructionPayload:
+        """
+        Canonical effective global instruction payload resolution chain.
+
+        Priority: deal override > tenant override > base published version
+        """
+        import hashlib
+        import json
+
+        base_version = await self.global_version_repo.get_latest_published(
+            instruction_code,
+            tenant_id=None,
+        )
+        if base_version is None:
+            raise BaseVersionNotFoundError(
+                f"No published global instruction version found for "
+                f"instruction_code={instruction_code}"
+            )
+
+        base_payload = dict(base_version.compiled_payload or {})
+        effective_payload = base_payload
+        tenant_override_id: uuid.UUID | None = None
+        deal_override_id: uuid.UUID | None = None
+
+        tenant_override = await self.override_repo.get_active_tenant_global_override(
+            tenant_id=tenant_id,
+            global_instruction_version_id=base_version.id,
+        )
+        if tenant_override is not None:
+            if tenant_override.is_stale:
+                raise StaleBaseError(
+                    f"Tenant global override {tenant_override.id} is stale for "
+                    f"instruction_code={instruction_code}; rebase required"
+                )
+            effective_payload = self._apply_patch(
+                effective_payload, tenant_override.patch_ops
+            )
+            tenant_override_id = tenant_override.id
+
+        if deal_id is not None:
+            deal_override = await self.override_repo.get_active_deal_global_override(
+                deal_id=deal_id,
+                global_instruction_version_id=base_version.id,
+            )
+            if deal_override is not None:
+                if deal_override.is_stale:
+                    raise StaleBaseError(
+                        f"Deal global override {deal_override.id} is stale for "
+                        f"instruction_code={instruction_code}; rebase required"
+                    )
+                effective_payload = self._apply_patch(
+                    effective_payload, deal_override.patch_ops
+                )
+                deal_override_id = deal_override.id
+
+        is_overridden = (
+            tenant_override_id is not None or deal_override_id is not None
+        )
+
+        effective_hash = hashlib.sha256(
+            json.dumps(effective_payload, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()
+
+        base_content_hash = (
+            base_version.immutable_content_hash
+            or base_version.source_sha256
+            or effective_hash
+        )
+
+        provenance = {
+            "base_version_id": str(base_version.id),
+            "base_instruction_code": instruction_code,
+            "base_owner_scope": base_version.owner_scope,
+            "base_content_hash": base_content_hash,
+            "tenant_override_id": (
+                str(tenant_override_id) if tenant_override_id else None
+            ),
+            "deal_override_id": (
+                str(deal_override_id) if deal_override_id else None
+            ),
+            "is_overridden": is_overridden,
+            "effective_hash": effective_hash,
+        }
+
+        return EffectiveInstructionPayload(
+            doc_type_code=instruction_code,
+            base_version_id=base_version.id,
+            base_content_hash=base_content_hash,
+            tenant_override_id=tenant_override_id,
+            deal_override_id=deal_override_id,
+            effective_payload=effective_payload,
+            effective_hash=effective_hash,
+            is_overridden=is_overridden,
+            provenance=provenance,
+        )
+
+    # ── Staleness propagation ─────────────────────────────────────────────────
 
     async def mark_overrides_stale_for_version(
         self,
@@ -482,7 +813,7 @@ class InstructionOverrideService:
             instruction_version_id
         )
 
-    # ── Internal apply patch ─────────────────────────────────────────────────
+    # ── Internal apply patch ──────────────────────────────────────────────────
 
     def _apply_patch(
         self,
@@ -517,6 +848,3 @@ class InstructionOverrideService:
             raise PatchConflictError(str(e)) from e
 
         return result
-    
-
-    

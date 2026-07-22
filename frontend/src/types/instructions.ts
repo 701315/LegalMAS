@@ -273,7 +273,8 @@ export interface JsonPatchOperation {
  */
 export interface InstructionOverrideItem {
   id: string;
-  instruction_version_id: string;
+  instruction_version_id: string | null;
+  global_instruction_version_id: string | null;
   override_scope: OverrideScope;
   tenant_id: string;
   deal_id: string | null;
@@ -448,3 +449,52 @@ export interface GlobalInstructionDiffResponse {
 }
 
 
+/**
+ * POST .../global-instruction-overrides/draft
+ * Создать override для global instruction.
+ */
+export interface CreateGlobalOverrideDraftRequest {
+  global_instruction_version_id: string;
+  patch_ops: JsonPatchOperation[];
+  change_summary?: string | null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Instruction Sync (admin: POST /admin/instructions/sync/*)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Результат синхронизации global checks из YAML → БД.
+ * POST /api/v1/admin/instructions/sync/global-checks
+ */
+export interface GlobalChecksSyncResult {
+  created: number;
+  repaired: number;
+  skipped: number;
+  errors: number;
+  total: number;
+  dry_run: boolean;
+}
+
+/**
+ * Результат синхронизации doc-type инструкций из YAMLRegistry → БД.
+ * POST /api/v1/admin/instructions/sync/doc-types
+ */
+export interface DocTypesSyncResult {
+  created: number;
+  promoted: number;
+  skipped: number;
+  errors: number;
+  total: number;
+  dry_run: boolean;
+}
+
+/**
+ * Union для отображения в UI без различия типа sync.
+ * Поле `kind` позволяет type-narrowing.
+ */
+export type SyncResultUnion =
+  | ({ kind: "global-checks" } & GlobalChecksSyncResult)
+  | ({ kind: "doc-types" } & DocTypesSyncResult);
+
+  

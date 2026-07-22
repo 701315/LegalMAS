@@ -36,6 +36,8 @@ import yaml
 from api.schemas.playbooks import PlaybookCheckInfo, PlaybookTopicInfo
 from core.config import settings
 from core.logging import get_logger
+from sqlalchemy.ext.asyncio import AsyncSession
+from db.repositories.global_instruction_version_repo import GlobalInstructionVersionRepository
 
 logger = get_logger(__name__)
 
@@ -71,6 +73,69 @@ def _normalize_str(value: object, fallback: str) -> str:
         return fallback
     normalized = str(value).strip()
     return normalized or fallback
+
+async def load_global_checks_catalog_from_db(
+    session: AsyncSession,
+) -> list[PlaybookTopicInfo]:
+    """
+    DB-backed catalog loader for published platform global instructions.
+
+    Fallback:
+    - если БД пуста → используем существующий file-based catalog.
+    """
+    repo = GlobalInstructionVersionRepository(session)
+    versions = await repo.list_all_published_platform()
+
+    if not versions:
+        logger.warning(
+            "No published platform global instructions in DB — falling back to file-based catalog"
+        )
+        return load_global_checks_catalog()
+
+    topics_map: dict[str, list[PlaybookCheckInfo]] = {}
+
+    for version in versions:
+        payload = version.compiled_payload if isinstance(version.compiled_payload, dict) else {}
+
+        topic_code = _normalize_str(
+            version.group or payload.get("group") or payload.get("category"),
+            "ungrouped",
+        )
+        title = _normalize_str(
+            version.name or payload.get("name"),
+            version.instruction_code,
+        )
+
+        description_raw = payload.get("description")
+        description = None
+        if description_raw is not None:
+            description = str(description_raw).strip() or None
+
+        item = PlaybookCheckInfo(
+            code=version.instruction_code,
+            title=title,
+            description=description,
+            topic_code=topic_code,
+            file_path=str(version.source_path or ""),
+        )
+
+        topics_map.setdefault(topic_code, []).append(item)
+
+    topics = [
+        PlaybookTopicInfo(
+            topic_code=topic_code,
+            topic_name=topic_code,
+            checks=sorted(checks, key=lambda c: c.code),
+        )
+        for topic_code, checks in sorted(topics_map.items(), key=lambda pair: pair[0])
+    ]
+
+    logger.info(
+        "Global checks catalog loaded from DB",
+        topics=len(topics),
+        total_checks=sum(len(t.checks) for t in topics),
+    )
+    return topics
 
 
 def load_global_checks_catalog() -> list[PlaybookTopicInfo]:

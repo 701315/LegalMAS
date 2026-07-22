@@ -13,9 +13,19 @@ import {
   rebaseDealOverride,
   validateDealOverride,
   validateTenantOverride,
+  // Global instruction overrides
+  createTenantGlobalOverrideDraft,
+  validateTenantGlobalOverride,
+  activateTenantGlobalOverride,
+  archiveTenantGlobalOverride,
+  createDealGlobalOverrideDraft,
+  validateDealGlobalOverride,
+  activateDealGlobalOverride,
+  archiveDealGlobalOverride,
 } from "../../api/instructions/overrides";
 import type {
   CreateOverrideDraftRequest,
+  CreateGlobalOverrideDraftRequest,
   RebaseOverrideRequest,
 } from "../../api/instructions/overrides";
 
@@ -210,4 +220,145 @@ export function useRebaseDealOverride() {
   });
 }
 
+
+
+// ─────────────────────────────────────────────────────────────
+// Tenant GLOBAL instruction override mutations
+// ─────────────────────────────────────────────────────────────
+
+export function useCreateTenantGlobalOverrideDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      tenantId,
+      body,
+    }: {
+      tenantId: string;
+      body: CreateGlobalOverrideDraftRequest;
+    }) => createTenantGlobalOverrideDraft(tenantId, body),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: overrideQueryKeys.tenantOverrides(variables.tenantId),
+      });
+    },
+  });
+}
+
+export function useValidateTenantGlobalOverride() {
+  return useMutation({
+    mutationFn: ({
+      tenantId,
+      overrideId,
+    }: {
+      tenantId: string;
+      overrideId: string;
+    }) => validateTenantGlobalOverride(tenantId, overrideId),
+  });
+}
+
+export function useActivateTenantGlobalOverride() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      tenantId,
+      overrideId,
+    }: {
+      tenantId: string;
+      overrideId: string;
+    }) => activateTenantGlobalOverride(tenantId, overrideId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: overrideQueryKeys.tenantOverrides(variables.tenantId),
+      });
+    },
+  });
+}
+
+export function useArchiveTenantGlobalOverride() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      tenantId,
+      overrideId,
+    }: {
+      tenantId: string;
+      overrideId: string;
+    }) => archiveTenantGlobalOverride(tenantId, overrideId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: overrideQueryKeys.tenantOverrides(variables.tenantId),
+      });
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Deal GLOBAL instruction override mutations
+// ─────────────────────────────────────────────────────────────
+
+export function useCreateDealGlobalOverrideDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      dealId,
+      body,
+    }: {
+      dealId: string;
+      body: CreateGlobalOverrideDraftRequest;
+    }) => createDealGlobalOverrideDraft(dealId, body),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: overrideQueryKeys.dealOverrides(variables.dealId),
+      });
+    },
+  });
+}
+
+export function useValidateDealGlobalOverride() {
+  return useMutation({
+    mutationFn: ({
+      dealId,
+      overrideId,
+    }: {
+      dealId: string;
+      overrideId: string;
+    }) => validateDealGlobalOverride(dealId, overrideId),
+  });
+}
+
+export function useActivateDealGlobalOverride() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      dealId,
+      overrideId,
+    }: {
+      dealId: string;
+      overrideId: string;
+    }) => activateDealGlobalOverride(dealId, overrideId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: overrideQueryKeys.dealOverrides(variables.dealId),
+      });
+    },
+  });
+}
+
+export function useArchiveDealGlobalOverride() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      dealId,
+      overrideId,
+    }: {
+      dealId: string;
+      overrideId: string;
+    }) => archiveDealGlobalOverride(dealId, overrideId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: overrideQueryKeys.dealOverrides(variables.dealId),
+      });
+    },
+  });
+}
 

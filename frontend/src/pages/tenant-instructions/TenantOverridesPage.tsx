@@ -45,10 +45,16 @@ const OverrideListItem: React.FC<OverrideListItemProps> = ({
           {/* Version ID reference */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-[var(--text-primary)]">
-              Override
+              {override.global_instruction_version_id
+                ? "Global Override"
+                : "Override"}
             </span>
             <span className="font-mono text-[10px] text-[var(--text-muted)]">
-              v_id: {override.instruction_version_id.slice(0, 8)}…
+              {override.global_instruction_version_id
+                ? `global: ${override.global_instruction_version_id.slice(0, 8)}…`
+                : override.instruction_version_id
+                  ? `v_id: ${override.instruction_version_id.slice(0, 8)}…`
+                  : ""}
             </span>
           </div>
 
