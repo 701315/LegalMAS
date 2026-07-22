@@ -42,7 +42,7 @@ from db.repositories.run_repo import RunRepository
 from api.schemas.pagination import PaginatedResponse as PaginatedResponseSchema
 from api.schemas.results import CheckResultResponse
 from core.config import settings
-from core.constants import LanguageDiscoveryStatus, RunStatus
+from core.constants import LanguageDiscoveryStatus, RunCheckPlanItemStatus, RunStatus
 from core.error_catalog import render_error_message
 from core.logging import get_logger
 from db.repositories.audit_repo import AuditRepository
@@ -864,15 +864,24 @@ async def get_run_instruction_snapshot(
 )
 async def get_run_check_plan(
     run: Run = Depends(get_scoped_run),
-    status: str | None = Query(
+    status: RunCheckPlanItemStatus | None = Query(
         default=None,
-        description="Фильтр по статусу: planned/dispatched/started/succeeded/failed/skipped/timeout/cancelled",
+        description=(
+            "Фильтр по статусу execution ledger. Применяется только к items; "
+            "summary всегда отражает overall состояние Run независимо от фильтра."
+        ),
     ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ) -> RunCheckPlanResponse:
     """
     Вернуть execution ledger (source-of-truth прогресса) для Run.
+
+    items фильтруются по status (если передан).
+    summary — overall статистика по всему Run, независимо от фильтра.
+
+    Невалидное значение status приводит к 422 Unprocessable Entity
+    (валидация на уровне FastAPI/Pydantic до входа в repository).
 
     Доступ: viewer/editor/admin проекта, read-only.
     """

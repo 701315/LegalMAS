@@ -1,3 +1,12 @@
+"""
+Integration tests for creating PlaybookVersion from PlaybookLine instruction_code wiring.
+
+Что проверяет этот файл:
+- create PlaybookVersion from from_line_id uses canonical instruction_code values;
+- include_ids собираются из line items в правильном порядке;
+- при stale/unknown instruction_code endpoint возвращает 400 fail-fast.
+"""
+
 from __future__ import annotations
 
 import uuid
@@ -83,6 +92,18 @@ def test_create_playbook_version_from_line_uses_instruction_code(client, mocker)
     repo.get_line_with_items = mocker.AsyncMock(return_value=(line, [item1, item2]))
     repo.create_version = mocker.AsyncMock(return_value=fake_version)
 
+    mocker.patch(
+        "api.endpoints.playbooks.extract_unique_instruction_codes_from_items",
+        return_value=["encumbrances_warranty", "change_of_control"],
+    )
+    mocker.patch(
+        "api.endpoints.playbooks.validate_instruction_codes",
+        side_effect=[
+            ["encumbrances_warranty", "change_of_control"],
+            ["encumbrances_warranty", "change_of_control"],
+        ],
+    )
+
     build_compiled_checks = mocker.patch("api.endpoints.playbooks.build_compiled_checks")
     build_compiled_checks.return_value = {
         "checks": [],
@@ -133,6 +154,62 @@ def test_create_playbook_version_from_line_uses_instruction_code(client, mocker)
     assert kwargs["include_ids"] == ["encumbrances_warranty", "change_of_control"]
     assert kwargs["bundles"] == []
     assert kwargs["exclude_ids"] == []
+
+
+def test_create_playbook_version_from_line_rejects_unknown_instruction_code(client, mocker):
+    override_user()
+    override_db()
+
+    line_id = uuid.uuid4()
+    model_config_id = uuid.uuid4()
+
+    line = type("Playbook", (), {})()
+    line.id = line_id
+
+    stale_item = type("PlaybookLineItem", (), {})()
+    stale_item.kind = "check"
+    stale_item.instruction_code = "unknown_check"
+    stale_item.order_index = 10
+
+    repo_cls = mocker.patch("api.endpoints.playbooks.PlaybookRepository")
+    repo = repo_cls.return_value
+    repo.get_line_with_items = mocker.AsyncMock(return_value=(line, [stale_item]))
+    repo.create_version = mocker.AsyncMock()
+
+    mocker.patch(
+        "api.endpoints.playbooks.extract_unique_instruction_codes_from_items",
+        return_value=["unknown_check"],
+    )
+
+    from services.playbooks.line_items import PlaybookLineItemValidationError
+
+    mocker.patch(
+        "api.endpoints.playbooks.validate_instruction_codes",
+        side_effect=PlaybookLineItemValidationError(["unknown_check"]),
+    )
+
+    payload = {
+        "name": None,
+        "bundles": [],
+        "include_ids": [],
+        "exclude_ids": [],
+        "profile": None,
+        "model_config_id": str(model_config_id),
+        "playbook_id": None,
+        "from_line_id": str(line_id),
+    }
+
+    resp = client.post(
+        "/api/v1/playbooks",
+        json=payload,
+        headers={"Authorization": "Bearer test"},
+    )
+
+    assert resp.status_code == 400, resp.text
+    body = resp.json()
+    assert body["detail"]["message"] == "Playbook line contains unknown instruction_code values."
+    assert body["detail"]["unknown_instruction_codes"] == ["unknown_check"]
+    assert not repo.create_version.await_count
 
 
     

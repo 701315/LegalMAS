@@ -159,3 +159,5 @@ class DealPlaybookHistoryResponse(BaseModel):
 
     deal_id: UUID
     items: list[DealPlaybookHistoryItem]
+
+

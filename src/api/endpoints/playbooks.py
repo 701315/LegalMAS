@@ -3,17 +3,34 @@
 
 """
 Эндпоинты для работы с плейбуками (Playbook / PlaybookVersion).
+
+Что делает этот файл:
+- отдаёт каталог глобальных checks и bundles для конструктора плейбуков;
+- управляет logical playbooks (PlaybookLine) и их line items;
+- создаёт, читает, обновляет и публикует PlaybookVersion;
+- даёт thin HTTP layer поверх playbook repository/service domain.
+
+Архитектурная роль:
+- API-слой не хранит доменную логику компиляции в себе;
+- для persistence использует PlaybookRepository;
+- для publish/archive использует PlaybookPublishingService;
+- для diff использует PlaybookVersionDiffService;
+- для canonical wiring line items валидирует instruction_code
+  через services.playbooks.line_items и global checks catalog.
 """
 
 from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from pydantic import BaseModel  # ← добавили
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
+from api.concurrency import ensure_if_match, require_if_match, set_response_etag
+from api.errors import api_error
+
 from api.schemas.playbooks import (
     BundleInfo,
     GlobalCheckInfo,
@@ -47,12 +64,48 @@ from services.playbooks.diff import (
     PlaybookVersionDiffService,
     PlaybookDiffError,
 )
+from services.playbooks.line_items import (
+    PlaybookLineItemValidationError,
+    extract_unique_instruction_codes_from_items,
+    validate_instruction_codes,
+    validate_line_item_payloads,
+)
 
 router = APIRouter(
     prefix="/playbooks",
     tags=["playbooks"],
 )
 
+def _playbook_not_found(playbook_id: uuid.UUID):
+    return api_error(
+        status.HTTP_404_NOT_FOUND,
+        "PLAYBOOK_NOT_FOUND",
+        f"Playbook not found: {playbook_id}",
+    )
+
+
+def _playbook_version_not_found(version_id: uuid.UUID):
+    return api_error(
+        status.HTTP_404_NOT_FOUND,
+        "PLAYBOOK_VERSION_NOT_FOUND",
+        f"Playbook version not found: {version_id}",
+    )
+
+
+def _playbook_line_not_found(line_id: uuid.UUID):
+    return api_error(
+        status.HTTP_404_NOT_FOUND,
+        "PLAYBOOK_LINE_NOT_FOUND",
+        f"Playbook line not found: {line_id}",
+    )
+
+
+def _published_version_immutable():
+    return api_error(
+        status.HTTP_409_CONFLICT,
+        "PLAYBOOK_VERSION_IMMUTABLE",
+        "Published version cannot be modified.",
+    )
 
 async def require_playbook_admin(
     user: CurrentUser = Depends(get_current_user),
@@ -65,9 +118,10 @@ async def require_playbook_admin(
     tenant_admin управляет шаблонами в рамках своего tenant'а.
     """
     if user.global_role not in ("superadmin", "tenant_admin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions to manage playbook templates.",
+        raise api_error(
+            status.HTTP_403_FORBIDDEN,
+            "PLAYBOOK_ACCESS_DENIED",
+            "Not enough permissions to manage playbook templates.",
         )
     return user
 
@@ -214,38 +268,58 @@ async def create_playbook_version(
     # Если указан from_line_id — достаём линию и её элементы
     if payload.from_line_id:
         line, items = await repo.get_line_with_items(payload.from_line_id)
-        if not line:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Playbook line not found for from_line_id.",
+        if line is None:
+            raise api_error(
+                status.HTTP_404_NOT_FOUND,
+                "PLAYBOOK_LINE_NOT_FOUND",
+                "Playbook line not found for from_line_id.",
             )
 
-        for item in items:
-            if item.kind != "check":
-                continue
-            if not item.instruction_code:
-                continue
+        try:
+            line_codes = validate_instruction_codes(
+                extract_unique_instruction_codes_from_items(items)
+            )
+        except PlaybookLineItemValidationError as exc:
+            raise api_error(
+                status.HTTP_400_BAD_REQUEST,
+                "PLAYBOOK_LINE_INVALID_INSTRUCTION_CODES",
+                "Playbook line contains unknown instruction_code values.",
+                unknown_instruction_codes=exc.unknown_codes,
+            ) from exc
 
-            if item.instruction_code not in include_ids:
-                include_ids.append(item.instruction_code)
+        for code in line_codes:
+            if code not in include_ids:
+                include_ids.append(code)
 
         # Если playbook_id не задан, логично привязать версию к этой линии
         if not payload.playbook_id:
             payload.playbook_id = line.id
 
+    try:
+        include_ids = validate_instruction_codes(include_ids)
+    except PlaybookLineItemValidationError as exc:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_INVALID_INSTRUCTION_CODES",
+            "Request contains unknown instruction_code values.",
+            unknown_instruction_codes=exc.unknown_codes,
+        ) from exc
+
     # Проверка: хотя бы bundles, или include_ids (включая собранные из from_line_id)
     if not payload.bundles and not include_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=("At least one bundle, include_ids, or from_line_id " "must be provided."),
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_SOURCE_REQUIRED",
+            "At least one bundle, include_ids, or from_line_id must be provided.",
         )
 
     # Загружаем все глобальные проверки
     all_checks = load_global_checks()
     if not all_checks:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No global checks loaded; check server configuration.",
+        raise api_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "PLAYBOOK_GLOBAL_CHECKS_UNAVAILABLE",
+            "No global checks loaded; check server configuration.",
         )
 
     # Компилируем итоговый набор checks через существующий механизм
@@ -259,19 +333,22 @@ async def create_playbook_version(
             primary_bundle_id=payload.bundles[0] if payload.bundles else None,
         )
     except KeyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_BUILD_FAILED",
+            str(e),
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_BUILD_FAILED",
+            str(e),
         )
     except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to build compiled_checks.",
+        raise api_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "PLAYBOOK_BUILD_FAILED",
+            "Failed to build compiled_checks.",
         )
 
     # Имя версии
@@ -359,6 +436,7 @@ async def list_playbook_versions(
     summary="Детальная информация о версии плейбука",
 )
 async def get_playbook_version_detail(
+    response: Response,
     version_id: uuid.UUID = Path(..., description="ID версии плейбука"),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
@@ -373,10 +451,9 @@ async def get_playbook_version_detail(
     repo = PlaybookRepository(db)
     pv = await repo.get_by_id(version_id)
     if pv is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Playbook version not found.",
-        )
+        raise _playbook_version_not_found(version_id)
+
+    set_response_etag(response, getattr(pv, "updated_at", None))
 
     return PlaybookVersionDetail(
         id=pv.id,
@@ -402,13 +479,16 @@ async def get_playbook_version_detail(
 )
 async def get_playbook_line(
     line_id: uuid.UUID,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(require_playbook_admin),
 ):
     repo = PlaybookRepository(db)
     line, items = await repo.get_line_with_items(line_id)
     if not line:
-        raise HTTPException(status_code=404, detail="Playbook line not found")
+        raise _playbook_line_not_found(line_id)
+
+    set_response_etag(response, getattr(line, "updated_at", None))
 
     return PlaybookLineDetail(
         id=line.id,
@@ -442,6 +522,16 @@ async def create_playbook_line(
     user: CurrentUser = Depends(require_playbook_admin),
 ):
     repo = PlaybookRepository(db)
+
+    try:
+        validate_line_item_payloads(payload.items)
+    except PlaybookLineItemValidationError as exc:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_LINE_INVALID_INSTRUCTION_CODES",
+            "Playbook line contains unknown instruction_code values.",
+            unknown_instruction_codes=exc.unknown_codes,
+        ) from exc
 
     # Преобразуем Pydantic-объекты в dict, чтобы репозиторий не зависел от Pydantic
     items_payload = [item.model_dump() for item in payload.items]
@@ -485,10 +575,29 @@ async def create_playbook_line(
 async def update_playbook_line(
     line_id: uuid.UUID,
     payload: PlaybookLineCreate,
+    request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(require_playbook_admin),
 ):
     repo = PlaybookRepository(db)
+
+    existing_line, _ = await repo.get_line_with_items(line_id)
+    if not existing_line:
+        raise _playbook_line_not_found(line_id)
+
+    if_match = require_if_match(request)
+    ensure_if_match(getattr(existing_line, "updated_at", None), if_match)
+
+    try:
+        validate_line_item_payloads(payload.items)
+    except PlaybookLineItemValidationError as exc:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_LINE_INVALID_INSTRUCTION_CODES",
+            "Playbook line contains unknown instruction_code values.",
+            unknown_instruction_codes=exc.unknown_codes,
+        ) from exc
 
     items_payload = [item.model_dump() for item in payload.items]
     
@@ -502,10 +611,12 @@ async def update_playbook_line(
         items=items_payload,
     )
     if not line:
-        raise HTTPException(status_code=404, detail="Playbook line not found")
+        raise _playbook_line_not_found(line_id)
 
     await db.commit()
     await db.refresh(line)
+
+    set_response_etag(response, getattr(line, "updated_at", None))
 
     return PlaybookLineDetail(
         id=line.id,
@@ -534,6 +645,7 @@ async def update_playbook_line(
 )
 async def delete_playbook_line(
     line_id: uuid.UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(require_playbook_admin),
 ):
@@ -550,14 +662,18 @@ async def delete_playbook_line(
     """
     repo = PlaybookRepository(db)
 
+    existing_line, _ = await repo.get_line_with_items(line_id)
+    if not existing_line:
+        raise _playbook_line_not_found(line_id)
+
+    if_match = require_if_match(request)
+    ensure_if_match(getattr(existing_line, "updated_at", None), if_match)
+
     usage = await repo.get_line_usage(line_id)
 
     # 1. Шаблон не найден — 404
     if not usage.line_exists:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Playbook line not found.",
-        )
+        raise _playbook_line_not_found(line_id)
 
     # 2. Есть версии, которые используются сделками или запусками — 409
     if usage.used_in_deals > 0 or usage.used_in_runs > 0:
@@ -576,9 +692,10 @@ async def delete_playbook_line(
 
         detail = "Шаблон плейбука не может быть удалён: " + "; ".join(parts) + "."
 
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=detail,
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "PLAYBOOK_LINE_IN_USE",
+            detail,
         )
 
     # 3. Опциональный консервативный режим:
@@ -599,13 +716,9 @@ async def delete_playbook_line(
         # Редкий случай гонки:
         # шаблон существовал на этапе проверки usage,
         # но был удалён другим запросом до текущего delete.
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Playbook line not found.",
-        )
+        raise _playbook_line_not_found(line_id)
 
     await db.commit()
-    return Response()
 
 
 # -------------------------------------------------------------------
@@ -630,6 +743,8 @@ class PlaybookVersionModelConfigUpdate(BaseModel):
     summary="Обновить профиль модели (ModelConfig) у версии плейбука",
 )
 async def set_playbook_version_model_config(
+    request: Request,
+    response: Response,
     version_id: uuid.UUID,
     payload: PlaybookVersionModelConfigUpdate,
     db: AsyncSession = Depends(get_db),
@@ -647,16 +762,19 @@ async def set_playbook_version_model_config(
 
     pv = await repo.get_by_id(version_id)
     if pv is None:
-        raise HTTPException(status_code=404, detail="Playbook version not found.")
+        raise _playbook_version_not_found(version_id)
+
+    if_match = require_if_match(request)
+    ensure_if_match(getattr(pv, "updated_at", None), if_match)
 
     if pv.status == PlaybookStatus.PUBLISHED.value:
-        raise HTTPException(
-            status_code=409,
-            detail="PUBLISHED_VERSION_IMMUTABLE",
-        )
+        raise _published_version_immutable()
 
     # Если профиль не меняется — просто возвращаем текущее состояние
     if pv.model_config_id == payload.model_config_id:
+
+        set_response_etag(response, getattr(pv, "updated_at", None))
+
         return PlaybookVersionDetail(
             id=pv.id,
             name=pv.name,
@@ -675,15 +793,18 @@ async def set_playbook_version_model_config(
     if payload.model_config_id is not None:
         mc = await repo.get_model_config(payload.model_config_id)
         if mc is None:
-            raise HTTPException(
-                status_code=404,
-                detail="ModelConfig not found",
+            raise api_error(
+                status.HTTP_404_NOT_FOUND,
+                "MODEL_CONFIG_NOT_FOUND",
+                "ModelConfig not found.",
             )
 
     pv.model_config_id = payload.model_config_id
 
     await db.commit()
     await db.refresh(pv)
+
+    set_response_etag(response, getattr(pv, "updated_at", None))
 
     return PlaybookVersionDetail(
         id=pv.id,
@@ -712,19 +833,20 @@ async def publish_playbook_version(
     repo = PlaybookRepository(db)
     pv = await repo.get_by_id(version_id)
     if not pv:
-        raise HTTPException(status_code=404)
+        raise _playbook_version_not_found(version_id)
 
     service = PlaybookPublishingService(db)
 
     try:
         pv = await service.publish(pv)
     except PublishedVersionImmutableError:
-        raise HTTPException(
-            status_code=409,
-            detail="PUBLISHED_VERSION_IMMUTABLE",
-        )
+        raise _published_version_immutable()
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_PUBLISH_FAILED",
+            str(e),
+        )
 
     await db.commit()
     await db.refresh(pv)
@@ -737,6 +859,8 @@ async def publish_playbook_version(
     summary="Обновить draft-версию плейбука",
 )
 async def update_playbook_draft(
+    request: Request,
+    response: Response,
     version_id: uuid.UUID,
     payload: PlaybookDraftUpdateRequest,
     db: AsyncSession = Depends(get_db),
@@ -747,13 +871,13 @@ async def update_playbook_draft(
     repo = PlaybookRepository(db)
     pv = await repo.get_by_id(version_id)
     if not pv:
-        raise HTTPException(status_code=404)
+        raise _playbook_version_not_found(version_id)
+
+    if_match = require_if_match(request)
+    ensure_if_match(getattr(pv, "updated_at", None), if_match)
 
     if pv.status != PlaybookStatus.DRAFT.value:
-        raise HTTPException(
-            status_code=409,
-            detail="PUBLISHED_VERSION_IMMUTABLE",
-        )
+        raise _published_version_immutable()
 
     # Обновляем source_payload
     source = dict(pv.source_payload or {})
@@ -793,6 +917,8 @@ async def update_playbook_draft(
     await db.commit()
     await db.refresh(pv)
 
+    set_response_etag(response, getattr(pv, "updated_at", None))
+
     return pv
 
 
@@ -812,15 +938,21 @@ async def diff_playbook_versions(
     base = await repo.get_by_id(version_id)
     other = await repo.get_by_id(against)
 
-    if not base or not other:
-        raise HTTPException(status_code=404)
+    if not base:
+        raise _playbook_version_not_found(version_id)
+    if not other:
+        raise _playbook_version_not_found(against)
 
     service = PlaybookVersionDiffService()
 
     try:
         changes = service.diff(base, other)
     except PlaybookDiffError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_DIFF_FAILED",
+            str(e),
+        )
 
     return PlaybookVersionDiffResponse(
         base_version_id=base.id,
@@ -842,14 +974,18 @@ async def archive_playbook_version(
     repo = PlaybookRepository(db)
     pv = await repo.get_by_id(version_id)
     if not pv:
-        raise HTTPException(status_code=404)
+        raise _playbook_version_not_found(version_id)
 
     service = PlaybookPublishingService(db)
 
     try:
         pv = await service.archive(pv)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "PLAYBOOK_ARCHIVE_FAILED",
+            str(e),
+        )
 
     await db.commit()
     await db.refresh(pv)
@@ -868,7 +1004,7 @@ async def clone_playbook_version(
     repo = PlaybookRepository(db)
     pv = await repo.get_by_id(version_id)
     if not pv:
-        raise HTTPException(status_code=404)
+        raise _playbook_version_not_found(version_id)
 
     service = PlaybookPublishingService(db)
 

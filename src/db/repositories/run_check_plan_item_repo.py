@@ -8,10 +8,22 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.constants import RunCheckPlanItemStatus
 from db.models.run_check_plan_item import RunCheckPlanItem
 
-TERMINAL_STATUSES = {"succeeded", "failed", "skipped", "timeout", "cancelled"}
-ERROR_STATUSES = {"failed", "timeout", "cancelled"}
+
+TERMINAL_STATUSES = {
+    RunCheckPlanItemStatus.SUCCEEDED.value,
+    RunCheckPlanItemStatus.FAILED.value,
+    RunCheckPlanItemStatus.SKIPPED.value,
+    RunCheckPlanItemStatus.TIMEOUT.value,
+    RunCheckPlanItemStatus.CANCELLED.value,
+}
+ERROR_STATUSES = {
+    RunCheckPlanItemStatus.FAILED.value,
+    RunCheckPlanItemStatus.TIMEOUT.value,
+    RunCheckPlanItemStatus.CANCELLED.value,
+}
 
 
 class RunCheckPlanItemRepository:
@@ -174,20 +186,28 @@ class RunCheckPlanItemRepository:
         self,
         run_id: uuid.UUID,
         *,
-        status: str | None = None,
+        status: RunCheckPlanItemStatus | None = None,
     ) -> list[RunCheckPlanItem]:
         """
         Read-контракт для GET /runs/{run_id}/check-plan.
 
-        Сортировка по document_id/check_id для стабильного, детерминированного
-        порядка в UI (важно для diff-подобных экранов на фронте).
+        status принимает строго RunCheckPlanItemStatus — единственный
+        production call site (API endpoint) уже типизирован, поэтому
+        repository не поддерживает "сырые" строки как запасной вход.
+
+        Сортировка по document_id/check_id/segment_id/id для полностью
+        детерминированного порядка в UI (важно для diff-подобных экранов
+        на фронте — сегменты одного document/check не должны "прыгать"
+        между запросами).
         """
         stmt = select(RunCheckPlanItem).where(RunCheckPlanItem.run_id == run_id)
         if status is not None:
-            stmt = stmt.where(RunCheckPlanItem.status == status)
+            stmt = stmt.where(RunCheckPlanItem.status == status.value)
         stmt = stmt.order_by(
             RunCheckPlanItem.document_id,
             RunCheckPlanItem.check_id,
+            RunCheckPlanItem.segment_id,
+            RunCheckPlanItem.id,
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())

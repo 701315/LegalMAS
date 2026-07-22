@@ -20,6 +20,9 @@
 Как используется:
 - Эндпоинт API (например, GET /api/v1/playbooks/catalog) вызывает load_global_checks_catalog()
   и отдаёт результат фронтенду.
+- Доменные сервисы playbook wiring используют индекс и validation helpers из этого файла,
+  чтобы проверять, что instruction_code в line items ссылается на реально существующую
+  canonical global instruction.
 - Фронтенд показывает темы плитками и позволяет администратору выбирать отдельные
   инструкции для включения в PlaybookLine (шаблон плейбука).
 """
@@ -167,5 +170,33 @@ def load_global_checks_catalog() -> list[PlaybookTopicInfo]:
         total_checks=sum(len(t.checks) for t in topics.values()),
     )
     return sorted(topics.values(), key=lambda t: t.topic_code)
+
+def load_global_checks_index() -> dict[str, PlaybookCheckInfo]:
+    """
+    Построить индекс global checks по canonical instruction code.
+
+    Нужен доменным сервисам, которые валидируют instruction_code
+    в составе playbook line items и при сборке версии из from_line_id.
+    """
+    index: dict[str, PlaybookCheckInfo] = {}
+    for topic in load_global_checks_catalog():
+        for check in topic.checks:
+            index[check.code] = check
+    return index
+
+
+def get_unknown_global_check_codes(codes: list[str]) -> list[str]:
+    """
+    Вернуть отсортированный список instruction_code, которых нет
+    в текущем canonical global checks catalog.
+    """
+    index = load_global_checks_index()
+    normalized_codes = {
+        str(code).strip()
+        for code in codes
+        if code is not None and str(code).strip()
+    }
+    return sorted(code for code in normalized_codes if code not in index)
+
 
 

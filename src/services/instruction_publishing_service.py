@@ -70,6 +70,10 @@ class InvalidLifecycleTransitionError(InstructionLifecycleError):
     """Lifecycle transition is not allowed."""
 
 
+class StaleInstructionVersionError(InstructionLifecycleError):
+    """Instruction version has changed since the client last fetched it."""
+
+
 class PlatformInstructionReadOnlyError(InstructionLifecycleError):
     """Tenant cannot edit platform instruction inplace."""
 

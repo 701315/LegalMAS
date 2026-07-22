@@ -189,6 +189,27 @@ class DocumentStageExecutionStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+class RunCheckPlanItemStatus(str, Enum):
+    """
+    Lifecycle статус элемента execution ledger (RunCheckPlanItem).
+
+    Canonical source-of-truth для допустимых значений колонки
+    run_check_plan_items.status. Используется как:
+    - typed query-параметр в GET /runs/{run_id}/check-plan;
+    - строго типизированный параметр RunCheckPlanItemRepository.list_by_run_id;
+    - источник TERMINAL_STATUSES / ERROR_STATUSES в repository layer.
+    """
+
+    PLANNED = "planned"
+    DISPATCHED = "dispatched"
+    STARTED = "started"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    TIMEOUT = "timeout"
+    CANCELLED = "cancelled"
+
+
 class BundleSourceType(str, Enum):
     """Source from which documents were imported."""
 

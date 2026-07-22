@@ -187,6 +187,7 @@ app.add_middleware(
     allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
     allow_methods=cors_allow_methods,
     allow_headers=cors_allow_headers,
+    expose_headers=["ETag"],
 )
 
 # Авторизация / логин.

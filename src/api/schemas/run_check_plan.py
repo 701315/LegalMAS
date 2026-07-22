@@ -35,16 +35,33 @@ class RunCheckPlanItemResponse(BaseModel):
 
 
 class RunCheckPlanSummary(BaseModel):
+    """
+    Агрегированная статистика execution ledger.
+
+    ВАЖНО: summary всегда отражает состояние ВСЕГО Run,
+    независимо от query-параметра status в GET /runs/{run_id}/check-plan.
+    Это осознанный контракт: items — filtered view, summary — неизмен��ый
+    overall progress indicator для UI (progress bar/header), который не
+    должен "мигать" при переключении фильтра статуса.
+    """
+
     total_items: int
     terminal_items: int
     active_items: int
     has_errors: bool
 
 
+
 class RunCheckPlanResponse(BaseModel):
+    """
+    Response для GET /runs/{run_id}/check-plan.
+
+    items   — filtered по query-параметру status (если передан).
+    summary — overall статистика по всему Run (см. RunCheckPlanSummary).
+    """
+
     run_id: uuid.UUID
     items: list[RunCheckPlanItemResponse]
     summary: RunCheckPlanSummary
-
 
     

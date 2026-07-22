@@ -1,3 +1,5 @@
+# src/api/endpoints/instructions_global.py
+
 """
 Facade API for global instruction playbooks.
 
@@ -10,7 +12,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser
@@ -19,6 +21,7 @@ from db.repositories.playbook_repo import PlaybookRepository
 from db.session import get_db
 from .playbooks import require_playbook_admin
 
+from api.errors import api_error
 
 router = APIRouter(
     prefix="/admin/instructions",
@@ -71,9 +74,10 @@ async def list_global_playbook_versions(
 
     playbook = await repo.get_playbook_by_id(playbook_id)
     if playbook is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Playbook not found.",
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "PLAYBOOK_NOT_FOUND",
+            "Playbook not found.",
         )
 
     versions = await repo.list_versions_for_playbook(playbook_id)

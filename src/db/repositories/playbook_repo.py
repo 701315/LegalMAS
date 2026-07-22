@@ -526,7 +526,7 @@ class PlaybookRepository:
         self,
         version_id: uuid.UUID,
         compiled_checks: dict,
-    ) -> PlaybookVersion:
+    ) -> PlaybookVersion | None:
 
         pv = await self.get_by_id(version_id)
         if not pv:

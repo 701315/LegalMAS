@@ -1,3 +1,13 @@
+"""
+Integration tests for Playbook line endpoints that use canonical instruction_code wiring.
+
+Что проверяет этот файл:
+- создание PlaybookLine с instruction_code в line items;
+- чтение PlaybookLine и возврат instruction_code без потери;
+- обновление PlaybookLine с instruction_code;
+- fail-fast поведение при невалидных instruction_code через validation layer.
+"""
+
 from __future__ import annotations
 
 import uuid
@@ -53,6 +63,11 @@ def override_db():
 def test_create_get_update_playbook_line_with_instruction_code(client, mocker):
     override_admin()
     override_db()
+
+    mocker.patch(
+        "api.endpoints.playbooks.validate_line_item_payloads",
+        return_value=["encumbrances_warranty", "change_of_control"],
+    )
 
     line_id = uuid.uuid4()
 
@@ -134,6 +149,86 @@ def test_create_get_update_playbook_line_with_instruction_code(client, mocker):
     update_body = update_resp.json()
     assert len(update_body["items"]) == 1
     assert update_body["items"][0]["instruction_code"] == "change_of_control"
+
+
+def test_create_playbook_line_rejects_unknown_instruction_code(client, mocker):
+    override_admin()
+    override_db()
+
+    from services.playbooks.line_items import PlaybookLineItemValidationError
+
+    mocker.patch(
+        "api.endpoints.playbooks.validate_line_item_payloads",
+        side_effect=PlaybookLineItemValidationError(["unknown_check"]),
+    )
+
+    repo_cls = mocker.patch("api.endpoints.playbooks.PlaybookRepository")
+    repo = repo_cls.return_value
+    repo.create_line_with_items = mocker.AsyncMock()
+
+    payload = {
+        "title": "Broken line",
+        "description": "Contains stale code",
+        "deal_type": "mna",
+        "jurisdiction": "RU",
+        "language": "ru",
+        "items": [
+            {"kind": "check", "instruction_code": "unknown_check", "order_index": 10},
+        ],
+    }
+
+    resp = client.post(
+        "/api/v1/playbooks/lines",
+        json=payload,
+        headers={"Authorization": "Bearer test"},
+    )
+
+    assert resp.status_code == 400, resp.text
+    body = resp.json()
+    assert body["detail"]["message"] == "Playbook line contains unknown instruction_code values."
+    assert body["detail"]["unknown_instruction_codes"] == ["unknown_check"]
+    repo.create_line_with_items.assert_not_awaited()
+
+
+def test_update_playbook_line_rejects_unknown_instruction_code(client, mocker):
+    override_admin()
+    override_db()
+
+    line_id = uuid.uuid4()
+
+    from services.playbooks.line_items import PlaybookLineItemValidationError
+
+    mocker.patch(
+        "api.endpoints.playbooks.validate_line_item_payloads",
+        side_effect=PlaybookLineItemValidationError(["unknown_check"]),
+    )
+
+    repo_cls = mocker.patch("api.endpoints.playbooks.PlaybookRepository")
+    repo = repo_cls.return_value
+    repo.update_line_with_items = mocker.AsyncMock()
+
+    payload = {
+        "title": "Broken line",
+        "description": "Contains stale code",
+        "deal_type": "mna",
+        "jurisdiction": "RU",
+        "language": "ru",
+        "items": [
+            {"kind": "check", "instruction_code": "unknown_check", "order_index": 10},
+        ],
+    }
+
+    resp = client.put(
+        f"/api/v1/playbooks/lines/{line_id}",
+        json=payload,
+        headers={"Authorization": "Bearer test"},
+    )
+
+    assert resp.status_code == 400, resp.text
+    body = resp.json()
+    assert body["detail"]["message"] == "Playbook line contains unknown instruction_code values."
+    assert body["detail"]["unknown_instruction_codes"] == ["unknown_check"]
+    repo.update_line_with_items.assert_not_awaited()
 
 
     
