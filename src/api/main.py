@@ -83,7 +83,6 @@ from api.endpoints.global_instruction_versions import router as global_instructi
 from api.endpoints.instruction_sync import router as instruction_sync_router
 
 
-
 setup_logging()
 
 logger = get_logger(__name__)
@@ -157,9 +156,42 @@ app = FastAPI(
 
 setup_metrics(app)
 
+# ---------------------------------------------------------------------------
+# CORS — подготовка списка заголовков.
+#
+# Читаем конфиг из settings (который берёт значения из .env).
+# Дополнительно гарантируем наличие заголовков, необходимых для корректной
+# работы ETag concurrency (If-Match / If-None-Match) и базового API.
+#
+# Почему это нужно:
+# - .env может содержать сокращённый список CORS_ALLOW_HEADERS;
+# - без If-Match браузер блокирует PATCH-запросы с этим заголовком
+#   на этапе preflight (400 "Disallowed CORS headers");
+# - фикс в коде надёжнее чем полагаться на правильность .env в каждом окружении.
+#
+# Если в .env задан wildcard "*" — не трогаем, он покрывает всё.
+# ---------------------------------------------------------------------------
+_REQUIRED_CORS_HEADERS = [
+    "If-Match",
+    "If-None-Match",
+    "X-Request-ID",
+    "Authorization",
+    "Content-Type",
+    "Accept",
+    "Content-Language",
+    "Accept-Language",
+]
+
 cors_allow_origins = settings.cors_allow_origins_list
 cors_allow_methods = settings.cors_allow_methods_list
 cors_allow_headers = settings.cors_allow_headers_list
+
+if cors_allow_headers != ["*"]:
+    _existing_lower = {h.lower() for h in cors_allow_headers}
+    cors_allow_headers = cors_allow_headers + [
+        h for h in _REQUIRED_CORS_HEADERS
+        if h.lower() not in _existing_lower
+    ]
 
 logger.info(
     "Configuring CORS middleware",
@@ -172,15 +204,20 @@ logger.info(
 # ---------------------------------------------------------------------------
 # Регистрируем middleware приложения.
 #
-# Порядок важен:
-# - сначала AuditMiddleware
-# - потом CORSMiddleware
+# Порядок важен — Starlette добавляет middleware в обратном порядке
+# относительно вызовов add_middleware. Реальный стек выполнения:
 #
-# Но ещё важнее другое:
+#   [OTel — добавится позже] → CORSMiddleware → AuditMiddleware → endpoint
+#
+# CORSMiddleware должен стоять снаружи AuditMiddleware, чтобы:
+# - preflight OPTIONS запросы обрабатывались до входа в AuditMiddleware;
+# - CORS-заголовки проставлялись на все ответы включая ошибки.
+#
+# AuditMiddleware явно пропускает OPTIONS запросы (return await call_next)
+# как дополнительная защита на случай если порядок middleware изменится.
+#
 # OpenTelemetry middleware будет добавлен ПОЗЖЕ через instrument_fastapi_app(app),
-# уже после регистрации всех middleware и routers.
-#
-# Это нужно чтобы OpenTelemetry middleware оказался самым внешним.
+# уже после регистрации всех middleware и routers — чтобы оказаться самым внешним.
 # Тогда request logs в AuditMiddleware будут выполняться внутри активного span.
 # ---------------------------------------------------------------------------
 app.add_middleware(AuditMiddleware)
@@ -193,6 +230,10 @@ app.add_middleware(
     allow_headers=cors_allow_headers,
     expose_headers=["ETag"],
 )
+
+# ---------------------------------------------------------------------------
+# Routers.
+# ---------------------------------------------------------------------------
 
 # Авторизация / логин.
 app.include_router(auth.router)
@@ -274,13 +315,11 @@ app.include_router(exports.router, prefix="/api/v1")
 # Журнал аудита.
 app.include_router(audit.router, prefix="/api/v1")
 
-
+# Global instruction versions lifecycle API.
 app.include_router(global_instruction_router, prefix="/api/v1")
-
 
 # Sync API для платформенных инструкций (superadmin only).
 app.include_router(instruction_sync_router, prefix="/api/v1")
-
 
 # ---------------------------------------------------------------------------
 # Шаг 2: FastAPI instrumentation подключаем ПОСЛЕ всех middleware и routers,
@@ -290,10 +329,10 @@ app.include_router(instruction_sync_router, prefix="/api/v1")
 # FastAPIInstrumentor внутри себя добавляет middleware OpenTelemetry.
 # Нам нужно чтобы этот middleware оказался самым внешним:
 #
-#   OpenTelemetryMiddleware -> AuditMiddleware -> endpoint
+#   OpenTelemetryMiddleware -> CORSMiddleware -> AuditMiddleware -> endpoint
 #
 # Тогда:
-# - span создаётся до входа в AuditMiddleware
+# - span создаётся до входа в CORSMiddleware и AuditMiddleware
 # - request-логи из AuditMiddleware выполняются уже внутри активного span
 # - add_trace_context в logging.py автоматически добавляет
 #   trace_id и span_id в structured logs
@@ -305,4 +344,5 @@ app.include_router(instruction_sync_router, prefix="/api/v1")
 # FastAPI выбросит RuntimeError: cannot add middleware after startup.
 # ---------------------------------------------------------------------------
 instrument_fastapi_app(app)
+
 

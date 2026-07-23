@@ -53,12 +53,19 @@ const LoginPage: React.FC = () => {
           setUserInfo({
             userId: user.id,
             userName: user.email ?? user.id,
+            tenantId: user.tenant_id,
             globalRole,
             projectRoles,
             apiKey: data.access_token,
           });
 
-          navigate("/dashboard", { replace: true });
+          // Роль-зависимый редирект после логина.
+          // Superadmin управляет системой — его рабочий контекст = Клиенты.
+          // Tenant admin и member работают с проектами — их контекст = Dashboard.
+          const landingPath =
+            globalRole === "superadmin" ? "/admin" : "/dashboard";
+
+          navigate(landingPath, { replace: true });
         },
         onError: (err: unknown) => {
           const apiErr = err as

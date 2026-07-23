@@ -50,12 +50,6 @@ router = APIRouter(prefix="/admin", tags=["instruction-versions"])
 def require_instruction_admin(
     user: CurrentUser = Depends(get_current_user),
 ) -> CurrentUser:
-    """
-    Verify platform-level access to base instruction version management.
-
-    Only users with the superadmin global role can create, edit, publish,
-    archive, validate, and diff base instruction versions.
-    """
     if user.global_role != "superadmin":
         raise api_error(
             status.HTTP_403_FORBIDDEN,
@@ -68,32 +62,22 @@ def require_instruction_admin(
 def get_instruction_publishing_service(
     db: AsyncSession = Depends(get_db),
 ) -> InstructionPublishingService:
-    """
-    Build the canonical instruction publishing service for the current request.
-    """
     return InstructionPublishingService(db)
 
 
 def get_instruction_catalog_service(
     db: AsyncSession = Depends(get_db),
 ) -> InstructionCatalogService:
-    """
-    Build the canonical instruction catalog service for the current request.
-    """
     return InstructionCatalogService(db)
+
 
 def get_instruction_editor_service(
     db: AsyncSession = Depends(get_db),
 ) -> InstructionEditorService:
-    """
-    Build the canonical instruction editor service for the current request.
-    """
     return InstructionEditorService(db)
 
+
 def _instruction_version_not_found(version_id: uuid.UUID):
-    """
-    Build a structured 404 error for a missing instruction version.
-    """
     return api_error(
         status.HTTP_404_NOT_FOUND,
         "INSTRUCTION_VERSION_NOT_FOUND",
@@ -102,9 +86,6 @@ def _instruction_version_not_found(version_id: uuid.UUID):
 
 
 def _instruction_version_immutable():
-    """
-    Build a structured 409 error for immutable instruction versions.
-    """
     return api_error(
         status.HTTP_409_CONFLICT,
         "INSTRUCTION_VERSION_IMMUTABLE",
@@ -171,6 +152,7 @@ def _serialize_catalog_item(item) -> InstructionCatalogItem:
         doc_type_code=item.doc_type_code,
         name=item.name,
         category=item.category,
+        parent=item.parent,
         risk_level=item.risk_level,
         language=item.language,
         jurisdiction=item.jurisdiction,
@@ -191,12 +173,6 @@ def _serialize_catalog_item(item) -> InstructionCatalogItem:
 
 
 def _map_lifecycle_exception(exc: Exception):
-    """
-    Map domain and lifecycle exceptions to a structured API error envelope.
-
-    This keeps the endpoint layer thin and ensures that all lifecycle-related
-    errors use the same HTTP contract and response shape.
-    """
     if isinstance(exc, InstructionVersionNotFoundError):
         return api_error(
             status.HTTP_404_NOT_FOUND,
@@ -262,9 +238,6 @@ async def list_instruction_catalog(
     user: CurrentUser = Depends(require_instruction_admin),
     service: InstructionCatalogService = Depends(get_instruction_catalog_service),
 ) -> InstructionCatalogResponse:
-    """
-    Return the catalog of document-type instruction families available to admins.
-    """
     _ = db
     _ = user
     items = await service.list_doc_type_catalog()
@@ -282,9 +255,6 @@ async def list_instruction_versions_for_doc_type(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(require_instruction_admin),
 ) -> InstructionVersionListResponse:
-    """
-    Return all instruction versions for a single document type code.
-    """
     _ = user
     repo = DocumentTypeInstructionVersionRepository(db)
     versions = await repo.list_by_doc_type_code(doc_type_code)
@@ -304,12 +274,6 @@ async def get_instruction_version(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(require_instruction_admin),
 ) -> InstructionVersionDetailResponse:
-    """
-    Return a single instruction version with a concurrency ETag header.
-
-    The ETag is derived from the current version state and is intended to be
-    reused by the frontend in subsequent draft update requests via If-Match.
-    """
     _ = user
     repo = DocumentTypeInstructionVersionRepository(db)
     version = await repo.get_by_id(version_id)
@@ -332,9 +296,6 @@ async def create_instruction_draft(
     user: CurrentUser = Depends(require_instruction_admin),
     service: InstructionPublishingService = Depends(get_instruction_publishing_service),
 ) -> InstructionVersionResponse:
-    """
-    Create a new draft instruction version for the given document type.
-    """
     try:
         version = await service.create_draft(
             doc_type_code=doc_type_code,
@@ -369,13 +330,6 @@ async def update_instruction_draft(
     user: CurrentUser = Depends(require_instruction_admin),
     service: InstructionPublishingService = Depends(get_instruction_publishing_service),
 ) -> InstructionVersionResponse:
-    """
-    Update an existing draft instruction version using optimistic concurrency.
-
-    The client must provide If-Match with the ETag previously returned by the
-    detail endpoint. Missing preconditions fail with 428, and stale ETags fail
-    with 412.
-    """
     _ = user
     repo = DocumentTypeInstructionVersionRepository(db)
     current_version = await repo.get_by_id(version_id)
@@ -415,29 +369,26 @@ async def validate_instruction_draft(
     user: CurrentUser = Depends(require_instruction_admin),
     service: InstructionPublishingService = Depends(get_instruction_publishing_service),
 ) -> InstructionVersionValidationResponse:
-    """
-    Validate a draft instruction version and persist its validation artifacts.
-    """
     _ = user
     repo = DocumentTypeInstructionVersionRepository(db)
 
     try:
         compiled = await service.validate_draft(version_id=version_id)
-        version = await repo.get_by_id(version_id)
-        if version is None:
+        await db.commit()
+
+        fresh_version = await repo.get_by_id(version_id)
+        if fresh_version is None:
             raise InstructionVersionNotFoundError(
                 f"Instruction version not found after validation: {version_id}"
             )
 
-        item = _serialize_version(version)
-        response = InstructionVersionValidationResponse(
+        item = _serialize_version(fresh_version)
+        return InstructionVersionValidationResponse(
             item=item,
             is_valid=compiled.is_valid,
             checks_count=compiled.checks_count,
             validation_report=compiled.validation_report,
         )
-        await db.commit()
-        return response
     except Exception as exc:
         await db.rollback()
         raise _map_lifecycle_exception(exc) from exc
@@ -453,14 +404,20 @@ async def publish_instruction_draft(
     user: CurrentUser = Depends(require_instruction_admin),
     service: InstructionPublishingService = Depends(get_instruction_publishing_service),
 ) -> InstructionVersionResponse:
-    """
-    Publish a validated draft instruction version.
-    """
     _ = user
+    repo = DocumentTypeInstructionVersionRepository(db)
+
     try:
-        version = await service.publish_draft(version_id=version_id)
-        item = _serialize_version(version)
+        published_version = await service.publish_draft(version_id=version_id)
         await db.commit()
+
+        fresh_version = await repo.get_by_id(published_version.id)
+        if fresh_version is None:
+            raise InstructionVersionNotFoundError(
+                f"Instruction version not found after publish: {published_version.id}"
+            )
+
+        item = _serialize_version(fresh_version)
         return InstructionVersionResponse(item=item)
     except Exception as exc:
         await db.rollback()
@@ -477,20 +434,26 @@ async def archive_instruction_version(
     user: CurrentUser = Depends(require_instruction_admin),
     service: InstructionPublishingService = Depends(get_instruction_publishing_service),
 ) -> InstructionVersionResponse:
-    """
-    Archive an existing instruction version through the canonical lifecycle service.
-    """
     _ = user
+    repo = DocumentTypeInstructionVersionRepository(db)
+
     try:
-        version = await service.archive_version(version_id=version_id)
-        item = _serialize_version(version)
+        archived_version = await service.archive_version(version_id=version_id)
         await db.commit()
+
+        fresh_version = await repo.get_by_id(archived_version.id)
+        if fresh_version is None:
+            raise InstructionVersionNotFoundError(
+                f"Instruction version not found after archive: {archived_version.id}"
+            )
+
+        item = _serialize_version(fresh_version)
         return InstructionVersionResponse(item=item)
     except Exception as exc:
         await db.rollback()
         raise _map_lifecycle_exception(exc) from exc
 
-  
+
 @router.post(
     "/instruction-versions/{version_id}/clone-draft",
     response_model=InstructionVersionResponse,
@@ -503,12 +466,6 @@ async def clone_instruction_draft(
     user: CurrentUser = Depends(require_instruction_admin),
     service: InstructionEditorService = Depends(get_instruction_editor_service),
 ) -> InstructionVersionResponse:
-    """
-    Create a new editable draft cloned from an existing instruction version.
-
-    This is the canonical endpoint for the "edit published" flow, where the UI
-    requests a new mutable draft derived from an immutable published version.
-    """
     _ = user
     try:
         version = await service.clone_draft(
@@ -536,12 +493,6 @@ async def preview_instruction(
     user: CurrentUser = Depends(require_instruction_admin),
     service: InstructionEditorService = Depends(get_instruction_editor_service),
 ) -> PreviewInstructionResponse:
-    """
-    Compile and validate instruction YAML without persisting a draft version.
-
-    The endpoint returns validation diagnostics, compiled payload metadata,
-    trigger usage, source hash, and duplicate-content hints for the editor UI.
-    """
     _ = db
     _ = user
     try:
@@ -575,12 +526,6 @@ async def diff_instruction_versions(
     user: CurrentUser = Depends(require_instruction_admin),
     service: InstructionEditorService = Depends(get_instruction_editor_service),
 ) -> InstructionDiffResponse:
-    """
-    Return a unified diff between the source YAML of two instruction versions.
-
-    The response includes unified diff text, equality status, and source hashes
-    for both compared versions.
-    """
     _ = db
     _ = user
     try:
@@ -598,5 +543,6 @@ async def diff_instruction_versions(
         )
     except Exception as exc:
         raise _map_lifecycle_exception(exc) from exc
+
     
     

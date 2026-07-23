@@ -29,11 +29,12 @@ import type {
 } from "../../types/instructions";
 
 const TenantOverrideDetailPage: React.FC = () => {
-  const { docType: overrideId } = useParams<{ docType: string }>();
+  const { overrideId } = useParams<{ overrideId: string }>();
   const navigate = useNavigate();
 
   // tenantId — так же как в TenantOverridesPage
-  const tenantId = useAuth().userId ?? "";
+  const { tenantId: authTenantId } = useAuth();
+  const tenantId = authTenantId ?? "";
 
   // Загружаем список и находим нужный override
   const { data, isLoading, isError, refetch } = useTenantOverrides(
@@ -200,7 +201,11 @@ const TenantOverrideDetailPage: React.FC = () => {
               Base Version
             </div>
             <div className="mt-0.5 font-mono text-[10px] text-[var(--text-primary)]">
-              {override.instruction_version_id.slice(0, 8)}…
+              {override.global_instruction_version_id
+                ? `${override.global_instruction_version_id.slice(0, 8)}…`
+                : override.instruction_version_id
+                  ? `${override.instruction_version_id.slice(0, 8)}…`
+                  : "—"}
             </div>
           </div>
           <div>

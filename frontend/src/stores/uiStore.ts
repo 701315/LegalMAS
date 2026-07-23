@@ -21,6 +21,7 @@ interface UIState {
 
   userId: string | null;
   userName: string | null;
+  tenantId: string | null;
   globalRole: GlobalRole | null;
 
   projectRoles: Record<string, ProjectRole>;
@@ -28,6 +29,7 @@ interface UIState {
   setUserInfo: (data: {
     userId: string;
     userName: string;
+    tenantId: string;
     globalRole: GlobalRole;
     projectRoles: Record<string, ProjectRole>;
     apiKey?: string | null;
@@ -59,6 +61,7 @@ export const useUIStore = create<UIState>((set) => ({
 
   userId: localStorage.getItem("mas_dd_user_id"),
   userName: localStorage.getItem("mas_dd_user_name"),
+  tenantId: localStorage.getItem("mas_dd_tenant_id"),
   globalRole:
     (localStorage.getItem("mas_dd_global_role") as GlobalRole) || null,
 
@@ -71,9 +74,10 @@ export const useUIStore = create<UIState>((set) => ({
     }
   })(),
 
-  setUserInfo: ({ userId, userName, globalRole, projectRoles, apiKey }) => {
+  setUserInfo: ({ userId, userName, tenantId, globalRole, projectRoles, apiKey }) => {
     localStorage.setItem("mas_dd_user_id", userId);
     localStorage.setItem("mas_dd_user_name", userName);
+    localStorage.setItem("mas_dd_tenant_id", tenantId);
     localStorage.setItem("mas_dd_global_role", globalRole);
     localStorage.setItem(
       "mas_dd_project_roles",
@@ -91,6 +95,7 @@ export const useUIStore = create<UIState>((set) => ({
     set({
       userId,
       userName,
+      tenantId,
       globalRole,
       projectRoles,
       apiKey: apiKey ?? null,
@@ -111,6 +116,7 @@ export const useUIStore = create<UIState>((set) => ({
       "mas_dd_user_role",
       "mas_dd_user_id",
       "mas_dd_user_name",
+      "mas_dd_tenant_id",
       "mas_dd_global_role",
       "mas_dd_project_roles",
     ].forEach((key) => localStorage.removeItem(key));
@@ -120,6 +126,7 @@ export const useUIStore = create<UIState>((set) => ({
       userRole: "viewer",
       userId: null,
       userName: null,
+      tenantId: null,
       globalRole: null,
       projectRoles: {},
     });

@@ -637,9 +637,9 @@ async def _async_import(
         await outbox.enqueue_task(
             task_name="workers.start_language_discovery",
             payload={
-                "deal_id": deal_id,
-                "tenant_id": artifact_tenant_id,
-                "document_ids": imported_ids,
+                "deal_id": str(deal_id),
+                "tenant_id": str(artifact_tenant_id),
+                "document_ids": [str(d) for d in imported_ids],
             },
             aggregate_type="deal",
             aggregate_id=str(deal_uuid),

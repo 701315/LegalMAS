@@ -7,6 +7,7 @@ import React from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { useDealPermissions } from "../../hooks/usePermissions";
+import { useUIStore } from "../../stores/uiStore";
 import Button from "../ui/Button";
 
 type RequiredCapability =
@@ -43,6 +44,7 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
 
   // ВАЖНО: хук вызываем всегда, даже если dealId ещё нет.
   // Внутри useDealPermissions нужно быть готовым к undefined/null.
+  const globalRole = useUIStore((s) => s.globalRole);
   const dealPermissions = useDealPermissions(dealId as string);
 
   // Если нет dealId в URL — отправляем на список сделок.
@@ -50,12 +52,24 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
     return <Navigate to="/deals" replace />;
   }
 
-  // Если capability не задан, считаем, что достаточно иметь доступ к overview проекта.
-  if (!requiredCapability) {
-    if (dealPermissions.canViewOverview) {
-      return children;
-    }
-  } else if (dealPermissions[requiredCapability]) {
+  // Защита от null globalRole.
+  // globalRole === null означает что store ещё не гидратирован
+  // (пользователь только что залогинился или открыл новую вкладку).
+  // Не блокируем доступ — показываем spinner пока данные не появятся.
+  if (globalRole === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-subtle)]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent-primary)]" />
+      </div>
+    );
+  }
+
+  // Проверяем capability.
+  const hasAccess = !requiredCapability
+    ? dealPermissions.canViewOverview
+    : dealPermissions[requiredCapability];
+
+  if (hasAccess) {
     return children;
   }
 

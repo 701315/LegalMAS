@@ -77,7 +77,7 @@ class Settings(BaseSettings):
     CORS_ALLOW_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     CORS_ALLOW_CREDENTIALS: bool = True
     CORS_ALLOW_METHODS: str = "*"
-    CORS_ALLOW_HEADERS: str = "*"
+    CORS_ALLOW_HEADERS: str = "Accept,Accept-Language,Authorization,Content-Language,Content-Type,If-Match,If-None-Match,X-Request-ID"
 
     # --- Auth (JWT) ---
     # Секретный ключ для подписи JWT-токенов.

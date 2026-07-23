@@ -1,5 +1,3 @@
-# src/services/instruction_catalog_service.py
-
 from __future__ import annotations
 
 import uuid
@@ -20,6 +18,7 @@ class InstructionCatalogItemData:
     doc_type_code: str
     name: str
     category: str | None
+    parent: str | None          # ← ДОБАВЛЕНО: из cfg.parent (YAML top-level field)
     risk_level: str | None
     language: str | None
     jurisdiction: str | None
@@ -73,11 +72,8 @@ class InstructionCatalogService:
             for cfg in registry.get_all_configs()
         }
 
-        # Для platform catalog берём все версии без scope filter
-        # (backward-compatible: list_all_versions возвращает всё)
         versions = await self.version_repo.list_all_versions()
 
-        # Фильтруем только platform для этого view
         platform_versions = [
             v for v in versions
             if getattr(v, "owner_scope", "platform") == "platform"
@@ -106,7 +102,7 @@ class InstructionCatalogService:
 
         items.sort(
             key=lambda x: (
-                (x.category or "").lower(),
+                (x.parent or "").lower(),
                 (x.name or x.doc_type_code).lower(),
                 x.doc_type_code.lower(),
             )
@@ -156,7 +152,6 @@ class InstructionCatalogService:
         for doc_type_code in all_doc_type_codes:
             cfg = registry_configs.get(doc_type_code)
 
-            # Platform entry
             platform_versions = platform_grouped.get(doc_type_code, [])
             platform_item = self._build_catalog_item(
                 doc_type_code=doc_type_code,
@@ -167,7 +162,6 @@ class InstructionCatalogService:
             )
             items.append(platform_item)
 
-            # Tenant entry — только если есть tenant-owned versions
             tenant_versions = tenant_grouped.get(doc_type_code, [])
             if tenant_versions:
                 tenant_item = self._build_catalog_item(
@@ -181,7 +175,7 @@ class InstructionCatalogService:
 
         items.sort(
             key=lambda x: (
-                (x.category or "").lower(),
+                (x.parent or "").lower(),
                 (x.name or x.doc_type_code).lower(),
                 x.doc_type_code.lower(),
                 x.owner_scope,
@@ -212,6 +206,12 @@ class InstructionCatalogService:
         if latest_version and getattr(latest_version, "derived_from_version_id", None):
             derived_from_version_id = str(latest_version.derived_from_version_id)
 
+        # parent — из cfg.parent (top-level YAML field, отличается от metadata.category)
+        parent_value: str | None = None
+        if cfg is not None:
+            raw_parent = getattr(cfg, "parent", "") or ""
+            parent_value = raw_parent.strip() or None
+
         return InstructionCatalogItemData(
             doc_type_code=doc_type_code,
             name=(
@@ -220,6 +220,7 @@ class InstructionCatalogService:
                 or doc_type_code
             ),
             category=(getattr(cfg, "category", None) if cfg else None),
+            parent=parent_value,                                    # ← ДОБАВЛЕНО
             risk_level=(getattr(cfg, "risk_level", None) if cfg else None),
             language=(getattr(cfg, "language", None) if cfg else None),
             jurisdiction=(getattr(cfg, "jurisdiction", None) if cfg else None),
@@ -268,6 +269,6 @@ class InstructionCatalogService:
         if value is None:
             return None
         return bool(value)
-    
+
 
     

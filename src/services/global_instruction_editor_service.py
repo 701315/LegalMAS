@@ -22,7 +22,6 @@ from services.instruction_compiler import (
     InstructionCompiler,
 )
 from services.global_instruction_publishing_service import (
-    GlobalInstructionDuplicateContentError,
     GlobalInstructionNotFoundError,
 )
 
@@ -63,29 +62,26 @@ class GlobalInstructionEditorService:
         change_summary: str | None = None,
         created_by=None,
     ) -> GlobalInstructionVersion:
+        """
+        Создать новый draft на основе существующей версии.
+
+        Дубликат-чек по sha256 намеренно отсутствует: клон создаётся
+        с тем же YAML что и source — это рабочая копия для редактирования.
+        После создания пользователь вносит изменения через update_draft,
+        который уже содержит дубликат-чек.
+        """
         source = await self.repo.get_by_id(source_version_id)
         if source is None:
             raise GlobalInstructionNotFoundError(
                 f"Source global instruction version not found: {source_version_id}"
             )
 
+        # Компилируем source_yaml чтобы получить нормализованный canonical_yaml
+        # и актуальный compiled_payload. Не проверяем дубликаты — см. docstring.
         compiled = self.compiler.compile_global_instruction(
             instruction_code=source.instruction_code,
             source=source.source_yaml,
         )
-
-        existing = await self.repo.get_by_instruction_code_and_sha256(
-            instruction_code=compiled.instruction_code,
-            source_sha256=compiled.source_sha256,
-            owner_scope=source.owner_scope,
-            tenant_id=source.tenant_id,
-        )
-        if existing is not None:
-            raise GlobalInstructionDuplicateContentError(
-                f"Cannot clone: identical snapshot already exists "
-                f"for instruction_code='{compiled.instruction_code}' "
-                f"(existing_version_id={existing.id})."
-            )
 
         cloned = await self.repo.create_version(
             instruction_code=compiled.instruction_code,

@@ -1,59 +1,98 @@
-// =============================================================
 // src/pages/AdminPlaybookVersionsPage.tsx
 // Админ-страница для управления версиями плейбуков (PlaybookVersion).
 //
 // Позволяет:
 // - посмотреть список всех PlaybookVersion;
-// - при наличии modelConfigId в query-строке подсветить/отфильтровать
-//   версии, использующие этот профиль модели;
-// - сменить профиль модели для версии плейбука
-//   (PATCH /playbooks/{id}/model-config).
-// =============================================================
+// - при наличии modelConfigId в query подсветить контекст;
+// - сменить профиль модели для версии плейбука.
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, GitBranch, RefreshCw, Save } from "lucide-react";
+
 import client from "../api/client";
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
-import Field from "../components/ui/Field";
 import InlineAlert from "../components/InlineAlert";
 import LoadingBlock from "../components/ui/LoadingBlock";
-import PageSection from "../components/ui/PageSection";
 import type { ApiError, PlaybookVersionShort, ModelConfig } from "../types";
 
-interface State {
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
+
+interface PageState {
   versions: PlaybookVersionShort[];
   modelConfigs: ModelConfig[];
   isLoading: boolean;
   error: string | null;
 }
 
+// ─────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────
+
 const selectClassName =
-  "w-full rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
+
+// ─────────────────────────────────────────────────────────────
+// SectionCard
+// ─────────────────────────────────────────────────────────────
+
+interface SectionCardProps {
+  title: string;
+  subtitle?: string;
+  rightSlot?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+const SectionCard: React.FC<SectionCardProps> = ({
+  title,
+  subtitle,
+  rightSlot,
+  children,
+}) => (
+  <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+          {title}
+        </h2>
+        {subtitle && (
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">{subtitle}</p>
+        )}
+      </div>
+      {rightSlot && <div className="shrink-0">{rightSlot}</div>}
+    </div>
+    {children}
+  </section>
+);
+
+// ─────────────────────────────────────────────────────────────
+// AdminPlaybookVersionsPage
+// ─────────────────────────────────────────────────────────────
 
 const AdminPlaybookVersionsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const modelConfigIdFromQuery = searchParams.get("modelConfigId");
 
-  const [state, setState] = useState<State>({
+  const [state, setState] = useState<PageState>({
     versions: [],
     modelConfigs: [],
     isLoading: false,
     error: null,
   });
 
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
-    null,
-  );
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [selectedModelConfigId, setSelectedModelConfigId] = useState<
     string | null
   >(modelConfigIdFromQuery);
-
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
+  // ── Data loading ────────────────────────────────────────
   const loadVersions = async () => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
@@ -72,7 +111,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
         isLoading: false,
         error:
           apiErr.detail ||
-          "Не удалось загрузить список версий плейбуков. Попробуйте позже.",
+          "Не удалось загрузить список версий плейбуков.",
       }));
     }
   };
@@ -80,10 +119,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
   const loadModelConfigs = async () => {
     try {
       const res = await client.get<ModelConfig[]>("/api/v1/model-configs");
-      setState((prev) => ({
-        ...prev,
-        modelConfigs: res.data || [],
-      }));
+      setState((prev) => ({ ...prev, modelConfigs: res.data || [] }));
     } catch (err) {
       const apiErr = err as ApiError;
       setState((prev) => ({
@@ -91,7 +127,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
         error:
           prev.error ||
           apiErr.detail ||
-          "Не удалось загрузить список профилей моделей.",
+          "Не удалось загрузить профили моделей.",
       }));
     }
   };
@@ -101,17 +137,11 @@ const AdminPlaybookVersionsPage: React.FC = () => {
     void loadModelConfigs();
   }, []);
 
-  const filteredVersions = useMemo(() => {
-    if (!modelConfigIdFromQuery) {
-      return state.versions;
-    }
-    return state.versions;
-  }, [state.versions, modelConfigIdFromQuery]);
-
-  const handleBack = () => {
-    navigate("/admin/model-configs");
+  const handleRefresh = async () => {
+    await Promise.all([loadVersions(), loadModelConfigs()]);
   };
 
+  // ── Handlers ────────────────────────────────────────────
   const handleSelectVersion = (version: PlaybookVersionShort) => {
     setSelectedVersionId(version.id);
     setSaveError(null);
@@ -135,19 +165,18 @@ const AdminPlaybookVersionsPage: React.FC = () => {
       await client.patch(`/api/v1/playbooks/${selectedVersionId}/model-config`, {
         model_config_id: selectedModelConfigId,
       });
-
-      setSaveSuccess("Профиль модели для версии плейбука обновлён.");
+      setSaveSuccess("Профиль модели для версии обновлён.");
     } catch (err) {
       const apiErr = err as ApiError;
       setSaveError(
-        apiErr.detail ||
-          "Не удалось обновить профиль модели для версии плейбука.",
+        apiErr.detail || "Не удалось обновить профиль модели для версии.",
       );
     } finally {
       setIsSaving(false);
     }
   };
 
+  // ── Derived ─────────────────────────────────────────────
   const selectedModelConfigName = useMemo(() => {
     if (!selectedModelConfigId) return null;
     const mc = state.modelConfigs.find((m) => m.id === selectedModelConfigId);
@@ -160,161 +189,218 @@ const AdminPlaybookVersionsPage: React.FC = () => {
   }, [selectedVersionId, state.versions]);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
-      <div className="mx-auto max-w-5xl space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="space-y-1">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
-              Admin · Playbook Versions
-            </p>
-            <h1 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">
+    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+      <div className="animate-fadein space-y-6">
+        {/* ── Back-link ────────────────────────────────────── */}
+        <button
+          type="button"
+          onClick={() => navigate("/admin/instructions")}
+          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Инструкции
+        </button>
+
+        {/* ── Header ───────────────────────────────────────── */}
+        <div className="flex items-start justify-between gap-4">
+          <header>
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
               Версии плейбуков и профили моделей
             </h1>
-            <p className="text-xs text-[var(--text-secondary)]">
-              Здесь можно переназначить профиль модели для версий плейбуков,
-              чтобы потом удалить устаревшие ModelConfig.
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Переназначение профиля модели для версии playbook. Позволяет
+              освободить старые ModelConfig для удаления.
             </p>
             {modelConfigIdFromQuery && (
-              <p className="text-[11px] text-[var(--text-muted)]">
+              <p className="mt-1 text-[11px] text-[var(--text-muted)]">
                 Открыто из профиля модели:{" "}
                 <span className="font-mono text-[var(--text-secondary)]">
-                  {modelConfigIdFromQuery}
+                  {modelConfigIdFromQuery.slice(0, 12)}…
                 </span>
-                . Вы можете перевести версии плейбуков на другой профиль.
               </p>
             )}
-          </div>
+          </header>
 
-          <Button variant="secondary" size="sm" onClick={handleBack}>
-            ← К профилям моделей
-          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void handleRefresh()}
+            aria-label="Обновить"
+            leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
+          />
         </div>
 
-        <InlineAlert tone="error" message={state.error} />
-        <InlineAlert tone="error" message={saveError} />
-        <InlineAlert tone="success" message={saveSuccess} />
+        {/* ── Alerts ───────────────────────────────────────── */}
+        {state.error && <InlineAlert tone="error" message={state.error} />}
+        {saveError && <InlineAlert tone="error" message={saveError} />}
+        {saveSuccess && <InlineAlert tone="success" message={saveSuccess} />}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <PageSection title="Версии плейбуков">
+        {/* ── Main grid: узкая левая + широкая правая ─────── */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(320px,1fr)_2fr]">
+          {/* ── Список версий ─────────────────────────────── */}
+          <SectionCard
+            title="Версии плейбуков"
+            rightSlot={
+              !state.isLoading && state.versions.length > 0 ? (
+                <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+                  <GitBranch className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{state.versions.length}</span>
+                </div>
+              ) : undefined
+            }
+          >
             {state.isLoading ? (
-              <LoadingBlock text="Загружаем версии плейбуков..." rows={6} />
-            ) : filteredVersions.length === 0 ? (
+              <LoadingBlock text="Загружаем версии…" rows={5} />
+            ) : state.versions.length === 0 ? (
               <EmptyState
-                title="Версии плейбуков пока не созданы"
-                description="Когда версии появятся, здесь можно будет выбрать нужную и переназначить для неё профиль модели."
+                title="Версий пока нет"
+                description="Когда версии появятся, их можно будет выбрать и переназначить профиль модели."
               />
             ) : (
-              <ul className="max-h-96 space-y-1 overflow-y-auto pr-1">
-                {filteredVersions.map((version) => (
-                  <li key={version.id}>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectVersion(version)}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
-                        selectedVersionId === version.id
-                          ? "border-[var(--accent)] bg-[var(--bg-elevated)] text-[var(--text-primary)]"
-                          : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
-                      }`}
-                    >
-                      <div className="font-semibold text-[var(--text-primary)]">
-                        {version.name}
-                      </div>
-                      <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                        Версия: {version.semver} · Статус: {version.status}
-                      </div>
-                      <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                        Playbook ID: {version.playbook_id}
-                      </div>
-                    </button>
-                  </li>
-                ))}
+              <ul className="max-h-[36rem] space-y-1.5 overflow-y-auto">
+                {state.versions.map((version) => {
+                  const isSelected = selectedVersionId === version.id;
+                  return (
+                    <li key={version.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectVersion(version)}
+                        className={[
+                          "w-full rounded-xl border px-3 py-2.5 text-left text-xs transition-colors",
+                          isSelected
+                            ? "border-[var(--accent-primary)] bg-[var(--accent-muted)]"
+                            : "border-[var(--border-soft)] hover:border-[var(--border-strong)]",
+                        ].join(" ")}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate font-semibold text-[var(--text-primary)]">
+                              {version.name}
+                            </span>
+                            {version.semver && (
+                              <span className="shrink-0 font-mono text-[10px] text-[var(--text-muted)]">
+                                v{version.semver}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                            <span>{version.status}</span>
+                            <span>·</span>
+                            <span className="font-mono">
+                              {version.id.slice(0, 8)}…
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
-          </PageSection>
+          </SectionCard>
 
-          <PageSection
+          {/* ── Профиль модели для версии ─────────────────── */}
+          <SectionCard
             title="Профиль модели для версии"
-            rightSlot={
-              selectedVersion ? (
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  ID: {selectedVersion.id}
-                </span>
-              ) : null
-            }
+            subtitle="Выберите новый ModelConfig для этой версии playbook."
           >
             {!selectedVersionId ? (
               <EmptyState
-                title="Версия плейбука не выбрана"
-                description="Сначала выберите версию плейбука слева, затем назначьте ей нужный профиль модели."
+                title="Версия не выбрана"
+                description="Выберите версию плейбука слева, чтобы назначить ей профиль модели."
               />
             ) : state.modelConfigs.length === 0 ? (
               <EmptyState
                 title="Профили моделей не найдены"
-                description="Сначала создайте хотя бы один профиль модели на странице профилей."
+                description="Сначала создайте хотя бы один профиль модели."
+                action={
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigate("/admin/model-configs")}
+                  >
+                    Открыть профили моделей
+                  </Button>
+                }
               />
             ) : (
-              <div className="space-y-4 text-xs">
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-3 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              <div className="space-y-4">
+                {/* Selected version context */}
+                <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)]">
                     Выбранная версия
-                  </p>
-                  <p className="mt-1 font-semibold text-[var(--text-primary)]">
-                    {selectedVersion?.name}
-                  </p>
-                  <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                    Semver: {selectedVersion?.semver} · Статус:{" "}
-                    {selectedVersion?.status}
-                  </p>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">
+                      {selectedVersion?.name}
+                    </span>
+                    {selectedVersion?.semver && (
+                      <span className="font-mono text-[10px] text-[var(--text-muted)]">
+                        v{selectedVersion.semver}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                    <span>{selectedVersion?.status}</span>
+                    <span>·</span>
+                    <span className="font-mono">{selectedVersion?.id}</span>
+                  </div>
                 </div>
 
-                <Field label="Профиль модели (ModelConfig)">
+                {/* ModelConfig select */}
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                    Профиль модели (ModelConfig)
+                  </label>
                   <select
                     value={selectedModelConfigId || ""}
                     onChange={(e) => handleChangeModelConfig(e.target.value)}
                     className={selectClassName}
+                    disabled={isSaving}
                   >
                     <option value="">
-                      — Без явного профиля (использовать дефолтные настройки) —
+                      — Без явного профиля (дефолтные настройки) —
                     </option>
                     {state.modelConfigs.map((mc) => (
                       <option key={mc.id} value={mc.id}>
-                        {mc.name} — {mc.id}
+                        {mc.name}
                       </option>
                     ))}
                   </select>
-                </Field>
-
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-3 text-[11px] text-[var(--text-secondary)]">
-                  Выберите новый профиль модели. После сохранения эта версия
-                  плейбука перестанет ссылаться на старый ModelConfig, и его
-                  можно будет удалить, если он больше нигде не используется.
                   {selectedModelConfigName && (
-                    <span className="block mt-2 text-[var(--text-primary)]">
-                      Сейчас выбран профиль:{" "}
-                      <span className="font-semibold">
+                    <p className="mt-1.5 text-[10px] text-[var(--text-muted)]">
+                      Выбран профиль:{" "}
+                      <span className="font-semibold text-[var(--text-primary)]">
                         {selectedModelConfigName}
                       </span>
-                      .
-                    </span>
+                    </p>
                   )}
                 </div>
 
-                <div className="flex items-center justify-end border-t border-[var(--border)] pt-3">
+                {/* Explanation */}
+                <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] p-3 text-[11px] leading-relaxed text-[var(--text-muted)]">
+                  После сохранения версия перестанет ссылаться на старый
+                  ModelConfig. Если он больше нигде не используется, его можно
+                  будет удалить со страницы профилей моделей.
+                </div>
+
+                {/* Save */}
+                <div className="flex items-center justify-end border-t border-[var(--border-soft)] pt-3">
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="primary"
                     size="sm"
-                    onClick={handleSave}
+                    onClick={() => void handleSave()}
                     disabled={isSaving}
+                    isLoading={isSaving}
+                    leftIcon={<Save className="h-3.5 w-3.5" />}
                   >
-                    {isSaving
-                      ? "Сохраняем..."
-                      : "Сохранить профиль для версии"}
+                    Сохранить профиль
                   </Button>
                 </div>
               </div>
             )}
-          </PageSection>
+          </SectionCard>
         </div>
       </div>
     </div>
@@ -322,3 +408,6 @@ const AdminPlaybookVersionsPage: React.FC = () => {
 };
 
 export default AdminPlaybookVersionsPage;
+
+
+

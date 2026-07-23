@@ -1,10 +1,12 @@
 // src/components/instructions/InstructionPageHeader.tsx
-// Переиспользуемый header для instruction pages.
-// Breadcrumb + title + subtitle + right slot.
+// Унифицированный header для instruction pages.
+//
+// Визуальный паттерн полностью совпадает с AdminPage / AdminMonitoringPage:
+// заголовок на фоне страницы (без карточки-обёртки), breadcrumbs встроены
+// в inline-подзаголовок через "·" разделители, right slot для actions.
 
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
 
 export interface BreadcrumbItem {
   label: string;
@@ -18,62 +20,74 @@ interface InstructionPageHeaderProps {
   rightSlot?: React.ReactNode;
 }
 
+// ─────────────────────────────────────────────────────────────
+// Breadcrumbs как inline-подзаголовок
+// ─────────────────────────────────────────────────────────────
+
+const BreadcrumbTrail: React.FC<{ items: BreadcrumbItem[] }> = ({ items }) => (
+  <nav
+    aria-label="Breadcrumb"
+    className="text-sm text-[var(--text-muted)]"
+  >
+    {items.map((crumb, index) => {
+      const isLast = index === items.length - 1;
+      return (
+        <React.Fragment key={index}>
+          {index > 0 && <span className="mx-1.5">·</span>}
+          {crumb.to && !isLast ? (
+            <NavLink
+              to={crumb.to}
+              className="transition-colors hover:text-[var(--text-secondary)]"
+            >
+              {crumb.label}
+            </NavLink>
+          ) : (
+            <span className={isLast ? "text-[var(--text-secondary)]" : ""}>
+              {crumb.label}
+            </span>
+          )}
+        </React.Fragment>
+      );
+    })}
+  </nav>
+);
+
+// ─────────────────────────────────────────────────────────────
+// InstructionPageHeader
+// ─────────────────────────────────────────────────────────────
+
 const InstructionPageHeader: React.FC<InstructionPageHeaderProps> = ({
   breadcrumbs,
   title,
   subtitle,
   rightSlot,
-}) => {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="space-y-1 min-w-0">
-        {/* Breadcrumb */}
-        <nav
-          aria-label="Breadcrumb"
-          className="flex items-center gap-1 flex-wrap"
-        >
-          {breadcrumbs.map((crumb, index) => (
-            <React.Fragment key={index}>
-              {index > 0 && (
-                <ChevronRight
-                  className="h-3 w-3 shrink-0 text-[var(--text-faint)]"
-                  aria-hidden="true"
-                />
-              )}
-              {crumb.to ? (
-                <NavLink
-                  to={crumb.to}
-                  className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-                >
-                  {crumb.label}
-                </NavLink>
-              ) : (
-                <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                  {crumb.label}
-                </span>
-              )}
-            </React.Fragment>
-          ))}
-        </nav>
+}) => (
+  <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="min-w-0">
+      <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+        {title}
+      </h1>
 
-        {/* Title */}
-        <h1 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">
-          {title}
-        </h1>
+      {/* Breadcrumb-строка */}
+      {breadcrumbs.length > 0 && (
+        <div className="mt-1">
+          <BreadcrumbTrail items={breadcrumbs} />
+        </div>
+      )}
 
-        {/* Subtitle */}
-        {subtitle && (
-          <p className="text-xs text-[var(--text-secondary)]">{subtitle}</p>
-        )}
-      </div>
-
-      {/* Right slot: actions */}
-      {rightSlot && (
-        <div className="shrink-0 flex items-center gap-2">{rightSlot}</div>
+      {/* Опциональный subtitle — отдельным абзацем */}
+      {subtitle && (
+        <p className="mt-1 max-w-3xl text-sm text-[var(--text-muted)]">
+          {subtitle}
+        </p>
       )}
     </div>
-  );
-};
+
+    {rightSlot && (
+      <div className="flex shrink-0 items-center gap-2">{rightSlot}</div>
+    )}
+  </header>
+);
 
 export default InstructionPageHeader;
 

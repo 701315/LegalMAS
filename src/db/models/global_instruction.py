@@ -187,22 +187,28 @@ class GlobalInstructionVersion(Base):
             "idx_global_instruction_versions_group",
             "group",
         ),
-        # Уникальность snapshot в platform scope
+        # Уникальность snapshot в platform scope только для non-draft версий.
+        # Это позволяет создавать draft-копию published версии с тем же source_yaml/source_sha256
+        # для последующего редактирования.
         Index(
             "uix_global_instruction_versions_platform_sha256",
             "instruction_code",
             "source_sha256",
             unique=True,
-            postgresql_where=text("owner_scope = 'platform'"),
+            postgresql_where=text(
+                "owner_scope = 'platform' AND version_status IN ('published', 'archived')"
+            ),
         ),
-        # Уникальность snapshot в tenant scope
+        # Уникальность snapshot в tenant scope только для non-draft версий.
         Index(
             "uix_global_instruction_versions_tenant_sha256",
             "instruction_code",
             "source_sha256",
             "tenant_id",
             unique=True,
-            postgresql_where=text("owner_scope = 'tenant'"),
+            postgresql_where=text(
+                "owner_scope = 'tenant' AND version_status IN ('published', 'archived')"
+            ),
         ),
         # Одна published platform version на instruction_code
         Index(

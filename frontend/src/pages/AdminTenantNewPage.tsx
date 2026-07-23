@@ -6,9 +6,28 @@
 
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { useCreateTenant } from "../api/admin";
 import type { ApiError } from "../types";
 import Button from "../components/ui/Button";
+
+// ─────────────────────────────────────────────────────────────
+// Утилиты
+// ─────────────────────────────────────────────────────────────
+
+function autoSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 50);
+}
+
+// ─────────────────────────────────────────────────────────────
+// AdminTenantNewPage
+// ─────────────────────────────────────────────────────────────
 
 const AdminTenantNewPage: React.FC = () => {
   const navigate = useNavigate();
@@ -21,21 +40,11 @@ const AdminTenantNewPage: React.FC = () => {
 
   const handleNameChange = (value: string) => {
     setName(value);
-    // Автогенерация slug из названия
+    // Автогенерация slug из названия, пока пользователь не менял его вручную
     if (!slug || slug === autoSlug(name)) {
       setSlug(autoSlug(value));
     }
   };
-
-  function autoSlug(value: string): string {
-    return value
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .trim()
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .slice(0, 50);
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,30 +79,43 @@ const AdminTenantNewPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 md:px-6">
-      <div className="mx-auto max-w-2xl animate-fadein space-y-5">
-        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+      <div className="animate-fadein space-y-8">
+
+        {/* ── Заголовок страницы (на фоне, без карточки) ────── */}
+        <header>
+          <button
+            type="button"
+            onClick={() => navigate("/admin")}
+            className="mb-2 flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Все клиенты
+          </button>
+
           <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
             Новый клиент
           </h1>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
             Создайте нового клиента системы. После создания можно будет
             добавить его пользователей.
           </p>
         </header>
 
+        {/* ── Ошибка ───────────────────────────────────────── */}
         {errorText && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="max-w-2xl rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {errorText}
           </div>
         )}
 
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+        {/* ── Форма ────────────────────────────────────────── */}
+        <section className="max-w-2xl rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
               <label
                 htmlFor="tenant-name"
-                className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
               >
                 Название клиента *
               </label>
@@ -111,7 +133,7 @@ const AdminTenantNewPage: React.FC = () => {
             <div className="space-y-1.5">
               <label
                 htmlFor="tenant-slug"
-                className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
               >
                 Slug *
               </label>
@@ -133,7 +155,7 @@ const AdminTenantNewPage: React.FC = () => {
             <div className="space-y-1.5">
               <label
                 htmlFor="tenant-notes"
-                className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
               >
                 Заметки
               </label>

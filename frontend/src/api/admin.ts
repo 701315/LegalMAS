@@ -1,8 +1,4 @@
-// =============================================================
 // src/api/admin.ts
-// API-клиент для административной панели.
-// Управление tenant'ами и пользователями.
-// =============================================================
 
 import {
   useMutation,
@@ -11,7 +7,7 @@ import {
 } from "@tanstack/react-query";
 import client from "./client";
 
-// ── Types ─────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────
 
 export interface Tenant {
   id: string;
@@ -63,6 +59,20 @@ export interface UserUpdate {
   is_active?: boolean;
 }
 
+// Проект клиента — то, что возвращает backend для superadmin.
+// Поля соответствуют стандартной Deal-модели бэкенда.
+// Если бэкенд возвращает иную структуру — скорректировать здесь.
+export interface TenantDeal {
+  id: string;
+  name: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  created_by_email: string | null;
+  documents_count: number;
+  members_count: number;
+}
+
 // ── Query Keys ─────────────────────────────────────────────────────────────
 
 export const adminKeys = {
@@ -70,12 +80,15 @@ export const adminKeys = {
   tenant: (id: string) => ["admin", "tenants", id] as const,
   tenantUsers: (tenantId: string) =>
     ["admin", "tenants", tenantId, "users"] as const,
+  tenantDeals: (tenantId: string) =>
+    ["admin", "tenants", tenantId, "deals"] as const,
 };
 
 // ── API functions ──────────────────────────────────────────────────────────
 
 export const adminApi = {
-  // Tenants
+  // ── Tenants ────────────────────────────────────────────────
+
   async listTenants(includeInactive = false): Promise<Tenant[]> {
     const res = await client.get<Tenant[]>("/api/v1/admin/tenants", {
       params: { include_inactive: includeInactive },
@@ -84,7 +97,9 @@ export const adminApi = {
   },
 
   async getTenant(tenantId: string): Promise<Tenant> {
-    const res = await client.get<Tenant>(`/api/v1/admin/tenants/${tenantId}`);
+    const res = await client.get<Tenant>(
+      `/api/v1/admin/tenants/${tenantId}`,
+    );
     return res.data;
   },
 
@@ -93,7 +108,10 @@ export const adminApi = {
     return res.data;
   },
 
-  async updateTenant(tenantId: string, data: TenantUpdate): Promise<Tenant> {
+  async updateTenant(
+    tenantId: string,
+    data: TenantUpdate,
+  ): Promise<Tenant> {
     const res = await client.put<Tenant>(
       `/api/v1/admin/tenants/${tenantId}`,
       data,
@@ -115,7 +133,8 @@ export const adminApi = {
     return res.data;
   },
 
-  // Users
+  // ── Users ──────────────────────────────────────────────────
+
   async listTenantUsers(
     tenantId: string,
     includeInactive = false,
@@ -159,6 +178,17 @@ export const adminApi = {
     );
     return res.data;
   },
+
+  // ── Deals (проекты клиента) ────────────────────────────────
+  // Endpoint: GET /api/v1/admin/tenants/:tenantId/deals
+  // Superadmin видит все проекты любого клиента.
+
+  async listTenantDeals(tenantId: string): Promise<TenantDeal[]> {
+    const res = await client.get<TenantDeal[]>(
+      `/api/v1/admin/tenants/${tenantId}/deals`,
+    );
+    return res.data;
+  },
 };
 
 // ── Hooks ──────────────────────────────────────────────────────────────────
@@ -183,8 +213,19 @@ export function useTenantUsers(
   includeInactive = false,
 ) {
   return useQuery({
-    queryKey: [...adminKeys.tenantUsers(tenantId ?? ""), { includeInactive }],
+    queryKey: [
+      ...adminKeys.tenantUsers(tenantId ?? ""),
+      { includeInactive },
+    ],
     queryFn: () => adminApi.listTenantUsers(tenantId!, includeInactive),
+    enabled: Boolean(tenantId),
+  });
+}
+
+export function useTenantDeals(tenantId: string | null) {
+  return useQuery({
+    queryKey: adminKeys.tenantDeals(tenantId ?? ""),
+    queryFn: () => adminApi.listTenantDeals(tenantId!),
     enabled: Boolean(tenantId),
   });
 }
@@ -202,7 +243,8 @@ export function useCreateTenant() {
 export function useUpdateTenant(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: TenantUpdate) => adminApi.updateTenant(tenantId, data),
+    mutationFn: (data: TenantUpdate) =>
+      adminApi.updateTenant(tenantId, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: adminKeys.tenants });
       await queryClient.invalidateQueries({
@@ -251,8 +293,13 @@ export function useCreateTenantUser(tenantId: string) {
 export function useUpdateTenantUser(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ userId, data }: { userId: string; data: UserUpdate }) =>
-      adminApi.updateTenantUser(tenantId, userId, data),
+    mutationFn: ({
+      userId,
+      data,
+    }: {
+      userId: string;
+      data: UserUpdate;
+    }) => adminApi.updateTenantUser(tenantId, userId, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: adminKeys.tenantUsers(tenantId),

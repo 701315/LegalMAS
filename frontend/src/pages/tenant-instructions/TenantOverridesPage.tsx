@@ -90,12 +90,11 @@ const OverrideListItem: React.FC<OverrideListItemProps> = ({
 const TenantOverridesPage: React.FC = () => {
   const navigate = useNavigate();
 
-  // tenantId: для tenant_admin берём из userId-контекста (через backend),
-  // для superadmin — можно выбирать. Пока используем userId как tenantId-placeholder.
-  // TODO: заменить на реальный tenantId из user profile когда будет доступен.
-  const tenantId = useAuth().userId ?? "";
-
-  // ... остальное без изменений
+  // tenantId берём из auth state.
+  // Для tenant_admin это tenant текущего пользователя.
+  // Для superadmin в будущем можно добавить явный tenant switcher.
+  const { tenantId: authTenantId } = useAuth();
+  const tenantId = authTenantId ?? "";
 
   const {
     data,

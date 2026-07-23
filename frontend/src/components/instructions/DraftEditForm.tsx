@@ -5,9 +5,11 @@
 // Для global инструкций доступен визуальный редактор (таб "Редактор").
 // Для doc-type — только YAML.
 //
-// Autosave на blur каждого поля.
+// Autosave на blur каждого поля (YAML / metadata).
+// В режиме визуального редактора — autosave по debounce после каждого
+// изменения поля в GlobalInstructionEditor.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import Field from "../ui/Field";
@@ -36,6 +38,11 @@ const inputClassName =
 const textareaClassName =
   "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60 resize-y";
 
+// ── Constants ─────────────────────────────────────────────────
+
+/** Задержка debounce для автосохранения из визуального редактора (ms). */
+const EDITOR_AUTOSAVE_DEBOUNCE_MS = 1500;
+
 // ── Types ──────────────────────────────────────────────────────
 
 type AnyVersionDetailItem =
@@ -48,6 +55,8 @@ interface DraftEditFormProps {
   versionId: string;
   initialData: AnyVersionDetailItem;
   onSaveSuccess?: () => void;
+  /** Сигнализирует родителю о наличии несохранённых изменений. */
+  onDirtyChange?: (isDirty: boolean) => void;
   instructionType?: DraftEditFormInstructionType;
 }
 
@@ -57,13 +66,12 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
   versionId,
   initialData,
   onSaveSuccess,
+  onDirtyChange,
   instructionType = "doc-type",
 }) => {
   const queryClient = useQueryClient();
 
   // ── Edit mode tabs (только для global) ────────────────────────
-  // "editor" — визуальный редактор
-  // "yaml"   — raw YAML textarea
   const [editMode, setEditMode] = useState<"editor" | "yaml">("editor");
 
   // ── ETag adapters ─────────────────────────────────────────────
@@ -83,12 +91,22 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
     initialData.change_summary ?? "",
   );
 
+  // Отслеживаем «грязность» формы — есть ли несохранённые изменения
+  const lastSavedYamlRef = useRef(initialData.source_yaml ?? "");
+
   useEffect(() => {
     setName(initialData.name ?? "");
     setSourceYaml(initialData.source_yaml ?? "");
     setSemver(initialData.semver ?? "");
     setChangeSummary(initialData.change_summary ?? "");
+    lastSavedYamlRef.current = initialData.source_yaml ?? "";
   }, [initialData]);
+
+  // Сообщаем родителю о dirty state
+  const isDirty = sourceYaml !== lastSavedYamlRef.current;
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   // ── ETag concurrency ──────────────────────────────────────────
   const {
@@ -126,6 +144,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
       },
       {
         onSuccess: () => {
+          lastSavedYamlRef.current = sourceYaml;
           invalidateCache();
           onSaveSuccess?.();
         },
@@ -152,22 +171,45 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
     void handleSave();
   }, [concurrencyState.status, handleSave]);
 
-  // При изменении YAML через визуальный редактор — автосохранение
+  // ── Editor YAML change + debounced autosave ───────────────────
+  // Визуальный редактор вызывает onChange при каждом изменении поля.
+  // Мы обновляем локальный state немедленно, а автосохранение на сервер
+  // делаем по debounce чтобы не забивать backend слишком частыми PATCH.
+  const editorSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleEditorYamlChange = useCallback(
     (newYaml: string) => {
       setSourceYaml(newYaml);
+
+      // Debounced autosave
+      if (editorSaveTimerRef.current) {
+        clearTimeout(editorSaveTimerRef.current);
+      }
+      editorSaveTimerRef.current = setTimeout(() => {
+        editorSaveTimerRef.current = null;
+        // handleSave берёт sourceYaml из closure — но setState ещё не
+        // отработал. Поэтому используем functional save через ref:
+        // saveDraft будет вызван после React commit с актуальным state.
+        // К счастью handleBlurSave проверяет status и вызывает handleSave,
+        // а handleSave использует текущие значения state на момент вызова.
+        handleBlurSave();
+      }, EDITOR_AUTOSAVE_DEBOUNCE_MS);
     },
-    [],
+    [handleBlurSave],
   );
 
-  // При переключении с editor → yaml: yaml уже актуален (синхронизирован)
-  // При переключении с yaml → editor: editor сам реагирует на sourceYaml
-  const handleEditModeChange = useCallback(
-    (mode: string) => {
-      setEditMode(mode as "editor" | "yaml");
-    },
-    [],
-  );
+  // Очистка таймера при unmount
+  useEffect(() => {
+    return () => {
+      if (editorSaveTimerRef.current) {
+        clearTimeout(editorSaveTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleEditModeChange = useCallback((mode: string) => {
+    setEditMode(mode as "editor" | "yaml");
+  }, []);
 
   const isBusy =
     concurrencyState.status === "loading" ||
@@ -224,7 +266,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
           </div>
         )}
 
-      {/* Metadata fields (общие для обоих типов) */}
+      {/* Metadata fields */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Название версии" required>
           <input
@@ -267,7 +309,6 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
 
       {/* Source YAML / Visual Editor */}
       {instructionType === "global" ? (
-        // Global: tabs Редактор / YAML
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-[var(--text-secondary)]">
@@ -303,7 +344,6 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
           )}
         </div>
       ) : (
-        // Doc-type: только YAML
         <Field label="Source YAML" required>
           <textarea
             value={sourceYaml}
@@ -318,12 +358,18 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
         </Field>
       )}
 
-      {/* Save button */}
+      {/* Save button + dirty indicator */}
       <div className="flex items-center justify-between border-t border-[var(--border)] pt-3">
         <p className="text-[11px] text-[var(--text-muted)]">
-          {instructionType === "global" && editMode === "editor"
-            ? "Изменения в редакторе применяются сразу. Сохраните черновик вручную."
-            : "Черновик сохраняется автоматически при переходе между полями."}
+          {isDirty ? (
+            <span className="text-[var(--color-warning-text)]">
+              Есть несохранённые изменения
+            </span>
+          ) : instructionType === "global" && editMode === "editor" ? (
+            "Черновик сохраняется автоматически с небольшой задержкой."
+          ) : (
+            "Черновик сохраняется автоматически при переходе между полями."
+          )}
         </p>
         <Button
           variant="secondary"

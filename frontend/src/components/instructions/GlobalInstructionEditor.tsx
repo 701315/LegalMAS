@@ -9,9 +9,16 @@
 // - При каждом изменении поля — сериализует обратно в YAML
 // - Секции сгруппированы в внутренние tabs (Basic / Detection / LLM / Retrieval / Extraction / Evidence)
 //
+// Важный инвариант:
+// - Нельзя вызывать onChange() внутри setState-updater или прямо во время render.
+//   Иначе React выдаёт warning:
+//   "Cannot update a component while rendering a different component".
+// - Поэтому локальный state меняется отдельно, а сериализация и onChange(newYaml)
+//   выполняются в useEffect после commit.
+//
 // Зависимости: js-yaml (должен быть в проекте вместе с @types/js-yaml)
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as jsyaml from "js-yaml";
 import { AlertCircle, Plus, Trash2 } from "lucide-react";
 
@@ -99,7 +106,7 @@ function parseYamlToState(yaml: string): EditorState | null {
     if (!doc || typeof doc !== "object") return null;
 
     const rules = (doc.rules as Record<string, unknown>) ?? {};
-    const kwRaw = rules.keywords as Record<string, unknown> ?? {};
+    const kwRaw = (rules.keywords as Record<string, unknown>) ?? {};
     const llm = (doc.llm as Record<string, unknown>) ?? {};
     const retrieval = (doc.retrieval as Record<string, unknown>) ?? {};
     const evidence = (doc.evidence as Record<string, unknown>) ?? {};
@@ -149,7 +156,9 @@ function parseYamlToState(yaml: string): EditorState | null {
       negative_keywords: toStringArray(retrieval.negative_keywords),
       preferred_unit_types: toStringArray(retrieval.preferred_unit_types),
       excluded_unit_types: toStringArray(retrieval.excluded_unit_types),
-      preferred_clause_functions: toStringArray(retrieval.preferred_clause_functions),
+      preferred_clause_functions: toStringArray(
+        retrieval.preferred_clause_functions,
+      ),
       rerank: Boolean(retrieval.rerank ?? true),
 
       // Evidence
@@ -192,7 +201,9 @@ function serializeStateToYaml(state: EditorState): string {
     severity: state.severity,
     ...(state.severity_if_fail && { severity_if_fail: state.severity_if_fail }),
     ...(state.severity_if_pass && { severity_if_pass: state.severity_if_pass }),
-    ...(state.severity_if_unclear && { severity_if_unclear: state.severity_if_unclear }),
+    ...(state.severity_if_unclear && {
+      severity_if_unclear: state.severity_if_unclear,
+    }),
     ...(state.ui_mode && { ui_mode: state.ui_mode }),
 
     detector_type: state.detector_type,
@@ -203,8 +214,12 @@ function serializeStateToYaml(state: EditorState): string {
             keyword_mode: state.keyword_mode,
             ...(hasKeywords && {
               keywords: {
-                ...(state.keywords_high.length > 0 && { high: state.keywords_high }),
-                ...(state.keywords_medium.length > 0 && { medium: state.keywords_medium }),
+                ...(state.keywords_high.length > 0 && {
+                  high: state.keywords_high,
+                }),
+                ...(state.keywords_medium.length > 0 && {
+                  medium: state.keywords_medium,
+                }),
                 ...(state.keywords_low.length > 0 && { low: state.keywords_low }),
               },
             }),
@@ -232,7 +247,9 @@ function serializeStateToYaml(state: EditorState): string {
       context_k: state.retrieval_context_k,
       max_chunks: state.retrieval_max_chunks,
       ...(state.retrieval_query && { retrieval_query: state.retrieval_query }),
-      ...(state.boost_keywords.length > 0 && { boost_keywords: state.boost_keywords }),
+      ...(state.boost_keywords.length > 0 && {
+        boost_keywords: state.boost_keywords,
+      }),
       ...(state.negative_keywords.length > 0 && {
         negative_keywords: state.negative_keywords,
       }),
@@ -262,7 +279,9 @@ function serializeStateToYaml(state: EditorState): string {
           presentation: f.presentation,
           ...(f.label && { label: f.label }),
           ...(f.description && { description: f.description }),
-          ...(f.allowed_values.length > 0 && { allowed_values: f.allowed_values }),
+          ...(f.allowed_values.length > 0 && {
+            allowed_values: f.allowed_values,
+          }),
         })),
         store_payload: state.extraction_store_payload,
       },
@@ -340,7 +359,6 @@ const StringListEditor: React.FC<StringListEditorProps> = ({
   return (
     <Field label={label} hint={hint}>
       <div className="space-y-2">
-        {/* Existing items */}
         {values.length > 0 && (
           <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-base)] p-2">
             {values.map((v, idx) => (
@@ -368,7 +386,7 @@ const StringListEditor: React.FC<StringListEditorProps> = ({
             ))}
           </div>
         )}
-        {/* Add new */}
+
         <div className="flex gap-2">
           <input
             type="text"
@@ -394,7 +412,9 @@ const StringListEditor: React.FC<StringListEditorProps> = ({
 };
 
 /** Секция-заголовок внутри редактора */
-const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+const SectionTitle: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => (
   <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
     {children}
   </h3>
@@ -405,9 +425,12 @@ const FieldGrid: React.FC<{
   children: React.ReactNode;
   cols?: 1 | 2 | 3;
 }> = ({ children, cols = 2 }) => {
-  const colClass = cols === 1 ? "" : cols === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2";
+  const colClass =
+    cols === 1 ? "" : cols === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2";
   return (
-    <div className={["grid grid-cols-1 gap-3", colClass].join(" ")}>{children}</div>
+    <div className={["grid grid-cols-1 gap-3", colClass].join(" ")}>
+      {children}
+    </div>
   );
 };
 
@@ -506,10 +529,7 @@ const BasicSection: React.FC<SectionProps> = ({ state, onChange }) => (
     </FieldGrid>
 
     <FieldGrid cols={3}>
-      <Field
-        label="severity_if_fail"
-        hint="Severity при fail"
-      >
+      <Field label="severity_if_fail" hint="Severity при fail">
         <select
           value={state.severity_if_fail}
           onChange={(e) => onChange({ severity_if_fail: e.target.value })}
@@ -836,7 +856,7 @@ const ExtractionFieldEditor: React.FC<{
   onChange: (patch: Partial<ExtractionField>) => void;
   onRemove: () => void;
 }> = ({ field, index, onChange, onRemove }) => (
-  <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-3 space-y-3">
+  <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-3">
     <div className="flex items-center justify-between">
       <span className="text-[11px] font-semibold text-[var(--text-muted)]">
         Поле #{index + 1}
@@ -969,9 +989,7 @@ const ExtractionSection: React.FC<SectionProps> = ({ state, onChange }) => {
             onChange={(e) => onChange({ extraction_enabled: e.target.checked })}
             className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--accent-primary)]"
           />
-          <span className="text-xs text-[var(--text-secondary)]">
-            Enabled
-          </span>
+          <span className="text-xs text-[var(--text-secondary)]">Enabled</span>
         </label>
       </Field>
 
@@ -1081,17 +1099,27 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
   const [section, setSection] = useState("basic");
   const [parseError, setParseError] = useState<string | null>(null);
 
-  // Parse YAML → state при монтировании и при внешнем изменении yaml
+  // Parse YAML → state при монтировании
   const [state, setState] = useState<EditorState | null>(() =>
     parseYamlToState(sourceYaml),
   );
 
-  // При изменении sourceYaml снаружи (например переключение таба YAML→Editor)
-  // пересчитываем state
-  const prevYaml = React.useRef(sourceYaml);
+  // Храним последнее YAML-значение, которое:
+  // - либо пришло снаружи через props
+  // - либо было отправлено наружу через onChange
+  //
+  // Это позволяет:
+  // - не зациклиться между editor state ↔ parent sourceYaml
+  // - не эмитить onChange повторно для того же самого YAML
+  const lastYamlRef = useRef(sourceYaml);
+
+  // При изменении sourceYaml снаружи (например переключение YAML→Editor
+  // или приход новых данных после refetch) пересчитываем editor state.
   useEffect(() => {
-    if (prevYaml.current === sourceYaml) return;
-    prevYaml.current = sourceYaml;
+    if (lastYamlRef.current === sourceYaml) return;
+
+    lastYamlRef.current = sourceYaml;
+
     const parsed = parseYamlToState(sourceYaml);
     if (parsed) {
       setParseError(null);
@@ -1103,24 +1131,35 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
     }
   }, [sourceYaml]);
 
-  // Обновить одно или несколько полей state и сериализовать в YAML
-  const handleChange = useCallback(
-    (patch: Partial<EditorState>) => {
-      setState((prev) => {
-        if (!prev) return prev;
-        const next = { ...prev, ...patch };
-        try {
-          const newYaml = serializeStateToYaml(next);
-          prevYaml.current = newYaml;
-          onChange(newYaml);
-        } catch {
-          // Не блокируем UI если сериализация упала
-        }
-        return next;
-      });
-    },
-    [onChange],
-  );
+  // Любое локальное изменение structured state сериализуем обратно в YAML
+  // ПОСЛЕ render. Это важно: onChange нельзя вызывать внутри setState-updater.
+  useEffect(() => {
+    if (!state) return;
+
+    try {
+      const newYaml = serializeStateToYaml(state);
+
+      if (newYaml === lastYamlRef.current) {
+        return;
+      }
+
+      lastYamlRef.current = newYaml;
+      onChange(newYaml);
+    } catch {
+      // Не блокируем UI если сериализация временно упала.
+      // Пользователь может продолжить редактирование, а YAML вкладка
+      // останется источником диагностики.
+    }
+  }, [state, onChange]);
+
+  // Обновить одно или несколько полей editor state.
+  // Без side effects: только меняем local state.
+  const handleChange = useCallback((patch: Partial<EditorState>) => {
+    setState((prev) => {
+      if (!prev) return prev;
+      return { ...prev, ...patch };
+    });
+  }, []);
 
   // Если YAML не парсится — показываем ошибку
   if (parseError || !state) {
@@ -1181,5 +1220,6 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
 };
 
 export default GlobalInstructionEditor;
+
 
 

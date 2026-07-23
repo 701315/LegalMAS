@@ -15,13 +15,8 @@ export type SourceFormat = "yaml" | "json";
 
 // ─────────────────────────────────────────────────────────────
 // Global Playbooks (Playbook domain — /admin/instructions/global)
-// Это thin facade над существующим playbook domain.
 // ─────────────────────────────────────────────────────────────
 
-/**
- * PlaybookLineShort — ответ от GET /admin/instructions/global
- * Соответствует backend PlaybookLineShort schema.
- */
 export interface GlobalPlaybookItem {
   id: string;
   code: string;
@@ -33,10 +28,6 @@ export interface GlobalPlaybookItem {
   risk_profile: string | null;
 }
 
-/**
- * PlaybookVersionShort — ответ от GET /admin/instructions/global/:id/versions
- * Соответствует backend PlaybookVersionShort schema.
- */
 export interface GlobalPlaybookVersion {
   id: string;
   name: string;
@@ -52,12 +43,15 @@ export interface GlobalPlaybookVersion {
 
 /**
  * Один элемент каталога doc-type инструкций.
- * Содержит rich metadata: статистика версий, published/draft info.
+ *
+ * Поле `parent` — это top-level YAML поле `parent: class_7_intellectual_property`.
+ * Используется для группировки в UI. НЕ путать с `metadata.category`.
  */
 export interface InstructionCatalogItem {
   doc_type_code: string;
   name: string;
   category: string | null;
+  parent: string | null;          // ← ДОБАВЛЕНО: top-level YAML field для группировки
   risk_level: string | null;
   language: string | null;
   jurisdiction: string | null;
@@ -85,14 +79,8 @@ export interface InstructionCatalogResponse {
 
 // ─────────────────────────────────────────────────────────────
 // Instruction Version
-// GET /admin/instructions/doc-types/:code/versions → InstructionVersionListResponse
-// GET /admin/instruction-versions/:id → InstructionVersionDetailResponse
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Краткое представление версии — в списках.
- * Соответствует backend InstructionVersionItem.
- */
 export interface InstructionVersionItem {
   id: string;
   doc_type_code: string;
@@ -110,11 +98,6 @@ export interface InstructionVersionItem {
   updated_at: string | null;
 }
 
-/**
- * Полное представление версии — в detail endpoint.
- * Включает source_yaml, compiled_payload, checks_count.
- * Соответствует backend InstructionVersionDetailItem.
- */
 export interface InstructionVersionDetailItem extends InstructionVersionItem {
   source_yaml: string | null;
   source_path: string | null;
@@ -135,29 +118,24 @@ export interface InstructionVersionDetailResponse {
 
 // ─────────────────────────────────────────────────────────────
 // Validation
-// POST /admin/instruction-versions/:id/validate
 // ─────────────────────────────────────────────────────────────
 
 export interface InstructionVersionValidationResponse {
   item: InstructionVersionItem;
   is_valid: boolean;
-  checks_count: number;           // оставляем для doc-type (backend возвращает)
+  checks_count: number;
   validation_report: Record<string, unknown> | null;
 }
 
-// GlobalInstructionVersionValidationResponse — checks_count опциональный,
-// потому что global instruction = один check, backend не возвращает это поле.
 export interface GlobalInstructionVersionValidationResponse {
   item: GlobalInstructionVersionItem;
   is_valid: boolean;
-  checks_count?: number | null;   // ← опциональный
+  checks_count?: number | null;
   validation_report: Record<string, unknown> | null;
 }
 
 // ─────────────────────────────────────────────────────────────
 // Preview
-// POST /admin/instructions/doc-types/:code/preview
-// POST /instruction-preview (unified)
 // ─────────────────────────────────────────────────────────────
 
 export interface PreviewInstructionRequest {
@@ -184,7 +162,6 @@ export interface PreviewDiagnostic {
 
 // ─────────────────────────────────────────────────────────────
 // Diff
-// GET /admin/instruction-versions/:id/diff?against=:other_id
 // ─────────────────────────────────────────────────────────────
 
 export interface InstructionDiffResponse {
@@ -197,13 +174,9 @@ export interface InstructionDiffResponse {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Request типы (для API вызовов)
+// Request типы
 // ─────────────────────────────────────────────────────────────
 
-/**
- * POST /admin/instructions/doc-types/:code/drafts
- * Создать новый draft для doc_type_code.
- */
 export interface CreateInstructionDraftRequest {
   source_yaml: string;
   name: string;
@@ -214,19 +187,10 @@ export interface CreateInstructionDraftRequest {
   parent_version_id?: string | null;
 }
 
-/**
- * POST /admin/instruction-versions/:id/clone-draft
- * Клонировать существующую версию в новый draft.
- * Это canonical endpoint для "edit published" flow.
- */
 export interface CloneDraftRequest {
   change_summary?: string | null;
 }
 
-/**
- * PATCH /admin/instruction-versions/:id
- * Обновить существующий draft. Требует If-Match.
- */
 export interface UpdateInstructionDraftRequest {
   source_yaml?: string | null;
   name?: string | null;
@@ -240,15 +204,10 @@ export interface UpdateInstructionDraftRequest {
 // Утилитарные типы
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Wrapper для detail response с ETag из response headers.
- * ETag не хранится в TanStack Query кэше — только в useETagConcurrency ref.
- */
 export interface DetailWithETag<T> {
   data: T;
   etag: string | null;
 }
-
 
 // ─────────────────────────────────────────────────────────────
 // Instruction Overrides
@@ -257,9 +216,6 @@ export interface DetailWithETag<T> {
 export type OverrideScope = "tenant" | "deal";
 export type OverrideStatus = "draft" | "active" | "archived";
 
-/**
- * JSON Patch operation (RFC 6902).
- */
 export interface JsonPatchOperation {
   op: "add" | "remove" | "replace" | "move" | "copy" | "test";
   path: string;
@@ -267,10 +223,6 @@ export interface JsonPatchOperation {
   from?: string;
 }
 
-/**
- * Один override — tenant-level или deal-level.
- * Соответствует backend InstructionOverrideItem.
- */
 export interface InstructionOverrideItem {
   id: string;
   instruction_version_id: string | null;
@@ -296,9 +248,6 @@ export interface InstructionOverrideResponse {
   item: InstructionOverrideItem;
 }
 
-/**
- * Результат валидации override.
- */
 export interface InstructionOverrideValidationResponse {
   override_id: string;
   is_valid: boolean;
@@ -313,18 +262,12 @@ export interface InstructionOverrideValidationResponse {
 // Override Request types
 // ─────────────────────────────────────────────────────────────
 
-/**
- * POST .../instruction-overrides/draft
- */
 export interface CreateOverrideDraftRequest {
   instruction_version_id: string;
   patch_ops: JsonPatchOperation[];
   change_summary?: string | null;
 }
 
-/**
- * POST .../instruction-overrides/:id/rebase (только deal)
- */
 export interface RebaseOverrideRequest {
   new_base_version_id: string;
   new_patch_ops: JsonPatchOperation[];
@@ -332,8 +275,7 @@ export interface RebaseOverrideRequest {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Global Instruction Versions (lifecycle: draft → published → archived)
-// GET /admin/instructions/global-checks → GlobalInstructionCatalogResponse
+// Global Instruction Versions
 // ─────────────────────────────────────────────────────────────
 
 export interface GlobalInstructionCatalogItem {
@@ -394,12 +336,6 @@ export interface GlobalInstructionVersionDetailResponse {
   item: GlobalInstructionVersionDetailItem;
 }
 
-export interface GlobalInstructionVersionValidationResponse {
-  item: GlobalInstructionVersionItem;
-  is_valid: boolean;
-  validation_report: Record<string, unknown> | null;
-}
-
 export interface CreateGlobalInstructionDraftRequest {
   source_yaml: string;
   name?: string | null;
@@ -448,11 +384,6 @@ export interface GlobalInstructionDiffResponse {
   unified_diff: string[];
 }
 
-
-/**
- * POST .../global-instruction-overrides/draft
- * Создать override для global instruction.
- */
 export interface CreateGlobalOverrideDraftRequest {
   global_instruction_version_id: string;
   patch_ops: JsonPatchOperation[];
@@ -460,13 +391,9 @@ export interface CreateGlobalOverrideDraftRequest {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Instruction Sync (admin: POST /admin/instructions/sync/*)
+// Instruction Sync
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Результат синхронизации global checks из YAML → БД.
- * POST /api/v1/admin/instructions/sync/global-checks
- */
 export interface GlobalChecksSyncResult {
   created: number;
   repaired: number;
@@ -476,10 +403,6 @@ export interface GlobalChecksSyncResult {
   dry_run: boolean;
 }
 
-/**
- * Результат синхронизации doc-type инструкций из YAMLRegistry → БД.
- * POST /api/v1/admin/instructions/sync/doc-types
- */
 export interface DocTypesSyncResult {
   created: number;
   promoted: number;
@@ -489,12 +412,9 @@ export interface DocTypesSyncResult {
   dry_run: boolean;
 }
 
-/**
- * Union для отображения в UI без различия типа sync.
- * Поле `kind` позволяет type-narrowing.
- */
 export type SyncResultUnion =
   | ({ kind: "global-checks" } & GlobalChecksSyncResult)
   | ({ kind: "doc-types" } & DocTypesSyncResult);
+
 
   

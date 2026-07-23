@@ -13,6 +13,7 @@ export function useAuth() {
 
   const userId = useUIStore((s) => s.userId);
   const userName = useUIStore((s) => s.userName);
+  const tenantId = useUIStore((s) => s.tenantId);
   const globalRole = useUIStore((s) => s.globalRole);
   const projectRoles = useUIStore((s) => s.projectRoles);
 
@@ -26,6 +27,7 @@ export function useAuth() {
     setUserRole,
     userId,
     userName,
+    tenantId,
     globalRole,
     projectRoles,
     setUserInfo,

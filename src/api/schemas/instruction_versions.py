@@ -42,6 +42,7 @@ class InstructionCatalogItem(BaseModel):
     doc_type_code: str
     name: str
     category: str | None = None
+    parent: str | None = None           # ← ДОБАВЛЕНО: top-level YAML field
     risk_level: str | None = None
     language: str | None = None
     jurisdiction: str | None = None
@@ -136,3 +137,4 @@ class InstructionDiffResponse(BaseModel):
     unified_diff: list[str] = Field(default_factory=list)
 
 
+    

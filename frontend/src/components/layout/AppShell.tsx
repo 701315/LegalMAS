@@ -1,6 +1,4 @@
 // src/components/layout/AppShell.tsx
-// Добавляем только импорт иконки и два блока NavItem.
-// Остальной код без изменений.
 
 import React from "react";
 import {
@@ -12,14 +10,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
-  BookOpen,          // ← НОВОЕ: иконка для Instructions
+  BookOpen,
+  Building2,
+  BarChart2,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useUserProjects } from "../../hooks/useUserProjects";
 import Button from "../ui/Button";
-
-// ... (все константы и вспомогательные компоненты без изменений)
 
 const NAV_WIDTH_EXPANDED = 248;
 const NAV_WIDTH_COLLAPSED = 64;
@@ -38,6 +36,7 @@ interface NavItemProps {
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   collapsed: boolean;
+  end?: boolean;
 }
 
 interface DashboardNavItemProps {
@@ -46,9 +45,16 @@ interface DashboardNavItemProps {
   onClick: () => void;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ to, label, icon: Icon, collapsed }) => (
+const NavItem: React.FC<NavItemProps> = ({
+  to,
+  label,
+  icon: Icon,
+  collapsed,
+  end = false,
+}) => (
   <NavLink
     to={to}
+    end={end}
     className={({ isActive }) =>
       [
         navItemBaseClassName,
@@ -96,13 +102,81 @@ const SidebarSectionLabel: React.FC<{
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   label: string;
 }> = ({ icon: Icon, label }) => (
-  <div className="flex items-center gap-2 px-1">
+  <div className="flex items-center gap-2 px-1 py-1">
     <Icon className="h-3.5 w-3.5 text-[var(--text-muted)]" aria-hidden="true" />
     <span className="text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
       {label}
     </span>
   </div>
 );
+
+// ─────────────────────────────────────────────────────────────
+// Superadmin sidebar — три пункта администрирования системы
+// ─────────────────────────────────────────────────────────────
+
+interface SuperadminNavProps {
+  collapsed: boolean;
+}
+
+const SuperadminNav: React.FC<SuperadminNavProps> = ({ collapsed }) => (
+  <div className="mt-4 space-y-1">
+    {!collapsed && (
+      <SidebarSectionLabel icon={Settings} label="Администрирование" />
+    )}
+    <NavItem
+      collapsed={collapsed}
+      to="/admin"
+      end
+      label="Клиенты"
+      icon={Building2}
+    />
+    <NavItem
+      collapsed={collapsed}
+      to="/admin/instructions"
+      label="Инструкции"
+      icon={BookOpen}
+    />
+    <NavItem
+      collapsed={collapsed}
+      to="/admin/monitoring"
+      label="Мониторинг"
+      icon={BarChart2}
+    />
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────
+// Tenant admin sidebar
+// ─────────────────────────────────────────────────────────────
+
+interface TenantAdminNavProps {
+  collapsed: boolean;
+}
+
+const TenantAdminNav: React.FC<TenantAdminNavProps> = ({ collapsed }) => (
+  <div className="mt-4 space-y-1">
+    {!collapsed && (
+      <SidebarSectionLabel icon={Settings} label="Организация" />
+    )}
+    <NavItem
+      collapsed={collapsed}
+      to="/tenant-admin"
+      end
+      label="Панель администратора"
+      icon={Settings}
+    />
+    <NavItem
+      collapsed={collapsed}
+      to="/tenant-admin/instructions"
+      label="Инструкции"
+      icon={BookOpen}
+    />
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────
+// AppShell
+// ─────────────────────────────────────────────────────────────
 
 const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const { globalRole, userId } = useAuth();
@@ -126,32 +200,31 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   const navWidth = collapsed ? NAV_WIDTH_COLLAPSED : NAV_WIDTH_EXPANDED;
 
-  const canCreateProject =
-    globalRole === "superadmin" || globalRole === "tenant_admin";
-  const canAccessAdmin = globalRole === "superadmin";
+  const isSuperadmin = globalRole === "superadmin";
+  const isTenantAdmin = globalRole === "tenant_admin";
 
-  // ── НОВОЕ: флаги доступа к Instructions ─────────────────────
-  // Superadmin видит глобальные инструкции под /admin/instructions
-  const canAccessGlobalInstructions = globalRole === "superadmin";
-  // Tenant admin видит свои инструкции под /tenant-admin/instructions
-  const canAccessTenantInstructions =
-    globalRole === "tenant_admin" || globalRole === "superadmin";
-  // ─────────────────────────────────────────────────────────────
+  // Только tenant_admin и member создают/видят проекты в sidebar.
+  // Superadmin управляет системой, проекты — не его рабочий контекст.
+  const showProjectsSection = !isSuperadmin;
+  const canCreateProject = isTenantAdmin;
 
   const { data: projectsData } = useUserProjects(userId);
 
-  const sidebarProjects = (projectsData ?? []).slice(0, MAX_PROJECTS_IN_SIDEBAR);
+  const sidebarProjects = showProjectsSection
+    ? (projectsData ?? []).slice(0, MAX_PROJECTS_IN_SIDEBAR)
+    : [];
 
-  const hiddenProjectsCount = Math.max(
-    0,
-    (projectsData?.length ?? 0) - MAX_PROJECTS_IN_SIDEBAR,
-  );
+  const hiddenProjectsCount = showProjectsSection
+    ? Math.max(0, (projectsData?.length ?? 0) - MAX_PROJECTS_IN_SIDEBAR)
+    : 0;
 
   const handleToggleSidebar = () => setCollapsed((v) => !v);
+
   const handleDashboardClick = () => {
     navigate("/dashboard");
     setIsProjectsOpen(true);
   };
+
   const handleOpenLogout = () => setIsLogoutOpen(true);
   const handleCloseLogout = () => setIsLogoutOpen(false);
   const handleConfirmLogout = () => {
@@ -203,128 +276,96 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
         {/* Навигация */}
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           <nav className="space-y-1" aria-label="Основная навигация">
-            {/* Dashboard */}
-            <DashboardNavItem
-              collapsed={collapsed}
-              isActive={location.pathname === "/dashboard"}
-              onClick={handleDashboardClick}
-            />
 
-            {/* Список проектов */}
-            {!collapsed && isProjectsOpen && (
-              <div className="mt-1 pl-2">
-                <SidebarSectionLabel icon={BriefcaseBusiness} label="Проекты" />
-                <div className="mt-2 space-y-1">
-                  {sidebarProjects.length > 0 ? (
-                    sidebarProjects.map((project) => {
-                      const isActive =
-                        location.pathname === `/projects/${project.deal_id}` ||
-                        location.pathname.startsWith(
-                          `/projects/${project.deal_id}/`,
-                        );
+            {/* ── Superadmin: только системное администрирование ── */}
+            {isSuperadmin ? (
+              <SuperadminNav collapsed={collapsed} />
+            ) : (
+              <>
+                {/* Dashboard — только для не-superadmin */}
+                <DashboardNavItem
+                  collapsed={collapsed}
+                  isActive={location.pathname === "/dashboard"}
+                  onClick={handleDashboardClick}
+                />
 
-                      return (
+                {/* Список проектов */}
+                {!collapsed && isProjectsOpen && showProjectsSection && (
+                  <div className="mt-1 pl-2">
+                    <SidebarSectionLabel
+                      icon={BriefcaseBusiness}
+                      label="Проекты"
+                    />
+                    <div className="mt-2 space-y-1">
+                      {sidebarProjects.length > 0 ? (
+                        sidebarProjects.map((project) => {
+                          const isActive =
+                            location.pathname ===
+                              `/projects/${project.deal_id}` ||
+                            location.pathname.startsWith(
+                              `/projects/${project.deal_id}/`,
+                            );
+
+                          return (
+                            <NavLink
+                              key={project.deal_id}
+                              to={`/projects/${project.deal_id}`}
+                              className={({ isActive: linkActive }) =>
+                                [
+                                  "block rounded-xl border px-3 py-2 transition-all duration-150",
+                                  "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]",
+                                  linkActive || isActive
+                                    ? "border-[var(--accent-primary)]/20 bg-[var(--accent-muted)] text-[var(--text-primary)]"
+                                    : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")
+                              }
+                            >
+                              <div className="truncate font-medium">
+                                {project.deal_name}
+                              </div>
+                              <div className="mt-0.5 truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+                                {project.role}
+                              </div>
+                            </NavLink>
+                          );
+                        })
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
+                          Нет доступных проектов
+                        </div>
+                      )}
+
+                      {hiddenProjectsCount > 0 && (
                         <NavLink
-                          key={project.deal_id}
-                          to={`/projects/${project.deal_id}`}
-                          className={({ isActive: linkActive }) =>
-                            [
-                              "block rounded-xl border px-3 py-2 transition-all duration-150",
-                              "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]",
-                              linkActive || isActive
-                                ? "border-[var(--accent-primary)]/20 bg-[var(--accent-muted)] text-[var(--text-primary)]"
-                                : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")
-                          }
+                          to="/dashboard"
+                          className="block rounded-xl px-3 py-2 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
                         >
-                          <div className="truncate font-medium">
-                            {project.deal_name}
-                          </div>
-                          <div className="mt-0.5 truncate text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
-                            {project.role}
-                          </div>
+                          Ещё {hiddenProjectsCount}
                         </NavLink>
-                      );
-                    })
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-[var(--border)] px-3 py-3 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--text-muted)]">
-                      Нет доступных проектов
+                      )}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {hiddenProjectsCount > 0 && (
-                    <NavLink
-                      to="/dashboard"
-                      className="block rounded-xl px-3 py-2 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
-                    >
-                      Ещё {hiddenProjectsCount}
-                    </NavLink>
-                  )}
-                </div>
-              </div>
-            )}
+                {/* Новый проект — только tenant_admin */}
+                {canCreateProject && (
+                  <div className="mt-4">
+                    <NavItem
+                      collapsed={collapsed}
+                      to="/projects/new"
+                      label="Новый проект"
+                      icon={PlusSquare}
+                    />
+                  </div>
+                )}
 
-            {/* Создать новый проект */}
-            {canCreateProject && (
-              <div className="mt-4">
-                <NavItem
-                  collapsed={collapsed}
-                  to="/projects/new"
-                  label="Новый проект"
-                  icon={PlusSquare}
-                />
-              </div>
-            )}
-
-            {/* ── НОВОЕ: Instructions для tenant_admin ──────── */}
-            {canAccessTenantInstructions && !canAccessGlobalInstructions && (
-              <div className="mt-1">
-                <NavItem
-                  collapsed={collapsed}
-                  to="/tenant-admin/instructions"
-                  label="Инструкции"
-                  icon={BookOpen}
-                />
-              </div>
-            )}
-
-            {/* Панель администратора клиента: tenant_admin */}
-            {globalRole === "tenant_admin" && (
-              <div className="mt-1">
-                <NavItem
-                  collapsed={collapsed}
-                  to="/tenant-admin"
-                  label="Панель администратора"
-                  icon={Settings}
-                />
-              </div>
-            )}
-
-            {/* ── Системное администрирование: superadmin ───── */}
-            {canAccessAdmin && (
-              <div className="mt-1 space-y-1">
-                <NavItem
-                  collapsed={collapsed}
-                  to="/admin"
-                  label="Администрирование"
-                  icon={Settings}
-                />
-                {/* ── НОВОЕ: Global Instructions для superadmin */}
-                <NavItem
-                  collapsed={collapsed}
-                  to="/admin/instructions"
-                  label="Инструкции"
-                  icon={BookOpen}
-                />
-                <NavItem
-                  collapsed={collapsed}
-                  to="/tenant-admin"
-                  label="Панель клиента"
-                  icon={Settings}
-                />
-              </div>
+                {/* Tenant admin секция */}
+                {isTenantAdmin && (
+                  <TenantAdminNav collapsed={collapsed} />
+                )}
+              </>
             )}
           </nav>
         </div>
@@ -408,10 +449,20 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               завершена.
             </p>
             <div className="mt-5 flex justify-end gap-2">
-              <Button variant="secondary" size="sm" type="button" onClick={handleCloseLogout}>
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                onClick={handleCloseLogout}
+              >
                 Нет
               </Button>
-              <Button variant="danger" size="sm" type="button" onClick={handleConfirmLogout}>
+              <Button
+                variant="danger"
+                size="sm"
+                type="button"
+                onClick={handleConfirmLogout}
+              >
                 Да
               </Button>
             </div>

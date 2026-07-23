@@ -8,6 +8,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import { useUIStore } from "../stores/uiStore";
 import type { ApiError } from "../types";
 import Button from "../components/ui/Button";
 
@@ -25,6 +26,7 @@ interface DealResponse {
 const NewProjectPage: React.FC = () => {
   const navigate = useNavigate();
   const { globalRole } = useAuth();
+  const setProjectRole = useUIStore((s) => s.setProjectRole);
 
   const [name, setName] = useState("");
   const [contactPerson, setContactPerson] = useState("");
@@ -65,6 +67,13 @@ const NewProjectPage: React.FC = () => {
 
       const res = await client.post<DealResponse>("/api/v1/deals", payload);
       const dealId = res.data.id;
+
+      // Сразу записываем роль "admin" в store.
+      // Backend только что создал membership с этой ролью.
+      // Обновляем frontend store чтобы ProjectRouteGuard и
+      // useDealPermissions сразу видели корректные права
+      // без ожидания следующей загрузки user-info из API.
+      setProjectRole(dealId, "admin");
 
       navigate(`/projects/${dealId}/upload`);
     } catch (err: unknown) {

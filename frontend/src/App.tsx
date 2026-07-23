@@ -33,11 +33,13 @@ import ProjectMembersPage from "./pages/ProjectMembersPage";
 import DealPlaybookSelectorPage from "./pages/DealPlaybookSelectorPage";
 import AdminPlaybookLinesPage from "./pages/AdminPlaybookLinesPage";
 import ModelConfigsAdminPage from "./pages/ModelConfigsAdminPage";
-import AdminPlaybookVersionsPage from "./pages/AdminPlaybookVersionsPage";
+import PlaybooksRegistryPage from "./pages/PlaybooksRegistryPage";
 import AdminPage from "./pages/AdminPage";
 import TenantAdminPage from "./pages/TenantAdminPage";
 import AdminTenantNewPage from "./pages/AdminTenantNewPage";
 import AdminTenantDetailPage from "./pages/AdminTenantDetailPage";
+import AdminMonitoringPage from "./pages/AdminMonitoringPage";
+import AdminTenantProjectsPage from "./pages/AdminTenantProjectsPage";
 
 // ── Instructions — global playbooks (superadmin) ──────────────
 import InstructionsIndexPage from "./pages/instructions/InstructionsIndexPage";
@@ -53,12 +55,14 @@ import GlobalInstructionVersionDetailPage from "./pages/instructions/GlobalInstr
 // ── Instructions — doc-type (superadmin) ──────────────────────
 import DocTypeInstructionsPage from "./pages/instructions/DocTypeInstructionsPage";
 import DocTypeDetailPage from "./pages/instructions/DocTypeDetailPage";
-import DocTypeVersionDetailPage from "./pages/instructions/DocTypeVersionDetailPage";
 
 // ── Instructions — tenant-level (tenant_admin) ────────────────
 import TenantInstructionsPage from "./pages/tenant-instructions/TenantInstructionsPage";
 import TenantOverridesPage from "./pages/tenant-instructions/TenantOverridesPage";
+import TenantOverrideCreatePage from "./pages/tenant-instructions/TenantOverrideCreatePage";
 import TenantOverrideDetailPage from "./pages/tenant-instructions/TenantOverrideDetailPage";
+import TenantBasePlaybooksPage from "./pages/tenant-instructions/TenantBasePlaybooksPage";
+import TenantBaseGlobalChecksPage from "./pages/tenant-instructions/TenantBaseGlobalChecksPage";
 
 // ── Instructions — deal-level (project member) ────────────────
 import DealInstructionsPage from "./pages/deal-instructions/DealInstructionsPage";
@@ -107,6 +111,30 @@ function DealRouteWrapper() {
   }
 
   return <DealPage deal={deal} />;
+}
+
+function DocTypeVersionLegacyRedirect() {
+  const { docType, versionId } = useParams<{
+    docType: string;
+    versionId: string;
+  }>();
+
+  if (!docType) {
+    return <Navigate to="/admin/instructions/doc-types" replace />;
+  }
+
+  // Старый /versions/new больше не используется как отдельная страница.
+  // Безопасно отправляем пользователя на объединённый detail screen.
+  if (!versionId || versionId === "new") {
+    return <Navigate to={`/admin/instructions/doc-types/${docType}`} replace />;
+  }
+
+  return (
+    <Navigate
+      to={`/admin/instructions/doc-types/${docType}?version=${encodeURIComponent(versionId)}`}
+      replace
+    />
+  );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -267,13 +295,13 @@ function App() {
           <Route
             path="/projects/:dealId/playbook"
             element={
-              <RequireAuth>
+              <RequireAdminOrSuperadmin>
                 <AppShell>
-                  <ProjectRouteGuard requiredCapability="canViewOverview">
+                  <ProjectRouteGuard requiredCapability="canManageRequests">
                     <DealPlaybookSelectorPage />
                   </ProjectRouteGuard>
                 </AppShell>
-              </RequireAuth>
+              </RequireAdminOrSuperadmin>
             }
           />
 
@@ -342,15 +370,30 @@ function App() {
             }
           />
 
+          {/* Реестр стандартных playbook — read-only + экспорт */}
+          <Route
+            path="/admin/instructions/playbooks-registry"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <PlaybooksRegistryPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          {/* Legacy redirects — старые URL ведут на новую страницу */}
           <Route
             path="/admin/playbook-versions"
-            element={
-              <RequireAdminOrSuperadmin>
-                <AppShell>
-                  <AdminPlaybookVersionsPage />
-                </AppShell>
-              </RequireAdminOrSuperadmin>
-            }
+            element={<Navigate to="/admin/instructions/playbooks-registry" replace />}
+          />
+          <Route
+            path="/admin/instructions/playbook-versions"
+            element={<Navigate to="/admin/instructions/playbooks-registry" replace />}
+          />
+          <Route
+            path="/tenant-admin/instructions/playbook-versions"
+            element={<Navigate to="/admin/instructions/playbooks-registry" replace />}
           />
 
           {/* ── Admin — Instructions index ──────────────────── */}
@@ -368,6 +411,17 @@ function App() {
           {/* ── Admin — Global Playbooks ────────────────────── */}
           <Route
             path="/admin/instructions/global-playbooks"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <GlobalPlaybooksPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          <Route
+            path="/admin/instructions/playbook-studio"
             element={
               <RequireSuperadmin>
                 <AppShell>
@@ -411,6 +465,7 @@ function App() {
             }
           />
 
+          {/* Главная страница инструкции — sidebar с версиями + редактор выбранной версии */}
           <Route
             path="/admin/instructions/global-checks/:instructionCode"
             element={
@@ -422,13 +477,17 @@ function App() {
             }
           />
 
+          {/*
+            LEGACY маршрут.
+            Оставлен для обратной совместимости — все внешние ссылки
+            вида /versions/:versionId редиректятся на новый ?version=<id>.
+            Можно удалить через несколько релизов.
+          */}
           <Route
             path="/admin/instructions/global-checks/:instructionCode/versions/:versionId"
             element={
               <RequireSuperadmin>
-                <AppShell>
-                  <GlobalInstructionVersionDetailPage />
-                </AppShell>
+                <GlobalInstructionVersionDetailPage />
               </RequireSuperadmin>
             }
           />
@@ -460,9 +519,7 @@ function App() {
             path="/admin/instructions/doc-types/:docType/versions/:versionId"
             element={
               <RequireSuperadmin>
-                <AppShell>
-                  <DocTypeVersionDetailPage />
-                </AppShell>
+                <DocTypeVersionLegacyRedirect />
               </RequireSuperadmin>
             }
           />
@@ -492,6 +549,39 @@ function App() {
           />
 
           <Route
+            path="/tenant-admin/instructions/playbook-studio"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantBasePlaybooksPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          <Route
+            path="/tenant-admin/instructions/base-playbooks"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantBasePlaybooksPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          <Route
+            path="/tenant-admin/instructions/base-global-checks"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantBaseGlobalChecksPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          <Route
             path="/tenant-admin/instructions/overrides"
             element={
               <RequireAdminOrSuperadmin>
@@ -503,7 +593,18 @@ function App() {
           />
 
           <Route
-            path="/tenant-admin/instructions/overrides/:docType"
+            path="/tenant-admin/instructions/overrides/new"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantOverrideCreatePage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          <Route
+            path="/tenant-admin/instructions/overrides/:overrideId"
             element={
               <RequireAdminOrSuperadmin>
                 <AppShell>
@@ -542,6 +643,28 @@ function App() {
               <RequireSuperadmin>
                 <AppShell>
                   <AdminTenantDetailPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          <Route
+            path="/admin/tenants/:tenantId/projects"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <AdminTenantProjectsPage />
+                </AppShell>
+              </RequireSuperadmin>
+            }
+          />
+
+          <Route
+            path="/admin/monitoring"
+            element={
+              <RequireSuperadmin>
+                <AppShell>
+                  <AdminMonitoringPage />
                 </AppShell>
               </RequireSuperadmin>
             }

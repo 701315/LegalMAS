@@ -5,8 +5,14 @@
 // =============================================================
 
 import React, { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Eye, EyeOff, Pencil, UserPlus, Users } from "lucide-react";
+import { useNavigate, useParams, Link } from "react-router-dom";
+import {
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  Pencil,
+  UserPlus,
+} from "lucide-react";
 import {
   useTenant,
   useTenantUsers,
@@ -21,6 +27,10 @@ import type { ApiError } from "../types";
 import Button from "../components/ui/Button";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 
+// ─────────────────────────────────────────────────────────────
+// Константы
+// ─────────────────────────────────────────────────────────────
+
 const ROLE_LABEL: Record<string, string> = {
   superadmin: "Супер-администратор",
   tenant_admin: "Администратор клиента",
@@ -31,6 +41,10 @@ const SYSTEM_ROLE_OPTIONS = [
   { value: "tenant_admin", label: "Администратор клиента" },
   { value: "member", label: "Участник" },
 ] as const;
+
+// ─────────────────────────────────────────────────────────────
+// Формы
+// ─────────────────────────────────────────────────────────────
 
 interface CreateUserForm {
   email: string;
@@ -62,6 +76,10 @@ const EMPTY_EDIT_FORM: EditUserForm = {
 
 type FormMode = "create" | "edit" | null;
 
+// ─────────────────────────────────────────────────────────────
+// AdminTenantDetailPage
+// ─────────────────────────────────────────────────────────────
+
 const AdminTenantDetailPage: React.FC = () => {
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
@@ -75,7 +93,6 @@ const AdminTenantDetailPage: React.FC = () => {
     null,
   );
 
-  // Видимость пароля
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
 
@@ -90,7 +107,8 @@ const AdminTenantDetailPage: React.FC = () => {
   const updateUserMutation = useUpdateTenantUser(tenantId ?? "");
   const deactivateMutation = useDeactivateTenantUser(tenantId ?? "");
 
-  // ── Create form handlers ────────────────────────────────────
+  // ── Handlers ────────────────────────────────────────────────
+
   const handleCreateFormChange = (
     field: keyof CreateUserForm,
     value: string,
@@ -105,7 +123,6 @@ const AdminTenantDetailPage: React.FC = () => {
     setShowCreatePassword(false);
   };
 
-  // ── Edit form handlers ──────────────────────────────────────
   const openEditForm = (user: AdminUser) => {
     setFormMode("edit");
     setEditForm({
@@ -118,7 +135,10 @@ const AdminTenantDetailPage: React.FC = () => {
     setShowEditPassword(false);
   };
 
-  const handleEditFormChange = (field: keyof EditUserForm, value: string) => {
+  const handleEditFormChange = (
+    field: keyof EditUserForm,
+    value: string,
+  ) => {
     setEditForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -127,7 +147,6 @@ const AdminTenantDetailPage: React.FC = () => {
     setFormError(null);
   };
 
-  // ── Create user submit ──────────────────────────────────────
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -161,7 +180,6 @@ const AdminTenantDetailPage: React.FC = () => {
     }
   };
 
-  // ── Edit user submit ────────────────────────────────────────
   const handleEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -197,30 +215,30 @@ const AdminTenantDetailPage: React.FC = () => {
     }
   };
 
-  // ── Deactivate confirm ──────────────────────────────────────
   const handleDeactivateConfirm = async () => {
     if (!deactivateTarget) return;
     await deactivateMutation.mutateAsync(deactivateTarget.id);
     setDeactivateTarget(null);
   };
 
-  // ── Loading / not found ─────────────────────────────────────
+  // ── Loading ─────────────────────────────────────────────────
   if (tenantLoading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
-        <div className="mx-auto max-w-4xl space-y-4">
+      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+        <div className="animate-fadein space-y-4">
           <div className="skeleton h-8 w-48" />
-          <div className="skeleton h-32 w-full rounded-2xl" />
+          <div className="skeleton h-32 max-w-4xl rounded-2xl" />
         </div>
       </div>
     );
   }
 
+  // ── Not found ───────────────────────────────────────────────
   if (!tenant) {
     return (
-      <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
-        <div className="mx-auto max-w-4xl">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center">
+      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+        <div className="animate-fadein">
+          <div className="max-w-4xl rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <p className="text-sm text-[var(--text-secondary)]">
               Клиент не найден.
             </p>
@@ -230,7 +248,7 @@ const AdminTenantDetailPage: React.FC = () => {
               className="mt-4"
               onClick={() => navigate("/admin")}
             >
-              ← Назад к списку
+              ← Все клиенты
             </Button>
           </div>
         </div>
@@ -238,64 +256,56 @@ const AdminTenantDetailPage: React.FC = () => {
     );
   }
 
+  const usersList = users ?? [];
+  const activeUsers = usersList.filter((u) => u.is_active).length;
+
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 md:px-6">
-      <div className="mx-auto max-w-4xl animate-fadein space-y-5">
-        {/* ── Header ─────────────────────────────────────────── */}
-        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+      <div className="animate-fadein space-y-8">
+
+        {/* ── Заголовок страницы (на фоне) ─────────────────── */}
+        <header>
           <button
             type="button"
             onClick={() => navigate("/admin")}
-            className="mb-3 flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            className="mb-2 flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Все клиенты
           </button>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                {tenant.name}
-              </h1>
-              <p className="mt-0.5 text-sm text-[var(--text-muted)]">
-                slug: {tenant.slug}
-                {!tenant.is_active && (
-                  <span className="ml-2 rounded-full bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]">
-                    Деактивирован
-                  </span>
-                )}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <div className="flex items-center gap-1.5 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2">
-                <Users className="h-3.5 w-3.5 text-[var(--text-muted)]" />
-                <span className="text-sm font-semibold text-[var(--text-primary)]">
-                  {tenant.users_count}
-                </span>
-                <span className="text-xs text-[var(--text-muted)]">
-                  пользователей
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2">
-                <span className="text-sm font-semibold text-[var(--text-primary)]">
-                  {tenant.deals_count}
-                </span>
-                <span className="text-xs text-[var(--text-muted)]">
-                  проектов
-                </span>
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+              {tenant.name}
+            </h1>
+            {!tenant.is_active && (
+              <span className="shrink-0 rounded-full bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]">
+                Деактивирован
+              </span>
+            )}
           </div>
 
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            slug: {tenant.slug}
+            <span className="mx-1.5">·</span>
+            <Link
+              to={`/admin/tenants/${tenant.id}/projects`}
+              className="hover:text-[var(--text-secondary)]"
+            >
+              Проектов: {tenant.deals_count}
+            </Link>
+            <span className="mx-1.5">·</span>
+            Пользователей: {activeUsers} из {tenant.users_count}
+          </p>
+
           {tenant.notes && (
-            <p className="mt-3 text-sm text-[var(--text-secondary)]">
+            <p className="mt-3 max-w-3xl text-sm text-[var(--text-secondary)]">
               {tenant.notes}
             </p>
           )}
         </header>
 
-        {/* ── Users section ──────────────────────────────────── */}
+        {/* ── Users section ────────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
           <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
             <h2 className="text-base font-semibold text-[var(--text-primary)]">
@@ -313,7 +323,7 @@ const AdminTenantDetailPage: React.FC = () => {
             )}
           </div>
 
-          {/* ── Create form ────────────────────────────────────── */}
+          {/* ── Create form ──────────────────────────────────── */}
           {formMode === "create" && (
             <div className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)] px-5 py-4">
               <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">
@@ -359,9 +369,7 @@ const AdminTenantDetailPage: React.FC = () => {
                       />
                       <button
                         type="button"
-                        onClick={() =>
-                          setShowCreatePassword((v) => !v)
-                        }
+                        onClick={() => setShowCreatePassword((v) => !v)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                         tabIndex={-1}
                       >
@@ -431,7 +439,7 @@ const AdminTenantDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* ── Edit form ──────────────────────────────────────── */}
+          {/* ── Edit form ────────────────────────────────────── */}
           {formMode === "edit" && (
             <div className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)] px-5 py-4">
               <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">
@@ -532,7 +540,7 @@ const AdminTenantDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* ── Users list ─────────────────────────────────────── */}
+          {/* ── Users list ───────────────────────────────────── */}
           <div className="divide-y divide-[var(--border)]">
             {usersLoading && (
               <div className="px-5 py-4">
@@ -541,13 +549,13 @@ const AdminTenantDetailPage: React.FC = () => {
               </div>
             )}
 
-            {!usersLoading && (users ?? []).length === 0 && (
+            {!usersLoading && usersList.length === 0 && (
               <div className="px-5 py-6 text-center text-sm text-[var(--text-muted)]">
                 Пользователей пока нет. Добавьте первого.
               </div>
             )}
 
-            {(users ?? []).map((u) => (
+            {usersList.map((u) => (
               <div
                 key={u.id}
                 className={[
@@ -618,4 +626,6 @@ const AdminTenantDetailPage: React.FC = () => {
 };
 
 export default AdminTenantDetailPage;
+
+
 

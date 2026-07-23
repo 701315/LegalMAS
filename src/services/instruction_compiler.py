@@ -1,7 +1,7 @@
 # src/services/instruction_compiler.py
 
 """
-Instruction compiler for document-type instructions.
+Instruction compiler for document-type and global instructions.
 
 Задача:
 - принять YAML/parsed dict инструкции;
@@ -9,21 +9,13 @@ Instruction compiler for document-type instructions.
 - посчитать source hash и payload hash;
 - проверить, что loader способен построить checks;
 - собрать validation report для draft/publish lifecycle.
-
-Важно:
-- это не финальный "компилятор всего instruction domain",
-  а первый production-ready шаг для backend lifecycle;
-- compiled_payload на текущем этапе = нормализованный parsed dict,
-  потому что runtime loader исполняет именно такую структуру;
-- publish service будет использовать этот compiler как единую точку
-  parse/validate/hash.
 """
 
 from __future__ import annotations
 
 import json
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import yaml
@@ -57,17 +49,29 @@ class CompiledDocTypeInstruction:
     is_valid: bool
 
 
+@dataclass(slots=True)
+class CompiledGlobalInstruction:
+    instruction_code: str
+    name: str | None
+    group: str | None
+    source_yaml: str
+    source_sha256: str
+    compiled_payload: dict[str, Any]
+    compiled_payload_sha256: str
+    diagnostics: list[CompilationDiagnostic]
+    validation_report: dict[str, Any]
+    is_valid: bool
+
+
 class InstructionCompiler:
     """
-    Единая точка parse/validate/hash для doc-type instructions.
-
-    На этом этапе:
-    - валидирует YAML как object/dict;
-    - собирает все trigger names из source;
-    - прогоняет DocTypeCheckLoader поверх DatabaseInstructionProvider;
-    - детектит duplicate check IDs;
-    - считает deterministic hashes.
+    Единая точка parse/validate/hash для doc-type и global instructions.
     """
+
+    # Допустимые значения detector_type для global instructions
+    VALID_DETECTOR_TYPES = ("rules", "llm", "hybrid")
+
+    # ── Doc-type compilation ───────────────────────────────────────
 
     def compile_doc_type_instruction(
         self,
@@ -85,9 +89,6 @@ class InstructionCompiler:
 
         validation_triggers = self._collect_all_triggers(raw)
 
-        # ВАЖНО:
-        # current runtime path исполняет structured YAML dict через loader.
-        # Поэтому compiled_payload на текущем этапе = нормализованный parsed dict.
         compiled_payload: dict[str, Any] = raw
         compiled_payload_sha256 = self._compute_payload_sha256(compiled_payload)
 
@@ -153,9 +154,123 @@ class InstructionCompiler:
             is_valid=is_valid,
         )
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
+    # ── Global instruction compilation ─────────────────────────────
+
+    def compile_global_instruction(
+        self,
+        *,
+        instruction_code: str,
+        source: str | dict[str, Any],
+    ) -> CompiledGlobalInstruction:
+        """
+        Compile и validate global instruction YAML.
+
+        Global instruction — это один check в формате GlobalCheckConfig
+        (core/playbooks/compiler.py). В отличие от doc-type instruction,
+        где YAML содержит массив checks_v8, здесь YAML описывает один check.
+        """
+        instruction_code = str(instruction_code or "").strip()
+        if not instruction_code:
+            raise InstructionCompilationError("instruction_code is required")
+
+        raw = self._parse_source_to_dict(source)
+        canonical_yaml = DocumentTypeConfig._dump_canonical_yaml(raw)
+        source_sha256 = DocumentTypeConfig._compute_sha256(canonical_yaml)
+
+        diagnostics: list[CompilationDiagnostic] = []
+
+        # Обязательные поля
+        for field_name in ("id", "name", "detector_type"):
+            if not raw.get(field_name):
+                diagnostics.append(CompilationDiagnostic(
+                    level="error",
+                    message=f"Required field '{field_name}' is missing or empty.",
+                    path=field_name,
+                ))
+
+        # id должен совпадать с instruction_code
+        yaml_id = str(raw.get("id") or "").strip()
+        if yaml_id and yaml_id != instruction_code:
+            diagnostics.append(CompilationDiagnostic(
+                level="error",
+                message=(
+                    f"YAML 'id' field ('{yaml_id}') does not match "
+                    f"instruction_code ('{instruction_code}')."
+                ),
+                path="id",
+            ))
+
+        # detector_type
+        detector_type = str(raw.get("detector_type") or "").strip()
+        if detector_type and detector_type not in self.VALID_DETECTOR_TYPES:
+            diagnostics.append(CompilationDiagnostic(
+                level="error",
+                message=(
+                    f"Invalid detector_type '{detector_type}'. "
+                    f"Expected one of: {', '.join(self.VALID_DETECTOR_TYPES)}."
+                ),
+                path="detector_type",
+            ))
+
+        # Совместимость с GlobalCheckConfig — только если нет ошибок выше
+        if not any(d.level == "error" for d in diagnostics):
+            try:
+                from core.playbooks.compiler import GlobalCheckConfig
+                GlobalCheckConfig(**raw)
+            except Exception as exc:
+                diagnostics.append(CompilationDiagnostic(
+                    level="error",
+                    message=f"GlobalCheckConfig validation failed: {exc}",
+                    path=None,
+                ))
+
+        # Предупреждения
+        if not raw.get("description"):
+            diagnostics.append(CompilationDiagnostic(
+                level="warning",
+                message="Field 'description' is empty or missing.",
+                path="description",
+            ))
+        if not raw.get("group"):
+            diagnostics.append(CompilationDiagnostic(
+                level="warning",
+                message=(
+                    "Field 'group' is empty or missing. "
+                    "This instruction will appear ungrouped in the catalog."
+                ),
+                path="group",
+            ))
+
+        is_valid = not any(d.level == "error" for d in diagnostics)
+        compiled_payload = raw
+        compiled_payload_sha256 = self._compute_payload_sha256(compiled_payload)
+
+        name = str(raw.get("name") or "").strip() or None
+        group = str(raw.get("group") or "").strip() or None
+
+        validation_report = {
+            "is_valid": is_valid,
+            "instruction_code": instruction_code,
+            "diagnostics": [
+                {"level": d.level, "message": d.message, "path": d.path}
+                for d in diagnostics
+            ],
+        }
+
+        return CompiledGlobalInstruction(
+            instruction_code=instruction_code,
+            name=name,
+            group=group,
+            source_yaml=canonical_yaml,
+            source_sha256=source_sha256,
+            compiled_payload=compiled_payload,
+            compiled_payload_sha256=compiled_payload_sha256,
+            diagnostics=diagnostics,
+            validation_report=validation_report,
+            is_valid=is_valid,
+        )
+
+    # ── Shared internal helpers ────────────────────────────────────
 
     def _parse_source_to_dict(
         self,
@@ -165,7 +280,9 @@ class InstructionCompiler:
             return source
 
         if not isinstance(source, str) or not source.strip():
-            raise InstructionCompilationError("instruction source must be non-empty YAML string or dict")
+            raise InstructionCompilationError(
+                "instruction source must be non-empty YAML string or dict"
+            )
 
         try:
             parsed = yaml.safe_load(source)
@@ -187,8 +304,8 @@ class InstructionCompiler:
         raw: dict[str, Any],
     ) -> list[str]:
         """
-        Собрать объединение всех triggers из checks_v8/doc_type_checks/compliance_rules,
-        чтобы validation loader прошёл по максимально широкому пути.
+        Собрать объединение всех triggers из checks_v8/doc_type_checks/compliance_rules
+        для validation loader.
         """
         trigger_names: set[str] = set()
 
@@ -209,7 +326,9 @@ class InstructionCompiler:
         for item in raw.get("compliance_rules") or []:
             if not isinstance(item, dict):
                 continue
-            trigger_names.update(str(x) for x in (item.get("required_triggers") or []) if x)
+            trigger_names.update(
+                str(x) for x in (item.get("required_triggers") or []) if x
+            )
 
         return sorted(trigger_names)
 
@@ -220,9 +339,7 @@ class InstructionCompiler:
         compiled_payload: dict[str, Any],
         validation_triggers: list[str],
     ):
-        provider = DatabaseInstructionProvider(
-            {doc_type_code: compiled_payload}
-        )
+        provider = DatabaseInstructionProvider({doc_type_code: compiled_payload})
         loader = DocTypeCheckLoader(provider=provider)
 
         try:
@@ -255,145 +372,6 @@ class InstructionCompiler:
             separators=(",", ":"),
         )
         return DocumentTypeConfig._compute_sha256(canonical_json)
-    
-# Добавить в src/services/instruction_compiler.py
-
-# Новый dataclass для global:
-@dataclass(slots=True)
-class CompiledGlobalInstruction:
-    instruction_code: str
-    name: str | None
-    group: str | None
-    source_yaml: str
-    source_sha256: str
-    compiled_payload: dict[str, Any]
-    compiled_payload_sha256: str
-    diagnostics: list[CompilationDiagnostic]
-    validation_report: dict[str, Any]
-    is_valid: bool
 
 
-# Добавить в класс InstructionCompiler:
-
-VALID_DETECTOR_TYPES = ("rules", "llm", "hybrid")
-
-def compile_global_instruction(
-    self,
-    *,
-    instruction_code: str,
-    source: str | dict[str, Any],
-) -> CompiledGlobalInstruction:
-    """
-    Compile и validate global instruction YAML.
-
-    Global instruction — это один check в формате GlobalCheckConfig
-    (core/playbooks/compiler.py). В отличие от doc-type instruction,
-    где YAML содержит массив checks_v8, здесь YAML описывает один check.
-
-    Валидация:
-    - обязательные поля (id, name, detector_type)
-    - id в YAML совпадает с instruction_code
-    - detector_type валиден
-    - совместимость с GlobalCheckConfig pydantic model
-    """
-    instruction_code = str(instruction_code or "").strip()
-    if not instruction_code:
-        raise InstructionCompilationError("instruction_code is required")
-
-    raw = self._parse_source_to_dict(source)
-    canonical_yaml = DocumentTypeConfig._dump_canonical_yaml(raw)
-    source_sha256 = DocumentTypeConfig._compute_sha256(canonical_yaml)
-
-    diagnostics: list[CompilationDiagnostic] = []
-
-    # Обязательные поля
-    for field_name in ("id", "name", "detector_type"):
-        if not raw.get(field_name):
-            diagnostics.append(CompilationDiagnostic(
-                level="error",
-                message=f"Required field '{field_name}' is missing or empty.",
-                path=field_name,
-            ))
-
-    # id должен совпадать с instruction_code
-    yaml_id = str(raw.get("id") or "").strip()
-    if yaml_id and yaml_id != instruction_code:
-        diagnostics.append(CompilationDiagnostic(
-            level="error",
-            message=(
-                f"YAML 'id' field ('{yaml_id}') does not match "
-                f"instruction_code ('{instruction_code}')."
-            ),
-            path="id",
-        ))
-
-    # detector_type
-    detector_type = str(raw.get("detector_type") or "").strip()
-    if detector_type and detector_type not in self.VALID_DETECTOR_TYPES:
-        diagnostics.append(CompilationDiagnostic(
-            level="error",
-            message=(
-                f"Invalid detector_type '{detector_type}'. "
-                f"Expected one of: {', '.join(self.VALID_DETECTOR_TYPES)}."
-            ),
-            path="detector_type",
-        ))
-
-    # Совместимость с GlobalCheckConfig (если нет ошибок до этого)
-    if not any(d.level == "error" for d in diagnostics):
-        try:
-            from core.playbooks.compiler import GlobalCheckConfig
-            GlobalCheckConfig(**raw)
-        except Exception as exc:
-            diagnostics.append(CompilationDiagnostic(
-                level="error",
-                message=f"GlobalCheckConfig validation failed: {exc}",
-                path=None,
-            ))
-
-    # Предупреждения
-    if not raw.get("description"):
-        diagnostics.append(CompilationDiagnostic(
-            level="warning",
-            message="Field 'description' is empty or missing.",
-            path="description",
-        ))
-    if not raw.get("group"):
-        diagnostics.append(CompilationDiagnostic(
-            level="warning",
-            message=(
-                "Field 'group' is empty or missing. "
-                "This instruction will appear ungrouped in the catalog."
-            ),
-            path="group",
-        ))
-
-    is_valid = not any(d.level == "error" for d in diagnostics)
-    compiled_payload = raw
-    compiled_payload_sha256 = self._compute_payload_sha256(compiled_payload)
-
-    name = str(raw.get("name") or "").strip() or None
-    group = str(raw.get("group") or "").strip() or None
-
-    validation_report = {
-        "is_valid": is_valid,
-        "instruction_code": instruction_code,
-        "diagnostics": [
-            {"level": d.level, "message": d.message, "path": d.path}
-            for d in diagnostics
-        ],
-    }
-
-    return CompiledGlobalInstruction(
-        instruction_code=instruction_code,
-        name=name,
-        group=group,
-        source_yaml=canonical_yaml,
-        source_sha256=source_sha256,
-        compiled_payload=compiled_payload,
-        compiled_payload_sha256=compiled_payload_sha256,
-        diagnostics=diagnostics,
-        validation_report=validation_report,
-        is_valid=is_valid,
-    )
-    
+        

@@ -30,6 +30,9 @@ from .crud import (
     router as crud_router,
 )
 
+from db.repositories.project_role_repo import ProjectRoleRepository
+
+
 router = APIRouter(prefix="/deals", tags=["deals"])
 
 
@@ -92,6 +95,12 @@ async def create_deal(
     """
     Создать новую сделку для текущего тенанта.
     tenant_id берётся из JWT-токена текущего пользователя.
+
+    После создания deal создатель автоматически получает роль "admin"
+    в этом проекте. Это обеспечивает:
+    - корректную работу require_project_role на upload/run endpoints
+    - консистентность: создатель всегда является admin своего проекта
+    - корректное отображение прав в frontend через projectRoles
     """
     repo = DealRepository(db)
 
@@ -108,6 +117,19 @@ async def create_deal(
         summary=payload.summary,
     )
 
+    # flush чтобы получить deal.id до создания membership
+    await db.flush()
+
+    # Создатель deal автоматически получает роль admin в проекте.
+    # Это нужно для всех ролей включая tenant_admin и superadmin —
+    # для консистентности list_members и member checks на фронте.
+    role_repo = ProjectRoleRepository(db)
+    await role_repo.create_member(
+        deal_id=deal.id,
+        user_id=user.id,
+        role="admin",
+    )
+
     await db.commit()
 
     refreshed = await repo.get_by_id(deal.id, tenant_id=user.tenant_id)
@@ -118,6 +140,7 @@ async def create_deal(
         )
 
     return await _build_deal_response(db=db, deal=refreshed)
+
 
 
 # ── Detail + nested routes (/api/v1/deals/{deal_id}/...) ─────────────────────

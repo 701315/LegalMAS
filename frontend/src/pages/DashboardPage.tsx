@@ -38,8 +38,13 @@ const DashboardPage: React.FC = () => {
   React.useEffect(() => {
     if (!userId) {
       navigate("/login");
+      return;
     }
-  }, [userId, navigate]);
+    // Superadmin работает с системой, не с проектами — редирект на его landing.
+    if (globalRole === "superadmin") {
+      navigate("/admin", { replace: true });
+    }
+  }, [userId, globalRole, navigate]);
 
   const { data, isLoading, error } = useUserProjects(userId);
   const deleteProjectMutation = useDeleteProject(userId);
@@ -117,8 +122,7 @@ const DashboardPage: React.FC = () => {
     return null;
   }
 
-  const canCreateProject =
-    globalRole === "superadmin" || globalRole === "tenant_admin";
+  const canCreateProject = globalRole === "tenant_admin";
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 md:px-6">
@@ -248,8 +252,7 @@ const DashboardPage: React.FC = () => {
                     Открыть проект
                   </Button>
 
-                  {(globalRole === "superadmin" ||
-                    globalRole === "tenant_admin") && (
+                  {globalRole === "tenant_admin" && (
                     <Button
                       type="button"
                       size="sm"

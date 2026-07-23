@@ -14,6 +14,13 @@ Audit middleware — фиксирует важные HTTP-запросы в та
   независимая от сессии основного HTTP-запроса;
 - ошибки аудита не влияют на ответ клиенту.
 
+CORS / preflight:
+- OPTIONS запросы пропускаются немедленно через call_next без какой-либо
+  обработки. Это критично: AuditMiddleware стоит снаружи CORSMiddleware
+  в реальном стеке выполнения (Starlette добавляет middleware в обратном
+  порядке). Если OPTIONS попадёт в логику диспетчеризации до CORSMiddleware,
+  preflight не получит корректных CORS-заголовков.
+
 Трейсинг и logging correlation:
 - middleware пишет один structured log ("HTTP request received") в начале
   обработки запроса, пока OpenTelemetry span ещё активен;
@@ -75,6 +82,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
       чтобы не блокировать или не конфликтовать с транзакцией основного запроса;
     - любые ошибки внутри аудита проглатываются с логированием,
       ответ клиенту не меняется.
+    - OPTIONS запросы пропускаются немедленно — см. docstring модуля.
     """
 
     async def dispatch(
@@ -82,12 +90,17 @@ class AuditMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
+        # ── CORS preflight: пропускаем немедленно ─────────────────────────
+        # OPTIONS должен дойти до CORSMiddleware без какой-либо обработки
+        # в AuditMiddleware. Любая задержка или ошибка здесь ломает preflight.
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         method = request.method
         path = request.url.path
 
         request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
         tenant_id_header = request.headers.get("X-Tenant-Id")
-        user_id_header = request.headers.get("X-User-Id")
         actor_role_header = request.headers.get("X-Actor-Role")
 
         set_request_context(
@@ -97,21 +110,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
         )
         request.state.request_id = request_id
 
-        # -----------------------------------------------------------------
-        # Structured request log — ключевая точка для trace correlation.
-        #
-        # Простым языком:
-        # Этот лог пишется в самом начале обработки запроса, пока
-        # OpenTelemetry span ещё активен. В этот момент наш processor
-        # add_trace_context автоматически добавит trace_id и span_id.
-        #
-        # Результат: в каждой строке лога для HTTP-запроса будет trace_id,
-        # по которому в Grafana можно нажать "View Trace" и сразу увидеть
-        # визуальный путь этого запроса.
-        #
-        # Технические пути пропускаем — они не нужны для correlation
-        # и только засоряют логи (Prometheus scrape каждые 15 секунд и т.д.)
-        # -----------------------------------------------------------------
+        # ── Structured request log ─────────────────────────────────────────
         _should_log = not any(
             path.startswith(prefix) for prefix in _SKIP_REQUEST_LOG_PREFIXES
         )
@@ -136,24 +135,11 @@ class AuditMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             response.headers.setdefault("X-Request-Id", request_id)
 
-            # После call_next() request.state уже может быть заполнен
-            # Depends(get_current_user), поэтому здесь читаем canonical server-side identity.
-            #
-            # ВАЖНО:
-            # Клиентские X-User-Id / X-Tenant-Id / X-Actor-Role не являются
-            # trusted source for audit identity. Иначе возможен spoofing.
             resolved_actor = getattr(request.state, "user_id", None) or "unknown"
             resolved_tenant_id_value = getattr(request.state, "tenant_id", None)
             resolved_actor_role = getattr(request.state, "actor_role", None)
 
-            # -----------------------------------------------------------------
-            # Response log — фиксируем статус ответа и время.
-            #
-            # Простым языком:
-            # После того как эндпоинт отработал, логируем статус ответа.
-            # К этому моменту span ещё не закрыт, поэтому trace_id
-            # тоже попадёт в этот лог.
-            # -----------------------------------------------------------------
+            # ── Response log ───────────────────────────────────────────────
             if _should_log:
                 logger.info(
                     "HTTP request completed",

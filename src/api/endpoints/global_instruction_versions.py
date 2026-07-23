@@ -371,12 +371,14 @@ async def validate_global_instruction_draft(
     repo = GlobalInstructionVersionRepository(db)
     try:
         compiled = await service.validate_draft(version_id=version_id)
+        await db.commit()
+        # Читаем свежие данные после commit — validate_draft делает flush внутри,
+        # после commit объект может быть в expired state.
         version = await repo.get_by_id(version_id)
         if version is None:
             raise GlobalInstructionNotFoundError(
                 f"Version not found after validation: {version_id}"
             )
-        await db.commit()
         return GlobalInstructionVersionValidationResponse(
             item=_serialize_version(version),
             is_valid=compiled.is_valid,
@@ -402,6 +404,7 @@ async def publish_global_instruction_draft(
     try:
         version = await service.publish_draft(version_id=version_id)
         await db.commit()
+        await db.refresh(version)
         return GlobalInstructionVersionResponse(item=_serialize_version(version))
     except Exception as exc:
         await db.rollback()
@@ -423,6 +426,7 @@ async def archive_global_instruction_version(
     try:
         version = await service.archive_version(version_id=version_id)
         await db.commit()
+        await db.refresh(version)
         return GlobalInstructionVersionResponse(item=_serialize_version(version))
     except Exception as exc:
         await db.rollback()
@@ -501,7 +505,7 @@ async def diff_global_instruction_versions(
     version_id: uuid.UUID,
     against: uuid.UUID = Query(
         ...,
-        description="ID версии для сравнения"
+        description="ID версии для сравнения",
     ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(require_global_instruction_admin),
@@ -525,6 +529,7 @@ async def diff_global_instruction_versions(
         )
     except Exception as exc:
         raise _map_exception(exc) from exc
+
 
 
     

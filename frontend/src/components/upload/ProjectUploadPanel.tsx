@@ -46,12 +46,28 @@ function getRelativePath(file: FileWithRelativePath): string {
 }
 
 function getErrorText(err: unknown, fallback: string): string {
+  if (typeof err !== "object" || err === null) return fallback;
+
+  // Случай 1: кастомный ApiError из axios interceptor.
+  // client.ts делает Promise.reject({ detail, code, status }) —
+  // это plain object, не AxiosError и не instanceof Error,
+  // поэтому axios.isAxiosError() на нём всегда возвращает false.
+  const maybeApiError = err as Record<string, unknown>;
+  if (
+    typeof maybeApiError["detail"] === "string" &&
+    maybeApiError["detail"]
+  ) {
+    return maybeApiError["detail"];
+  }
+
+  // Случай 2: оригинальный AxiosError (если interceptor не отработал).
   if (axios.isAxiosError<{ detail?: string }>(err)) {
     return err.response?.data?.detail ?? err.message ?? fallback;
   }
 
-  if (err instanceof Error) {
-    return err.message || fallback;
+  // Случай 3: обычный Error.
+  if (err instanceof Error && err.message) {
+    return err.message;
   }
 
   return fallback;

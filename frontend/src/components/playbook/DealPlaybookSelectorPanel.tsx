@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 
 import client from "../../api/client";
 import { useDealPermissions } from "../../hooks/usePermissions";
+import { useAuth } from "../../hooks/useAuth";
 
 import Button from "../ui/Button";
 import PageSection from "../ui/PageSection";
@@ -74,8 +75,12 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  const { canViewOverview } = useDealPermissions(dealId);
-  const canEditPlaybook = canViewOverview;
+  const { canManageRequests } = useDealPermissions(dealId);
+  const { globalRole } = useAuth();
+
+  const canEditPlaybook =
+    (globalRole === "superadmin" || globalRole === "tenant_admin") &&
+    canManageRequests;
 
   const [dealDetail, setDealDetail] = useState<DealDetail | null>(null);
 
@@ -151,10 +156,19 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     setHistoryError(null);
 
     try {
-      const res = await client.get<DealPlaybookHistoryItem[]>(
+      const res = await client.get<
+        | DealPlaybookHistoryItem[]
+        | { items?: DealPlaybookHistoryItem[]; deal_id?: string }
+      >(
         `/api/v1/deals/${dealId}/playbook-history`,
       );
-      setHistory(res.data || []);
+
+      const payload = res.data;
+      const historyItems = Array.isArray(payload)
+        ? payload
+        : payload.items ?? [];
+
+      setHistory(historyItems);
     } catch (err) {
       setHistoryError(
         getApiErrorMessage(
