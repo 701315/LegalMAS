@@ -1,3 +1,5 @@
+// frontend/src/pages/tenant-instructions/TenantBasePlaybooksPage.tsx
+
 import React from "react";
 import PlaybookStudioPage from "../playbooks/PlaybookStudioPage";
 

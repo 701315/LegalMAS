@@ -144,12 +144,19 @@ class PlaybookRepository:
         jurisdiction: str | None = None,
         language: str | None = None,
         risk_profile: str | None = None,
+        tenant_id: uuid.UUID | None = None,
     ) -> Playbook:
         """
         Create a logical Playbook (template/line).
 
+        Ownership:
+        - tenant_id = None → platform-owned, visible to all tenants
+        - tenant_id = <uuid> → tenant-owned, visible only inside this tenant
+
         Code must be unique; caller is responsible for handling conflicts.
         """
+        owner_scope = "tenant" if tenant_id is not None else "platform"
+
         playbook = Playbook(
             code=code,
             title=title,
@@ -158,6 +165,8 @@ class PlaybookRepository:
             jurisdiction=jurisdiction,
             language=language,
             risk_profile=risk_profile,
+            tenant_id=tenant_id,
+            owner_scope=owner_scope,
         )
         self.session.add(playbook)
         await self.session.flush()
@@ -178,12 +187,24 @@ class PlaybookRepository:
         deal_type: str | None = None,
         jurisdiction: str | None = None,
         language: str | None = None,
+        tenant_id: uuid.UUID | None = None,
+        include_platform: bool = True,
+        only_tenant_owned: bool = False,
     ) -> list[Playbook]:
         """
         List Playbooks with optional filtering.
 
-        Used by UI to show templates by deal type / jurisdiction / language.
+        Tenant scope semantics:
+        - tenant_id=None, include_platform=True → all platform playbooks
+          (used by superadmin without tenant filter)
+        - tenant_id=<uuid>, include_platform=True → platform + this tenant's
+          (used by tenant_admin / member in general listings)
+        - tenant_id=<uuid>, only_tenant_owned=True → ONLY this tenant's
+          (used by "My playbooks" catalog page)
+        - tenant_id=None, include_platform=False → nothing meaningful, avoid
         """
+        from sqlalchemy import or_
+
         stmt = select(Playbook)
 
         if deal_type is not None:
@@ -192,6 +213,25 @@ class PlaybookRepository:
             stmt = stmt.where(Playbook.jurisdiction == jurisdiction)
         if language is not None:
             stmt = stmt.where(Playbook.language == language)
+
+        if only_tenant_owned:
+            if tenant_id is None:
+                # nothing to return
+                return []
+            stmt = stmt.where(Playbook.tenant_id == tenant_id)
+        else:
+            if tenant_id is not None and include_platform:
+                stmt = stmt.where(
+                    or_(
+                        Playbook.tenant_id == tenant_id,
+                        Playbook.tenant_id.is_(None),
+                    )
+                )
+            elif tenant_id is not None:
+                stmt = stmt.where(Playbook.tenant_id == tenant_id)
+            elif not include_platform:
+                # tenant_id None + include_platform False → return nothing
+                return []
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -226,6 +266,7 @@ class PlaybookRepository:
         jurisdiction: str | None,
         language: str | None,
         items: Iterable[dict],
+        tenant_id: uuid.UUID | None = None,
     ) -> tuple[Playbook, list[PlaybookLineItem]]:
         """
         Создать логический Playbook (линию) и полностью задать его состав (items).
@@ -236,6 +277,10 @@ class PlaybookRepository:
             "instruction_code": str,
             "order_index": int,
         }
+
+        tenant_id:
+        - None → platform-owned (visible to all tenants)
+        - <uuid> → tenant-owned (visible only inside this tenant)
         """
         code = self._generate_code_from_title(title)
 
@@ -247,6 +292,7 @@ class PlaybookRepository:
             jurisdiction=jurisdiction,
             language=language,
             risk_profile=None,
+            tenant_id=tenant_id,
         )
 
         line_items: list[PlaybookLineItem] = []
@@ -423,6 +469,7 @@ class PlaybookRepository:
         status: str = PlaybookStatus.DRAFT.value,
         playbook_id: uuid.UUID | None = None,
         source_payload: dict | None = None,
+        tenant_id: uuid.UUID | None = None,
     ) -> PlaybookVersion:
         """
         Create a new playbook version.
@@ -444,6 +491,8 @@ class PlaybookRepository:
         if source_payload is not None:
             source_payload_sha256 = compute_source_payload_hash(source_payload)
 
+        owner_scope = "tenant" if tenant_id is not None else "platform"
+
         pv = PlaybookVersion(
             playbook_id=playbook_id,
             name=name,
@@ -456,6 +505,8 @@ class PlaybookRepository:
             is_default=is_default,
             source_payload=source_payload,
             source_payload_sha256=source_payload_sha256,
+            tenant_id=tenant_id,
+            owner_scope=owner_scope,
         )
         self.session.add(pv)
         await self.session.flush()

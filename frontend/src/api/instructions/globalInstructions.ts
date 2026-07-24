@@ -16,8 +16,6 @@ import type {
   CreateGlobalInstructionDraftRequest,
   CloneGlobalDraftRequest,
   UpdateGlobalInstructionDraftRequest,
-  GlobalChecksSyncResult,
-  DocTypesSyncResult,
 } from "../../types/instructions";
 
 export type {
@@ -151,49 +149,6 @@ export async function diffGlobalInstructionVersions(
   return res.data;
 }
 
-// ── Sync (superadmin only) ─────────────────────────────────────
 
-/**
- * Синхронизировать global checks из YAML-файлов в БД.
- * POST /api/v1/admin/instructions/sync/global-checks
- *
- * Идемпотентен. dry_run=true — preview без записи.
- * Доступ: только superadmin.
- */
-export async function syncGlobalChecks(
-  dryRun = false,
-): Promise<GlobalChecksSyncResult> {
-  const res = await client.post<GlobalChecksSyncResult>(
-    "/api/v1/admin/instructions/sync/global-checks",
-    null,
-    { params: { dry_run: dryRun } },
-  );
-  return res.data;
-}
-
-/**
- * Синхронизировать doc-type инструкции из YAMLRegistry в БД.
- * POST /api/v1/admin/instructions/sync/doc-types
- *
- * Идемпотентен. dry_run=true — preview без записи.
- * only_doc_type — синхронизировать один конкретный тип.
- * Доступ: только superadmin.
- */
-export async function syncDocTypes(options?: {
-  dryRun?: boolean;
-  onlyDocType?: string;
-}): Promise<DocTypesSyncResult> {
-  const res = await client.post<DocTypesSyncResult>(
-    "/api/v1/admin/instructions/sync/doc-types",
-    null,
-    {
-      params: {
-        ...(options?.dryRun !== undefined && { dry_run: options.dryRun }),
-        ...(options?.onlyDocType && { only_doc_type: options.onlyDocType }),
-      },
-    },
-  );
-  return res.data;
-}
 
 

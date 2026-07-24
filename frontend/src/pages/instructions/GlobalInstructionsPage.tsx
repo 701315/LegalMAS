@@ -6,7 +6,6 @@ import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Shield,
-  RefreshCw,
   AlertTriangle,
   CheckCircle,
   Circle,
@@ -19,13 +18,19 @@ import {
   ChevronsUpDown,
 } from "lucide-react";
 
-import { useGlobalInstructionCatalog } from "../../hooks/instructions/useGlobalInstructions";
+import {
+  useGlobalInstructionCatalog,
+  useCreateGlobalInstructionDraft,
+} from "../../hooks/instructions/useGlobalInstructions";
 import InstructionPageHeader from "../../components/instructions/InstructionPageHeader";
 import VersionStatusBadge from "../../components/instructions/VersionStatusBadge";
 import LoadingBlock from "../../components/ui/LoadingBlock";
 import EmptyState from "../../components/ui/EmptyState";
 import InlineAlert from "../../components/InlineAlert";
 import Button from "../../components/ui/Button";
+import ImportYamlDialog, {
+  type ImportYamlSubmitPayload,
+} from "../../components/instructions/ImportYamlDialog";
 import type { GlobalInstructionCatalogItem } from "../../types/instructions";
 
 // ─────────────────────────────────────────────────────────────
@@ -252,6 +257,11 @@ const GlobalInstructionsPage: React.FC = () => {
     () => new Set(),
   );
 
+  // ── Import YAML dialog ─────────────────────────────────────
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const createDraft = useCreateGlobalInstructionDraft();
+
   const {
     data: catalog,
     isLoading,
@@ -299,6 +309,43 @@ const GlobalInstructionsPage: React.FC = () => {
       navigate(`/admin/instructions/global-checks/${instructionCode}`);
     },
     [navigate],
+  );
+
+  const handleImportOpen = useCallback(() => {
+    setImportError(null);
+    setIsImportOpen(true);
+  }, []);
+
+  const handleImportCancel = useCallback(() => {
+    setIsImportOpen(false);
+    setImportError(null);
+  }, []);
+
+  const handleImportSubmit = useCallback(
+    async (payload: ImportYamlSubmitPayload) => {
+      setImportError(null);
+      try {
+        const newDraft = await createDraft.mutateAsync({
+          instructionCode: payload.code,
+          body: {
+            source_yaml: payload.sourceYaml,
+            name: payload.name,
+            change_summary: "Импорт из YAML",
+          },
+        });
+        setIsImportOpen(false);
+        // Перезагружаем каталог и переходим на детали новой инструкции
+        await refetch();
+        navigate(
+          `/admin/instructions/global-checks/${payload.code}?version=${encodeURIComponent(newDraft.id)}`,
+        );
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Не удалось импортировать YAML.";
+        setImportError(message);
+      }
+    },
+    [createDraft, navigate, refetch],
   );
 
   const toggleGroup = useCallback((groupName: string | null) => {
@@ -364,12 +411,12 @@ const GlobalInstructionsPage: React.FC = () => {
           subtitle="Универсальные проверки, применимые к любому типу документа. Выберите инструкцию для управления версиями."
           rightSlot={
             <Button
-              variant="secondary"
+              variant="primary"
               size="sm"
-              onClick={() => void refetch()}
-              leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
+              onClick={handleImportOpen}
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
             >
-              Обновить
+              Добавить инструкцию
             </Button>
           }
         />
@@ -485,11 +532,11 @@ const GlobalInstructionsPage: React.FC = () => {
             />
           )}
 
+        {/* ── Группированный список ─────────────────────────── */}
         {!isLoading && !isError && filteredItems.length > 0 && (
           <div className="space-y-6">
             {groupedItems.map(([groupName, groupItems]) => {
               const key = groupKeyOf(groupName);
-
               return (
                 <GroupSection
                   key={key}
@@ -504,9 +551,20 @@ const GlobalInstructionsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ── Import YAML dialog ──────────────────────────────── */}
+      <ImportYamlDialog
+        open={isImportOpen}
+        kind="global"
+        isSubmitting={createDraft.isPending}
+        submitError={importError}
+        onCancel={handleImportCancel}
+        onSubmit={handleImportSubmit}
+      />
     </div>
   );
 };
+
 
 export default GlobalInstructionsPage;
 

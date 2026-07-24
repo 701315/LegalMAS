@@ -18,12 +18,18 @@ import {
   ChevronsUpDown,
 } from "lucide-react";
 
-import { useInstructionCatalog } from "../../hooks/instructions/useInstructionVersions";
+import {
+  useInstructionCatalog,
+  useCreateInstructionDraft,
+} from "../../hooks/instructions/useInstructionVersions";
 import VersionStatusBadge from "../../components/instructions/VersionStatusBadge";
 import LoadingBlock from "../../components/ui/LoadingBlock";
 import EmptyState from "../../components/ui/EmptyState";
 import InlineAlert from "../../components/InlineAlert";
 import Button from "../../components/ui/Button";
+import ImportYamlDialog, {
+  type ImportYamlSubmitPayload,
+} from "../../components/instructions/ImportYamlDialog";
 import type { InstructionCatalogItem } from "../../types/instructions";
 
 // ─────────────────────────────────────────────────────────────
@@ -260,10 +266,16 @@ const DocTypeInstructionsPage: React.FC = () => {
     () => new Set(),
   );
 
+  // ── Import YAML dialog ─────────────────────────────────────
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const createDraft = useCreateInstructionDraft();
+
   const {
     data: catalog,
     isLoading,
     isError,
+    refetch,
   } = useInstructionCatalog();
 
   const items = catalog?.items ?? [];
@@ -308,6 +320,42 @@ const DocTypeInstructionsPage: React.FC = () => {
       navigate(`/admin/instructions/doc-types/${docTypeCode}`);
     },
     [navigate],
+  );
+
+  const handleImportOpen = useCallback(() => {
+    setImportError(null);
+    setIsImportOpen(true);
+  }, []);
+
+  const handleImportCancel = useCallback(() => {
+    setIsImportOpen(false);
+    setImportError(null);
+  }, []);
+
+  const handleImportSubmit = useCallback(
+    async (payload: ImportYamlSubmitPayload) => {
+      setImportError(null);
+      try {
+        const newDraft = await createDraft.mutateAsync({
+          docTypeCode: payload.code,
+          body: {
+            source_yaml: payload.sourceYaml,
+            name: payload.name ?? payload.code,
+            change_summary: "Импорт из YAML",
+          },
+        });
+        setIsImportOpen(false);
+        await refetch();
+        navigate(
+          `/admin/instructions/doc-types/${payload.code}?version=${encodeURIComponent(newDraft.id)}`,
+        );
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Не удалось импортировать YAML.";
+        setImportError(message);
+      }
+    },
+    [createDraft, navigate, refetch],
   );
 
   const toggleGroup = useCallback((parent: string | null) => {
@@ -363,14 +411,25 @@ const DocTypeInstructionsPage: React.FC = () => {
           Инструкции
         </button>
 
-        <header>
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-            Инструкции по типам документов
-          </h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Выберите тип документа для управления версиями инструкции.
-          </p>
-        </header>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <header>
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+              Инструкции по типам документов
+            </h1>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Выберите тип документа для управления версиями инструкции.
+            </p>
+          </header>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleImportOpen}
+            leftIcon={<Plus className="h-3.5 w-3.5" />}
+          >
+            Добавить инструкцию
+          </Button>
+        </div>
 
         {!isLoading && !isError && totalCount > 0 && (
           <p className="text-sm text-[var(--text-muted)]">
@@ -502,10 +561,19 @@ const DocTypeInstructionsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ── Import YAML dialog ──────────────────────────────── */}
+      <ImportYamlDialog
+        open={isImportOpen}
+        kind="doc-type"
+        isSubmitting={createDraft.isPending}
+        submitError={importError}
+        onCancel={handleImportCancel}
+        onSubmit={handleImportSubmit}
+      />
     </div>
   );
 };
 
 export default DocTypeInstructionsPage;
-
 

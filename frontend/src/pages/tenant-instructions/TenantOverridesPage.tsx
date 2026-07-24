@@ -1,76 +1,73 @@
 // src/pages/tenant-instructions/TenantOverridesPage.tsx
-// Список tenant-level overrides.
-// Доступен tenant_admin (свой tenant) и superadmin (любой tenant).
 
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, RefreshCw } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 
 import { useTenantOverrides } from "../../hooks/instructions/useInstructionOverrides";
 import { useAuth } from "../../hooks/useAuth";
-import InstructionPageHeader from "../../components/instructions/InstructionPageHeader";
 import OverrideStatusBadge from "../../components/instructions/OverrideStatusBadge";
 import LoadingBlock from "../../components/ui/LoadingBlock";
 import EmptyState from "../../components/ui/EmptyState";
 import InlineAlert from "../../components/InlineAlert";
 import Button from "../../components/ui/Button";
-import PageSection from "../../components/ui/PageSection";
 import type { InstructionOverrideItem } from "../../types/instructions";
 
-// ─────────────────────────────────────────────────────────────
-// Override list item
-// ─────────────────────────────────────────────────────────────
+/* ── Override card ─────────────────────────────────────────── */
 
-interface OverrideListItemProps {
+const OverrideCard: React.FC<{
   override: InstructionOverrideItem;
   onClick: () => void;
-}
-
-const OverrideListItem: React.FC<OverrideListItemProps> = ({
-  override,
-  onClick,
-}) => {
+}> = ({ override, onClick }) => {
   const updatedAt = override.updated_at
     ? new Date(override.updated_at).toLocaleDateString("ru-RU")
     : null;
+
+  const baseLabel = override.global_instruction_version_id
+    ? "Global Override"
+    : "Doc-Type Override";
+
+  const baseId =
+    override.global_instruction_version_id ??
+    override.instruction_version_id ??
+    "";
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-left text-xs transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--bg-elevated-soft)]"
+      className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 text-left shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          {/* Version ID reference */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-[var(--text-primary)]">
-              {override.global_instruction_version_id
-                ? "Global Override"
-                : "Override"}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold text-[var(--text-primary)]">
+              {baseLabel}
             </span>
-            <span className="font-mono text-[10px] text-[var(--text-muted)]">
-              {override.global_instruction_version_id
-                ? `global: ${override.global_instruction_version_id.slice(0, 8)}…`
-                : override.instruction_version_id
-                  ? `v_id: ${override.instruction_version_id.slice(0, 8)}…`
-                  : ""}
-            </span>
+            {baseId && (
+              <span className="font-mono text-[10px] text-[var(--text-muted)]">
+                {baseId.slice(0, 8)}…
+              </span>
+            )}
           </div>
 
           {override.change_summary && (
-            <div className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
               {override.change_summary}
-            </div>
+            </p>
           )}
 
-          <div className="mt-1.5 flex items-center gap-3 text-[10px] text-[var(--text-muted)]">
-            <span className="font-mono">
-              id: {override.id.slice(0, 8)}…
-            </span>
-            <span>{override.patch_ops.length} ops</span>
-            {updatedAt && <span>Updated: {updatedAt}</span>}
-          </div>
+          <p className="mt-2 text-[10px] text-[var(--text-muted)]">
+            <span className="font-mono">id: {override.id.slice(0, 8)}…</span>
+            <span className="mx-1.5">·</span>
+            {override.patch_ops.length} ops
+            {updatedAt && (
+              <>
+                <span className="mx-1.5">·</span>
+                Обновлён: {updatedAt}
+              </>
+            )}
+          </p>
         </div>
 
         <OverrideStatusBadge
@@ -83,161 +80,140 @@ const OverrideListItem: React.FC<OverrideListItemProps> = ({
   );
 };
 
-// ─────────────────────────────────────────────────────────────
-// Page
-// ─────────────────────────────────────────────────────────────
+/* ── Page ───────────────────────────────────────────────────── */
 
 const TenantOverridesPage: React.FC = () => {
   const navigate = useNavigate();
-
-  // tenantId берём из auth state.
-  // Для tenant_admin это tenant текущего пользователя.
-  // Для superadmin в будущем можно добавить явный tenant switcher.
   const { tenantId: authTenantId } = useAuth();
   const tenantId = authTenantId ?? "";
 
-  const {
-    data,
-    isLoading,
-    isError,
-    refetch,
-  } = useTenantOverrides(tenantId || null);
+  const { data, isLoading, isError, refetch } = useTenantOverrides(
+    tenantId || null,
+  );
 
   const overrides = data?.items ?? [];
-
   const activeCount = overrides.filter((o) => o.status === "active").length;
   const draftCount = overrides.filter((o) => o.status === "draft").length;
   const staleCount = overrides.filter((o) => o.is_stale).length;
 
-  const handleOpenOverride = (overrideId: string) => {
-    navigate(`/tenant-admin/instructions/overrides/${overrideId}`);
-  };
-
-  const handleCreateNew = () => {
-    navigate("/tenant-admin/instructions/overrides/new");
-  };
-
   return (
-    <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
-      <div className="mx-auto max-w-4xl space-y-4">
-        {/* Header */}
-        <InstructionPageHeader
-          breadcrumbs={[
-            { label: "Tenant Admin", to: "/tenant-admin" },
-            {
-              label: "Инструкции",
-              to: "/tenant-admin/instructions",
-            },
-            { label: "Overrides" },
-          ]}
-          title="Instruction Overrides"
-          subtitle="Переопределения инструкций на уровне tenant. Применяются поверх базовых версий."
-          rightSlot={
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void refetch()}
-                aria-label="Обновить"
-              >
-                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleCreateNew}
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                Новый override
-              </Button>
-            </div>
-          }
-        />
+    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+      <div className="animate-fadein space-y-6">
+        {/* Back-link */}
+        <button
+          type="button"
+          onClick={() => navigate("/tenant-admin/instructions")}
+          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Инструкции
+        </button>
 
-        {/* Stats */}
+        {/* Header */}
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+              Instruction Overrides
+            </h1>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Переопределения инструкций на уровне tenant. Применяются поверх
+              базовых published-версий.
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() =>
+              navigate("/tenant-admin/instructions/overrides/new")
+            }
+            leftIcon={<Plus className="h-3.5 w-3.5" />}
+          >
+            Новый override
+          </Button>
+        </header>
+
+        {/* Inline stats */}
         {!isLoading && !isError && overrides.length > 0 && (
-          <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2.5">
-            <div className="text-[11px] text-[var(--text-muted)]">
-              Active:{" "}
-              <span className="font-semibold text-[color:var(--color-success-text)]">
-                {activeCount}
-              </span>
-            </div>
-            <div className="h-3 w-px bg-[var(--border)]" aria-hidden="true" />
-            <div className="text-[11px] text-[var(--text-muted)]">
-              Draft:{" "}
-              <span className="font-semibold text-[var(--text-primary)]">
-                {draftCount}
-              </span>
-            </div>
+          <p className="text-sm text-[var(--text-muted)]">
+            Всего:{" "}
+            <span className="font-semibold text-[var(--text-primary)]">
+              {overrides.length}
+            </span>
+            <span className="mx-1.5">·</span>
+            Active:{" "}
+            <span className="font-semibold text-[var(--text-primary)]">
+              {activeCount}
+            </span>
+            <span className="mx-1.5">·</span>
+            Draft:{" "}
+            <span className="font-semibold text-[var(--text-primary)]">
+              {draftCount}
+            </span>
             {staleCount > 0 && (
               <>
-                <div className="h-3 w-px bg-[var(--border)]" aria-hidden="true" />
-                <div className="text-[11px] text-[var(--text-muted)]">
-                  Stale:{" "}
-                  <span className="font-semibold text-[#b91c1c]">
-                    {staleCount}
-                  </span>
-                </div>
+                <span className="mx-1.5">·</span>
+                Stale:{" "}
+                <span className="font-semibold text-rose-600">
+                  {staleCount}
+                </span>
               </>
             )}
-          </div>
+          </p>
         )}
 
         {/* Stale warning */}
         {staleCount > 0 && (
-          <div className="flex items-center gap-2 rounded-xl border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] px-4 py-2.5">
-            <span className="text-[11px] text-[color:var(--color-warning-text,#92400e)]">
-              {staleCount}{" "}
-              {staleCount === 1 ? "override устарел" : "overrides устарели"} —
-              базовая версия инструкции была обновлена. Создайте новые overrides
-              на актуальной версии.
-            </span>
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+            {staleCount}{" "}
+            {staleCount === 1 ? "override устарел" : "overrides устарели"} —
+            базовая версия инструкции была обновлена. Создайте новые overrides
+            на актуальной версии.
           </div>
         )}
 
-        {/* List */}
-        <PageSection title="Overrides">
-          {isLoading && (
-            <LoadingBlock text="Загружаем overrides..." rows={4} />
-          )}
+        {/* Content */}
+        {isLoading && <LoadingBlock text="Загружаем overrides…" rows={4} />}
 
-          {isError && (
-            <InlineAlert
-              tone="error"
-              message="Не удалось загрузить overrides. Проверьте подключение."
-            />
-          )}
+        {isError && (
+          <InlineAlert
+            tone="error"
+            message="Не удалось загрузить overrides. Проверьте подключение."
+          />
+        )}
 
-          {!isLoading && !isError && overrides.length === 0 && (
-            <EmptyState
-              title="Overrides не созданы"
-              description="Создайте первый override чтобы переопределить базовую инструкцию для вашего tenant."
-              action={
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleCreateNew}
-                >
-                  Создать override
-                </Button>
-              }
-            />
-          )}
+        {!isLoading && !isError && overrides.length === 0 && (
+          <EmptyState
+            title="Overrides не созданы"
+            description="Создайте первый override, чтобы переопределить базовую инструкцию для вашего tenant."
+            action={
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() =>
+                  navigate("/tenant-admin/instructions/overrides/new")
+                }
+              >
+                Создать override
+              </Button>
+            }
+          />
+        )}
 
-          {!isLoading && !isError && overrides.length > 0 && (
-            <ul className="space-y-2">
-              {overrides.map((override) => (
-                <li key={override.id}>
-                  <OverrideListItem
-                    override={override}
-                    onClick={() => handleOpenOverride(override.id)}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </PageSection>
+        {!isLoading && !isError && overrides.length > 0 && (
+          <div className="space-y-3">
+            {overrides.map((override) => (
+              <OverrideCard
+                key={override.id}
+                override={override}
+                onClick={() =>
+                  navigate(
+                    `/tenant-admin/instructions/overrides/${override.id}`,
+                  )
+                }
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

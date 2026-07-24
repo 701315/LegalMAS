@@ -63,6 +63,10 @@ import TenantOverrideCreatePage from "./pages/tenant-instructions/TenantOverride
 import TenantOverrideDetailPage from "./pages/tenant-instructions/TenantOverrideDetailPage";
 import TenantBasePlaybooksPage from "./pages/tenant-instructions/TenantBasePlaybooksPage";
 import TenantBaseGlobalChecksPage from "./pages/tenant-instructions/TenantBaseGlobalChecksPage";
+import TenantBaseGlobalCheckDetailPage from "./pages/tenant-instructions/TenantBaseGlobalCheckDetailPage";
+import TenantBaseDocTypesPage from "./pages/tenant-instructions/TenantBaseDocTypesPage";
+import TenantBaseDocTypeDetailPage from "./pages/tenant-instructions/TenantBaseDocTypeDetailPage";
+import TenantOwnedPlaybooksPage from "./pages/tenant-instructions/TenantOwnedPlaybooksPage";
 
 // ── Instructions — deal-level (project member) ────────────────
 import DealInstructionsPage from "./pages/deal-instructions/DealInstructionsPage";
@@ -576,6 +580,50 @@ function App() {
               <RequireAdminOrSuperadmin>
                 <AppShell>
                   <TenantBaseGlobalChecksPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          <Route
+            path="/tenant-admin/instructions/base-global-checks/:instructionCode"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantBaseGlobalCheckDetailPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          <Route
+            path="/tenant-admin/instructions/base-doc-types"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantBaseDocTypesPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          <Route
+            path="/tenant-admin/instructions/base-doc-types/:docType"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantBaseDocTypeDetailPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          <Route
+            path="/tenant-admin/instructions/my-playbooks"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <TenantOwnedPlaybooksPage />
                 </AppShell>
               </RequireAdminOrSuperadmin>
             }

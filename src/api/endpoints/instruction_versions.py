@@ -46,6 +46,12 @@ from api.errors import api_error
 
 router = APIRouter(prefix="/admin", tags=["instruction-versions"])
 
+def require_authenticated(
+    user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """Любой аутентифицированный пользователь — для read-only каталога."""
+    return user
+
 
 def require_instruction_admin(
     user: CurrentUser = Depends(get_current_user),
@@ -545,4 +551,25 @@ async def diff_instruction_versions(
         raise _map_lifecycle_exception(exc) from exc
 
     
+@router.get(
+    "/instructions/doc-types/catalog",
+    response_model=InstructionCatalogResponse,
+    summary="Read-only каталог doc-type инструкций (tenant_admin, member)",
+)
+async def list_instruction_catalog_readonly(
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_authenticated),
+    service: InstructionCatalogService = Depends(get_instruction_catalog_service),
+) -> InstructionCatalogResponse:
+    """
+    Публичный (tenant-safe) каталог базовых doc-type инструкций.
+    Read-only — только чтение, без возможности создавать/изменять версии.
+    Доступен tenant_admin и member для ознакомления с базовыми инструкциями.
+    """
+    _ = user
+    items = await service.list_doc_type_catalog()
+    return InstructionCatalogResponse(
+        items=[_serialize_catalog_item(x) for x in items]
+    )
+
     

@@ -390,31 +390,3 @@ export interface CreateGlobalOverrideDraftRequest {
   change_summary?: string | null;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Instruction Sync
-// ─────────────────────────────────────────────────────────────
-
-export interface GlobalChecksSyncResult {
-  created: number;
-  repaired: number;
-  skipped: number;
-  errors: number;
-  total: number;
-  dry_run: boolean;
-}
-
-export interface DocTypesSyncResult {
-  created: number;
-  promoted: number;
-  skipped: number;
-  errors: number;
-  total: number;
-  dry_run: boolean;
-}
-
-export type SyncResultUnion =
-  | ({ kind: "global-checks" } & GlobalChecksSyncResult)
-  | ({ kind: "doc-types" } & DocTypesSyncResult);
-
-
-  

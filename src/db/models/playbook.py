@@ -15,7 +15,7 @@ PlaybookLineItem — элементы логического плейбука (�
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -67,6 +67,10 @@ class Playbook(Base):
     Example: 'Real estate RU (core DD)', 'M&A RU full', 'NDA EN'.
     Stores high-level semantics: type of deal, jurisdiction, language, etc.
     Versions of this playbook are stored in PlaybookVersion.
+
+    Ownership scopes:
+      - platform: tenant_id IS NULL, visible to all tenants (read-only for tenant_admin).
+      - tenant:   tenant_id IS NOT NULL, visible only inside this tenant.
     """
 
     __tablename__ = "playbooks"
@@ -115,13 +119,42 @@ class Playbook(Base):
         comment="Optional risk/profile label: standard/high/vendor/buyer/etc.",
     )
 
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
+        comment=(
+            "NULL = platform-owned, visible to all tenants. "
+            "Non-null = tenant-owned, visible only inside this tenant."
+        ),
+    )
+
+    owner_scope: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="platform",
+        server_default=text("'platform'"),
+        comment="Ownership scope: platform | tenant",
+    )
+
     # Связь с элементами конструктора (строками шаблона).
-    # Один Playbook (линия) может содержать много элементов (topics/checks).
     line_items: Mapped[list["PlaybookLineItem"]] = relationship(
         "PlaybookLineItem",
         back_populates="playbook",
         cascade="all, delete-orphan",
         lazy="selectin",
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_playbooks_tenant_id",
+            "tenant_id",
+        ),
+        CheckConstraint(
+            "((owner_scope = 'platform' AND tenant_id IS NULL) "
+            "OR (owner_scope = 'tenant' AND tenant_id IS NOT NULL))",
+            name="ck_playbooks_owner_scope_tenant",
+        ),
     )
 
 
@@ -134,6 +167,25 @@ class PlaybookVersion(Base):
         ForeignKey("playbooks.id", ondelete="SET NULL"),
         nullable=True,
         comment="Logical Playbook this version belongs to.",
+    )
+
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="SET NULL"),
+        nullable=True,
+        comment=(
+            "NULL = platform-owned version. "
+            "Non-null = tenant-owned version. "
+            "Must match tenant scope of parent Playbook."
+        ),
+    )
+
+    owner_scope: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="platform",
+        server_default=text("'platform'"),
+        comment="Ownership scope: platform | tenant",
     )
 
     name: Mapped[str] = mapped_column(
@@ -278,6 +330,15 @@ class PlaybookVersion(Base):
             "is_default",
             unique=True,
             postgresql_where=text("is_default = true"),
+        ),
+        Index(
+            "ix_playbook_versions_tenant_id",
+            "tenant_id",
+        ),
+        CheckConstraint(
+            "((owner_scope = 'platform' AND tenant_id IS NULL) "
+            "OR (owner_scope = 'tenant' AND tenant_id IS NOT NULL))",
+            name="ck_playbook_versions_owner_scope_tenant",
         ),
     )
 

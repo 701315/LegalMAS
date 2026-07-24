@@ -118,8 +118,9 @@ async def require_playbook_admin(
     Проверка прав на управление шаблонами playbook.
 
     Разрешено: superadmin и tenant_admin.
-    superadmin управляет шаблонами всей платформы.
-    tenant_admin управляет шаблонами в рамках своего tenant'а.
+    Изоляция по scope выполняется на уровне каждого endpoint:
+    - superadmin работает только с platform playbooks
+    - tenant_admin работает только с playbooks своего tenant
     """
     if user.global_role not in ("superadmin", "tenant_admin"):
         raise api_error(
@@ -128,6 +129,76 @@ async def require_playbook_admin(
             "Not enough permissions to manage playbook templates.",
         )
     return user
+
+
+def _resolve_write_tenant_id(user: CurrentUser) -> uuid.UUID | None:
+    """
+    Определяет tenant_id для write-операций (create/update/publish/archive/delete).
+
+    Правила:
+    - superadmin → работает с platform playbooks (tenant_id = None)
+    - tenant_admin → работает только со своим tenant (tenant_id = user.tenant_id)
+    """
+    if user.global_role == "superadmin":
+        return None
+    # tenant_admin
+    if user.tenant_id is None:
+        raise api_error(
+            status.HTTP_403_FORBIDDEN,
+            "PLAYBOOK_TENANT_REQUIRED",
+            "tenant_admin must have tenant_id to manage playbooks.",
+        )
+    return uuid.UUID(str(user.tenant_id))
+
+
+def _check_can_modify_playbook(user: CurrentUser, playbook_tenant_id: uuid.UUID | None) -> None:
+    """
+    Проверка прав на модификацию (edit/delete/publish/archive) конкретного playbook.
+
+    Правила:
+    - superadmin → может модифицировать любые
+    - tenant_admin → только свой tenant scope
+    """
+    if user.global_role == "superadmin":
+        return
+
+    # tenant_admin
+    if playbook_tenant_id is None:
+        raise api_error(
+            status.HTTP_403_FORBIDDEN,
+            "PLAYBOOK_PLATFORM_READONLY",
+            "Platform playbooks are read-only for tenant admins.",
+        )
+
+    if user.tenant_id is None or str(playbook_tenant_id) != str(user.tenant_id):
+        raise api_error(
+            status.HTTP_403_FORBIDDEN,
+            "PLAYBOOK_TENANT_MISMATCH",
+            "Playbook belongs to another tenant.",
+        )
+
+
+def _check_can_read_playbook(user: CurrentUser, playbook_tenant_id: uuid.UUID | None) -> None:
+    """
+    Проверка прав на чтение конкретного playbook.
+
+    Правила:
+    - superadmin → видит всё
+    - tenant_admin / member → видят platform + свой tenant
+    """
+    if user.global_role == "superadmin":
+        return
+
+    if playbook_tenant_id is None:
+        # platform playbook — виден всем
+        return
+
+    if user.tenant_id is None or str(playbook_tenant_id) != str(user.tenant_id):
+        raise api_error(
+            status.HTTP_403_FORBIDDEN,
+            "PLAYBOOK_TENANT_MISMATCH",
+            "Playbook belongs to another tenant.",
+        )
 
 
 @router.get(
@@ -221,13 +292,64 @@ async def list_playbook_lines(
         default=None,
         description="Фильтр по языку документов: 'ru', 'en' и т.п.",
     ),
+    scope: str | None = Query(
+        default=None,
+        description="Опциональный фильтр по scope: 'platform' | 'tenant' | 'all'",
+    ),
 ):
+    """
+    Возвращает playbooks с учётом tenant scope:
+    - superadmin: видит все platform playbooks (tenant playbooks других tenant'ов не показываем)
+    - tenant_admin / member: видит platform + свой tenant
+    - при scope='tenant' → только tenant-owned (свои)
+    - при scope='platform' → только platform
+    """
     repo = PlaybookRepository(db)
-    playbooks = await repo.list_playbooks(
-        deal_type=deal_type,
-        jurisdiction=jurisdiction,
-        language=language,
-    )
+
+    if user.global_role == "superadmin":
+        # Superadmin работает на уровне платформы
+        if scope == "tenant":
+            # Явно запрошены tenant-owned — но без tenant_id это неоднозначно; отдаём пусто
+            return []
+        playbooks = await repo.list_playbooks(
+            deal_type=deal_type,
+            jurisdiction=jurisdiction,
+            language=language,
+            tenant_id=None,
+            include_platform=True,
+        )
+    else:
+        # tenant_admin / member
+        user_tenant_id = (
+            uuid.UUID(str(user.tenant_id)) if user.tenant_id else None
+        )
+        if user_tenant_id is None:
+            return []
+
+        if scope == "tenant":
+            playbooks = await repo.list_playbooks(
+                deal_type=deal_type,
+                jurisdiction=jurisdiction,
+                language=language,
+                tenant_id=user_tenant_id,
+                only_tenant_owned=True,
+            )
+        elif scope == "platform":
+            playbooks = await repo.list_playbooks(
+                deal_type=deal_type,
+                jurisdiction=jurisdiction,
+                language=language,
+                tenant_id=None,
+                include_platform=True,
+            )
+        else:
+            playbooks = await repo.list_playbooks(
+                deal_type=deal_type,
+                jurisdiction=jurisdiction,
+                language=language,
+                tenant_id=user_tenant_id,
+                include_platform=True,
+            )
 
     return [
         PlaybookLineShort(
@@ -358,6 +480,22 @@ async def create_playbook_version(
             "Failed to build compiled_checks.",
         )
 
+
+    # Определяем tenant scope для новой версии
+    if payload.playbook_id is not None:
+        parent_playbook = await repo.get_playbook_by_id(payload.playbook_id)
+        if parent_playbook is None:
+            raise api_error(
+                status.HTTP_404_NOT_FOUND,
+                "PLAYBOOK_NOT_FOUND",
+                f"Playbook not found: {payload.playbook_id}",
+            )
+        _check_can_modify_playbook(user, parent_playbook.tenant_id)
+        version_tenant_id = parent_playbook.tenant_id
+    else:
+        # Version without parent playbook — inherit scope from user
+        version_tenant_id = _resolve_write_tenant_id(user)
+
     # Имя версии
     if payload.name:
         name = payload.name
@@ -395,6 +533,7 @@ async def create_playbook_version(
         status=status_value,
         playbook_id=payload.playbook_id,
         source_payload=source_payload,
+        tenant_id=version_tenant_id,
     )
 
     await db.commit()
@@ -418,11 +557,31 @@ async def list_playbook_versions(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    from sqlalchemy import select
+    """
+    Список версий с учётом tenant scope:
+    - superadmin: только platform
+    - tenant_admin / member: platform + свой tenant
+    """
+    from sqlalchemy import or_, select
 
     from db.models.playbook import PlaybookVersion
 
-    result = await db.execute(select(PlaybookVersion))
+    stmt = select(PlaybookVersion)
+
+    if user.global_role != "superadmin":
+        user_tenant_id = (
+            uuid.UUID(str(user.tenant_id)) if user.tenant_id else None
+        )
+        if user_tenant_id is None:
+            return []
+        stmt = stmt.where(
+            or_(
+                PlaybookVersion.tenant_id == user_tenant_id,
+                PlaybookVersion.tenant_id.is_(None),
+            )
+        )
+
+    result = await db.execute(stmt)
     rows = result.scalars().all()
 
     return [
@@ -460,6 +619,8 @@ async def get_playbook_version_detail(
     if pv is None:
         raise _playbook_version_not_found(version_id)
 
+    _check_can_read_playbook(user, pv.tenant_id)
+
     set_response_etag(response, getattr(pv, "updated_at", None))
 
     return PlaybookVersionDetail(
@@ -494,6 +655,8 @@ async def get_playbook_line(
     line, items = await repo.get_line_with_items(line_id)
     if not line:
         raise _playbook_line_not_found(line_id)
+
+    _check_can_read_playbook(user, line.tenant_id)
 
     set_response_etag(response, getattr(line, "updated_at", None))
 
@@ -540,6 +703,8 @@ async def create_playbook_line(
             unknown_instruction_codes=exc.unknown_codes,
         ) from exc
 
+    write_tenant_id = _resolve_write_tenant_id(user)
+
     # Преобразуем Pydantic-объекты в dict, чтобы репозиторий не зависел от Pydantic
     items_payload = [item.model_dump() for item in payload.items]
 
@@ -550,6 +715,7 @@ async def create_playbook_line(
         jurisdiction=payload.jurisdiction,
         language=payload.language,
         items=items_payload,
+        tenant_id=write_tenant_id,
     )
     await db.commit()
     await db.refresh(line)
@@ -592,6 +758,8 @@ async def update_playbook_line(
     existing_line, _ = await repo.get_line_with_items(line_id)
     if not existing_line:
         raise _playbook_line_not_found(line_id)
+
+    _check_can_modify_playbook(user, existing_line.tenant_id)
 
     if_match = require_if_match(request)
     ensure_if_match(getattr(existing_line, "updated_at", None), if_match)
@@ -672,6 +840,8 @@ async def delete_playbook_line(
     existing_line, _ = await repo.get_line_with_items(line_id)
     if not existing_line:
         raise _playbook_line_not_found(line_id)
+
+    _check_can_modify_playbook(user, existing_line.tenant_id)
 
     if_match = require_if_match(request)
     ensure_if_match(getattr(existing_line, "updated_at", None), if_match)
@@ -771,6 +941,8 @@ async def set_playbook_version_model_config(
     if pv is None:
         raise _playbook_version_not_found(version_id)
 
+    _check_can_modify_playbook(user, pv.tenant_id)
+
     if_match = require_if_match(request)
     ensure_if_match(getattr(pv, "updated_at", None), if_match)
 
@@ -842,6 +1014,8 @@ async def publish_playbook_version(
     if not pv:
         raise _playbook_version_not_found(version_id)
 
+    _check_can_modify_playbook(user, pv.tenant_id)
+
     service = PlaybookPublishingService(db)
 
     try:
@@ -879,6 +1053,8 @@ async def update_playbook_draft(
     pv = await repo.get_by_id(version_id)
     if not pv:
         raise _playbook_version_not_found(version_id)
+
+    _check_can_modify_playbook(user, pv.tenant_id)
 
     if_match = require_if_match(request)
     ensure_if_match(getattr(pv, "updated_at", None), if_match)
@@ -951,6 +1127,9 @@ async def diff_playbook_versions(
     if not other:
         raise _playbook_version_not_found(against)
 
+    _check_can_read_playbook(user, base.tenant_id)
+    _check_can_read_playbook(user, other.tenant_id)
+
     service = PlaybookVersionDiffService()
 
     try:
@@ -984,6 +1163,8 @@ async def archive_playbook_version(
     if not pv:
         raise _playbook_version_not_found(version_id)
 
+    _check_can_modify_playbook(user, pv.tenant_id)
+
     service = PlaybookPublishingService(db)
 
     try:
@@ -1014,6 +1195,8 @@ async def clone_playbook_version(
     if not pv:
         raise _playbook_version_not_found(version_id)
 
+    _check_can_read_playbook(user, pv.tenant_id)
+
     service = PlaybookPublishingService(db)
 
     new_version = await service.clone_to_draft(pv)
@@ -1022,5 +1205,70 @@ async def clone_playbook_version(
     await db.refresh(new_version)
 
     return new_version
+
+
+# ─── Tenant-owned playbooks catalog ───────────────────────────────────
+
+_tenant_router = APIRouter(
+    prefix="/tenants",
+    tags=["playbooks"],
+)
+
+
+@_tenant_router.get(
+    "/{tenant_id}/playbooks",
+    response_model=list[PlaybookLineShort],
+    summary="Каталог tenant-owned playbooks организации",
+)
+async def list_tenant_owned_playbooks(
+    tenant_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+    deal_type: str | None = Query(default=None),
+    jurisdiction: str | None = Query(default=None),
+    language: str | None = Query(default=None),
+):
+    """
+    Только tenant-owned playbooks (без platform).
+
+    Доступ:
+    - superadmin: любой tenant
+    - tenant_admin / member: только свой tenant
+    """
+    if user.global_role != "superadmin":
+        if user.tenant_id is None or str(user.tenant_id) != str(tenant_id):
+            raise api_error(
+                status.HTTP_403_FORBIDDEN,
+                "PLAYBOOK_TENANT_MISMATCH",
+                "Cannot list playbooks of another tenant.",
+            )
+
+    repo = PlaybookRepository(db)
+    playbooks = await repo.list_playbooks(
+        deal_type=deal_type,
+        jurisdiction=jurisdiction,
+        language=language,
+        tenant_id=tenant_id,
+        only_tenant_owned=True,
+    )
+
+    return [
+        PlaybookLineShort(
+            id=p.id,
+            code=p.code,
+            title=p.title,
+            description=p.description,
+            deal_type=p.deal_type,
+            jurisdiction=p.jurisdiction,
+            language=p.language,
+            risk_profile=p.risk_profile,
+        )
+        for p in playbooks
+    ]
+
+
+# Экспортируем второй router — регистрируем его отдельно в main.py
+router_tenant = _tenant_router
+
 
 

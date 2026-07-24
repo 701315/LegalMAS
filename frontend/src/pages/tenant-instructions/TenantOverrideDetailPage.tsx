@@ -1,11 +1,8 @@
 // src/pages/tenant-instructions/TenantOverrideDetailPage.tsx
-// Detail страница tenant-level override.
-// Показывает patch ops, статус, stale warning.
-// Действия: validate, activate, archive.
 
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import {
   useTenantOverrides,
@@ -14,11 +11,9 @@ import {
   useArchiveTenantOverride,
 } from "../../hooks/instructions/useInstructionOverrides";
 import { useAuth } from "../../hooks/useAuth";
-import InstructionPageHeader from "../../components/instructions/InstructionPageHeader";
 import OverrideStatusBadge from "../../components/instructions/OverrideStatusBadge";
 import StaleWarningBanner from "../../components/instructions/StaleWarningBanner";
 import PatchOpsEditor from "../../components/instructions/PatchOpsEditor";
-import PageSection from "../../components/ui/PageSection";
 import LoadingBlock from "../../components/ui/LoadingBlock";
 import InlineAlert from "../../components/InlineAlert";
 import Button from "../../components/ui/Button";
@@ -28,38 +23,56 @@ import type {
   JsonPatchOperation,
 } from "../../types/instructions";
 
+/* ── Helpers ────────────────────────────────────────────────── */
+
+const sectionLabel =
+  "text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]";
+
+const metaLabelCls =
+  "text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]";
+
+/* ── Meta field ─────────────────────────────────────────────── */
+
+const MetaItem: React.FC<{ label: string; value: string }> = ({
+  label,
+  value,
+}) => (
+  <div>
+    <p className={metaLabelCls}>{label}</p>
+    <p className="mt-0.5 break-all font-mono text-[10px] text-[var(--text-primary)]">
+      {value}
+    </p>
+  </div>
+);
+
+/* ── Page ───────────────────────────────────────────────────── */
+
 const TenantOverrideDetailPage: React.FC = () => {
   const { overrideId } = useParams<{ overrideId: string }>();
   const navigate = useNavigate();
 
-  // tenantId — так же как в TenantOverridesPage
   const { tenantId: authTenantId } = useAuth();
   const tenantId = authTenantId ?? "";
 
-  // Загружаем список и находим нужный override
   const { data, isLoading, isError, refetch } = useTenantOverrides(
     tenantId || null,
   );
   const override = data?.items.find((o) => o.id === overrideId) ?? null;
 
-  // Mutations
-  const validateMutation = useValidateTenantOverride();
-  const activateMutation = useActivateTenantOverride();
-  const archiveMutation = useArchiveTenantOverride();
+  const validateMut = useValidateTenantOverride();
+  const activateMut = useActivateTenantOverride();
+  const archiveMut = useArchiveTenantOverride();
 
-  // Local state
   const [validationResult, setValidationResult] =
     useState<InstructionOverrideValidationResponse | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
 
-  // Patch ops для preview (read-only на этой странице — изменение через новый draft)
   const patchOps: JsonPatchOperation[] = override?.patch_ops ?? [];
 
   const canActivate =
     override?.status === "draft" && !override?.is_stale;
-
   const canArchive =
     override?.status === "draft" || override?.status === "active";
 
@@ -67,12 +80,8 @@ const TenantOverrideDetailPage: React.FC = () => {
     if (!tenantId || !overrideId) return;
     setActionError(null);
     setValidationResult(null);
-
     try {
-      const result = await validateMutation.mutateAsync({
-        tenantId,
-        overrideId,
-      });
+      const result = await validateMut.mutateAsync({ tenantId, overrideId });
       setValidationResult(result);
     } catch {
       setActionError("Не удалось выполнить валидацию.");
@@ -83,9 +92,8 @@ const TenantOverrideDetailPage: React.FC = () => {
     if (!tenantId || !overrideId) return;
     setActionError(null);
     setActionSuccess(null);
-
     try {
-      await activateMutation.mutateAsync({ tenantId, overrideId });
+      await activateMut.mutateAsync({ tenantId, overrideId });
       setActionSuccess("Override активирован.");
       await refetch();
     } catch {
@@ -98,9 +106,8 @@ const TenantOverrideDetailPage: React.FC = () => {
   const handleArchiveConfirm = async () => {
     if (!tenantId || !overrideId) return;
     setActionError(null);
-
     try {
-      await archiveMutation.mutateAsync({ tenantId, overrideId });
+      await archiveMut.mutateAsync({ tenantId, overrideId });
       setShowArchiveDialog(false);
       setActionSuccess("Override архивирован.");
       await refetch();
@@ -110,30 +117,31 @@ const TenantOverrideDetailPage: React.FC = () => {
     }
   };
 
+  /* ── Loading ── */
   if (isLoading) {
     return (
-      <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
-        <div className="mx-auto max-w-4xl">
-          <LoadingBlock text="Загружаем override..." rows={4} />
-        </div>
+      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+        <LoadingBlock text="Загружаем override…" rows={4} />
       </div>
     );
   }
 
+  /* ── Error / not found ── */
   if (isError || (!isLoading && !override)) {
     return (
-      <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
-        <div className="mx-auto max-w-4xl space-y-3">
-          <InlineAlert
-            tone="error"
-            message="Override не найден или нет доступа."
-          />
+      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+        <div className="animate-fadein space-y-4">
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+            Override не найден или нет доступа.
+          </div>
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => navigate(-1)}
+            onClick={() =>
+              navigate("/tenant-admin/instructions/overrides")
+            }
           >
-            ← Назад
+            ← К списку overrides
           </Button>
         </div>
       </div>
@@ -142,205 +150,222 @@ const TenantOverrideDetailPage: React.FC = () => {
 
   if (!override) return null;
 
+  const baseVersionId =
+    override.global_instruction_version_id ??
+    override.instruction_version_id ??
+    null;
+
   return (
-    <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
-      <div className="mx-auto max-w-4xl space-y-4">
-        {/* Header */}
-        <InstructionPageHeader
-          breadcrumbs={[
-            { label: "Tenant Admin", to: "/tenant-admin" },
-            { label: "Инструкции", to: "/tenant-admin/instructions" },
-            {
-              label: "Overrides",
-              to: "/tenant-admin/instructions/overrides",
-            },
-            { label: override.id.slice(0, 8) + "…" },
-          ]}
-          title="Tenant Override"
-          subtitle={override.change_summary ?? override.id}
-          rightSlot={
-            <div className="flex items-center gap-2">
-              <OverrideStatusBadge
-                status={override.status}
-                isStale={override.is_stale}
-                size="sm"
+    <>
+      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+        <div className="animate-fadein space-y-6">
+          {/* Back-link */}
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/tenant-admin/instructions/overrides")
+            }
+            className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Overrides
+          </button>
+
+          {/* Header */}
+          <header className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                Tenant Override
+              </h1>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">
+                {override.change_summary ?? override.id}
+              </p>
+            </div>
+            <OverrideStatusBadge
+              status={override.status}
+              isStale={override.is_stale}
+              size="sm"
+            />
+          </header>
+
+          {/* Alerts */}
+          {actionError && (
+            <InlineAlert tone="error" message={actionError} />
+          )}
+          {actionSuccess && (
+            <InlineAlert tone="success" message={actionSuccess} />
+          )}
+
+          {/* Stale warning */}
+          {override.is_stale && <StaleWarningBanner scope="tenant" />}
+
+          {/* Meta */}
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+            <h2 className={sectionLabel}>Детали</h2>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <MetaItem label="Override ID" value={override.id} />
+              <MetaItem
+                label="Base Version"
+                value={
+                  baseVersionId
+                    ? `${baseVersionId.slice(0, 8)}…`
+                    : "—"
+                }
               />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void refetch()}
-                aria-label="Обновить"
-              >
-                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-              </Button>
+              <MetaItem
+                label="Base Hash"
+                value={`${override.base_content_hash.slice(0, 12)}…`}
+              />
             </div>
-          }
-        />
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <MetaItem
+                label="Scope"
+                value={
+                  override.global_instruction_version_id
+                    ? "Global instruction"
+                    : "Doc-type instruction"
+                }
+              />
+              <MetaItem
+                label="Patch ops"
+                value={`${patchOps.length} операций`}
+              />
+            </div>
+          </section>
 
-        {/* Messages */}
-        <InlineAlert tone="error" message={actionError} />
-        <InlineAlert tone="success" message={actionSuccess} />
+          {/* Patch ops — read only */}
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+            <h2 className={`mb-4 ${sectionLabel}`}>
+              Patch Operations
+            </h2>
+            <PatchOpsEditor
+              value={patchOps}
+              onChange={() => {
+                /* read-only — изменение через создание нового draft */
+              }}
+              disabled={true}
+              label="Текущие patch operations (RFC 6902)"
+            />
+            <p className="mt-3 text-[11px] text-[var(--text-muted)]">
+              Для изменения patch operations создайте новый override draft
+              с обновлёнными операциями.
+            </p>
+          </section>
 
-        {/* Stale warning */}
-        {override.is_stale && (
-          <StaleWarningBanner scope="tenant" />
-        )}
-
-        {/* Meta */}
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-[11px] sm:grid-cols-3">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Override ID
-            </div>
-            <div className="mt-0.5 font-mono text-[10px] text-[var(--text-primary)]">
-              {override.id}
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Base Version
-            </div>
-            <div className="mt-0.5 font-mono text-[10px] text-[var(--text-primary)]">
-              {override.global_instruction_version_id
-                ? `${override.global_instruction_version_id.slice(0, 8)}…`
-                : override.instruction_version_id
-                  ? `${override.instruction_version_id.slice(0, 8)}…`
-                  : "—"}
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Base Hash
-            </div>
-            <div className="mt-0.5 font-mono text-[10px] text-[var(--text-primary)]">
-              {override.base_content_hash.slice(0, 12)}…
-            </div>
-          </div>
-        </div>
-
-        {/* Patch ops — read only view */}
-        <PageSection title="Patch Operations">
-          <PatchOpsEditor
-            value={patchOps}
-            onChange={() => {
-              // Read-only на этой странице.
-              // Изменение patch_ops — через создание нового override draft.
-            }}
-            disabled={true}
-            label="Текущие patch operations (RFC 6902)"
-          />
-          <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-            Для изменения patch operations создайте новый override draft
-            с обновлёнными операциями.
-          </p>
-        </PageSection>
-
-        {/* Validation */}
-        {override.status === "draft" && (
-          <PageSection title="Валидация">
-            <div className="space-y-3">
-              {validationResult && (
-                <div
-                  className={[
-                    "rounded-xl border px-4 py-3",
-                    validationResult.is_valid
-                      ? "border-[color:var(--color-success-border)] bg-[color:var(--color-success-bg)]"
-                      : "border-[#dc2626]/30 bg-[#fef2f2]",
-                  ].join(" ")}
-                >
+          {/* Validation */}
+          {override.status === "draft" && (
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+              <h2 className={`mb-4 ${sectionLabel}`}>Валидация</h2>
+              <div className="space-y-3">
+                {validationResult && (
                   <div
                     className={[
-                      "text-xs font-semibold",
+                      "rounded-xl border p-4",
                       validationResult.is_valid
-                        ? "text-[color:var(--color-success-text)]"
-                        : "text-[#b91c1c]",
+                        ? "border-emerald-200 bg-emerald-50"
+                        : "border-rose-200 bg-rose-50",
                     ].join(" ")}
                   >
-                    {validationResult.is_valid
-                      ? "Валидация успешна"
-                      : "Валидация не прошла"}
+                    <p
+                      className={[
+                        "text-xs font-semibold",
+                        validationResult.is_valid
+                          ? "text-emerald-700"
+                          : "text-rose-700",
+                      ].join(" ")}
+                    >
+                      {validationResult.is_valid
+                        ? "Валидация успешна"
+                        : "Валидация не прошла"}
+                    </p>
+                    {validationResult.errors.length > 0 && (
+                      <ul className="mt-2 space-y-1">
+                        {validationResult.errors.map((e, i) => (
+                          <li
+                            key={i}
+                            className="text-[11px] text-rose-700"
+                          >
+                            • {e}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {validationResult.checks_count != null && (
+                      <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+                        Checks: {validationResult.checks_count}
+                      </p>
+                    )}
                   </div>
-                  {validationResult.errors.length > 0 && (
-                    <ul className="mt-2 space-y-1">
-                      {validationResult.errors.map((e, i) => (
-                        <li
-                          key={i}
-                          className="text-[11px] text-[#b91c1c]"
-                        >
-                          • {e}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {validationResult.checks_count != null && (
-                    <div className="mt-1 text-[11px] text-[var(--text-muted)]">
-                      Checks: {validationResult.checks_count}
-                    </div>
-                  )}
-                </div>
+                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void handleValidate()}
+                  isLoading={validateMut.isPending}
+                  disabled={validateMut.isPending}
+                >
+                  Валидировать
+                </Button>
+              </div>
+            </section>
+          )}
+
+          {/* Actions */}
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+            <h2 className={`mb-4 ${sectionLabel}`}>Действия</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              {canActivate && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void handleActivate()}
+                  isLoading={activateMut.isPending}
+                  disabled={activateMut.isPending}
+                >
+                  Активировать
+                </Button>
               )}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void handleValidate()}
-                isLoading={validateMutation.isPending}
-                disabled={validateMutation.isPending}
-              >
-                Валидировать
-              </Button>
+
+              {override.is_stale && override.status === "draft" && (
+                <p className="text-[11px] text-rose-600">
+                  Нельзя активировать stale override — создайте новый.
+                </p>
+              )}
+
+              {canArchive && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setShowArchiveDialog(true)}
+                  disabled={
+                    archiveMut.isPending || activateMut.isPending
+                  }
+                >
+                  Архивировать
+                </Button>
+              )}
+
+              {override.status === "archived" && (
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  Override архивирован. Создайте новый при необходимости.
+                </p>
+              )}
             </div>
-          </PageSection>
-        )}
-
-        {/* Actions */}
-        <PageSection title="Действия">
-          <div className="flex items-center gap-2 flex-wrap">
-            {canActivate && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => void handleActivate()}
-                isLoading={activateMutation.isPending}
-                disabled={activateMutation.isPending}
-              >
-                Активировать
-              </Button>
-            )}
-
-            {override.is_stale && override.status === "draft" && (
-              <p className="text-[11px] text-[#b91c1c]">
-                Нельзя активировать stale override.
-              </p>
-            )}
-
-            {canArchive && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => setShowArchiveDialog(true)}
-                disabled={
-                  archiveMutation.isPending || activateMutation.isPending
-                }
-              >
-                Архивировать
-              </Button>
-            )}
-          </div>
-        </PageSection>
+          </section>
+        </div>
       </div>
 
-      {/* Archive confirm */}
       <ConfirmDialog
         open={showArchiveDialog}
         title="Архивировать override?"
         description="Override будет архивирован и перестанет применяться. Это действие нельзя отменить."
         confirmLabel="Архивировать"
         cancelLabel="Отмена"
-        isConfirming={archiveMutation.isPending}
+        isConfirming={archiveMut.isPending}
         onConfirm={() => void handleArchiveConfirm()}
         onCancel={() => setShowArchiveDialog(false)}
       />
-    </div>
+    </>
   );
 };
 

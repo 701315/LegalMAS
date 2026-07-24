@@ -1,5 +1,8 @@
+// src/pages/tenant-instructions/TenantOverrideCreatePage.tsx
+
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 import { useAuth } from "../../hooks/useAuth";
 import {
@@ -15,14 +18,14 @@ import {
   useGlobalInstructionVersions,
 } from "../../hooks/instructions/useGlobalInstructions";
 
-import InstructionPageHeader from "../../components/instructions/InstructionPageHeader";
 import PatchOpsEditor from "../../components/instructions/PatchOpsEditor";
-import PageSection from "../../components/ui/PageSection";
 import LoadingBlock from "../../components/ui/LoadingBlock";
 import EmptyState from "../../components/ui/EmptyState";
 import InlineAlert from "../../components/InlineAlert";
 import Button from "../../components/ui/Button";
 import type { JsonPatchOperation } from "../../types/instructions";
+
+/* ── Helpers ────────────────────────────────────────────────── */
 
 type OverrideKind = "doc-type" | "global";
 
@@ -34,10 +37,7 @@ type VersionLike = {
 };
 
 function normalizeVersions(input: unknown): VersionLike[] {
-  if (Array.isArray(input)) {
-    return input as VersionLike[];
-  }
-
+  if (Array.isArray(input)) return input as VersionLike[];
   if (
     typeof input === "object" &&
     input !== null &&
@@ -46,15 +46,19 @@ function normalizeVersions(input: unknown): VersionLike[] {
   ) {
     return (input as { items: VersionLike[] }).items;
   }
-
   return [];
 }
+
+const inputClassName =
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const selectClassName =
   "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
 
-const inputClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
+const sectionLabel =
+  "text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]";
+
+/* ── Page ───────────────────────────────────────────────────── */
 
 const TenantOverrideCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -69,9 +73,10 @@ const TenantOverrideCreatePage: React.FC = () => {
   const [patchOps, setPatchOps] = useState<JsonPatchOperation[]>([]);
   const [errorText, setErrorText] = useState<string | null>(null);
 
-  const createDocTypeOverrideMutation = useCreateTenantOverrideDraft();
-  const createGlobalOverrideMutation = useCreateTenantGlobalOverrideDraft();
+  const createDocTypeMut = useCreateTenantOverrideDraft();
+  const createGlobalMut = useCreateTenantGlobalOverrideDraft();
 
+  /* catalogs */
   const {
     data: docTypeCatalog,
     isLoading: isDocTypeCatalogLoading,
@@ -87,25 +92,25 @@ const TenantOverrideCreatePage: React.FC = () => {
   const docTypeCatalogItems = docTypeCatalog?.items ?? [];
   const globalCatalogItems = globalCatalog?.items ?? [];
 
-  const {
-    data: docTypeVersionsData,
-    isLoading: isDocTypeVersionsLoading,
-  } = useDocTypeVersions(kind === "doc-type" && selectedDocTypeCode ? selectedDocTypeCode : null);
+  /* versions */
+  const { data: docTypeVersionsData, isLoading: isDocTypeVersionsLoading } =
+    useDocTypeVersions(
+      kind === "doc-type" && selectedDocTypeCode
+        ? selectedDocTypeCode
+        : null,
+    );
 
-  const {
-    data: globalVersionsData,
-    isLoading: isGlobalVersionsLoading,
-  } = useGlobalInstructionVersions(
-    kind === "global" && selectedGlobalInstructionCode
-      ? selectedGlobalInstructionCode
-      : null,
-  );
+  const { data: globalVersionsData, isLoading: isGlobalVersionsLoading } =
+    useGlobalInstructionVersions(
+      kind === "global" && selectedGlobalInstructionCode
+        ? selectedGlobalInstructionCode
+        : null,
+    );
 
   const docTypeVersions = useMemo(
     () => normalizeVersions(docTypeVersionsData),
     [docTypeVersionsData],
   );
-
   const globalVersions = useMemo(
     () => normalizeVersions(globalVersionsData),
     [globalVersionsData],
@@ -115,12 +120,12 @@ const TenantOverrideCreatePage: React.FC = () => {
     () => docTypeVersions.filter((v) => v.status === "published"),
     [docTypeVersions],
   );
-
   const availableGlobalBaseVersions = useMemo(
     () => globalVersions.filter((v) => v.status === "published"),
     [globalVersions],
   );
 
+  /* auto-select first catalog item */
   useEffect(() => {
     if (kind === "doc-type") {
       if (!selectedDocTypeCode && docTypeCatalogItems.length > 0) {
@@ -128,7 +133,9 @@ const TenantOverrideCreatePage: React.FC = () => {
       }
     } else {
       if (!selectedGlobalInstructionCode && globalCatalogItems.length > 0) {
-        setSelectedGlobalInstructionCode(globalCatalogItems[0].instruction_code);
+        setSelectedGlobalInstructionCode(
+          globalCatalogItems[0].instruction_code,
+        );
       }
     }
   }, [
@@ -139,6 +146,7 @@ const TenantOverrideCreatePage: React.FC = () => {
     globalCatalogItems,
   ]);
 
+  /* auto-select first published version */
   useEffect(() => {
     if (kind === "doc-type") {
       setSelectedBaseVersionId(
@@ -155,85 +163,15 @@ const TenantOverrideCreatePage: React.FC = () => {
     }
   }, [kind, availableDocTypeBaseVersions, availableGlobalBaseVersions]);
 
+  /* derived */
   const isSubmitting =
-    createDocTypeOverrideMutation.isPending ||
-    createGlobalOverrideMutation.isPending;
+    createDocTypeMut.isPending || createGlobalMut.isPending;
 
   const canSubmit =
     !!tenantId &&
     !!selectedBaseVersionId &&
     patchOps.length > 0 &&
     !isSubmitting;
-
-  const handleSubmit = async () => {
-    if (!tenantId) {
-      setErrorText(
-        "Не удалось определить tenant пользователя. Выйдите и войдите снова.",
-      );
-      return;
-    }
-
-    if (!selectedBaseVersionId) {
-      setErrorText("Выберите базовую published-версию инструкции.");
-      return;
-    }
-
-    if (patchOps.length === 0) {
-      setErrorText("Добавьте хотя бы одну JSON Patch операцию.");
-      return;
-    }
-
-    setErrorText(null);
-
-    try {
-      if (kind === "doc-type") {
-        const result = await createDocTypeOverrideMutation.mutateAsync({
-          tenantId,
-          body: {
-            instruction_version_id: selectedBaseVersionId,
-            patch_ops: patchOps,
-            change_summary: changeSummary.trim() || null,
-          },
-        });
-
-        const createdId =
-          (result as { item?: { id?: string }; id?: string }).item?.id ??
-          (result as { id?: string }).id;
-
-        if (!createdId) {
-          throw new Error("Backend did not return created override id.");
-        }
-
-        navigate(`/tenant-admin/instructions/overrides/${createdId}`);
-        return;
-      }
-
-      const result = await createGlobalOverrideMutation.mutateAsync({
-        tenantId,
-        body: {
-          global_instruction_version_id: selectedBaseVersionId,
-          patch_ops: patchOps,
-          change_summary: changeSummary.trim() || null,
-        },
-      });
-
-      const createdId =
-        (result as { item?: { id?: string }; id?: string }).item?.id ??
-        (result as { id?: string }).id;
-
-      if (!createdId) {
-        throw new Error("Backend did not return created override id.");
-      }
-
-      navigate(`/tenant-admin/instructions/overrides/${createdId}`);
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Не удалось создать override draft.";
-      setErrorText(message);
-    }
-  };
 
   const baseVersions =
     kind === "doc-type"
@@ -242,40 +180,114 @@ const TenantOverrideCreatePage: React.FC = () => {
 
   const isCatalogLoading =
     kind === "doc-type" ? isDocTypeCatalogLoading : isGlobalCatalogLoading;
-
   const isVersionsLoading =
     kind === "doc-type" ? isDocTypeVersionsLoading : isGlobalVersionsLoading;
-
   const hasCatalogError =
     kind === "doc-type" ? isDocTypeCatalogError : isGlobalCatalogError;
 
+  /* submit */
+  const handleSubmit = async () => {
+    if (!tenantId) {
+      setErrorText("Не удалось определить tenant. Выйдите и войдите снова.");
+      return;
+    }
+    if (!selectedBaseVersionId) {
+      setErrorText("Выберите базовую published-версию инструкции.");
+      return;
+    }
+    if (patchOps.length === 0) {
+      setErrorText("Добавьте хотя бы одну JSON Patch операцию.");
+      return;
+    }
+
+    setErrorText(null);
+
+    try {
+      let createdId: string | undefined;
+
+      if (kind === "doc-type") {
+        const result = await createDocTypeMut.mutateAsync({
+          tenantId,
+          body: {
+            instruction_version_id: selectedBaseVersionId,
+            patch_ops: patchOps,
+            change_summary: changeSummary.trim() || null,
+          },
+        });
+        createdId =
+          (result as { item?: { id?: string }; id?: string }).item?.id ??
+          (result as { id?: string }).id;
+      } else {
+        const result = await createGlobalMut.mutateAsync({
+          tenantId,
+          body: {
+            global_instruction_version_id: selectedBaseVersionId,
+            patch_ops: patchOps,
+            change_summary: changeSummary.trim() || null,
+          },
+        });
+        createdId =
+          (result as { item?: { id?: string }; id?: string }).item?.id ??
+          (result as { id?: string }).id;
+      }
+
+      if (!createdId) {
+        throw new Error("Backend did not return created override id.");
+      }
+
+      navigate(`/tenant-admin/instructions/overrides/${createdId}`);
+    } catch (err) {
+      setErrorText(
+        err instanceof Error
+          ? err.message
+          : "Не удалось создать override draft.",
+      );
+    }
+  };
+
   return (
-    <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
-      <div className="mx-auto max-w-4xl space-y-4">
-        <InstructionPageHeader
-          breadcrumbs={[
-            { label: "Tenant Admin", to: "/tenant-admin" },
-            { label: "Инструкции", to: "/tenant-admin/instructions" },
-            { label: "Overrides", to: "/tenant-admin/instructions/overrides" },
-            { label: "Новый override" },
-          ]}
-          title="Создать Tenant Override"
-          subtitle="Создайте draft override поверх published-версии базовой инструкции."
-          rightSlot={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => navigate("/tenant-admin/instructions/overrides")}
-            >
-              Отмена
-            </Button>
-          }
-        />
+    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+      <div className="animate-fadein space-y-6">
+        {/* Back-link */}
+        <button
+          type="button"
+          onClick={() => navigate("/tenant-admin/instructions/overrides")}
+          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Overrides
+        </button>
 
-        <InlineAlert tone="error" message={errorText} />
+        {/* Header */}
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+              Создать Tenant Override
+            </h1>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Создайте draft override поверх published-версии базовой инструкции
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              navigate("/tenant-admin/instructions/overrides")
+            }
+          >
+            Отмена
+          </Button>
+        </header>
 
-        <PageSection title="Базовая инструкция">
-          <div className="space-y-4">
+        {/* Error alert */}
+        {errorText && <InlineAlert tone="error" message={errorText} />}
+
+        {/* Section: Base instruction */}
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+          <h2 className={sectionLabel}>Базовая инструкция</h2>
+
+          <div className="mt-4 space-y-4">
+            {/* Kind toggle */}
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]">
                 <input
@@ -287,7 +299,6 @@ const TenantOverrideCreatePage: React.FC = () => {
                 />
                 Doc-Type instruction
               </label>
-
               <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]">
                 <input
                   type="radio"
@@ -300,60 +311,69 @@ const TenantOverrideCreatePage: React.FC = () => {
               </label>
             </div>
 
+            {/* Catalog selector */}
             {isCatalogLoading ? (
-              <LoadingBlock text="Загружаем каталог базовых инструкций..." rows={3} />
+              <LoadingBlock
+                text="Загружаем каталог базовых инструкций…"
+                rows={3}
+              />
             ) : hasCatalogError ? (
               <InlineAlert
                 tone="error"
                 message="Не удалось загрузить каталог базовых инструкций."
               />
             ) : kind === "doc-type" ? (
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                    Тип документа
-                  </label>
-                  <select
-                    className={selectClassName}
-                    value={selectedDocTypeCode}
-                    onChange={(e) => setSelectedDocTypeCode(e.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    {docTypeCatalogItems.map((item) => (
-                      <option key={item.doc_type_code} value={item.doc_type_code}>
-                        {item.name} ({item.doc_type_code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className={`mb-1 block ${sectionLabel}`}>
+                  Тип документа
+                </label>
+                <select
+                  className={selectClassName}
+                  value={selectedDocTypeCode}
+                  onChange={(e) => setSelectedDocTypeCode(e.target.value)}
+                  disabled={isSubmitting}
+                >
+                  {docTypeCatalogItems.map((item) => (
+                    <option
+                      key={item.doc_type_code}
+                      value={item.doc_type_code}
+                    >
+                      {item.name} ({item.doc_type_code})
+                    </option>
+                  ))}
+                </select>
               </div>
             ) : (
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                    Global instruction
-                  </label>
-                  <select
-                    className={selectClassName}
-                    value={selectedGlobalInstructionCode}
-                    onChange={(e) => setSelectedGlobalInstructionCode(e.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    {globalCatalogItems.map((item) => (
-                      <option
-                        key={item.instruction_code}
-                        value={item.instruction_code}
-                      >
-                        {item.name} ({item.instruction_code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className={`mb-1 block ${sectionLabel}`}>
+                  Global instruction
+                </label>
+                <select
+                  className={selectClassName}
+                  value={selectedGlobalInstructionCode}
+                  onChange={(e) =>
+                    setSelectedGlobalInstructionCode(e.target.value)
+                  }
+                  disabled={isSubmitting}
+                >
+                  {globalCatalogItems.map((item) => (
+                    <option
+                      key={item.instruction_code}
+                      value={item.instruction_code}
+                    >
+                      {item.name} ({item.instruction_code})
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 
+            {/* Version selector */}
             {isVersionsLoading ? (
-              <LoadingBlock text="Загружаем published-версии..." rows={3} />
+              <LoadingBlock
+                text="Загружаем published-версии…"
+                rows={2}
+              />
             ) : baseVersions.length === 0 ? (
               <EmptyState
                 title="Published-версии не найдены"
@@ -361,7 +381,7 @@ const TenantOverrideCreatePage: React.FC = () => {
               />
             ) : (
               <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                <label className={`mb-1 block ${sectionLabel}`}>
                   Published base version
                 </label>
                 <select
@@ -380,11 +400,13 @@ const TenantOverrideCreatePage: React.FC = () => {
               </div>
             )}
           </div>
-        </PageSection>
+        </section>
 
-        <PageSection title="Override metadata">
-          <div>
-            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+        {/* Section: Metadata */}
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+          <h2 className={sectionLabel}>Метаданные</h2>
+          <div className="mt-4">
+            <label className={`mb-1 block ${sectionLabel}`}>
               Change summary
             </label>
             <input
@@ -396,22 +418,27 @@ const TenantOverrideCreatePage: React.FC = () => {
               placeholder="Например: ослабить порог warning, добавить tenant-specific wording"
             />
           </div>
-        </PageSection>
+        </section>
 
-        <PageSection title="JSON Patch operations">
+        {/* Section: Patch Ops */}
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+          <h2 className={`mb-4 ${sectionLabel}`}>JSON Patch Operations</h2>
           <PatchOpsEditor
             value={patchOps}
             onChange={setPatchOps}
             disabled={isSubmitting}
             label="RFC 6902 patch operations"
           />
-        </PageSection>
+        </section>
 
-        <div className="flex items-center justify-end gap-2">
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-3">
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => navigate("/tenant-admin/instructions/overrides")}
+            onClick={() =>
+              navigate("/tenant-admin/instructions/overrides")
+            }
             disabled={isSubmitting}
           >
             Отмена

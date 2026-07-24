@@ -53,6 +53,7 @@ from .endpoints import (
     admin,
     audit,
     auth,
+    base_instructions,
     classifier,
     deal_review,
     document_chunk_exports,
@@ -80,7 +81,6 @@ from .endpoints.provenance import router as provenance_router
 from .endpoints.tenant_admin import router as tenant_admin_router
 from .middleware.audit import AuditMiddleware
 from api.endpoints.global_instruction_versions import router as global_instruction_router
-from api.endpoints.instruction_sync import router as instruction_sync_router
 
 
 setup_logging()
@@ -284,9 +284,13 @@ app.include_router(project_members.router, prefix="/api/v1")
 
 # Плейбуки.
 app.include_router(playbooks.router, prefix="/api/v1")
+app.include_router(playbooks.router_tenant, prefix="/api/v1")
 
 # Global instruction facade over playbook domain.
 app.include_router(instructions_global.router, prefix="/api/v1")
+
+# Read-only base instruction catalogs — tenant_admin / member safe.
+app.include_router(base_instructions.router, prefix="/api/v1")
 
 # Типы документов.
 app.include_router(document_types.router, prefix="/api/v1")
@@ -318,8 +322,6 @@ app.include_router(audit.router, prefix="/api/v1")
 # Global instruction versions lifecycle API.
 app.include_router(global_instruction_router, prefix="/api/v1")
 
-# Sync API для платформенных инструкций (superadmin only).
-app.include_router(instruction_sync_router, prefix="/api/v1")
 
 # ---------------------------------------------------------------------------
 # Шаг 2: FastAPI instrumentation подключаем ПОСЛЕ всех middleware и routers,
