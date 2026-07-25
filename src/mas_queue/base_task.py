@@ -917,6 +917,7 @@ class MASBaseTask(Task):
     ) -> None:
         """Подготовить и записать событие в DLQ."""
         raw_job_id = kwargs.get("job_id")
+        raw_tenant_id = kwargs.get("tenant_id")
         source_task_id = getattr(self.request, "id", None)
         retry_count = int(getattr(self.request, "retries", 0) or 0)
 
@@ -936,6 +937,31 @@ class MASBaseTask(Task):
                     error=str(parse_exc),
                 )
 
+        tenant_id: uuid.UUID | None = None
+        if raw_tenant_id is not None:
+            try:
+                tenant_id = (
+                    raw_tenant_id
+                    if isinstance(raw_tenant_id, uuid.UUID)
+                    else uuid.UUID(str(raw_tenant_id))
+                )
+            except (ValueError, TypeError) as parse_exc:
+                logger.warning(
+                    "Failed to parse tenant_id for DLQ",
+                    task_name=self.name,
+                    raw_tenant_id=str(raw_tenant_id),
+                    error=str(parse_exc),
+                )
+
+        if tenant_id is None:
+            logger.critical(
+                "DLQ write skipped: tenant_id could not be resolved from task kwargs",
+                task_name=self.name,
+                source_task_id=source_task_id,
+                task_kwargs_keys=sorted(kwargs.keys()),
+            )
+            return
+
         dedupe_parts = [task_type, failure_type]
         if job_id:
             dedupe_parts.append(str(job_id))
@@ -945,6 +971,7 @@ class MASBaseTask(Task):
             run_async(
                 self._async_send_to_dlq(
                     job_id=job_id,
+                    tenant_id=tenant_id,
                     task_type=task_type,
                     failure_type=failure_type,
                     error_details=error_details,
@@ -967,6 +994,7 @@ class MASBaseTask(Task):
     @staticmethod
     async def _async_send_to_dlq(
         job_id: uuid.UUID | None,
+        tenant_id: uuid.UUID,
         task_type: str,
         failure_type: str,
         error_details: dict[str, Any],
@@ -983,6 +1011,7 @@ class MASBaseTask(Task):
                 task_type=task_type,
                 failure_type=failure_type,
                 job_id=job_id,
+                tenant_id=tenant_id,
                 source_task_id=source_task_id,
                 dedupe_key=dedupe_key,
                 error_details=error_details,

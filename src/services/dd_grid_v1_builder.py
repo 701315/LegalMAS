@@ -552,24 +552,64 @@ def _extract_raw_value(field_payload: Any) -> Any:
     return field_payload
 
 
+_PAGE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"стр\.?\s*(\d+)", re.IGNORECASE),
+    re.compile(r"страниц[аеы]?\s*(\d+)", re.IGNORECASE),
+    re.compile(r"page\s*(\d+)", re.IGNORECASE),
+    re.compile(r"p\.?\s*(\d+)", re.IGNORECASE),
+)
+
+# НОВОЕ: Паттерны для извлечения номера пункта/статьи из текста результата
+_CLAUSE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"[Пп]унк[тте]\s*(\d+(?:\.\d+)?)", re.IGNORECASE),
+    re.compile(r"[Пп]\.?\s*(\d+(?:\.\d+)?)", re.IGNORECASE),
+    re.compile(r"ст\.?\s*(\d+(?:\.\d+)?)", re.IGNORECASE),
+    re.compile(r"clause\s+(\d+(?:\.\d+)?)", re.IGNORECASE),
+)
+
+
 def _extract_location_bundle(
     field_payload: Any,
 ) -> tuple[str | None, int | None, str | None, bool, str | None]:
     """
     Извлечь location / location_fallback из field payload.
-
-    Returns:
-        (
-            location_clause_ref,
-            location_page,
-            location_confidence,
-            has_location_fallback,
-            location_fallback_reason,
-        )
+    Поддерживает как строгие структуры (dict), так и простые строки (str).
     """
+    
+    # --- Сценарий 1: Payload — это сразу строка (частый случай для LLM) ---
+    if isinstance(field_payload, str):
+        search_text = field_payload.strip()
+        if search_text:
+            extracted_page = None
+            extracted_clause = None
+
+            for pattern in _PAGE_PATTERNS:
+                match = pattern.search(search_text)
+                if match:
+                    extracted_page = _safe_int_or_none(match.group(1))
+                    break
+
+            for pattern in _CLAUSE_PATTERNS:
+                match = pattern.search(search_text)
+                if match:
+                    extracted_clause = f"п. {match.group(1)}"
+                    break
+
+            if extracted_page is not None or extracted_clause is not None:
+                return (
+                    extracted_clause,
+                    extracted_page,
+                    "low",
+                    True,
+                    "Извлечено из текста результата (эвристика)",
+                )
+        return None, None, None, False, None
+
+    # --- Сценарий 2: Payload — это словарь ---
     if not isinstance(field_payload, dict):
         return None, None, None, False, None
 
+    # 2.1. Строгий парсинг: ищем явный объект "location"
     location = field_payload.get("location")
     if isinstance(location, dict):
         return (
@@ -580,6 +620,7 @@ def _extract_location_bundle(
             None,
         )
 
+    # 2.2. Строгий парсинг: ищем явный объект "location_fallback"
     fallback = field_payload.get("location_fallback")
     if isinstance(fallback, dict):
         return (
@@ -590,7 +631,37 @@ def _extract_location_bundle(
             _safe_str_or_none(fallback.get("reason")),
         )
 
+    # 2.3. СПАСАТЕЛЬНЫЙ FALLBACK: ищем текст внутри ключа "value"
+    raw_text = field_payload.get("value")
+    if isinstance(raw_text, str) and raw_text.strip():
+        search_text = raw_text.strip()
+        extracted_page = None
+        extracted_clause = None
+
+        for pattern in _PAGE_PATTERNS:
+            match = pattern.search(search_text)
+            if match:
+                extracted_page = _safe_int_or_none(match.group(1))
+                break
+
+        for pattern in _CLAUSE_PATTERNS:
+            match = pattern.search(search_text)
+            if match:
+                extracted_clause = f"п. {match.group(1)}"
+                break
+
+        if extracted_page is not None or extracted_clause is not None:
+            return (
+                extracted_clause,
+                extracted_page,
+                "low",
+                True,
+                "Извлечено из текста результата (эвристика)",
+            )
+
+    # 4. Ничего не найдено
     return None, None, None, False, None
+
 
 _DETECTOR_TO_AGENT_NAME: dict[str, str] = {
     "rules": "RulesDetector",
@@ -885,8 +956,41 @@ def _build_cell_value(
     doc_type: str | None,
     check_result: dict[str, Any] | None,
     column: DDGridColumnRuntime,
+    plan_info: dict[str, Any] | None = None,  # <--- ДОБАВЛЕНО
 ) -> CellValueDTO:
     """Построить CellValueDTO для одной runtime-колонки."""
+
+    # НОВОЕ: Обработка случая, когда проверка была запланирована, но результата ещё нет
+    if check_result is None:
+        if plan_info:
+            status = str(plan_info.get("status", "")).lower()
+            if status in ("planned", "dispatched"):
+                cell_state = "not_executed"
+                display_value = "Ожидает выполнения"
+            elif status == "started":
+                cell_state = "not_executed"
+                display_value = "Выполняется"
+            elif status in ("failed", "timeout", "cancelled"):
+                cell_state = "error"
+                display_value = "Ошибка при выполнении"
+            else:
+                cell_state = "not_defined"
+                display_value = "Результат не определён"
+        else:
+            cell_state = "not_defined"
+            display_value = "Результат не определён"
+
+        return CellValueDTO(
+            cell_state=cell_state,
+            display_value=display_value,
+            raw_value=None,
+            location_clause_ref=None,
+            location_page=None,
+            location_confidence=None,
+            has_location_fallback=False,
+            location_fallback_reason=None,
+        )
+
     structured_data = _normalize_structured_data(
         check.id,
         check_result.get("structured_data") if check_result else None,
@@ -924,6 +1028,30 @@ def _build_cell_value(
         has_location_fallback,
         location_fallback_reason,
     ) = _extract_location_bundle(location_payload)
+
+    # ========================================================================
+    # FALLBACK: Если location не найден в structured_data, ищем в display_text
+    # ========================================================================
+    if not location_clause_ref and location_page is None:
+        display_text = _safe_str_or_none(check_result.get("display_text")) if check_result else None
+        if display_text:
+            for pattern in _PAGE_PATTERNS:
+                match = pattern.search(display_text)
+                if match:
+                    location_page = _safe_int_or_none(match.group(1))
+                    break
+            
+            for pattern in _CLAUSE_PATTERNS:
+                match = pattern.search(display_text)
+                if match:
+                    location_clause_ref = f"п. {match.group(1)}"
+                    break
+            
+            if location_page is not None or location_clause_ref:
+                has_location_fallback = True
+                location_confidence = "low"
+                location_fallback_reason = "Извлечено из display_text (эвристика)"
+    # ========================================================================
 
     (
         location_clause_ref,
@@ -1103,8 +1231,72 @@ def _build_drawer_content(
     check_result: dict[str, Any] | None,
     subgroup: CheckSubgroupDTO,
     column_cells: list[tuple[DDGridColumnRuntime, CellValueDTO]],
+    plan_info: dict[str, Any] | None = None,  # <--- ДОБАВЛЕНО
 ) -> DrawerContentDTO:
     """Построить drawer content для одного (document, check)."""
+
+    # НОВОЕ: Ранний возврат, если проверка запланирована, но результата нет
+    if check_result is None:
+        status = str(plan_info.get("status", "")).lower() if plan_info else "unknown"
+        execution_status_api = "SKIPPED"
+        
+        if status in ("planned", "dispatched"):
+            reason = "Проверка запланирована и ожидает выполнения."
+        elif status == "started":
+            reason = "Проверка выполняется в данный момент."
+            execution_status_api = "IN_PROGRESS"
+        elif status in ("failed", "timeout", "cancelled"):
+            err_details = plan_info.get("error_details") if plan_info else None
+            reason = f"Ошибка при выполнении проверки: {err_details or 'Неизвестная ошибка'}"
+            execution_status_api = "FAILED"
+        else:
+            reason = "Результат не определён."
+
+        # Собираем field_details для совместимости интерфейса
+        field_details: list[DrawerFieldDTO] = [
+            DrawerFieldDTO(
+                column_id=col.column_id,
+                field_name=col.value_field or col.status_field or "",
+                label=col.label,
+                cell_state=cell.cell_state,
+                display_value=cell.display_value,
+                raw_value=cell.raw_value,
+                location_clause_ref=cell.location_clause_ref,
+                location_page=cell.location_page,
+                location_confidence=cell.location_confidence,
+                has_location_fallback=cell.has_location_fallback,
+                location_fallback_reason=cell.location_fallback_reason,
+            )
+            for col, cell in column_cells
+        ]
+
+        return DrawerContentDTO(
+            check_id=check.id,
+            check_name=check.name,
+            document_id=doc_id,
+            cell_state=_combine_column_states([cell.cell_state for _, cell in column_cells]),
+            reason=reason,
+            review_status=None,
+            review_message=None,
+            display_text=None,
+            execution_status=execution_status_api,
+            detection_level=None,
+            confidence=None,
+            quality_flags=None,
+            qc_status=None,
+            qc_by=None,
+            qc_at=None,
+            qc_comment=None,
+            agent_name=None,
+            model_version=None,
+            execution_time_ms=None,
+            retry_attempts=None,
+            input_tokens=None,
+            output_tokens=None,
+            fields=field_details,
+            evidence_items=[],
+        )
+
     structured_data = _normalize_structured_data(
         check.id,
         check_result.get("structured_data") if check_result else None,
@@ -1309,6 +1501,21 @@ def _result_rank(result_row: dict[str, Any]) -> tuple[int, int, float]:
         float(result_row.get("confidence") or 0.0),
     )
 
+def _build_plan_index(plan_items: list[Any]) -> dict[tuple[str, str], dict[str, Any]]:
+    """
+    Построить индекс запланированных проверок по ключу (document_id, check_id).
+    Source of truth: если записи нет в индексе, проверка не планировалась для этого документа.
+    """
+    plan_index: dict[tuple[str, str], dict[str, Any]] = {}
+    for item in plan_items:
+        doc_id = str(item.document_id)
+        check_id = str(item.check_id)
+        plan_index[(doc_id, check_id)] = {
+            "plan_item_id": str(item.id),
+            "status": str(item.status),
+            "error_details": item.error_details,
+        }
+    return plan_index
 
 def _build_result_index(check_results: list[dict[str, Any]]) -> dict[tuple[str, str], dict[str, Any]]:
     """
@@ -1494,6 +1701,7 @@ def build_dd_grid_v1(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     registry: YAMLRegistry,
+    plan_items: list[Any],  # <--- ДОБАВЛЕНО (list[RunCheckPlanItem])
 ) -> DDGridV1Data:
     """
     Построить полную структуру DD Grid V1.
@@ -1520,6 +1728,7 @@ def build_dd_grid_v1(
 
     column_registry, check_subgroups = _build_column_registry(checks)
     result_index = _build_result_index(check_results)
+    plan_index = _build_plan_index(plan_items)  # <--- ДОБАВЛЕНО
     documents_meta = _build_documents_meta(documents)
 
     present_doc_types: set[str] = set()
@@ -1550,6 +1759,12 @@ def build_dd_grid_v1(
         drawer_contents[str(document_id)] = {}
 
         for check in grid_checks:
+            # КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
+            # Показываем строку ТОЛЬКО если проверка была запланирована для этого документа.
+            plan_info = plan_index.get((str(document_id), check.id))
+            if plan_info is None:
+                continue  # Проверка не планировалась, строку не создаём вообще
+
             subgroup = check_subgroups[check.id]
             check_result = result_index.get((str(document_id), check.id))
 
@@ -1560,6 +1775,7 @@ def build_dd_grid_v1(
                     doc_type=doc_type,
                     check_result=check_result,
                     column=column,
+                    plan_info=plan_info,  # <--- ДОБАВЛЕНО
                 )
                 cell_values[str(document_id)][column.column_id] = cell
                 column_cells.append((column, cell))
@@ -1570,6 +1786,7 @@ def build_dd_grid_v1(
                 check_result=check_result,
                 subgroup=subgroup,
                 column_cells=column_cells,
+                plan_info=plan_info,  # <--- ДОБАВЛЕНО
             )
 
     logger.info(

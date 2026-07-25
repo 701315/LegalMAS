@@ -1,9 +1,13 @@
 // =============================================================
 // src/types/playbooks.ts
 // Типы для playbooks и model configs.
+// Синхронизированы с backend api/schemas/playbooks.py
 // =============================================================
 
-/** Логический плейбук (Playbook) — шаблон/продукт на странице выбора. */
+/**
+ * Логический плейбук (Playbook) — шаблон/продукт.
+ * Идентичен PlaybookLineShort.
+ */
 export interface PlaybookLine {
   id: string;
   code: string;
@@ -20,16 +24,18 @@ export interface PlaybookVersionShort {
   id: string;
   name: string;
   semver: string;
-  status: string;
+  /** Lifecycle: draft | published | archived */
+  status: "draft" | "published" | "archived";
   playbook_id?: string | null;
 }
 
-/** Детальная информация о версии плейбука (для просмотра состава). */
+/** Детальная информация о версии плейбука. */
 export interface PlaybookVersionDetail {
   id: string;
   name: string;
   semver: string;
-  status: string;
+  /** Lifecycle: draft | published | archived */
+  status: "draft" | "published" | "archived";
   playbook_id?: string | null;
   model_config_id?: string | null;
 
@@ -38,14 +44,16 @@ export interface PlaybookVersionDetail {
   dd_request_templates?: Record<string, unknown> | null;
   section_markers?: Record<string, unknown> | null;
   classification_config?: Record<string, unknown> | null;
+  source_payload?: Record<string, unknown> | null;
+  source_payload_sha256?: string | null;
 }
 
-/** Ответ после создания версии плейбука (POST /playbooks). */
+/** Ответ после создания версии плейбука. */
 export interface PlaybookCreateResponse {
   id: string;
   name: string;
   semver: string;
-  status: string;
+  status: "draft" | "published" | "archived";
   playbook_id?: string | null;
 }
 
@@ -63,16 +71,20 @@ export interface PlaybookTopicInfo {
   checks: PlaybookCheckInfo[];
 }
 
-/** Входные данные для создания версии плейбука. */
+/**
+ * Входные данные для создания версии плейбука.
+ * POST /api/v1/playbooks
+ */
 export interface PlaybookCreateRequest {
   name?: string | null;
   bundles: string[];
   include_ids: string[];
   exclude_ids: string[];
   profile?: string | null;
-  model_config_id?: string;
+  /** Обязательное поле — UUID ModelConfig */
+  model_config_id: string;
   semver?: string | null;
-  status?: string | null;
+  status?: "draft" | "published" | "archived" | null;
   playbook_id?: string | null;
   from_line_id?: string | null;
 }
@@ -105,7 +117,7 @@ export interface ModelConfigUpdateInput {
   metadata_boost?: number;
 }
 
-/** Одна запись истории смены playbook-версии сделки (из AuditLog). */
+/** Одна запись истории смены playbook-версии сделки. */
 export interface DealPlaybookHistoryItem {
   created_at: string;
   actor: string;
@@ -117,6 +129,10 @@ export interface DealPlaybookHistoryItem {
   semver?: string | null;
 }
 
+/**
+ * Логический плейбук для страницы выбора шаблонов.
+ * Совпадает с backend PlaybookLineShort schema.
+ */
 export interface PlaybookLineShort {
   id: string;
   code: string;
@@ -128,14 +144,18 @@ export interface PlaybookLineShort {
   risk_profile?: string | null;
 }
 
+/**
+ * Элемент логического плейбука.
+ * Синхронизировано с backend PlaybookLineItemPayload.
+ */
 export interface PlaybookLineItemPayload {
-  kind: "topic" | "check";
-  topic_code?: string | null;
-  check_code?: string | null;
+  kind: "check";
+  instruction_code: string;
   order_index: number;
 }
 
 export interface PlaybookLineDetail extends PlaybookLineShort {
   items: PlaybookLineItemPayload[];
 }
+
 

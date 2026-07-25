@@ -1,8 +1,15 @@
 // frontend/src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Minus,
+  Plus,
+  Shield,
+} from "lucide-react";
 
 import { useBaseGlobalChecksCatalog } from "../../api/baseInstructions";
 import LoadingBlock from "../../components/ui/LoadingBlock";
@@ -11,8 +18,19 @@ import Button from "../../components/ui/Button";
 import VersionStatusBadge from "../../components/instructions/VersionStatusBadge";
 import type { GlobalInstructionCatalogItem } from "../../types/instructions";
 
-const sectionTitleCls =
-  "text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]";
+// ─────────────────────────────────────────────────────────────
+// Константы
+// ─────────────────────────────────────────────────────────────
+
+const UNGROUPED_KEY = "__ungrouped__";
+
+function groupKeyOf(groupName: string | null): string {
+  return groupName ?? UNGROUPED_KEY;
+}
+
+// ─────────────────────────────────────────────────────────────
+// CheckCard
+// ─────────────────────────────────────────────────────────────
 
 const CheckCard: React.FC<{
   item: GlobalInstructionCatalogItem;
@@ -56,9 +74,7 @@ const CheckCard: React.FC<{
             <>
               <span className="mx-1.5">·</span>
               Опубликована:{" "}
-              {new Date(item.latest_published_at).toLocaleDateString(
-                "ru-RU",
-              )}
+              {new Date(item.latest_published_at).toLocaleDateString("ru-RU")}
             </>
           )}
         </p>
@@ -67,12 +83,83 @@ const CheckCard: React.FC<{
   </button>
 );
 
+// ─────────────────────────────────────────────────────────────
+// GroupSection
+// ─────────────────────────────────────────────────────────────
+
+interface GroupSectionProps {
+  groupName: string | null;
+  items: GlobalInstructionCatalogItem[];
+  isCollapsed: boolean;
+  onToggle: () => void;
+  onItemClick: (code: string) => void;
+}
+
+const GroupSection: React.FC<GroupSectionProps> = ({
+  groupName,
+  items,
+  isCollapsed,
+  onToggle,
+  onItemClick,
+}) => {
+  const displayName = groupName ?? "Без группы";
+  const groupId = `group-${groupKeyOf(groupName)}`;
+
+  return (
+    <section className="space-y-3">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={!isCollapsed}
+        aria-controls={groupId}
+        className="group flex w-full items-center gap-2 border-b border-[var(--border-soft)] pb-2 text-left transition-colors hover:border-[var(--border)]"
+      >
+        <span
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors group-hover:bg-[var(--bg-elevated-soft)] group-hover:text-[var(--text-primary)]"
+          aria-hidden="true"
+        >
+          {isCollapsed ? (
+            <Plus className="h-3.5 w-3.5" />
+          ) : (
+            <Minus className="h-3.5 w-3.5" />
+          )}
+        </span>
+
+        <h2 className="flex-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition-colors group-hover:text-[var(--text-primary)]">
+          {displayName}
+          <span className="ml-1.5 normal-case tracking-normal text-[var(--text-faint)]">
+            · {items.length}
+          </span>
+        </h2>
+      </button>
+
+      {!isCollapsed && (
+        <div id={groupId} className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {items.map((item) => (
+            <CheckCard
+              key={item.instruction_code}
+              item={item}
+              onClick={() => onItemClick(item.instruction_code)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────
+// TenantBaseGlobalChecksPage
+// ─────────────────────────────────────────────────────────────
+
 const TenantBaseGlobalChecksPage: React.FC = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    () => new Set(),
+  );
 
-  const { data, isLoading, isError, refetch } =
-    useBaseGlobalChecksCatalog();
+  const { data, isLoading, isError, refetch } = useBaseGlobalChecksCatalog();
   const items = data?.items ?? [];
 
   const filtered = useMemo(() => {
@@ -87,22 +174,68 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
   }, [items, search]);
 
   const grouped = useMemo(() => {
-    const map = new Map<string, GlobalInstructionCatalogItem[]>();
+    const map = new Map<string | null, GlobalInstructionCatalogItem[]>();
     for (const item of filtered) {
-      const key = item.group ?? "Без группы";
+      const key = item.group ?? null;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(item);
     }
-    return Array.from(map.entries()).sort(([a], [b]) =>
-      a.localeCompare(b, "ru"),
-    );
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      if (a === null) return 1;
+      if (b === null) return -1;
+      return a.localeCompare(b, "ru");
+    });
   }, [filtered]);
 
+  const handleItemClick = useCallback(
+    (code: string) => {
+      navigate(
+        `/tenant-admin/instructions/base-global-checks/${code}`,
+      );
+    },
+    [navigate],
+  );
+
+  const toggleGroup = useCallback((groupName: string | null) => {
+    const key = groupKeyOf(groupName);
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  const collapseAll = useCallback(() => {
+    setCollapsedGroups(
+      new Set(grouped.map(([groupName]) => groupKeyOf(groupName))),
+    );
+  }, [grouped]);
+
+  const expandAll = useCallback(() => {
+    setCollapsedGroups(new Set());
+  }, []);
+
+  const currentGroupKeys = useMemo(
+    () => grouped.map(([groupName]) => groupKeyOf(groupName)),
+    [grouped],
+  );
+
+  const allCollapsed =
+    currentGroupKeys.length > 0 &&
+    currentGroupKeys.every((key) => collapsedGroups.has(key));
+
+  const hasMultipleGroups = grouped.length > 1;
   const publishedCount = items.filter((i) => i.has_published).length;
+  const isSearching = search.trim().length > 0;
 
   return (
     <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
       <div className="animate-fadein space-y-6">
+        {/* Back */}
         <button
           type="button"
           onClick={() => navigate("/tenant-admin/instructions")}
@@ -112,6 +245,7 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
           Инструкции
         </button>
 
+        {/* Header */}
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
@@ -130,6 +264,7 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
           </Button>
         </header>
 
+        {/* Stats */}
         {!isLoading && !isError && items.length > 0 && (
           <p className="text-sm text-[var(--text-muted)]">
             Всего:{" "}
@@ -149,17 +284,15 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
           </p>
         )}
 
+        {/* Info */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <p className="text-xs leading-5 text-[var(--text-secondary)]">
-            Управляются superadmin. Нажмите на инструкцию, чтобы
-            просмотреть её содержимое и версии. Для создания
-            переопределений перейдите в{" "}
+            Управляются superadmin. Нажмите на инструкцию, чтобы просмотреть
+            её содержимое и версии. Для создания переопределений перейдите в{" "}
             <button
               type="button"
               onClick={() =>
-                navigate(
-                  "/tenant-admin/instructions/overrides?tab=global",
-                )
+                navigate("/tenant-admin/instructions/overrides?tab=global")
               }
               className="font-semibold text-[var(--accent-primary)] hover:underline"
             >
@@ -169,14 +302,60 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
           </p>
         </section>
 
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск по коду, названию, группе…"
-          className="h-9 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-input)] px-3 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
-        />
+        {/* Toolbar: поиск + свернуть/развернуть */}
+        {!isLoading && !isError && items.length > 0 && (
+          <div
+            className={[
+              "sticky -top-6 z-10 -mx-6 md:-top-8 md:-mx-8",
+              "border-b border-[var(--border-soft)] bg-[var(--bg-surface)]/95",
+              "px-6 py-3 backdrop-blur-sm md:px-8",
+            ].join(" ")}
+          >
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 items-center gap-3">
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Поиск по коду, названию, группе…"
+                  className="h-9 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-input)] px-3 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] sm:w-96"
+                />
 
+                {isSearching && (
+                  <p className="hidden text-xs text-[var(--text-muted)] sm:block">
+                    Найдено: {filtered.length} из {items.length}
+                  </p>
+                )}
+              </div>
+
+              {hasMultipleGroups && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={allCollapsed ? expandAll : collapseAll}
+                  leftIcon={
+                    allCollapsed ? (
+                      <ChevronsUpDown className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronsDownUp className="h-3.5 w-3.5" />
+                    )
+                  }
+                >
+                  {allCollapsed ? "Развернуть все" : "Свернуть все"}
+                </Button>
+              )}
+            </div>
+
+            {isSearching && (
+              <p className="mt-2 text-xs text-[var(--text-muted)] sm:hidden">
+                Найдено: {filtered.length} из {items.length}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* States */}
         {isLoading && (
           <LoadingBlock
             text="Загружаем базовые global instructions…"
@@ -197,41 +376,38 @@ const TenantBaseGlobalChecksPage: React.FC = () => {
           />
         )}
 
-        {!isLoading &&
-          !isError &&
-          items.length > 0 &&
-          filtered.length === 0 && (
-            <EmptyState
-              title="Ничего не найдено"
-              description="Попробуйте изменить поисковый запрос."
-            />
-          )}
+        {!isLoading && !isError && items.length > 0 && filtered.length === 0 && (
+          <EmptyState
+            title="Ничего не найдено"
+            description="Попробуйте изменить поисковый запрос."
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setSearch("")}
+              >
+                Очистить поиск
+              </Button>
+            }
+          />
+        )}
 
+        {/* Grouped list */}
         {!isLoading && !isError && filtered.length > 0 && (
           <div className="space-y-6">
-            {grouped.map(([groupName, groupItems]) => (
-              <div key={groupName}>
-                <h2 className={`mb-3 ${sectionTitleCls}`}>
-                  {groupName}{" "}
-                  <span className="font-normal normal-case tracking-normal">
-                    ({groupItems.length})
-                  </span>
-                </h2>
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                  {groupItems.map((item) => (
-                    <CheckCard
-                      key={item.instruction_code}
-                      item={item}
-                      onClick={() =>
-                        navigate(
-                          `/tenant-admin/instructions/base-global-checks/${item.instruction_code}`,
-                        )
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+            {grouped.map(([groupName, groupItems]) => {
+              const key = groupKeyOf(groupName);
+              return (
+                <GroupSection
+                  key={key}
+                  groupName={groupName}
+                  items={groupItems}
+                  isCollapsed={collapsedGroups.has(key)}
+                  onToggle={() => toggleGroup(groupName)}
+                  onItemClick={handleItemClick}
+                />
+              );
+            })}
           </div>
         )}
       </div>

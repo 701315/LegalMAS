@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
 from api.schemas.deals import DealResponse, _normalize_language_code
-from core.constants import DocumentStatus
+from core.constants import DocumentStatus, PlaybookStatus
 from core.logging import get_logger
 from db.models.playbook import PlaybookVersion
 from db.repositories.audit_repo import AuditRepository
@@ -19,7 +19,9 @@ from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.session import get_db
-from services.outbox_service import OutboxService  # [+] добавлен импорт
+from services.outbox_service import OutboxService
+
+from .crud import _build_deal_response
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -28,9 +30,6 @@ logger = get_logger(__name__)
 class DealPlaybookUpdate(BaseModel):
     """
     Тело запроса для обновления playbook сделки.
-
-    Передаём ID версии плейбука, которая должна использоваться
-    по умолчанию при запуске анализа для этой сделки.
     """
 
     playbook_version_id: UUID
@@ -39,11 +38,6 @@ class DealPlaybookUpdate(BaseModel):
 class DealModelConfigUpdate(BaseModel):
     """
     Тело запроса для обновления профиля модели (ModelConfig) для сделки.
-
-    Здесь мы храним явный выбор профиля на уровне проекта.
-    Если поле model_config_id = null, то специальный профиль
-    для сделки сбрасывается, и при запуске анализа будет
-    использован профиль, привязанный к PlaybookVersion.
     """
 
     model_config_id: UUID | None
@@ -52,10 +46,6 @@ class DealModelConfigUpdate(BaseModel):
 class DealPrimaryLanguageUpdate(BaseModel):
     """
     Тело запроса для установки основного языка сделки.
-
-    Правила:
-    - primary_language должен входить в список languages сделки;
-    - если передан null, основной язык сбрасывается.
     """
 
     primary_language: str | None
@@ -73,8 +63,13 @@ async def set_deal_playbook(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Привязывает конкретную версию playbook (PlaybookVersion) к сделке
-    и пишет событие в журнал аудита.
+    Привязывает конкретную версию playbook к сделке.
+
+    Проверки:
+    - пользователь имеет project role admin/editor;
+    - версия существует;
+    - версия имеет status=published;
+    - tenant-owned version можно назначить только в сделку того же tenant.
     """
     await require_project_role(
         db=db,
@@ -94,7 +89,7 @@ async def set_deal_playbook(
     new_playbook_version_id = payload.playbook_version_id
 
     if old_playbook_version_id == new_playbook_version_id:
-        return DealResponse.model_validate(deal)
+        return await _build_deal_response(db=db, deal=deal)
 
     result = await db.execute(
         sa.select(PlaybookVersion).where(PlaybookVersion.id == new_playbook_version_id)
@@ -105,6 +100,22 @@ async def set_deal_playbook(
             status_code=404,
             detail="Playbook version not found",
         )
+
+    if pv.status != PlaybookStatus.PUBLISHED.value:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Cannot assign playbook version with status '{pv.status}'. "
+                "Only published versions can be applied to a project."
+            ),
+        )
+
+    if pv.tenant_id is not None:
+        if deal.tenant_id is None or str(pv.tenant_id) != str(deal.tenant_id):
+            raise HTTPException(
+                status_code=403,
+                detail="Playbook version belongs to a different tenant.",
+            )
 
     deal.playbook_version_id = new_playbook_version_id
 
@@ -129,7 +140,7 @@ async def set_deal_playbook(
     await db.commit()
     await db.refresh(deal)
 
-    return DealResponse.model_validate(deal)
+    return await _build_deal_response(db=db, deal=deal)
 
 
 @router.patch(
@@ -145,13 +156,6 @@ async def set_deal_model_config(
 ):
     """
     Устанавливает или сбрасывает явный профиль модели для сделки.
-
-    Правила:
-    - менять профиль модели могут только admin/editor на уровне проекта;
-    - если model_config_id не null, такой ModelConfig должен существовать;
-    - если model_config_id = null, явный профиль сделки снимается,
-      и дальше будет использоваться профиль из PlaybookVersion;
-    - если значение не изменилось, просто возвращаем текущую сделку.
     """
     await require_project_role(
         db=db,
@@ -180,7 +184,7 @@ async def set_deal_model_config(
         new_model_config_name = None
 
     if old_model_config_id == new_model_config_id:
-        return DealResponse.model_validate(deal)
+        return await _build_deal_response(db=db, deal=deal)
 
     deal.model_config_id = new_model_config_id
 
@@ -201,7 +205,7 @@ async def set_deal_model_config(
     await db.commit()
     await db.refresh(deal)
 
-    return DealResponse.model_validate(deal)
+    return await _build_deal_response(db=db, deal=deal)
 
 
 @router.patch(
@@ -217,15 +221,6 @@ async def set_deal_primary_language(
 ):
     """
     Устанавливает (или сбрасывает) основной язык сделки.
-
-    Правила:
-    - менять основной язык могут только роли admin/editor;
-    - если primary_language не null, он должен быть в Deal.languages;
-    - при нарушении правил возвращаем 400/403/404.
-
-    После смены языка документы в статусе LANGUAGE_SELECTION_REQUIRED
-    переводятся в PENDING и через Outbox получают задачу
-    workers.build_primary_language_source.
     """
     await require_project_role(
         db=db,
@@ -237,14 +232,12 @@ async def set_deal_primary_language(
     deal_repo = DealRepository(db)
     doc_repo = DocumentRepository(db)
     dv_repo = DocumentVersionRepository(db)
-    audit_repo = AuditRepository(db)  # [+] инстанцируем audit_repo
-    outbox = OutboxService(db)  # [+] инстанцируем outbox
+    audit_repo = AuditRepository(db)
+    outbox = OutboxService(db)
 
     deal = await deal_repo.get_by_id(deal_id, tenant_id=user.tenant_id)
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
-
-    # [-] убран DEBUG_primary_language_patch logger
 
     raw_lang = payload.primary_language
     new_lang = _normalize_language_code(raw_lang) if raw_lang is not None else None
@@ -292,7 +285,6 @@ async def set_deal_primary_language(
 
             restart_items.append((str(doc.id), str(latest_version.id)))
 
-    # [+] Audit: фиксируем смену primary_language ДО commit
     await audit_repo.log(
         tenant_id=deal.tenant_id,
         deal_id=deal.id,
@@ -307,8 +299,6 @@ async def set_deal_primary_language(
         },
     )
 
-    # [+] Outbox: enqueue build_primary_language_source для каждого документа
-    # в той же транзакции — гарантированная доставка без race condition
     for document_id_str, version_id_str in restart_items:
         await outbox.enqueue_task(
             task_name="workers.build_primary_language_source",
@@ -329,8 +319,6 @@ async def set_deal_primary_language(
             },
         )
 
-    # [-] убран прямой celery_app.send_task — заменён на Outbox выше
-
     await db.flush()
     await db.commit()
     await db.refresh(deal)
@@ -347,4 +335,6 @@ async def set_deal_primary_language(
             },
         )
 
-    return DealResponse.model_validate(deal)
+    return await _build_deal_response(db=db, deal=deal)
+
+

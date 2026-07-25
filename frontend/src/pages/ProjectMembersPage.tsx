@@ -1,8 +1,7 @@
 // =============================================================
 // src/pages/ProjectMembersPage.tsx
-// Legacy/fallback route для управления участниками проекта.
-// Основной UX теперь живёт внутри SettingsTab -> ProjectMembersPanel.
-// Этот экран оставлен как совместимый route, но использует тот же content.
+// Route для управления участниками проекта.
+// Маршрут: /projects/:dealId/members
 // =============================================================
 
 import React from "react";
@@ -16,12 +15,12 @@ const ProjectMembersPage: React.FC = () => {
   const navigate = useNavigate();
 
   if (!dealId) {
-    return <Navigate to="/deals" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 md:px-6">
-      <div className="mx-auto max-w-6xl">
+    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+      <div className="animate-fadein space-y-6">
         <ProjectMembersPanel
           dealId={dealId}
           backButton={
@@ -30,9 +29,9 @@ const ProjectMembersPage: React.FC = () => {
               size="sm"
               variant="secondary"
               leftIcon={<ArrowLeft size={14} />}
-              onClick={() => navigate(`/projects/${dealId}?tab=settings`)}
+              onClick={() => navigate(`/projects/${dealId}`)}
             >
-              Назад к настройкам проекта
+              Назад к проекту
             </Button>
           }
         />
@@ -42,6 +41,4 @@ const ProjectMembersPage: React.FC = () => {
 };
 
 export default ProjectMembersPage;
-
-
 

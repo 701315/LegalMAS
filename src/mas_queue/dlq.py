@@ -53,6 +53,7 @@ class DLQManager:
         task_type: str,
         failure_type: str,
         job_id: uuid.UUID | None = None,
+        tenant_id: uuid.UUID | None = None,
         *,
         source_task_id: str | None = None,
         dedupe_key: str | None = None,
@@ -74,6 +75,7 @@ class DLQManager:
             raise ValueError("next_action must not be empty")
 
         record = DLQRecord(
+            tenant_id=tenant_id,
             job_id=job_id,
             source_task_id=source_task_id,
             task_type=task_type,
@@ -92,6 +94,7 @@ class DLQManager:
             dlq_id=str(record.id),
             task_type=task_type,
             failure_type=failure_type,
+            tenant_id=str(tenant_id) if tenant_id else None,
             job_id=str(job_id) if job_id else None,
             source_task_id=source_task_id,
             dedupe_key=dedupe_key,

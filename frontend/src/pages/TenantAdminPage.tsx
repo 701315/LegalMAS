@@ -32,6 +32,7 @@ import {
 } from "../api/tenantAdmin";
 import Button from "../components/ui/Button";
 import { AlertsPanel } from "../components/admin/AlertsPanel";
+import ProjectMembersPanel from "../components/settings/ProjectMembersPanel";
 import { ExternalToolsBar } from "../components/admin/ExternalToolsBar";
 import { useAuth } from "../hooks/useAuth";
 
@@ -1444,74 +1445,8 @@ const ProjectDrillDown: React.FC<{
 
             {/* Members */}
             {subTab === "members" && (
-              <div className="px-5 pb-5 pt-4">
-                <div className={`${SECTION_CARD} overflow-hidden`}>
-                  {members.length === 0 ? (
-                    <div className="flex min-h-[200px] items-center justify-center text-sm text-[var(--text-muted)]">
-                      В проекте нет участников
-                    </div>
-                  ) : (
-                    <div className="overflow-auto">
-                      <table className="w-full min-w-[640px] border-collapse">
-                        <thead className="bg-[var(--bg-elevated-soft)]">
-                          <tr className="border-b border-[var(--border)]">
-                            <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
-                              Пользователь
-                            </th>
-                            <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
-                              Системная роль
-                            </th>
-                            <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
-                              Роль в проекте
-                            </th>
-                            <th className={`px-4 py-2.5 text-left ${LABEL_XS}`}>
-                              Статус
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {members.map((m) => (
-                            <tr
-                              key={m.user_id}
-                              className="border-b border-[var(--border-subtle)] last:border-b-0"
-                            >
-                              <td className="px-4 py-3">
-                                <p className="text-sm font-medium text-[var(--text-primary)]">
-                                  {m.full_name || m.email}
-                                </p>
-                                {m.full_name && (
-                                  <p className="text-[10px] text-[var(--text-muted)]">
-                                    {m.email}
-                                  </p>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-                                  {ROLE_LABELS[m.system_role] ?? m.system_role}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
-                                {projectRoleLabel(m.project_role)}
-                              </td>
-                              <td className="px-4 py-3">
-                                {m.is_active ? (
-                                  <span className="inline-flex items-center gap-1.5 text-[10px] text-[var(--color-success)]">
-                                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-success)]" />
-                                    Активен
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] text-[var(--text-muted)]">
-                                    Деактивирован
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
+              <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-4">
+                <ProjectMembersPanel dealId={dealId} />
               </div>
             )}
 

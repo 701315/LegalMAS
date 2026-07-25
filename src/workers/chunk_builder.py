@@ -174,7 +174,7 @@ def build_chunks(
                 await _mark_quarantined(
                     uow=uow_status,
                     document_uuid=uuid.UUID(document_id),
-                    tenant_uuid=uuid.UUID(failed_tenant_id),
+                    tenant_uuid=uuid.UUID(str(failed_tenant_id)),
                     deal_uuid=uuid.UUID(deal_id),
                     message=str(e),
                     reason=quarantine_reason,
@@ -221,7 +221,7 @@ def build_chunks(
                 await _mark_failed(
                     uow=uow_status,
                     document_uuid=uuid.UUID(document_id),
-                    tenant_uuid=uuid.UUID(failed_tenant_id),
+                    tenant_uuid=uuid.UUID(str(failed_tenant_id)),
                     deal_uuid=uuid.UUID(deal_id),
                     message=str(e),
                     run_id=uuid.UUID(run_id) if run_id else None,
@@ -268,7 +268,7 @@ async def _build_chunks_v2_async(
     document_version_id: str,
     document_id: str,
     deal_id: str,
-    tenant_id: str,
+    tenant_id: uuid.UUID | str,
     run_id: str | None,
     uow: UnitOfWork,
     stage_execution_id: str | None,
@@ -301,7 +301,7 @@ async def _build_chunks_v2_async(
 
     v_id = uuid.UUID(document_version_id)
     d_id = uuid.UUID(document_id)
-    tenant_uuid = uuid.UUID(tenant_id)
+    tenant_uuid = uuid.UUID(str(tenant_id))
     deal_uuid = uuid.UUID(deal_id)
 
     # ── Phase 13.1: Telemetry collector для этого документа ──────────────────

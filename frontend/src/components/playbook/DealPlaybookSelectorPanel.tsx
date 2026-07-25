@@ -1,11 +1,6 @@
 // =============================================================
 // src/components/playbook/DealPlaybookSelectorPanel.tsx
 // Выбор и применение playbook для сделки.
-// Поддерживает два режима:
-// - page: самостоятельная страница
-// - embedded: встроенный workspace-блок внутри другой вкладки
-// Внутри страницы позволяет inline-редактирование шаблона
-// под блоком "Состав playbook".
 // =============================================================
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -27,7 +22,7 @@ import { getApiErrorMessage, isApiErrorStatus } from "../../utils/apiErrors";
 import type {
   Deal,
   DealDetail,
-  PlaybookLine,
+  PlaybookLineShort,
   PlaybookLineDetail,
   PlaybookVersionShort,
   PlaybookVersionDetail,
@@ -48,8 +43,10 @@ export interface DealPlaybookSelectorPanelProps {
   onEditTemplate?: (templateId: string) => void;
 }
 
+const VISIBLE_VERSION_STATUSES = new Set<string>(["draft", "published"]);
+
 const selectClassName =
-  "w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition focus:border-[var(--accent-primary)] focus:bg-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const cardButtonBaseClassName =
   "w-full rounded-2xl border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-60";
@@ -63,6 +60,36 @@ const cardButtonActiveClassName =
 const metaLabelClassName =
   "text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]";
 
+function VersionStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    draft: {
+      label: "Черновик",
+      cls: "bg-amber-100 text-amber-700 border-amber-200",
+    },
+    published: {
+      label: "Опубликована",
+      cls: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    },
+    archived: {
+      label: "Архив",
+      cls: "bg-[var(--bg-elevated-soft)] text-[var(--text-muted)] border-[var(--border)]",
+    },
+  };
+
+  const cfg = map[status] ?? {
+    label: status,
+    cls: "bg-[var(--bg-elevated-soft)] text-[var(--text-muted)] border-[var(--border)]",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${cfg.cls}`}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
 const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   dealId,
   deal,
@@ -74,7 +101,6 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   onEditTemplate,
 }) => {
   const navigate = useNavigate();
-
   const { canManageRequests } = useDealPermissions(dealId);
   const { globalRole } = useAuth();
 
@@ -83,11 +109,12 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     canManageRequests;
 
   const [dealDetail, setDealDetail] = useState<DealDetail | null>(null);
-
-  const [lines, setLines] = useState<PlaybookLine[]>([]);
+  const [lines, setLines] = useState<PlaybookLineShort[]>([]);
   const [versions, setVersions] = useState<PlaybookVersionShort[]>([]);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
+    null,
+  );
   const [versionDetail, setVersionDetail] =
     useState<PlaybookVersionDetail | null>(null);
   const [selectedLineDetail, setSelectedLineDetail] =
@@ -111,7 +138,9 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   const [selectedModelConfigId, setSelectedModelConfigId] = useState<
     string | null
   >(null);
-  const [modelConfigsError, setModelConfigsError] = useState<string | null>(null);
+  const [modelConfigsError, setModelConfigsError] = useState<string | null>(
+    null,
+  );
   const [isModelConfigsLoading, setIsModelConfigsLoading] = useState(false);
 
   const [isApplyConfirmOpen, setIsApplyConfirmOpen] = useState(false);
@@ -126,15 +155,28 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
     return versions.filter(
       (version) =>
-        version.playbook_id === selectedLineId &&
-        (version.status === "default" || version.status === "active"),
+        String(version.playbook_id) === selectedLineId &&
+        VISIBLE_VERSION_STATUSES.has(version.status),
     );
   }, [versions, selectedLineId]);
 
-  const currentVersionId = effectiveDeal?.playbook_version_id ?? null;
+  const currentVersionId = effectiveDeal?.playbook_version_id
+    ? String(effectiveDeal.playbook_version_id)
+    : null;
+
   const isSameAsCurrent =
     currentVersionId !== null && selectedVersionId === currentVersionId;
 
+  const selectedVersionStatus = useMemo(
+    () =>
+      selectedVersionId
+        ? (visibleVersions.find((v) => String(v.id) === selectedVersionId)
+            ?.status ?? null)
+        : null,
+    [selectedVersionId, visibleVersions],
+  );
+
+  const isSelectedVersionDraft = selectedVersionStatus === "draft";
   const isUiLocked = isApplying || isCreatingVersion;
 
   const clearMessages = useCallback(() => {
@@ -157,18 +199,11 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
     try {
       const res = await client.get<
-        | DealPlaybookHistoryItem[]
-        | { items?: DealPlaybookHistoryItem[]; deal_id?: string }
-      >(
-        `/api/v1/deals/${dealId}/playbook-history`,
-      );
+        DealPlaybookHistoryItem[] | { items?: DealPlaybookHistoryItem[] }
+      >(`/api/v1/deals/${dealId}/playbook-history`);
 
       const payload = res.data;
-      const historyItems = Array.isArray(payload)
-        ? payload
-        : payload.items ?? [];
-
-      setHistory(historyItems);
+      setHistory(Array.isArray(payload) ? payload : payload.items ?? []);
     } catch (err) {
       setHistoryError(
         getApiErrorMessage(
@@ -240,7 +275,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
         setErrorText(
           getApiErrorMessage(
             err,
-            "Не удалось применить playbook: возник конфликт состояния.",
+            "Не удалось применить playbook: конфликт состояния.",
           ),
         );
       } else {
@@ -292,16 +327,16 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     clearMessages();
 
     try {
-      const line = lines.find((entry) => entry.id === selectedLineId);
+      const line = lines.find((entry) => String(entry.id) === selectedLineId);
 
       const payload: PlaybookCreateRequest = {
-        name: line?.title || "Новая версия",
+        name: line?.title ?? "Новая версия",
         bundles: [],
         include_ids: [],
         exclude_ids: [],
         profile: null,
         semver: "1.0.0",
-        status: "active",
+        status: "draft",
         playbook_id: selectedLineId,
         from_line_id: selectedLineId,
         model_config_id: selectedModelConfigId,
@@ -313,16 +348,20 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
       );
 
       const newVersion: PlaybookVersionShort = {
-        id: res.data.id,
+        id: String(res.data.id),
         name: res.data.name,
         semver: res.data.semver,
         status: res.data.status,
-        playbook_id: res.data.playbook_id ?? selectedLineId,
+        playbook_id: res.data.playbook_id
+          ? String(res.data.playbook_id)
+          : selectedLineId,
       };
 
       setVersions((prev) => [...prev, newVersion]);
       setSelectedVersionId(newVersion.id);
-      setSuccessText("Новая версия playbook успешно создана.");
+      setSuccessText(
+        "Черновик версии создан. Опубликуйте его в Playbook Studio, затем примените к проекту.",
+      );
     } catch (err) {
       setCreateVersionError(
         getApiErrorMessage(err, "Не удалось создать версию playbook."),
@@ -371,30 +410,31 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
       try {
         const [linesRes, versionsRes] = await Promise.all([
-          client.get<PlaybookLine[]>("/api/v1/playbooks/lines"),
+          client.get<PlaybookLineShort[]>("/api/v1/playbooks/lines?scope=all"),
           client.get<PlaybookVersionShort[]>("/api/v1/playbooks"),
         ]);
 
         if (cancelled) return;
 
-        const nextLines = linesRes.data || [];
-        const nextVersions = versionsRes.data || [];
+        const nextLines = linesRes.data ?? [];
+        const nextVersions = versionsRes.data ?? [];
 
         setLines(nextLines);
         setVersions(nextVersions);
 
-        const currentPlaybookVersionId =
-          effectiveDeal?.playbook_version_id ?? null;
+        const currentPlaybookVersionId = effectiveDeal?.playbook_version_id
+          ? String(effectiveDeal.playbook_version_id)
+          : null;
 
         if (currentPlaybookVersionId) {
           const version = nextVersions.find(
-            (entry) => entry.id === currentPlaybookVersionId,
+            (entry) => String(entry.id) === currentPlaybookVersionId,
           );
 
           if (version) {
-            setSelectedVersionId(version.id);
+            setSelectedVersionId(String(version.id));
             if (version.playbook_id) {
-              setSelectedLineId(version.playbook_id);
+              setSelectedLineId(String(version.playbook_id));
             }
           }
         }
@@ -432,18 +472,18 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
         const res = await client.get<ModelConfig[]>("/api/v1/model-configs");
         if (cancelled) return;
 
-        const list = res.data || [];
+        const list = res.data ?? [];
         setModelConfigs(list);
 
         if (list.length > 0) {
-          setSelectedModelConfigId((prev) => prev ?? list[0].id);
+          setSelectedModelConfigId((prev) => prev ?? String(list[0].id));
         }
       } catch (err) {
         if (!cancelled) {
           setModelConfigsError(
             getApiErrorMessage(
               err,
-              "Не удалось загрузить список моделей (ModelConfig). Обратитесь к администратору.",
+              "Не удалось загрузить список моделей. Обратитесь к администратору.",
             ),
           );
         }
@@ -526,9 +566,9 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   if (!canEditPlaybook) {
     if (mode === "page") {
       return (
-        <div className="min-h-screen bg-[var(--bg-base)] px-4">
-          <div className="flex min-h-screen items-center justify-center">
-            <div className="w-full max-w-md rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center shadow-sm">
+        <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+          <div className="flex items-center justify-center py-20">
+            <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center shadow-sm">
               <p className="mb-4 text-sm text-[var(--text-secondary)]">
                 У вас нет прав для настройки playbook этого проекта.
               </p>
@@ -559,43 +599,42 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
   const content = (
     <>
-      {mode === "page" ? (
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-              Playbook setup
-            </div>
+      {mode === "page" && (
+        <>
+          <button
+            type="button"
+            onClick={handleBack}
+            className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+          >
+            ← Назад к проекту
+          </button>
 
-            <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-[var(--text-primary)]">
+          <header>
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
               Playbook проекта
             </h1>
-
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              Проект: {effectiveDeal?.name || dealId}
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              {effectiveDeal?.name ?? dealId}
             </p>
 
-            {effectiveDeal?.playbook_version_id ? (
+            {currentVersionId ? (
               <p className="mt-1 text-xs text-[var(--text-muted)]">
                 Текущая версия:{" "}
                 <span className="font-medium text-[var(--text-primary)]">
-                  {effectiveDeal.playbook_version_id}
+                  {currentVersionId}
                 </span>
               </p>
             ) : (
               <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Для проекта ещё не выбран playbook. Выберите шаблон и версию.
+                Для проекта ещё не выбран playbook.
               </p>
             )}
-          </div>
+          </header>
+        </>
+      )}
 
-          <Button variant="secondary" size="sm" onClick={handleBack}>
-            ← Назад к проекту
-          </Button>
-        </div>
-      ) : null}
-
-      {errorText ? <InlineAlert tone="error" message={errorText} /> : null}
-      {successText ? <InlineAlert tone="success" message={successText} /> : null}
+      {errorText && <InlineAlert tone="error" message={errorText} />}
+      {successText && <InlineAlert tone="success" message={successText} />}
 
       <div
         className={[
@@ -611,18 +650,19 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
           ) : lines.length === 0 ? (
             <EmptyState
               title="Шаблоны не настроены"
-              description="Создайте первый шаблон playbook в административном разделе, чтобы использовать его в проектах."
+              description="Создайте первый шаблон playbook в административном разделе."
             />
           ) : (
             <ul className="max-h-80 space-y-1 overflow-y-auto">
               {lines.map((line) => {
-                const isSelected = selectedLineId === line.id;
+                const lineId = String(line.id);
+                const isSelected = selectedLineId === lineId;
 
                 return (
-                  <li key={line.id}>
+                  <li key={lineId}>
                     <button
                       type="button"
-                      onClick={() => handleSelectLine(line.id)}
+                      onClick={() => handleSelectLine(lineId)}
                       disabled={isUiLocked}
                       className={[
                         cardButtonBaseClassName,
@@ -633,18 +673,21 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                     >
                       <div className="font-semibold">{line.title}</div>
 
-                      {line.description ? (
+                      {line.description && (
                         <div className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
                           {line.description}
                         </div>
-                      ) : null}
+                      )}
 
                       <div className="mt-1 text-[11px] text-[var(--text-muted)]">
-                        {line.deal_type ? `Тип: ${line.deal_type} · ` : ""}
-                        {line.jurisdiction
-                          ? `Юрисдикция: ${line.jurisdiction} · `
-                          : ""}
-                        {line.language ? `Язык: ${line.language}` : ""}
+                        {[
+                          line.deal_type && `Тип: ${line.deal_type}`,
+                          line.jurisdiction &&
+                            `Юрисдикция: ${line.jurisdiction}`,
+                          line.language && `Язык: ${line.language}`,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </div>
                     </button>
                   </li>
@@ -655,9 +698,9 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
         </PageSection>
 
         <PageSection title="Версии playbook">
-          {createVersionError ? (
+          {createVersionError && (
             <InlineAlert tone="error" message={createVersionError} />
-          ) : null}
+          )}
 
           {!selectedLineId ? (
             <EmptyState
@@ -668,16 +711,16 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
             <div className="space-y-3">
               <EmptyState
                 title="Версий пока нет"
-                description="Для выбранного шаблона ещё не создано ни одной версии. Выберите модель и создайте первую версию."
+                description="Для выбранного шаблона ещё нет версий. Выберите модель и создайте первую."
               />
 
               <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                  Модель для этого playbook (ModelConfig)
+                <label className={`mb-1 block ${metaLabelClassName}`}>
+                  Модель (ModelConfig)
                 </label>
 
                 {isModelConfigsLoading ? (
-                  <LoadingBlock text="Загружаем список моделей..." rows={3} />
+                  <LoadingBlock text="Загружаем список моделей..." rows={2} />
                 ) : modelConfigsError ? (
                   <InlineAlert tone="error" message={modelConfigsError} />
                 ) : modelConfigs.length === 0 ? (
@@ -695,7 +738,10 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                     disabled={isUiLocked}
                   >
                     {modelConfigs.map((modelConfig) => (
-                      <option key={modelConfig.id} value={modelConfig.id}>
+                      <option
+                        key={String(modelConfig.id)}
+                        value={String(modelConfig.id)}
+                      >
                         {modelConfig.name}
                       </option>
                     ))}
@@ -719,13 +765,14 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
             <>
               <ul className="max-h-80 space-y-1 overflow-y-auto">
                 {visibleVersions.map((version) => {
-                  const isSelected = selectedVersionId === version.id;
+                  const versionId = String(version.id);
+                  const isSelected = selectedVersionId === versionId;
 
                   return (
-                    <li key={version.id}>
+                    <li key={versionId}>
                       <button
                         type="button"
-                        onClick={() => handleSelectVersion(version.id)}
+                        onClick={() => handleSelectVersion(versionId)}
                         disabled={isUiLocked}
                         className={[
                           cardButtonBaseClassName,
@@ -734,15 +781,15 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                             : cardButtonIdleClassName,
                         ].join(" ")}
                       >
-                        <div className="font-semibold">
-                          {version.name}{" "}
-                          <span className="text-[11px] text-[var(--text-muted)]">
-                            ({version.semver})
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold">
+                            {version.name}{" "}
+                            <span className="text-[11px] font-normal text-[var(--text-muted)]">
+                              ({version.semver})
+                            </span>
                           </span>
-                        </div>
 
-                        <div className="mt-1 text-[11px] text-[var(--text-muted)]">
-                          Статус: {version.status}
+                          <VersionStatusBadge status={version.status} />
                         </div>
                       </button>
                     </li>
@@ -750,12 +797,24 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                 })}
               </ul>
 
+              {isSelectedVersionDraft && (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  Черновик нельзя применить к проекту — сначала опубликуйте
+                  версию в Playbook Studio.
+                </div>
+              )}
+
               <div className="mt-4 flex items-center justify-end border-t border-[var(--border-soft)] pt-3">
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={handleApplyPlaybook}
-                  disabled={!selectedVersionId || isApplying || isSameAsCurrent}
+                  disabled={
+                    !selectedVersionId ||
+                    isApplying ||
+                    isSameAsCurrent ||
+                    isSelectedVersionDraft
+                  }
                   isLoading={isApplying}
                 >
                   {isSameAsCurrent ? "Уже применено" : "Применить к проекту"}
@@ -784,17 +843,17 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
             {!selectedLineId ? (
               <EmptyState
                 title="Ничего не выбрано"
-                description="Выберите шаблон playbook слева, затем создайте или выберите версию в средней колонке, чтобы увидеть состав."
+                description="Выберите шаблон playbook, затем версию."
               />
             ) : selectedVersionId && versionDetail ? (
               <div className="max-h-80 space-y-3 overflow-y-auto text-xs text-[var(--text-primary)]">
                 <div>
                   <div className={metaLabelClassName}>Общая информация</div>
-                  <div className="mt-1 text-[var(--text-secondary)]">
-                    Версия: {versionDetail.name} ({versionDetail.semver})
-                  </div>
-                  <div className="text-[var(--text-secondary)]">
-                    Статус: {versionDetail.status}
+                  <div className="mt-1 flex items-center gap-2 text-[var(--text-secondary)]">
+                    <span>
+                      {versionDetail.name} ({versionDetail.semver})
+                    </span>
+                    <VersionStatusBadge status={versionDetail.status} />
                   </div>
                 </div>
 
@@ -804,7 +863,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                   </div>
 
                   {versionDetail.section_markers ? (
-                    <pre className="mt-1 overflow-x-auto rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-2 text-[11px] text-[var(--text-secondary)]">
+                    <pre className="mt-1 overflow-x-auto rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-2 text-[11px] text-[var(--text-secondary)]">
                       {JSON.stringify(versionDetail.section_markers, null, 2)}
                     </pre>
                   ) : (
@@ -820,7 +879,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                   </div>
 
                   {versionDetail.dd_request_templates ? (
-                    <pre className="mt-1 overflow-x-auto rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-2 text-[11px] text-[var(--text-secondary)]">
+                    <pre className="mt-1 overflow-x-auto rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-2 text-[11px] text-[var(--text-secondary)]">
                       {JSON.stringify(
                         versionDetail.dd_request_templates,
                         null,
@@ -837,55 +896,48 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
             ) : selectedLineDetail ? (
               <div className="max-h-80 space-y-3 overflow-y-auto text-xs text-[var(--text-primary)]">
                 <div>
-                  <div className={metaLabelClassName}>Общая информация</div>
-                  <div className="mt-1 text-[var(--text-secondary)]">
-                    Имя: {selectedLineDetail.title}
+                  <div className={metaLabelClassName}>Шаблон</div>
+                  <div className="mt-1 font-medium text-[var(--text-secondary)]">
+                    {selectedLineDetail.title}
                   </div>
-                  <div className="text-[var(--text-secondary)]">
-                    Тип сделки: {selectedLineDetail.deal_type || "не задан"}
-                  </div>
-                  <div className="text-[var(--text-secondary)]">
-                    Юрисдикция: {selectedLineDetail.jurisdiction || "не задана"}
-                  </div>
-                  <div className="text-[var(--text-secondary)]">
-                    Язык: {selectedLineDetail.language || "не задан"}
+                  <div className="mt-0.5 text-[var(--text-muted)]">
+                    {[
+                      selectedLineDetail.deal_type &&
+                        `Тип: ${selectedLineDetail.deal_type}`,
+                      selectedLineDetail.jurisdiction &&
+                        `Юрисдикция: ${selectedLineDetail.jurisdiction}`,
+                      selectedLineDetail.language &&
+                        `Язык: ${selectedLineDetail.language}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
 
-                  {selectedLineDetail.description ? (
-                    <div className="mt-1 text-[var(--text-secondary)]">
-                      Описание: {selectedLineDetail.description}
+                  {selectedLineDetail.description && (
+                    <div className="mt-1 text-[var(--text-muted)]">
+                      {selectedLineDetail.description}
                     </div>
-                  ) : null}
+                  )}
                 </div>
 
                 <div>
                   <div className={`mt-2 ${metaLabelClassName}`}>
-                    Состав шаблона (темы / проверки)
+                    Проверки шаблона
                   </div>
 
-                  {selectedLineDetail.items &&
-                  selectedLineDetail.items.length > 0 ? (
+                  {selectedLineDetail.items?.length > 0 ? (
                     <ul className="mt-1 space-y-1">
                       {selectedLineDetail.items.map((item, index) => (
                         <li
                           key={index}
-                          className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1"
+                          className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1"
                         >
-                          <div className="text-[var(--text-secondary)]">
-                            Тип: {item.kind}
+                          <div className="font-mono text-[10px] text-[var(--text-secondary)]">
+                            {item.instruction_code}
                           </div>
-
-                          {item.topic_code ? (
-                            <div className="text-[var(--text-muted)]">
-                              Topic: {item.topic_code}
-                            </div>
-                          ) : null}
-
-                          {item.check_code ? (
-                            <div className="text-[var(--text-muted)]">
-                              Check: {item.check_code}
-                            </div>
-                          ) : null}
+                          <div className="text-[10px] text-[var(--text-muted)]">
+                            {item.kind} · #{item.order_index}
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -896,12 +948,12 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                   )}
                 </div>
               </div>
-            ) : (
+            ) : selectedLineId ? (
               <LoadingBlock text="Загружаем состав playbook..." rows={4} />
-            )}
+            ) : null}
 
             <div className="mt-5 border-t border-[var(--border-soft)] pt-3">
-              <h3 className="mb-2 text-sm font-semibold text-[var(--text-primary)]">
+              <h3 className={`mb-2 ${metaLabelClassName}`}>
                 История смен playbook
               </h3>
 
@@ -912,42 +964,41 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
               ) : history.length === 0 ? (
                 <EmptyState
                   title="История пока пустая"
-                  description="Пока нет записей об изменении playbook для этой сделки."
+                  description="Нет записей об изменении playbook для этой сделки."
                 />
               ) : (
                 <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">
                   {history.map((item, index) => (
                     <li
                       key={index}
-                      className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1"
+                      className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1"
                     >
                       <div className="text-[var(--text-secondary)]">
-                        {new Date(item.created_at).toLocaleString()} — {item.actor}{" "}
-                        {item.actor_role ? (
+                        {new Date(item.created_at).toLocaleString()} — {item.actor}
+                        {item.actor_role && (
                           <span className="text-[var(--text-muted)]">
+                            {" "}
                             ({item.actor_role})
                           </span>
-                        ) : null}
+                        )}
                       </div>
 
                       <div className="text-[var(--text-muted)]">
                         {item.old_playbook_version_id
                           ? `Было: ${item.old_playbook_version_id}`
-                          : "Было: не задано"}
-                      </div>
-
-                      <div className="text-[var(--text-muted)]">
+                          : "Было: не задано"}{" "}
+                        →{" "}
                         {item.new_playbook_version_id
-                          ? `Стало: ${item.new_playbook_version_id}`
-                          : "Стало: не задано"}
+                          ? item.new_playbook_version_id
+                          : "не задано"}
                       </div>
 
-                      {item.playbook_name || item.semver ? (
+                      {(item.playbook_name || item.semver) && (
                         <div className="text-[var(--text-muted)]">
-                          {item.playbook_name ? `${item.playbook_name} ` : ""}
+                          {item.playbook_name}{" "}
                           {item.semver ? `(${item.semver})` : ""}
                         </div>
-                      ) : null}
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -959,26 +1010,45 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     </>
   );
 
+  if (mode === "page") {
+    return (
+      <>
+        <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+          <div className="animate-fadein space-y-6">{content}</div>
+        </div>
+
+        <ConfirmDialog
+          open={isApplyConfirmOpen}
+          title="Заменить текущий playbook?"
+          description="Текущая версия playbook будет заменена. Продолжить?"
+          confirmLabel="Да, заменить"
+          cancelLabel="Отмена"
+          isConfirming={isApplying}
+          onConfirm={applyPlaybook}
+          onCancel={() => {
+            if (!isApplying) {
+              setIsApplyConfirmOpen(false);
+            }
+          }}
+        />
+      </>
+    );
+  }
+
   return (
     <>
-      {mode === "page" ? (
-        <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 text-[var(--text-primary)]">
-          <div className="mx-auto max-w-6xl space-y-5">{content}</div>
-        </div>
-      ) : (
-        <PageSection
-          title="Playbook проекта"
-          subtitle="Выбор, применение и просмотр состава playbook для текущей сделки."
-          rightSlot={headerActions}
-        >
-          <div className="min-w-0 text-[var(--text-primary)]">{content}</div>
-        </PageSection>
-      )}
+      <PageSection
+        title="Playbook проекта"
+        subtitle="Выбор, применение и просмотр состава playbook."
+        rightSlot={headerActions}
+      >
+        <div className="min-w-0 text-[var(--text-primary)]">{content}</div>
+      </PageSection>
 
       <ConfirmDialog
         open={isApplyConfirmOpen}
         title="Заменить текущий playbook?"
-        description="У этого проекта уже есть выбранная версия playbook. Текущая версия будет заменена на новую. Продолжить?"
+        description="Текущая версия playbook будет заменена. Продолжить?"
         confirmLabel="Да, заменить"
         cancelLabel="Отмена"
         isConfirming={isApplying}
@@ -994,7 +1064,5 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 };
 
 export default DealPlaybookSelectorPanel;
-
-
 
 

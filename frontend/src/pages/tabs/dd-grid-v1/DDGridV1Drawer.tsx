@@ -625,7 +625,17 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                 </div>
               ) : (
                 <div className="text-xs italic text-[var(--text-faint)]">
-                  Результат не сформирован.
+                  {drawerContent?.review_status === "no_issue_detected" ||
+                  drawerContent?.review_status === "ok"
+                    ? "Нарушений не выявлено."
+                    : drawerContent?.review_status === "not_applicable"
+                      ? "Проверка не применима к данному документу."
+                      : drawerContent?.review_status === "unclear"
+                        ? "Результат не определён — требуется ручная проверка."
+                        : drawerContent?.execution_status === "FAILED" ||
+                            drawerContent?.execution_status === "TIMEOUT"
+                          ? "Ошибка при выполнении проверки."
+                          : "Текст результата не сформирован."}
                 </div>
               )}
 

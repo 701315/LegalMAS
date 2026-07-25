@@ -15,6 +15,16 @@ Resolution priority:
 2. payload_tenant_id — advisory fallback, логируется когда используется.
 
 Surrogate deal_id как tenant_id удалён.
+
+ВАЖНЫЙ КОНТРАКТ:
+- функция возвращает canonical UUID string, а не uuid.UUID object;
+- это безопасно для:
+  * Celery kwargs / JSON payloads,
+  * ArtifactPath / MinIO paths,
+  * structured logs,
+  * downstream-кода, который потом при необходимости сам делает uuid.UUID(...).
+- такой контракт устраняет класс ошибок вида:
+  AttributeError: 'asyncpg.pgproto.pgproto.UUID' object has no attribute 'replace'
 """
 
 from __future__ import annotations
@@ -54,12 +64,12 @@ async def resolve_artifact_tenant_id(
     deal_id: uuid.UUID | str | None = None,
     document_id: uuid.UUID | str | None = None,
     payload_tenant_id: uuid.UUID | str | None = None,
-) -> uuid.UUID:
+) -> str:
     """
     Canonical tenant_id resolver для записи артефактов.
 
     Returns:
-        uuid.UUID — всегда валидный непустой UUID.
+        str — canonical UUID string (непустой валидный UUID).
 
     Raises:
         PermanentError — если tenant_id не удалось определить.
@@ -108,7 +118,7 @@ async def resolve_artifact_tenant_id(
                 db_tenant_id=str(deal_tenant),
                 document_id=str(parsed_document_id) if parsed_document_id else None,
             )
-        return deal_tenant  # type: ignore[return-value]
+        return str(deal_tenant)
 
     # Advisory fallback: payload_tenant_id
     if _is_valid_tenant(payload_tenant):
@@ -119,7 +129,7 @@ async def resolve_artifact_tenant_id(
             payload_tenant_id=str(payload_tenant),
             document_id=str(parsed_document_id) if parsed_document_id else None,
         )
-        return payload_tenant  # type: ignore[return-value]
+        return str(payload_tenant)
 
     raise PermanentError(
         "resolve_artifact_tenant_id: cannot resolve tenant_id — "
@@ -130,6 +140,5 @@ async def resolve_artifact_tenant_id(
             "payload_tenant_id": str(payload_tenant_id) if payload_tenant_id is not None else None,
         },
     )
-
 
 

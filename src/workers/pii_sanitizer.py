@@ -71,14 +71,14 @@ class PIISanitizer:
         self,
         uow: UnitOfWork,
         artifact_store,  # ArtifactStore
-        artifact_tenant_id: str,
+        artifact_tenant_id: uuid.UUID | str,
         detector=None,
         tokenizer=None,
         encryptor=None,
     ):
         self.uow = uow
         self.store = artifact_store
-        self.artifact_tenant_id = artifact_tenant_id
+        self.artifact_tenant_id: str = str(artifact_tenant_id)
 
         # Репозитории поверх сессии из UoW
         self.doc_repo = DocumentRepository(uow.session)
@@ -482,10 +482,11 @@ def sanitize_document(
                                 "timestamp": datetime.now(UTC).isoformat(),
                             },
                         )
+
                     await _mark_failed(
                         uow_err,
                         version_id=version_uuid,
-                        tenant_id=failed_tenant_id,
+                        tenant_id=str(failed_tenant_id),
                         message=str(e),
                     )
 
@@ -528,12 +529,14 @@ def sanitize_document(
                                 "timestamp": datetime.now(UTC).isoformat(),
                             },
                         )
+
                     await _mark_quarantine(
                         uow_err,
                         version_id=version_uuid,
-                        tenant_id=failed_tenant_id,
+                        tenant_id=str(failed_tenant_id),
                         error=e,
                     )
+
                 return {"status": DocumentStatus.QUARANTINE.value, "error": str(e)}
 
     # Переход в async‑мир через общий мост run_async

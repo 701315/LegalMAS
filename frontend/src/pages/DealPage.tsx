@@ -20,11 +20,7 @@ import { ReportTab } from "./tabs/ReportTab";
 import { AuditTab } from "./tabs/AuditTab";
 import CounterpartiesTab from "./tabs/CounterpartiesTab";
 import RealEstateTab from "./tabs/RealEstateTab";
-import SettingsTab from "./tabs/SettingsTab";
 import { useEnsureProjectRole } from "../hooks/useEnsureProjectRole";
-import { useDealPermissions } from "../hooks/usePermissions";
-import { useAuth } from "../hooks/useAuth";
-import DealPlaybookSelectorPanel from "../components/playbook/DealPlaybookSelectorPanel";
 import Button from "../components/ui/Button";
 
 interface DealPageProps {
@@ -39,9 +35,7 @@ type TabKey =
   | "report"
   | "audit"
   | "counterparties"
-  | "real_estate"
-  | "settings"
-  | "playbook";
+  | "real_estate";
 
 const TAB_KEYS: TabKey[] = [
   "overview",
@@ -52,8 +46,6 @@ const TAB_KEYS: TabKey[] = [
   "audit",
   "counterparties",
   "real_estate",
-  "settings",
-  "playbook",
 ];
 
 const TAB_LABELS: Record<TabKey, string> = {
@@ -65,8 +57,6 @@ const TAB_LABELS: Record<TabKey, string> = {
   audit: "Аудит",
   counterparties: "Контрагенты",
   real_estate: "Имущество",
-  settings: "Настройки",
-  playbook: "Playbook",
 };
 
 const sidebarItemBaseClassName =
@@ -96,16 +86,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const currentRunId = deal.last_run_id ?? null;
   const hasCurrentRun = currentRunId !== null;
 
-  const { canManageRequests, canUploadDocuments } = useDealPermissions(deal.id);
-  const { globalRole } = useAuth();
-
   useEnsureProjectRole(deal.id);
-
-  const canManageProject = canUploadDocuments || canManageRequests;
-
-  const canManagePlaybook =
-    (globalRole === "superadmin" || globalRole === "tenant_admin") &&
-    canManageRequests;
 
   const searchParams = React.useMemo(
     () => new URLSearchParams(location.search),
@@ -187,9 +168,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
       }
 
       const nextTab = TAB_KEYS[nextIndex];
-      if (nextTab === "settings" && !canManageProject) {
-        return;
-      }
 
       handleSetTab(nextTab);
 
@@ -198,7 +176,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
         nextElement?.focus();
       });
     },
-    [activeTab, canManageProject, handleSetTab],
+    [activeTab, handleSetTab],
   );
 
   const renderRunRequiredState = React.useCallback(
@@ -281,25 +259,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
       );
     }
 
-    if (activeTab === "playbook") {
-      return canManagePlaybook ? (
-        <DealPlaybookSelectorPanel
-          dealId={deal.id}
-          deal={deal}
-          mode="embedded"
-        />
-      ) : renderRunRequiredState(
-        "Настройка playbook недоступна",
-        "Для управления playbook нужны права tenant_admin или superadmin и доступ к управлению проектом.",
-      );
-    }
+    return null;
 
-    return (
-      <SettingsTab
-        dealId={deal.id}
-        canManageProject={canManageProject}
-      />
-    );
   };
 
   return (
@@ -415,27 +376,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
               />
             </div>
 
-            {/* ── Playbook ── */}
-            <div className="mt-5 border-t border-[var(--border)] pt-4">
-              <SidebarItem
-                label={TAB_LABELS.playbook}
-                tabKey="playbook"
-                activeTab={activeTab}
-                onSelect={handleSetTab}
-                disabled={!canManagePlaybook}
-              />
-            </div>
-
-            {/* ── Настройки ── */}
-            <div className="mt-5 border-t border-[var(--border)] pt-4">
-              <SidebarItem
-                label={TAB_LABELS.settings}
-                tabKey="settings"
-                activeTab={activeTab}
-                onSelect={handleSetTab}
-                disabled={!canManageProject}
-              />
-            </div>
           </nav>
         </aside>
 
@@ -517,20 +457,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                     tabKey="real_estate"
                     activeTab={activeTab}
                     onSelect={handleSetTab}
-                  />
-                  <MobileTab
-                    label={TAB_LABELS.playbook}
-                    tabKey="playbook"
-                    activeTab={activeTab}
-                    onSelect={handleSetTab}
-                    disabled={!canManagePlaybook}
-                  />
-                  <MobileTab
-                    label={TAB_LABELS.settings}
-                    tabKey="settings"
-                    activeTab={activeTab}
-                    onSelect={handleSetTab}
-                    disabled={!canManageProject}
                   />
                 </div>
               </div>

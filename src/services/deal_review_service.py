@@ -76,6 +76,7 @@ from api.schemas.deal_review import (
     DDGridGlobalGroupDTO,
     DDGridInstructionSnapshotDTO,
 )
+from db.repositories.run_check_plan_item_repo import RunCheckPlanItemRepository
 
 logger = get_logger(__name__)
 
@@ -578,6 +579,17 @@ async def build_dd_grid_v1_response(
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
         documents = await runner_repo.load_documents_for_run(run_uuid)
 
+        # Загрузка результатов и документов
+        check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        documents = await runner_repo.load_documents_for_run(run_uuid)
+        
+        # НОВОЕ: Загрузка execution ledger (источник истины о запланированных проверках)
+        plan_item_repo = RunCheckPlanItemRepository(uow.session)
+        plan_items = await plan_item_repo.list_by_run_id(run_uuid)
+
+        # Валидация deal
+        deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
+
         # Валидация deal
         deal = await deal_repo.internal_unsafe_get_by_id(deal_uuid)
         if not deal:
@@ -655,6 +667,7 @@ async def build_dd_grid_v1_response(
         check_results=check_results,
         documents=documents,
         registry=registry,
+        plan_items=plan_items,  # <--- ДОБАВЛЕНО
     )
 
     return _map_dd_grid_v1_to_response(

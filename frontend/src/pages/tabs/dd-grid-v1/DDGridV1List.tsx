@@ -165,7 +165,7 @@ function getReviewStatusMeta(status: string | null | undefined): {
       };
     case "unclear":
       return {
-        label: "Результат не определён",
+        label: "Результат не определён LLM на 100%, требуется уточнение пользователя",
         tone: "warning",
         sortRank: 1, // между needs_review и ok
       };
@@ -597,43 +597,54 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
     });
   }, [gridApi]);
 
-  const openDrawerForRow = useCallback(
-    (row: V1ListRow) => {
-      if (!row.drawerContent) return;
+const openDrawerForRow = useCallback(
+  (row: V1ListRow) => {
+    console.log('🔍 [1] openDrawerForRow вызвана');
+    console.log('   rowId:', row.rowId);
+    console.log('   drawerContent:', row.drawerContent);
+    console.log('   checkId:', row.checkNode?.checkId);
+    
+    if (!row.drawerContent) {
+      console.error('❌ drawerContent is NULL — drawer не откроется!');
+      return;
+    }
+    
+    console.log('✅ drawerContent существует, открываем...');
+    
+    const previousActiveRowId = activeRowIdRef.current;
 
-      // Сохраняем ID предыдущей активной строки, чтобы принудительно
-      // обновить её className в AG Grid (иначе выделение не спадёт).
-      const previousActiveRowId = activeRowIdRef.current;
+    console.log('   Устанавливаем selectedDrawer.open = true');
+    setSelectedDrawer({ open: true, row });
+    setActiveRowId(row.rowId);
+    activeRowIdRef.current = row.rowId;
 
-      setSelectedDrawer({ open: true, row });
-      setActiveRowId(row.rowId);
-      activeRowIdRef.current = row.rowId;
+    if (!gridApi) {
+      console.warn('️ gridApi is null');
+      return;
+    }
 
-      if (!gridApi) return;
+    requestAnimationFrame(() => {
+      const rowIdsToRefresh: string[] = [row.rowId];
+      if (previousActiveRowId && previousActiveRowId !== row.rowId) {
+        rowIdsToRefresh.push(previousActiveRowId);
+      }
 
-      // Redraw откладываем на следующий кадр, чтобы React успел закоммитить
-      // новый activeRowId и getRowClass прочитал актуальное значение из ref.
-      requestAnimationFrame(() => {
-        const rowIdsToRefresh: string[] = [row.rowId];
-        if (previousActiveRowId && previousActiveRowId !== row.rowId) {
-          rowIdsToRefresh.push(previousActiveRowId);
+      const rowNodes = rowIdsToRefresh
+        .map((id) => gridApi.getRowNode(id))
+       .filter((node): node is NonNullable<typeof node> => node != null);
+
+      if (rowNodes.length > 0) {
+        try {
+          gridApi.redrawRows({ rowNodes });
+          console.log('✅ gridApi.redrawRows вызван');
+        } catch (err) {
+          console.error(' Ошибка при redrawRows:', err);
         }
-
-        const rowNodes = rowIdsToRefresh
-          .map((id) => gridApi.getRowNode(id))
-          .filter((node): node is NonNullable<typeof node> => node != null);
-
-        if (rowNodes.length > 0) {
-          try {
-            gridApi.redrawRows({ rowNodes });
-          } catch {
-            /* noop */
-          }
-        }
-      });
-    },
-    [gridApi],
-  );
+      }
+    });
+  },
+  [gridApi],
+);
 
   const defaultColDef = useMemo<ColDef<V1ListRow>>(
     () => ({
@@ -742,7 +753,13 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
             </span>
           ) : (
             <span className="text-[11px] italic text-[var(--text-faint)]">
-              Результат не сформирован
+              {row.reviewStatus === "no_issue_detected" || row.reviewStatus === "ok"
+                ? "Нарушений не выявлено"
+                : row.reviewStatus === "not_applicable"
+                  ? "Не применимо"
+                  : row.reviewStatus === "unclear"
+                    ? "Результат не определён — требуется ручная проверка" // <-- Улучшенная формулировка
+                    : "Нет данных"}
             </span>
           );
         },
@@ -793,6 +810,7 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
           const row = params.data;
           if (!row) return null;
 
+          // Проверяем, есть ли текст локации и передана ли функция открытия viewer
           const canOpenViewer = Boolean(row.locationText && onOpenAtLocation);
 
           if (!canOpenViewer) {
@@ -804,19 +822,20 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
           }
 
           const handleClick = (e: React.MouseEvent) => {
+            // Останавливаем всплытие, чтобы клик по ссылке не открывал drawer всей строки
             e.stopPropagation();
+            
             if (row.drawerContent) {
+              // Берем первое поле, так как все поля одной проверки обычно 
+              // ссылаются на одно и то же место в документе
               const firstField = row.drawerContent.fields?.[0];
+              
               if (firstField) {
-                const pageMatch =
-                  firstField.location_clause_ref?.match(/стр\.?\s*(\d+)/i);
-                const page =
-                  firstField.location_page ??
-                  (pageMatch ? parseInt(pageMatch[1], 10) : undefined);
-
+                // Используем прямые, очищенные данные с бэкенда.
+                // Regex-парсинг на фронте больше не нужен.
                 onOpenAtLocation?.({
                   documentId: row.v1Row.documentId,
-                  page: page ?? undefined,
+                  page: firstField.location_page ?? undefined,
                   clauseUid: firstField.location_clause_ref ?? undefined,
                   elementId: undefined,
                   segmentId: undefined,
@@ -830,8 +849,9 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
           return (
             <button
               type="button"
-              className="text-xs text-[var(--accent-primary)] hover:underline"
+              className="text-xs text-[var(--accent-primary)] hover:underline cursor-pointer transition-colors"
               onClick={handleClick}
+              title="Открыть документ в этой локации для ручной проверки"
             >
               {row.locationText}
             </button>
@@ -1158,11 +1178,15 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
     );
   }
 
+  const isDrawerOpen = selectedDrawer.open && selectedDrawer.row !== null;
+
   return (
-    <>
+    <div ref={rootRef} className="flex h-full min-h-0 gap-4">
+      {/* Блок грида: сужается, когда drawer открыт */}
       <div
-        ref={rootRef}
-        className="flex h-full min-h-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm"
+        className={`flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm transition-all duration-200 ${
+          isDrawerOpen ? "flex-[2_2_0%]" : "flex-1"
+        }`}
       >
         <div className="min-h-0 flex-1 overflow-hidden">
           <div
@@ -1184,7 +1208,6 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
               onSelectionChanged={handleSelectionChanged}
               onGridReady={handleGridReady}
               onCellClicked={(event) => {
-                // Игнорируем клик по selection колонке (checkbox)
                 if (event.column.getColId() === "ag-Grid-SelectionColumn") {
                   return;
                 }
@@ -1204,31 +1227,36 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
         </div>
       </div>
 
-      <DDGridV1Drawer
-        open={selectedDrawer.open}
-        onClose={closeDrawer}
-        runId={runId}
-        documentId={selectedDrawer.row?.v1Row.documentId ?? null}
-        documentName={selectedDrawer.row?.documentName ?? null}
-        drawerContent={selectedDrawer.row?.drawerContent ?? null}
-        currentQcStatus={selectedDrawer.row?.legacyCellQcStatus ?? null}
-        currentQcComment={selectedDrawer.row?.legacyCellQcComment ?? null}
-        onOpenInViewer={
-          onOpenAtLocation
-            ? (payload) =>
-                onOpenAtLocation({
-                  documentId: payload.documentId,
-                  page: payload.page ?? undefined,
-                  clauseUid: payload.clauseUid ?? undefined,
-                  elementId: undefined,
-                  segmentId: payload.segmentId ?? undefined,
-                  chunkId: payload.chunkId ?? undefined,
-                  chunkIndex: payload.chunkIndex ?? undefined,
-                })
-            : undefined
-        }
-      />
-    </>
+      {/* Блок Drawer: появляется справа только когда открыт */}
+      {isDrawerOpen && (
+        <div className="flex h-full min-h-0 min-w-[320px] flex-[1_1_0%] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+          <DDGridV1Drawer
+            open={true}
+            onClose={closeDrawer}
+            runId={runId}
+            documentId={selectedDrawer.row?.v1Row.documentId ?? null}
+            documentName={selectedDrawer.row?.documentName ?? null}
+            drawerContent={selectedDrawer.row?.drawerContent ?? null}
+            currentQcStatus={selectedDrawer.row?.legacyCellQcStatus ?? null}
+            currentQcComment={selectedDrawer.row?.legacyCellQcComment ?? null}
+            onOpenInViewer={
+              onOpenAtLocation
+                ? (payload) =>
+                    onOpenAtLocation({
+                      documentId: payload.documentId,
+                      page: payload.page ?? undefined,
+                      clauseUid: payload.clauseUid ?? undefined,
+                      elementId: undefined,
+                      segmentId: payload.segmentId ?? undefined,
+                      chunkId: payload.chunkId ?? undefined,
+                      chunkIndex: payload.chunkIndex ?? undefined,
+                    })
+                : undefined
+            }
+          />
+        </div>
+      )}
+    </div>
   );
 };
 
