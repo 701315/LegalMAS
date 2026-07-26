@@ -133,6 +133,10 @@ interface DDGridV1UIState {
   setGroupCollapsed: (groupKey: string, collapsed: boolean) => void;
   collapseAllGroups: (groupKeys: readonly string[]) => void;
   expandAllGroups: (groupKeys: readonly string[]) => void;
+
+  // Active drawer matrix tracking (to prevent overlapping drawers across multiple tables)
+  activeDrawerMatrixTitle: string | null;
+  setActiveDrawerMatrixTitle: (title: string | null) => void;
 }
 
 function toggleInRecord(
@@ -330,6 +334,13 @@ export const useDDGridV1UIStore = create<DDGridV1UIState>((set, get) => ({
       return next ? { collapsedGroupKeys: next } : state;
     });
   },
+
+  // -----------------------------------------------------------
+  // Active Drawer Tracking
+  // -----------------------------------------------------------
+
+  activeDrawerMatrixTitle: null,
+  setActiveDrawerMatrixTitle: (title) => set({ activeDrawerMatrixTitle: title }),
 }));
 
 

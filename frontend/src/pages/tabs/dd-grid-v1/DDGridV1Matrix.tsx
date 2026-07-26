@@ -84,6 +84,7 @@ import type {
   DDGridV1RuntimeColumn,
 } from "./ddGridV1.types";
 import { resolveDDGridV1CellView } from "./ddGridV1.selectors";
+import { useDDGridV1UIStore } from "./ddGridV1.collapseStore";
 
 
 import "ag-grid-community/styles/ag-grid.css";
@@ -716,13 +717,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     [rows],
   );
 
-
-  const visibleCheckIdSet = useMemo(
-    () => (visibleCheckIds ? new Set(visibleCheckIds) : null),
-    [visibleCheckIds],
-  );
-
-
   const topLevelPlans = useMemo(
     () => planV1TopLevelBuckets(model, visibleCheckIds),
     [model, visibleCheckIds],
@@ -751,17 +745,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
   }, [columns]);
 
 
-  const isSelectedCellValid =
-    selectedCell.open &&
-    selectedCell.rowId != null &&
-    selectedCell.checkId != null &&
-    selectedCell.drawerContent != null &&
-    rows.some((row) => row.rowId === selectedCell.rowId) &&
-    (visibleCheckIdSet
-      ? visibleCheckIdSet.has(selectedCell.checkId)
-      : columns.some((col) => col.checkId === selectedCell.checkId));
-
-
   useEffect(() => {
     const node = rootRef.current;
     if (!node) return;
@@ -787,6 +770,45 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
   }, []);
 
 
+  // Глобальное состояние для синхронизации drawer'ов между таблицами
+  const activeDrawerMatrixTitle = useDDGridV1UIStore(
+    (state) => state.activeDrawerMatrixTitle
+  );
+  const setActiveDrawerMatrixTitle = useDDGridV1UIStore(
+    (state) => state.setActiveDrawerMatrixTitle
+  );
+  const currentMatrixTitle = title ?? "default_matrix";
+
+  // Эта таблица показывает drawer ТОЛЬКО если она им владеет
+  const isThisMatrixActive = activeDrawerMatrixTitle === currentMatrixTitle;
+
+  const isCellDrawerOpen =
+    selectedCell.open && selectedCell.drawerContent !== null && isThisMatrixActive;
+  const isInstructionDrawerOpen = selectedInstruction.open && isThisMatrixActive;
+  const isDrawerPanelOpen = isCellDrawerOpen || isInstructionDrawerOpen;
+
+  // Если другая таблица открыла drawer, принудительно закрываем локальное состояние этой
+  useEffect(() => {
+    if (
+      activeDrawerMatrixTitle !== null &&
+      activeDrawerMatrixTitle !== currentMatrixTitle
+    ) {
+      if (selectedCell.open || selectedInstruction.open) {
+        setSelectedCell({
+          open: false,
+          rowId: null,
+          documentId: null,
+          documentName: null,
+          checkId: null,
+          drawerContent: null,
+          currentQcStatus: null,
+          currentQcComment: null,
+        });
+        setSelectedInstruction({ open: false, documentName: null, snapshot: null });
+      }
+    }
+  }, [activeDrawerMatrixTitle, currentMatrixTitle, selectedCell.open, selectedInstruction.open]);
+
   const closeDetails = useCallback(() => {
     setSelectedCell({
       open: false,
@@ -798,8 +820,11 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
       currentQcStatus: null,
       currentQcComment: null,
     });
-  }, []);
-
+    // Освобождаем право на drawer, только если он принадлежал нам
+    if (activeDrawerMatrixTitle === currentMatrixTitle) {
+      setActiveDrawerMatrixTitle(null);
+    }
+  }, [activeDrawerMatrixTitle, currentMatrixTitle, setActiveDrawerMatrixTitle]);
 
   const openDetailsForCell = useCallback(
     (params: {
@@ -810,18 +835,11 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
       const drawerContent =
         model.drawerContents[params.row.documentId]?.[params.checkId] ?? null;
 
-
       if (!drawerContent) return;
-
 
       const legacyCell = params.cell;
 
-
-      // Открытие cell drawer должно закрыть instruction drawer — оба
-      // drawer'а рендерятся в одном дереве и физически перекрывают
-      // друг друга, если оставить старый state открытым.
       setSelectedInstruction({ open: false, documentName: null, snapshot: null });
-
 
       setSelectedCell({
         open: true,
@@ -833,9 +851,19 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         currentQcStatus: legacyCell?.qc_status ?? null,
         currentQcComment: legacyCell?.qc_comment ?? null,
       });
+
+      // Захватываем право на drawer для этой таблицы
+      setActiveDrawerMatrixTitle(currentMatrixTitle);
     },
-    [model.drawerContents],
+    [model.drawerContents, currentMatrixTitle, setActiveDrawerMatrixTitle]
   );
+
+  const closeInstructionDrawer = useCallback(() => {
+    setSelectedInstruction({ open: false, documentName: null, snapshot: null });
+    if (activeDrawerMatrixTitle === currentMatrixTitle) {
+      setActiveDrawerMatrixTitle(null);
+    }
+  }, [activeDrawerMatrixTitle, currentMatrixTitle, setActiveDrawerMatrixTitle]);
 
 
   const getV1RowForReviewRow = useCallback(
@@ -847,19 +875,11 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
   );
 
 
-  const closeInstructionDrawer = useCallback(() => {
-    setSelectedInstruction({ open: false, documentName: null, snapshot: null });
-  }, []);
-
-
   const openInstructionDrawerForRow = useCallback(
     (row: V1MatrixGridRow | null | undefined) => {
       if (!row) return;
       const v1Row = getV1RowForReviewRow(row);
 
-
-      // Симметричное закрытие cell drawer — см. комментарий в
-      // openDetailsForCell выше.
       setSelectedCell({
         open: false,
         rowId: null,
@@ -871,14 +891,16 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         currentQcComment: null,
       });
 
-
       setSelectedInstruction({
         open: true,
         documentName: row.documentName ?? null,
         snapshot: v1Row?.instructionSnapshot ?? null,
       });
+
+      // Захватываем право на drawer для этой таблицы
+      setActiveDrawerMatrixTitle(currentMatrixTitle);
     },
-    [getV1RowForReviewRow],
+    [getV1RowForReviewRow, currentMatrixTitle, setActiveDrawerMatrixTitle],
   );
 
 
@@ -1453,101 +1475,95 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     );
   }
 
-
-  const isDrawerPanelOpen = isSelectedCellValid || selectedInstruction.open;
-
   return (
     <>
-      <div ref={rootRef} className="flex h-full min-h-0 gap-4">
-        {/* Основной блок грида — сужается, когда drawer открыт */}
-        <div
-          className={`flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm transition-all duration-200 ${
-            isDrawerPanelOpen ? "flex-[2_2_0%]" : "flex-1"
-          }`}
-        >
-          {title ? (
-            <div className="shrink-0 border-b border-[var(--border-subtle)] px-5 py-4">
-              <div className="text-sm font-semibold text-[var(--text-primary)]">
-                {title}
-              </div>
-              <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                Документы: {rowData.length} · Проверки: {visibleChecksCount}
-              </div>
+      {/* Активная таблица сжимается до 2/3, освобождая 1/3 для drawer */}
+      <div
+        className={`flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm transition-all duration-300 ${
+          isDrawerPanelOpen ? "w-2/3" : "w-full"
+        }`}
+      >
+        {title ? (
+          <div className="shrink-0 border-b border-[var(--border-subtle)] px-5 py-4">
+            <div className="text-sm font-semibold text-[var(--text-primary)]">
+              {title}
             </div>
-          ) : null}
-
-
-
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <div
-              className="ag-theme-legalmas h-full w-full"
-              style={{
-                minHeight: MATRIX_MIN_HEIGHT_PX,
-                minWidth: MATRIX_MIN_WIDTH_PX,
-              }}
-            >
-              <AgGridReact<V1MatrixGridRow>
-                theme="legacy"
-                rowData={rowData}
-                columnDefs={columnDefs}
-                defaultColDef={defaultColDef}
-                rowSelection={rowSelection}
-                suppressCellFocus={false}
-                tooltipShowDelay={200}
-                onSelectionChanged={handleSelectionChanged}
-                onGridReady={handleGridReady}
-                getRowId={(params) => params.data.rowId}
-                domLayout="normal"
-              />
+            <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+              Документы: {rowData.length} · Проверки: {visibleChecksCount}
             </div>
-          </div>
-        </div>
-
-
-
-        {/* Drawer-панель как отдельная карточка, а не оверлей поверх грида */}
-        {isDrawerPanelOpen ? (
-          <div className="flex h-full min-h-0 min-w-[320px] flex-[1_1_0%] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-            <DDGridV1Drawer
-              open={isSelectedCellValid}
-              onClose={closeDetails}
-              runId={runId}
-              documentId={selectedCell.documentId}
-              documentName={selectedCell.documentName}
-              drawerContent={selectedCell.drawerContent}
-              currentQcStatus={selectedCell.currentQcStatus}
-              currentQcComment={selectedCell.currentQcComment}
-              onOpenInViewer={
-                onOpenAtLocation
-                  ? (payload) =>
-                      onOpenAtLocation({
-                        documentId: payload.documentId,
-                        page: payload.page ?? undefined,
-                        clauseUid: payload.clauseUid ?? undefined,
-                        elementId: undefined,
-                        segmentId: payload.segmentId ?? undefined,
-                        chunkId: payload.chunkId ?? undefined,
-                        chunkIndex: payload.chunkIndex ?? undefined,
-                      })
-                  : undefined
-              }
-            />
-
-
-
-            <DDGridV1InstructionDrawer
-              open={selectedInstruction.open}
-              onClose={closeInstructionDrawer}
-              documentName={selectedInstruction.documentName}
-              snapshot={selectedInstruction.snapshot}
-            />
           </div>
         ) : null}
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <div
+            className="ag-theme-legalmas h-full w-full"
+            style={{
+              minHeight: MATRIX_MIN_HEIGHT_PX,
+              minWidth: MATRIX_MIN_WIDTH_PX,
+            }}
+          >
+            <AgGridReact<V1MatrixGridRow>
+              theme="legacy"
+              rowData={rowData}
+              columnDefs={columnDefs}
+              defaultColDef={defaultColDef}
+              rowSelection={rowSelection}
+              suppressCellFocus={false}
+              tooltipShowDelay={200}
+              onSelectionChanged={handleSelectionChanged}
+              onGridReady={handleGridReady}
+              getRowId={(params) => params.data.rowId}
+              domLayout="normal"
+            />
+          </div>
+        </div>
       </div>
+
+      {/* Drawer с position: absolute — занимает ровно 1/3 ширины */}
+      {isDrawerPanelOpen && (
+        <div className="absolute top-0 right-0 h-full w-1/3 z-50">
+          <div className="flex h-full flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--bg-card)] rounded-l-2xl shadow-2xl">
+            {isCellDrawerOpen && (
+              <DDGridV1Drawer
+                open={true}
+                onClose={closeDetails}
+                runId={runId}
+                documentId={selectedCell.documentId}
+                documentName={selectedCell.documentName}
+                drawerContent={selectedCell.drawerContent}
+                currentQcStatus={selectedCell.currentQcStatus}
+                currentQcComment={selectedCell.currentQcComment}
+                onOpenInViewer={
+                  onOpenAtLocation
+                    ? (payload) =>
+                        onOpenAtLocation({
+                          documentId: payload.documentId,
+                          page: payload.page ?? undefined,
+                          clauseUid: payload.clauseUid ?? undefined,
+                          elementId: undefined,
+                          segmentId: payload.segmentId ?? undefined,
+                          chunkId: payload.chunkId ?? undefined,
+                          chunkIndex: payload.chunkIndex ?? undefined,
+                        })
+                    : undefined
+                }
+              />
+            )}
+
+            {isInstructionDrawerOpen && (
+              <DDGridV1InstructionDrawer
+                open={true}
+                onClose={closeInstructionDrawer}
+                documentName={selectedInstruction.documentName}
+                snapshot={selectedInstruction.snapshot}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 };
-
 
 export default DDGridV1Matrix;
 

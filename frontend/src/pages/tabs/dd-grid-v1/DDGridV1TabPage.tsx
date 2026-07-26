@@ -1019,7 +1019,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
         </div>
 
         {/* Grid viewport — flex-1, AG Grid scroll inside */}
-        <div className="min-h-0 flex-1 overflow-hidden px-6 py-5">
+        <div className="min-h-0 flex-1 overflow-hidden px-6 py-5 relative">
           {gridMode === "matrix" ? (
             <DDGridV1TypedGroups
               runId={runId}
