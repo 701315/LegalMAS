@@ -33,14 +33,6 @@ export const SITE_CTA = {
   login: { label: "Войти", href: "/login" },
 } as const;
 
-// Юридические ссылки для футера
-export const LEGAL_LINKS: NavItem[] = [
-  { label: "Условия использования", href: "/legal/terms" },
-  { label: "Политика конфиденциальности", href: "/legal/privacy" },
-  { label: "Политика cookie", href: "/legal/cookies" },
-  { label: "Политика безопасности", href: "/legal/security" },
-];
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Мега-меню для «Сценарии использования»
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,4 +102,5 @@ export const SOLUTIONS_MEGA_MENU: MegaMenuConfig = {
     },
   ],
 };
+
 

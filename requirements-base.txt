@@ -35,7 +35,7 @@ pdfplumber==0.11.4
 pdf2image==1.17.0
 pytesseract==0.3.13
 Pillow==11.1.0
-fpdf2>=2.7.0
+fpdf2==2.8.1
 
 # Additional utils
 python-dotenv==1.0.1
@@ -67,6 +67,7 @@ llama-cpp-python>=0.2.0,<0.4.0
 # Dedup & Relations
 thefuzz==0.22.1
 python-Levenshtein==0.25.1
+rapidfuzz==3.12.1
 
 # Runner Core Engine
 rank-bm25==0.2.2
@@ -82,11 +83,14 @@ prometheus-fastapi-instrumentator==7.0.0
 # Rate limiting
 limits==3.13.0
 
-# FastAPI converter service
-python-multipart
+# JSON Patch (instruction overrides)
+jsonpatch==1.33
 
-requests>=2.31.0
-urllib3>=2.0,<3.0
+# FastAPI converter service
+python-multipart==0.0.20
+
+requests==2.32.3
+urllib3==2.3.0
 
 # OpenTelemetry core
 opentelemetry-api==1.28.2

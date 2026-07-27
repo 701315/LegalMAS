@@ -87,7 +87,7 @@ const TenantOverridesPage: React.FC = () => {
   const { tenantId: authTenantId } = useAuth();
   const tenantId = authTenantId ?? "";
 
-  const { data, isLoading, isError, refetch } = useTenantOverrides(
+  const { data, isLoading, isError } = useTenantOverrides(
     tenantId || null,
   );
 

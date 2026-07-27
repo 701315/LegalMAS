@@ -11,7 +11,7 @@ import DemoFaqSection from "../components/demo/DemoFaqSection";
 const DemoPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917]">
-      <SiteHeader forcedTheme="light" />
+      <SiteHeader variant="default" />
 
       <main
         className="mx-auto px-4 py-16 sm:px-6 lg:px-8 lg:py-24"

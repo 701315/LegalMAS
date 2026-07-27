@@ -47,6 +47,7 @@ export interface ModelConfigManagerPanelProps {
   onFinished?: () => void;
   onCancel?: () => void;
   onDealPatched?: (patch: Partial<Deal>) => void;
+  onOpenPlaybookVersions?: (modelConfigId: string) => void; // <-- ДОБАВЛЕНО
 }
 
 // ─────────────────────────────────────────────────────────────

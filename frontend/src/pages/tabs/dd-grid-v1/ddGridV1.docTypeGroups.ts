@@ -124,23 +124,28 @@ function buildDocTypeInfoLookup(
 }
 
 /**
- * Универсальный резолвер: проверяет, есть ли у документа известный
- * doc_type, который резолвится в существующий type_code.
+ * Резолвит doc_type документа в канонический bucket key.
  *
- * Правила (никаких хардкодов):
- * - если row.docType — пустая/whitespace строка → false;
- * - если row.docType не встречается в lookup → false;
- * - иначе true.
+ * Возвращает:
+ * - trimmed doc_type, если он непустой и существует в lookup;
+ * - null, если doc_type отсутствует, пустой или неизвестный.
+ *
+ * Важно:
+ * - никаких хардкодов;
+ * - match остаётся прямым строковым совпадением с type_code,
+ *   как и зафиксировано в контракте backend.
  */
-function isKnownDocType(
+function resolveKnownDocTypeKey(
   row: DDGridV1MatrixRow,
   lookup: Map<string, DocTypeInfo>,
-): boolean {
+): string | null {
   const dt = row.docType;
-  if (typeof dt !== "string") return false;
-  const trimmed = dt.trim();
-  if (trimmed.length === 0) return false;
-  return lookup.has(trimmed);
+  if (typeof dt !== "string") return null;
+
+  const normalized = dt.trim();
+  if (normalized.length === 0) return null;
+
+  return lookup.has(normalized) ? normalized : null;
 }
 
 /**
@@ -164,9 +169,9 @@ export function buildDDGridV1TypedGroups(
   // Индексируем строки по резолвленному doc_type (или "other").
   const rowsByBucket = new Map<string, DDGridV1MatrixRow[]>();
   for (const row of model.rows) {
-    const bucketKey = isKnownDocType(row, typeLookup)
-      ? row.docType.trim()
-      : DD_GRID_V1_OTHER_GROUP_KEY;
+    const resolvedDocTypeKey = resolveKnownDocTypeKey(row, typeLookup);
+    const bucketKey = resolvedDocTypeKey ?? DD_GRID_V1_OTHER_GROUP_KEY;
+
     const arr = rowsByBucket.get(bucketKey);
     if (arr) {
       arr.push(row);

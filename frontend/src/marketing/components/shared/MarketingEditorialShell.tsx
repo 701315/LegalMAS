@@ -18,7 +18,7 @@ const MarketingEditorialShell: React.FC<MarketingEditorialShellProps> = ({
 }) => {
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#1A1917]">
-      <SiteHeader forcedTheme="light" />
+      <SiteHeader variant="default" />
       <main style={{ paddingTop: 68 }}>
         {/* Hero section */}
         <section className="border-b border-[#E8E4DD]">

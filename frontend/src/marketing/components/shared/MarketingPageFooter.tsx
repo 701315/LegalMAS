@@ -2,7 +2,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import SteloomWordmark from "./primitives/SteloomWordmark";
-import { LEGAL_LINKS } from "../../content/siteNav";
 
 const MarketingPageFooter: React.FC = () => (
   <footer
@@ -20,7 +19,23 @@ const MarketingPageFooter: React.FC = () => (
             и управляемые document workflows для M&A
             и корпоративных юридических команд.
           </p>
+
+          <div className="mt-8 space-y-3">
+            <p className="text-[0.9375rem] font-medium text-[#1A1917]">
+              Steloom.Com
+            </p>
+
+            <div className="pt-2">
+              <a
+                href="mailto:info@steloom.com"
+                className="block text-[0.9375rem] text-[#78756F] transition-colors hover:text-[#1A1917]"
+              >
+                info@steloom.com
+              </a>
+            </div>
+          </div>
         </div>
+
         <div className="hidden items-start justify-end lg:flex">
           <Link
             to="/"
@@ -36,17 +51,6 @@ const MarketingPageFooter: React.FC = () => (
         <p className="text-xs text-[#A8A29E]">
           © 2026 Steloom. Все права защищены.
         </p>
-        <div className="flex flex-wrap gap-x-5 gap-y-2">
-          {LEGAL_LINKS.map((l) => (
-            <Link
-              key={l.href}
-              to={l.href}
-              className="text-xs text-[#A8A29E] transition-colors hover:text-[#1A1917]"
-            >
-              {l.label}
-            </Link>
-          ))}
-        </div>
       </div>
     </div>
   </footer>

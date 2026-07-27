@@ -149,8 +149,10 @@ export interface PlaybookLineShort {
  * Синхронизировано с backend PlaybookLineItemPayload.
  */
 export interface PlaybookLineItemPayload {
-  kind: "check";
-  instruction_code: string;
+  kind: "topic" | "check";
+  topic_code?: string;
+  check_code?: string;
+  instruction_code?: string;
   order_index: number;
 }
 

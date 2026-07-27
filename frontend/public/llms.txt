@@ -1,0 +1,19 @@
+# Steloom
+
+Steloom is a platform for legal document analysis. It classifies documents, applies document-type-specific review scenarios (including SPA, NDA, employment agreements, and corporate documents), and produces structured outputs such as a DD grid, risks, and findings linked to the relevant section or annex of each document. The same review process is applied consistently to one document or to hundreds of files.
+
+## Main pages
+- Home: https://steloom.com/
+- Capabilities: https://steloom.com/capabilities
+- Security: https://steloom.com/security
+- About: https://steloom.com/about
+- Demo: https://steloom.com/demo
+- M&A Due Diligence: https://steloom.com/solutions/ma-due-diligence
+- Contract Review: https://steloom.com/solutions/contract-review
+- Compliance: https://steloom.com/solutions/compliance
+- Internal Audit: https://steloom.com/solutions/internal-audit
+- Law Firms: https://steloom.com/solutions/law-firms
+- Corporate Legal: https://steloom.com/solutions/corporate-legal
+- Audit and Compliance: https://steloom.com/solutions/audit-compliance
+- Counterparties: https://steloom.com/solutions/counterparties
+- Real Estate: https://steloom.com/solutions/real-estate

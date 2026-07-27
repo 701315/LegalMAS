@@ -218,7 +218,7 @@ const DealOverrideDetailPage: React.FC = () => {
               Base Version
             </div>
             <div className="mt-0.5 font-mono text-[10px] text-[var(--text-primary)]">
-              {override.instruction_version_id.slice(0, 8)}…
+              {override.instruction_version_id?.slice(0, 8) ?? "…"}
             </div>
           </div>
           <div>
