@@ -555,22 +555,42 @@ class ArtifactStore:
 
         clean_path = self._normalize_object_path(path)
         object_name = quote(clean_path, safe="/")
-        scheme = "https" if self._secure else "http"
-        return f"{scheme}://{self._endpoint}/{self.bucket}/{object_name}"
+        
+        # ОПРЕДЕЛЯЕМ БАЗОВЫЙ URL: используем публичный, если он задан в .env, 
+        # иначе fallback на внутренний адрес (для локальной разработки)
+        if settings.MINIO_PUBLIC_ENDPOINT:
+            base_url = settings.MINIO_PUBLIC_ENDPOINT.rstrip("/")
+        else:
+            scheme = "https" if self._secure else "http"
+            base_url = f"{scheme}://{self._endpoint}"
+
+        return f"{base_url}/{self.bucket}/{object_name}"
 
     def get_presigned_get_url(self, path: str, expires_seconds: int = 3600) -> str:
         """
         Вернуть presigned URL для скачивания объекта.
-
-        path может быть как s3://bucket/..., так и относительным путём.
+        Гарантирует использование MINIO_PUBLIC_ENDPOINT для корректного открытия в браузере.
         """
         clean_path = self._normalize_object_path(path)
         expires = timedelta(seconds=expires_seconds)
-        return self.client.presigned_get_object(
+        
+        # 1. Генерируем URL через основной клиент (он создаст его с 127.0.0.1)
+        url = self.client.presigned_get_object(
             bucket_name=self.bucket,
             object_name=clean_path,
             expires=expires,
         )
+        
+        # 2. Если задан публичный эндпоинт, заменяем внутренний хост на публичный.
+        # Подпись S3 (X-Amz-Signature) привязана к пути и параметрам, замена хоста её не ломает.
+        if settings.MINIO_PUBLIC_ENDPOINT:
+            scheme = "https" if self._secure else "http"
+            old_base = f"{scheme}://{self._endpoint}"
+            
+            # Аккуратно заменяем только базовую часть URL
+            url = url.replace(old_base, settings.MINIO_PUBLIC_ENDPOINT.rstrip("/"))
+            
+        return url
 
     def exists(self, path: str) -> bool:
         """Check if an object exists at the given path."""

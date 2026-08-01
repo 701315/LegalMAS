@@ -51,9 +51,10 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # --- MinIO / S3 ---
-    MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_ENDPOINT: str = "127.0.0.1:9000"
+    MINIO_PUBLIC_ENDPOINT: str | None = None  # <-- ДОБАВЛЕНО
     MINIO_ACCESS_KEY: str = "minioadmin"
-    MINIO_SECRET_KEY: str = "minioadmin123"
+    MINIO_SECRET_KEY: str = "Kesko-701315" # (Значение по умолчанию, перекроется из .env)
     MINIO_BUCKET: str = "mas-artifacts"
     MINIO_SECURE: bool = False
 

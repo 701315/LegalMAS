@@ -263,6 +263,18 @@ classification_runtime_v1:
           context: header
           description: "Прямое название договора строительного подряда"
 
+        - pattern: "(?i)^\\s*construction\\s+(?:agreement|contract)\\b"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Прямое английское название строительного контракта"
+
+        - pattern: "(?i)construction\\s+(?:agreement|contract)\\b"
+          weight: 0.85
+          distinctiveness: high
+          context: body
+          description: "Английское название в теле документа"
+
         - pattern: "(?i)строительн[ыйого]\\s+подряд"
           weight: 0.95
           distinctiveness: high

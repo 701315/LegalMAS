@@ -196,12 +196,21 @@ class PriorityRulesEvaluator:
             )
             return None
 
-        l2_high_hits = int(l2_extra.get("high_hits", 0))
-        l2_medium_hits = int(l2_extra.get("medium_hits", 0))
-        
-        distinctive_high = int(l2_extra.get("distinctive_high_hits", l2_high_hits))
-        distinctive_medium = int(l2_extra.get("distinctive_medium_hits", l2_medium_hits // 2))
-        generic_high = int(l2_extra.get("generic_high_hits", 0))
+        # Читаем именно те ключи, которые L2 (extended_v1) реально пишет в extra.
+        # Старые ключи high_hits / distinctive_high_hits / distinctive_medium_hits
+        # никогда не существовали в extended_v1 — это был silent name mismatch.
+        l2_high_hits = (
+            int(l2_extra.get("high_distinctive_hits", 0))
+            + int(l2_extra.get("high_generic_hits", 0))
+        )
+        l2_medium_hits = (
+            int(l2_extra.get("medium_distinctive_hits", 0))
+            + int(l2_extra.get("medium_generic_hits", 0))
+        )
+
+        distinctive_high   = int(l2_extra.get("high_distinctive_hits",   0))
+        distinctive_medium = int(l2_extra.get("medium_distinctive_hits", 0))
+        generic_high       = int(l2_extra.get("high_generic_hits",       0))
 
         weak_l2_signal = (distinctive_high == 0 and generic_high > 0) or (
             distinctive_high == 1 and distinctive_medium == 0

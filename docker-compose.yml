@@ -2,12 +2,13 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: mas_dd_postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: mas_dd
       POSTGRES_USER: mas
-      POSTGRES_PASSWORD: mas_dev_password
+      POSTGRES_PASSWORD: mas_super_password
     ports:
-      - "5432:5432"
+      - "127.0.0.1:15432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,8 +20,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: mas_dd_redis
+    restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:16379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -32,13 +34,14 @@ services:
   minio:
     image: minio/minio:latest
     container_name: mas_dd_minio
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
+      MINIO_ROOT_PASSWORD: Kesko-701315
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:19000:9000"
+      - "127.0.0.1:19001:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -54,7 +57,7 @@ services:
     container_name: mas_dd_office_converter
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:18080:8080"
     environment:
       LOG_LEVEL: INFO
       LIBREOFFICE_TIMEOUT_SECONDS: "180"

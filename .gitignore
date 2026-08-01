@@ -59,3 +59,14 @@ LLMmodel/
 # Runtime artifacts
 logs/
 celerybeat-schedule
+# Backup files
+*.bak
+*.bak.*
+*.save
+
+# Environment files with suffixes (keep only .env.example if needed)
+.env.*
+!.env.example
+
+# Stray files
+=

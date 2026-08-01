@@ -7,8 +7,11 @@
 import axios from "axios";
 import type { ApiError } from "../types";
 
-// Базовый URL берём из Vite-окружения
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// В production не уходим на localhost.
+// Если VITE_API_URL не задан, используем same-origin:
+// - в dev запросы /api/... пойдут через Vite proxy
+// - в demo запросы /api/... пойдут через Caddy
+const baseURL = (import.meta.env.VITE_API_URL ?? "").trim();
 
 const client = axios.create({
   baseURL,

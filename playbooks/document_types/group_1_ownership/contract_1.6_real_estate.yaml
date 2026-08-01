@@ -274,12 +274,6 @@ classification_runtime_v1:
           context: any
           description: "Единый государственный реестр недвижимости"
 
-        - pattern: "(?i)кадастров[а-я\\s]*номер"
-          weight: 0.80
-          distinctiveness: high
-          context: any
-          description: "Кадастровый номер — обязательный реквизит"
-
         - pattern: "(?i)Росреестр"
           weight: 0.75
           distinctiveness: high
@@ -328,12 +322,6 @@ classification_runtime_v1:
           context: any
           description: "Квартира"
 
-        - pattern: "(?i)земельн[а-я\\s]*участ"
-          weight: 0.65
-          distinctiveness: high
-          context: any
-          description: "Земельный участок"
-
       medium:
         - pattern: "(?i)переход\\s+права\\s+собственност[иьи]"
           weight: 0.45
@@ -352,6 +340,18 @@ classification_runtime_v1:
           distinctiveness: medium
           context: any
           description: "Обременение недвижимости"
+
+        - pattern: "(?i)кадастров[а-я\\s]*номер"
+          weight: 0.35
+          distinctiveness: medium
+          context: any
+          description: "Кадастровый номер — описывает объект, но не доказывает куплю-продажу"
+
+        - pattern: "(?i)земельн[а-я\\s]*участ"
+          weight: 0.30
+          distinctiveness: medium
+          context: any
+          description: "Земельный участок — общий объектный маркер, встречается в подряде, аренде, проектировании"
 
         - pattern: "(?i)объект[ыа]\\s+недвижимост[иьи]"
           weight: 0.55
@@ -512,6 +512,28 @@ classification_runtime_v1:
         severity: soft
         weight: -0.40
         description: "Строительный подряд (заголовочная форма)"
+
+      - pattern: "(?i)строительно[\\s\\n\\r-]*монтажн[ыеых]\\s+работ"
+        severity: hard
+        weight: -1.0
+        description: "СМР — явный признак строительного подряда, не купли-продажи"
+
+      - pattern: "(?i)\\bгенподрядчик\\b|генеральн[ыйого]\\s+подрядчик[ау]?"
+        severity: hard
+        weight: -1.0
+        description: "Упоминание генподрядчика исключает чистую куплю-продажу"
+
+      - pattern: "(?i)\\bconstruction\\s+(?:agreement|contract)\\b"
+        severity: hard
+        weight: -1.0
+        description: "Английские маркеры строительного договора"
+
+      - pattern: "(?i)\\bподрядчик[ауеом]?\\b"
+        severity: soft
+        weight: -0.60
+        description: "Широкий термин подряда существенно снижает вероятность купли-продажи"
+
+
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

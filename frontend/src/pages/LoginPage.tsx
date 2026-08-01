@@ -35,7 +35,7 @@ const LoginPage: React.FC = () => {
     logout();
 
     if (!login.trim() || !password.trim()) {
-      setErrorText("Укажите логин и пароль.");
+      setErrorText("Укажите email и пароль.");
       return;
     }
 
@@ -115,15 +115,15 @@ const LoginPage: React.FC = () => {
               htmlFor="login"
               className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[#A8A29E]"
             >
-              Логин
+              Email
             </label>
             <input
               id="login"
-              type="text"
+              type="email"
               value={login}
               onChange={(e) => setLogin(e.target.value)}
               className="w-full rounded-xl border border-[#E8E4DD] bg-[#FAF8F5] px-3.5 py-2.5 text-sm text-[#1A1917] placeholder:text-[#A8A29E] outline-none transition-colors focus:border-[#C86B52] focus:bg-white"
-              placeholder="Ваш логин"
+              placeholder="name@company.com"
               autoComplete="username"
               autoFocus
             />

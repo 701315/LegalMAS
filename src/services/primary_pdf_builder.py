@@ -37,6 +37,8 @@ from core.logging import get_logger
 
 logger = get_logger(__name__)
 
+REPORTLAB_IMPORT_ERROR: Exception | None = None
+
 try:
     from reportlab.lib.colors import black
     from reportlab.lib.pagesizes import A4
@@ -46,11 +48,13 @@ try:
     from reportlab.pdfgen import canvas
 
     REPORTLAB_AVAILABLE = True
-except Exception:
+    DEFAULT_PAGE_SIZE = A4
+except Exception as exc:
     REPORTLAB_AVAILABLE = False
+    REPORTLAB_IMPORT_ERROR = exc
+    DEFAULT_PAGE_SIZE = (595.2756, 841.8898)  # A4 fallback in points
 
 
-DEFAULT_PAGE_SIZE = A4
 DEFAULT_PAGE_WIDTH = float(DEFAULT_PAGE_SIZE[0])
 DEFAULT_PAGE_HEIGHT = float(DEFAULT_PAGE_SIZE[1])
 

@@ -36,8 +36,8 @@ export interface LoginResponse {
   // когда бекенд начнёт их возвращать.
 }
 
-// Тело запроса логина — то, что шлём на бекенд
-// Сейчас бекенд ожидает поля username и password.
+// Тело запроса логина — то, что шлём на бекенд.
+// Исторически поле называется username, но backend интерпретирует его как email.
 export interface LoginInput {
   username: string;
   password: string;
@@ -46,7 +46,7 @@ export interface LoginInput {
 // Низкоуровневый API-клиент
 export const authApi = {
   /**
-   * Логин по логину и паролю.
+   * Логин по email и паролю.
    * POST /api/v1/auth/login
    */
   login: (data: LoginInput) =>
