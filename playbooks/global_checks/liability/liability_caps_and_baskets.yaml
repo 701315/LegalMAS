@@ -202,7 +202,8 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 420
+  llm_max_tokens: 1100
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A и коммерческим контрактам.

@@ -215,7 +215,8 @@ enrichment_hints:
 extraction:
   enabled: true
   mode: "hybrid"
-  llm_max_tokens: 480
+  llm_max_tokens: 950
+
   llm_prompt_extraction: |
     <role>
     Ты — юрист по интеллектуальной собственности.
