@@ -573,8 +573,12 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   );
 
   const handleCloseViewer = React.useCallback(() => {
-    setViewerState(null);
-  }, []);
+      // Освобождаем blob URL чтобы не было memory leak
+      if (viewerState?.pdfUrl && viewerState.pdfUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(viewerState.pdfUrl);
+      }
+      setViewerState(null);
+    }, [viewerState]);
 
   const didInitGridModeResetRef = React.useRef(false);
 
@@ -657,49 +661,47 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
 
   const openViewerAt: OpenViewerAtFn = React.useCallback(async (loc) => {
-    try {
-      setViewerError(null);
-      setIsViewerLoading(true);
+      try {
+        setViewerError(null);
+        setIsViewerLoading(true);
 
-      // Централизованный client автоматически подставит
-      // Authorization: Bearer <jwt> из localStorage через interceptor.
-      const pdfUrlResponse = await client.get<string>(
-        `/api/v1/documents/${loc.documentId}/converted-pdf-url`,
-        { responseType: "text" },
-      );
+        // Получаем PDF через streaming endpoint — backend читает из приватного
+        // MinIO и отдаёт браузеру напрямую. Никаких presigned URL.
+        const pdfResponse = await client.get(
+          `/api/v1/documents/${loc.documentId}/converted-pdf-content`,
+          { responseType: "blob" },
+        );
 
-      const pdfUrl = pdfUrlResponse.data;
-      if (!pdfUrl || typeof pdfUrl !== "string") {
-        throw new Error("Не удалось получить ссылку на PDF документа");
+        const pdfBlob = pdfResponse.data as Blob;
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+
+        // layout и chunks запрашиваем параллельно, каждый в try/catch:
+        // если endpoint вернул ошибку — viewer откроется без overlay hints.
+        const [layoutJson, chunksJson] = await Promise.all([
+          client
+            .get<unknown>(`/api/v1/documents/${loc.documentId}/layout-for-viewer`)
+            .then((r) => r.data)
+            .catch(() => undefined),
+          client
+            .get<unknown>(`/api/v1/documents/${loc.documentId}/sized-chunks`)
+            .then((r) => r.data)
+            .catch(() => undefined),
+        ]);
+
+        setViewerState({
+          location: loc,
+          pdfUrl,
+          layoutElements: parseLayoutElements(layoutJson),
+          sizedChunks: parseSizedChunks(chunksJson),
+        });
+      } catch (error: unknown) {
+        setViewerError(
+          `Ошибка при загрузке документа: ${getErrorMessage(error)}`,
+        );
+      } finally {
+        setIsViewerLoading(false);
       }
-
-      // layout и chunks запрашиваем параллельно, но каждый в try/catch:
-      // если endpoint вернул ошибку — viewer просто откроется без layout hints.
-      const [layoutJson, chunksJson] = await Promise.all([
-        client
-          .get<unknown>(`/api/v1/documents/${loc.documentId}/layout-for-viewer`)
-          .then((r) => r.data)
-          .catch(() => undefined),
-        client
-          .get<unknown>(`/api/v1/documents/${loc.documentId}/sized-chunks`)
-          .then((r) => r.data)
-          .catch(() => undefined),
-      ]);
-
-      setViewerState({
-        location: loc,
-        pdfUrl,
-        layoutElements: parseLayoutElements(layoutJson),
-        sizedChunks: parseSizedChunks(chunksJson),
-      });
-    } catch (error: unknown) {
-      setViewerError(
-        `Ошибка при запросе данных для просмотра документа: ${getErrorMessage(error)}`,
-      );
-    } finally {
-      setIsViewerLoading(false);
-    }
-  }, []);
+    }, []);
 
   if (!runId) {
     return (
