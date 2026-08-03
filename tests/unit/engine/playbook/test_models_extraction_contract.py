@@ -110,4 +110,36 @@ def test_clause_presence_check_skips_validation():
     assert check.id == "c5"
 
 
+# ── compact_output tri-state ──────────────────────────────────────────────────
+
+
+def test_compact_output_default_is_none():
+    """compact_output по умолчанию None (авто-режим)."""
+    cfg = ExtractionConfig(
+        enabled=True,
+        fields=[_field("summary_display", presentation="summary")],
+    )
+    assert cfg.compact_output is None
+
+
+def test_compact_output_explicit_true():
+    """compact_output можно явно выставить True."""
+    cfg = ExtractionConfig(
+        enabled=True,
+        fields=[_field("summary_display", presentation="summary")],
+        compact_output=True,
+    )
+    assert cfg.compact_output is True
+
+
+def test_compact_output_explicit_false():
+    """compact_output можно явно выставить False."""
+    cfg = ExtractionConfig(
+        enabled=True,
+        fields=[_field("summary_display", presentation="summary")],
+        compact_output=False,
+    )
+    assert cfg.compact_output is False
+
+
     

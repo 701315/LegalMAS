@@ -1,11 +1,18 @@
 // =============================================================
 // src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx
 // Переключаемая панель деталей по направлению.
+//
+// Documents: двухколоночный layout
+//   левая  — динамика пайплайна (DocumentsPipelinePanel)
+//   правая — метрики проекта (LLMUsageWidget + будущие виджеты)
+// Counterparties / RealEstate: одна колонка, как раньше.
 // =============================================================
 
 import React from "react";
 import type { Deal } from "../../../types";
 import { DocumentsPipelinePanel } from "./DocumentsPipelinePanel";
+import { LLMUsageWidget } from "./LLMUsageWidget";
+import { useDealLLMUsage } from "../../../api/deals";
 import { DEMO_AGGREGATES } from "../CounterpartiesTab";
 import { DEMO_OBJECTS } from "../RealEstateTab";
 
@@ -19,12 +26,12 @@ interface ProjectDomainDetailsPanelProps {
 }
 
 // ---------------------------------------------------------------------------
-// Counterparties summary (берём данные из DEMO_AGGREGATES)
+// Counterparties summary
 // ---------------------------------------------------------------------------
 
 const CounterpartiesSummary: React.FC = () => {
   const critical = DEMO_AGGREGATES.filter(
-    (item) => item.reviewStatus === "critical"
+    (item) => item.reviewStatus === "critical",
   );
   const sanctions = DEMO_AGGREGATES.filter((item) => item.sanctionsFlag);
   const bankruptcy = DEMO_AGGREGATES.filter((item) => item.bankruptcyFlag);
@@ -72,8 +79,13 @@ const CounterpartiesSummary: React.FC = () => {
         </p>
         <div className="space-y-1.5">
           {topCountries.map(([country, count]) => (
-            <div key={country} className="flex items-center justify-between gap-2">
-              <span className="text-xs text-[var(--text-primary)]">{country}</span>
+            <div
+              key={country}
+              className="flex items-center justify-between gap-2"
+            >
+              <span className="text-xs text-[var(--text-primary)]">
+                {country}
+              </span>
               <span className="text-[11px] tabular-nums text-[var(--text-muted)]">
                 {count}
               </span>
@@ -90,7 +102,7 @@ const CounterpartiesSummary: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// Real estate summary (берём данные из DEMO_OBJECTS)
+// Real estate summary
 // ---------------------------------------------------------------------------
 
 const RealEstateSummary: React.FC = () => {
@@ -98,7 +110,7 @@ const RealEstateSummary: React.FC = () => {
   const ownershipReview = DEMO_OBJECTS.filter(
     (item) =>
       item.ownership_status === "review" ||
-      item.ownership_status === "not_confirmed"
+      item.ownership_status === "not_confirmed",
   );
   const highRisk = DEMO_OBJECTS.filter((item) => item.risk === "high");
 
@@ -120,13 +132,17 @@ const RealEstateSummary: React.FC = () => {
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">С обременением</p>
+          <p className="text-[10px] text-[var(--text-muted)]">
+            С обременением
+          </p>
           <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error)]">
             {encumbered.length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
-          <p className="text-[10px] text-[var(--text-muted)]">Ownership review</p>
+          <p className="text-[10px] text-[var(--text-muted)]">
+            Ownership review
+          </p>
           <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning)]">
             {ownershipReview.length}
           </p>
@@ -145,8 +161,13 @@ const RealEstateSummary: React.FC = () => {
         </p>
         <div className="space-y-1.5">
           {topRegions.map(([region, count]) => (
-            <div key={region} className="flex items-center justify-between gap-2">
-              <span className="text-xs text-[var(--text-primary)]">{region}</span>
+            <div
+              key={region}
+              className="flex items-center justify-between gap-2"
+            >
+              <span className="text-xs text-[var(--text-primary)]">
+                {region}
+              </span>
               <span className="text-[11px] tabular-nums text-[var(--text-muted)]">
                 {count}
               </span>
@@ -163,18 +184,63 @@ const RealEstateSummary: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
+// DocumentsContent — двухколоночный layout
+// ---------------------------------------------------------------------------
+
+const DocumentsContent: React.FC<{
+  runId: string | null;
+  dealId: string;
+  isRunActive: boolean;
+}> = ({ runId, dealId, isRunActive }) => {
+  const {
+    data: llmUsage,
+    isLoading: llmLoading,
+    isError: llmError,
+  } = useDealLLMUsage(dealId, {
+    refetchInterval: isRunActive ? 30_000 : false,
+  });
+
+  return (
+    <div className="grid min-h-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      {/* Левая колонка: пайплайн */}
+      <div className="min-w-0">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+          Пайплайн анализа
+        </p>
+        <DocumentsPipelinePanel runId={runId} />
+      </div>
+
+      {/* Правая колонка: метрики */}
+      <div className="min-w-0">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+          Метрики проекта
+        </p>
+
+        <LLMUsageWidget
+          data={llmUsage}
+          isLoading={llmLoading}
+          isError={llmError}
+        />
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 export const ProjectDomainDetailsPanel: React.FC<
   ProjectDomainDetailsPanelProps
-> = ({ activeDomain, onDomainChange: _onDomainChange, runId }) => {
+> = ({ activeDomain, onDomainChange: _onDomainChange, runId, deal }) => {
   const domainTitle =
     activeDomain === "documents"
       ? "Документы"
       : activeDomain === "counterparties"
         ? "Контрагенты"
         : "Имущество";
+
+  const isRunActive = !!runId;
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
@@ -194,7 +260,11 @@ export const ProjectDomainDetailsPanel: React.FC<
       {/* Scrollable content */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
         {activeDomain === "documents" && (
-          <DocumentsPipelinePanel runId={runId} />
+          <DocumentsContent
+            runId={runId}
+            dealId={deal.id}
+            isRunActive={isRunActive}
+          />
         )}
         {activeDomain === "counterparties" && <CounterpartiesSummary />}
         {activeDomain === "real_estate" && <RealEstateSummary />}
@@ -204,4 +274,5 @@ export const ProjectDomainDetailsPanel: React.FC<
 };
 
 export default ProjectDomainDetailsPanel;
+
 

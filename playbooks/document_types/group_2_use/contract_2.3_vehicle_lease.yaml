@@ -912,8 +912,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+
+      llm_max_tokens: 1250
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС сведения
@@ -1244,8 +1248,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС вид аренды,
@@ -1559,8 +1567,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 460
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС
@@ -1869,8 +1881,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+
+      llm_max_tokens: 1300
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС порядок
@@ -2185,8 +2201,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 450
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС подтверждение
@@ -2476,8 +2496,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+
+      llm_max_tokens: 900
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС условия
@@ -2744,8 +2768,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+
+      llm_max_tokens: 900
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС порядок
@@ -3019,8 +3047,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+
+      llm_max_tokens: 1000
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС распределение
@@ -3318,8 +3350,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+
+      llm_max_tokens: 1300
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС порядок
@@ -3638,8 +3674,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС механизм
@@ -3956,8 +3996,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+
+      llm_max_tokens: 1300
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС ограничения
@@ -4277,8 +4321,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора аренды ТС депозит,

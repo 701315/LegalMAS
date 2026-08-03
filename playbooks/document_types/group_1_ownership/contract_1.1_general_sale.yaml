@@ -743,8 +743,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 450
-      compact_output: true
+      llm_max_tokens: 900
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь идентификационные данные сторон и сведения о полномочиях подписантов из текста договора.
@@ -1031,8 +1033,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 380
-      compact_output: true
+      llm_max_tokens: 700
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о предмете, количестве и цене товара.
@@ -1298,8 +1302,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 380
-      compact_output: true
+      llm_max_tokens: 600
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о порядке оплаты, модели расчётов, НДС и наличии прямых последствий просрочки оплаты.
@@ -1586,8 +1592,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 520
-      compact_output: true
+      llm_max_tokens: 1200
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения о передаче товара, сроках, месте, способе передачи и сопутствующих документах.
@@ -1903,8 +1911,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 480
-      compact_output: true
+      llm_max_tokens: 850
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения о моменте перехода риска случайной гибели, моменте перехода права собственности и наличии оговорки об удержании титула.
@@ -2182,8 +2192,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 360
-      compact_output: true
+      llm_max_tokens: 700
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о качестве товара, комплектности и гарантии.
@@ -2426,8 +2438,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 320
-      compact_output: true
+      llm_max_tokens: 500
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о порядке приёмки товара и порядке предъявления претензий по качеству.
@@ -2701,8 +2715,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 500
-      compact_output: true
+      llm_max_tokens: 1200
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора заверения продавца о свободе товара от прав третьих лиц, залога, ареста и иных обременений.
@@ -2986,8 +3002,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 280
-      compact_output: true
+      llm_max_tokens: 500
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о специальных санкциях:
@@ -3224,8 +3242,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 340
-      compact_output: true
+      llm_max_tokens: 700
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о расторжении / одностороннем отказе и последствиях в виде возврата товара и денег.
@@ -3446,8 +3466,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 220
-      compact_output: true
+      llm_max_tokens: 300
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о форс-мажорной оговорке.
@@ -3670,8 +3692,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      llm_max_tokens: 450
-      compact_output: true
+      llm_max_tokens: 500
+
+      compact_output: false
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о претензионном порядке и сроке ответа на претензию.

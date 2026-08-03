@@ -457,6 +457,16 @@ class DocTypeCheckLoader:
         if not fields:
             return None
 
+        # compact_output: читаем как tri-state (None / True / False).
+        # Если в YAML поле отсутствует — передаём None (авто-режим).
+        # Авто-режим: custom prompt → без footer; fallback → с footer.
+        # Явный True/False из YAML имеет приоритет над авто-режимом.
+        _raw_compact = extraction_cfg.get("compact_output")
+        if _raw_compact is None:
+            _compact_output: bool | None = None      # авто-режим
+        else:
+            _compact_output = bool(_raw_compact)     # явный override из YAML
+
         return ExtractionConfig(
             enabled=True,
             mode=mode,
@@ -464,10 +474,10 @@ class DocTypeCheckLoader:
             store_payload=extraction_cfg.get("store_payload", True),
             llm_prompt_extraction=extraction_cfg.get("llm_prompt_extraction"),
             llm_max_tokens=extraction_cfg.get("llm_max_tokens"),
-            compact_output=extraction_cfg.get("compact_output", True),
-            # DD Grid V1: explicit column mapping for DD Grid.
-            # Raw list[dict] from YAML; Pydantic parses into list[DDGridColumnSpec].
-            # None if not declared — auto-mapping in DDGridColumnBuilder (V1.6).
+            compact_output=_compact_output,
+            # DD Grid V1: явный маппинг колонок.
+            # Raw list[dict] из YAML; Pydantic парсит в list[DDGridColumnSpec].
+            # None если не задано — автомаппинг в DDGridColumnBuilder (V1.6).
             dd_grid_columns=extraction_cfg.get("dd_grid_columns"),
         )
 

@@ -760,8 +760,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда описание работ,
@@ -1050,8 +1052,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда сведения
@@ -1325,8 +1329,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда тип цены,
@@ -1620,8 +1626,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+      llm_max_tokens: 450
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -1894,8 +1902,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 500
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -2162,8 +2172,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 440
+      compact_output: false
+
+      llm_max_tokens: 450
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда сведения
@@ -2495,8 +2507,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда сведения
@@ -2871,8 +2885,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+      llm_max_tokens: 700
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -3149,7 +3165,8 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
+      compact_output: false
+
       llm_max_tokens: 320
       llm_prompt_extraction: |
         <role>
@@ -3382,8 +3399,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 320
+      compact_output: false
+
+      llm_max_tokens: 350
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда гарантийный
@@ -3608,7 +3627,8 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
+      compact_output: false
+
       llm_max_tokens: 260
       llm_prompt_extraction: |
         <role>
@@ -3830,8 +3850,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 340
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -4068,8 +4090,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 320
+      compact_output: false
+
+      llm_max_tokens: 450
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -4305,8 +4329,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 320
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -4554,8 +4580,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 340
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -4805,8 +4833,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 340
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -5080,8 +5110,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 340
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -5322,8 +5354,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 320
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -5560,8 +5594,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 320
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -5795,8 +5831,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 320
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -6038,8 +6076,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 500
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -6297,8 +6337,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 320
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -6547,8 +6589,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 320
+      compact_output: false
+
+      llm_max_tokens: 450
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -6817,8 +6861,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 500
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия
@@ -7079,8 +7125,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 360
+      compact_output: false
+
+      llm_max_tokens: 500
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора подряда условия

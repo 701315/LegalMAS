@@ -664,18 +664,29 @@ class ExtractionConfig(BaseModel):
     # Per-check override для max_tokens в extraction LLM call.
     llm_max_tokens: int | None = None
 
-    # Whether runtime should append the generic "compact 1-2 sentences" footer
-    # to the extraction prompt.
+    # Управляет добавлением generic compact footer к extraction prompt.
     #
-    # True  (default):
-    #   Good for summary-style checks where each field is expected to be short.
+    # Три состояния (tri-state policy):
     #
-    # False:
-    #   Use for inventory / schedule / register-style checks where a field may
-    #   legitimately contain a long multi-line list of items.
+    # None (default — авто-режим):
+    #   - если у check есть custom llm_prompt_extraction:
+    #     footer НЕ добавляется. Custom prompt сам управляет стилем вывода.
+    #     Добавление footer поверх детального custom prompt создаёт конфликт
+    #     инструкций и ухудшает предсказуемость модели.
+    #   - если custom prompt отсутствует (fallback template):
+    #     footer добавляется — как раньше.
     #
-    # This is playbook-driven: the check declares its output style contract.
-    compact_output: bool = True
+    # True (явный opt-in):
+    #   Footer добавляется принудительно независимо от наличия custom prompt.
+    #   Используй только если custom prompt намеренно не задаёт стиль вывода.
+    #
+    # False (явный opt-out):
+    #   Footer не добавляется принудительно.
+    #   Используй для inventory/register-style checks с длинными списками.
+    #
+    # Примечание: массовое выставление compact_output: false в YAML не требуется.
+    # Авто-режим (None) корректно обрабатывает большинство случаев.
+    compact_output: bool | None = None
 
     # Явная конфигурация колонок DD Grid V1.
     #

@@ -1167,8 +1167,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 580
+    llm_max_tokens: 1450
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о сторонах договора ПИР.
@@ -1576,8 +1578,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 420
+    llm_max_tokens: 800
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о предмете договора ПИР.
@@ -1868,8 +1872,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 360
+    llm_max_tokens: 700
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о наличии и полноте технического задания
@@ -2148,8 +2154,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 340
+    llm_max_tokens: 550
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения об исходных данных в договоре ПИР.
@@ -2416,8 +2424,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 420
+    llm_max_tokens: 800
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения об экспертизе проектной документации
@@ -2711,8 +2721,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 360
+    llm_max_tokens: 700
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о технических условиях и внешних согласованиях
@@ -2989,8 +3001,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 380
+    llm_max_tokens: 700
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о цене работ и основании её расчёта
@@ -3257,8 +3271,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 360
+    llm_max_tokens: 700
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о порядке оплаты в договоре ПИР.
@@ -3525,8 +3541,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 380
+    llm_max_tokens: 700
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о сроках выполнения работ и этапах
@@ -3783,8 +3801,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 340
+    llm_max_tokens: 700
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о продлении сроков при задержке заказчика
@@ -4075,8 +4095,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 400
+    llm_max_tokens: 800
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о поэтапном согласовании
@@ -4367,8 +4389,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 400
+    llm_max_tokens: 800
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о порядке сдачи-приёмки
@@ -4636,8 +4660,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 360
+    llm_max_tokens: 700
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о расторжении договора ПИР.
@@ -4888,8 +4914,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 280
+    llm_max_tokens: 450
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о субподряде и уступке прав
@@ -5130,8 +5158,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 320
+    llm_max_tokens: 550
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о передаче интеллектуальных прав
@@ -5408,8 +5438,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 380
+    llm_max_tokens: 700
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения об ответственности проектировщика
@@ -5669,8 +5701,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 260
+    llm_max_tokens: 450
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о разграничении ответственности
@@ -5895,8 +5929,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 300
+    llm_max_tokens: 550
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения об авторском надзоре в договоре ПИР.
@@ -6165,8 +6201,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 360
+    llm_max_tokens: 700
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о гарантии качества ПД
@@ -6428,8 +6466,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 340
+    llm_max_tokens: 700
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о гарантийном сроке на ПД
@@ -6695,8 +6735,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 400
+    llm_max_tokens: 800
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о неустойке за просрочку
@@ -6972,8 +7014,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 300
+    llm_max_tokens: 550
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о членстве подрядчика в СРО
@@ -7220,8 +7264,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 380
+    llm_max_tokens: 800
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о форс-мажоре в договоре ПИР.
@@ -7478,8 +7524,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 320
+    llm_max_tokens: 450
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о претензионном порядке
@@ -7700,8 +7748,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 300
+    llm_max_tokens: 700
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о формате передачи документации
@@ -7943,8 +7993,10 @@ checks_v8:
     enabled: true
     mode: "hybrid"
     store_payload: true
-    llm_max_tokens: 280
+    llm_max_tokens: 550
+
     compact_output: false
+
     llm_prompt_extraction: |
       <role>
       Ты — юрист, извлекающий сведения о страховании ответственности

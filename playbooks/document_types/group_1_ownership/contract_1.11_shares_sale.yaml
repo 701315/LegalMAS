@@ -1026,8 +1026,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 600
+      compact_output: false
+
+      llm_max_tokens: 1650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи
@@ -1431,8 +1433,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 650
+      compact_output: false
+
+      llm_max_tokens: 2100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -1836,8 +1840,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -2138,8 +2144,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 450
+      compact_output: false
+
+      llm_max_tokens: 900
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки заверения о праве собственности (титуле) продавца
@@ -2440,8 +2448,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1000
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора корпоративные процедуры:
@@ -2768,8 +2778,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+      llm_max_tokens: 1400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цену сделки и структуру
@@ -3128,8 +3140,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 580
+      compact_output: false
+
+      llm_max_tokens: 1400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора пакет заверений продавца
@@ -3457,8 +3471,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 460
+      compact_output: false
+
+      llm_max_tokens: 900
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора механизм компенсации потерь
@@ -3755,8 +3771,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора данные о проведении
@@ -4086,8 +4104,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+      llm_max_tokens: 1300
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -4451,8 +4471,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 600
+      compact_output: false
+
+      llm_max_tokens: 1600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -4821,8 +4843,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1000
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -5167,8 +5191,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 590
+      compact_output: false
+
+      llm_max_tokens: 1600
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -5555,8 +5581,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 1100
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных

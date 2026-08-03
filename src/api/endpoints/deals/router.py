@@ -29,6 +29,7 @@ from .crud import (
     _build_deal_response,
     router as crud_router,
 )
+from .llm_usage import router as llm_usage_router
 
 from db.repositories.project_role_repo import ProjectRoleRepository
 
@@ -154,5 +155,4 @@ router.include_router(documents_router)
 router.include_router(runs_router)
 router.include_router(settings_router)
 router.include_router(history_router)
-
-
+router.include_router(llm_usage_router)

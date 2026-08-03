@@ -171,4 +171,57 @@ export function useSetPrimaryLanguage(dealId: string) {
 }
 
 
+// =============================================================
+// LLM USAGE SUMMARY
+// =============================================================
+
+export interface LLMStageUsage {
+  stage: string;
+  provider: string;
+  model: string;
+  calls: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  avg_duration_ms: number | null;
+  parse_failures: number;
+}
+
+export interface LLMUsageSummary {
+  deal_id: string;
+  total_tokens: number;
+  total_calls: number;
+  by_stage: LLMStageUsage[];
+}
+
+export const dealUsageApi = {
+  getLLMUsageSummary: (dealId: string) =>
+    client
+      .get<LLMUsageSummary>(`/api/v1/deals/${dealId}/llm-usage-summary`)
+      .then((r) => r.data),
+};
+
+/**
+ * Хук для получения агрегата LLM usage по проекту.
+ *
+ * refetchInterval:
+ * - false (по умолчанию) — не опрашивать автоматически;
+ * - 30_000 — опрашивать каждые 30 сек если run активен.
+ *
+ * staleTime 30 сек — не инвалидируем при каждом фокусе окна.
+ */
+export function useDealLLMUsage(
+  dealId: string | null,
+  options?: { refetchInterval?: number | false },
+) {
+  return useQuery({
+    queryKey: ["deal-llm-usage", dealId],
+    queryFn: () =>
+      dealUsageApi.getLLMUsageSummary(dealId as string),
+    enabled: !!dealId,
+    refetchInterval: options?.refetchInterval ?? false,
+    staleTime: 30_000,
+  });
+}
+
 

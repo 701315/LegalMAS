@@ -99,9 +99,16 @@ class Settings(BaseSettings):
     LOG_FILE_BACKUP_COUNT: int = 10
     LLM_EXTRACTION_JSON_GRAMMAR_PATH: str | None = None
 
-    # Default max_tokens for extraction LLM calls.
+    # Дефолтный output budget для extraction LLM вызовов.
     # Может быть переопределён per-check через ExtractionConfig.llm_max_tokens.
-    LLM_EXTRACTION_MAX_TOKENS: int = 512
+    #
+    # История изменений:
+    # - 512 (устаревший): недостаточно для extraction V1.3 contract,
+    #   который требует value+confidence+location для каждого поля.
+    #   Даже простой check с 5-7 полями получал truncated JSON.
+    # - 900 (текущий): безопасный baseline для большинства checks.
+    #   Checks с 8+ полями обязаны задавать llm_max_tokens явно в YAML.
+    LLM_EXTRACTION_MAX_TOKENS: int = 900
 
     # --- Classification explainability / observability ---
     CLASSIFICATION_DECISION_TRACE_SCHEMA_VERSION: int = 1

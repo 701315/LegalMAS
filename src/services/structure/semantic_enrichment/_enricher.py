@@ -455,7 +455,12 @@ def enrich_single_unit(
 
     if raw_response is None:
         try:
-            raw_response = call_semantic_enrichment_llm(prompt=prompt)
+            raw_response, _sync_telemetry = call_semantic_enrichment_llm(
+                prompt=prompt
+            )
+            # sync path не имеет telemetry callback —
+            # worker использует только async path.
+            del _sync_telemetry
         except Exception as exc:
             logger.warning(
                 "STRUCTURE semantic_enrichment_llm_call_failed",
@@ -674,6 +679,7 @@ async def enrich_single_unit_async(
     policy: SemanticEnrichmentPolicy,
     document_id: str,
     document_version_id: str | None = None,
+    on_llm_telemetry: Callable[[dict], None] | None = None,
 ) -> LegalUnitEnrichment:
     """
     Async версия enrich_single_unit().
@@ -728,7 +734,19 @@ async def enrich_single_unit_async(
 
     if raw_response is None:
         try:
-            raw_response = await call_semantic_enrichment_llm_async(prompt=prompt)
+            raw_response, _async_telemetry = await call_semantic_enrichment_llm_async(
+                prompt=prompt
+            )
+            if on_llm_telemetry is not None:
+                try:
+                    on_llm_telemetry(
+                        {
+                            **_async_telemetry,
+                            "unit_id": unit.unit_id,
+                        }
+                    )
+                except Exception:
+                    pass  # best-effort
         except Exception as exc:
             logger.warning(
                 "STRUCTURE semantic_enrichment_llm_call_failed (async)",
@@ -807,6 +825,7 @@ async def enrich_legal_units_async(
     collector: "TelemetryCollector | None" = None,
     segment_timeout_seconds: float | None = None,
     on_unit_enriched: Callable[[LegalUnitEnrichment], None] | None = None,
+    on_llm_telemetry: Callable[[dict], None] | None = None,
 ) -> LegalUnitsEnrichmentResult:
     """
     Async версия enrich_legal_units().
@@ -952,7 +971,11 @@ async def enrich_legal_units_async(
 
     prompt_context = build_semantic_enrichment_prompt_context(units)
 
-    async def _process_unit(index: int, unit: LegalUnit) -> LegalUnitEnrichment:
+    async def _process_unit(
+        index: int,
+        unit: LegalUnit,
+        _on_llm_telemetry: Callable[[dict], None] | None = None,
+    ) -> LegalUnitEnrichment:
         previous_unit = _get_neighbor(units, index, -1)
         next_unit_item = _get_neighbor(units, index, +1)
         try:
@@ -965,6 +988,7 @@ async def enrich_legal_units_async(
                 policy=policy,
                 document_id=snapshot.document_id,
                 document_version_id=snapshot.document_version_id,
+                on_llm_telemetry=_on_llm_telemetry,
             )
         except Exception as exc:
             logger.error(
@@ -992,7 +1016,7 @@ async def enrich_legal_units_async(
         for i, unit in enumerate(units):
             try:
                 enrichment = await asyncio.wait_for(
-                    _process_unit(i, unit),
+                    _process_unit(i, unit, _on_llm_telemetry=on_llm_telemetry),
                     timeout=per_unit_timeout,
                 )
             except asyncio.TimeoutError:
@@ -1042,7 +1066,9 @@ async def enrich_legal_units_async(
             async with semaphore:
                 try:
                     enrichment = await asyncio.wait_for(
-                        _process_unit(index, unit),
+                        _process_unit(
+                            index, unit, _on_llm_telemetry=on_llm_telemetry
+                        ),
                         timeout=per_unit_timeout,
                     )
                 except asyncio.TimeoutError:

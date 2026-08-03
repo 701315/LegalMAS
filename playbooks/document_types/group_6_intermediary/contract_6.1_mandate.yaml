@@ -665,6 +665,7 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 1000
       fields:
         - name: "principal"
           type: "string"

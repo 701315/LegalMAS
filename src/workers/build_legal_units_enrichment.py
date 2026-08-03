@@ -594,7 +594,21 @@ async def _enrichment_llm_phase(
     # {segment_id: sidecar_ref} — собираем в памяти, запишем в finalize-фазе
     enriched_refs: dict[str, str] = {}
 
+    # ── LLM telemetry накопитель ───────────────────────────────────────────────
+    # Собирает telemetry unit-level LLM вызовов внутри одного сегмента.
+    # Сбрасывается после каждого сегмента.
+    _segment_llm_telemetry: list[dict] = []
+
+    def _collect_unit_llm_telemetry(telemetry: dict) -> None:
+        if isinstance(telemetry, dict):
+            _segment_llm_telemetry.append(telemetry)
+
     for seg_snap in ordered_snapshots:
+        # Очищаем накопитель в начале каждого сегмента.
+        # Гарантирует что telemetry от предыдущего сегмента
+        # никогда не попадёт в ledger текущего.
+        _segment_llm_telemetry.clear()
+
         segment_id: str = seg_snap["segment_id"]
         segment_meta: dict = seg_snap["segment_meta"]
         is_primary_seg: bool = seg_snap["is_primary"]
@@ -684,6 +698,7 @@ async def _enrichment_llm_phase(
                     collector=None,
                     segment_timeout_seconds=seg_timeout,
                     on_unit_enriched=_on_unit_enriched,
+                    on_llm_telemetry=_collect_unit_llm_telemetry,
                 ),
                 timeout=seg_timeout,
             )
@@ -715,6 +730,7 @@ async def _enrichment_llm_phase(
                 )
             else:
                 segments_timed_out += 1
+                _segment_llm_telemetry.clear()
                 continue
         except Exception as enrich_exc:
             logger.warning(
@@ -724,6 +740,7 @@ async def _enrichment_llm_phase(
                 error=str(enrich_exc),
             )
             segments_failed += 1
+            _segment_llm_telemetry.clear()
             continue
 
         try:
@@ -739,6 +756,60 @@ async def _enrichment_llm_phase(
             # Финальный update в БД будет в отдельной finalize-фазе.
             enriched_refs[segment_id] = sidecar_ref
             segments_enriched += 1
+
+            # ── LLM Usage Ledger ───────────────────────────────────────────────
+            # Пишем ОДНУ ledger-запись на КАЖДЫЙ реальный unit-level LLM вызов.
+            # 1 LLM call = 1 immutable event.
+            # request_uid детерминирован: повторный Celery retry не создаст дубль.
+            if _segment_llm_telemetry:
+                try:
+                    from services.llm_usage_recorder import (
+                        LLMUsageRecorder,
+                        STAGE_STRUCTURE_SEMANTIC_ENRICHMENT,
+                    )
+
+                    async with db_uow() as _ledger_uow:
+                        _recorder = LLMUsageRecorder(_ledger_uow.session)
+
+                        for _tel in _segment_llm_telemetry:
+                            _unit_id = str(_tel.get("unit_id") or "unknown")
+                            # Детерминированный request_uid:
+                            # при Celery retry тот же unit не создаст дубль
+                            # благодаря UniqueConstraint на request_uid.
+                            _request_uid = (
+                                f"enrichment"
+                                f":{run_id or 'none'}"
+                                f":{document_id}"
+                                f":{segment_id}"
+                                f":{_unit_id}"
+                            )
+
+                            await _recorder.record_event(
+                                tenant_id=uuid.UUID(tenant_id),
+                                deal_id=uuid.UUID(deal_id),
+                                run_id=uuid.UUID(run_id) if run_id else None,
+                                document_id=uuid.UUID(document_id),
+                                stage=STAGE_STRUCTURE_SEMANTIC_ENRICHMENT,
+                                provider=str(_tel.get("provider") or "ollama"),
+                                model=str(_tel.get("model") or ""),
+                                prompt_tokens=_tel.get("prompt_tokens"),
+                                completion_tokens=_tel.get("completion_tokens"),
+                                duration_ms=_tel.get("duration_ms"),
+                                llm_attempts=_tel.get("llm_attempts"),
+                                parse_success=_tel.get("parse_success"),
+                                error_type=_tel.get("error_type"),
+                                request_uid=_request_uid,
+                            )
+
+                except Exception:
+                    logger.warning(
+                        "Semantic enrichment: failed to record LLM usage (non-fatal)",
+                        document_id=document_id,
+                        segment_id=segment_id,
+                        run_id=run_id,
+                    )
+                finally:
+                    _segment_llm_telemetry.clear()
 
             logger.info(
                 "Semantic enrichment stage: segment enriched",
@@ -770,6 +841,7 @@ async def _enrichment_llm_phase(
                 error=str(store_exc),
             )
             segments_failed += 1
+            _segment_llm_telemetry.clear()
 
     return {
         "enriched_refs": enriched_refs,

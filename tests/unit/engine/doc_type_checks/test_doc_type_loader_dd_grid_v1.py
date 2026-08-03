@@ -307,4 +307,75 @@ class TestDocTypeLoaderBackwardCompat:
         assert check.group is None
 
 
+# ─── _parse_extraction: compact_output tri-state ──────────────────────────────
+
+
+class TestParseExtractionCompactOutputTristate:
+    """compact_output tri-state policy в _parse_extraction."""
+
+    def test_compact_output_absent_gives_none(self):
+        """
+        Отсутствие compact_output в YAML → None (авто-режим).
+        Авто-режим: custom prompt → без footer.
+        """
+        loader = _make_loader()
+        extraction_cfg = {
+            "enabled": True,
+            "fields": [
+                {"name": "summary_display", "presentation": "summary"},
+            ],
+            # compact_output не задан
+        }
+        result = loader._parse_extraction(extraction_cfg)
+        assert result is not None
+        assert result.compact_output is None
+
+    def test_compact_output_explicit_true_preserved(self):
+        """
+        Явный compact_output: true в YAML → True.
+        """
+        loader = _make_loader()
+        extraction_cfg = {
+            "enabled": True,
+            "fields": [
+                {"name": "summary_display", "presentation": "summary"},
+            ],
+            "compact_output": True,
+        }
+        result = loader._parse_extraction(extraction_cfg)
+        assert result is not None
+        assert result.compact_output is True
+
+    def test_compact_output_explicit_false_preserved(self):
+        """
+        Явный compact_output: false в YAML → False.
+        """
+        loader = _make_loader()
+        extraction_cfg = {
+            "enabled": True,
+            "fields": [
+                {"name": "summary_display", "presentation": "summary"},
+            ],
+            "compact_output": False,
+        }
+        result = loader._parse_extraction(extraction_cfg)
+        assert result is not None
+        assert result.compact_output is False
+
+    def test_compact_output_none_explicit_gives_none(self):
+        """
+        Явный null/None в YAML → None (авто-режим).
+        """
+        loader = _make_loader()
+        extraction_cfg = {
+            "enabled": True,
+            "fields": [
+                {"name": "summary_display", "presentation": "summary"},
+            ],
+            "compact_output": None,
+        }
+        result = loader._parse_extraction(extraction_cfg)
+        assert result is not None
+        assert result.compact_output is None
         
+          

@@ -697,8 +697,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 480
+      compact_output: false
+
+
+      llm_max_tokens: 900
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора поставки
@@ -995,8 +999,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+
+      llm_max_tokens: 900
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора поставки
@@ -1312,8 +1320,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 560
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора сведения о сроках и графике поставок.
@@ -1645,8 +1657,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 580
+      compact_output: false
+
+
+      llm_max_tokens: 1250
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора поставки
@@ -1995,8 +2011,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 600
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора поставки
@@ -2339,8 +2359,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 580
+      compact_output: false
+
+
+      llm_max_tokens: 1400
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора сведения о гарантии, качестве и правах при недостатках товара.
@@ -2641,8 +2665,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 450
+      compact_output: false
+
+
+      llm_max_tokens: 700
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора условия поставки по Инкотермс.
@@ -2898,8 +2926,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 450
+      compact_output: false
+
+
+      llm_max_tokens: 700
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора условия защиты поставщика при отказе покупателя от товара под заказ.
@@ -3175,8 +3207,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+
+      llm_max_tokens: 1000
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из договора сведения о форс-мажоре и санкционной оговорке.
@@ -3477,8 +3513,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+
+      llm_max_tokens: 1100
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора сведения о документации на товар,
@@ -3813,8 +3853,12 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 600
+      compact_output: false
+
+
+      llm_max_tokens: 1300
+
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из договора сведения о неустойках,
@@ -4107,7 +4151,9 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
+      compact_output: false
+
+
       llm_max_tokens: 450
       llm_prompt_extraction: |
         <role>

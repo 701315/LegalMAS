@@ -953,8 +953,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 550
+      compact_output: false
+
+      llm_max_tokens: 1550
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения
@@ -1303,8 +1305,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 520
+      compact_output: false
+
+      llm_max_tokens: 950
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения
@@ -1586,8 +1590,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 400
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Найди прямые признаки встречного предоставления
@@ -1815,8 +1821,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения признаки
@@ -2076,8 +2084,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 450
+      compact_output: false
+
+      llm_max_tokens: 850
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения условия
@@ -2356,8 +2366,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 430
+      compact_output: false
+
+      llm_max_tokens: 550
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения условия
@@ -2616,8 +2628,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 850
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения заверения
@@ -2898,8 +2912,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 430
+      compact_output: false
+
+      llm_max_tokens: 650
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения данные
@@ -3162,8 +3178,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 470
+      compact_output: false
+
+      llm_max_tokens: 800
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора пожертвования
@@ -3457,8 +3475,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 530
+      compact_output: false
+
+      llm_max_tokens: 1250
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения недвижимого
@@ -3763,8 +3783,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 420
+      compact_output: false
+
+      llm_max_tokens: 550
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения налоговые
@@ -4024,8 +4046,10 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: true
-      llm_max_tokens: 500
+      compact_output: false
+
+      llm_max_tokens: 1050
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора дарения доли
