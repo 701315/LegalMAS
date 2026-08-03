@@ -1,0 +1,5 @@
+./src/styles/ag-theme-legalmas.css:65:  --ag-font-family: var(--font-body);
+./src/pages/PlaybooksRegistryPage.tsx:278:    body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #111; }
+./src/pages/PlaybooksRegistryPage.tsx:287:    .code { font-family: Consolas, monospace; color: #333; }
+./src/index.css:173:  font-family: var(--font-body);
+./src/index.css:442:    font-family: var(--font-display);

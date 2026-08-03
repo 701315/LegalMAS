@@ -1,0 +1,2 @@
+./src/styles/ag-theme-legalmas.css:72:  --ag-cell-horizontal-padding: 12px;
+./src/styles/ag-theme-legalmas.css:143:  gap: 6px;

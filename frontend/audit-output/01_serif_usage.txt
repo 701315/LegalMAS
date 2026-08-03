@@ -1,0 +1,92 @@
+./src/marketing/components/platform/PlatformWorkflowSection.tsx:40:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">              {WORKFLOW_CONTENT.title}
+./src/marketing/components/platform/PlatformStandardsSection.tsx:53:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#FAF8F5]">
+./src/marketing/components/platform/PlatformStandardsSection.tsx:59:                className="mt-6 font-serif text-[1.25rem] italic leading-[1.5] text-[#FAF8F5]/90"
+./src/marketing/components/platform/PlatformDocumentStructureSection.tsx:34:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/platform/PlatformMethodologySection.tsx:40:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/platform/PlatformMethodologySection.tsx:46:                className="mt-6 font-serif text-[1.25rem] italic leading-[1.5] text-[#1A1917]"
+./src/marketing/components/platform/PlatformCTASection.tsx:41:        <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">          {CTA_CONTENT.title}
+./src/marketing/components/platform/PlatformTechnicalSection.tsx:170:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">              {TECHNICAL_CONTENT.title}
+./src/marketing/components/platform/PlatformFindingsSection.tsx:40:              <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">                {FINDINGS_CONTENT.title}
+./src/marketing/components/platform/PlatformHeroSection.tsx:56:              className="mt-5 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]"
+./src/marketing/components/shared/MarketingEditorialShell.tsx:34:                className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]"
+./src/marketing/components/security/SecurityFAQSection.tsx:171:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/security/SecurityCTASection.tsx:36:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/security/SecurityCapabilitiesSection.tsx:59:          <h3 className="mt-4 font-serif text-[clamp(1.5rem,3vw,2rem)] leading-[1.15] tracking-[-0.02em] text-[var(--text-primary)]">
+./src/marketing/components/security/SecurityDeploymentSection.tsx:55:      <h3 className="mt-5 font-serif text-[1.375rem] leading-[1.2] tracking-[-0.02em] text-[var(--text-primary)]">
+./src/marketing/components/security/SecurityHeroSection.tsx:86:              className="mt-5 font-serif text-[clamp(2.5rem,5vw,4rem)] leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)]"
+./src/marketing/components/security/SecurityHeroSection.tsx:283:              className="font-serif text-[2rem] italic leading-[1.15] text-[rgba(250,248,245,1)] lg:text-[2.25rem]"
+./src/marketing/components/demo/DemoFormSection.tsx:25:        <h2 className="font-serif text-2xl tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/demo/DemoFormSection.tsx:76:        <h3 className="font-serif text-xl tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/components/demo/DemoHeroSection.tsx:12:      <h1 className="mt-8 max-w-4xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[#1A1917] sm:text-6xl lg:text-[4.5rem]">
+./src/marketing/components/demo/DemoAudienceSection.tsx:10:        <h2 className="font-serif text-3xl tracking-[-0.03em] text-[#1A1917] lg:text-4xl">
+./src/marketing/components/about/AboutHeroSection.tsx:62:            className="mt-8 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)] max-w-5xl"
+./src/marketing/components/about/AboutProcessSection.tsx:48:                <h3 className="font-serif text-2xl italic mb-4 tracking-tight text-white/90">
+./src/marketing/components/about/AboutCTASection.tsx:33:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/about/AboutTeamSection.tsx:39:              <h2 className="font-serif text-[2.5rem] leading-tight tracking-tight text-[var(--text-primary)]">
+./src/marketing/components/about/AboutTeamSection.tsx:69:                    <h3 className="mt-8 font-serif text-[1.75rem] leading-none tracking-tight text-[var(--text-primary)]">
+./src/marketing/components/about/AboutPrinciplesSection.tsx:22:                <h4 className="font-serif text-xl italic mb-3 tracking-tight">{p.title}</h4>
+./src/marketing/components/home/ContactModal.tsx:54:            <h3 className="mt-5 max-w-md font-serif text-3xl leading-tight tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:81:            className="mt-6 font-serif text-[#1A1917]"
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:135:                      <h3 className="text-xl font-serif text-white lg:text-3xl transition-all duration-300 tracking-tight leading-tight">
+./src/marketing/components/home/PremiumHeroSection.tsx:57:            <h1 className="font-serif text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.05] tracking-[-0.03em] text-white">
+./src/marketing/components/home/FounderSection.tsx:46:                <div className="text-[1.125rem] font-serif italic text-[#1A1917]">
+./src/marketing/components/home/FounderSection.tsx:67:                  className="font-serif leading-[1.2] tracking-tight text-[#1A1917]"
+./src/marketing/components/home/FounderSection.tsx:77:                  <p className="text-[1.125rem] leading-[1.7] text-[#1A1917] max-w-2xl italic font-serif opacity-80">
+./src/marketing/pages/solutions/CompliancePage.tsx:74:                  className="mt-12 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#FAF8F5]"
+./src/marketing/pages/solutions/CompliancePage.tsx:102:                <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light"><strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Policy Control</strong>Автоматически применяйте внутренние стандарты, исключая вариативность трактовок и пропуски условий.</p></Reveal>
+./src/marketing/pages/solutions/CompliancePage.tsx:106:                <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light"><strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Real-time Insights</strong>Моментально выявляйте аномалии, нетипичные риски и отклонения еще на этапе подготовки.</p></Reveal>
+./src/marketing/pages/solutions/CompliancePage.tsx:110:                <p className="text-[0.9375rem] leading-[1.65] text-[#78756F] font-light"><strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Audit Readiness</strong>Формируйте прозрачную историю комплаенс-проверок с полной прослеживаемостью вывода.</p></Reveal>
+./src/marketing/pages/solutions/CompliancePage.tsx:127:                <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.15] tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/pages/solutions/CompliancePage.tsx:141:                      <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CompliancePage.tsx:171:                      <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CompliancePage.tsx:201:                      <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CompliancePage.tsx:231:                      <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CompliancePage.tsx:263:                <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">Steloom не заменяет юридическую экспертизу <br /> <span className="italic font-light opacity-60 text-[var(--color-accent)]">и не выдает непрозрачные ответы</span></h2>
+./src/marketing/pages/solutions/LawFirmsPage.tsx:83:              className="mt-20 lg:mt-32 font-serif tracking-[-0.03em] max-w-6xl"
+./src/marketing/pages/solutions/LawFirmsPage.tsx:157:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:181:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:239:          <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] tracking-[-0.02em] text-white mb-16">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:248:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-white italic">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:317:          <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] tracking-[-0.02em] text-[#1A1917] mb-16 max-w-none">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:326:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/LawFirmsPage.tsx:368:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:85:              className="mt-20 lg:mt-32 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917] max-w-6xl"
+./src/marketing/pages/solutions/InternalAuditPage.tsx:114:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Единый чек-лист</strong>
+./src/marketing/pages/solutions/InternalAuditPage.tsx:130:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Аудиторский след</strong>
+./src/marketing/pages/solutions/InternalAuditPage.tsx:146:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Сравнение периодов</strong>
+./src/marketing/pages/solutions/InternalAuditPage.tsx:170:                <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.15] tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:186:                      <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:222:                      <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:258:                      <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:294:                      <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917]">
+./src/marketing/pages/solutions/InternalAuditPage.tsx:347:                <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:66:              className="mt-20 lg:mt-32 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917] max-w-6xl"
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:94:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Объемы и формат</strong>
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:108:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Акценты и направления</strong>
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:122:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Систематизация данных</strong>
+./src/marketing/pages/solutions/MaDueDiligencePage.tsx:151:                <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/RealEstatePage.tsx:34:              <h1 className="mt-6 font-serif tracking-[-0.03em]" style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)", lineHeight: 1.05 }}>
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:97:              className="mt-10 font-serif text-[clamp(2rem,4vw,3.05rem)] leading-[1.08] tracking-[-0.03em] text-[#FAF8F5]"
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:150:              <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.15] tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:225:                    <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:311:            <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.15] tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:327:                    <h3 className="font-serif text-[1.35rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:378:              <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] leading-[1.15] tracking-[-0.02em] text-[#1A1917]">
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:430:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:134:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:212:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:236:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:294:          <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] tracking-[-0.02em] text-white mb-16">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:303:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-white italic">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:372:          <h2 className="font-serif text-[clamp(1.75rem,3vw,2.5rem)] tracking-[-0.02em] text-[#1A1917] mb-16 max-w-none">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:382:                    <h3 className="font-serif text-[1.25rem] tracking-tight text-[#1A1917] italic">
+./src/marketing/pages/solutions/CorporateLegalPage.tsx:424:            <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/ContractReviewPage.tsx:81:              className="mt-20 lg:mt-32 font-serif text-[clamp(2.5rem,5vw,4.2rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917] max-w-6xl"
+./src/marketing/pages/solutions/ContractReviewPage.tsx:108:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Единый стандарт</strong>
+./src/marketing/pages/solutions/ContractReviewPage.tsx:122:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Выявление аномалий</strong>
+./src/marketing/pages/solutions/ContractReviewPage.tsx:136:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Связанность данных</strong>
+./src/marketing/pages/solutions/ContractReviewPage.tsx:162:                <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
+./src/marketing/pages/solutions/CounterpartiesPage.tsx:34:              <h1 className="mt-6 font-serif tracking-[-0.03em]" style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)", lineHeight: 1.05 }}>
+./src/index.css:37:  --font-serif: 'Instrument Serif', Georgia, serif;
+./src/index.css:59:  --font-display: "Instrument Serif", Georgia, serif;
+./src/index.css:442:    font-family: var(--font-display);

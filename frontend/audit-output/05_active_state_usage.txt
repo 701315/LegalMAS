@@ -1,0 +1,855 @@
+./src/utils/index.ts:9: *   className={cn("base", isActive && "active")}
+./src/styles/ag-theme-legalmas.css:44:  --ag-selected-row-background-color: color-mix(
+./src/styles/ag-theme-legalmas.css:173:.ag-theme-legalmas .ag-row-selected::before {
+./src/styles/ag-theme-legalmas.css:174:  background-color: var(--ag-selected-row-background-color);
+./src/styles/ag-theme-legalmas.css:177:.ag-theme-legalmas .ag-row-hover.ag-row-selected::before {
+./src/styles/ag-theme-legalmas.css:185:.ag-theme-legalmas .ag-row-selected,
+./src/styles/ag-theme-legalmas.css:186:.ag-theme-legalmas .ag-row-selected .ag-cell {
+./src/styles/ag-theme-legalmas.css:187:  background-color: var(--ag-selected-row-background-color);
+./src/styles/ag-theme-legalmas.css:190:.ag-theme-legalmas .ag-row-selected .ag-cell:first-child {
+./src/styles/ag-theme-legalmas.css:250:.ag-theme-legalmas .ag-range-selected,
+./src/styles/ag-theme-legalmas.css:251:.ag-theme-legalmas .ag-cell-range-selected {
+./src/styles/ag-theme-legalmas.css:324:.ag-theme-legalmas .ag-row.ag-row-active-v1 {
+./src/styles/ag-theme-legalmas.css:329:.ag-theme-legalmas .ag-row.ag-row-active-v1:hover {
+./src/components/qc/BulkQCBar.tsx:10:  selectedCount: number;
+./src/components/qc/BulkQCBar.tsx:42:  selectedCount,
+./src/components/qc/BulkQCBar.tsx:52:  const disabled = selectedCount === 0;
+./src/components/qc/BulkQCBar.tsx:86:            {selectedCount}
+./src/components/ConfirmDialog.tsx:42:      (document.activeElement as HTMLElement | null) ?? null;
+./src/components/ConfirmDialog.tsx:73:      const active = document.activeElement as HTMLElement | null;
+./src/components/ConfirmDialog.tsx:76:        if (active === first || !dialogRef.current.contains(active)) {
+./src/components/ConfirmDialog.tsx:80:      } else if (active === last) {
+./src/components/viewer/DocumentViewerModal.tsx:147:      const activeOverlay = container.querySelector<HTMLDivElement>(
+./src/components/viewer/DocumentViewerModal.tsx:148:        '[data-active-overlay="true"]',
+./src/components/viewer/DocumentViewerModal.tsx:151:      if (activeOverlay) {
+./src/components/viewer/DocumentViewerModal.tsx:154:        const overlayRect = activeOverlay.getBoundingClientRect();
+./src/components/viewer/DocumentViewerModal.tsx:186:  let activeChunkIndex = -1;
+./src/components/viewer/DocumentViewerModal.tsx:194:        activeChunkIndex = idx;
+./src/components/viewer/DocumentViewerModal.tsx:199:      activeChunkIndex < 0 &&
+./src/components/viewer/DocumentViewerModal.tsx:204:      activeChunkIndex = chunkIndex;
+./src/components/viewer/DocumentViewerModal.tsx:207:    if (activeChunkIndex < 0 && clauseUid) {
+./src/components/viewer/DocumentViewerModal.tsx:212:        activeChunkIndex = idx;
+./src/components/viewer/DocumentViewerModal.tsx:362:                          activeChunkIndex >= 0 &&
+./src/components/viewer/DocumentViewerModal.tsx:363:                          ov.chunkIndex === activeChunkIndex;
+./src/components/viewer/DocumentViewerModal.tsx:375:                            data-active-overlay={isActive ? "true" : undefined}
+./src/components/ui/Drawer.tsx:39:      document.activeElement as HTMLElement | null;
+./src/components/ui/Drawer.tsx:82:      const active = document.activeElement as HTMLElement | null;
+./src/components/ui/Drawer.tsx:85:        if (active === first || !panelRef.current.contains(active)) {
+./src/components/ui/Drawer.tsx:89:      } else if (active === last) {
+./src/components/ui/Button.tsx:21:    "border border-transparent bg-[var(--accent-primary)] text-white shadow-sm ring-1 ring-black/5 hover:bg-[var(--accent-hover)] hover:shadow-md active:bg-[var(--accent-hover)]",
+./src/components/ui/Button.tsx:27:    "border border-transparent bg-[var(--danger,var(--accent-primary))] text-white shadow-sm ring-1 ring-black/5 hover:brightness-95 active:brightness-90",
+./src/components/ui/Button.tsx:97:          "active:scale-[0.99]",
+./src/components/ui/Tabs.tsx:131:      <div data-active-tab={value} className={className}>
+./src/components/ui/Tabs.tsx:281:      aria-selected={isActive}
+./src/components/ImportWizard.tsx:25:  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+./src/components/ImportWizard.tsx:76:            {selectedFiles && selectedFiles.length > 0 ? (
+./src/components/ImportWizard.tsx:80:                  {selectedFiles.length}
+./src/components/ImportWizard.tsx:206:              disabled={!selectedFiles || selectedFiles.length === 0}
+./src/components/admin/TenantsTable.tsx:284:                  !tenant.is_active && "opacity-60",
+./src/components/admin/TenantsTable.tsx:300:                    {!tenant.is_active && (
+./src/components/admin/TenantsTable.tsx:369:                    {tenant.is_active ? (
+./src/components/admin/AlertsPanel.tsx:288:              {data.active_count}
+./src/components/admin/AlertsPanel.tsx:324:            {data.active_count === 0
+./src/components/documents/pipeline/LayoutStageViewer.tsx:85:            aria-selected={tab === "view"}
+./src/components/documents/pipeline/LayoutStageViewer.tsx:104:            aria-selected={tab === "json"}
+./src/components/documents/pipeline/StructureStageViewer.tsx:254:  const [activeSectionId, setActiveSectionId] = React.useState<string | null>(
+./src/components/documents/pipeline/StructureStageViewer.tsx:267:  const activeSection = React.useMemo<StructureSectionPreviewDTO | null>(() => {
+./src/components/documents/pipeline/StructureStageViewer.tsx:269:    if (!activeSectionId) return sections[0];
+./src/components/documents/pipeline/StructureStageViewer.tsx:270:    return sections.find((s) => s.id === activeSectionId) ?? sections[0];
+./src/components/documents/pipeline/StructureStageViewer.tsx:271:  }, [sections, activeSectionId]);
+./src/components/documents/pipeline/StructureStageViewer.tsx:307:    activeSection && activeSection.source_mapping?.source_stage === "CHUNKS"
+./src/components/documents/pipeline/StructureStageViewer.tsx:308:      ? activeSection.source_mapping.chunk_indices ?? []
+./src/components/documents/pipeline/StructureStageViewer.tsx:336:                          isActive={section.id === activeSectionId}
+./src/components/documents/pipeline/StructureStageViewer.tsx:350:                    isActive={section.id === activeSectionId}
+./src/components/documents/pipeline/StructureStageViewer.tsx:368:            activeSectionId={activeSectionId}
+./src/components/documents/pipeline/StructureStageViewer.tsx:375:            activeSectionId={activeSectionId}
+./src/components/documents/pipeline/StructureStageViewer.tsx:386:            activeSectionId={activeSectionId}
+./src/components/documents/pipeline/StructureStageViewer.tsx:483:  activeSectionId: string | null;
+./src/components/documents/pipeline/StructureStageViewer.tsx:486:}> = ({ sections, activeSectionId, documentId, onOpenAtLocation }) => {
+./src/components/documents/pipeline/StructureStageViewer.tsx:496:    activeSectionId != null
+./src/components/documents/pipeline/StructureStageViewer.tsx:497:      ? sections.find((s) => s.id === activeSectionId) ?? sections[0]
+./src/components/documents/pipeline/StructureStageViewer.tsx:676:  activeSectionId: string | null;
+./src/components/documents/pipeline/StructureStageViewer.tsx:679:}> = ({ sections, activeSectionId, documentId, onOpenAtLocation }) => {
+./src/components/documents/pipeline/StructureStageViewer.tsx:689:    activeSectionId != null
+./src/components/documents/pipeline/StructureStageViewer.tsx:690:      ? sections.find((s) => s.id === activeSectionId) ?? sections[0]
+./src/components/documents/pipeline/StructureStageViewer.tsx:782:  activeSectionId: string | null;
+./src/components/documents/pipeline/StructureStageViewer.tsx:783:}> = ({ sections, activeSectionId }) => {
+./src/components/documents/pipeline/StructureStageViewer.tsx:793:    activeSectionId != null
+./src/components/documents/pipeline/StructureStageViewer.tsx:794:      ? sections.find((s) => s.id === activeSectionId) ?? sections[0]
+./src/components/documents/pipeline/ChunksStageViewer.tsx:178:  selectedChunk: ChunkPreviewDTO | undefined,
+./src/components/documents/pipeline/ChunksStageViewer.tsx:181:  const chunkTextFull = selectedChunk
+./src/components/documents/pipeline/ChunksStageViewer.tsx:182:    ? normalizeChunkText(selectedChunk.text).trim()
+./src/components/documents/pipeline/ChunksStageViewer.tsx:314:  selectedChunk: ChunkPreviewDTO | undefined,
+./src/components/documents/pipeline/ChunksStageViewer.tsx:317:  if (!selectedChunk) return undefined;
+./src/components/documents/pipeline/ChunksStageViewer.tsx:320:  const kind = getLayerKind(selectedChunk);
+./src/components/documents/pipeline/ChunksStageViewer.tsx:321:  if (kind === "section") return selectedChunk;
+./src/components/documents/pipeline/ChunksStageViewer.tsx:323:  const uid = getChunkUid(selectedChunk);
+./src/components/documents/pipeline/ChunksStageViewer.tsx:336:  const page = selectedChunk.page_from;
+./src/components/documents/pipeline/ChunksStageViewer.tsx:473:  activeLayer,
+./src/components/documents/pipeline/ChunksStageViewer.tsx:477:  activeLayer: LayerKind;
+./src/components/documents/pipeline/ChunksStageViewer.tsx:487:        const active = activeLayer === layer;
+./src/components/documents/pipeline/ChunksStageViewer.tsx:498:              active
+./src/components/documents/pipeline/ChunksStageViewer.tsx:630:  const [activeCanonicalLayer, setActiveCanonicalLayer] =
+./src/components/documents/pipeline/ChunksStageViewer.tsx:643:      return canonicalCounts[activeCanonicalLayer] > 0
+./src/components/documents/pipeline/ChunksStageViewer.tsx:644:        ? activeCanonicalLayer
+./src/components/documents/pipeline/ChunksStageViewer.tsx:654:    activeCanonicalLayer,
+./src/components/documents/pipeline/ChunksStageViewer.tsx:682:  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+./src/components/documents/pipeline/ChunksStageViewer.tsx:693:      if (selectedIndex != null && highlightedSet.has(selectedIndex)) {
+./src/components/documents/pipeline/ChunksStageViewer.tsx:694:        return selectedIndex;
+./src/components/documents/pipeline/ChunksStageViewer.tsx:700:      selectedIndex != null &&
+./src/components/documents/pipeline/ChunksStageViewer.tsx:701:      displayedChunks.some((chunk) => chunk.index === selectedIndex)
+./src/components/documents/pipeline/ChunksStageViewer.tsx:703:      return selectedIndex;
+./src/components/documents/pipeline/ChunksStageViewer.tsx:714:    selectedIndex,
+./src/components/documents/pipeline/ChunksStageViewer.tsx:733:  const selectedItem = useMemo(
+./src/components/documents/pipeline/ChunksStageViewer.tsx:743:  const selectedChunk = selectedItem?.chunk;
+./src/components/documents/pipeline/ChunksStageViewer.tsx:748:        ? findRelatedSection(selectedChunk, layerBuckets.section)
+./src/components/documents/pipeline/ChunksStageViewer.tsx:750:    [isCanonical, selectedChunk, layerBuckets.section],
+./src/components/documents/pipeline/ChunksStageViewer.tsx:782:        ? buildHighlightedSnapshot(preview, selectedChunk)
+./src/components/documents/pipeline/ChunksStageViewer.tsx:784:    [preview, selectedChunk],
+./src/components/documents/pipeline/ChunksStageViewer.tsx:795:  }, [jsonMode, highlightedSnapshot.__html, selectedChunk?.index]);
+./src/components/documents/pipeline/ChunksStageViewer.tsx:933:                  activeLayer={displayedLayer}
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1025:            {selectedChunk && selectedItem ? (
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1029:                    {getPrimaryItemTitle(selectedItem, isCanonical)}
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1032:                    {getSecondaryItemLine(selectedItem, isCanonical)}
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1036:                    <Pill tone="accent">layer: {selectedItem.layer}</Pill>
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1037:                    {selectedChunk.role && (
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1040:                          selectedChunk.role === "evidence" ? "accent" : "neutral"
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1043:                        role: {selectedChunk.role}
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1046:                    {getChunkUid(selectedChunk) && (
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1047:                      <Pill>uid: {getChunkUid(selectedChunk)}</Pill>
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1050:                    {pageLabel(selectedChunk) !== "—" && (
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1051:                      <Pill>pages: {pageLabel(selectedChunk)}</Pill>
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1054:                    {selectedChunk.segment_type && (
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1056:                        segment: {selectedChunk.segment_type}
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1057:                        {selectedChunk.is_primary_segment ? " (PRIMARY)" : ""}
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1062:                      chars: {normalizeChunkText(selectedChunk.text).length}
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1065:                    <Pill>tech index: {selectedChunk.index}</Pill>
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1067:                    {selectedChunk.retrieval_safe === true && (
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1070:                    {selectedChunk.retrieval_safe === false && (
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1088:                    {selectedItem.layer === "clause" &&
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1089:                      normalizeChunkText(selectedChunk.text).length > 800 && (
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1100:                    {(selectedItem.layer === "clause" ||
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1101:                      selectedItem.layer === "subclause") && (
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1109:                    {selectedItem.layer === "section" && (
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1137:                    {normalizeChunkText(selectedChunk.text) || "—"}
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1169:                          buildChunkViewerPayload(documentId, selectedChunk),
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1227:            selectedChunk ? (
+./src/components/documents/pipeline/ChunksStageViewer.tsx:1230:                  {chunkJson(selectedChunk)}
+./src/components/documents/DocumentTree.tsx:24:  selectedDocId: string | null;
+./src/components/documents/DocumentTree.tsx:46:  selectedDocId,
+./src/components/documents/DocumentTree.tsx:105:            selectedDocId={selectedDocId}
+./src/components/documents/DocumentTree.tsx:126:  selectedDocId: string | null;
+./src/components/documents/DocumentTree.tsx:138:  selectedDocId,
+./src/components/documents/DocumentTree.tsx:195:              selectedDocId={selectedDocId}
+./src/components/documents/DocumentTree.tsx:215:                  selectedDocId === doc.id
+./src/components/documents/DocumentTree.tsx:226:                    selectedDocId === doc.id
+./src/components/documents/DocumentDetails.tsx:253:  const [activeSegmentKey, setActiveSegmentKey] = useState<string | null>(null);
+./src/components/documents/DocumentDetails.tsx:344:    activeSegmentKey &&
+./src/components/documents/DocumentDetails.tsx:345:    structuredSegments.some((s) => s.segmentKey === activeSegmentKey)
+./src/components/documents/DocumentDetails.tsx:346:      ? activeSegmentKey
+./src/components/documents/DocumentDetails/sections/StructuredDataSection.tsx:238:                  aria-selected={isActive}
+./src/components/deals/RunLaunchDrawer.tsx:60:  const selectedPrimaryLanguage = deal.primary_language ?? "";
+./src/components/deals/RunLaunchDrawer.tsx:65:    : hasMultipleDocumentLanguages && !selectedPrimaryLanguage
+./src/components/deals/RunLaunchDrawer.tsx:268:              value={selectedPrimaryLanguage}
+./src/components/deals/RunLaunchDrawer.tsx:296:          {hasMultipleDocumentLanguages && !selectedPrimaryLanguage && (
+./src/components/instructions/OverrideStatusBadge.tsx:18:  active: {
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:114:  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:115:  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:120:  const [selectedLineDetail, setSelectedLineDetail] =
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:138:  const [selectedModelConfigId, setSelectedModelConfigId] = useState<
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:154:    if (!selectedLineId) return [];
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:158:        String(version.playbook_id) === selectedLineId &&
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:161:  }, [versions, selectedLineId]);
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:168:    currentVersionId !== null && selectedVersionId === currentVersionId;
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:170:  const selectedVersionStatus = useMemo(
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:172:      selectedVersionId
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:173:        ? (visibleVersions.find((v) => String(v.id) === selectedVersionId)
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:176:    [selectedVersionId, visibleVersions],
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:179:  const isSelectedVersionDraft = selectedVersionStatus === "draft";
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:243:    if (!selectedVersionId) {
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:253:        playbook_version_id: selectedVersionId,
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:260:              playbook_version_id: selectedVersionId,
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:266:        playbook_version_id: selectedVersionId,
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:298:    selectedVersionId,
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:302:    if (!selectedVersionId) {
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:307:    if (currentVersionId && currentVersionId !== selectedVersionId) {
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:313:  }, [applyPlaybook, currentVersionId, selectedVersionId]);
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:316:    if (!selectedLineId) return;
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:318:    if (!selectedModelConfigId) {
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:330:      const line = lines.find((entry) => String(entry.id) === selectedLineId);
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:340:        playbook_id: selectedLineId,
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:341:        from_line_id: selectedLineId,
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:342:        model_config_id: selectedModelConfigId,
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:357:          : selectedLineId,
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:372:  }, [clearMessages, lines, selectedLineId, selectedModelConfigId]);
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:375:    if (!selectedLineId) return;
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:376:    onEditTemplate?.(selectedLineId);
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:377:  }, [selectedLineId, onEditTemplate]);
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:524:    if (selectedVersionId) {
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:525:      void loadVersionDetail(selectedVersionId);
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:533:  }, [selectedVersionId]);
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:555:    if (selectedLineId) {
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:556:      void loadSelectedLine(selectedLineId);
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:564:  }, [selectedLineId]);
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:659:                const isSelected = selectedLineId === lineId;
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:705:          {!selectedLineId ? (
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:734:                    value={selectedModelConfigId ?? ""}
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:757:                  disabled={isCreatingVersion || !selectedModelConfigId}
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:769:                  const isSelected = selectedVersionId === versionId;
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:813:                    !selectedVersionId ||
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:831:              selectedLineId ? (
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:843:            {!selectedLineId ? (
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:848:            ) : selectedVersionId && versionDetail ? (
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:896:            ) : selectedLineDetail ? (
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:901:                    {selectedLineDetail.title}
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:905:                      selectedLineDetail.deal_type &&
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:906:                        `Тип: ${selectedLineDetail.deal_type}`,
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:907:                      selectedLineDetail.jurisdiction &&
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:908:                        `Юрисдикция: ${selectedLineDetail.jurisdiction}`,
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:909:                      selectedLineDetail.language &&
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:910:                        `Язык: ${selectedLineDetail.language}`,
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:916:                  {selectedLineDetail.description && (
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:918:                      {selectedLineDetail.description}
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:928:                  {selectedLineDetail.items?.length > 0 ? (
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:930:                      {selectedLineDetail.items.map((item, index) => (
+./src/components/playbook/DealPlaybookSelectorPanel.tsx:951:            ) : selectedLineId ? (
+./src/components/requests/RequestsTable.tsx:19:  selectedRequestId?: string | null;
+./src/components/requests/RequestsTable.tsx:65:  selectedRequestId,
+./src/components/requests/RequestsTable.tsx:245:                const isSelected = selectedRequestId === view.id;
+./src/components/requests/RequestsTable.tsx:266:                    aria-selected={isSelected}
+./src/components/requests/ReviewRequestsTable.tsx:17:  selectedRequestId?: string | null;
+./src/components/requests/ReviewRequestsTable.tsx:27:  selectedRequestId,
+./src/components/requests/ReviewRequestsTable.tsx:134:              const isSelected = selectedRequestId === view.id;
+./src/components/requests/ReviewRequestsTable.tsx:155:                  aria-selected={isSelected}
+./src/components/upload/PreparedFilesTable.tsx:17:  selectedRowIds: string[];
+./src/components/upload/PreparedFilesTable.tsx:39:  selectedRowIds,
+./src/components/upload/PreparedFilesTable.tsx:49:  const hasSelection = selectedRowIds.length > 0;
+./src/components/upload/PreparedFilesTable.tsx:50:  const allSelected = hasRows && selectedRowIds.length === rows.length;
+./src/components/upload/PreparedFilesTable.tsx:126:                const checked = selectedRowIds.includes(row.id);
+./src/components/upload/ProjectUploadPanel.tsx:104:  const [selectedFiles, setSelectedFiles] = useState<FileWithRelativePath[]>([]);
+./src/components/upload/ProjectUploadPanel.tsx:105:  const [selectedPreparedRowIds, setSelectedPreparedRowIds] = useState<string[]>([]);
+./src/components/upload/ProjectUploadPanel.tsx:111:  const canSubmit = !isSubmitting && selectedFiles.length > 0;
+./src/components/upload/ProjectUploadPanel.tsx:119:    return selectedFiles.map((file, index) => ({
+./src/components/upload/ProjectUploadPanel.tsx:126:  }, [selectedFiles]);
+./src/components/upload/ProjectUploadPanel.tsx:216:    if (selectedPreparedRowIds.length === 0) return;
+./src/components/upload/ProjectUploadPanel.tsx:217:    removePreparedRows(selectedPreparedRowIds);
+./src/components/upload/ProjectUploadPanel.tsx:227:    if (selectedFiles.length === 0) {
+./src/components/upload/ProjectUploadPanel.tsx:234:        files: selectedFiles,
+./src/components/upload/ProjectUploadPanel.tsx:326:          selectedCount={selectedFiles.length}
+./src/components/upload/ProjectUploadPanel.tsx:346:        selectedRowIds={selectedPreparedRowIds}
+./src/components/upload/UploadDropzoneCard.tsx:10:  selectedCount: number;
+./src/components/upload/UploadDropzoneCard.tsx:22:  selectedCount,
+./src/components/upload/UploadDropzoneCard.tsx:82:          {selectedCount > 0
+./src/components/upload/UploadDropzoneCard.tsx:83:            ? `Подготовлено файлов: ${selectedCount}`
+./src/components/evidence/MagicZoom.tsx:82:    previousFocusedElementRef.current = document.activeElement as HTMLElement | null;
+./src/components/evidence/MagicZoom.tsx:118:      const active = document.activeElement as HTMLElement | null;
+./src/components/evidence/MagicZoom.tsx:121:        if (active === first || !modalRef.current.contains(active)) {
+./src/components/evidence/MagicZoom.tsx:125:      } else if (active === last) {
+./src/components/evidence/EvidencePanel.tsx:129:    const active: string[] = [];
+./src/components/evidence/EvidencePanel.tsx:130:    if (flags.structure_degraded) active.push("Структура документа нарушена");
+./src/components/evidence/EvidencePanel.tsx:131:    if (flags.llm_fallback_used) active.push("Использован LLM fallback");
+./src/components/evidence/EvidencePanel.tsx:132:    if (!active.length && Object.keys(flags).length)
+./src/components/evidence/EvidencePanel.tsx:133:      active.push("Есть технические флаги (см. детали ниже)");
+./src/components/evidence/EvidencePanel.tsx:134:    if (!active.length) return "Флаги качества не установлены.";
+./src/components/evidence/EvidencePanel.tsx:135:    return active.join(" · ");
+./src/components/layout/AppShell.tsx:84:    aria-current={isActive ? "page" : undefined}
+./src/components/model-config/ModelConfigManagerPanel.tsx:95:  const [selectedId, setSelectedId] = useState<string | null>(null);
+./src/components/model-config/ModelConfigManagerPanel.tsx:109:  const selectedConfig = useMemo(
+./src/components/model-config/ModelConfigManagerPanel.tsx:110:    () => state.items.find((item) => item.id === selectedId) ?? null,
+./src/components/model-config/ModelConfigManagerPanel.tsx:111:    [state.items, selectedId],
+./src/components/model-config/ModelConfigManagerPanel.tsx:179:    if (!selectedConfig) return;
+./src/components/model-config/ModelConfigManagerPanel.tsx:183:      name: selectedConfig.name,
+./src/components/model-config/ModelConfigManagerPanel.tsx:192:  }, [clearMessages, selectedConfig]);
+./src/components/model-config/ModelConfigManagerPanel.tsx:196:    if (selectedId) {
+./src/components/model-config/ModelConfigManagerPanel.tsx:201:  }, [clearMessages, selectedId]);
+./src/components/model-config/ModelConfigManagerPanel.tsx:293:        } else if (rightMode === "edit" && selectedId) {
+./src/components/model-config/ModelConfigManagerPanel.tsx:295:            `/api/v1/model-configs/${selectedId}`,
+./src/components/model-config/ModelConfigManagerPanel.tsx:309:    [formValues, loadConfigs, rightMode, selectedId, validateForm],
+./src/components/model-config/ModelConfigManagerPanel.tsx:335:        if (selectedId === config.id) {
+./src/components/model-config/ModelConfigManagerPanel.tsx:347:    [loadConfigs, selectedId, state.usage],
+./src/components/model-config/ModelConfigManagerPanel.tsx:711:    if (!selectedConfig) return null;
+./src/components/model-config/ModelConfigManagerPanel.tsx:713:    const usage = state.usage[selectedConfig.id];
+./src/components/model-config/ModelConfigManagerPanel.tsx:725:              {selectedConfig.name}
+./src/components/model-config/ModelConfigManagerPanel.tsx:728:              {selectedConfig.id}
+./src/components/model-config/ModelConfigManagerPanel.tsx:1022:              onClick={() => void handleSelectForDeal(selectedConfig)}
+./src/components/model-config/ModelConfigManagerPanel.tsx:1032:            onClick={() => void handleDelete(selectedConfig)}
+./src/components/model-config/ModelConfigManagerPanel.tsx:1092:                  selectedId === cfg.id && rightMode === "view";
+./src/components/model-config/ModelConfigManagerPanel.tsx:1094:                  selectedId === cfg.id && rightMode === "edit";
+./src/pages/DealPage.tsx:99:  const [activeTab, setActiveTab] = React.useState<TabKey>(initialTab);
+./src/pages/DealPage.tsx:147:      const currentIndex = TAB_KEYS.indexOf(activeTab);
+./src/pages/DealPage.tsx:179:    [activeTab, handleSetTab],
+./src/pages/DealPage.tsx:194:  const activeTabLabel = TAB_LABELS[activeTab];
+./src/pages/DealPage.tsx:197:    if (activeTab === "overview") {
+./src/pages/DealPage.tsx:201:    if (activeTab === "documents") {
+./src/pages/DealPage.tsx:216:    if (activeTab === "dd_grid") {
+./src/pages/DealPage.tsx:227:    if (activeTab === "requests") {
+./src/pages/DealPage.tsx:242:    if (activeTab === "report") {
+./src/pages/DealPage.tsx:246:    if (activeTab === "audit") {
+./src/pages/DealPage.tsx:250:    if (activeTab === "counterparties") {
+./src/pages/DealPage.tsx:256:    if (activeTab === "real_estate") {
+./src/pages/DealPage.tsx:301:                activeTab={activeTab}
+./src/pages/DealPage.tsx:317:                  activeTab={activeTab}
+./src/pages/DealPage.tsx:323:                  activeTab={activeTab}
+./src/pages/DealPage.tsx:329:                  activeTab={activeTab}
+./src/pages/DealPage.tsx:335:                  activeTab={activeTab}
+./src/pages/DealPage.tsx:341:                  activeTab={activeTab}
+./src/pages/DealPage.tsx:357:                activeTab={activeTab}
+./src/pages/DealPage.tsx:373:                activeTab={activeTab}
+./src/pages/DealPage.tsx:388:                    {activeTabLabel}
+./src/pages/DealPage.tsx:416:                    activeTab={activeTab}
+./src/pages/DealPage.tsx:422:                    activeTab={activeTab}
+./src/pages/DealPage.tsx:428:                    activeTab={activeTab}
+./src/pages/DealPage.tsx:434:                    activeTab={activeTab}
+./src/pages/DealPage.tsx:440:                    activeTab={activeTab}
+./src/pages/DealPage.tsx:446:                    activeTab={activeTab}
+./src/pages/DealPage.tsx:452:                    activeTab={activeTab}
+./src/pages/DealPage.tsx:458:                    activeTab={activeTab}
+./src/pages/DealPage.tsx:467:            id={getTabPanelId(activeTab)}
+./src/pages/DealPage.tsx:469:            aria-labelledby={getTabId(activeTab)}
+./src/pages/DealPage.tsx:488:  activeTab: TabKey;
+./src/pages/DealPage.tsx:497:  activeTab,
+./src/pages/DealPage.tsx:502:  const isActive = activeTab === tabKey;
+./src/pages/DealPage.tsx:513:      aria-current={isActive ? "page" : undefined}
+./src/pages/DealPage.tsx:541:  activeTab: TabKey;
+./src/pages/DealPage.tsx:549:  activeTab,
+./src/pages/DealPage.tsx:553:  const isActive = activeTab === tabKey;
+./src/pages/DealPage.tsx:566:      aria-selected={isActive}
+./src/pages/AdminTenantProjectsPage.tsx:39:  active: {
+./src/pages/DealListPage.tsx:27:  const activeDealId = params.dealId;
+./src/pages/DealListPage.tsx:183:                    isActive={activeDealId === deal.id}
+./src/pages/AdminTenantDetailPage.tsx:104:    true, // include inactive
+./src/pages/AdminTenantDetailPage.tsx:260:  const activeUsers = usersList.filter((u) => u.is_active).length;
+./src/pages/AdminTenantDetailPage.tsx:281:            {!tenant.is_active && (
+./src/pages/AdminTenantDetailPage.tsx:298:            Пользователей: {activeUsers} из {tenant.users_count}
+./src/pages/AdminTenantDetailPage.tsx:314:            {tenant.is_active && (
+./src/pages/AdminTenantDetailPage.tsx:563:                  !u.is_active && "opacity-50",
+./src/pages/AdminTenantDetailPage.tsx:577:                    {!u.is_active && (
+./src/pages/AdminTenantDetailPage.tsx:586:                  {u.is_active && (
+./src/pages/playbooks/PlaybookStudioPage.tsx:201:  const [selectedGroup, setSelectedGroup] = useState<string>("__all__");
+./src/pages/playbooks/PlaybookStudioPage.tsx:202:  const [selectedCode, setSelectedCode] = useState<string>("");
+./src/pages/playbooks/PlaybookStudioPage.tsx:214:      selectedGroup === "__all__"
+./src/pages/playbooks/PlaybookStudioPage.tsx:216:        : globalChecks.filter((c) => c.group === selectedGroup);
+./src/pages/playbooks/PlaybookStudioPage.tsx:218:  }, [globalChecks, selectedGroup, alreadyAdded]);
+./src/pages/playbooks/PlaybookStudioPage.tsx:221:    if (selectedCode && !filteredChecks.some((c) => c.id === selectedCode)) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:224:  }, [filteredChecks, selectedCode]);
+./src/pages/playbooks/PlaybookStudioPage.tsx:227:    if (!selectedCode && filteredChecks.length > 0) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:230:  }, [filteredChecks, selectedCode]);
+./src/pages/playbooks/PlaybookStudioPage.tsx:233:    if (!selectedCode) return;
+./src/pages/playbooks/PlaybookStudioPage.tsx:234:    onAdd(selectedCode);
+./src/pages/playbooks/PlaybookStudioPage.tsx:236:      filteredChecks.find((c) => c.id !== selectedCode)?.id ?? "",
+./src/pages/playbooks/PlaybookStudioPage.tsx:240:  const selectedCheckInfo = globalChecks.find((c) => c.id === selectedCode);
+./src/pages/playbooks/PlaybookStudioPage.tsx:255:            value={selectedGroup}
+./src/pages/playbooks/PlaybookStudioPage.tsx:273:            value={selectedCode}
+./src/pages/playbooks/PlaybookStudioPage.tsx:290:      {selectedCheckInfo && (
+./src/pages/playbooks/PlaybookStudioPage.tsx:294:              {selectedCheckInfo.id}
+./src/pages/playbooks/PlaybookStudioPage.tsx:296:            {selectedCheckInfo.group && (
+./src/pages/playbooks/PlaybookStudioPage.tsx:298:                {selectedCheckInfo.group}
+./src/pages/playbooks/PlaybookStudioPage.tsx:301:            {selectedCheckInfo.severity && (
+./src/pages/playbooks/PlaybookStudioPage.tsx:303:                {selectedCheckInfo.severity}
+./src/pages/playbooks/PlaybookStudioPage.tsx:307:          {selectedCheckInfo.description && (
+./src/pages/playbooks/PlaybookStudioPage.tsx:309:              {selectedCheckInfo.description}
+./src/pages/playbooks/PlaybookStudioPage.tsx:320:          disabled={disabled || !selectedCode || filteredChecks.length === 0}
+./src/pages/playbooks/PlaybookStudioPage.tsx:432:  const [selectedPlaybookId, setSelectedPlaybookId] = useState<string | null>(null);
+./src/pages/playbooks/PlaybookStudioPage.tsx:433:  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+./src/pages/playbooks/PlaybookStudioPage.tsx:444:  const [selectedModelConfigId, setSelectedModelConfigId] = useState("");
+./src/pages/playbooks/PlaybookStudioPage.tsx:488:  const selectedPlaybook =
+./src/pages/playbooks/PlaybookStudioPage.tsx:489:    playbooks.find((item) => item.id === selectedPlaybookId) ?? null;
+./src/pages/playbooks/PlaybookStudioPage.tsx:492:    if (!selectedPlaybookId) return [];
+./src/pages/playbooks/PlaybookStudioPage.tsx:494:      (v) => v.playbook_id === selectedPlaybookId && v.status !== "archived",
+./src/pages/playbooks/PlaybookStudioPage.tsx:496:  }, [versions, selectedPlaybookId]);
+./src/pages/playbooks/PlaybookStudioPage.tsx:505:    if (!selectedPlaybookId && playbooks.length > 0 && !isNewTemplateMode) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:508:  }, [playbooks, selectedPlaybookId, isNewTemplateMode]);
+./src/pages/playbooks/PlaybookStudioPage.tsx:511:    if (!selectedVersionId && visibleVersions.length > 0) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:515:    if (selectedVersionId && !visibleVersions.some((v) => v.id === selectedVersionId)) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:518:  }, [visibleVersions, selectedVersionId]);
+./src/pages/playbooks/PlaybookStudioPage.tsx:521:    if (modelConfigs.length > 0 && !selectedModelConfigId) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:524:  }, [modelConfigs, selectedModelConfigId]);
+./src/pages/playbooks/PlaybookStudioPage.tsx:554:    if (selectedPlaybookId && !isNewTemplateMode) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:555:      void loadTemplateDetail(selectedPlaybookId);
+./src/pages/playbooks/PlaybookStudioPage.tsx:560:  }, [selectedPlaybookId, isNewTemplateMode]);
+./src/pages/playbooks/PlaybookStudioPage.tsx:563:    if (selectedPlaybook && !isNewTemplateMode) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:564:      setNewVersionName(`${selectedPlaybook.title} Draft`);
+./src/pages/playbooks/PlaybookStudioPage.tsx:567:  }, [selectedPlaybook, isNewTemplateMode]);
+./src/pages/playbooks/PlaybookStudioPage.tsx:675:    if (!selectedPlaybookId) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:685:      `/api/v1/playbooks/lines/${selectedPlaybookId}`,
+./src/pages/playbooks/PlaybookStudioPage.tsx:696:    return selectedPlaybookId;
+./src/pages/playbooks/PlaybookStudioPage.tsx:705:    if (!selectedModelConfigId) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:733:          model_config_id: selectedModelConfigId,
+./src/pages/playbooks/PlaybookStudioPage.tsx:848:                        !isNewTemplateMode && selectedPlaybookId === playbook.id;
+./src/pages/playbooks/PlaybookStudioPage.tsx:900:              {!isNewTemplateMode && !selectedPlaybookId ? (
+./src/pages/playbooks/PlaybookStudioPage.tsx:1015:              {!selectedPlaybookId && !isNewTemplateMode ? (
+./src/pages/playbooks/PlaybookStudioPage.tsx:1023:                  {selectedPlaybook && !isNewTemplateMode && (
+./src/pages/playbooks/PlaybookStudioPage.tsx:1029:                        {selectedPlaybook.title}
+./src/pages/playbooks/PlaybookStudioPage.tsx:1032:                        {selectedPlaybook.code}
+./src/pages/playbooks/PlaybookStudioPage.tsx:1109:                        value={selectedModelConfigId}
+./src/pages/playbooks/PlaybookStudioPage.tsx:1128:                      disabled={isBusy || !selectedModelConfigId}
+./src/pages/playbooks/PlaybookStudioPage.tsx:1137:                      disabled={isBusy || !selectedModelConfigId}
+./src/pages/tenant-instructions/TenantOverrideDetailPage.tsx:77:    override?.status === "draft" || override?.status === "active";
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:178:      aria-current={isSelected ? "true" : undefined}
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:208:  selectedVersionId: string | null;
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:210:}> = ({ label, count, versions, selectedVersionId, onSelectVersion }) => (
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:221:          isSelected={v.id === selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:233:  selectedVersionId: string | null;
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:237:}> = ({ versions, selectedVersionId, onSelectVersion, isLoading, isError }) => {
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:277:                selectedVersionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:286:                selectedVersionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:295:                selectedVersionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:412:  const selectedVersionId: string | null = (() => {
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:472:                selectedVersionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:483:              {selectedVersionId ? (
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:485:                  key={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:486:                  versionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:139:      aria-current={isSelected ? "true" : undefined}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:169:  selectedVersionId: string | null;
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:171:}> = ({ label, count, versions, selectedVersionId, onSelectVersion }) => (
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:182:          isSelected={v.id === selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:194:  selectedVersionId: string | null;
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:198:}> = ({ versions, selectedVersionId, onSelectVersion, isLoading, isError }) => {
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:238:                selectedVersionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:247:                selectedVersionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:256:                selectedVersionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:376:  const selectedVersionId: string | null = (() => {
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:433:                selectedVersionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:444:              {selectedVersionId ? (
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:446:                  key={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:447:                  versionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:68:  const [selectedDocTypeCode, setSelectedDocTypeCode] = useState("");
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:69:  const [selectedGlobalInstructionCode, setSelectedGlobalInstructionCode] =
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:71:  const [selectedBaseVersionId, setSelectedBaseVersionId] = useState("");
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:98:      kind === "doc-type" && selectedDocTypeCode
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:99:        ? selectedDocTypeCode
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:105:      kind === "global" && selectedGlobalInstructionCode
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:106:        ? selectedGlobalInstructionCode
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:131:      if (!selectedDocTypeCode && docTypeCatalogItems.length > 0) {
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:135:      if (!selectedGlobalInstructionCode && globalCatalogItems.length > 0) {
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:143:    selectedDocTypeCode,
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:144:    selectedGlobalInstructionCode,
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:172:    !!selectedBaseVersionId &&
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:194:    if (!selectedBaseVersionId) {
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:212:            instruction_version_id: selectedBaseVersionId,
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:224:            global_instruction_version_id: selectedBaseVersionId,
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:332:                  value={selectedDocTypeCode}
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:353:                  value={selectedGlobalInstructionCode}
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:389:                  value={selectedBaseVersionId}
+./src/pages/tenant-instructions/TenantOverridesPage.tsx:95:  const activeCount = overrides.filter((o) => o.status === "active").length;
+./src/pages/tenant-instructions/TenantOverridesPage.tsx:145:              {activeCount}
+./src/pages/AdminPlaybookVersionsPage.tsx:87:  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+./src/pages/AdminPlaybookVersionsPage.tsx:88:  const [selectedModelConfigId, setSelectedModelConfigId] = useState<
+./src/pages/AdminPlaybookVersionsPage.tsx:158:    if (!selectedVersionId) return;
+./src/pages/AdminPlaybookVersionsPage.tsx:165:      await client.patch(`/api/v1/playbooks/${selectedVersionId}/model-config`, {
+./src/pages/AdminPlaybookVersionsPage.tsx:166:        model_config_id: selectedModelConfigId,
+./src/pages/AdminPlaybookVersionsPage.tsx:180:  const selectedModelConfigName = useMemo(() => {
+./src/pages/AdminPlaybookVersionsPage.tsx:181:    if (!selectedModelConfigId) return null;
+./src/pages/AdminPlaybookVersionsPage.tsx:182:    const mc = state.modelConfigs.find((m) => m.id === selectedModelConfigId);
+./src/pages/AdminPlaybookVersionsPage.tsx:184:  }, [selectedModelConfigId, state.modelConfigs]);
+./src/pages/AdminPlaybookVersionsPage.tsx:186:  const selectedVersion = useMemo(() => {
+./src/pages/AdminPlaybookVersionsPage.tsx:187:    if (!selectedVersionId) return null;
+./src/pages/AdminPlaybookVersionsPage.tsx:188:    return state.versions.find((v) => v.id === selectedVersionId) ?? null;
+./src/pages/AdminPlaybookVersionsPage.tsx:189:  }, [selectedVersionId, state.versions]);
+./src/pages/AdminPlaybookVersionsPage.tsx:262:                  const isSelected = selectedVersionId === version.id;
+./src/pages/AdminPlaybookVersionsPage.tsx:307:            {!selectedVersionId ? (
+./src/pages/AdminPlaybookVersionsPage.tsx:335:                      {selectedVersion?.name}
+./src/pages/AdminPlaybookVersionsPage.tsx:337:                    {selectedVersion?.semver && (
+./src/pages/AdminPlaybookVersionsPage.tsx:339:                        v{selectedVersion.semver}
+./src/pages/AdminPlaybookVersionsPage.tsx:344:                    <span>{selectedVersion?.status}</span>
+./src/pages/AdminPlaybookVersionsPage.tsx:346:                    <span className="font-mono">{selectedVersion?.id}</span>
+./src/pages/AdminPlaybookVersionsPage.tsx:356:                    value={selectedModelConfigId || ""}
+./src/pages/AdminPlaybookVersionsPage.tsx:370:                  {selectedModelConfigName && (
+./src/pages/AdminPlaybookVersionsPage.tsx:374:                        {selectedModelConfigName}
+./src/pages/deal-instructions/DealOverrideDetailPage.tsx:67:    override?.status === "draft" || override?.status === "active";
+./src/pages/AdminPage.tsx:346:  const activeOption = SORT_OPTIONS.find((opt) => opt.key === sortKey);
+./src/pages/AdminPage.tsx:404:        {activeOption?.label}
+./src/pages/AdminPage.tsx:535:      tenant.is_active
+./src/pages/AdminPage.tsx:546:        {!tenant.is_active && (
+./src/pages/AdminPage.tsx:612:      {tenant.is_active ? (
+./src/pages/AdminPage.tsx:632:  const [includeInactive, setIncludeInactive] = useState(false);
+./src/pages/AdminPage.tsx:656:  const { data: tenants, isLoading, error } = useTenants(includeInactive);
+./src/pages/AdminPage.tsx:695:  const activeCount = tenantList.filter((t) => t.is_active).length;
+./src/pages/AdminPage.tsx:755:              Активных: {activeCount}
+./src/pages/AdminPage.tsx:760:                  checked={includeInactive}
+./src/pages/AdminPage.tsx:761:                  onChange={(e) => setIncludeInactive(e.target.checked)}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:326:      aria-current={isSelected ? "true" : undefined}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:358:  selectedVersionId: string | null;
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:360:}> = ({ label, count, versions, selectedVersionId, onSelectVersion }) => (
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:371:          isSelected={v.id === selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:381:  selectedVersionId: string | null;
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:389:  selectedVersionId,
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:433:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:442:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:451:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:807:  const [selectedVersionDetail, setSelectedVersionDetail] =
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:842:  const selectedVersionId: string | null = (() => {
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:853:      selectedVersionDetail &&
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:854:      selectedVersionDetail.id !== selectedVersionId
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:858:  }, [selectedVersionId, selectedVersionDetail]);
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:975:              {selectedVersionId && (
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:977:                  version={selectedVersionDetail}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:984:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:993:              {selectedVersionId && instructionCode ? (
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:995:                  key={selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:997:                  versionId={selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:287:      aria-current={isSelected ? "true" : undefined}
+./src/pages/instructions/DocTypeDetailPage.tsx:319:  selectedVersionId: string | null;
+./src/pages/instructions/DocTypeDetailPage.tsx:321:}> = ({ label, count, versions, selectedVersionId, onSelectVersion }) => (
+./src/pages/instructions/DocTypeDetailPage.tsx:332:          isSelected={v.id === selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:342:  selectedVersionId: string | null;
+./src/pages/instructions/DocTypeDetailPage.tsx:350:  selectedVersionId,
+./src/pages/instructions/DocTypeDetailPage.tsx:394:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:403:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:412:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:755:  const [selectedVersionDetail, setSelectedVersionDetail] =
+./src/pages/instructions/DocTypeDetailPage.tsx:784:  const selectedVersionId: string | null = (() => {
+./src/pages/instructions/DocTypeDetailPage.tsx:795:      selectedVersionDetail &&
+./src/pages/instructions/DocTypeDetailPage.tsx:796:      selectedVersionDetail.id !== selectedVersionId
+./src/pages/instructions/DocTypeDetailPage.tsx:800:  }, [selectedVersionId, selectedVersionDetail]);
+./src/pages/instructions/DocTypeDetailPage.tsx:897:              {selectedVersionId && (
+./src/pages/instructions/DocTypeDetailPage.tsx:899:                  version={selectedVersionDetail}
+./src/pages/instructions/DocTypeDetailPage.tsx:907:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:916:              {selectedVersionId && docType ? (
+./src/pages/instructions/DocTypeDetailPage.tsx:918:                  key={selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:920:                  versionId={selectedVersionId}
+./src/pages/AdminMonitoringPage.tsx:83:        description: "HTTP, LLM, DLQ, active runs",
+./src/pages/PlaybooksRegistryPage.tsx:355:  const [selectedId, setSelectedId] = useState<string | null>(null);
+./src/pages/PlaybooksRegistryPage.tsx:453:  const selectedEntry = useMemo(
+./src/pages/PlaybooksRegistryPage.tsx:454:    () => entries.find((e) => e.line.id === selectedId) ?? null,
+./src/pages/PlaybooksRegistryPage.tsx:455:    [entries, selectedId],
+./src/pages/PlaybooksRegistryPage.tsx:460:    if (!selectedId && filteredEntries.length > 0) {
+./src/pages/PlaybooksRegistryPage.tsx:464:      selectedId &&
+./src/pages/PlaybooksRegistryPage.tsx:465:      !filteredEntries.some((e) => e.line.id === selectedId) &&
+./src/pages/PlaybooksRegistryPage.tsx:470:  }, [filteredEntries, selectedId]);
+./src/pages/PlaybooksRegistryPage.tsx:612:                    const isSelected = selectedId === line.id;
+./src/pages/PlaybooksRegistryPage.tsx:661:              {!selectedEntry ? (
+./src/pages/PlaybooksRegistryPage.tsx:668:                  entry={selectedEntry}
+./src/pages/AdminPlaybookLinesPage.tsx:75:  const [selectedLineId, setSelectedLineId] = React.useState<string | null>(
+./src/pages/AdminPlaybookLinesPage.tsx:551:                      selectedLineId === line.id
+./src/pages/TenantAdminPage.tsx:264:  active: boolean;
+./src/pages/TenantAdminPage.tsx:268:}> = ({ active, onClick, children, badge }) => (
+./src/pages/TenantAdminPage.tsx:273:      active
+./src/pages/TenantAdminPage.tsx:476:          {user.is_active ? (
+./src/pages/TenantAdminPage.tsx:682:  selectedIdx: number | null;
+./src/pages/TenantAdminPage.tsx:685:}> = ({ logs, selectedIdx, onSelect, compact = false }) => (
+./src/pages/TenantAdminPage.tsx:703:        const sel = selectedIdx === idx;
+./src/pages/TenantAdminPage.tsx:950:  const [selectedLogIdx, setSelectedLogIdx] = React.useState<number | null>(
+./src/pages/TenantAdminPage.tsx:976:  }, [selectedLogIdx]);
+./src/pages/TenantAdminPage.tsx:982:  const selectedLog: LogEntry | null =
+./src/pages/TenantAdminPage.tsx:983:    selectedLogIdx != null ? (logs[selectedLogIdx] ?? null) : null;
+./src/pages/TenantAdminPage.tsx:999:    if (!selectedLog) return;
+./src/pages/TenantAdminPage.tsx:1002:        JSON.stringify(selectedLog.raw, null, 2),
+./src/pages/TenantAdminPage.tsx:1065:              active={subTab === "overview"}
+./src/pages/TenantAdminPage.tsx:1071:              active={subTab === "members"}
+./src/pages/TenantAdminPage.tsx:1078:              active={subTab === "logs"}
+./src/pages/TenantAdminPage.tsx:1557:                              selectedIdx={selectedLogIdx}
+./src/pages/TenantAdminPage.tsx:1567:                          entry={selectedLog}
+./src/pages/TenantAdminPage.tsx:1597:                {selectedLog && (
+./src/pages/TenantAdminPage.tsx:1602:                      entry={selectedLog}
+./src/pages/TenantAdminPage.tsx:1624:  const [activeTab, setActiveTab] = React.useState<AdminTab>("projects");
+./src/pages/TenantAdminPage.tsx:1625:  const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(
+./src/pages/TenantAdminPage.tsx:1635:    enabled: activeTab === "monitoring",
+./src/pages/TenantAdminPage.tsx:1679:    { enabled: activeTab === "logs" },
+./src/pages/TenantAdminPage.tsx:1682:  const [selectedLogIdx, setSelectedLogIdx] = React.useState<number | null>(
+./src/pages/TenantAdminPage.tsx:1696:  }, [selectedLogIdx]);
+./src/pages/TenantAdminPage.tsx:1716:  const selectedLog: LogEntry | null =
+./src/pages/TenantAdminPage.tsx:1717:    selectedLogIdx != null ? (logs[selectedLogIdx] ?? null) : null;
+./src/pages/TenantAdminPage.tsx:1747:    if (!selectedLog) return;
+./src/pages/TenantAdminPage.tsx:1750:        JSON.stringify(selectedLog.raw, null, 2),
+./src/pages/TenantAdminPage.tsx:1776:    if (activeTab === "monitoring") metricsQ.refetch();
+./src/pages/TenantAdminPage.tsx:1777:    if (activeTab === "logs") logsQ.refetch();
+./src/pages/TenantAdminPage.tsx:1782:    (activeTab === "monitoring" && metricsQ.isFetching) ||
+./src/pages/TenantAdminPage.tsx:1783:    (activeTab === "logs" && logsQ.isFetching);
+./src/pages/TenantAdminPage.tsx:1873:      {problemProjects.length > 0 && !selectedProjectId && (
+./src/pages/TenantAdminPage.tsx:1918:        {!selectedProjectId && (
+./src/pages/TenantAdminPage.tsx:1922:                active={activeTab === "projects"}
+./src/pages/TenantAdminPage.tsx:1929:                active={activeTab === "users"}
+./src/pages/TenantAdminPage.tsx:1936:                active={activeTab === "monitoring"}
+./src/pages/TenantAdminPage.tsx:1942:                active={activeTab === "logs"}
+./src/pages/TenantAdminPage.tsx:1948:                active={activeTab === "alerts"}
+./src/pages/TenantAdminPage.tsx:1959:        {activeTab === "projects" && (
+./src/pages/TenantAdminPage.tsx:1961:            {selectedProjectId ? (
+./src/pages/TenantAdminPage.tsx:1963:                dealId={selectedProjectId}
+./src/pages/TenantAdminPage.tsx:2009:        {activeTab === "users" && (
+./src/pages/TenantAdminPage.tsx:2053:        {activeTab === "monitoring" && (
+./src/pages/TenantAdminPage.tsx:2096:                    value={metricVal(md?.pipeline.active_runs)}
+./src/pages/TenantAdminPage.tsx:2375:        {activeTab === "logs" && (
+./src/pages/TenantAdminPage.tsx:2570:                          selectedIdx={selectedLogIdx}
+./src/pages/TenantAdminPage.tsx:2579:                      entry={selectedLog}
+./src/pages/TenantAdminPage.tsx:2609:            {selectedLog && (
+./src/pages/TenantAdminPage.tsx:2614:                  entry={selectedLog}
+./src/pages/TenantAdminPage.tsx:2625:        {activeTab === "alerts" && (
+./src/pages/tabs/DocumentsTab.tsx:317:  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+./src/pages/tabs/DocumentsTab.tsx:330:  const selectedDocument = useMemo(
+./src/pages/tabs/DocumentsTab.tsx:331:    () => documents.find((doc) => doc.id === selectedDocId) ?? null,
+./src/pages/tabs/DocumentsTab.tsx:332:    [documents, selectedDocId],
+./src/pages/tabs/DocumentsTab.tsx:365:    if (!selectedDocId) return;
+./src/pages/tabs/DocumentsTab.tsx:374:  }, [selectedDocId, pipelinePreview]);
+./src/pages/tabs/DocumentsTab.tsx:376:  React.useEffect(() => { setPipelinePreview(null); }, [selectedDocId]);
+./src/pages/tabs/DocumentsTab.tsx:462:  const isDetailsPanelOpen = selectedDocId !== null;
+./src/pages/tabs/DocumentsTab.tsx:562:                      documentId={selectedDocId ?? ""}
+./src/pages/tabs/DocumentsTab.tsx:600:                              const isSelected = selectedDocId === doc.id;
+./src/pages/tabs/DocumentsTab.tsx:733:                    title={selectedDocument?.filename ?? selectedDocId ?? ""}
+./src/pages/tabs/DocumentsTab.tsx:735:                    {selectedDocument?.filename ?? selectedDocId}
+./src/pages/tabs/DocumentsTab.tsx:751:                  docId={selectedDocId!}
+./src/pages/tabs/AuditTab.tsx:42:  selectedAction: string;
+./src/pages/tabs/AuditTab.tsx:46:}> = ({ selectedAction, onSelect, onReset, onClose }) => (
+./src/pages/tabs/AuditTab.tsx:62:          variant={selectedAction === "" ? "outline" : "secondary"}
+./src/pages/tabs/AuditTab.tsx:64:          aria-pressed={selectedAction === ""}
+./src/pages/tabs/AuditTab.tsx:65:          className={selectedAction === "" ? FILTER_BUTTON_ACTIVE_CLASS : ""}
+./src/pages/tabs/AuditTab.tsx:71:          const isSelected = selectedAction === key;
+./src/pages/tabs/AuditTab.tsx:220:                  selectedAction={filterAction}
+./src/pages/tabs/RequestsTab.tsx:203:  const [selectedReq, setSelectedReq] = useState<DDRequest | null>(null);
+./src/pages/tabs/RequestsTab.tsx:204:  const [selectedReviewReqKey, setSelectedReviewReqKey] = useState<string | null>(null);
+./src/pages/tabs/RequestsTab.tsx:227:  const selectedReviewReq: DDRequestDTO | null = useMemo(() => {
+./src/pages/tabs/RequestsTab.tsx:228:    if (!selectedReviewReqKey || !Array.isArray(reviewRequests)) return null;
+./src/pages/tabs/RequestsTab.tsx:231:      return view.id === selectedReviewReqKey;
+./src/pages/tabs/RequestsTab.tsx:234:  }, [selectedReviewReqKey, reviewRequests]);
+./src/pages/tabs/RequestsTab.tsx:370:  const hasLegacyPanel = !!selectedReq;
+./src/pages/tabs/RequestsTab.tsx:371:  const hasReviewPanel = !!selectedReviewReqKey && !!selectedReviewReq;
+./src/pages/tabs/RequestsTab.tsx:472:                    selectedRequestId={selectedReviewReqKey}
+./src/pages/tabs/RequestsTab.tsx:483:                {hasReviewPanel && selectedReviewReq && (
+./src/pages/tabs/RequestsTab.tsx:496:                        request={selectedReviewReq}
+./src/pages/tabs/RequestsTab.tsx:516:                    selectedRequestId={selectedReq?.id ?? null}
+./src/pages/tabs/RequestsTab.tsx:543:                        request={selectedReq}
+./src/pages/tabs/RealEstateTab.tsx:725:  const isInteractive = typeof onClick === "function";
+./src/pages/tabs/RealEstateTab.tsx:736:          isInteractive
+./src/pages/tabs/RealEstateTab.tsx:749:  if (!isInteractive) {
+./src/pages/tabs/RealEstateTab.tsx:1212:  selectedId: string | null;
+./src/pages/tabs/RealEstateTab.tsx:1216:}> = ({ items, selectedId, onSelect, sort, onSort }) => (
+./src/pages/tabs/RealEstateTab.tsx:1274:          const isSelected = item.id === selectedId;
+./src/pages/tabs/RealEstateTab.tsx:1583:  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+./src/pages/tabs/RealEstateTab.tsx:1689:  const selectedObject = selectedId
+./src/pages/tabs/RealEstateTab.tsx:1690:    ? DEMO_OBJECTS.find((item) => item.id === selectedId) ?? null
+./src/pages/tabs/RealEstateTab.tsx:1693:  const selectedDetail = selectedObject ? DEMO_DETAILS[selectedObject.id] : null;
+./src/pages/tabs/RealEstateTab.tsx:1755:        {selectedObject && selectedDetail ? (
+./src/pages/tabs/RealEstateTab.tsx:1790:                      selectedId={selectedId}
+./src/pages/tabs/RealEstateTab.tsx:1802:                    object={selectedObject}
+./src/pages/tabs/RealEstateTab.tsx:1803:                    detail={selectedDetail}
+./src/pages/tabs/RealEstateTab.tsx:1835:                  selectedId={selectedId}
+./src/pages/tabs/grid/reviewGrid.qc.ts:36:  selectedRowsCount: number;
+./src/pages/tabs/grid/reviewGrid.qc.ts:37:  selectedFindingsCount: number;
+./src/pages/tabs/grid/reviewGrid.qc.ts:190:  selectedFindings: ReviewFinding[],
+./src/pages/tabs/grid/reviewGrid.qc.ts:198:      selectedRowsCount: 0,
+./src/pages/tabs/grid/reviewGrid.qc.ts:199:      selectedFindingsCount: 0,
+./src/pages/tabs/grid/reviewGrid.qc.ts:203:  if (!selectedFindings.length) {
+./src/pages/tabs/grid/reviewGrid.qc.ts:209:      selectedRowsCount: selection.length,
+./src/pages/tabs/grid/reviewGrid.qc.ts:210:      selectedFindingsCount: 0,
+./src/pages/tabs/grid/reviewGrid.qc.ts:219:      selectedRowsCount: selection.length,
+./src/pages/tabs/grid/reviewGrid.qc.ts:220:      selectedFindingsCount: selectedFindings.length,
+./src/pages/tabs/grid/reviewGrid.qc.ts:228:    selectedRowsCount: selection.length,
+./src/pages/tabs/grid/reviewGrid.qc.ts:229:    selectedFindingsCount: selectedFindings.length,
+./src/pages/tabs/grid/reviewGrid.filters.ts:97:  selectedDocTypes: string[],
+./src/pages/tabs/grid/reviewGrid.filters.ts:99:  if (!selectedDocTypes.length) return true;
+./src/pages/tabs/grid/reviewGrid.filters.ts:102:  return selectedDocTypes.includes(finding.docType);
+./src/pages/tabs/grid/reviewGrid.filters.ts:107:  selectedOrigins: string[],
+./src/pages/tabs/grid/reviewGrid.filters.ts:109:  if (!selectedOrigins.length) return true;
+./src/pages/tabs/grid/reviewGrid.filters.ts:112:  return selectedOrigins.includes(finding.origin);
+./src/pages/tabs/grid/reviewGrid.filters.ts:160:      matchDocTypes(finding, filterState.selectedDocTypes) &&
+./src/pages/tabs/grid/reviewGrid.filters.ts:161:      matchOrigins(finding, filterState.selectedOrigins) &&
+./src/pages/tabs/grid/ReviewQcBulkActions.tsx:6://   - есть selectedFindings;
+./src/pages/tabs/grid/ReviewQcBulkActions.tsx:23:  selectedRowsCount: number;
+./src/pages/tabs/grid/ReviewQcBulkActions.tsx:24:  selectedFindings: ReviewFinding[];
+./src/pages/tabs/grid/ReviewQcBulkActions.tsx:29:  selectedRowsCount,
+./src/pages/tabs/grid/ReviewQcBulkActions.tsx:30:  selectedFindings,
+./src/pages/tabs/grid/ReviewQcBulkActions.tsx:46:        selectedFindings,
+./src/pages/tabs/grid/ReviewQcBulkActions.tsx:73:    [bulkMutation, comment, runId, selectedFindings],
+./src/pages/tabs/grid/ReviewQcBulkActions.tsx:76:  const findingsCount = selectedFindings.length;
+./src/pages/tabs/grid/ReviewQcBulkActions.tsx:86:            Выбрано строк: <strong>{selectedRowsCount}</strong> · findings:{" "}
+./src/pages/tabs/grid/reviewGrid.types.ts:139:  selectedDocTypes: string[];
+./src/pages/tabs/grid/reviewGrid.types.ts:140:  selectedOrigins: string[];
+./src/pages/tabs/grid/reviewGrid.types.ts:259:  selectedDocTypes: [],
+./src/pages/tabs/grid/reviewGrid.types.ts:260:  selectedOrigins: [],
+./src/pages/tabs/CounterpartiesTab.tsx:706:  const isInteractive = typeof onClick === "function";
+./src/pages/tabs/CounterpartiesTab.tsx:717:          isInteractive
+./src/pages/tabs/CounterpartiesTab.tsx:730:  if (!isInteractive) {
+./src/pages/tabs/CounterpartiesTab.tsx:1147:  selectedId: string | null;
+./src/pages/tabs/CounterpartiesTab.tsx:1151:}> = ({ items, selectedId, onSelect, sort, onSort }) => (
+./src/pages/tabs/CounterpartiesTab.tsx:1176:          const isSelected = item.id === selectedId;
+./src/pages/tabs/CounterpartiesTab.tsx:1396:  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+./src/pages/tabs/CounterpartiesTab.tsx:1493:  const selectedAggregate = selectedId
+./src/pages/tabs/CounterpartiesTab.tsx:1494:    ? DEMO_AGGREGATES.find((item) => item.id === selectedId) ?? null
+./src/pages/tabs/CounterpartiesTab.tsx:1497:  const selectedDetail = selectedAggregate ? DEMO_DETAILS[selectedAggregate.id] : null;
+./src/pages/tabs/CounterpartiesTab.tsx:1561:        {selectedAggregate && selectedDetail ? (
+./src/pages/tabs/CounterpartiesTab.tsx:1596:                      selectedId={selectedId}
+./src/pages/tabs/CounterpartiesTab.tsx:1608:                    aggregate={selectedAggregate}
+./src/pages/tabs/CounterpartiesTab.tsx:1609:                    detail={selectedDetail}
+./src/pages/tabs/CounterpartiesTab.tsx:1640:                  selectedId={selectedId}
+./src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx:22:  activeDomain: DomainKey;
+./src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx:235:> = ({ activeDomain, onDomainChange: _onDomainChange, runId, deal }) => {
+./src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx:237:    activeDomain === "documents"
+./src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx:239:      : activeDomain === "counterparties"
+./src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx:262:        {activeDomain === "documents" && (
+./src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx:269:        {activeDomain === "counterparties" && <CounterpartiesSummary />}
+./src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx:270:        {activeDomain === "real_estate" && <RealEstateSummary />}
+./src/pages/tabs/overview/PipelinePreviewPanel.tsx:16:type StepStatus = "done" | "active" | "pending";
+./src/pages/tabs/overview/PipelinePreviewPanel.tsx:35:      : status === "active"
+./src/pages/tabs/overview/PipelinePreviewPanel.tsx:42:      : status === "active"
+./src/pages/tabs/overview/PipelinePreviewPanel.tsx:69:              : status === "active"
+./src/pages/tabs/overview/PipelinePreviewPanel.tsx:92:  const selectedPrimaryLanguage = deal.primary_language ?? "";
+./src/pages/tabs/overview/PipelinePreviewPanel.tsx:94:    hasMultipleDocumentLanguages && !selectedPrimaryLanguage;
+./src/pages/tabs/overview/PipelinePreviewPanel.tsx:120:      status: "active",
+./src/pages/tabs/overview/PipelinePreviewPanel.tsx:126:        ? selectedPrimaryLanguage
+./src/pages/tabs/overview/PipelinePreviewPanel.tsx:127:          ? `Основной язык анализа: ${selectedPrimaryLanguage}.`
+./src/pages/tabs/overview/PipelinePreviewPanel.tsx:130:      status: hasLanguageIssue ? "active" : "done",
+./src/pages/tabs/overview/LaunchWideOverlay.tsx:186:  const selectedPrimaryLanguage = React.useMemo(
+./src/pages/tabs/overview/LaunchWideOverlay.tsx:198:  const hasPrimaryLanguage = !!selectedPrimaryLanguage;
+./src/pages/tabs/overview/LaunchFormPanel.tsx:232:  const selectedPrimaryLanguage = normalizeLang(deal.primary_language);
+./src/pages/tabs/overview/LaunchFormPanel.tsx:241:  const primaryLanguageSelected = !!selectedPrimaryLanguage;
+./src/pages/tabs/overview/LaunchFormPanel.tsx:313:      if (selectedPrimaryLanguage === normalized) {
+./src/pages/tabs/overview/LaunchFormPanel.tsx:323:      selectedPrimaryLanguage,
+./src/pages/tabs/overview/LaunchFormPanel.tsx:457:                    const checked = selectedPrimaryLanguage === lang;
+./src/pages/tabs/overview/ProjectDomainsOverviewPanel.tsx:17:  activeDomain: DomainKey;
+./src/pages/tabs/overview/ProjectDomainsOverviewPanel.tsx:91:> = ({ runId, activeDomain, onDomainSelect }) => {
+./src/pages/tabs/overview/ProjectDomainsOverviewPanel.tsx:109:  const activeStep = progress?.steps.find((s) => s.status === "running");
+./src/pages/tabs/overview/ProjectDomainsOverviewPanel.tsx:110:  const subProgress = activeStep?.sub_progress;
+./src/pages/tabs/overview/ProjectDomainsOverviewPanel.tsx:176:          isActive={activeDomain === "documents"}
+./src/pages/tabs/overview/ProjectDomainsOverviewPanel.tsx:186:          isActive={activeDomain === "counterparties"}
+./src/pages/tabs/overview/ProjectDomainsOverviewPanel.tsx:198:          isActive={activeDomain === "real_estate"}
+./src/pages/tabs/SettingsTab.tsx:73:  const [activeSubview, setActiveSubview] =
+./src/pages/tabs/SettingsTab.tsx:131:  if (activeSubview === "members") {
+./src/pages/tabs/SettingsTab.tsx:141:  if (activeSubview === "playbook_template_editor") {
+./src/pages/tabs/SettingsTab.tsx:163:  if (activeSubview === "playbook") {
+./src/pages/tabs/SettingsTab.tsx:176:  if (activeSubview === "templates") {
+./src/pages/tabs/ReportTab.tsx:132:  const [activeExportId, setActiveExportId] = useState<string | null>(null);
+./src/pages/tabs/ReportTab.tsx:139:  } = useExportStatus(activeExportId);
+./src/pages/tabs/ReportTab.tsx:278:      {activeExportId && (
+./src/pages/tabs/OverviewTab.tsx:139:  const [activeDomain, setActiveDomain] = React.useState<
+./src/pages/tabs/OverviewTab.tsx:330:            activeDomain={activeDomain}
+./src/pages/tabs/OverviewTab.tsx:337:            activeDomain={activeDomain}
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportButtons.tsx:52:  activeLayoutPickerFormat?: "pdf" | "docx" | null;
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportButtons.tsx:68:  activeLayoutPickerFormat,
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportButtons.tsx:140:        variant={activeLayoutPickerFormat === "pdf" ? "outline" : "secondary"}
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportButtons.tsx:148:        aria-expanded={activeLayoutPickerFormat === "pdf"}
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportButtons.tsx:150:          activeLayoutPickerFormat === "pdf" ? INLINE_PANEL_ACTIVE_CLASS : ""
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportButtons.tsx:159:        variant={activeLayoutPickerFormat === "docx" ? "outline" : "secondary"}
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportButtons.tsx:167:        aria-expanded={activeLayoutPickerFormat === "docx"}
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportButtons.tsx:169:          activeLayoutPickerFormat === "docx" ? INLINE_PANEL_ACTIVE_CLASS : ""
+./src/pages/tabs/dd-grid-v1/DDGridV1ViewSettings.tsx:119:            aria-selected={value === option.value}
+./src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx:408:                  activeLayoutPickerFormat={layoutPickerFormat}
+./src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx:546:  const selectedReviewFindings = React.useMemo(
+./src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx:552:    () => getReviewQcCapability(reviewSelection, selectedReviewFindings, runId),
+./src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx:553:    [reviewSelection, selectedReviewFindings, runId],
+./src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx:1008:                  selectedRowsCount={reviewQcCapability.selectedRowsCount}
+./src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx:1009:                  selectedFindings={selectedReviewFindings}
+./src/pages/tabs/dd-grid-v1/DDGridV1ViewModeToggle.tsx:57:          aria-selected={format === option.value}
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportLayoutPicker.tsx:177:  const [selected, setSelected] = React.useState<DDGridV1MatrixLayout>("single");
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportLayoutPicker.tsx:180:    onApply(selected);
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportLayoutPicker.tsx:207:          const isSelected = selected === option.id;
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:691:  const [selectedCell, setSelectedCell] = useState<SelectedCellState>({
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:704:  // Отдельный state от selectedCell: разная семантика (per doc_type,
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:707:  const [selectedInstruction, setSelectedInstruction] =
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:774:  const activeDrawerMatrixTitle = useDDGridV1UIStore(
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:775:    (state) => state.activeDrawerMatrixTitle
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:783:  const isThisMatrixActive = activeDrawerMatrixTitle === currentMatrixTitle;
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:786:    selectedCell.open && selectedCell.drawerContent !== null && isThisMatrixActive;
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:787:  const isInstructionDrawerOpen = selectedInstruction.open && isThisMatrixActive;
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:793:      activeDrawerMatrixTitle !== null &&
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:794:      activeDrawerMatrixTitle !== currentMatrixTitle
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:796:      if (selectedCell.open || selectedInstruction.open) {
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:810:  }, [activeDrawerMatrixTitle, currentMatrixTitle, selectedCell.open, selectedInstruction.open]);
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:824:    if (activeDrawerMatrixTitle === currentMatrixTitle) {
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:827:  }, [activeDrawerMatrixTitle, currentMatrixTitle, setActiveDrawerMatrixTitle]);
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:863:    if (activeDrawerMatrixTitle === currentMatrixTitle) {
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:866:  }, [activeDrawerMatrixTitle, currentMatrixTitle, setActiveDrawerMatrixTitle]);
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:1531:                documentId={selectedCell.documentId}
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:1532:                documentName={selectedCell.documentName}
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:1533:                drawerContent={selectedCell.drawerContent}
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:1534:                currentQcStatus={selectedCell.currentQcStatus}
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:1535:                currentQcComment={selectedCell.currentQcComment}
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:1557:                documentName={selectedInstruction.documentName}
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:1558:                snapshot={selectedInstruction.snapshot}
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:532:  const [selectedDrawer, setSelectedDrawer] = useState<SelectedDrawerState>({
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:540:  const [activeRowId, setActiveRowId] = useState<string | null>(null);
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:541:  const activeRowIdRef = useRef<string | null>(null);
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:544:    activeRowIdRef.current = activeRowId;
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:545:  }, [activeRowId]);
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:580:    const previousActiveRowId = activeRowIdRef.current;
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:584:    activeRowIdRef.current = null;
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:614:    const previousActiveRowId = activeRowIdRef.current;
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:616:    console.log('   Устанавливаем selectedDrawer.open = true');
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:619:    activeRowIdRef.current = row.rowId;
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:1181:  const isDrawerOpen = selectedDrawer.open && selectedDrawer.row !== null;
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:1219:                params.data && params.data.rowId === activeRowIdRef.current
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:1220:                  ? "ag-row-active-v1"
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:1237:            documentId={selectedDrawer.row?.v1Row.documentId ?? null}
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:1238:            documentName={selectedDrawer.row?.documentName ?? null}
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:1239:            drawerContent={selectedDrawer.row?.drawerContent ?? null}
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:1240:            currentQcStatus={selectedDrawer.row?.legacyCellQcStatus ?? null}
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:1241:            currentQcComment={selectedDrawer.row?.legacyCellQcComment ?? null}
+./src/pages/tabs/dd-grid-v1/ddGridV1.collapseStore.ts:138:  activeDrawerMatrixTitle: string | null;
+./src/pages/tabs/dd-grid-v1/ddGridV1.collapseStore.ts:342:  activeDrawerMatrixTitle: null,
+./src/pages/tabs/dd-grid-v1/ddGridV1.collapseStore.ts:343:  setActiveDrawerMatrixTitle: (title) => set({ activeDrawerMatrixTitle: title }),
+./src/marketing/components/home/KnowledgeGrowthSection/index.tsx:61:              <KnowledgeTree key={animationKey} active={treeActive} />
+./src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx:13:  active: boolean;
+./src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx:16:const KnowledgeTree: React.FC<Props> = ({ active }) => {
+./src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx:24:    if (!active || loading || startedRef.current || lines.length === 0) return;
+./src/marketing/components/home/KnowledgeGrowthSection/KnowledgeTree.tsx:35:  }, [active, loading, lines]);
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:40:  const [activeIndex, setActiveIndex] = useState(0);
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:99:  const activeRoleId = ORDER[activeIndex];
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:100:  const activeRoleData = APPLICATION_DATA[activeRoleId];
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:126:                const isActive = index === activeIndex;
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:148:                  className={`${styles.dot} ${index === activeIndex ? styles.dotActive : ''}`}
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:156:            <div key={activeRoleId} className="flex flex-col animate-fadein">
+./src/marketing/components/home/ApplicationSection/ApplicationSection.tsx:159:                {activeRoleData.description}
+./src/api/adminExports.ts:113:    status: tenant.is_active ? "Активен" : "Деактивирован",
+./src/api/admin.ts:16:  is_active: boolean;
+./src/api/admin.ts:42:  is_active: boolean;
+./src/api/admin.ts:59:  is_active?: boolean;
+./src/api/admin.ts:92:  async listTenants(includeInactive = false): Promise<Tenant[]> {
+./src/api/admin.ts:94:      params: { include_inactive: includeInactive },
+./src/api/admin.ts:140:    includeInactive = false,
+./src/api/admin.ts:144:      { params: { include_inactive: includeInactive } },
+./src/api/admin.ts:196:export function useTenants(includeInactive = false) {
+./src/api/admin.ts:198:    queryKey: [...adminKeys.tenants, { includeInactive }],
+./src/api/admin.ts:199:    queryFn: () => adminApi.listTenants(includeInactive),
+./src/api/admin.ts:213:  includeInactive = false,
+./src/api/admin.ts:218:      { includeInactive },
+./src/api/admin.ts:220:    queryFn: () => adminApi.listTenantUsers(tenantId!, includeInactive),
+./src/api/evidence.ts:55: * const { data, isLoading, error } = useEvidence(selectedResultId);
+./src/api/alerts.ts:28:  active_count: number;
+./src/api/tenantAdmin.ts:19:  is_active: boolean;
+./src/api/tenantAdmin.ts:48:  active_users: number;
+./src/api/tenantAdmin.ts:67:  active_runs: number;
+./src/api/tenantAdmin.ts:197:  is_active: boolean;
+./src/types/instructions.ts:217:export type OverrideStatus = "draft" | "active" | "archived";
+./src/types/runs.ts:250:  active_step_codes: string[];
+./src/types/deals.ts:8:export type DealStatus = "active" | "archived" | "draft";
+./src/index.css:145:  --app-active-bg: rgba(200, 107, 82, 0.08);
+./src/index.css:146:  --app-active-bg-hover: rgba(200, 107, 82, 0.12);
+./src/index.css:147:  --app-active-border: #C86B52;
+./src/index.css:148:  --app-active-text: #B55D46;
+./src/index.css:149:  --app-active-indicator: #C86B52;
+./src/index.css:490:  .btn-active {
+./src/index.css:491:    background: var(--app-active-bg);
+./src/index.css:492:    color: var(--app-active-text);
+./src/index.css:493:    border: 1px solid var(--app-active-border);
+./src/index.css:501:  .btn-active:hover {
+./src/index.css:502:    background: var(--app-active-bg-hover);
+./src/index.css:506:  .nav-item-active {
+./src/index.css:507:    background: var(--app-active-bg);
+./src/index.css:508:    color: var(--app-active-text);
+./src/index.css:516:  .nav-item-active::before {
+./src/index.css:524:    background: var(--app-active-indicator);
+./src/index.css:528:  .nav-item-active:hover {
+./src/index.css:529:    background: var(--app-active-bg-hover);
+./src/index.css:533:  .tab-active {
+./src/index.css:534:    color: var(--app-active-text);
+./src/index.css:540:  .tab-active::after {
+./src/index.css:547:    background: var(--app-active-indicator);
+./src/index.css:551:  .tab-active:hover {
+./src/index.css:552:    color: var(--app-active-text);
+./src/index.css:556:  .chip-active {
+./src/index.css:557:    background: var(--app-active-bg);
+./src/index.css:558:    color: var(--app-active-text);
+./src/index.css:559:    border: 1px solid var(--app-active-border);
+./src/index.css:567:  .chip-active:hover {
+./src/index.css:568:    background: var(--app-active-bg-hover);
+./src/index.css:572:  .sidebar-item-active {
+./src/index.css:573:    background: var(--app-active-bg);
+./src/index.css:574:    color: var(--app-active-text);
+./src/index.css:575:    border-left: 3px solid var(--app-active-indicator);
+./src/index.css:583:  .sidebar-item-active:hover {
+./src/index.css:584:    background: var(--app-active-bg-hover);
+./src/index.css:588:  .toolbar-btn-active {
+./src/index.css:589:    background: var(--app-active-bg);
+./src/index.css:590:    color: var(--app-active-text);
+./src/index.css:591:    border: 1px solid var(--app-active-border);
+./src/index.css:600:  .toolbar-btn-active:hover {
+./src/index.css:601:    background: var(--app-active-bg-hover);

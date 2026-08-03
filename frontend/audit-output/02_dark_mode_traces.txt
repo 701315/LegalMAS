@@ -1,0 +1,24 @@
+./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx:289:      ? "border-emerald-500/40 bg-emerald-100 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx:291:        ? "border-amber-500/40 bg-amber-100 text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx:293:          ? "border-red-500/40 bg-red-100 text-red-900 dark:border-red-700/60 dark:bg-red-900/40 dark:text-red-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx:295:            ? "border-gray-300 bg-gray-100 text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx:296:            : "border-gray-400 bg-gray-50 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
+./src/pages/tabs/dd-grid-v1/DDGridV1InstructionDrawer.tsx:134:                <span className="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-100">
+./src/pages/tabs/dd-grid-v1/DDGridV1InstructionDrawer.tsx:138:                <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-100">
+./src/pages/tabs/dd-grid-v1/DDGridV1TabPage.tsx:345:    <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
+./src/pages/tabs/dd-grid-v1/DDGridV1ExportLayoutPicker.tsx:238:                    <div className="mt-1.5 flex items-start gap-1 rounded border border-amber-400 bg-amber-50 px-1.5 py-1 text-[10px] text-amber-900 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-200">
+./src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx:1014:            : "text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:196:      return "text-emerald-700 dark:text-emerald-300";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:198:      return "text-amber-700 dark:text-amber-300";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:200:      return "text-gray-500 dark:text-gray-400";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:203:      return "text-gray-400 dark:text-gray-500";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:909:              ? "border-emerald-500/40 bg-emerald-100 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:911:                ? "border-red-500/40 bg-red-100 text-red-900 dark:border-red-700/60 dark:bg-red-900/40 dark:text-red-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:913:                  ? "border-amber-500/40 bg-amber-100 text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-100"
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:914:                  : "border-gray-400 bg-gray-50 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:947:              ? "text-emerald-700 dark:text-emerald-300"
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:949:                ? "text-amber-700 dark:text-amber-300"
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:950:                : "text-red-700 dark:text-red-300";
+./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:982:                  className="inline-flex items-center rounded border border-amber-400 bg-amber-100 px-1 py-0 text-[10px] font-medium text-amber-900 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-200"
+./src/marketing/hooks/useMediaQuery.ts:19: *   const isDark   = useMediaQuery("(prefers-color-scheme: dark)");
+./src/index.css:14:  --color-dark: #1A1917;

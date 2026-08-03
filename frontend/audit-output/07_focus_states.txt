@@ -1,0 +1,11 @@
+./src/styles/ag-theme-legalmas.css:222:.ag-theme-legalmas .ag-text-field-input:focus,
+./src/styles/ag-theme-legalmas.css:223:.ag-theme-legalmas .ag-input-field-input:focus,
+./src/styles/ag-theme-legalmas.css:224:.ag-theme-legalmas .ag-picker-field-wrapper:focus-within {
+./src/styles/ag-theme-legalmas.css:308:.ag-theme-legalmas .ag-cell-focus:focus {
+./src/components/ui/Button.tsx:99:          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]",
+./src/components/ui/Tabs.tsx:294:        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]",
+./src/components/requests/ReviewRequestSidePanel.tsx:129:          className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+./src/components/requests/RequestSidePanel.tsx:129:          className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+./src/index.css:234::focus-visible {
+./src/index.css:320:.input-base:focus {
+./src/index.css:398:  .cta-primary:focus-visible {

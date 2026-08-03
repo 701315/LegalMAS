@@ -1,0 +1,20 @@
+./src/marketing/components/platform/PlatformStandardsSection.tsx:33:            background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.85) 30%, rgba(26,25,23,0.2) 60%, transparent 100%)'
+./src/marketing/components/platform/diagrams/HeroFlowVisual.tsx:148:                "linear-gradient(180deg, rgba(200,107,82,0.06) 0%, rgba(200,107,82,0) 100%)",
+./src/marketing/components/platform/PlatformHeroSection.tsx:29:            background: 'linear-gradient(90deg, #FAF8F5 0%, rgba(250,248,245,0.95) 20%, rgba(250,248,245,0.3) 60%, transparent 100%)'
+./src/marketing/components/security/SecurityHeroSection.tsx:32:            'radial-gradient(circle, rgba(200,107,82,0.06) 0%, rgba(200,107,82,0.02) 40%, transparent 70%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:41:            'radial-gradient(circle, rgba(120,117,111,0.06) 0%, rgba(120,117,111,0.02) 40%, transparent 70%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:50:            linear-gradient(rgba(26,25,23,0.03) 1px, transparent 1px),
+./src/marketing/components/security/SecurityHeroSection.tsx:51:            linear-gradient(90deg, rgba(26,25,23,0.03) 1px, transparent 1px)
+./src/marketing/components/security/SecurityHeroSection.tsx:61:            'radial-gradient(ellipse at center, transparent 40%, rgba(120,117,111,0.08) 100%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:202:                'linear-gradient(135deg, rgba(26,25,23,0.78) 0%, rgba(26,25,23,0.88) 100%)',
+./src/marketing/components/security/SecurityHeroSection.tsx:245:            'linear-gradient(180deg, transparent 0%, rgba(200,107,82,0.8) 20%, rgba(200,107,82,0.8) 80%, transparent 100%)',
+./src/marketing/components/about/AboutHeroSection.tsx:25:            'radial-gradient(circle, rgba(200,107,82,0.04) 0%, rgba(200,107,82,0.01) 40%, transparent 70%)',
+./src/marketing/components/about/AboutHeroSection.tsx:36:            linear-gradient(rgba(26,25,23,0.03) 1px, transparent 1px),
+./src/marketing/components/about/AboutHeroSection.tsx:37:            linear-gradient(90deg, rgba(26,25,23,0.03) 1px, transparent 1px)
+./src/marketing/components/home/PremiumFinalCtaSection.tsx:46:            "radial-gradient(ellipse 60% 55% at 50% 50%, rgba(200,107,82,0.08) 0%, transparent 70%)",
+./src/marketing/components/home/ApplicationSection/ApplicationSection.module.css:6:  background: linear-gradient(
+./src/marketing/components/home/PremiumHeroSection.tsx:46:          background: "linear-gradient(135deg, rgba(26, 25, 23, 0.85) 0%, rgba(26, 25, 23, 0.7) 100%)",
+./src/marketing/pages/solutions/CompliancePage.tsx:41:                background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.95) 25%, rgba(26,25,23,0.4) 60%, transparent 100%)'
+./src/marketing/pages/solutions/AuditCompliancePage.tsx:71:              "linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.96) 28%, rgba(26,25,23,0.58) 62%, transparent 100%)",
+./src/index.css:283:  background: linear-gradient(
+./src/index.css:474:    background: linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);

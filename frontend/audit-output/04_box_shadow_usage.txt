@@ -1,0 +1,16 @@
+./src/styles/ag-theme-legalmas.css:191:  box-shadow: inset 3px 0 0 var(--accent-primary);
+./src/styles/ag-theme-legalmas.css:205:  box-shadow: inset -1px 0 0 var(--border-subtle);
+./src/styles/ag-theme-legalmas.css:225:  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent-primary) 18%, transparent);
+./src/styles/ag-theme-legalmas.css:235:  box-shadow: 0 12px 30px color-mix(in oklab, black 10%, transparent);
+./src/components/ui/Button.tsx:96:          "transition-[background-color,border-color,color,box-shadow,transform] duration-150",
+./src/components/ui/Tabs.tsx:293:        "transition-[background-color,color,box-shadow] duration-150",
+./src/index.css:306:    box-shadow 0.15s ease,
+./src/index.css:322:  box-shadow: 0 0 0 3px var(--accent-muted);
+./src/index.css:336:  box-shadow: var(--shadow-sm);
+./src/index.css:343:    box-shadow 0.18s ease,
+./src/index.css:350:  box-shadow: var(--shadow-md);
+./src/index.css:388:      box-shadow 200ms ease,
+./src/index.css:400:    box-shadow: 0 0 0 3px var(--cta-ring);
+./src/index.css:478:    box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+./src/index.css:592:    box-shadow: inset 0 1px 2px rgba(200, 107, 82, 0.08);
+./src/index.css:597:      box-shadow 0.15s ease;

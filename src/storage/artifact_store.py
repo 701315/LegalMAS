@@ -531,6 +531,64 @@ class ArtifactStore:
                 raise PermanentError(f"Artifact not found: '{path}'")
             raise TransientError(f"Failed to get file: {e}")
 
+
+    def get_file_metadata(self, path: str) -> dict[str, Any]:
+        """
+        Вернуть метаданные файла без чтения тела объекта.
+
+        Используется API-слоем перед streaming download:
+        - чтобы fail-fast проверить существование файла;
+        - чтобы вернуть корректный Content-Type;
+        - чтобы при наличии проставить Content-Length / ETag / Last-Modified.
+        """
+        try:
+            clean_path = self._normalize_object_path(path)
+            stat = self.client.stat_object(
+                bucket_name=self.bucket,
+                object_name=clean_path,
+            )
+
+            content_type = getattr(stat, "content_type", None)
+            if not content_type:
+                metadata = getattr(stat, "metadata", {}) or {}
+                content_type = (
+                    metadata.get("Content-Type")
+                    or metadata.get("content-type")
+                    or "application/octet-stream"
+                )
+
+            return {
+                "object_name": clean_path,
+                "size": getattr(stat, "size", None),
+                "etag": getattr(stat, "etag", None),
+                "last_modified": getattr(stat, "last_modified", None),
+                "content_type": content_type,
+            }
+        except S3Error as e:
+            if e.code == "NoSuchKey":
+                raise PermanentError(f"Artifact not found: '{path}'")
+            raise TransientError(f"Failed to get file metadata: {e}")
+
+    def open_file_stream(self, path: str) -> Any:
+        """
+        Открыть объект в виде streaming-response MinIO клиента.
+
+        Важно:
+        - вызывающий код ОБЯЗАН закрыть response.close() и release_conn();
+        - метод не читает объект в память целиком;
+        - подходит для FastAPI StreamingResponse.
+        """
+        try:
+            clean_path = self._normalize_object_path(path)
+            return self.client.get_object(
+                bucket_name=self.bucket,
+                object_name=clean_path,
+            )
+        except S3Error as e:
+            if e.code == "NoSuchKey":
+                raise PermanentError(f"Artifact not found: '{path}'")
+            raise TransientError(f"Failed to open file stream: {e}")
+
     def get_http_url(self, path: str) -> str:
         """
         Вернуть прямой HTTP/HTTPS URL для объекта в MinIO.
