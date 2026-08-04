@@ -149,7 +149,7 @@ const TenantAdminNav: React.FC<TenantAdminNavProps> = ({ collapsed }) => (
 // ─────────────────────────────────────────────────────────────
 
 const AppShell: React.FC<AppShellProps> = ({ children }) => {
-  const { globalRole, userId } = useAuth();
+  const { globalRole, userId, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -182,7 +182,8 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const handleCloseLogout = () => setIsLogoutOpen(false);
   const handleConfirmLogout = () => {
     setIsLogoutOpen(false);
-    navigate("/login");
+    logout();
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -305,17 +306,11 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
                 {/* Новый проект — только tenant_admin */}
                 {canCreateProject && (
-                  <div className="mt-4 space-y-1">
+                  <div className="mt-4">
                     <NavItem
                       collapsed={collapsed}
                       to="/projects/new"
                       label="Новый проект"
-                      icon={PlusSquare}
-                    />
-                    <NavItem
-                      collapsed={collapsed}
-                      to="/projects/new-v2"
-                      label="Новый проект v2"
                       icon={PlusSquare}
                     />
                   </div>
