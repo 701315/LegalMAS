@@ -28,6 +28,7 @@ import DashboardPage from "./pages/DashboardPage";
 import DealPage from "./pages/DealPage";
 import DealListPage from "./pages/DealListPage";
 import NewProjectPage from "./pages/NewProjectPage";
+import NewProjectLaunchFlowPage from "./pages/NewProjectLaunchFlowPage";
 import ProjectUploadPage from "./pages/ProjectUploadPage";
 import ProjectMembersPage from "./pages/ProjectMembersPage";
 import DealPlaybookSelectorPage from "./pages/DealPlaybookSelectorPage";
@@ -265,6 +266,17 @@ function App() {
               <RequireAdminOrSuperadmin>
                 <AppShell>
                   <NewProjectPage />
+                </AppShell>
+              </RequireAdminOrSuperadmin>
+            }
+          />
+
+          <Route
+            path="/projects/new-v2"
+            element={
+              <RequireAdminOrSuperadmin>
+                <AppShell>
+                  <NewProjectLaunchFlowPage />
                 </AppShell>
               </RequireAdminOrSuperadmin>
             }

@@ -305,11 +305,17 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
                 {/* Новый проект — только tenant_admin */}
                 {canCreateProject && (
-                  <div className="mt-4">
+                  <div className="mt-4 space-y-1">
                     <NavItem
                       collapsed={collapsed}
                       to="/projects/new"
                       label="Новый проект"
+                      icon={PlusSquare}
+                    />
+                    <NavItem
+                      collapsed={collapsed}
+                      to="/projects/new-v2"
+                      label="Новый проект v2"
                       icon={PlusSquare}
                     />
                   </div>
