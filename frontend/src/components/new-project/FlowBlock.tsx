@@ -6,12 +6,15 @@
 // Три состояния:
 //   disabled — блок ещё недоступен (opacity + no interaction)
 //   active   — текущий активный шаг (accent-полоска слева)
-//   done     — шаг завершён (галочка, контент сворачивается)
+//              + опциональная кнопка «Назад к шагу N» в шапке
+//   done     — шаг завершён; свёрнут в одну строку с чекмарком,
+//              summary и кнопкой «карандаш» для редактирования
 //
 // Не содержит бизнес-логики — только визуальная оболочка.
 // =============================================================
 
 import React from "react";
+import { ArrowLeft, Pencil } from "lucide-react";
 
 export type FlowBlockStatus = "disabled" | "active" | "done";
 
@@ -24,11 +27,28 @@ interface FlowBlockProps {
   status: FlowBlockStatus;
   /**
    * Краткое summary для done-состояния.
-   * Показывается под заголовком когда блок свёрнут.
+   * Показывается справа от заголовка в одной строке.
    */
   summary?: string;
   /** Контент блока (форма, список, и т.д.) */
   children: React.ReactNode;
+
+  /**
+   * Обработчик клика по кнопке «Назад к шагу N» в шапке active-блока.
+   * Если не задан — кнопка не показывается.
+   */
+  onBackRequest?: () => void;
+  /**
+   * Подпись кнопки «Назад». Например: "Назад к шагу 3".
+   * Обязателен если задан onBackRequest.
+   */
+  backLabel?: string;
+
+  /**
+   * Обработчик клика по кнопке "карандаш" в done-блоке.
+   * Если не задан — кнопка не показывается.
+   */
+  onEditRequest?: () => void;
 }
 
 const FlowBlock: React.FC<FlowBlockProps> = ({
@@ -37,28 +57,15 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
   status,
   summary,
   children,
+  onBackRequest,
+  backLabel,
+  onEditRequest,
 }) => {
-  const [isExpanded, setIsExpanded] = React.useState(false);
-
-  // Сбрасываем expanded когда блок становится active или disabled
-  React.useEffect(() => {
-    if (status !== "done") {
-      setIsExpanded(false);
-    }
-  }, [status]);
-
   const isDone = status === "done";
   const isDisabled = status === "disabled";
   const isActive = status === "active";
 
-  // Done-блок можно раскрыть/свернуть кликом на header
-  const handleHeaderClick = () => {
-    if (isDone) {
-      setIsExpanded((prev) => !prev);
-    }
-  };
-
-  const showContent = isActive || (isDone && isExpanded);
+  const showContent = isActive;
 
   return (
     <div
@@ -82,31 +89,22 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
         />
       )}
 
-      {/* Header */}
-      <div
-        className={[
-          "flex items-center gap-4 px-5 py-4",
-          isDone
-            ? "cursor-pointer select-none hover:bg-[var(--bg-elevated-soft)] rounded-2xl transition-colors"
-            : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        onClick={handleHeaderClick}
-        role={isDone ? "button" : undefined}
-        tabIndex={isDone ? 0 : undefined}
-        aria-expanded={isDone ? isExpanded : undefined}
-        onKeyDown={
-          isDone
-            ? (e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setIsExpanded((prev) => !prev);
-                }
-              }
-            : undefined
-        }
-      >
+      {/* ── Кнопка "Назад" в шапке active-блока ──────────── */}
+      {isActive && onBackRequest && backLabel ? (
+        <div className="border-b border-[var(--border-subtle)] px-5 pb-2 pt-3">
+          <button
+            type="button"
+            onClick={onBackRequest}
+            className="inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--accent-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+          >
+            <ArrowLeft className="h-3 w-3" aria-hidden="true" />
+            {backLabel}
+          </button>
+        </div>
+      ) : null}
+
+      {/* ── Header ───────────────────────────────────────── */}
+      <div className="flex items-center gap-4 px-5 py-4">
         {/* Step indicator */}
         <div
           className={[
@@ -122,7 +120,6 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
           aria-hidden="true"
         >
           {isDone ? (
-            // Checkmark SVG
             <svg
               viewBox="0 0 12 12"
               fill="none"
@@ -142,71 +139,61 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
           )}
         </div>
 
-        {/* Title + summary */}
+        {/* Title + inline summary для done */}
         <div className="min-w-0 flex-1">
-          <h2
-            className={[
-              "text-sm font-semibold",
-              isDisabled
-                ? "text-[var(--text-muted)]"
-                : "text-[var(--text-primary)]",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            {title}
-          </h2>
-
-          {isDone && summary && !isExpanded && (
-            <p className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">
-              {summary}
-            </p>
+          {isDone && summary ? (
+            // Done: title и summary в одну строку с разделителем "·"
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)] shrink-0">
+                {title}
+              </h2>
+              <span
+                className="shrink-0 text-[var(--text-faint)]"
+                aria-hidden="true"
+              >
+                ·
+              </span>
+              <p
+                className="min-w-0 truncate text-[12px] text-[var(--text-secondary)]"
+                title={summary}
+              >
+                {summary}
+              </p>
+            </div>
+          ) : (
+            <h2
+              className={[
+                "text-sm font-semibold",
+                isDisabled
+                  ? "text-[var(--text-muted)]"
+                  : "text-[var(--text-primary)]",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {title}
+            </h2>
           )}
         </div>
 
-        {/* Done — chevron indicator */}
-        {isDone && (
-          <span
-            className={[
-              "shrink-0 text-[var(--text-muted)] transition-transform duration-200",
-              isExpanded ? "rotate-180" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            aria-hidden="true"
+        {/* Done — кнопка "карандаш" (редактировать) */}
+        {isDone && onEditRequest ? (
+          <button
+            type="button"
+            onClick={onEditRequest}
+            aria-label={`Редактировать: ${title}`}
+            className="shrink-0 rounded-md p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--accent-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
           >
-            <svg
-              viewBox="0 0 12 12"
-              fill="none"
-              className="h-3 w-3"
-              aria-hidden="true"
-            >
-              <path
-                d="M2 4l4 4 4-4"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-        )}
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
 
-      {/* Content */}
+      {/* ── Content (только для active) ─────────────────── */}
       {showContent && (
         <>
           <div className="mx-5 border-t border-[var(--border-subtle)]" />
-          <div
-            className={[
-              "px-5 py-5",
-              isDisabled ? "pointer-events-none" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            {children}
-          </div>
+          <div className="px-5 py-5">{children}</div>
         </>
       )}
     </div>
@@ -214,6 +201,5 @@ const FlowBlock: React.FC<FlowBlockProps> = ({
 };
 
 export default FlowBlock;
-
 
 

@@ -1,11 +1,9 @@
 // =============================================================
 // src/pages/NewProjectPage.tsx
-//
-// Единая страница запуска нового проекта.
-// 6 последовательных блоков, каждый активируется после предыдущего.
-//
-// Маршрут: /projects/new
-// Доступ: superadmin, tenant_admin (RequireAdminOrSuperadmin в App.tsx)
+// 3 колонки:
+// 50% — Flow
+// 25% — Инструкция
+// 25% — Визуал (картинка во весь блок)
 // =============================================================
 
 import React from "react";
@@ -23,6 +21,10 @@ import type { RunChecksMode } from "../types";
 
 import FlowBlock from "../components/new-project/FlowBlock";
 import type { FlowBlockStatus } from "../components/new-project/FlowBlock";
+import FlowInstructionRail from "../components/new-project/FlowInstructionRail";
+import FlowVisualRail from "../components/new-project/FlowVisualRail";
+import type { FlowSummaryData } from "../components/new-project/FlowSummary";
+
 import Block1ProjectInfo from "../components/new-project/Block1ProjectInfo";
 import Block1bResponsibleUser from "../components/new-project/Block1bResponsibleUser";
 import Block2Upload from "../components/new-project/Block2Upload";
@@ -31,32 +33,17 @@ import Block4ModelConfig from "../components/new-project/Block4ModelConfig";
 import Block5Language from "../components/new-project/Block5Language";
 import Block6Launch from "../components/new-project/Block6Launch";
 
-// ── Types ───────────────────────────────────────────────────
-
-interface DealCreatePayload {
-  name: string;
-  metadata_?: {
-    contact_person?: string | null;
-  };
-}
-
 interface DealCreateResponse {
   id: string;
 }
 
-// ── Constants ───────────────────────────────────────────────
-
-const DEAL_POLL_INTERVAL = 4_000;
-const TOTAL_STEPS = 6;
-
-// ── Component ───────────────────────────────────────────────
+const DEAL_POLL_INTERVAL = 4000;
 
 const NewProjectPage: React.FC = () => {
   const navigate = useNavigate();
   const { globalRole } = useAuth();
   const setProjectRole = useUIStore((s) => s.setProjectRole);
 
-  // ── Access check ──────────────────────────────────────────
   const canCreate =
     globalRole === "superadmin" || globalRole === "tenant_admin";
 
@@ -66,43 +53,28 @@ const NewProjectPage: React.FC = () => {
     }
   }, [canCreate, navigate]);
 
-  // ── Block 1 state — project creation ──────────────────────
+  // ───────────── STATE ─────────────
+
   const [projectName, setProjectName] = React.useState("");
-  const [createdDealId, setCreatedDealId] = React.useState<string | null>(
-    null,
-  );
+  const [createdDealId, setCreatedDealId] = React.useState<string | null>(null);
   const [isCreating, setIsCreating] = React.useState(false);
   const [createError, setCreateError] = React.useState<string | null>(null);
 
-  // ── Block 1b state — responsible user ─────────────────────
   const [block1bDone, setBlock1bDone] = React.useState(false);
-  const [responsibleUserName, setResponsibleUserName] = React.useState<
-    string | null
-  >(null);
+  const [responsibleUserName, setResponsibleUserName] = React.useState<string | null>(null);
 
-  // ── Block 3 state — playbook summary ──────────────────────
-  const [playbookSummary, setPlaybookSummary] = React.useState<string | null>(
-    null,
-  );
-
-  // ── Block 4 state — model config summary ──────────────────
-  const [modelConfigSummary, setModelConfigSummary] = React.useState<
-    string | null
-  >(null);
+  const [playbookSummary, setPlaybookSummary] = React.useState<string | null>(null);
+  const [modelConfigSummary, setModelConfigSummary] = React.useState<string | null>(null);
   const [block4Done, setBlock4Done] = React.useState(false);
+  const [languageSummary, setLanguageSummary] = React.useState<string | null>(null);
 
-  // ── Block 5 state — language summary ──────────────────────
-  const [languageSummary, setLanguageSummary] = React.useState<string | null>(
-    null,
-  );
-
-  // ── Block 6 state — launch config ─────────────────────────
   const [checksMode, setChecksMode] =
     React.useState<RunChecksMode>("global_and_doc_type");
   const [forceReclassify, setForceReclassify] = React.useState(false);
   const [launchError, setLaunchError] = React.useState<string | null>(null);
 
-  // ── Deal polling ──────────────────────────────────────────
+  // ───────────── DATA ─────────────
+
   const { data: deal, refetch: refetchDeal } = useDeal(createdDealId, {
     refetchInterval: (query) =>
       shouldPollDealLanguageDiscovery(
@@ -112,7 +84,6 @@ const NewProjectPage: React.FC = () => {
         : false,
   });
 
-  // ── Documents polling ─────────────────────────────────────
   const {
     data: documentsPage,
     isLoading: isDocumentsLoading,
@@ -120,15 +91,12 @@ const NewProjectPage: React.FC = () => {
   } = useDocuments(createdDealId ?? "", 1);
 
   const documentsCount = documentsPage?.total ?? 0;
-
-  // ── Start run mutation ────────────────────────────────────
   const startRun = useStartRun(createdDealId ?? "");
 
-  // ── Block 1 — create deal ─────────────────────────────────
-  const handleCreateProject = React.useCallback(async () => {
-    const trimmedName = projectName.trim();
+  // ───────────── CREATE DEAL ─────────────
 
-    if (!trimmedName) {
+  const handleCreateProject = async () => {
+    if (!projectName.trim()) {
       setCreateError("Укажите название проекта.");
       return;
     }
@@ -137,95 +105,50 @@ const NewProjectPage: React.FC = () => {
     setCreateError(null);
 
     try {
-      const payload: DealCreatePayload = {
-        name: trimmedName,
-      };
-
       const res = await client.post<DealCreateResponse>(
         "/api/v1/deals",
-        payload,
+        { name: projectName.trim() },
       );
 
-      const dealId = res.data.id;
-      setCreatedDealId(dealId);
-      setProjectRole(dealId, "admin");
-    } catch (err: unknown) {
-      let message = "Не удалось создать проект. Попробуйте позже.";
-
-      if (typeof err === "object" && err !== null) {
-        if ("response" in err) {
-          const resp = (err as { response?: { data?: { detail?: string } } })
-            .response;
-
-          if (typeof resp?.data?.detail === "string") {
-            message = resp.data.detail;
-          }
-        } else if (
-          "detail" in err &&
-          typeof (err as { detail?: unknown }).detail === "string"
-        ) {
-          message = (err as { detail: string }).detail;
-        } else if (
-          "message" in err &&
-          typeof (err as { message?: unknown }).message === "string"
-        ) {
-          message = (err as { message: string }).message;
-        }
-      }
-
-      setCreateError(message);
+      setCreatedDealId(res.data.id);
+      setProjectRole(res.data.id, "admin");
+    } catch (err: any) {
+      setCreateError(err?.detail || "Ошибка создания проекта.");
     } finally {
       setIsCreating(false);
     }
-  }, [projectName, setProjectRole]);
+  };
 
-  // ── Block 1b — responsible user completed ─────────────────
-  const handleResponsibleCompleted = React.useCallback(
-    (userName: string | null) => {
-      setBlock1bDone(true);
-      setResponsibleUserName(userName);
-    },
-    [],
-  );
+  // ───────────── CALLBACKS ─────────────
 
-  // ── Block 3 — playbook applied ────────────────────────────
-  const handlePlaybookApplied = React.useCallback(
-    (_versionId: string, label: string) => {
-      setPlaybookSummary(label);
-      void refetchDeal();
-    },
-    [refetchDeal],
-  );
+  const handleResponsibleCompleted = (user: string | null) => {
+    setBlock1bDone(true);
+    setResponsibleUserName(user);
+  };
 
-  // ── Block 4 — model config applied / skipped ──────────────
-  const handleModelConfigApplied = React.useCallback(
-    (_configId: string, configName: string) => {
-      setModelConfigSummary(configName);
-      setBlock4Done(true);
-      void refetchDeal();
-    },
-    [refetchDeal],
-  );
+  const handlePlaybookApplied = (_: string, label: string) => {
+    setPlaybookSummary(label);
+    refetchDeal();
+  };
 
-  const handleModelConfigSkipped = React.useCallback(() => {
+  const handleModelConfigApplied = (_: string, label: string) => {
+    setModelConfigSummary(label);
+    setBlock4Done(true);
+    refetchDeal();
+  };
+
+  const handleModelConfigSkipped = () => {
     setModelConfigSummary("По умолчанию");
     setBlock4Done(true);
-  }, []);
+  };
 
-  // ── Block 5 — language set ────────────────────────────────
-  const handleLanguageSet = React.useCallback(
-    (_lang: string, label: string) => {
-      setLanguageSummary(label);
-      void refetchDeal();
-    },
-    [refetchDeal],
-  );
+  const handleLanguageSet = (_: string, label: string) => {
+    setLanguageSummary(label);
+    refetchDeal();
+  };
 
-  // ── Block 6 — launch ─────────────────────────────────────
-  const handleLaunch = React.useCallback(() => {
+  const handleLaunch = () => {
     if (!createdDealId) return;
-
-    setLaunchError(null);
 
     startRun.mutate(
       {
@@ -234,72 +157,60 @@ const NewProjectPage: React.FC = () => {
         force_reclassify: forceReclassify,
       },
       {
-        onSuccess: () => {
-          navigate(`/projects/${createdDealId}?tab=overview`);
-        },
-        onError: (err) => {
-          let message = "Не удалось запустить анализ. Попробуйте ещё раз.";
-
-          if (typeof err === "object" && err !== null && "message" in err) {
-            message = (err as { message: string }).message;
-          }
-
-          setLaunchError(message);
-        },
+        onSuccess: () =>
+          navigate(`/projects/${createdDealId}?tab=overview`),
+        onError: () =>
+          setLaunchError("Не удалось запустить анализ."),
       },
     );
-  }, [checksMode, createdDealId, forceReclassify, navigate, startRun]);
+  };
 
-  // ── Derived block statuses ────────────────────────────────
-  const isBlock1Done = createdDealId !== null && block1bDone;
+  // ───────────── STATUS ─────────────
+
   const hasDocuments = documentsCount > 0;
   const hasPlaybook = !!deal?.playbook_version_id;
   const hasLanguage = !!deal?.primary_language;
 
-  const block1Status: FlowBlockStatus = isBlock1Done
-    ? "done"
-    : "active";
+  const block1Status: FlowBlockStatus =
+    createdDealId && block1bDone ? "done" : "active";
 
   const block2Status: FlowBlockStatus =
-    createdDealId === null
-      ? "disabled"
-      : hasDocuments && isBlock1Done
-        ? "done"
-        : createdDealId !== null
-          ? "active"
-          : "disabled";
+    !createdDealId ? "disabled" :
+    hasDocuments ? "done" : "active";
 
-  const block3Status: FlowBlockStatus = !hasDocuments
-    ? "disabled"
-    : hasPlaybook
-      ? "done"
-      : "active";
+  const block3Status: FlowBlockStatus =
+    !hasDocuments ? "disabled" :
+    hasPlaybook ? "done" : "active";
 
-  const block4Status: FlowBlockStatus = !hasPlaybook
-    ? "disabled"
-    : block4Done
-      ? "done"
-      : "active";
+  const block4Status: FlowBlockStatus =
+    !hasPlaybook ? "disabled" :
+    block4Done ? "done" : "active";
 
-  const block5Status: FlowBlockStatus = !hasPlaybook
-    ? "disabled"
-    : hasLanguage
-      ? "done"
-      : "active";
+  const block5Status: FlowBlockStatus =
+    !hasPlaybook ? "disabled" :
+    hasLanguage ? "done" : "active";
 
-  const block6Status: FlowBlockStatus = !hasLanguage
-    ? "disabled"
-    : "active";
+  const block6Status: FlowBlockStatus =
+    !hasLanguage ? "disabled" : "active";
 
-  // ── Can launch ────────────────────────────────────────────
-  const canLaunch =
-    !!createdDealId &&
-    hasDocuments &&
-    hasPlaybook &&
-    hasLanguage &&
-    !startRun.isPending;
+  const activeStep =
+    block1Status === "active" ? 1 :
+    block2Status === "active" ? 2 :
+    block3Status === "active" ? 3 :
+    block4Status === "active" ? 4 :
+    block5Status === "active" ? 5 :
+    block6Status === "active" ? 6 :
+    null;
 
-  // ── Progress counter ──────────────────────────────────────
+  const summaryData: FlowSummaryData = {
+    projectName: projectName.trim() || null,
+    responsibleUser: responsibleUserName,
+    documentsCount,
+    playbookLabel: playbookSummary,
+    modelConfigLabel: modelConfigSummary,
+    primaryLanguage: languageSummary,
+  };
+
   const doneCount = [
     block1Status === "done",
     block2Status === "done",
@@ -308,210 +219,144 @@ const NewProjectPage: React.FC = () => {
     block5Status === "done",
   ].filter(Boolean).length;
 
-  // ── Block 1 summary ──────────────────────────────────────
-  const block1Summary = React.useMemo(() => {
-    const parts: string[] = [];
+  if (!canCreate) return null;
 
-    if (projectName.trim()) {
-      parts.push(projectName.trim());
-    }
+  // ───────────── RENDER ─────────────
 
-    if (responsibleUserName) {
-      parts.push(`Ответственный: ${responsibleUserName}`);
-    }
-
-    return parts.join(" · ") || undefined;
-  }, [projectName, responsibleUserName]);
-
-  // ── Block 2 summary ──────────────────────────────────────
-  const block2Summary = hasDocuments
-    ? `${documentsCount} документ${documentsCount === 1 ? "" : documentsCount < 5 ? "а" : "ов"}`
-    : undefined;
-
-  // ── Cancel ────────────────────────────────────────────────
-  const handleCancel = React.useCallback(() => {
-    navigate("/dashboard");
-  }, [navigate]);
-
-  // ── Refetch documents callback ────────────────────────────
-  const handleRefetchDocuments = React.useCallback(() => {
-    void refetchDocuments();
-  }, [refetchDocuments]);
-
-  // ── Guard ─────────────────────────────────────────────────
-  if (!canCreate) {
-    return null;
-  }
-
-  // ── Render ────────────────────────────────────────────────
   return (
     <div className="h-full overflow-y-auto overscroll-contain">
-      <div className="animate-fadein space-y-4 p-4 md:p-5">
-        {/* ── Header ───────────────────────────────────────── */}
-        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+      <div className="animate-fadein p-4 md:p-5">
+
+        {/* HEADER */}
+        <header className="mb-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-xl font-semibold">
                 Запуск нового проекта
               </h1>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Последовательно настройте проект и запустите анализ. Все
-                параметры можно будет изменить позже.
+                Последовательно настройте проект и запустите анализ.
               </p>
             </div>
 
-            <div className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-1.5">
-              <span className="text-[11px] font-semibold text-[var(--text-muted)]">
-                {doneCount} из {TOTAL_STEPS}
-              </span>
-            </div>
+            {doneCount > 0 && (
+              <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-1.5">
+                <span className="text-[11px] font-semibold text-[var(--text-muted)]">
+                  {doneCount} из 6
+                </span>
+              </div>
+            )}
           </div>
         </header>
 
-        {/* ── Block 1: Project Info + Responsible ──────────── */}
-        <FlowBlock
-          step={1}
-          title="Информация о проекте"
-          status={block1Status}
-          summary={block1Summary}
-        >
-          <div className="space-y-5">
-            <Block1ProjectInfo
-              projectName={projectName}
-              onProjectNameChange={setProjectName}
-              onCreateProject={handleCreateProject}
-              onCancel={!createdDealId ? handleCancel : undefined}
-              isSubmitting={isCreating}
-              isCreated={createdDealId !== null}
-              errorText={createError}
-            />
+        {/* 3 COLUMNS */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
 
-            {createdDealId && !block1bDone ? (
-              <div className="border-t border-[var(--border-subtle)] pt-5">
+          {/* 50% FLOW */}
+          <div className="space-y-4">
+            <FlowBlock step={1} title="Информация о проекте" status={block1Status}>
+              <Block1ProjectInfo
+                projectName={projectName}
+                onProjectNameChange={setProjectName}
+                onCreateProject={handleCreateProject}
+                isSubmitting={isCreating}
+                isCreated={!!createdDealId}
+                errorText={createError}
+              />
+              {createdDealId && !block1bDone && (
                 <Block1bResponsibleUser
                   dealId={createdDealId}
                   onCompleted={handleResponsibleCompleted}
                 />
-              </div>
-            ) : null}
+              )}
+            </FlowBlock>
+
+            <FlowBlock step={2} title="Загрузка документов" status={block2Status}>
+              {createdDealId && (
+                <Block2Upload
+                  dealId={createdDealId}
+                  confirmedDocumentsCount={documentsCount}
+                  isDocumentsLoading={isDocumentsLoading}
+                  onRefetchDocuments={refetchDocuments}
+                />
+              )}
+            </FlowBlock>
+
+            <FlowBlock step={3} title="Выбор playbook" status={block3Status}>
+              {createdDealId && (
+                <Block3Playbook
+                  dealId={createdDealId}
+                  currentVersionId={deal?.playbook_version_id ?? null}
+                  onApplied={handlePlaybookApplied}
+                />
+              )}
+            </FlowBlock>
+
+            <FlowBlock step={4} title="Профиль модели" status={block4Status}>
+              {createdDealId && (
+                <Block4ModelConfig
+                  dealId={createdDealId}
+                  currentConfigId={deal?.model_config_id ?? null}
+                  currentConfigName={deal?.model_config_name ?? null}
+                  onApplied={handleModelConfigApplied}
+                  onSkipped={handleModelConfigSkipped}
+                />
+              )}
+            </FlowBlock>
+
+            <FlowBlock step={5} title="Основной язык анализа" status={block5Status}>
+              {createdDealId && deal && (
+                <Block5Language
+                  dealId={createdDealId}
+                  languages={deal.languages ?? []}
+                  primaryLanguage={deal.primary_language ?? null}
+                  discoveryStatus={deal.language_discovery_status ?? null}
+                  onLanguageSet={handleLanguageSet}
+                />
+              )}
+            </FlowBlock>
+
+            <FlowBlock step={6} title="Запуск анализа" status={block6Status}>
+              <Block6Launch
+                checksMode={checksMode}
+                onChecksModeChange={setChecksMode}
+                forceReclassify={forceReclassify}
+                onForceReclassifyChange={setForceReclassify}
+                showForceReclassify={
+                  deal?.has_pending_manual_reclassifications ?? false
+                }
+                canLaunch={
+                  !!createdDealId &&
+                  hasDocuments &&
+                  hasPlaybook &&
+                  hasLanguage
+                }
+                isSubmitting={startRun.isPending}
+                errorText={launchError}
+                onLaunch={handleLaunch}
+              />
+            </FlowBlock>
           </div>
-        </FlowBlock>
 
-        {/* ── Block 2: Upload Documents ────────────────────── */}
-        <FlowBlock
-          step={2}
-          title="Загрузка документов"
-          status={block2Status}
-          summary={block2Summary}
-        >
-          {createdDealId ? (
-            <Block2Upload
-              dealId={createdDealId}
-              confirmedDocumentsCount={documentsCount}
-              isDocumentsLoading={isDocumentsLoading}
-              onRefetchDocuments={handleRefetchDocuments}
+          {/* 25% INSTRUCTION (описание сверху, сводка ниже) */}
+          <div className="hidden xl:block">
+            <FlowInstructionRail
+              activeStep={activeStep}
+              summary={summaryData}
             />
-          ) : null}
-        </FlowBlock>
+          </div>
 
-        {/* ── Block 3: Playbook ────────────────────────────── */}
-        <FlowBlock
-          step={3}
-          title="Выбор playbook"
-          status={block3Status}
-          summary={
-            playbookSummary
-              ? `Playbook: ${playbookSummary}`
-              : undefined
-          }
-        >
-          {createdDealId ? (
-            <Block3Playbook
-              dealId={createdDealId}
-              currentVersionId={
-                deal?.playbook_version_id
-                  ? String(deal.playbook_version_id)
-                  : null
-              }
-              onApplied={handlePlaybookApplied}
-            />
-          ) : null}
-        </FlowBlock>
+          {/* 25% VISUAL — картинка во весь блок */}
+          <div className="hidden xl:block">
+            <FlowVisualRail />
+          </div>
 
-        {/* ── Block 4: Model Config ────────────────────────── */}
-        <FlowBlock
-          step={4}
-          title="Профиль модели"
-          status={block4Status}
-          summary={
-            modelConfigSummary
-              ? `Профиль: ${modelConfigSummary}`
-              : undefined
-          }
-        >
-          {createdDealId ? (
-            <Block4ModelConfig
-              dealId={createdDealId}
-              currentConfigId={
-                deal?.model_config_id
-                  ? String(deal.model_config_id)
-                  : null
-              }
-              currentConfigName={deal?.model_config_name ?? null}
-              onApplied={handleModelConfigApplied}
-              onSkipped={handleModelConfigSkipped}
-            />
-          ) : null}
-        </FlowBlock>
-
-        {/* ── Block 5: Language ─────────────────────────────── */}
-        <FlowBlock
-          step={5}
-          title="Основной язык анализа"
-          status={block5Status}
-          summary={
-            languageSummary
-              ? `Язык: ${languageSummary}`
-              : undefined
-          }
-        >
-          {createdDealId && deal ? (
-            <Block5Language
-              dealId={createdDealId}
-              languages={deal.languages ?? []}
-              primaryLanguage={deal.primary_language ?? null}
-              discoveryStatus={deal.language_discovery_status ?? null}
-              onLanguageSet={handleLanguageSet}
-            />
-          ) : null}
-        </FlowBlock>
-
-        {/* ── Block 6: Launch ──────────────────────────────── */}
-        <FlowBlock
-          step={6}
-          title="Запуск анализа"
-          status={block6Status}
-        >
-          <Block6Launch
-            checksMode={checksMode}
-            onChecksModeChange={setChecksMode}
-            forceReclassify={forceReclassify}
-            onForceReclassifyChange={setForceReclassify}
-            showForceReclassify={
-              deal?.has_pending_manual_reclassifications ?? false
-            }
-            canLaunch={canLaunch}
-            isSubmitting={startRun.isPending}
-            errorText={launchError}
-            onLaunch={handleLaunch}
-          />
-        </FlowBlock>
+        </div>
       </div>
     </div>
   );
 };
 
 export default NewProjectPage;
-
 
 
