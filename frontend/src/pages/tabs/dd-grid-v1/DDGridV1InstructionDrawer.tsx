@@ -34,7 +34,7 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-[var(--bg-hover)]"
+        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-inset"
         aria-expanded={open}
       >
         <div className="flex items-center gap-2">
@@ -44,7 +44,7 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
           <h4 className="text-xs font-bold uppercase tracking-wide text-[var(--text-secondary)]">
             {title}
           </h4>
-          <span className="rounded-full bg-[var(--bg-muted)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-faint)]">
+          <span className="rounded-full bg-[var(--bg-elevated-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">
             {checks.length}
           </span>
         </div>
@@ -60,7 +60,7 @@ const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
           {checks.map((check) => (
             <li
               key={check.id || check.name}
-              className={`rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] p-3 border-l-[3px] ${accentClassName}`}
+              className={`rounded-lg border border-[var(--border)] border-l-[3px] bg-[var(--bg-elevated-soft)] p-3 ${accentClassName}`}
             >
               <div className="text-sm font-semibold text-[var(--text-primary)]">
                 {check.name}
@@ -100,7 +100,6 @@ export const DDGridV1InstructionDrawer: React.FC<
   if (!open) return null;
 
   return (
-    // СТАЛО
     <aside className="flex h-full w-full flex-col">
       <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-3">
         <div>
@@ -115,7 +114,7 @@ export const DDGridV1InstructionDrawer: React.FC<
         <button
           type="button"
           onClick={onClose}
-          className="rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+          className="rounded p-1 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
           aria-label="Закрыть"
         >
           <X className="h-4 w-4" />
@@ -131,11 +130,11 @@ export const DDGridV1InstructionDrawer: React.FC<
           <>
             <div className="flex items-center gap-2">
               {snapshot.is_persisted_snapshot ? (
-                <span className="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-100">
+                <span className="inline-flex items-center rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-success-text)]">
                   Зафиксирована в момент запуска Run
                 </span>
               ) : (
-                <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-100">
+                <span className="inline-flex items-center rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-warning-text)]">
                   Legacy Run — версия не зафиксирована
                 </span>
               )}
@@ -157,7 +156,7 @@ export const DDGridV1InstructionDrawer: React.FC<
                   <CheckGroupSection
                     title="Глобальные проверки"
                     hint="Применяются ко всем документам сделки"
-                    accentClassName="border-l-sky-500"
+                    accentClassName="border-l-[var(--color-blue)]"
                     checks={snapshot.global_checks}
                     defaultOpen
                   />
@@ -166,7 +165,7 @@ export const DDGridV1InstructionDrawer: React.FC<
                   <CheckGroupSection
                     title="Проверки типа документа"
                     hint={snapshot.doc_type}
-                    accentClassName="border-l-violet-500"
+                    accentClassName="border-l-[var(--color-purple)]"
                     checks={snapshot.doc_type_checks}
                     defaultOpen
                   />

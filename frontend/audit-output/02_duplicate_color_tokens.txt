@@ -1,46 +1,58 @@
-11:  --color-background: #FAF8F5;
-12:  --color-surface: #F3F0EB;
-13:  --color-card: #FFFFFF;
-14:  --color-dark: #1A1917;
-16:  --color-primary: #1A1917;
-17:  --color-secondary: #78756F;
-18:  --color-muted: #A8A29E;
-19:  --color-faint: #D6D0C7;
-20:  --color-inverse: #FAF8F5;
-22:  --color-accent: #C86B52;
-23:  --color-accent-hover: #B55D46;
-25:  --color-accent-subtle: #F5EBE7;
-27:  --color-border: #E8E4DD;
-28:  --color-border-strong: #D6D0C7;
-29:  --color-border-subtle: #F0ECE6;
-31:  --color-success: #059669;
-32:  --color-warning: #D97706;
-33:  --color-danger: #DC2626;
-80:  --bg-base: #FAF8F5;
-81:  --bg-secondary: #F3F0EB;
-82:  --bg-surface: #F3F0EB;
-83:  --bg-card: #ffffff;
-84:  --bg-card-hover: #FDFCFA;
-85:  --bg-elevated-soft: #F3F0EB;
-92:  --border-color: #E8E4DD;
-96:  --accent-primary: #C86B52;
-97:  --accent-hover: #B55D46;
-107:  --text-primary: #1A1917;
-108:  --text-secondary: #78756F;
-109:  --text-muted: #A8A29E;
-110:  --text-faint: #D6D0C7;
-111:  --text-inverse: #FAF8F5;
-119:  --color-error: #be123c;
-120:  --color-error-highlight: #fff1f2;
-121:  --color-orange: #c2410c;
-122:  --color-orange-highlight: #fff7ed;
-123:  --color-gold: #ca8a04;
-124:  --color-gold-hover: #a16207;
-125:  --color-gold-highlight: #fefce8;
-126:  --color-success: #059669;
-127:  --color-success-highlight: #ecfdf5;
-128:  --color-warning: #d97706;
-129:  --color-warning-highlight: #fffbeb;
-147:  --app-active-border: #C86B52;
-148:  --app-active-text: #B55D46;
-149:  --app-active-indicator: #C86B52;
+59:  --bg-base:          #FAF8F5;   /* page background */
+60:  --bg-surface:       #F3F0EB;   /* section panels, sidebar */
+61:  --bg-secondary:     #F3F0EB;   /* alias for bg-surface (legacy usage) */
+62:  --bg-card:          #FFFFFF;   /* cards, modals, drawers */
+63:  --bg-card-hover:    #FDFCFA;   /* card hover state */
+64:  --bg-elevated-soft: #F3F0EB;   /* sticky headers, inset panels */
+65:  --bg-subtle:        #EDEAE4;   /* code preview, inset debug zones */
+66:  --bg-inverse:       #111827;   /* dark preview surfaces (pipeline/chunks) */
+67:  --bg-input:         #FFFFFF;   /* form inputs */
+79:  --border-color:  #E8E4DD;                  /* hex alias used in marketing layer */
+87:  --accent-primary: #C86B52;
+88:  --accent-hover:   #B55D46;
+90:  --accent-subtle:  #F5EBE7;
+97:  --text-primary:   #1A1917;
+98:  --text-secondary: #78756F;
+99:  --text-muted:     #A8A29E;
+100:  --text-faint:     #D6D0C7;
+101:  --text-inverse:   #FAF8F5;
+102:  --text-tertiary:  #C4BFB8;   /* previously missing, used in TriggerList */
+150:  --color-success:           #059669;
+151:  --color-success-text:      #065F46;
+152:  --color-success-bg:        #ECFDF5;   /* was: transparent — FIXED */
+154:  --color-success-subtle:    #ECFDF5;
+155:  --color-success-highlight: #ECFDF5;
+158:  --color-warning:           #D97706;
+159:  --color-warning-text:      #92400E;
+160:  --color-warning-bg:        #FFFBEB;
+162:  --color-warning-subtle:    #FFFBEB;
+163:  --color-warning-highlight: #FFFBEB;
+166:  --color-error:             #DC2626;   /* was: #be123c — FIXED to match --danger */
+167:  --color-error-text:        #991B1B;
+168:  --color-error-bg:          #FEF2F2;
+170:  --color-error-subtle:      #FEF2F2;
+171:  --color-error-highlight:   #FEF2F2;
+172:  --color-error-soft-bg:     #FEF2F2;
+174:  --color-error-strong:      #991B1B;
+175:  --color-error-hover:       #991B1B;
+178:  --color-danger:            #DC2626;
+187:  --color-orange:           #C2410C;
+188:  --color-orange-highlight: #FFF7ED;
+191:  --color-gold:             #CA8A04;
+192:  --color-gold-hover:       #A16207;
+193:  --color-gold-highlight:   #FEFCE8;
+194:  --color-gold-soft-bg:     #FEFCE8;
+196:  --color-gold-strong:      #A16207;
+197:  --color-gold-text:        #A16207;
+205:  --color-blue:             #2563EB;
+206:  --color-blue-highlight:   #EFF6FF;
+207:  --color-blue-strong:      #1E40AF;
+208:  --color-blue-soft-bg:     #EFF6FF;
+210:  --color-blue-hover:       #1D4ED8;
+219:  --color-purple:           #7C3AED;
+220:  --color-purple-highlight: #F5F3FF;
+244:  --app-active-border:    #C86B52;
+245:  --app-active-text:      #B55D46;
+246:  --app-active-indicator: #C86B52;
+276:  --color-border-strong: #D6D0C7;
+277:  --color-border-subtle: #F0ECE6;

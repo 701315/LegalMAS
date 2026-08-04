@@ -25,7 +25,9 @@ const MAX_PROJECTS_IN_SIDEBAR = 6;
 
 const navItemBaseClassName =
   "group flex items-center gap-3 rounded-xl px-3 py-2 font-medium transition-all duration-150 " +
-  "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]";
+  "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)] " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 " +
+  "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -39,12 +41,6 @@ interface NavItemProps {
   end?: boolean;
 }
 
-interface DashboardNavItemProps {
-  collapsed: boolean;
-  isActive: boolean;
-  onClick: () => void;
-}
-
 const NavItem: React.FC<NavItemProps> = ({
   to,
   label,
@@ -55,12 +51,13 @@ const NavItem: React.FC<NavItemProps> = ({
   <NavLink
     to={to}
     end={end}
+    title={collapsed ? label : undefined}
     className={({ isActive }) =>
       [
         navItemBaseClassName,
         "w-full",
         isActive
-          ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+          ? "nav-item-active"
           : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
         collapsed && "justify-center px-2",
       ]
@@ -71,31 +68,6 @@ const NavItem: React.FC<NavItemProps> = ({
     <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
     {!collapsed && <span className="truncate">{label}</span>}
   </NavLink>
-);
-
-const DashboardNavItem: React.FC<DashboardNavItemProps> = ({
-  collapsed,
-  isActive,
-  onClick,
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-current={isActive ? "page" : undefined}
-    className={[
-      navItemBaseClassName,
-      "w-full",
-      isActive
-        ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
-        : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
-      collapsed && "justify-center px-2",
-    ]
-      .filter(Boolean)
-      .join(" ")}
-  >
-    <LayoutDashboard className="h-4 w-4 shrink-0" aria-hidden="true" />
-    {!collapsed && <span className="truncate">Dashboard</span>}
-  </button>
 );
 
 const SidebarSectionLabel: React.FC<{
@@ -155,9 +127,7 @@ interface TenantAdminNavProps {
 
 const TenantAdminNav: React.FC<TenantAdminNavProps> = ({ collapsed }) => (
   <div className="mt-4 space-y-1">
-    {!collapsed && (
-      <SidebarSectionLabel icon={Settings} label="Организация" />
-    )}
+    {!collapsed && <SidebarSectionLabel icon={Settings} label="Организация" />}
     <NavItem
       collapsed={collapsed}
       to="/tenant-admin"
@@ -186,18 +156,6 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const [collapsed, setCollapsed] = React.useState(false);
   const [isLogoutOpen, setIsLogoutOpen] = React.useState(false);
 
-  const isInDashboardArea =
-    location.pathname === "/dashboard" ||
-    location.pathname.startsWith("/projects/");
-
-  const [isProjectsOpen, setIsProjectsOpen] = React.useState<boolean>(true);
-
-  React.useEffect(() => {
-    if (isInDashboardArea) {
-      setIsProjectsOpen(true);
-    }
-  }, [isInDashboardArea]);
-
   const navWidth = collapsed ? NAV_WIDTH_COLLAPSED : NAV_WIDTH_EXPANDED;
 
   const isSuperadmin = globalRole === "superadmin";
@@ -219,11 +177,6 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
     : 0;
 
   const handleToggleSidebar = () => setCollapsed((v) => !v);
-
-  const handleDashboardClick = () => {
-    navigate("/dashboard");
-    setIsProjectsOpen(true);
-  };
 
   const handleOpenLogout = () => setIsLogoutOpen(true);
   const handleCloseLogout = () => setIsLogoutOpen(false);
@@ -274,23 +227,23 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
         </div>
 
         {/* Навигация */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
           <nav className="space-y-1" aria-label="Основная навигация">
-
             {/* ── Superadmin: только системное администрирование ── */}
             {isSuperadmin ? (
               <SuperadminNav collapsed={collapsed} />
             ) : (
               <>
-                {/* Dashboard — только для не-superadmin */}
-                <DashboardNavItem
+                <NavItem
                   collapsed={collapsed}
-                  isActive={location.pathname === "/dashboard"}
-                  onClick={handleDashboardClick}
+                  to="/dashboard"
+                  end
+                  label="Dashboard"
+                  icon={LayoutDashboard}
                 />
 
                 {/* Список проектов */}
-                {!collapsed && isProjectsOpen && showProjectsSection && (
+                {!collapsed && showProjectsSection && (
                   <div className="mt-1 pl-2">
                     <SidebarSectionLabel
                       icon={BriefcaseBusiness}
@@ -314,6 +267,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
                                 [
                                   "block rounded-xl border px-3 py-2 transition-all duration-150",
                                   "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]",
+                                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
                                   linkActive || isActive
                                     ? "border-[var(--accent-primary)]/20 bg-[var(--accent-muted)] text-[var(--text-primary)]"
                                     : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
@@ -340,7 +294,7 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
                       {hiddenProjectsCount > 0 && (
                         <NavLink
                           to="/dashboard"
-                          className="block rounded-xl px-3 py-2 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
+                          className="block rounded-xl px-3 py-2 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
                         >
                           Ещё {hiddenProjectsCount}
                         </NavLink>
@@ -413,14 +367,15 @@ const AppShell: React.FC<AppShellProps> = ({ children }) => {
               Review Workspace
             </span>
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-[color:var(--color-success-border)] bg-[color:var(--color-success-bg)] px-3 py-1 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[color:var(--color-success-text)]">
+
+          <div className="flex items-center gap-2 rounded-full border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-1 text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] text-[var(--color-success-text)]">
             <Shield className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Data secured</span>
           </div>
         </header>
 
         <div className="min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--bg-surface)] p-4 md:p-5">
-          <div className="h-full min-h-0 min-w-0 overflow-hidden rounded-[20px] border border-[var(--border-soft)] bg-[var(--bg-surface)]">
+          <div className="h-full min-h-0 min-w-0 overflow-hidden rounded-[var(--radius-xl)] border border-[var(--border-soft)] bg-[var(--bg-surface)]">
             {children}
           </div>
         </div>

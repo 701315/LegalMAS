@@ -139,7 +139,7 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
           <span>Загрузка стадий обработки…</span>
         </div>
       ) : error ? (
-        <div className="flex items-start gap-2 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-3 py-2 text-sm text-[var(--color-error-strong)]">
+        <div className="flex items-start gap-2 rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-sm text-[var(--color-error-text)]">
           <AlertTriangle className="mt-[2px] h-4 w-4 shrink-0 text-[var(--color-error)]" />
           <span>{error}</span>
         </div>
@@ -163,6 +163,5 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
 };
 
 export default DocumentPipelinePanel;
-
 
 

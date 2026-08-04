@@ -645,11 +645,11 @@ const Badge: React.FC<{
     success:
       "border-[color:color-mix(in_srgb,var(--accent-primary)_24%,transparent)] bg-[color:color-mix(in_srgb,var(--accent-primary)_10%,transparent)] text-[var(--accent-primary)]",
     high:
-      "border-[color:color-mix(in_srgb,var(--color-error)_24%,transparent)] bg-[color:color-mix(in_srgb,var(--color-error)_10%,transparent)] text-[var(--color-error)]",
+      "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
     medium:
-      "border-[color:color-mix(in_srgb,var(--color-warning)_24%,transparent)] bg-[color:color-mix(in_srgb,var(--color-warning)_10%,transparent)] text-[var(--color-warning)]",
+      "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
     low:
-      "border-[color:color-mix(in_srgb,var(--color-success)_24%,transparent)] bg-[color:color-mix(in_srgb,var(--color-success)_10%,transparent)] text-[var(--color-success)]",
+      "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
   }[tone];
 
   return (
@@ -713,7 +713,7 @@ const KpiCard: React.FC<{
       <p
         className={[
           "mt-1 text-2xl font-semibold tabular-nums",
-          accent ? "text-[var(--color-error)]" : "text-[var(--text-primary)]",
+          accent ? "text-[var(--color-error-text)]" : "text-[var(--text-primary)]",
           isInteractive
             ? "underline decoration-transparent transition group-hover:decoration-current"
             : "",

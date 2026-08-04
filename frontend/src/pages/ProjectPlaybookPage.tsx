@@ -2,6 +2,7 @@
 // src/pages/ProjectPlaybookPage.tsx
 // Редактирование YAML-playbook проекта (по capability).
 // Приведено к единому product-дизайну workspace.
+// Рендерится внутри AppShell — не задаёт свой viewport/background.
 // =============================================================
 
 import React, { useEffect, useState } from "react";
@@ -38,6 +39,7 @@ const ProjectPlaybookPage: React.FC = () => {
       setIsLoading(true);
       setErrorText(null);
       setInfoText(null);
+
       try {
         const res = await client.get<PlaybookResponse>(
           `/api/v1/projects/${dealId}/playbook`,
@@ -47,6 +49,7 @@ const ProjectPlaybookPage: React.FC = () => {
         }
       } catch (err) {
         const apiErr = err as ApiError;
+
         if (
           apiErr.code === "404" ||
           apiErr.detail === "Not Found" ||
@@ -70,6 +73,7 @@ const ProjectPlaybookPage: React.FC = () => {
     }
 
     void loadPlaybook();
+
     return () => {
       cancelled = true;
     };
@@ -81,9 +85,9 @@ const ProjectPlaybookPage: React.FC = () => {
 
   if (!canEditPlaybook) {
     return (
-      <div className="min-h-screen bg-[var(--bg-base)] px-4">
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="w-full max-w-md rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center shadow-sm">
+      <div className="h-full overflow-y-auto overscroll-contain">
+        <div className="flex h-full min-h-full items-center justify-center px-4 py-6">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center shadow-sm">
             <p className="mb-4 text-sm text-[var(--text-secondary)]">
               У вас нет прав для редактирования playbook этого проекта.
             </p>
@@ -147,51 +151,57 @@ const ProjectPlaybookPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 text-[var(--text-primary)]">
-      <div className="mx-auto max-w-5xl space-y-5">
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="space-y-4 px-4 py-5 md:px-6">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-              Playbook YAML
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                Playbook YAML
+              </div>
+
+              <h1 className="mt-3 text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                YAML-playbook проекта
+              </h1>
+
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Проект: {dealId}
+              </p>
+
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Этот редактор предназначен для прямого редактирования
+                YAML-конфигурации playbook для конкретного проекта. Используйте
+                его только если понимаете структуру схемы.
+              </p>
             </div>
-            <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-[var(--text-primary)]">
-              YAML-playbook проекта
-            </h1>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              Проект: {dealId}
-            </p>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Этот редактор предназначен для прямого редактирования YAML-конфигурации
-              playbook для конкретного проекта. Используйте его только если понимаете структуру схемы.
-            </p>
+
+            <Button variant="secondary" size="sm" onClick={handleBack}>
+              ← Назад к проекту
+            </Button>
           </div>
+        </header>
 
-          <Button variant="secondary" size="sm" onClick={handleBack}>
-            ← Назад к проекту
-          </Button>
-        </div>
-
-        <InlineAlert tone="error" message={errorText} />
-        <InlineAlert tone="success" message={infoText} />
+        {errorText && <InlineAlert tone="error" message={errorText} />}
+        {!errorText && infoText && <InlineAlert tone="success" message={infoText} />}
 
         {/* Main card */}
-        <section className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
           <div className="flex flex-col gap-3 border-b border-[var(--border-soft)] pb-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--text-primary)]">
                 Редактор YAML-playbook
               </p>
               <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                Отредактируйте текст вручную или загрузите готовый YAML-файл. При сохранении
-                конфигурация применится только к этому проекту.
+                Отредактируйте текст вручную или загрузите готовый YAML-файл.
+                При сохранении конфигурация применится только к этому проекту.
               </p>
             </div>
 
-            <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--accent-primary)]">
-              <span className="rounded-2xl border border-[var(--accent-primary)] px-3 py-1.5 text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]">
-                Загрузить YAML-файл
-              </span>
+            <label
+              className="inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-1.5 text-[12px] font-medium text-[var(--text-primary)] shadow-sm transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--accent-primary)]/35 focus-within:ring-offset-2 focus-within:ring-offset-[var(--bg-card)]"
+            >
+              Загрузить YAML-файл
               <input
                 type="file"
                 accept=".yaml,.yml,text/yaml"
@@ -215,16 +225,6 @@ const ProjectPlaybookPage: React.FC = () => {
               />
             )}
 
-            {errorText && (
-              <p className="text-sm text-[color:rgb(120,35,46)]">{errorText}</p>
-            )}
-
-            {infoText && !errorText && (
-              <p className="text-sm text-[var(--text-secondary)]">
-                {infoText}
-              </p>
-            )}
-
             <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t border-[var(--border-soft)] pt-3">
               <Button
                 variant="secondary"
@@ -235,7 +235,7 @@ const ProjectPlaybookPage: React.FC = () => {
                 Отмена
               </Button>
               <Button
-                variant="secondary"
+                variant="primary"
                 size="sm"
                 onClick={handleSave}
                 disabled={isSaving || isLoading}
@@ -252,6 +252,5 @@ const ProjectPlaybookPage: React.FC = () => {
 };
 
 export default ProjectPlaybookPage;
-
 
 

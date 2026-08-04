@@ -94,17 +94,17 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#FAF8F5] px-4 text-[#1A1917]">
-      <div className="w-full max-w-sm rounded-2xl border border-[#E8E4DD] bg-white px-6 py-7 shadow-sm">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--bg-base)] px-4 text-[var(--text-primary)]">
+      <div className="w-full max-w-sm rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] px-6 py-7 shadow-sm">
         <div className="mb-6">
-          <div className="inline-flex items-center rounded-full border border-[#E8E4DD] bg-[#F3F0EB] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#A8A29E]">
+          <div className="inline-flex items-center rounded-full border border-[var(--border-color)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
             Secure sign-in
           </div>
 
-          <h1 className="mt-4 text-[20px] font-semibold tracking-tight text-[#1A1917]">
+          <h1 className="mt-4 text-[20px] font-semibold tracking-tight text-[var(--text-primary)]">
             Вход в Steloom
           </h1>
-          <p className="mt-2 text-sm leading-6 text-[#78756F]">
+          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
             Используйте учётные данные, выданные администратором вашей команды.
           </p>
         </div>
@@ -113,7 +113,7 @@ const LoginPage: React.FC = () => {
           <div>
             <label
               htmlFor="login"
-              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[#A8A29E]"
+              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]"
             >
               Email
             </label>
@@ -122,7 +122,7 @@ const LoginPage: React.FC = () => {
               type="email"
               value={login}
               onChange={(e) => setLogin(e.target.value)}
-              className="w-full rounded-xl border border-[#E8E4DD] bg-[#FAF8F5] px-3.5 py-2.5 text-sm text-[#1A1917] placeholder:text-[#A8A29E] outline-none transition-colors focus:border-[#C86B52] focus:bg-white"
+              className="w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-base)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus:bg-[var(--bg-card)]"
               placeholder="name@company.com"
               autoComplete="username"
               autoFocus
@@ -132,7 +132,7 @@ const LoginPage: React.FC = () => {
           <div>
             <label
               htmlFor="password"
-              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[#A8A29E]"
+              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]"
             >
               Пароль
             </label>
@@ -141,14 +141,14 @@ const LoginPage: React.FC = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-[#E8E4DD] bg-[#FAF8F5] px-3.5 py-2.5 text-sm text-[#1A1917] placeholder:text-[#A8A29E] outline-none transition-colors focus:border-[#C86B52] focus:bg-white"
+              className="w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-base)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus:bg-[var(--bg-card)]"
               placeholder="Ваш пароль"
               autoComplete="current-password"
             />
           </div>
 
           {errorText && (
-            <p className="rounded-xl border border-[#DC2626]/20 bg-[#FEE2E2] px-3.5 py-2.5 text-xs text-[#B91C1C]">
+            <p className="rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3.5 py-2.5 text-xs text-[var(--color-error-text)]">
               {errorText}
             </p>
           )}
@@ -168,7 +168,7 @@ const LoginPage: React.FC = () => {
       <button
         type="button"
         onClick={() => navigate("/")}
-        className="mt-6 text-xs text-[#A8A29E] transition-colors hover:text-[#78756F]"
+        className="mt-6 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
       >
         ← Вернуться на главную
       </button>

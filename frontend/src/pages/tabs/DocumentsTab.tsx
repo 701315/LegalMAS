@@ -95,10 +95,10 @@ const ClassificationWarningBanner: React.FC<{
       className="flex w-full items-center justify-between gap-3 px-5 py-2 text-left transition hover:bg-[var(--bg-elevated-soft)]"
     >
       <div className="flex items-center gap-2">
-        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-warning-subtle)] text-[10px] font-semibold text-[var(--color-warning)]">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-warning-bg)] text-[10px] font-semibold text-[var(--color-warning-text)]">
           {count}
         </span>
-        <span className="text-xs font-medium text-[var(--color-warning)]">
+        <span className="text-xs font-medium text-[var(--color-warning-text)]">
           Требуют проверки классификации
         </span>
       </div>
@@ -108,7 +108,7 @@ const ClassificationWarningBanner: React.FC<{
     </button>
 
     {isExpanded && (
-      <div className="border-t border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] px-5 py-2">
+      <div className="border-t border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-5 py-2">
         <div className="max-h-48 space-y-0.5 overflow-y-auto">
           {docs.map((doc) => (
             <button
@@ -445,7 +445,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
         <span className="flex items-center gap-1.5">
           <span className="truncate">{String(value ?? "")}</span>
           <span
-            className="shrink-0 rounded-full bg-[var(--color-warning-subtle)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-warning)]"
+            className="shrink-0 rounded-full bg-[var(--color-warning-bg)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-warning-text)]"
             title="Требует проверки классификации"
           >
             !
@@ -547,7 +547,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
             )}
 
             {error && (
-              <div className="shrink-0 px-5 py-3 text-sm text-[var(--color-error)]">
+              <div className="shrink-0 px-5 py-3 text-sm text-[var(--color-error-text)]">
                 Не удалось загрузить документы.
               </div>
             )}
@@ -577,7 +577,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                       />
                     )}
 
-                    <div className="flex-1 overflow-hidden bg-[var(--bg-subtle)] px-5 pb-5 pt-4">
+                    <div className="flex-1 overflow-hidden bg-[var(--bg-card)] px-5 pb-5 pt-4">
                       <div className="h-full overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]">
                         <table className="w-full border-collapse">
                           <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">

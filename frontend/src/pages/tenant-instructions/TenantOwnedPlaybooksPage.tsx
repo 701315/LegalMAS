@@ -5,7 +5,14 @@
 
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Layers, Plus } from "lucide-react";
+import {
+  ArrowLeft,
+  Layers,
+  Plus,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
 
 import { useAuth } from "../../hooks/useAuth";
 import {
@@ -17,6 +24,51 @@ import EmptyState from "../../components/ui/EmptyState";
 import InlineAlert from "../../components/InlineAlert";
 import Button from "../../components/ui/Button";
 
+// ─────────────────────────────────────────────────────────────
+// SearchInput
+// ─────────────────────────────────────────────────────────────
+
+interface SearchInputProps {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}
+
+const SearchInput: React.FC<SearchInputProps> = ({
+  value,
+  onChange,
+  placeholder = "Поиск…",
+}) => (
+  <div className="relative w-full">
+    <Search
+      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
+      aria-hidden="true"
+    />
+    <input
+      type="search"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      autoComplete="off"
+      className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-2 pl-9 pr-9 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+    />
+    {value.length > 0 && (
+      <button
+        type="button"
+        onClick={() => onChange("")}
+        aria-label="Очистить поиск"
+        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    )}
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────
+// PlaybookCard
+// ─────────────────────────────────────────────────────────────
+
 const PlaybookCard: React.FC<{
   item: TenantPlaybookItem;
   onOpen: () => void;
@@ -24,20 +76,17 @@ const PlaybookCard: React.FC<{
   <button
     type="button"
     onClick={onOpen}
-    className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 text-left shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md"
+    className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 text-left shadow-sm transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
   >
     <div className="flex items-start gap-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-muted)]">
-        <Layers
-          className="h-4 w-4 text-[var(--accent-primary)]"
-          aria-hidden="true"
-        />
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)] transition-colors group-hover:bg-[var(--accent-muted)] group-hover:text-[var(--accent-primary)]">
+        <Layers className="h-4 w-4" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">
+        <p className="text-sm font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-primary)]">
           {item.title}
         </p>
-        <p className="mt-0.5 font-mono text-[10px] text-[var(--text-muted)]">
+        <p className="mt-0.5 font-mono text-[11px] text-[var(--text-muted)]">
           {item.code}
         </p>
         {item.description && (
@@ -45,16 +94,27 @@ const PlaybookCard: React.FC<{
             {item.description}
           </p>
         )}
-        <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-[var(--text-muted)]">
-          {item.deal_type && <span>deal: {item.deal_type}</span>}
-          {item.jurisdiction && <span>jurisdiction: {item.jurisdiction}</span>}
-          {item.language && <span>language: {item.language}</span>}
-          {item.risk_profile && <span>risk: {item.risk_profile}</span>}
-        </div>
+        {(item.deal_type ||
+          item.jurisdiction ||
+          item.language ||
+          item.risk_profile) && (
+          <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-[var(--text-muted)]">
+            {item.deal_type && <span>deal: {item.deal_type}</span>}
+            {item.jurisdiction && (
+              <span>jurisdiction: {item.jurisdiction}</span>
+            )}
+            {item.language && <span>language: {item.language}</span>}
+            {item.risk_profile && <span>risk: {item.risk_profile}</span>}
+          </div>
+        )}
       </div>
     </div>
   </button>
 );
+
+// ─────────────────────────────────────────────────────────────
+// TenantOwnedPlaybooksPage
+// ─────────────────────────────────────────────────────────────
 
 const TenantOwnedPlaybooksPage: React.FC = () => {
   const navigate = useNavigate();
@@ -78,83 +138,105 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
     );
   }, [playbooks, search]);
 
-  return (
-    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-      <div className="animate-fadein space-y-6">
-        <button
-          type="button"
-          onClick={() => navigate("/tenant-admin/instructions")}
-          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Инструкции
-        </button>
+  const isSearching = search.trim().length > 0;
 
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Playbooks организации
-            </h1>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Собственные playbooks вашего tenant. Видны только вам, не
-              доступны другим клиентам платформы.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void refetch()}
-            >
-              Обновить
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() =>
-                navigate("/tenant-admin/instructions/playbook-studio")
-              }
-              leftIcon={<Plus className="h-3.5 w-3.5" />}
-            >
-              Создать в Playbook Studio
-            </Button>
+  return (
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
+
+        {/* ── Шапка ───────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => navigate("/tenant-admin/instructions")}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Инструкции
+              </button>
+
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                Playbooks организации
+              </h1>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Собственные playbooks вашего tenant. Видны только вам, не
+                доступны другим клиентам платформы.
+              </p>
+
+              {!isLoading && !isError && playbooks.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2 text-[12px]">
+                  <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[var(--text-secondary)]">
+                    Playbooks: {playbooks.length}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void refetch()}
+                leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
+              >
+                Обновить
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() =>
+                  navigate("/tenant-admin/instructions/playbook-studio")
+                }
+                leftIcon={<Plus className="h-3.5 w-3.5" />}
+              >
+                Создать в Playbook Studio
+              </Button>
+            </div>
           </div>
         </header>
 
-        {!isLoading && !isError && playbooks.length > 0 && (
-          <p className="text-sm text-[var(--text-muted)]">
-            Всего:{" "}
-            <span className="font-semibold text-[var(--text-primary)]">
-              {playbooks.length}
-            </span>
-          </p>
-        )}
-
+        {/* ── Инфо ────────────────────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-          <p className="text-xs leading-5 text-[var(--text-secondary)]">
-            Создание и редактирование playbooks выполняется в{" "}
-            <button
-              type="button"
-              onClick={() =>
-                navigate("/tenant-admin/instructions/playbook-studio")
-              }
-              className="font-semibold text-[var(--accent-primary)] hover:underline"
-            >
-              Playbook Studio
-            </button>
-            . Эта страница показывает готовый каталог только tenant-owned
-            playbooks — глобальные шаблоны платформы здесь не отображаются.
-          </p>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+            Как использовать
+          </div>
+          <div className="mt-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-3">
+            <p className="text-sm leading-6 text-[var(--text-secondary)]">
+              Создание и редактирование playbooks выполняется в{" "}
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/tenant-admin/instructions/playbook-studio")
+                }
+                className="font-semibold text-[var(--accent-primary)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
+              >
+                Playbook Studio
+              </button>
+              . Эта страница показывает готовый каталог только tenant-owned
+              playbooks — глобальные шаблоны платформы здесь не отображаются.
+            </p>
+          </div>
         </section>
 
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск по названию, коду, описанию…"
-          className="h-9 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-input)] px-3 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
-        />
+        {/* ── Поиск ───────────────────────────────────────────── */}
+        {!isLoading && !isError && playbooks.length > 0 && (
+          <div className="flex items-center gap-3">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Поиск по названию, коду, описанию…"
+            />
+            {isSearching && (
+              <p className="hidden shrink-0 text-xs text-[var(--text-muted)] sm:block">
+                {filtered.length} из {playbooks.length}
+              </p>
+            )}
+          </div>
+        )}
 
+        {/* ── States ──────────────────────────────────────────── */}
         {isLoading && (
           <LoadingBlock text="Загружаем playbooks организации…" rows={6} />
         )}
@@ -168,7 +250,7 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
 
         {!isLoading && !isError && playbooks.length === 0 && (
           <EmptyState
-            title="Playbooks организации ещё не создан"
+            title="Playbooks организации ещё не созданы"
             description="Создайте первый playbook в Playbook Studio. Он будет виден только вашей организации."
             action={
               <Button
@@ -185,16 +267,23 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
           />
         )}
 
-        {!isLoading &&
-          !isError &&
-          playbooks.length > 0 &&
-          filtered.length === 0 && (
-            <EmptyState
-              title="Ничего не найдено"
-              description="Попробуйте изменить поисковый запрос."
-            />
-          )}
+        {!isLoading && !isError && playbooks.length > 0 && filtered.length === 0 && (
+          <EmptyState
+            title="Ничего не найдено"
+            description="Попробуйте изменить поисковый запрос."
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setSearch("")}
+              >
+                Очистить поиск
+              </Button>
+            }
+          />
+        )}
 
+        {/* ── Список ───────────────────────────────────────────── */}
         {!isLoading && !isError && filtered.length > 0 && (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {filtered.map((item) => (
@@ -210,12 +299,12 @@ const TenantOwnedPlaybooksPage: React.FC = () => {
             ))}
           </div>
         )}
+
       </div>
     </div>
   );
 };
 
 export default TenantOwnedPlaybooksPage;
-
 
 

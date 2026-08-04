@@ -1,15 +1,5 @@
 // =============================================================
 // src/pages/tabs/overview/AnalysisActionsPanel.tsx
-// Header приведён к стандарту Overview:
-// - "Действия" — основной заголовок
-// - "Анализ документов" — подзаголовок
-// - divider inset, не примыкает к краям карточки
-// - внешний блок акцентирован синим обрамлением по всей границе,
-//   при этом сохранена стандартная системная тень карточки
-//
-// Актуальный контракт:
-// - hasCurrentRun отражает наличие current run,
-//   определяемого через deal.last_run_id / currentRunId наверху.
 // =============================================================
 
 import React from "react";
@@ -92,7 +82,8 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
       className="self-start rounded-2xl bg-[var(--bg-card)] xl:sticky xl:top-0"
       style={{
         border: "1px solid var(--border)",
-        boxShadow: "inset 0 0 0 1px var(--accent-primary), var(--shadow-sm)",
+        boxShadow:
+          "inset 0 0 0 1px var(--accent-primary), var(--shadow-sm)",
       }}
     >
       <div className="flex h-full flex-col">
@@ -116,11 +107,11 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
 
         <div className="px-5 py-5">
           {showReclassBanner && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <p className="text-xs font-semibold text-amber-900">
+            <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
+              <p className="text-xs font-semibold text-[var(--color-warning-text)]">
                 Требуется обновление результатов
               </p>
-              <p className="mt-1 text-xs leading-5 text-amber-800">
+              <p className="mt-1 text-xs leading-5 text-[var(--color-warning-text)]">
                 После ручной переклассификации рекомендуется повторно запустить
                 анализ.
               </p>
@@ -128,9 +119,12 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
           )}
 
           <div
-            className={`rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-4 ${
-              showReclassBanner ? "mt-4" : ""
-            }`}
+            className={[
+              "rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-4",
+              showReclassBanner ? "mt-4" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
           >
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Текущая готовность
@@ -157,7 +151,9 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
 
               <StatusRow
                 label="Профиль модели"
-                value={deal.model_config_name || "Профиль проекта / playbook"}
+                value={
+                  deal.model_config_name || "Профиль проекта / playbook"
+                }
                 tone={deal.model_config_name ? "ok" : "neutral"}
               />
             </div>
@@ -188,7 +184,5 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
 };
 
 export default AnalysisActionsPanel;
-
-
 
 

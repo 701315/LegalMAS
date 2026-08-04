@@ -20,7 +20,9 @@ const LoadingBlock: React.FC<LoadingBlockProps> = ({
   rows = 3,
   className,
 }) => {
-  const normalizedRows = Number.isFinite(rows) ? Math.max(1, Math.floor(rows)) : 3;
+  const normalizedRows = Number.isFinite(rows)
+    ? Math.max(1, Math.floor(rows))
+    : 3;
 
   return (
     <div
@@ -29,7 +31,7 @@ const LoadingBlock: React.FC<LoadingBlockProps> = ({
       aria-busy="true"
       aria-label={text}
       className={cn(
-        "rounded-xl border border-[var(--border,#e5e7eb)] bg-[var(--bg-elevated,#ffffff)] p-4",
+        "rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4",
         className,
       )}
     >
@@ -40,10 +42,7 @@ const LoadingBlock: React.FC<LoadingBlockProps> = ({
           <div
             key={index}
             aria-hidden="true"
-            className={cn(
-              "h-4 rounded-full animate-pulse",
-              "bg-[var(--bg-elevated-soft,#f3f4f6)]",
-            )}
+            className="h-4 rounded-full animate-pulse bg-[var(--bg-elevated-soft)]"
             style={{ width: ROW_WIDTHS[index % ROW_WIDTHS.length] }}
           />
         ))}
@@ -53,7 +52,5 @@ const LoadingBlock: React.FC<LoadingBlockProps> = ({
 };
 
 export default LoadingBlock;
-
-
 
 

@@ -58,7 +58,6 @@ const SORT_OPTIONS: SortOption[] = [
   { key: "users_count", label: "По количеству пользователей", defaultDir: "desc" },
 ];
 
-// LocalStorage keys — UI-предпочтения переживают перезагрузку
 const LS_VIEW_MODE = "adminPage.viewMode";
 const LS_SORT_KEY = "adminPage.sortKey";
 const LS_SORT_DIR = "adminPage.sortDir";
@@ -183,7 +182,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
 );
 
 // ─────────────────────────────────────────────────────────────
-// ViewToggle — segmented control: Карточки ↔ Таблица
+// ViewToggle
 // ─────────────────────────────────────────────────────────────
 
 interface ViewToggleProps {
@@ -204,6 +203,7 @@ const ViewToggle: React.FC<ViewToggleProps> = ({ value, onChange }) => (
       title="Карточки"
       className={[
         "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-1",
         value === "cards"
           ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
           : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
@@ -218,6 +218,7 @@ const ViewToggle: React.FC<ViewToggleProps> = ({ value, onChange }) => (
       title="Таблица"
       className={[
         "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-1",
         value === "table"
           ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
           : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
@@ -229,7 +230,7 @@ const ViewToggle: React.FC<ViewToggleProps> = ({ value, onChange }) => (
 );
 
 // ─────────────────────────────────────────────────────────────
-// ExportMenu — тот же slideout-паттерн, что в DocumentsTab
+// ExportMenu
 // ─────────────────────────────────────────────────────────────
 
 interface ExportMenuProps {
@@ -467,7 +468,7 @@ const SortDropdown: React.FC<SortDropdownProps> = ({
 };
 
 // ─────────────────────────────────────────────────────────────
-// CopyableId — полный UUID для карточки
+// CopyableId
 // ─────────────────────────────────────────────────────────────
 
 const CopyableId: React.FC<{ id: string }> = ({ id }) => {
@@ -500,10 +501,10 @@ const CopyableId: React.FC<{ id: string }> = ({ id }) => {
         type="button"
         onClick={handleCopy}
         aria-label={copied ? "Скопировано" : "Скопировать ID"}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)]"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-1"
       >
         {copied ? (
-          <Check className="h-3 w-3 text-[color:var(--color-success-text)]" />
+          <Check className="h-3 w-3 text-[var(--color-success-text)]" />
         ) : (
           <Copy className="h-3 w-3" />
         )}
@@ -564,7 +565,7 @@ const TenantCard: React.FC<TenantCardProps> = ({
     <div className="mt-4 grid grid-cols-2 gap-3">
       <Link
         to={`/admin/tenants/${tenant.id}`}
-        className="group rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2 transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--accent-muted)]"
+        className="group rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2 transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
       >
         <div className="flex items-center gap-1.5">
           <Users className="h-3.5 w-3.5 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]" />
@@ -579,7 +580,7 @@ const TenantCard: React.FC<TenantCardProps> = ({
 
       <Link
         to={`/admin/tenants/${tenant.id}/projects`}
-        className="group rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2 transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--accent-muted)]"
+        className="group rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2 transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
       >
         <div className="flex items-center gap-1.5">
           <FolderOpen className="h-3.5 w-3.5 text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]" />
@@ -657,7 +658,6 @@ const AdminPage: React.FC = () => {
   const deactivateMutation = useDeactivateTenant();
   const activateMutation = useActivateTenant();
 
-  // Persist UI preferences
   useEffect(() => {
     writeToLS(LS_VIEW_MODE, viewMode);
   }, [viewMode]);
@@ -689,7 +689,6 @@ const AdminPage: React.FC = () => {
     setSortDir(dir);
   };
 
-  // ── Данные: фильтрация + сортировка ─────────────────────────
   const tenantList = tenants ?? [];
   const totalCount = tenantList.length;
   const activeCount = tenantList.filter((t) => t.is_active).length;
@@ -701,13 +700,6 @@ const AdminPage: React.FC = () => {
 
   const isSearching = searchQuery.trim().length > 0;
   const filteredCount = processedList.length;
-
-  // ── Экспорт: паттерн 1-в-1 как в DocumentsTab ───────────────
-  //
-  // Обработчики вызывают функции из adminExports.
-  // При смене клиентской имплементации на серверную —
-  // достаточно поменять тело exportTenantsExcel/Word/PDF,
-  // здесь ничего не поменяется.
 
   const handleExportExcel = async () => {
     try {
@@ -740,49 +732,51 @@ const AdminPage: React.FC = () => {
   };
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-      <div className="animate-fadein space-y-6">
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
 
-        {/* ── Заголовок страницы ───────────────────────────── */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-              Клиенты
-            </h1>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Всего: {totalCount}
-              <span className="mx-1.5">·</span>
-              Активных: {activeCount}
-              <span className="mx-1.5">·</span>
-              <label className="inline-flex cursor-pointer items-center gap-1.5 align-middle hover:text-[var(--text-secondary)]">
-                <input
-                  type="checkbox"
-                  checked={includeInactive}
-                  onChange={(e) => setIncludeInactive(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded border-[var(--border)] align-middle"
-                />
-                Показать деактивированных
-              </label>
-            </p>
+        {/* ── Шапка ───────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                Клиенты
+              </h1>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Всего: {totalCount}
+                <span className="mx-1.5 text-[var(--text-muted)]">·</span>
+                Активных: {activeCount}
+                <span className="mx-1.5 text-[var(--text-muted)]">·</span>
+                <label className="inline-flex cursor-pointer items-center gap-1.5 align-middle hover:text-[var(--text-primary)]">
+                  <input
+                    type="checkbox"
+                    checked={includeInactive}
+                    onChange={(e) => setIncludeInactive(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-[var(--border)] align-middle"
+                  />
+                  Показать деактивированных
+                </label>
+              </p>
+            </div>
+
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => navigate("/admin/tenants/new")}
+              leftIcon={<Plus className="h-4 w-4" />}
+            >
+              Новый клиент
+            </Button>
           </div>
-
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => navigate("/admin/tenants/new")}
-            leftIcon={<Plus className="h-4 w-4" />}
-          >
-            Новый клиент
-          </Button>
         </header>
 
-        {/* ── Sticky панель управления ───────────────────────── */}
+        {/* ── Sticky панель управления ─────────────────────────── */}
         {!isLoading && !error && totalCount > 0 && (
           <div
             className={[
-              "sticky -top-6 z-10 -mx-6 md:-top-8 md:-mx-8",
+              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
               "border-b border-[var(--border-soft)] bg-[var(--bg-surface)]/95",
-              "px-6 py-3 backdrop-blur-sm md:px-8",
+              "px-4 py-3 backdrop-blur-sm md:px-5",
             ].join(" ")}
           >
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -792,7 +786,6 @@ const AdminPage: React.FC = () => {
                   onChange={setSearchQuery}
                   placeholder="Поиск по названию, slug или ID…"
                 />
-
                 {isSearching && (
                   <p className="hidden text-xs text-[var(--text-muted)] sm:block">
                     Найдено: {filteredCount} из {totalCount}
@@ -827,7 +820,7 @@ const AdminPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Скелетон ───────────────────────────────────────── */}
+        {/* ── Скелетон ─────────────────────────────────────────── */}
         {isLoading && (
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {[1, 2, 3, 4].map((i) => (
@@ -843,14 +836,14 @@ const AdminPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Ошибка ─────────────────────────────────────────── */}
+        {/* ── Ошибка ───────────────────────────────────────────── */}
         {error && !isLoading && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+          <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-5 text-sm text-[var(--color-error-text)]">
             Не удалось загрузить список клиентов.
           </div>
         )}
 
-        {/* ── Список пуст ────────────────────────────────────── */}
+        {/* ── Список пуст ──────────────────────────────────────── */}
         {!isLoading && !error && totalCount === 0 && (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <Building2 className="mx-auto mb-3 h-8 w-8 text-[var(--text-muted)]" />
@@ -869,7 +862,7 @@ const AdminPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Ничего не найдено ─────────────────────────────── */}
+        {/* ── Ничего не найдено ────────────────────────────────── */}
         {!isLoading && !error && totalCount > 0 && filteredCount === 0 && (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <Search className="mx-auto mb-3 h-8 w-8 text-[var(--text-muted)]" />
@@ -888,7 +881,7 @@ const AdminPage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Список клиентов ────────────────────────────────── */}
+        {/* ── Список клиентов ──────────────────────────────────── */}
         {!isLoading && !error && filteredCount > 0 && (
           <>
             {viewMode === "cards" ? (
@@ -905,9 +898,7 @@ const AdminPage: React.FC = () => {
                       setConfirmTarget(tenant);
                       setConfirmAction("activate");
                     }}
-                    onManage={() =>
-                      navigate(`/admin/tenants/${tenant.id}`)
-                    }
+                    onManage={() => navigate(`/admin/tenants/${tenant.id}`)}
                   />
                 ))}
               </div>

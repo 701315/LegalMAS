@@ -25,15 +25,25 @@ function getChecksModeLabel(mode?: string | null) {
 function getStatusTone(status?: string | null) {
   switch (status) {
     case "completed":
-      return "bg-[var(--success-bg,rgba(67,122,34,0.12))] text-[var(--success-fg,#2f5d18)] border-[rgba(67,122,34,0.18)]";
+      return (
+        "bg-[var(--color-success-bg)] " +
+        "text-[var(--color-success-text)] " +
+        "border-[var(--color-success-border)]"
+      );
     case "in_progress":
-      return "bg-[var(--accent-muted)] text-[var(--accent-primary)] border-[rgba(1,105,111,0.18)]";
+      return (
+        "bg-[var(--accent-muted)] " +
+        "text-[var(--accent-primary)] " +
+        "border-[color:color-mix(in_oklab,var(--accent-primary)_20%,transparent)]"
+      );
     case "draft":
-      return "bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)] border-[var(--border-soft)]";
     case "created":
-      return "bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)] border-[var(--border-soft)]";
     default:
-      return "bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)] border-[var(--border-soft)]";
+      return (
+        "bg-[var(--bg-elevated-soft)] " +
+        "text-[var(--text-secondary)] " +
+        "border-[var(--border-soft)]"
+      );
   }
 }
 
@@ -44,13 +54,31 @@ const DealCard: React.FC<Props> = ({ deal, onClick, isActive = false }) => {
     ? "border-[var(--accent-primary)] bg-[var(--accent-muted)]/40 shadow-md ring-1 ring-[var(--accent-primary)]/10"
     : "border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] hover:-translate-y-0.5 hover:shadow-md";
 
+  const interactiveProps = onClick
+    ? {
+        role: "button" as const,
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick();
+          }
+        },
+      }
+    : {};
+
   return (
     <div
-      onClick={onClick}
+      {...interactiveProps}
       className={[
-        "w-full cursor-pointer rounded-[24px] border p-4 transition-all duration-200",
+        "w-full rounded-[24px] border p-4 transition-all duration-200",
+        onClick
+          ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
+          : "cursor-default",
         stateClasses,
       ].join(" ")}
+      aria-label={onClick ? `Открыть проект ${deal.name}` : undefined}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -136,7 +164,5 @@ const DealCard: React.FC<Props> = ({ deal, onClick, isActive = false }) => {
 };
 
 export default DealCard;
-
-
 
 

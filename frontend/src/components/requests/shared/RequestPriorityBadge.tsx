@@ -1,6 +1,5 @@
 // =============================================================
 // src/components/requests/shared/RequestPriorityBadge.tsx
-// Shared UI компонент для отображения приоритета DD-запроса.
 // =============================================================
 
 import React from "react";
@@ -19,18 +18,18 @@ function cn(...classes: Array<string | false | null | undefined>) {
 
 const PRIORITY_TONE: Record<RequestPriority, string> = {
   critical:
-    "border-[color:color-mix(in_oklab,var(--color-error)_22%,transparent)] bg-[var(--color-error-highlight)] text-[var(--color-error)]",
+    "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
   high:
-    "border-[color:color-mix(in_oklab,var(--color-orange)_22%,transparent)] bg-[var(--color-orange-highlight)] text-[var(--color-orange)]",
+    "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
   medium:
-    "border-[color:color-mix(in_oklab,var(--color-gold)_22%,transparent)] bg-[var(--color-gold-highlight)] text-[var(--color-gold-hover)]",
+    "border-[color:color-mix(in_oklab,var(--color-gold)_22%,transparent)] bg-[var(--color-gold-highlight)] text-[var(--color-gold-text)]",
   low:
     "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]",
 };
 
 const PRIORITY_DOT_TONE: Record<RequestPriority, string> = {
   critical: "bg-[var(--color-error)]",
-  high: "bg-[var(--color-orange)]",
+  high: "bg-[var(--color-warning)]",
   medium: "bg-[var(--color-gold)]",
   low: "bg-[var(--text-muted)]",
 };
@@ -76,6 +75,5 @@ export const RequestPriorityBadge: React.FC<RequestPriorityBadgeProps> = ({
 };
 
 export default RequestPriorityBadge;
-
 
 

@@ -41,20 +41,20 @@ function SeverityBadge({ severity }: { severity: string }) {
   const config: Record<string, { label: string; cls: string }> = {
     critical: {
       label: "CRITICAL",
-      cls: "border-red-400/60 bg-red-100 text-red-800",
+      cls: "status-border-error status-bg-error status-text-error",
     },
     warning: {
       label: "WARNING",
-      cls: "border-yellow-400/60 bg-yellow-50 text-yellow-800",
+      cls: "status-border-warning status-bg-warning status-text-warning",
     },
     info: {
       label: "INFO",
-      cls: "border-blue-400/60 bg-blue-50 text-blue-800",
+      cls: "border-[var(--color-blue)/20] bg-[var(--color-blue-highlight)] text-[var(--color-blue-strong)]",
     },
   };
   const c = config[severity] ?? {
     label: severity.toUpperCase(),
-    cls: "border-gray-300 bg-gray-50 text-gray-700",
+    cls: "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]",
   };
   return (
     <span
@@ -68,10 +68,10 @@ function SeverityBadge({ severity }: { severity: string }) {
 function SourceBadge({ source }: { source: string | null }) {
   if (!source) return null;
   const config: Record<string, { label: string; cls: string }> = {
-    prometheus: { label: "Prometheus", cls: "bg-red-50 text-red-700" },
-    loki: { label: "Loki", cls: "bg-orange-50 text-orange-700" },
+    prometheus: { label: "Prometheus", cls: "status-bg-error status-text-error" },
+    loki: { label: "Loki", cls: "bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]" },
   };
-  const c = config[source] ?? { label: source, cls: "bg-gray-50 text-gray-700" };
+  const c = config[source] ?? { label: source, cls: "bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]" };
   return (
     <span
       className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${c.cls}`}
@@ -95,11 +95,11 @@ function AlertCard({ alert }: { alert: ActiveAlertDTO }) {
       >
         <div className="mt-0.5 shrink-0">
           {alert.severity === "critical" ? (
-            <AlertTriangle size={16} className="text-red-500" />
+            <AlertTriangle size={16} className="text-[var(--color-error)]" />
           ) : alert.severity === "warning" ? (
-            <AlertTriangle size={16} className="text-yellow-500" />
+            <AlertTriangle size={16} className="text-[var(--color-warning)]" />
           ) : (
-            <Info size={16} className="text-blue-500" />
+            <Info size={16} className="text-[var(--color-blue)]" />
           )}
         </div>
 
@@ -226,7 +226,7 @@ export function AlertsPanel() {
 
   if (error || !data) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="status-border-error status-bg-error status-text-error rounded-lg border p-4 text-sm">
         Не удалось загрузить алерты. Проверьте что Alertmanager запущен.
       </div>
     );
@@ -234,11 +234,11 @@ export function AlertsPanel() {
 
   if (!data.alertmanager_available) {
     return (
-      <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-        <p className="text-sm font-medium text-yellow-800">
+      <div className="status-border-warning status-bg-warning rounded-lg border p-4">
+        <p className="text-sm font-medium status-text-warning">
           Alertmanager недоступен
         </p>
-        <p className="mt-1 text-xs text-yellow-700">
+        <p className="mt-1 text-xs status-text-warning">
           Убедитесь что контейнер mas_alertmanager запущен и доступен
           по адресу из ALERTMANAGER_INTERNAL_URL.
         </p>
@@ -256,35 +256,35 @@ export function AlertsPanel() {
       {/* Summary */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-            <div className="text-[10px] font-medium uppercase text-red-600">
+          <div className="status-border-error status-bg-error rounded-lg border px-3 py-2">
+            <div className="text-[10px] font-medium uppercase status-text-error">
               Critical
             </div>
-            <div className="text-lg font-bold text-red-700">
+            <div className="text-lg font-bold status-text-error">
               {data.critical_count}
             </div>
           </div>
-          <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2">
-            <div className="text-[10px] font-medium uppercase text-yellow-600">
+          <div className="status-border-warning status-bg-warning rounded-lg border px-3 py-2">
+            <div className="text-[10px] font-medium uppercase status-text-warning">
               Warning
             </div>
-            <div className="text-lg font-bold text-yellow-700">
+            <div className="text-lg font-bold status-text-warning">
               {data.warning_count}
             </div>
           </div>
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
-            <div className="text-[10px] font-medium uppercase text-blue-600">
+          <div className="rounded-lg border px-3 py-2 bg-[var(--color-blue-highlight)] border-[var(--color-blue)/20]">
+            <div className="text-[10px] font-medium uppercase text-[var(--color-blue-strong)]">
               Info
             </div>
-            <div className="text-lg font-bold text-blue-700">
+            <div className="text-lg font-bold text-[var(--color-blue-strong)]">
               {data.info_count}
             </div>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-            <div className="text-[10px] font-medium uppercase text-gray-600">
+          <div className="rounded-lg border px-3 py-2 border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]">
+            <div className="text-[10px] font-medium uppercase text-[var(--text-secondary)]">
               Всего
             </div>
-            <div className="text-lg font-bold text-gray-700">
+            <div className="text-lg font-bold text-[var(--text-primary)]">
               {data.active_count}
             </div>
           </div>
@@ -319,13 +319,13 @@ export function AlertsPanel() {
 
       {/* Alerts list */}
       {filteredAlerts.length === 0 ? (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center">
-          <p className="text-sm font-medium text-green-800">
+        <div className="status-border-success status-bg-success rounded-lg border p-6 text-center">
+          <p className="text-sm font-medium status-text-success">
             {data.active_count === 0
               ? "Активных алертов нет"
               : "Нет алертов с выбранным severity"}
           </p>
-          <p className="mt-1 text-xs text-green-700">
+          <p className="mt-1 text-xs status-text-success">
             Система работает нормально
           </p>
         </div>

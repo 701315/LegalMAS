@@ -40,7 +40,6 @@ const AdminTenantNewPage: React.FC = () => {
 
   const handleNameChange = (value: string) => {
     setName(value);
-    // Автогенерация slug из названия, пока пользователь не менял его вручную
     if (!slug || slug === autoSlug(name)) {
       setSlug(autoSlug(value));
     }
@@ -79,15 +78,15 @@ const AdminTenantNewPage: React.FC = () => {
   };
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-      <div className="animate-fadein space-y-8">
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
 
-        {/* ── Заголовок страницы (на фоне, без карточки) ────── */}
-        <header>
+        {/* ── Шапка ───────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
           <button
             type="button"
             onClick={() => navigate("/admin")}
-            className="mb-2 flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+            className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Все клиенты
@@ -96,99 +95,155 @@ const AdminTenantNewPage: React.FC = () => {
           <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
             Новый клиент
           </h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
             Создайте нового клиента системы. После создания можно будет
             добавить его пользователей.
           </p>
         </header>
 
-        {/* ── Ошибка ───────────────────────────────────────── */}
+        {/* ── Ошибка ───────────────────────────────────────────── */}
         {errorText && (
-          <div className="max-w-2xl rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3 text-sm text-[var(--color-error-text)]">
             {errorText}
           </div>
         )}
 
-        {/* ── Форма ────────────────────────────────────────── */}
-        <section className="max-w-2xl rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="tenant-name"
-                className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-              >
-                Название клиента *
-              </label>
-              <input
-                id="tenant-name"
-                type="text"
-                value={name}
-                onChange={(e) => handleNameChange(e.target.value)}
-                className="input-base w-full"
-                placeholder="Например: Ромашка Лигал"
-                autoComplete="off"
-              />
-            </div>
+        {/* ── Форма + подсказки ────────────────────────────────── */}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="tenant-slug"
-                className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-              >
-                Slug *
-              </label>
-              <input
-                id="tenant-slug"
-                type="text"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                className="input-base w-full font-mono"
-                placeholder="romashka-legal"
-                autoComplete="off"
-              />
-              <p className="text-xs text-[var(--text-muted)]">
-                Только строчные латинские буквы, цифры и дефис.
-                Генерируется автоматически из названия.
-              </p>
-            </div>
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="tenant-name"
+                  className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                >
+                  Название клиента *
+                </label>
+                <input
+                  id="tenant-name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  className="input-base w-full"
+                  placeholder="Например: Ромашка Лигал"
+                  autoComplete="off"
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="tenant-notes"
-                className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-              >
-                Заметки
-              </label>
-              <textarea
-                id="tenant-notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="input-base w-full resize-none"
-                rows={3}
-                placeholder="Произвольные заметки администратора..."
-              />
-            </div>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="tenant-slug"
+                  className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                >
+                  Slug *
+                </label>
+                <input
+                  id="tenant-slug"
+                  type="text"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  className="input-base w-full font-mono"
+                  placeholder="romashka-legal"
+                  autoComplete="off"
+                />
+                <p className="text-xs text-[var(--text-muted)]">
+                  Только строчные латинские буквы, цифры и дефис.
+                  Генерируется автоматически из названия.
+                </p>
+              </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] pt-4">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => navigate("/admin")}
-              >
-                Отмена
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                size="sm"
-                isLoading={createMutation.isPending}
-              >
-                {createMutation.isPending ? "Создаём…" : "Создать клиента"}
-              </Button>
-            </div>
-          </form>
-        </section>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="tenant-notes"
+                  className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                >
+                  Заметки
+                </label>
+                <textarea
+                  id="tenant-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="input-base w-full resize-none"
+                  rows={3}
+                  placeholder="Произвольные заметки администратора..."
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] pt-4">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate("/admin")}
+                >
+                  Отмена
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  isLoading={createMutation.isPending}
+                >
+                  {createMutation.isPending ? "Создаём…" : "Создать клиента"}
+                </Button>
+              </div>
+            </form>
+          </section>
+
+          {/* Подсказки */}
+          <aside className="space-y-4">
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                Что такое slug?
+              </h2>
+              <div className="mt-3 space-y-2 text-xs text-[var(--text-secondary)]">
+                <p>
+                  Slug — уникальный технический идентификатор клиента в URL
+                  и системных конфигурациях.
+                </p>
+                <p>
+                  Используется только латинские буквы в нижнем регистре,
+                  цифры и дефис. Например:{" "}
+                  <code className="rounded bg-[var(--bg-elevated-soft)] px-1 font-mono text-[11px] text-[var(--text-primary)]">
+                    romashka-legal
+                  </code>
+                </p>
+                <p>
+                  Slug генерируется автоматически из названия, но можно
+                  задать вручную.
+                </p>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                После создания
+              </h2>
+              <div className="mt-3 space-y-3">
+                <div className="subtle-panel px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                    Шаг 1
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    Откроется страница клиента — можно сразу добавить
+                    пользователей.
+                  </p>
+                </div>
+                <div className="subtle-panel px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                    Шаг 2
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    Tenant admin клиента сможет настроить организацию:
+                    участников, playbooks, инструкции.
+                  </p>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </div>
+
       </div>
     </div>
   );

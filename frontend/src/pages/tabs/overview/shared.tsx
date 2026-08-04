@@ -11,9 +11,9 @@ export const StatusRow: React.FC<{
 }> = ({ label, value, tone = "neutral" }) => {
   const toneClass =
     tone === "ok"
-      ? "text-emerald-600"
+      ? "text-[var(--color-success-text)]"
       : tone === "warn"
-        ? "text-amber-600"
+        ? "text-[var(--color-warning-text)]"
         : "text-[var(--text-primary)]";
 
   return (

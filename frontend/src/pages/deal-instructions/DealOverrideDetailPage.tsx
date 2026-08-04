@@ -29,7 +29,7 @@ import type {
 } from "../../types/instructions";
 
 const inputClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const DealOverrideDetailPage: React.FC = () => {
   const { dealId, docType: overrideId } = useParams<{
@@ -295,7 +295,7 @@ const DealOverrideDetailPage: React.FC = () => {
         )}
 
         {/* Validation */}
-        {(override.status === "draft") && (
+        {override.status === "draft" && (
           <PageSection title="Валидация">
             <div className="space-y-3">
               {validationResult && (
@@ -303,16 +303,16 @@ const DealOverrideDetailPage: React.FC = () => {
                   className={[
                     "rounded-xl border px-4 py-3",
                     validationResult.is_valid
-                      ? "border-[color:var(--color-success-border)] bg-[color:var(--color-success-bg)]"
-                      : "border-[#dc2626]/30 bg-[#fef2f2]",
+                      ? "border-[var(--color-success-border)] bg-[var(--color-success-bg)]"
+                      : "border-[var(--color-error-border)] bg-[var(--color-error-bg)]",
                   ].join(" ")}
                 >
                   <div
                     className={[
                       "text-xs font-semibold",
                       validationResult.is_valid
-                        ? "text-[color:var(--color-success-text)]"
-                        : "text-[#b91c1c]",
+                        ? "text-[var(--color-success-text)]"
+                        : "text-[var(--color-error-text)]",
                     ].join(" ")}
                   >
                     {validationResult.is_valid
@@ -322,7 +322,7 @@ const DealOverrideDetailPage: React.FC = () => {
                   {validationResult.errors.length > 0 && (
                     <ul className="mt-2 space-y-1">
                       {validationResult.errors.map((e, i) => (
-                        <li key={i} className="text-[11px] text-[#b91c1c]">
+                        <li key={i} className="text-[11px] text-[var(--color-error-text)]">
                           • {e}
                         </li>
                       ))}
@@ -350,7 +350,7 @@ const DealOverrideDetailPage: React.FC = () => {
 
         {/* Actions */}
         <PageSection title="Действия">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap items-center gap-2">
             {canActivate && (
               <Button
                 variant="primary"
@@ -363,7 +363,7 @@ const DealOverrideDetailPage: React.FC = () => {
               </Button>
             )}
             {override.is_stale && (
-              <p className="text-[11px] text-[#b91c1c]">
+              <p className="text-[11px] text-[var(--color-error-text)]">
                 Выполните rebase перед активацией.
               </p>
             )}
@@ -398,5 +398,6 @@ const DealOverrideDetailPage: React.FC = () => {
 };
 
 export default DealOverrideDetailPage;
+
 
 

@@ -36,7 +36,7 @@ const ROW_HIGHLIGHT_RECLASSIFY =
   "bg-[color:color-mix(in_srgb,var(--accent-primary)_6%,transparent)]";
 
 const ROW_HIGHLIGHT_PLAYBOOK =
-  "bg-[color:color-mix(in_srgb,var(--color-blue,#3b82f6)_6%,transparent)]";
+  "bg-[color:color-mix(in_srgb,var(--color-blue)_6%,transparent)]";
 
 const AuditActionFilterInlinePanel: React.FC<{
   selectedAction: string;
@@ -169,7 +169,9 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                 onClick={() => setIsActionFilterOpen((prev) => !prev)}
                 aria-expanded={isActionFilterOpen}
                 aria-controls="audit-action-filter-panel"
-                className={isActionFilterOpen ? FILTER_BUTTON_ACTIVE_CLASS : ""}
+                className={
+                  isActionFilterOpen ? FILTER_BUTTON_ACTIVE_CLASS : ""
+                }
               >
                 {currentFilterLabel}
               </Button>
@@ -209,7 +211,7 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
         bodyClassName="flex h-full min-h-0 flex-col"
       >
         {viewMode === "classification_audit" ? (
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex min-h-0 flex-1 flex-col">
             <ClassificationAuditView dealId={dealId} />
           </div>
         ) : (
@@ -235,7 +237,7 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
               {isLoading ? (
                 <div className="flex flex-1 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-16">
                   <Loader2
-                    className="mr-3 animate-spin text-[var(--accent)]"
+                    className="mr-3 animate-spin text-[var(--accent-primary)]"
                     size={20}
                   />
                   <span className="text-sm text-[var(--text-muted)]">
@@ -244,7 +246,6 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                 </div>
               ) : (
                 <>
-                  {/* Scroll viewport только для таблицы */}
                   <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
                     {items.length > 0 ? (
                       <div className="h-full overflow-y-auto overflow-x-auto">
@@ -369,7 +370,8 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                             Записи не найдены
                           </p>
                           <p className="text-xs text-[var(--text-muted)]">
-                            Журнал пока пуст или не подходит под текущий фильтр.
+                            Журнал пока пуст или не подходит под текущий
+                            фильтр.
                           </p>
                         </div>
                       </div>

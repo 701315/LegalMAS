@@ -1,12 +1,7 @@
-// =============================================================
 // src/components/ui/QcStatusBadge.tsx
-// Переиспользуемый presentational бейдж для отображения qc_status
-// review-ячейки (approved / rejected / needs_review / pending).
-// =============================================================
 
 import React from "react";
 import { CheckCircle2, Clock, RotateCcw, ShieldAlert } from "lucide-react";
-
 import type { ReviewQcStatus } from "../../types/dealReview";
 
 interface QcStatusBadgeProps {
@@ -32,31 +27,38 @@ function getVisual(
       return {
         label: "Approved",
         toneClass:
-          "border-[color:color-mix(in_oklab,var(--color-success)_30%,transparent)] bg-[var(--color-success-highlight)] text-[var(--color-success)]",
+          "border-[var(--color-success-border)] " +
+          "bg-[var(--color-success-bg)] " +
+          "text-[var(--color-success-text)]",
         icon: <CheckCircle2 width={iconSize} height={iconSize} />,
       };
     case "rejected":
       return {
         label: "Rejected",
         toneClass:
-          "border-[color:color-mix(in_oklab,var(--color-error)_30%,transparent)] bg-[var(--color-error-highlight)] text-[var(--color-error)]",
+          "border-[var(--color-error-border)] " +
+          "bg-[var(--color-error-bg)] " +
+          "text-[var(--color-error-text)]",
         icon: <ShieldAlert width={iconSize} height={iconSize} />,
       };
     case "needs_review":
       return {
         label: "Needs review",
         toneClass:
-          "border-[color:color-mix(in_oklab,var(--color-warning)_30%,transparent)] bg-[var(--color-warning-highlight)] text-[var(--color-warning)]",
+          "border-[var(--color-warning-border)] " +
+          "bg-[var(--color-warning-bg)] " +
+          "text-[var(--color-warning-text)]",
         icon: <RotateCcw width={iconSize} height={iconSize} />,
       };
     case "pending":
-      // Pending — это default-state, не показываем бейдж, чтобы не шуметь.
       return null;
     default:
       return {
         label: String(status),
         toneClass:
-          "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]",
+          "border-[var(--border-subtle)] " +
+          "bg-[var(--bg-elevated-soft)] " +
+          "text-[var(--text-secondary)]",
         icon: <Clock width={iconSize} height={iconSize} />,
       };
   }

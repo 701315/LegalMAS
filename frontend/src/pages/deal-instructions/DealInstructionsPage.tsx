@@ -27,7 +27,7 @@ const DealInstructionsPage: React.FC = () => {
             onClick={() =>
               navigate(`/projects/${dealId}/instructions/overrides`)
             }
-            className="block rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 text-left transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--bg-elevated-soft)]"
+            className="block rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 text-left transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
           >
             <div className="flex items-start gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-muted)]">

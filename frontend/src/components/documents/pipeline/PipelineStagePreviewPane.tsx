@@ -25,17 +25,7 @@ interface Props {
   onClose: () => void;
 }
 
-// ── Какие kinds поддерживают friendly-режим ─────────────────────────
-//
-// structure — friendly = enriched text из CHUNKS
-// chunks    — friendly = RAG-visible corpus (retrieval truth)
 const FRIENDLY_SUPPORTED_KINDS: PipelineStageKind[] = ["structure", "chunks"];
-
-// ── Какие kinds открываются в friendly по умолчанию ─────────────────
-//
-// CHUNKS: продуктовая логика — показать пользователю базу RAG-анализа.
-// По умолчанию friendly, потому что это retrieval truth.
-// STRUCTURE: по умолчанию canonical (clause tree).
 const FRIENDLY_DEFAULT_KINDS: PipelineStageKind[] = ["chunks"];
 
 function supportsFriendlyMode(stage: PipelineStageViewDTO): boolean {
@@ -43,12 +33,10 @@ function supportsFriendlyMode(stage: PipelineStageViewDTO): boolean {
 }
 
 function getDefaultViewMode(stage: PipelineStageViewDTO): StageViewMode {
-  // Если backend уже явно прислал view_mode — уважаем его.
   const backendMode = stage.representation?.view_mode;
   if (backendMode === "friendly" || backendMode === "canonical") {
     return backendMode;
   }
-  // Иначе — по продуктовой логике.
   if (FRIENDLY_DEFAULT_KINDS.includes(stage.kind)) {
     return "friendly";
   }
@@ -71,8 +59,6 @@ function getErrorMessage(err: unknown): string {
   return "Не удалось переключить режим отображения стадии";
 }
 
-// ── Подписи кнопки toggle для разных kinds ──────────────────────────
-
 function getToggleLabels(kind: PipelineStageKind): {
   toFriendly: string;
   toCanonical: string;
@@ -90,7 +76,6 @@ function getToggleLabels(kind: PipelineStageKind): {
     };
   }
 
-  // Default (structure и другие)
   return {
     toFriendly: "Friendly формат",
     toCanonical: "Canonical формат",
@@ -121,7 +106,6 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
     setCurrentStage(stage ?? null);
     setCurrentStages(stages);
     setError(null);
-    // Используем smart default вместо hardcoded "canonical"
     setViewMode(stage ? getDefaultViewMode(stage) : "canonical");
   }, [stage, stages]);
 
@@ -290,7 +274,7 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Закрыть панель стадии пайплайна"
           >
             <X size={16} />
@@ -299,7 +283,7 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
       </div>
 
       {error && (
-        <div className="mx-5 mt-4 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-4 py-3 text-sm text-[var(--color-error-strong)]">
+        <div className="mx-5 mt-4 rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3 text-sm text-[var(--color-error-text)]">
           {error}
         </div>
       )}
@@ -312,7 +296,5 @@ export const PipelineStagePreviewPane: React.FC<Props> = ({
 };
 
 export default PipelineStagePreviewPane;
-
-
 
 

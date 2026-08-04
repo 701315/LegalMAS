@@ -3,10 +3,10 @@
 ./src/styles/ag-theme-legalmas.css:233:  border-radius: 0.875rem;
 ./src/styles/ag-theme-legalmas.css:266:  border-radius: 999px;
 ./src/marketing/components/home/ApplicationSection/ApplicationSection.module.css:108:  border-radius: 50%;
-./src/index.css:237:  border-radius: 4px;
-./src/index.css:291:  border-radius: 6px;
-./src/index.css:382:    border-radius: 9999px;
-./src/index.css:416:    border-radius: 9999px;
-./src/index.css:469:    border-radius: 9999px;
-./src/index.css:525:    border-radius: 0 2px 2px 0;
-./src/index.css:548:    border-radius: 2px 2px 0 0;
+./src/index.css:376:  border-radius: 4px;
+./src/index.css:435:  border-radius: 6px;
+./src/index.css:528:    border-radius: 9999px;
+./src/index.css:561:    border-radius: 9999px;
+./src/index.css:610:    border-radius: 9999px;
+./src/index.css:666:    border-radius: 0 2px 2px 0;
+./src/index.css:688:    border-radius: 2px 2px 0 0;

@@ -41,7 +41,7 @@ const StageRow: React.FC<{ stage: LLMStageUsage }> = ({ stage }) => {
         <p className="text-[10px] text-[var(--text-muted)]">
           {stage.calls} вызовов
           {stage.parse_failures > 0 && (
-            <span className="ml-1 text-[var(--color-warning)]">
+            <span className="ml-1 text-[var(--color-warning-text)]">
               · {stage.parse_failures} ошибок
             </span>
           )}
@@ -126,7 +126,7 @@ export const LLMUsageWidget: React.FC<LLMUsageWidgetProps> = ({
         <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
           Итого токенов
         </p>
-        <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--text-primary)]">
+        <p className="mt-1 text-xl font-semibold tracking-tight tabular-nums text-[var(--text-primary)]">
           {formatTokens(data.total_tokens)}
         </p>
         <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">

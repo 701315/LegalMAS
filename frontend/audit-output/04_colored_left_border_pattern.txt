@@ -1,5 +1,5 @@
-./src/styles/ag-theme-legalmas.css:326:  border-left: 3px solid var(--accent-primary) !important;
-./src/index.css:575:    border-left: 3px solid var(--app-active-indicator);
+./src/styles/ag-theme-legalmas.css:324:  border-left: 3px solid var(--accent-primary) !important;
+./src/index.css:713:    border-left: 3px solid var(--app-active-indicator);
 ./src/marketing/components/security/SecurityFAQSection.tsx:192:            <div className="border-l-2 border-[#D6D0C7] pl-5 py-2">
 ./src/marketing/components/security/SecurityCapabilitiesSection.tsx:109:    editorial: 'border-l-2 border-[var(--color-border)] pl-6 lg:pl-8',
 ./src/marketing/components/about/AboutPrinciplesSection.tsx:21:              <div className="border-l-2 border-[var(--color-border)] pl-6">

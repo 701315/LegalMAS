@@ -1,38 +1,7 @@
 // =============================================================
 // src/pages/tabs/dd-grid-v1/DDGridV1Matrix.tsx
 // V1-specific матрица DD Grid.
-//
-// Иерархия column groups (сверху вниз):
-//
-//   TOP-LEVEL SCOPE
-//     "Глобальные проверки"     (top:global)
-//       SCOPE GROUP             (global:<groupId>, например "CONFIDENTIALITY")
-//         CHECK GROUP           (check|<checkNodeKey>)
-//           runtime columns / summary column
-//     "Проверки по типу"        (top:docType)
-//       SCOPE GROUP             (docType:<classId>:<typeCode>)
-//         CHECK GROUP
-//           runtime columns / summary column
-//
-// Иконки collapse:
-// - "+"  когда элемент свёрнут
-// - "-"  когда элемент раскрыт
-//
-// Правила collapse:
-// - Q16 = A: групповой collapse НЕ трогает индивидуальное состояние check-ов;
-// - Q17 = C: collapsed group / top-level полностью скрывает свои дочерние
-//   колонки — от группы остаётся только header с "+", клик разворачивает;
-// - Q18 = A: состояние групп персистится в store симметрично checks.
-//
-// Правила общего характера:
-// - никаких хардкодов check_id / column_id / doc_type;
-// - для runtime columns source of truth — V1 model/runtimeKey;
-// - для details drawer source of truth — legacy-adapted MatrixCellDTO
-//   из ReviewGridRow.cellsByCheckId[checkId];
-// - для instruction snapshot source of truth — DDGridV1MatrixRow.instructionSnapshot
-//   (per doc_type, приходит батчем в DDGridV1ResponseDTO, без отдельного fetch).
 // =============================================================
-
 
 import React, {
   useCallback,
@@ -55,7 +24,6 @@ import type {
   ValueGetterParams,
 } from "ag-grid-community";
 
-
 import type { OpenViewerAtFn } from "../../../types";
 import type {
   DDGridV1CellState,
@@ -65,17 +33,14 @@ import type {
   ReviewQcStatus,
 } from "../../../types/dealReview";
 
-
 import DDGridV1Drawer from "./DDGridV1Drawer";
 import DDGridV1InstructionDrawer from "./DDGridV1InstructionDrawer";
-
 
 import type {
   ReviewGridRow,
   ReviewCheckColumn,
   ReviewSelectionItem,
 } from "../grid/reviewGrid.types";
-
 
 import type {
   DDGridV1CellView,
@@ -86,49 +51,35 @@ import type {
 import { resolveDDGridV1CellView } from "./ddGridV1.selectors";
 import { useDDGridV1UIStore } from "./ddGridV1.collapseStore";
 
-
 import "ag-grid-community/styles/ag-grid.css";
 import "../../../styles/ag-theme-legalmas.css";
-
 
 // -------------------------------------------------------------
 // Public constants
 // -------------------------------------------------------------
 
-
-/**
- * Стабильные ключи top-level scope buckets.
- * Экспортируются, чтобы другие компоненты (например, будущий toolbar
- * "Свернуть все глобальные") могли переиспользовать одни и те же ключи.
- */
 export const DD_GRID_V1_TOP_LEVEL_KEYS = {
   global: "top:global",
   docType: "top:docType",
 } as const;
 
-
 // -------------------------------------------------------------
 // Internal constants
 // -------------------------------------------------------------
-
 
 const MATRIX_MIN_HEIGHT_PX = 240;
 const MATRIX_MIN_WIDTH_PX = 1200;
 const RUNTIME_COLUMN_MIN_WIDTH_PX = 220;
 
-
 const NO_COLLAPSED_KEYS: ReadonlySet<string> = new Set<string>();
-
 
 // -------------------------------------------------------------
 // Row model
 // -------------------------------------------------------------
 
-
 type V1MatrixGridRow = ReviewGridRow & {
   [key: `check_${string}`]: MatrixCellDTO | undefined;
 };
-
 
 function toV1MatrixGridRow(row: ReviewGridRow): V1MatrixGridRow {
   const checkCells = Object.entries(row.cellsByCheckId).reduce<
@@ -138,18 +89,15 @@ function toV1MatrixGridRow(row: ReviewGridRow): V1MatrixGridRow {
     return acc;
   }, {} as Record<`check_${string}`, MatrixCellDTO | undefined>);
 
-
   return {
     ...row,
     ...checkCells,
   };
 }
 
-
 // -------------------------------------------------------------
 // Column-group planning
 // -------------------------------------------------------------
-
 
 interface V1ScopeGroupPlan {
   groupKey: string;
@@ -158,7 +106,6 @@ interface V1ScopeGroupPlan {
   checks: DDGridV1CheckNode[];
 }
 
-
 interface V1TopLevelPlan {
   topKey: string;
   topLabel: string;
@@ -166,21 +113,12 @@ interface V1TopLevelPlan {
   groups: V1ScopeGroupPlan[];
 }
 
-
-/**
- * Строит top-level buckets:
- *   "Глобальные проверки"      (global groups внутри)
- *   "Проверки по типу"         (doc-type groups внутри)
- *
- * Учитывает visibleCheckIds и удаляет пустые группы.
- */
 function planV1TopLevelBuckets(
   model: DDGridV1DerivedModel,
   visibleCheckIds?: readonly string[],
 ): V1TopLevelPlan[] {
   const visibleSet = visibleCheckIds ? new Set(visibleCheckIds) : null;
   const seenCheckIds = new Set<string>();
-
 
   const globalGroups: V1ScopeGroupPlan[] = [];
   for (const group of model.globalGroups) {
@@ -191,7 +129,6 @@ function planV1TopLevelBuckets(
       checks: [],
     };
 
-
     for (const check of group.checks) {
       if (visibleSet && !visibleSet.has(check.checkId)) continue;
       if (seenCheckIds.has(check.checkId)) continue;
@@ -199,12 +136,10 @@ function planV1TopLevelBuckets(
       plan.checks.push(check);
     }
 
-
     if (plan.checks.length > 0) {
       globalGroups.push(plan);
     }
   }
-
 
   const docTypeGroups: V1ScopeGroupPlan[] = [];
   for (const cls of model.docTypeClasses) {
@@ -216,7 +151,6 @@ function planV1TopLevelBuckets(
         checks: [],
       };
 
-
       for (const check of t.checks) {
         if (visibleSet && !visibleSet.has(check.checkId)) continue;
         if (seenCheckIds.has(check.checkId)) continue;
@@ -224,16 +158,13 @@ function planV1TopLevelBuckets(
         plan.checks.push(check);
       }
 
-
       if (plan.checks.length > 0) {
         docTypeGroups.push(plan);
       }
     }
   }
 
-
   const buckets: V1TopLevelPlan[] = [];
-
 
   if (globalGroups.length > 0) {
     buckets.push({
@@ -244,7 +175,6 @@ function planV1TopLevelBuckets(
     });
   }
 
-
   if (docTypeGroups.length > 0) {
     buckets.push({
       topKey: DD_GRID_V1_TOP_LEVEL_KEYS.docType,
@@ -254,15 +184,12 @@ function planV1TopLevelBuckets(
     });
   }
 
-
   return buckets;
 }
-
 
 // -------------------------------------------------------------
 // Sorting helpers
 // -------------------------------------------------------------
-
 
 function compareDisplayText(a: string, b: string): number {
   return a.localeCompare(b, "ru", {
@@ -271,8 +198,9 @@ function compareDisplayText(a: string, b: string): number {
   });
 }
 
-
-function cellStateSortRank(state: DDGridV1CellState | null | undefined): number {
+function cellStateSortRank(
+  state: DDGridV1CellState | null | undefined,
+): number {
   switch (state) {
     case "defined":
       return 0;
@@ -289,7 +217,6 @@ function cellStateSortRank(state: DDGridV1CellState | null | undefined): number 
   }
 }
 
-
 function compareRuntimeCellViews(
   a: DDGridV1CellView | null,
   b: DDGridV1CellView | null,
@@ -298,20 +225,16 @@ function compareRuntimeCellViews(
   if (!a) return 1;
   if (!b) return -1;
 
-
   const rankDiff =
     cellStateSortRank(a.cellState) - cellStateSortRank(b.cellState);
   if (rankDiff !== 0) return rankDiff;
 
-
   return compareDisplayText(a.displayText, b.displayText);
 }
-
 
 // -------------------------------------------------------------
 // Cell state -> visual tone
 // -------------------------------------------------------------
-
 
 function cellStateToneClass(state: DDGridV1CellState): string {
   switch (state) {
@@ -320,7 +243,7 @@ function cellStateToneClass(state: DDGridV1CellState): string {
     case "not_applicable":
       return "text-[var(--text-muted)] italic";
     case "error":
-      return "text-[var(--color-error)]";
+      return "text-[var(--color-error-text)]";
     case "not_defined":
     case "not_executed":
     default:
@@ -328,11 +251,9 @@ function cellStateToneClass(state: DDGridV1CellState): string {
   }
 }
 
-
 // -------------------------------------------------------------
 // Selection
 // -------------------------------------------------------------
-
 
 function buildSelectionItems(
   event: SelectionChangedEvent<V1MatrixGridRow>,
@@ -346,11 +267,9 @@ function buildSelectionItems(
     });
 }
 
-
 // -------------------------------------------------------------
 // Props
 // -------------------------------------------------------------
-
 
 export interface DDGridV1MatrixProps {
   runId: string;
@@ -358,39 +277,19 @@ export interface DDGridV1MatrixProps {
   rows: ReviewGridRow[];
   columns: ReviewCheckColumn[];
 
-
-  /** Optional title для локальной таблицы (например, конкретного doc_type). */
   title?: string;
-
-
-  /**
-   * Optional whitelist check-ов, которые должны быть показаны в этой таблице.
-   * Если не задан — показываем все check-ids, доступные в модели.
-   */
   visibleCheckIds?: readonly string[];
 
-
-  /**
-   * Глобальное множество свернутых check-ов.
-   */
   collapsedCheckIds?: ReadonlySet<string>;
   onToggleCollapseCheck?: (checkId: string) => void;
 
-
-  /**
-   * Глобальное множество свернутых group keys.
-   * Сюда попадают top-level ключи (DD_GRID_V1_TOP_LEVEL_KEYS.*) и
-   * scope group ключи ("global:<groupId>", "docType:<classId>:<typeCode>").
-   */
   collapsedGroupKeys?: ReadonlySet<string>;
   onToggleCollapseGroup?: (groupKey: string) => void;
-
 
   onOpenAtLocation?: OpenViewerAtFn;
   onSelectionChange?: (selection: ReviewSelectionItem[]) => void;
   clearSelectionToken?: number;
 }
-
 
 interface SelectedCellState {
   open: boolean;
@@ -403,18 +302,15 @@ interface SelectedCellState {
   currentQcComment: string | null;
 }
 
-
 interface SelectedInstructionState {
   open: boolean;
   documentName: string | null;
   snapshot: DDGridV1InstructionSnapshotDTO | null;
 }
 
-
 // -------------------------------------------------------------
 // Shared header components
 // -------------------------------------------------------------
-
 
 type GroupCollapseButtonProps = {
   collapsed: boolean;
@@ -423,24 +319,15 @@ type GroupCollapseButtonProps = {
   variant?: "default" | "strong";
 };
 
-
 const GroupCollapseButton: React.FC<GroupCollapseButtonProps> = ({
   collapsed,
   onClick,
   title,
-  variant = "default",
 }) => {
-  const sizeClass =
-    variant === "strong"
-      ? "h-5 w-5"
-      : "h-5 w-5";
-  const iconSizeClass = variant === "strong" ? "h-3.5 w-3.5" : "h-3.5 w-3.5";
-
-
   return (
     <button
       type="button"
-      className={`inline-flex ${sizeClass} shrink-0 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)]`}
+      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35"
       title={title}
       onClick={(e) => {
         e.preventDefault();
@@ -449,23 +336,20 @@ const GroupCollapseButton: React.FC<GroupCollapseButtonProps> = ({
       }}
     >
       {collapsed ? (
-        <Plus className={iconSizeClass} aria-hidden />
+        <Plus className="h-3.5 w-3.5" aria-hidden />
       ) : (
-        <Minus className={iconSizeClass} aria-hidden />
+        <Minus className="h-3.5 w-3.5" aria-hidden />
       )}
     </button>
   );
 };
 
-
-// Top-level scope header (например, "Глобальные проверки")
 type V1TopLevelHeaderGroupProps = {
   displayName?: string;
   topKey?: string;
   collapsed?: boolean;
   onToggleCollapseGroup?: (groupKey: string) => void;
 };
-
 
 const V1TopLevelHeaderGroup: React.FC<V1TopLevelHeaderGroupProps> = ({
   displayName,
@@ -478,7 +362,6 @@ const V1TopLevelHeaderGroup: React.FC<V1TopLevelHeaderGroupProps> = ({
     topKey.length > 0 &&
     typeof onToggleCollapseGroup === "function";
 
-
   return (
     <div className="flex h-full min-w-0 items-center justify-between gap-2 px-2">
       <span
@@ -488,15 +371,12 @@ const V1TopLevelHeaderGroup: React.FC<V1TopLevelHeaderGroupProps> = ({
         {displayName || "—"}
       </span>
 
-
       {canToggle ? (
         <GroupCollapseButton
           collapsed={collapsed}
           onClick={() => onToggleCollapseGroup?.(topKey!)}
           title={
-            collapsed
-              ? "Развернуть блок проверок"
-              : "Свернуть блок проверок"
+            collapsed ? "Развернуть блок проверок" : "Свернуть блок проверок"
           }
           variant="strong"
         />
@@ -505,15 +385,12 @@ const V1TopLevelHeaderGroup: React.FC<V1TopLevelHeaderGroupProps> = ({
   );
 };
 
-
-// Scope group header (например, "CONFIDENTIALITY")
 type V1ScopeHeaderGroupProps = {
   displayName?: string;
   groupKey?: string;
   collapsed?: boolean;
   onToggleCollapseGroup?: (groupKey: string) => void;
 };
-
 
 const V1ScopeHeaderGroup: React.FC<V1ScopeHeaderGroupProps> = ({
   displayName,
@@ -526,7 +403,6 @@ const V1ScopeHeaderGroup: React.FC<V1ScopeHeaderGroupProps> = ({
     groupKey.length > 0 &&
     typeof onToggleCollapseGroup === "function";
 
-
   return (
     <div className="flex h-full min-w-0 items-center justify-between gap-2 px-2">
       <span
@@ -535,7 +411,6 @@ const V1ScopeHeaderGroup: React.FC<V1ScopeHeaderGroupProps> = ({
       >
         {displayName || "—"}
       </span>
-
 
       {canToggle ? (
         <GroupCollapseButton
@@ -552,15 +427,12 @@ const V1ScopeHeaderGroup: React.FC<V1ScopeHeaderGroupProps> = ({
   );
 };
 
-
-// Check header (например, "Конфиденциальность и коммерческая тайна")
 type V1CheckHeaderGroupProps = {
   displayName?: string;
   checkId?: string;
   collapsed?: boolean;
   onToggleCollapseCheck?: (checkId: string) => void;
 };
-
 
 const V1CheckHeaderGroup: React.FC<V1CheckHeaderGroupProps> = ({
   displayName,
@@ -573,7 +445,6 @@ const V1CheckHeaderGroup: React.FC<V1CheckHeaderGroupProps> = ({
     checkId.length > 0 &&
     typeof onToggleCollapseCheck === "function";
 
-
   return (
     <div className="flex h-full min-w-0 items-center justify-between gap-2 px-2">
       <span
@@ -582,7 +453,6 @@ const V1CheckHeaderGroup: React.FC<V1CheckHeaderGroupProps> = ({
       >
         {displayName || "—"}
       </span>
-
 
       {canToggle ? (
         <GroupCollapseButton
@@ -599,14 +469,11 @@ const V1CheckHeaderGroup: React.FC<V1CheckHeaderGroupProps> = ({
   );
 };
 
-
-// Header для свёрнутой колонки (показывает название и кнопку "+")
 type V1CollapsedHeaderProps = {
   displayName?: string;
   onExpand?: () => void;
   uppercase?: boolean;
 };
-
 
 const V1CollapsedHeader: React.FC<V1CollapsedHeaderProps> = ({
   displayName,
@@ -616,17 +483,21 @@ const V1CollapsedHeader: React.FC<V1CollapsedHeaderProps> = ({
   return (
     <div className="flex h-full min-w-0 items-center justify-between gap-2 px-2">
       <span
-        className={`truncate text-[11px] font-semibold text-[var(--text-primary)] ${uppercase ? "uppercase tracking-[0.06em]" : ""}`}
+        className={[
+          "truncate text-[11px] font-semibold text-[var(--text-primary)]",
+          uppercase ? "uppercase tracking-[0.06em]" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         title={displayName || ""}
       >
         {displayName || "—"}
       </span>
 
-
       {onExpand ? (
         <button
           type="button"
-          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35"
           title="Развернуть"
           onClick={(e) => {
             e.preventDefault();
@@ -641,11 +512,9 @@ const V1CollapsedHeader: React.FC<V1CollapsedHeaderProps> = ({
   );
 };
 
-
 // -------------------------------------------------------------
 // Cell tooltip / export formatting
 // -------------------------------------------------------------
-
 
 function buildRuntimeCellTooltip(
   checkName: string,
@@ -656,17 +525,16 @@ function buildRuntimeCellTooltip(
   return [checkName, `${label}: ${cellView.displayText}`].join("\n");
 }
 
-
-function formatRuntimeCellForExport(cellView: DDGridV1CellView | null): string {
+function formatRuntimeCellForExport(
+  cellView: DDGridV1CellView | null,
+): string {
   if (!cellView) return "";
   return cellView.displayText;
 }
 
-
 // -------------------------------------------------------------
 // Main component
 // -------------------------------------------------------------
-
 
 export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
   runId,
@@ -685,8 +553,9 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
 }) => {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [rootWidth, setRootWidth] = useState<number>(0);
-  const [gridApi, setGridApi] = useState<GridApi<V1MatrixGridRow> | null>(null);
-
+  const [gridApi, setGridApi] = useState<GridApi<V1MatrixGridRow> | null>(
+    null,
+  );
 
   const [selectedCell, setSelectedCell] = useState<SelectedCellState>({
     open: false,
@@ -699,18 +568,12 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     currentQcComment: null,
   });
 
-
-  // Instruction snapshot drawer state.
-  // Отдельный state от selectedCell: разная семантика (per doc_type,
-  // не per check), разный drawer-компонент, разные данные (уже в модели,
-  // без обращения к drawerContents).
   const [selectedInstruction, setSelectedInstruction] =
     useState<SelectedInstructionState>({
       open: false,
       documentName: null,
       snapshot: null,
     });
-
 
   const rowData = useMemo<V1MatrixGridRow[]>(
     () => rows.map(toV1MatrixGridRow),
@@ -722,7 +585,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     [model, visibleCheckIds],
   );
 
-
   const visibleChecksCount = useMemo(
     () =>
       topLevelPlans.reduce(
@@ -733,10 +595,8 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     [topLevelPlans],
   );
 
-
   const collapsedCheckSet = collapsedCheckIds ?? NO_COLLAPSED_KEYS;
   const collapsedGroupSet = collapsedGroupKeys ?? NO_COLLAPSED_KEYS;
-
 
   const columnLookup = useMemo(() => {
     const map = new Map<string, ReviewCheckColumn>();
@@ -744,24 +604,19 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     return map;
   }, [columns]);
 
-
   useEffect(() => {
     const node = rootRef.current;
     if (!node) return;
-
 
     const update = () => {
       setRootWidth(Math.round(node.getBoundingClientRect().width));
     };
 
-
     update();
-
 
     const ro = new ResizeObserver(() => update());
     ro.observe(node);
     const raf = requestAnimationFrame(update);
-
 
     return () => {
       cancelAnimationFrame(raf);
@@ -769,25 +624,24 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     };
   }, []);
 
-
-  // Глобальное состояние для синхронизации drawer'ов между таблицами
   const activeDrawerMatrixTitle = useDDGridV1UIStore(
-    (state) => state.activeDrawerMatrixTitle
+    (state) => state.activeDrawerMatrixTitle,
   );
   const setActiveDrawerMatrixTitle = useDDGridV1UIStore(
-    (state) => state.setActiveDrawerMatrixTitle
+    (state) => state.setActiveDrawerMatrixTitle,
   );
   const currentMatrixTitle = title ?? "default_matrix";
 
-  // Эта таблица показывает drawer ТОЛЬКО если она им владеет
   const isThisMatrixActive = activeDrawerMatrixTitle === currentMatrixTitle;
 
   const isCellDrawerOpen =
-    selectedCell.open && selectedCell.drawerContent !== null && isThisMatrixActive;
-  const isInstructionDrawerOpen = selectedInstruction.open && isThisMatrixActive;
+    selectedCell.open &&
+    selectedCell.drawerContent !== null &&
+    isThisMatrixActive;
+  const isInstructionDrawerOpen =
+    selectedInstruction.open && isThisMatrixActive;
   const isDrawerPanelOpen = isCellDrawerOpen || isInstructionDrawerOpen;
 
-  // Если другая таблица открыла drawer, принудительно закрываем локальное состояние этой
   useEffect(() => {
     if (
       activeDrawerMatrixTitle !== null &&
@@ -804,10 +658,19 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
           currentQcStatus: null,
           currentQcComment: null,
         });
-        setSelectedInstruction({ open: false, documentName: null, snapshot: null });
+        setSelectedInstruction({
+          open: false,
+          documentName: null,
+          snapshot: null,
+        });
       }
     }
-  }, [activeDrawerMatrixTitle, currentMatrixTitle, selectedCell.open, selectedInstruction.open]);
+  }, [
+    activeDrawerMatrixTitle,
+    currentMatrixTitle,
+    selectedCell.open,
+    selectedInstruction.open,
+  ]);
 
   const closeDetails = useCallback(() => {
     setSelectedCell({
@@ -820,11 +683,14 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
       currentQcStatus: null,
       currentQcComment: null,
     });
-    // Освобождаем право на drawer, только если он принадлежал нам
     if (activeDrawerMatrixTitle === currentMatrixTitle) {
       setActiveDrawerMatrixTitle(null);
     }
-  }, [activeDrawerMatrixTitle, currentMatrixTitle, setActiveDrawerMatrixTitle]);
+  }, [
+    activeDrawerMatrixTitle,
+    currentMatrixTitle,
+    setActiveDrawerMatrixTitle,
+  ]);
 
   const openDetailsForCell = useCallback(
     (params: {
@@ -839,7 +705,11 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
 
       const legacyCell = params.cell;
 
-      setSelectedInstruction({ open: false, documentName: null, snapshot: null });
+      setSelectedInstruction({
+        open: false,
+        documentName: null,
+        snapshot: null,
+      });
 
       setSelectedCell({
         open: true,
@@ -852,10 +722,13 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         currentQcComment: legacyCell?.qc_comment ?? null,
       });
 
-      // Захватываем право на drawer для этой таблицы
       setActiveDrawerMatrixTitle(currentMatrixTitle);
     },
-    [model.drawerContents, currentMatrixTitle, setActiveDrawerMatrixTitle]
+    [
+      model.drawerContents,
+      currentMatrixTitle,
+      setActiveDrawerMatrixTitle,
+    ],
   );
 
   const closeInstructionDrawer = useCallback(() => {
@@ -863,8 +736,11 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     if (activeDrawerMatrixTitle === currentMatrixTitle) {
       setActiveDrawerMatrixTitle(null);
     }
-  }, [activeDrawerMatrixTitle, currentMatrixTitle, setActiveDrawerMatrixTitle]);
-
+  }, [
+    activeDrawerMatrixTitle,
+    currentMatrixTitle,
+    setActiveDrawerMatrixTitle,
+  ]);
 
   const getV1RowForReviewRow = useCallback(
     (row: ReviewGridRow | V1MatrixGridRow | null | undefined) => {
@@ -873,7 +749,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     },
     [model.rowsByDocumentId],
   );
-
 
   const openInstructionDrawerForRow = useCallback(
     (row: V1MatrixGridRow | null | undefined) => {
@@ -897,12 +772,14 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         snapshot: v1Row?.instructionSnapshot ?? null,
       });
 
-      // Захватываем право на drawer для этой таблицы
       setActiveDrawerMatrixTitle(currentMatrixTitle);
     },
-    [getV1RowForReviewRow, currentMatrixTitle, setActiveDrawerMatrixTitle],
+    [
+      getV1RowForReviewRow,
+      currentMatrixTitle,
+      setActiveDrawerMatrixTitle,
+    ],
   );
-
 
   const defaultColDef = useMemo<ColDef<V1MatrixGridRow>>(
     () => ({
@@ -916,7 +793,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     [],
   );
 
-
   const rowSelection = useMemo(
     () => ({
       mode: "multiRow" as const,
@@ -928,11 +804,9 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     [],
   );
 
-
   // -----------------------------------------------------------
   // Base columns
   // -----------------------------------------------------------
-
 
   const baseColumns = useMemo<ColDef<V1MatrixGridRow>[]>(
     () => [
@@ -974,8 +848,7 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         headerClass: "ag-center-header",
         valueFormatter: (
           params: ValueFormatterParams<V1MatrixGridRow>,
-        ): string =>
-          (params.value as string | null | undefined) || "—",
+        ): string => (params.value as string | null | undefined) || "—",
       },
       {
         headerName: "Инструкция",
@@ -1009,9 +882,12 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
               <span className="text-xs text-[var(--text-faint)]">—</span>
             );
           }
+
+          // Persisted = accent color, Legacy = warning color — оба на токенах
           const linkTone = snap.is_persisted_snapshot
-            ? "text-[var(--accent-primary)] hover:text-[var(--accent-primary-hover)]"
-            : "text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300";
+            ? "text-[var(--accent-primary)] hover:text-[var(--accent-hover)]"
+            : "text-[var(--color-warning-text)] hover:text-[var(--color-warning-text)] hover:underline";
+
           return (
             <button
               type="button"
@@ -1030,11 +906,9 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     [getV1RowForReviewRow, openInstructionDrawerForRow],
   );
 
-
   // -----------------------------------------------------------
   // Leaf columns: expanded runtime column
   // -----------------------------------------------------------
-
 
   const buildRuntimeLeafColumnDef = useCallback(
     (
@@ -1043,7 +917,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     ): ColDef<V1MatrixGridRow> => {
       const meta = columnLookup.get(check.checkId);
       const label = runtimeColumn.column.label;
-
 
       return {
         colId: `runtime|${runtimeColumn.runtimeKey}`,
@@ -1055,22 +928,22 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         wrapText: true,
         cellDataType: false,
 
-
         valueGetter: (params: ValueGetterParams<V1MatrixGridRow>) => {
           const row = params.data;
           const v1Row = getV1RowForReviewRow(row);
           if (!v1Row) return null;
 
-
-          return resolveDDGridV1CellView(v1Row, runtimeColumn, model.cellValues);
+          return resolveDDGridV1CellView(
+            v1Row,
+            runtimeColumn,
+            model.cellValues,
+          );
         },
-
 
         filterValueGetter: (params) => {
           const row = params.data as V1MatrixGridRow | undefined;
           const v1Row = getV1RowForReviewRow(row);
           if (!v1Row) return "";
-
 
           const cellView = resolveDDGridV1CellView(
             v1Row,
@@ -1080,14 +953,10 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
           return formatRuntimeCellForExport(cellView);
         },
 
-
         valueFormatter: (
           params: ValueFormatterParams<V1MatrixGridRow>,
         ): string =>
-          formatRuntimeCellForExport(
-            params.value as DDGridV1CellView | null,
-          ),
-
+          formatRuntimeCellForExport(params.value as DDGridV1CellView | null),
 
         tooltipValueGetter: (params) =>
           buildRuntimeCellTooltip(
@@ -1096,18 +965,15 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
             params.value as DDGridV1CellView | null,
           ),
 
-
         comparator: (a, b) =>
           compareRuntimeCellViews(
             a as DDGridV1CellView | null,
             b as DDGridV1CellView | null,
           ),
 
-
         cellRenderer: (params: ICellRendererParams<V1MatrixGridRow>) => {
           const row = params.data;
           const cellView = params.value as DDGridV1CellView | null;
-
 
           if (!row || !cellView) {
             return (
@@ -1115,37 +981,25 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
             );
           }
 
-
           const cellForDrawer = row.cellsByCheckId[check.checkId];
           const canOpen = Boolean(meta && cellForDrawer);
           const wrapperTone =
             cellView.cellState === "not_applicable" ? "opacity-70" : "";
 
-
           const content = (
-            <div
-              className="py-0"
-              style={{
-                lineHeight: 1.2,
-              }}
-            >
+            <div className="py-0" style={{ lineHeight: 1.2 }}>
               <span
                 className={`whitespace-normal break-words text-[11px] ${cellStateToneClass(cellView.cellState)}`}
-                style={{
-                  lineHeight: 1.2,
-                  display: "block",
-                }}
+                style={{ lineHeight: 1.2, display: "block" }}
               >
                 {cellView.displayText}
               </span>
             </div>
           );
 
-
           if (!canOpen || !cellForDrawer) {
             return <div className={wrapperTone}>{content}</div>;
           }
-
 
           return (
             <button
@@ -1166,25 +1020,27 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         },
       };
     },
-    [columnLookup, getV1RowForReviewRow, model.cellValues, openDetailsForCell],
+    [
+      columnLookup,
+      getV1RowForReviewRow,
+      model.cellValues,
+      openDetailsForCell,
+    ],
   );
-
 
   // -----------------------------------------------------------
   // Check group: expanded or collapsed
   // -----------------------------------------------------------
 
-
   const buildCheckGroupDef = useCallback(
-    (check: DDGridV1CheckNode): ColDef<V1MatrixGridRow> | ColGroupDef<V1MatrixGridRow> => {
+    (
+      check: DDGridV1CheckNode,
+    ): ColDef<V1MatrixGridRow> | ColGroupDef<V1MatrixGridRow> => {
       const meta = columnLookup.get(check.checkId);
       const headerName = meta?.checkName ?? check.checkName ?? check.checkId;
       const collapsed = collapsedCheckSet.has(check.checkId);
 
-
       if (collapsed) {
-        // При сворачивании возвращаем обычную колонку с кастомным header.
-        // Клик по ячейке открывает V1 drawer для этого check-а.
         return {
           colId: `collapsed-check|${check.nodeKey}`,
           headerName: headerName,
@@ -1208,11 +1064,9 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
             const row = params.data;
             if (!row) return null;
 
-
             const cellForDrawer = row.cellsByCheckId[check.checkId];
             const hasDrawer =
               model.drawerContents[row.documentId]?.[check.checkId] != null;
-
 
             if (!hasDrawer) {
               return (
@@ -1221,7 +1075,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
                 </span>
               );
             }
-
 
             return (
               <button
@@ -1244,7 +1097,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
           },
         };
       }
-
 
       return {
         groupId: `check|${check.nodeKey}`,
@@ -1273,19 +1125,17 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     ],
   );
 
-
   // -----------------------------------------------------------
-  // Scope group: expanded or collapsed
+  // Scope group
   // -----------------------------------------------------------
-
 
   const buildScopeGroupDef = useCallback(
-    (plan: V1ScopeGroupPlan): ColDef<V1MatrixGridRow> | ColGroupDef<V1MatrixGridRow> => {
+    (
+      plan: V1ScopeGroupPlan,
+    ): ColDef<V1MatrixGridRow> | ColGroupDef<V1MatrixGridRow> => {
       const collapsed = collapsedGroupSet.has(plan.groupKey);
 
-
       if (collapsed) {
-        // При сворачивании возвращаем обычную колонку с кастомным header
         return {
           colId: `collapsed-scope|${plan.groupKey}`,
           headerName: plan.groupLabel,
@@ -1308,7 +1158,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         };
       }
 
-
       return {
         groupId: plan.groupKey,
         headerName: plan.groupLabel,
@@ -1324,26 +1173,20 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         children: plan.checks.map((check) => buildCheckGroupDef(check)),
       };
     },
-    [
-      buildCheckGroupDef,
-      collapsedGroupSet,
-      onToggleCollapseGroup,
-    ],
+    [buildCheckGroupDef, collapsedGroupSet, onToggleCollapseGroup],
   );
 
-
   // -----------------------------------------------------------
-  // Top-level bucket: expanded or collapsed
+  // Top-level bucket
   // -----------------------------------------------------------
-
 
   const buildTopLevelGroupDef = useCallback(
-    (plan: V1TopLevelPlan): ColDef<V1MatrixGridRow> | ColGroupDef<V1MatrixGridRow> => {
+    (
+      plan: V1TopLevelPlan,
+    ): ColDef<V1MatrixGridRow> | ColGroupDef<V1MatrixGridRow> => {
       const collapsed = collapsedGroupSet.has(plan.topKey);
 
-
       if (collapsed) {
-        // При сворачивании возвращаем обычную колонку с кастомным header
         return {
           colId: `collapsed-top|${plan.topKey}`,
           headerName: plan.topLabel,
@@ -1366,7 +1209,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         };
       }
 
-
       return {
         groupId: plan.topKey,
         headerName: plan.topLabel,
@@ -1382,25 +1224,18 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         children: plan.groups.map((group) => buildScopeGroupDef(group)),
       };
     },
-    [
-      buildScopeGroupDef,
-      collapsedGroupSet,
-      onToggleCollapseGroup,
-    ],
+    [buildScopeGroupDef, collapsedGroupSet, onToggleCollapseGroup],
   );
-
 
   // -----------------------------------------------------------
   // Full columnDefs
   // -----------------------------------------------------------
-
 
   const groupedCheckColumns = useMemo<
     (ColDef<V1MatrixGridRow> | ColGroupDef<V1MatrixGridRow>)[]
   >(() => {
     return topLevelPlans.map((plan) => buildTopLevelGroupDef(plan));
   }, [topLevelPlans, buildTopLevelGroupDef]);
-
 
   const columnDefs = useMemo<
     (ColDef<V1MatrixGridRow> | ColGroupDef<V1MatrixGridRow>)[]
@@ -1409,11 +1244,9 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     [baseColumns, groupedCheckColumns],
   );
 
-
   // -----------------------------------------------------------
   // Selection propagation
   // -----------------------------------------------------------
-
 
   const handleSelectionChanged = useCallback(
     (event: SelectionChangedEvent<V1MatrixGridRow>) => {
@@ -1422,7 +1255,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     },
     [onSelectionChange],
   );
-
 
   const handleGridReady = useCallback(
     (event: GridReadyEvent<V1MatrixGridRow>) => {
@@ -1438,7 +1270,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     [],
   );
 
-
   useLayoutEffect(() => {
     if (!gridApi) return;
     const id = requestAnimationFrame(() => {
@@ -1451,9 +1282,7 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     return () => cancelAnimationFrame(id);
   }, [gridApi, rootWidth, rowData.length, columnDefs]);
 
-
   const lastClearTokenRef = useRef<number | undefined>(clearSelectionToken);
-
 
   useEffect(() => {
     if (!gridApi) return;
@@ -1466,7 +1295,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
     }
   }, [gridApi, clearSelectionToken]);
 
-
   if (!rowData.length) {
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center text-sm text-[var(--text-secondary)] shadow-sm">
@@ -1477,11 +1305,11 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
 
   return (
     <>
-      {/* Активная таблица сжимается до 2/3, освобождая 1/3 для drawer */}
       <div
-        className={`flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm transition-all duration-300 ${
-          isDrawerPanelOpen ? "w-2/3" : "w-full"
-        }`}
+        className={[
+          "flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm transition-all duration-300",
+          isDrawerPanelOpen ? "w-2/3" : "w-full",
+        ].join(" ")}
       >
         {title ? (
           <div className="shrink-0 border-b border-[var(--border-subtle)] px-5 py-4">
@@ -1496,6 +1324,7 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
 
         <div className="min-h-0 flex-1 overflow-hidden">
           <div
+            ref={rootRef}
             className="ag-theme-legalmas h-full w-full"
             style={{
               minHeight: MATRIX_MIN_HEIGHT_PX,
@@ -1519,10 +1348,9 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
         </div>
       </div>
 
-      {/* Drawer с position: absolute — занимает ровно 1/3 ширины */}
       {isDrawerPanelOpen && (
-        <div className="absolute top-0 right-0 h-full w-1/3 z-50">
-          <div className="flex h-full flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--bg-card)] rounded-l-2xl shadow-2xl">
+        <div className="absolute right-0 top-0 z-50 h-full w-1/3">
+          <div className="flex h-full flex-col overflow-hidden rounded-l-2xl border-l border-[var(--border)] bg-[var(--bg-card)] shadow-2xl">
             {isCellDrawerOpen && (
               <DDGridV1Drawer
                 open={true}
@@ -1566,5 +1394,6 @@ export const DDGridV1Matrix: React.FC<DDGridV1MatrixProps> = ({
 };
 
 export default DDGridV1Matrix;
+
 
 

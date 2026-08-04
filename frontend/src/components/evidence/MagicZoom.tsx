@@ -1,6 +1,5 @@
 // =============================================================
 // src/components/evidence/MagicZoom.tsx
-// Magic Zoom: быстрый просмотр результата проверки для юриста.
 // =============================================================
 
 import React from "react";
@@ -299,7 +298,7 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
           )}
 
           {error && (
-            <div className="rounded-xl border border-[color:color-mix(in_srgb,var(--color-error)_18%,transparent)] bg-[var(--color-error-highlight)] px-3 py-2 text-xs text-[var(--color-error)]">
+            <div className="rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs text-[var(--color-error-text)]">
               Не удалось загрузить evidence.
             </div>
           )}
@@ -316,7 +315,7 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
               )}
 
               {chunkIndex != null && (
-                <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-hover)]">
+                <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-text)]">
                   Chunk #{chunkIndex}
                 </span>
               )}
@@ -411,6 +410,5 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
 };
 
 export default MagicZoom;
-
 
 

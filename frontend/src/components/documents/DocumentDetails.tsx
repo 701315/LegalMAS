@@ -1,10 +1,6 @@
 // =============================================================
 // src/components/documents/DocumentDetails.tsx
 // Правая панель деталей документа на вкладке Documents (view).
-// View-компонент:
-// - не дергает API-хуки, не использует useAuth
-// - получает все данные и capabilities через пропсы
-// - содержит только UI и локальное состояние формы / DnD
 // =============================================================
 
 import React, { useEffect, useState } from "react";
@@ -132,7 +128,6 @@ export interface DocumentDetailsViewProps {
   onReplaceFile?: (file: File) => Promise<void> | void;
   onOpenReviewCell?: (checkId: string, checkName: string) => void;
 
-  /** Открыть preview стадии pipeline в средней панели layout. */
   onOpenPipelineStagePreview?: (
     stage: PipelineStageViewDTO,
     stages: PipelineStageViewDTO[],
@@ -288,7 +283,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
     return (
       <div className="flex h-full flex-col items-center justify-center bg-[var(--accent-muted)] px-4 text-center">
         <AlertTriangle className="mb-2 text-[var(--color-error)]" size={20} />
-        <p className="mb-1 text-sm font-semibold text-[var(--color-error-strong)]">
+        <p className="mb-1 text-sm font-semibold text-[var(--color-error-text)]">
           Ошибка загрузки документа
         </p>
         <p className="max-w-sm text-xs text-[var(--text-muted)]">{error}</p>
@@ -418,7 +413,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
           />
 
           {processingError && (
-            <div className="mt-3 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-3 py-2 text-xs text-[var(--color-error-strong)]">
+            <div className="mt-3 rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs text-[var(--color-error-text)]">
               <div className="flex items-start gap-2">
                 <AlertTriangle
                   size={14}
@@ -445,12 +440,12 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
                   <div className="flex flex-wrap gap-1 text-[11px]">
                     {processingError.reason && (
-                      <span className="rounded-full bg-[var(--color-error-chip-bg)] px-2 py-0.5 text-[var(--color-error-chip-fg)]">
+                      <span className="rounded-full border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-2 py-0.5 text-[var(--color-error-text)]">
                         Причина: {processingError.reason}
                       </span>
                     )}
                     {processingError.timestamp && (
-                      <span className="rounded-full bg-[var(--badge-neutral-bg)] px-2 py-0.5 text-[var(--text-muted)]">
+                      <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[var(--text-muted)]">
                         Время:{" "}
                         {new Date(processingError.timestamp).toLocaleString(
                           "ru-RU",
@@ -458,7 +453,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                       </span>
                     )}
                     {processingError.run_id && (
-                      <span className="rounded-full bg-[var(--badge-info-bg)] px-2 py-0.5 text-[var(--badge-info-fg)]">
+                      <span className="rounded-full border border-[var(--color-blue)]/20 bg-[var(--color-blue-highlight)] px-2 py-0.5 text-[var(--color-blue)]">
                         Run: {processingError.run_id}
                       </span>
                     )}
@@ -475,7 +470,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
             <label className="inline-flex items-center gap-2">
               <input
                 type="checkbox"
-                className="h-3.5 w-3.5 cursor-pointer rounded border-[var(--border-subtle)] text-[var(--color-blue)] focus:ring-[var(--color-blue-soft)]"
+                className="h-3.5 w-3.5 cursor-pointer rounded border-[var(--border-subtle)] text-[var(--color-blue)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
                 checked={!!doc.reviewed_by_person}
                 disabled={isSetReviewedPending}
                 onChange={(e) => onSetReviewed(e.target.checked)}
@@ -486,16 +481,16 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
         {doc.status === "language_selection_required" && (
           <Section title="Требуется действие">
-            <div className="rounded-2xl border border-[var(--color-gold-soft-border)] bg-[var(--color-gold-soft-bg)] px-3 py-2.5">
+            <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2.5">
               <div className="flex items-start gap-2">
-                <span className="mt-0.5 text-[var(--color-gold-strong)]">
+                <span className="mt-0.5 text-[var(--color-warning-text)]">
                   🌐
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-[var(--color-gold-strong)]">
+                  <p className="text-sm font-semibold text-[var(--color-warning-text)]">
                     Нужно выбрать основной язык проверки
                   </p>
-                  <p className="mt-1 text-xs leading-5 text-[var(--color-gold-text)]">
+                  <p className="mt-1 text-xs leading-5 text-[var(--color-warning-text)]">
                     {statusConfig?.description ||
                       "Загрузка документов завершена. Для документов, в которых определено несколько языков, дальнейшая обработка не будет продолжена, пока не выбран основной язык проверки. По умолчанию установлен русский язык."}
                   </p>
@@ -511,7 +506,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                       Выбрать основной язык
                     </Button>
 
-                    <span className="text-[11px] text-[var(--color-gold-text)]">
+                    <span className="text-[11px] text-[var(--color-warning-text)]">
                       Текущий язык по умолчанию: русский
                     </span>
                   </div>
@@ -532,7 +527,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                     </span>
                   )}
                   {needsManualReview && (
-                    <span className="inline-flex items-center rounded-full border border-[var(--color-gold-soft-border)] bg-[var(--color-gold-soft-bg)] px-2 py-0.5 text-xs font-medium text-[var(--text-primary)]">
+                    <span className="inline-flex items-center rounded-full border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 py-0.5 text-xs font-medium text-[var(--color-warning-text)]">
                       Нужна ручная проверка
                     </span>
                   )}
@@ -549,8 +544,8 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                 )}
 
                 {lowConfidence && (
-                  <div className="rounded-2xl border border-[var(--color-gold-soft-border)] bg-[var(--color-gold-soft-bg)] px-3 py-2">
-                    <p className="text-xs text-[var(--text-primary)]">
+                  <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2">
+                    <p className="text-xs text-[var(--color-warning-text)]">
                       ⚠️ Низкая уверенность классификации (
                       {Math.round(
                         (classification.classification_confidence || 0) * 100,
@@ -598,7 +593,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
             )}
 
             {showReclassifyForm && (
-              <div className="mt-2.5 space-y-3 rounded-2xl border border-[var(--color-blue-soft-border)] bg-[var(--color-blue-soft-bg)] p-3">
+              <div className="mt-2.5 space-y-3 rounded-2xl border border-[var(--color-blue)]/20 bg-[var(--color-blue-highlight)] p-3">
                 <p className="text-xs font-semibold text-[var(--color-blue-strong)]">
                   Ручная переклассификация
                 </p>
@@ -611,7 +606,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                   <select
                     value={reclassifyDocType}
                     onChange={(e) => setReclassifyDocType(e.target.value)}
-                    className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none ring-0 focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-muted)]"
+                    className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-blue-highlight)]"
                   >
                     <option value="">— Выберите тип документа —</option>
                     {availableDocTypes.map((opt) => (
@@ -637,7 +632,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                     onChange={(e) => setReclassifyReason(e.target.value)}
                     rows={2}
                     placeholder="Опишите причину..."
-                    className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none ring-0 focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-muted)]"
+                    className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-blue-highlight)]"
                   />
                 </div>
 
@@ -678,14 +673,14 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
                 {lastReclassifyResult && (
                   <>
-                    <p className="text-[11px] text-[var(--color-success)]">
+                    <p className="text-[11px] text-[var(--color-success-text)]">
                       ✅ Тип изменён на «{lastReclassifyResult.new_doc_type}»
                       {lastReclassifyResult.yaml_instruction_found
                         ? " · YAML-инструкция найдена"
                         : " · YAML-инструкция не найдена"}
                     </p>
 
-                    <div className="mt-2 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-3 py-2">
+                    <div className="mt-2 rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2">
                       <p className="text-[11px] text-[var(--color-error-text)]">
                         Документ переклассифицирован. Анализ рисков по новому
                         типу будет произведён только после перезапуска анализа
@@ -770,7 +765,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
         {doc.status === "quarantine" && (
           <Section title="Карантин / повторная загрузка">
-            <div className="mb-3 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] p-3">
+            <div className="mb-3 rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-3">
               <div className="flex items-start gap-2">
                 <AlertTriangle
                   size={16}

@@ -1,9 +1,5 @@
 // =============================================================
 // src/components/requests/RequestsTable.tsx
-// Таблица DD-запросов для юриста (legacy CRUD mode).
-// Использует adapter для преобразования DDRequest в UI read-model.
-// Колонки: Приоритет, Текст, Документы (count), Статус, Источник.
-// Поиск, сортировка, кнопки экспорта.
 // =============================================================
 
 import React, { useMemo, useState, useRef } from "react";
@@ -46,7 +42,7 @@ const statusToneClass = (statusLabel?: string | null): string => {
     value.includes("работ") ||
     value.includes("processing")
   ) {
-    return "border-[color:color-mix(in_oklab,var(--color-orange)_22%,transparent)] bg-[var(--color-orange-highlight)] text-[var(--color-orange)]";
+    return "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]";
   }
 
   if (
@@ -54,7 +50,7 @@ const statusToneClass = (statusLabel?: string | null): string => {
     value.includes("done") ||
     value.includes("закрыт")
   ) {
-    return "border-[color:color-mix(in_oklab,var(--color-success)_22%,transparent)] bg-[var(--color-success-highlight)] text-[var(--color-success)]";
+    return "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]";
   }
 
   return "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
@@ -72,8 +68,6 @@ export const RequestsTable: React.FC<Props> = ({
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("priority");
 
-  // Один ref на компонент: Map от id строки к её DOM-элементу.
-  // Регистрация/разрегистрация происходит через ref-callback на <tr>.
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
 
   const viewModels = useMemo(
@@ -191,7 +185,7 @@ export const RequestsTable: React.FC<Props> = ({
           placeholder="Поиск по тексту запроса или ID проверки…"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-9 py-2 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]"
+          className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-9 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
           aria-label="Поиск по DD-запросам"
         />
       </div>
@@ -200,7 +194,7 @@ export const RequestsTable: React.FC<Props> = ({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]">
         <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full border-collapse text-left">
-            <thead className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]/60">
+            <thead className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]">
               <tr>
                 {(
                   [
@@ -258,7 +252,7 @@ export const RequestsTable: React.FC<Props> = ({
                       "cursor-pointer border-b border-[var(--border-subtle)] transition-colors last:border-b-0",
                       isSelected
                         ? "bg-[var(--bg-elevated-soft)]"
-                        : "hover:bg-[var(--bg-elevated-soft)]/60",
+                        : "hover:bg-[var(--bg-elevated-soft)]",
                     )}
                     onClick={() =>
                       onRowClick(dto, rowRefs.current.get(view.id) ?? null)
@@ -349,7 +343,6 @@ export const RequestsTable: React.FC<Props> = ({
 };
 
 export default RequestsTable;
-
 
 
 

@@ -55,6 +55,9 @@ const SECTION_DIVIDER = "border-t border-[var(--border-subtle)]";
 const LABEL_XS =
   "text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]";
 
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]";
+
 const SINCE_OPTIONS: { value: string; label: string }[] = [
   { value: "15", label: "15 мин" },
   { value: "60", label: "1 час" },
@@ -143,9 +146,9 @@ function normLevel(level: string | null | undefined): string {
 }
 
 function toneClass(tone: "ok" | "warn" | "error" | "default" | "neutral"): string {
-  if (tone === "ok") return "text-[var(--color-success)]";
-  if (tone === "warn") return "text-[var(--color-warning)]";
-  if (tone === "error") return "text-[var(--color-error)]";
+  if (tone === "ok") return "text-[var(--color-success-text)]";
+  if (tone === "warn") return "text-[var(--color-warning-text)]";
+  if (tone === "error") return "text-[var(--color-error-text)]";
   return "text-[var(--text-primary)]";
 }
 
@@ -185,10 +188,10 @@ const LevelBadge: React.FC<{ level: string | null | undefined }> = ({
 
   const cls =
     n === "error" || n === "critical"
-      ? "border-red-200 bg-red-50 text-red-700"
+      ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]"
       : n === "warning"
-        ? "border-yellow-200 bg-yellow-50 text-yellow-700"
-        : "border-blue-200 bg-blue-50 text-blue-700";
+        ? "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]"
+        : "border-[color:color-mix(in_oklab,var(--color-blue)_25%,transparent)] bg-[var(--color-blue-highlight)] text-[var(--color-blue-strong)]";
 
   return (
     <span
@@ -209,7 +212,7 @@ const ModeSwitch: React.FC<{
     <button
       type="button"
       onClick={() => onChange("operational")}
-      className={`px-3 py-1.5 transition-colors ${
+      className={`px-3 py-1.5 transition-colors ${FOCUS_RING} ${
         value === "operational"
           ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
           : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
@@ -220,7 +223,7 @@ const ModeSwitch: React.FC<{
     <button
       type="button"
       onClick={() => onChange("debug")}
-      className={`border-l border-[var(--border)] px-3 py-1.5 transition-colors ${
+      className={`border-l border-[var(--border)] px-3 py-1.5 transition-colors ${FOCUS_RING} ${
         value === "debug"
           ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
           : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
@@ -246,7 +249,7 @@ const MetaField: React.FC<{
         <button
           type="button"
           onClick={onClick}
-          className="text-[10px] font-medium text-[var(--accent-primary)] hover:underline"
+          className={`text-[10px] font-medium text-[var(--accent-primary)] hover:underline ${FOCUS_RING}`}
         >
           {actionLabel ?? "Показать всё"}
         </button>
@@ -269,7 +272,7 @@ const TabButton: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-medium transition-colors ${
+    className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-medium transition-colors ${FOCUS_RING} ${
       active
         ? "bg-[var(--accent-muted)] text-[var(--accent-primary)] shadow-sm"
         : "text-[var(--text-muted)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
@@ -322,7 +325,7 @@ const ProjectRow: React.FC<{
           {hasProblems && (
             <AlertTriangle
               size={14}
-              className="mt-0.5 shrink-0 text-[var(--color-warning)]"
+              className="mt-0.5 shrink-0 text-[var(--color-warning-text)]"
             />
           )}
           <div className="min-w-0">
@@ -344,7 +347,7 @@ const ProjectRow: React.FC<{
           project.quarantine_documents > 0) && (
           <p className="text-[10px]">
             {project.failed_documents > 0 && (
-              <span className="text-[var(--color-error)]">
+              <span className="text-[var(--color-error-text)]">
                 ошибок: {project.failed_documents}
               </span>
             )}
@@ -352,7 +355,7 @@ const ProjectRow: React.FC<{
               project.quarantine_documents > 0 &&
               " · "}
             {project.quarantine_documents > 0 && (
-              <span className="text-[var(--color-warning)]">
+              <span className="text-[var(--color-warning-text)]">
                 карантин: {project.quarantine_documents}
               </span>
             )}
@@ -474,7 +477,7 @@ const UserRow: React.FC<{
         </td>
         <td className="px-4 py-3">
           {user.is_active ? (
-            <span className="inline-flex items-center gap-1.5 text-[10px] text-[var(--color-success)]">
+            <span className="inline-flex items-center gap-1.5 text-[10px] text-[var(--color-success-text)]">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-success)]" />
               Активен
             </span>
@@ -506,7 +509,7 @@ const UserRow: React.FC<{
                     e.stopPropagation();
                     onOpenProject(p.deal_id);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-2.5 py-1 text-[11px] text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:bg-[var(--accent-muted)]"
+                  className={`inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-2.5 py-1 text-[11px] text-[var(--text-primary)] transition hover:border-[var(--accent-primary)] hover:bg-[var(--accent-muted)] ${FOCUS_RING}`}
                 >
                   <span className="font-medium">{p.deal_name}</span>
                   <span className="text-[10px] text-[var(--text-muted)]">
@@ -824,9 +827,9 @@ const ErrorRow: React.FC<{
           <span
             className={`text-xs font-medium ${
               statusTone === "error"
-                ? "text-[var(--color-error)]"
+                ? "text-[var(--color-error-text)]"
                 : statusTone === "warn"
-                  ? "text-[var(--color-warning)]"
+                  ? "text-[var(--color-warning-text)]"
                   : "text-[var(--text-secondary)]"
             }`}
           >
@@ -1021,7 +1024,7 @@ const ProjectDrillDown: React.FC<{
   const openLogsForError = (item: ProjectErrorItem) => {
     setSubTab("logs");
     setLogsMode("debug");
-    setProjectLogsSince(0); // "всё время" — ошибка могла произойти давно
+    setProjectLogsSince(0);
     setCorrelationRunId(item.run_id ?? null);
     setCorrelationDocId(item.document_id ?? null);
     setCorrelationTaskId(null);
@@ -1337,7 +1340,7 @@ const ProjectDrillDown: React.FC<{
                             key={opt.v}
                             type="button"
                             onClick={() => setErrorFilter(opt.v)}
-                            className={`px-2.5 py-1 transition-colors ${
+                            className={`px-2.5 py-1 transition-colors ${FOCUS_RING} ${
                               errorFilter === opt.v
                                 ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
                                 : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
@@ -1482,7 +1485,7 @@ const ProjectDrillDown: React.FC<{
                       <button
                         type="button"
                         onClick={clearCorrelation}
-                        className="inline-flex items-center gap-1 rounded-full border border-[var(--accent-primary)] bg-[var(--accent-muted)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent-primary)] hover:brightness-95"
+                        className={`inline-flex items-center gap-1 rounded-full border border-[var(--accent-primary)] bg-[var(--accent-muted)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent-primary)] hover:brightness-95 ${FOCUS_RING}`}
                       >
                         <Filter size={11} />
                         {correlationRunId && (
@@ -1512,7 +1515,7 @@ const ProjectDrillDown: React.FC<{
                 </div>
 
                 {!lokiUp && projectLogsQ.data && (
-                  <div className="mb-3 shrink-0 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-xs text-yellow-800">
+                  <div className="mb-3 shrink-0 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-xs text-[var(--color-warning-text)]">
                     Loki временно недоступен.
                   </div>
                 )}
@@ -1823,8 +1826,8 @@ const TenantAdminPage: React.FC = () => {
     return (
       <div className="flex h-full items-center justify-center px-4">
         <div className={`${SECTION_CARD} w-full max-w-sm px-6 py-6 text-center`}>
-          <XCircle size={24} className="mx-auto mb-3 text-[var(--color-error)]" />
-          <p className="text-sm font-semibold text-[var(--color-error)]">
+          <XCircle size={24} className="mx-auto mb-3 text-[var(--color-error-text)]" />
+          <p className="text-sm font-semibold text-[var(--color-error-text)]">
             Не удалось загрузить панель
           </p>
           <p className="mt-1 text-[10px] text-[var(--text-muted)]">
@@ -1847,40 +1850,40 @@ const TenantAdminPage: React.FC = () => {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 py-4 md:px-5 md:py-5">
-      <header className="flex shrink-0 items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-            Панель администратора
-          </h1>
-          <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-            Проекты · Пользователи · Мониторинг · Логи · Алерты
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <ExternalToolsBar />
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleRefresh}
-            isLoading={isRefreshing}
-            leftIcon={<RefreshCw size={14} />}
-          >
-            Обновить
-          </Button>
+      <header className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+              Панель администратора
+            </h1>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              Проекты, пользователи, мониторинг, логи и алерты по вашей организации.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <ExternalToolsBar />
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleRefresh}
+              isLoading={isRefreshing}
+              leftIcon={<RefreshCw size={14} />}
+            >
+              Обновить
+            </Button>
+          </div>
         </div>
       </header>
 
       {problemProjects.length > 0 && !selectedProjectId && (
-        <div
-          className={`${SECTION_CARD} shrink-0 border-yellow-200 bg-yellow-50 px-5 py-4`}
-        >
+        <div className="shrink-0 rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-5 py-4 shadow-sm">
           <div className="flex items-start gap-3">
             <AlertTriangle
               size={16}
-              className="mt-0.5 shrink-0 text-[var(--color-warning)]"
+              className="mt-0.5 shrink-0 text-[var(--color-warning-text)]"
             />
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-yellow-800">
+              <p className="text-xs font-semibold text-[var(--color-warning-text)]">
                 {problemProjects.length === 1
                   ? "1 проект требует внимания"
                   : `${problemProjects.length} проекта требуют внимания`}
@@ -1891,16 +1894,16 @@ const TenantAdminPage: React.FC = () => {
                     key={p.deal_id}
                     type="button"
                     onClick={() => openProjectDrillDown(p.deal_id)}
-                    className="rounded-lg border border-yellow-300 bg-white px-2.5 py-1 text-[10px] font-medium text-yellow-800 transition hover:bg-yellow-50"
+                    className={`rounded-lg border border-[var(--color-warning-border)] bg-[var(--bg-card)] px-2.5 py-1 text-[10px] font-medium text-[var(--color-warning-text)] transition hover:bg-[var(--color-warning-bg)] ${FOCUS_RING}`}
                   >
                     {p.deal_name}
                     {p.failed_documents > 0 && (
-                      <span className="ml-1.5 text-[var(--color-error)]">
+                      <span className="ml-1.5 text-[var(--color-error-text)]">
                         · {p.failed_documents} ошибок
                       </span>
                     )}
                     {p.quarantine_documents > 0 && (
-                      <span className="ml-1.5 text-[var(--color-warning)]">
+                      <span className="ml-1.5 text-[var(--color-warning-text)]">
                         · {p.quarantine_documents} карантин
                       </span>
                     )}
@@ -2114,7 +2117,7 @@ const TenantAdminPage: React.FC = () => {
                 )}
 
                 {!promUp && (
-                  <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-xs text-yellow-800">
+                  <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-xs text-[var(--color-warning-text)]">
                     Метрики временно недоступны — деградированный режим.
                   </div>
                 )}
@@ -2213,7 +2216,7 @@ const TenantAdminPage: React.FC = () => {
                                   <span
                                     className={
                                       ep.errors > 0
-                                        ? "font-semibold text-[var(--color-error)]"
+                                        ? "font-semibold text-[var(--color-error-text)]"
                                         : "text-[var(--text-secondary)]"
                                     }
                                   >
@@ -2280,7 +2283,7 @@ const TenantAdminPage: React.FC = () => {
                                   <p
                                     className={`mt-0.5 text-sm font-semibold tabular-nums ${
                                       prov.timeouts_last_hour > 0
-                                        ? "text-[var(--color-error)]"
+                                        ? "text-[var(--color-error-text)]"
                                         : "text-[var(--text-primary)]"
                                     }`}
                                   >
@@ -2348,7 +2351,7 @@ const TenantAdminPage: React.FC = () => {
                                     <td className="px-3 py-2 font-mono text-[10px] text-[var(--text-primary)]">
                                       {t.task_name}
                                     </td>
-                                    <td className="px-3 py-2 text-sm font-semibold tabular-nums text-[var(--color-error)]">
+                                    <td className="px-3 py-2 text-sm font-semibold tabular-nums text-[var(--color-error-text)]">
                                       {fmt(t.failures_last_hour)}
                                     </td>
                                     <td className="px-3 py-2 text-sm text-[var(--text-secondary)]">
@@ -2381,7 +2384,7 @@ const TenantAdminPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={clearCorrelation}
-                  className="inline-flex items-center gap-1 rounded-full border border-[var(--accent-primary)] bg-[var(--accent-muted)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent-primary)] hover:brightness-95"
+                  className={`inline-flex items-center gap-1 rounded-full border border-[var(--accent-primary)] bg-[var(--accent-muted)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent-primary)] hover:brightness-95 ${FOCUS_RING}`}
                 >
                   <Filter size={11} />
                   {correlationRunId && (
@@ -2521,7 +2524,7 @@ const TenantAdminPage: React.FC = () => {
             </div>
 
             {!lokiUp && ld && (
-              <div className="shrink-0 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-xs text-yellow-800">
+              <div className="shrink-0 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-xs text-[var(--color-warning-text)]">
                 Loki временно недоступен.
               </div>
             )}

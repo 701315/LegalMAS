@@ -1,6 +1,7 @@
 // =============================================================
 // src/pages/DashboardPage.tsx
 // Дашборд: список проектов пользователя.
+// Рендерится внутри AppShell — использует всю ширину рабочей области.
 // =============================================================
 
 import React from "react";
@@ -33,14 +34,15 @@ const DashboardPage: React.FC = () => {
 
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = React.useState<DeleteTarget | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<DeleteTarget | null>(
+    null,
+  );
 
   React.useEffect(() => {
     if (!userId) {
       navigate("/login");
       return;
     }
-    // Superadmin работает с системой, не с проектами — редирект на его landing.
     if (globalRole === "superadmin") {
       navigate("/admin", { replace: true });
     }
@@ -125,35 +127,32 @@ const DashboardPage: React.FC = () => {
   const canCreateProject = globalRole === "tenant_admin";
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 md:px-6">
-      <div className="mx-auto max-w-6xl animate-fadein space-y-5">
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
 
         {/* Шапка */}
         <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
-          <div className="flex flex-col gap-4">
-            <div className="min-w-0">
-              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Мои проекты
-              </h1>
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Управление проектами, доступными текущему пользователю.
-              </p>
-
-              <div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[var(--text-secondary)]">
-                <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1">
-                  Пользователь: {userName || userId}
-                </span>
-                <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1">
-                  Проектов: {projects.length}
-                </span>
-              </div>
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+              Мои проекты
+            </h1>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              Управление проектами, доступными текущему пользователю.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[var(--text-secondary)]">
+              <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1">
+                Пользователь: {userName || userId}
+              </span>
+              <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1">
+                Проектов: {projects.length}
+              </span>
             </div>
           </div>
         </header>
 
         {/* Ошибка удаления */}
         {deleteError && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3 text-sm text-[var(--color-error-text)]">
             {deleteError}
           </div>
         )}
@@ -172,7 +171,7 @@ const DashboardPage: React.FC = () => {
 
         {/* Ошибка загрузки */}
         {error && !isLoading && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-700">
+          <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-6 text-center text-sm text-[var(--color-error-text)]">
             Не удалось загрузить проекты.
           </div>
         )}
@@ -201,7 +200,7 @@ const DashboardPage: React.FC = () => {
 
         {/* Карточки проектов */}
         {!isLoading && !error && projects.length > 0 && (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {projects.map((p) => (
               <article
                 key={p.deal_id}
@@ -221,7 +220,7 @@ const DashboardPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="mt-4 grid grid-cols-1 gap-3">
                   <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                       Контактное лицо
@@ -288,5 +287,4 @@ const DashboardPage: React.FC = () => {
 };
 
 export default DashboardPage;
-
 

@@ -1,7 +1,7 @@
 // =============================================================
 // src/pages/DealListPage.tsx
 // Страница списка сделок.
-// Приведено к единому product-дизайну workspace.
+// Рендерится внутри AppShell — использует всю ширину рабочей области.
 // =============================================================
 
 import React from "react";
@@ -30,11 +30,9 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
-        <div className="mx-auto max-w-5xl">
-          <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-5 text-center text-sm text-[var(--text-secondary)] shadow-sm">
-            Загружаем список сделок…
-          </div>
+      <div className="flex h-full items-center justify-center">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-5 text-center text-sm text-[var(--text-secondary)] shadow-sm">
+          Загружаем список сделок…
         </div>
       </div>
     );
@@ -42,11 +40,9 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
-        <div className="mx-auto max-w-5xl">
-          <div className="rounded-[24px] border border-[color:rgba(161,53,68,0.22)] bg-[color:rgba(161,53,68,0.08)] px-6 py-5 text-center text-sm text-[color:rgb(120,35,46)] shadow-sm">
-            Не удалось загрузить сделки.
-          </div>
+      <div className="flex h-full items-center justify-center">
+        <div className="rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-6 py-5 text-center text-sm text-[var(--color-error-text)] shadow-sm">
+          Не удалось загрузить сделки.
         </div>
       </div>
     );
@@ -83,41 +79,40 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 text-[var(--text-primary)]">
-      <div className="mx-auto max-w-5xl space-y-5">
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="space-y-4 px-4 py-5 md:px-6">
         {/* Header */}
-        <header className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
               <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                 Projects
               </div>
 
-              <h1 className="mt-3 text-[28px] font-semibold tracking-tight text-[var(--text-primary)]">
+              <h1 className="mt-3 text-xl font-semibold tracking-tight text-[var(--text-primary)]">
                 Сделки
               </h1>
 
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
                 Найдено: {total}
                 {" · "}
                 Статус: {status ?? "все"}
               </p>
             </div>
 
-            <div className="rounded-[22px] border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+            <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-3 text-sm text-[var(--text-secondary)]">
               Страница{" "}
               <span className="font-semibold text-[var(--text-primary)]">
                 {page}
               </span>
-              {totalPages > 1 ? (
+              {totalPages > 1 && (
                 <>
-                  {" "}
-                  из{" "}
+                  {" "}из{" "}
                   <span className="font-semibold text-[var(--text-primary)]">
                     {totalPages}
                   </span>
                 </>
-              ) : null}
+              )}
             </div>
           </div>
 
@@ -157,7 +152,7 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
 
         {/* Content */}
         {deals.length === 0 ? (
-          <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 text-center shadow-sm">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 text-center shadow-sm">
             <div className="mx-auto max-w-md">
               <div className="text-base font-semibold text-[var(--text-primary)]">
                 Сделки не найдены
@@ -170,13 +165,13 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {deals.map((deal) => (
                 <Link
                   key={deal.id}
                   to={`/deals/${deal.id}`}
-                  onClick={() => onSelectDeal && onSelectDeal(deal.id)}
-                  className="block text-inherit no-underline"
+                  onClick={() => onSelectDeal?.(deal.id)}
+                  className="block rounded-[24px] text-inherit no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
                 >
                   <DealCard
                     deal={deal}
@@ -187,7 +182,7 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
             </div>
 
             {/* Pagination */}
-            <div className="flex flex-col gap-3 rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
               <Button
                 type="button"
                 variant="secondary"

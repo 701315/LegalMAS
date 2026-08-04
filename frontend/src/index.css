@@ -3,151 +3,287 @@
 @import "tailwindcss";
 
 /* ════════════════════════════════════════════════════════════════════════
-   DESIGN TOKENS — Anthropic-style warm editorial
-   ════════════════════════════════════════════════════════════════════════ */
-
-@theme {
-  /* ── Colors ─────────────────────────────────────────────────────────── */
-  --color-background: #FAF8F5;
-  --color-surface: #F3F0EB;
-  --color-card: #FFFFFF;
-  --color-dark: #1A1917;
-
-  --color-primary: #1A1917;
-  --color-secondary: #78756F;
-  --color-muted: #A8A29E;
-  --color-faint: #D6D0C7;
-  --color-inverse: #FAF8F5;
-
-  --color-accent: #C86B52;
-  --color-accent-hover: #B55D46;
-  --color-accent-muted: rgba(200, 107, 82, 0.10);
-  --color-accent-subtle: #F5EBE7;
-
-  --color-border: #E8E4DD;
-  --color-border-strong: #D6D0C7;
-  --color-border-subtle: #F0ECE6;
-
-  --color-success: #059669;
-  --color-warning: #D97706;
-  --color-danger: #DC2626;
-
-  /* ── Typography ─────────────────────────────────────────────────────── */
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-serif: 'Instrument Serif', Georgia, serif;
-
-  /* ── Radius ─────────────────────────────────────────────────────────── */
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-pill: 9999px;
-
-  /* ── Shadows (very subtle) ──────────────────────────────────────────── */
-  --shadow-sm: 0 1px 2px rgba(26, 25, 23, 0.04);
-  --shadow-md: 0 4px 12px rgba(26, 25, 23, 0.06);
-  --shadow-lg: 0 8px 24px rgba(26, 25, 23, 0.08);
-}
-
-/* ════════════════════════════════════════════════════════════════════════
-   BASE LAYER
+   DESIGN TOKENS — LegalMAS Design System
+   Single source of truth. No @theme duplication.
+   Audit confirmed: Tailwind generates 0 semantic utilities from @theme.
+   All runtime references resolved via :root CSS custom properties.
    ════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Typography ─────────────────────────────────────────────────────── */
-  --font-body: "Inter", system-ui, sans-serif;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     TYPOGRAPHY
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --font-body:    "Inter", system-ui, sans-serif;
   --font-display: "Instrument Serif", Georgia, serif;
-  --font-size-ui-xs: 0.75rem;
-  --font-size-ui-sm: 0.8125rem;
-  --font-size-body-sm: 0.875rem;
-  --font-size-body-md: 1rem;
-  --font-size-title-sm: 1rem;
-  --font-size-title-md: 1.125rem;
-  --line-height-ui-xs: 1rem;
-  --line-height-ui-sm: 1.125rem;
-  --line-height-body-sm: 1.25rem;
-  --line-height-body-md: 1.5rem;
+
+  /* Aliases: build audit confirmed 1 reference each to --font-sans, --font-serif */
+  --font-sans:  var(--font-body);
+  --font-serif: var(--font-display);
+
+  /* Size scale */
+  --font-size-ui-xs:    0.6875rem;  /* 11px — chips, counters, micro labels */
+  --font-size-ui-sm:    0.8125rem;  /* 13px — controls, nav, metadata */
+  --font-size-body-sm:  0.875rem;   /* 14px — primary UI text, grid cells */
+  --font-size-body-md:  1rem;       /* 16px — drawer body, review panels */
+  --font-size-title-sm: 1rem;       /* 16px — card titles */
+  --font-size-title-md: 1.125rem;   /* 18px — section headings */
+
+  /* Line heights */
+  --line-height-ui-xs:    1rem;
+  --line-height-ui-sm:    1.125rem;
+  --line-height-body-sm:  1.25rem;
+  --line-height-body-md:  1.5rem;
   --line-height-title-sm: 1.25rem;
   --line-height-title-md: 1.5rem;
-  --font-weight-regular: 400;
-  --font-weight-medium: 500;
+
+  /* Weights */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
   --font-weight-semibold: 600;
 
-  /* ── Layout ─────────────────────────────────────────────────────────── */
+
+  /* ══════════════════════════════════════════════════════════════════════
+     LAYOUT
+     ══════════════════════════════════════════════════════════════════════ */
+
   --container-max-width: 1400px;
 
-  /* ── Base surfaces ──────────────────────────────────────────────────── */
-  --bg-base: #FAF8F5;
-  --bg-secondary: #F3F0EB;
-  --bg-surface: #F3F0EB;
-  --bg-card: #ffffff;
-  --bg-card-hover: #FDFCFA;
-  --bg-elevated-soft: #F3F0EB;
 
-  /* ── Borders ────────────────────────────────────────────────────────── */
-  --border: rgba(26, 25, 23, 0.08);
-  --border-soft: rgba(26, 25, 23, 0.05);
-  --border-strong: rgba(26, 25, 23, 0.14);
-  --border-subtle: rgba(26, 25, 23, 0.06);
-  --border-color: #E8E4DD;
+  /* ══════════════════════════════════════════════════════════════════════
+     SURFACES
+     Hierarchy: base → surface → card → elevated-soft → subtle → inverse
+     ══════════════════════════════════════════════════════════════════════ */
 
-  /* ── Brand / accents ────────────────────────────────────────────────── */
-  --accent: #C86B52;
+  --bg-base:          #FAF8F5;   /* page background */
+  --bg-surface:       #F3F0EB;   /* section panels, sidebar */
+  --bg-secondary:     #F3F0EB;   /* alias for bg-surface (legacy usage) */
+  --bg-card:          #FFFFFF;   /* cards, modals, drawers */
+  --bg-card-hover:    #FDFCFA;   /* card hover state */
+  --bg-elevated-soft: #F3F0EB;   /* sticky headers, inset panels */
+  --bg-subtle:        #EDEAE4;   /* code preview, inset debug zones */
+  --bg-inverse:       #111827;   /* dark preview surfaces (pipeline/chunks) */
+  --bg-input:         #FFFFFF;   /* form inputs */
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     BORDERS
+     Four semantic levels — use consistently, not arbitrarily
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --border:        rgba(26, 25, 23, 0.08);   /* component borders (cards, inputs) */
+  --border-soft:   rgba(26, 25, 23, 0.05);   /* dividers, list separators */
+  --border-subtle: rgba(26, 25, 23, 0.06);   /* inset/nested panel borders */
+  --border-strong: rgba(26, 25, 23, 0.14);   /* hover/active emphasis */
+  --border-color:  #E8E4DD;                  /* hex alias used in marketing layer */
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     ACCENT — Terracotta
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --accent:         #C86B52;
   --accent-primary: #C86B52;
-  --accent-hover: #B55D46;
-  --accent-muted: rgba(200, 107, 82, 0.12);
+  --accent-hover:   #B55D46;
+  --accent-muted:   rgba(200, 107, 82, 0.12);
+  --accent-subtle:  #F5EBE7;
 
-  /* ── Primary CTA ────────────────────────────────────────────────────── */
-  --cta-bg: #C86B52;
-  --cta-bg-hover: #B55D46;
-  --cta-text: #ffffff;
-  --cta-ring: rgba(200, 107, 82, 0.25);
 
-  /* ── Text ───────────────────────────────────────────────────────────── */
-  --text-primary: #1A1917;
+  /* ══════════════════════════════════════════════════════════════════════
+     TEXT
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --text-primary:   #1A1917;
   --text-secondary: #78756F;
-  --text-muted: #A8A29E;
-  --text-faint: #D6D0C7;
-  --text-inverse: #FAF8F5;
+  --text-muted:     #A8A29E;
+  --text-faint:     #D6D0C7;
+  --text-inverse:   #FAF8F5;
+  --text-tertiary:  #C4BFB8;   /* previously missing, used in TriggerList */
 
-  /* ── Semantic ───────────────────────────────────────────────────────── */
-  --success: #059669;
-  --warning: #d97706;
-  --danger: #dc2626;
 
-  /* ── Status palette ─────────────────────────────────────────────────── */
-  --color-error: #be123c;
-  --color-error-highlight: #fff1f2;
-  --color-orange: #c2410c;
-  --color-orange-highlight: #fff7ed;
-  --color-gold: #ca8a04;
-  --color-gold-hover: #a16207;
-  --color-gold-highlight: #fefce8;
-  --color-success: #059669;
-  --color-success-highlight: #ecfdf5;
-  --color-warning: #d97706;
-  --color-warning-highlight: #fffbeb;
-  --color-success-text: var(--success);
-  --color-success-bg: transparent;
-  --color-success-border: transparent;
+  /* ══════════════════════════════════════════════════════════════════════
+     RADIUS
+     Build audit confirmed 4 references to --radius-xl, 1 to --radius-pill
+     ══════════════════════════════════════════════════════════════════════ */
 
-  /* ── Radius ─────────────────────────────────────────────────────────── */
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-pill: 9999px;
 
-  /* ── Shadows ────────────────────────────────────────────────────────── */
+
+  /* ══════════════════════════════════════════════════════════════════════
+     SHADOWS
+     Canonical values. Resolved conflict: @theme had 0 4px 12px,
+     :root had 0 10px 30px. Keeping :root values (softer, more editorial).
+     ══════════════════════════════════════════════════════════════════════ */
+
   --shadow-sm: 0 1px 2px rgba(26, 25, 23, 0.04);
   --shadow-md: 0 10px 30px rgba(26, 25, 23, 0.06);
   --shadow-lg: 0 18px 40px rgba(26, 25, 23, 0.08);
 
-  /* ── App Shell — Active States ──────────────────────────────────────── */
-  --app-active-bg: rgba(200, 107, 82, 0.08);
-  --app-active-bg-hover: rgba(200, 107, 82, 0.12);
-  --app-active-border: #C86B52;
-  --app-active-text: #B55D46;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     CTA
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --cta-bg:      #C86B52;
+  --cta-bg-hover: #B55D46;
+  --cta-text:    #ffffff;
+  --cta-ring:    rgba(200, 107, 82, 0.25);
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     STATUS — Base semantic colors
+     Unified: --color-error now matches --color-danger (#DC2626).
+     Previous --color-error: #be123c was a different hue — caused two
+     different reds for the same semantic meaning across components.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --success: #059669;
+  --warning: #D97706;
+  --danger:  #DC2626;
+
+  /* Success */
+  --color-success:           #059669;
+  --color-success-text:      #065F46;
+  --color-success-bg:        #ECFDF5;   /* was: transparent — FIXED */
+  --color-success-border:    rgba(5, 150, 105, 0.20);   /* was: transparent — FIXED */
+  --color-success-subtle:    #ECFDF5;
+  --color-success-highlight: #ECFDF5;
+
+  /* Warning */
+  --color-warning:           #D97706;
+  --color-warning-text:      #92400E;
+  --color-warning-bg:        #FFFBEB;
+  --color-warning-border:    rgba(217, 119, 6, 0.25);
+  --color-warning-subtle:    #FFFBEB;
+  --color-warning-highlight: #FFFBEB;
+
+  /* Error / Danger — unified hue #DC2626 */
+  --color-error:             #DC2626;   /* was: #be123c — FIXED to match --danger */
+  --color-error-text:        #991B1B;
+  --color-error-bg:          #FEF2F2;
+  --color-error-border:      rgba(220, 38, 38, 0.20);
+  --color-error-subtle:      #FEF2F2;
+  --color-error-highlight:   #FEF2F2;
+  --color-error-soft-bg:     #FEF2F2;
+  --color-error-soft-border: rgba(220, 38, 38, 0.20);
+  --color-error-strong:      #991B1B;
+  --color-error-hover:       #991B1B;
+
+  /* Danger (destructive actions) — same hue as error, distinct semantic slot */
+  --color-danger:            #DC2626;
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     STATUS — Severity / Priority palette
+     Used by SeverityBadge, RequestPriorityBadge, QC views
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* Orange — High severity */
+  --color-orange:           #C2410C;
+  --color-orange-highlight: #FFF7ED;
+
+  /* Gold — Medium severity / Warning nuance */
+  --color-gold:             #CA8A04;
+  --color-gold-hover:       #A16207;
+  --color-gold-highlight:   #FEFCE8;
+  --color-gold-soft-bg:     #FEFCE8;
+  --color-gold-soft-border: rgba(202, 138, 4, 0.20);
+  --color-gold-strong:      #A16207;
+  --color-gold-text:        #A16207;
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     STATUS — Info / Blue
+     Previously missing entirely — widely used across app components
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --color-blue:             #2563EB;
+  --color-blue-highlight:   #EFF6FF;
+  --color-blue-strong:      #1E40AF;
+  --color-blue-soft-bg:     #EFF6FF;
+  --color-blue-soft-border: rgba(37, 99, 235, 0.20);
+  --color-blue-hover:       #1D4ED8;
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     STATUS — Purple
+     Used in Evidence/Classification panels (DocumentTree, EvidencePanel,
+     MagicZoom) — previously missing entirely
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --color-purple:           #7C3AED;
+  --color-purple-highlight: #F5F3FF;
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     BADGE SEMANTIC TOKENS
+     Used in ReviewSection.tsx and DocumentDetails.tsx
+     Previously missing — caused silent CSS failures
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --badge-error-bg:    var(--color-error-bg);
+  --badge-error-fg:    var(--color-error-text);
+  --badge-warning-bg:  var(--color-warning-bg);
+  --badge-warning-fg:  var(--color-warning-text);
+  --badge-info-bg:     var(--color-blue-highlight);
+  --badge-info-fg:     var(--color-blue-strong);
+  --badge-neutral-bg:  var(--bg-elevated-soft);
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     APP SHELL — ACTIVE STATES
+     ══════════════════════════════════════════════════════════════════════ */
+
+  --app-active-bg:        rgba(200, 107, 82, 0.08);
+  --app-active-bg-hover:  rgba(200, 107, 82, 0.12);
+  --app-active-border:    #C86B52;
+  --app-active-text:      #B55D46;
   --app-active-indicator: #C86B52;
+
+
+  /* ══════════════════════════════════════════════════════════════════════
+     LEGACY ALIASES
+     These names were previously in @theme or exist as duplicates in :root.
+     Build audit confirmed runtime references. Kept as var() aliases —
+     no hex values, no independent ownership.
+     Remove gradually as component usage is migrated.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /* @theme color aliases — 4 build refs to --color-primary confirmed */
+  --color-background:  var(--bg-base);
+  --color-surface:     var(--bg-surface);
+  --color-card:        var(--bg-card);
+  --color-dark:        var(--text-primary);
+  --color-primary:     var(--text-primary);
+  --color-secondary:   var(--text-secondary);
+  --color-muted:       var(--text-muted);
+  --color-faint:       var(--text-faint);
+  --color-inverse:     var(--text-inverse);
+
+  /* @theme accent aliases */
+  --color-accent:        var(--accent-primary);
+  --color-accent-hover:  var(--accent-hover);
+  --color-accent-muted:  var(--accent-muted);
+  --color-accent-subtle: var(--accent-subtle);
+
+  /* @theme border aliases */
+  --color-border:        var(--border-color);
+  --color-border-strong: #D6D0C7;
+  --color-border-subtle: #F0ECE6;
+
+  /* @theme status aliases */
+  --color-success-text-legacy: var(--success);  /* old: --color-success-text: var(--success) */
 }
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   HTML / BODY / ROOT
+   ════════════════════════════════════════════════════════════════════════ */
 
 html,
 body,
@@ -203,7 +339,11 @@ body::after {
   box-sizing: border-box;
 }
 
-/* ── Typography / Links / Forms ───────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════════
+   BASE ELEMENT STYLES
+   ════════════════════════════════════════════════════════════════════════ */
+
 a {
   text-decoration: none;
   color: inherit;
@@ -225,7 +365,6 @@ table {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Selection / Focus ────────────────────────────────────────────────── */
 ::selection {
   background: rgba(200, 107, 82, 0.15);
   color: var(--text-primary);
@@ -237,7 +376,11 @@ table {
   border-radius: 4px;
 }
 
-/* ── Animations ───────────────────────────────────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ════════════════════════════════════════════════════════════════════════ */
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -274,8 +417,9 @@ table {
   }
 }
 
+
 /* ════════════════════════════════════════════════════════════════════════
-   COMPONENT TOKENS
+   COMPONENT UTILITIES
    ════════════════════════════════════════════════════════════════════════ */
 
 /* ── Skeleton ─────────────────────────────────────────────────────────── */
@@ -328,7 +472,7 @@ table {
   background: var(--bg-surface);
 }
 
-/* ── Cards (app-shell) ────────────────────────────────────────────────── */
+/* ── Cards ────────────────────────────────────────────────────────────── */
 .card-surface {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -356,17 +500,19 @@ table {
   border-radius: calc(var(--radius-lg) - 2px);
 }
 
-/* ── Status helpers ───────────────────────────────────────────────────── */
+/* ── Status text helpers ──────────────────────────────────────────────── */
 .status-success { color: var(--success); }
 .status-warning { color: var(--warning); }
 .status-danger  { color: var(--danger);  }
 
+
 /* ════════════════════════════════════════════════════════════════════════
    MARKETING COMPONENTS
+   These classes are used exclusively in src/marketing/**
    ════════════════════════════════════════════════════════════════════════ */
 
 @layer components {
-  /* Primary CTA — pill button, terracotta */
+
   .cta-primary {
     display: inline-flex;
     align-items: center;
@@ -400,7 +546,6 @@ table {
     box-shadow: 0 0 0 3px var(--cta-ring);
   }
 
-  /* Secondary CTA — outlined */
   .cta-secondary {
     display: inline-flex;
     align-items: center;
@@ -426,7 +571,6 @@ table {
     border-color: var(--text-primary);
   }
 
-  /* Eyebrow label */
   .eyebrow {
     font-size: 0.6875rem;
     font-weight: 500;
@@ -437,7 +581,6 @@ table {
     display: inline-block;
   }
 
-  /* Section title — serif, unified scale */
   .section-title {
     font-family: var(--font-display);
     font-size: clamp(2.25rem, 4vw, 3.25rem);
@@ -447,7 +590,6 @@ table {
     margin-top: 1rem;
   }
 
-  /* Section description */
   .section-desc {
     font-size: 1.05rem;
     line-height: 1.75;
@@ -456,7 +598,6 @@ table {
     margin-top: 1.5rem;
   }
 
-  /* Badge / chip */
   .badge {
     display: inline-flex;
     align-items: center;
@@ -469,7 +610,6 @@ table {
     border-radius: 9999px;
   }
 
-  /* Glass panel (для тёмных секций) */
   .glass-panel {
     background: linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
     backdrop-filter: blur(12px);
@@ -478,15 +618,17 @@ table {
     box-shadow: 0 4px 24px rgba(0,0,0,0.1);
     border-radius: var(--radius-lg);
   }
+
 }
+
 
 /* ════════════════════════════════════════════════════════════════════════
    APP SHELL — ACTIVE STATES
-   Для рабочего пространства (dashboard, анализ документов)
+   Dashboard / workspace interaction states
    ════════════════════════════════════════════════════════════════════════ */
 
 @layer components {
-  /* ── Active Button (общий класс для активных кнопок) ─────────────── */
+
   .btn-active {
     background: var(--app-active-bg);
     color: var(--app-active-text);
@@ -502,7 +644,6 @@ table {
     background: var(--app-active-bg-hover);
   }
 
-  /* ── Navigation Item — Active ────────────────────────────────────── */
   .nav-item-active {
     background: var(--app-active-bg);
     color: var(--app-active-text);
@@ -529,7 +670,6 @@ table {
     background: var(--app-active-bg-hover);
   }
 
-  /* ── Tab — Active ────────────────────────────────────────────────── */
   .tab-active {
     color: var(--app-active-text);
     font-weight: 500;
@@ -552,7 +692,6 @@ table {
     color: var(--app-active-text);
   }
 
-  /* ── Chip / Filter — Active ──────────────────────────────────────── */
   .chip-active {
     background: var(--app-active-bg);
     color: var(--app-active-text);
@@ -568,13 +707,12 @@ table {
     background: var(--app-active-bg-hover);
   }
 
-  /* ── Sidebar Item — Active ───────────────────────────────────────── */
   .sidebar-item-active {
     background: var(--app-active-bg);
     color: var(--app-active-text);
     border-left: 3px solid var(--app-active-indicator);
     font-weight: 500;
-    padding-left: calc(1rem - 3px); /* Компенсируем border */
+    padding-left: calc(1rem - 3px);
     transition:
       background-color 0.15s ease,
       color 0.15s ease;
@@ -584,7 +722,6 @@ table {
     background: var(--app-active-bg-hover);
   }
 
-  /* ── Toolbar Button — Active (toggle) ────────────────────────────── */
   .toolbar-btn-active {
     background: var(--app-active-bg);
     color: var(--app-active-text);
@@ -600,9 +737,11 @@ table {
   .toolbar-btn-active:hover {
     background: var(--app-active-bg-hover);
   }
+
 }
 
-/* ── CTA Link — текстовая ссылка со стрелкой ──────────────────────── */
+
+/* ── CTA Link ─────────────────────────────────────────────────────────── */
 .cta-link {
   display: inline-flex;
   align-items: center;
@@ -626,7 +765,6 @@ table {
   transform: translateX(2px);
 }
 
-/* Вариант для тёмных секций */
 .cta-link-inverse {
   display: inline-flex;
   align-items: center;
@@ -651,17 +789,28 @@ table {
 }
 
 
-
 /* ════════════════════════════════════════════════════════════════════════
    FIX: react-fast-marquee overflow на mobile
-   Библиотека рендерит marquee-track шириной по контенту (несколько тысяч px),
-   что растягивает body и создаёт горизонтальный скролл. Ограничиваем
-   контейнер жёстко.
    ════════════════════════════════════════════════════════════════════════ */
 
 .rfm-marquee-container {
   max-width: 100vw !important;
   overflow: hidden !important;
+}
+
+
+@layer components {
+  .status-bg-success { background-color: var(--color-success-bg); }
+  .status-text-success { color: var(--color-success-text); }
+  .status-border-success { border-color: var(--color-success-border); }
+
+  .status-bg-warning { background-color: var(--color-warning-bg); }
+  .status-text-warning { color: var(--color-warning-text); }
+  .status-border-warning { border-color: var(--color-warning-border); }
+
+  .status-bg-error { background-color: var(--color-error-bg); }
+  .status-text-error { color: var(--color-error-text); }
+  .status-border-error { border-color: var(--color-error-border); }
 }
 
 

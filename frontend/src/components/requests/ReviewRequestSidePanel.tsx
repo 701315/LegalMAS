@@ -1,9 +1,5 @@
 // =============================================================
 // src/components/requests/ReviewRequestSidePanel.tsx
-// Read-only side panel для DD-запроса в review-режиме.
-// Работает ИСКЛЮЧИТЕЛЬНО поверх DDRequestDTO из run-scoped API.
-// Использует shared presentation components и adapter для DTO.
-// Embedded-режим: рендерится внутри layout, без fullscreen drawer.
 // =============================================================
 
 import React, { useEffect, useMemo, useCallback } from "react";
@@ -126,7 +122,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
           type="button"
           onClick={onClose}
           aria-label="Закрыть панель запроса"
-          className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+          className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
         >
           ✕
         </button>
@@ -210,7 +206,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
               )}
 
               {!canJumpToViewer && viewerJumpDisabledReason && (
-                <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] px-3 py-2 text-[12px] leading-5 text-[var(--color-warning)]">
+                <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-[12px] leading-5 text-[var(--color-warning-text)]">
                   {viewerJumpDisabledReason}
                 </div>
               )}
@@ -260,4 +256,5 @@ function Field({
 }
 
 export default ReviewRequestSidePanel;
+
 

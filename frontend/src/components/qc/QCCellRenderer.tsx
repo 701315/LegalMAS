@@ -1,6 +1,5 @@
 // =============================================================
 // src/components/qc/QCCellRenderer.tsx
-// Отдельная колонка QC-статуса + быстрые действия.
 // =============================================================
 
 import React from "react";
@@ -23,33 +22,28 @@ const STATUS_META: Record<
   QCStatus,
   {
     label: string;
-    textClass: string;
     chipClass: string;
   }
 > = {
   pending: {
     label: "Pending",
-    textClass: "text-[var(--text-secondary)]",
     chipClass:
       "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]",
   },
   approved: {
     label: "Approved",
-    textClass: "text-[var(--success)]",
     chipClass:
-      "border-[color:color-mix(in_srgb,var(--success)_22%,transparent)] bg-[color:color-mix(in_srgb,var(--success)_10%,white)] text-[var(--success)]",
+      "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
   },
   rejected: {
     label: "Rejected",
-    textClass: "text-[var(--color-error)]",
     chipClass:
-      "border-[color:color-mix(in_srgb,var(--color-error)_22%,transparent)] bg-[var(--color-error-highlight)] text-[var(--color-error)]",
+      "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
   },
   needs_review: {
     label: "Needs review",
-    textClass: "text-[var(--color-orange)]",
     chipClass:
-      "border-[color:color-mix(in_srgb,var(--color-orange)_22%,transparent)] bg-[var(--color-orange-highlight)] text-[var(--color-orange)]",
+      "border-[color:color-mix(in_srgb,var(--color-gold)_24%,transparent)] bg-[var(--color-gold-highlight)] text-[var(--color-gold-text)]",
   },
 };
 
@@ -90,8 +84,9 @@ export const QCCellRenderer: React.FC<QCCellRendererProps> = ({
             type="button"
             className={cn(
               "inline-flex h-5 w-5 items-center justify-center rounded border text-[10px] leading-none transition",
-              "border-[color:color-mix(in_srgb,var(--success)_22%,transparent)] text-[var(--success)]",
-              "hover:bg-[color:color-mix(in_srgb,var(--success)_10%,white)]",
+              "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
+              "hover:opacity-80",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
               "disabled:cursor-not-allowed disabled:opacity-40",
             )}
             onClick={handleApprove}
@@ -106,8 +101,9 @@ export const QCCellRenderer: React.FC<QCCellRendererProps> = ({
             type="button"
             className={cn(
               "inline-flex h-5 w-5 items-center justify-center rounded border text-[10px] leading-none transition",
-              "border-[color:color-mix(in_srgb,var(--color-error)_22%,transparent)] text-[var(--color-error)]",
-              "hover:bg-[var(--color-error-highlight)]",
+              "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
+              "hover:opacity-80",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
               "disabled:cursor-not-allowed disabled:opacity-40",
             )}
             onClick={handleReject}
@@ -124,5 +120,4 @@ export const QCCellRenderer: React.FC<QCCellRendererProps> = ({
 };
 
 export default QCCellRenderer;
-
 

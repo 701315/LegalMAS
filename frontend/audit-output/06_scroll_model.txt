@@ -25,49 +25,62 @@
 ./src/components/requests/RequestSidePanel.tsx:136:      <div className="flex-1 space-y-5 overflow-y-auto px-4 py-3">
 ./src/components/requests/RequestSidePanel.tsx:232:            <div className="mt-1 max-h-32 space-y-1 overflow-y-auto rounded-xl bg-[var(--bg-elevated-soft)] p-2">
 ./src/components/upload/PreparedFilesTable.tsx:93:        <div className="overflow-x-auto">
-./src/components/upload/ProjectUploadPanel.tsx:390:            <div className="overflow-x-auto">
+./src/components/upload/ProjectUploadPanel.tsx:376:            <div className="overflow-x-auto">
+./src/components/upload/ProjectUploadPanel.tsx:418:    <div className="h-full overflow-y-auto overscroll-contain">
 ./src/components/evidence/EvidencePanel.tsx:257:        <div className="col-span-1 space-y-4 overflow-y-auto border-r border-[var(--border-subtle)] pr-4">
-./src/components/layout/AppShell.tsx:277:        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+./src/components/layout/AppShell.tsx:230:        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
 ./src/components/model-config/ModelConfigManagerPanel.tsx:1089:            <ul className="max-h-[36rem] space-y-1.5 overflow-y-auto">
 ./src/pages/DealPage.tsx:293:            className="flex h-full flex-col overflow-y-auto px-3 py-4"
 ./src/pages/DealPage.tsx:408:                  className="flex overflow-x-auto border-t border-[var(--border)] pt-3"
 ./src/pages/AdminTenantProjectsPage.tsx:152:      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
 ./src/pages/AdminTenantProjectsPage.tsx:168:      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
 ./src/pages/AdminTenantProjectsPage.tsx:191:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/AdminTenantNewPage.tsx:82:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/AdminTenantDetailPage.tsx:227:      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/AdminTenantDetailPage.tsx:239:      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/AdminTenantDetailPage.tsx:263:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/playbooks/PlaybookStudioPage.tsx:771:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx:250:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/tenant-instructions/TenantOverrideDetailPage.tsx:123:      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/tenant-instructions/TenantOverrideDetailPage.tsx:132:      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/tenant-instructions/TenantOverrideDetailPage.tsx:160:      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/tenant-instructions/TenantOwnedPlaybooksPage.tsx:82:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/tenant-instructions/TenantInstructionsPage.tsx:55:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:461:            <div className="flex min-h-0 flex-col gap-4 overflow-y-auto xl:col-span-1">
-./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:426:            <div className="flex min-h-0 flex-col gap-4 overflow-y-auto xl:col-span-1">
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:249:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx:236:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/tenant-instructions/TenantOverridesPage.tsx:100:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+./src/pages/AdminTenantNewPage.tsx:81:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/NewProjectPage.tsx:115:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/DealListPage.tsx:82:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/AdminTenantDetailPage.tsx:228:      <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/AdminTenantDetailPage.tsx:241:      <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/AdminTenantDetailPage.tsx:265:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/playbooks/PlaybookStudioPage.tsx:760:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx:331:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/tenant-instructions/TenantOverrideDetailPage.tsx:121:      <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/tenant-instructions/TenantOverrideDetailPage.tsx:133:      <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/tenant-instructions/TenantOverrideDetailPage.tsx:161:      <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/tenant-instructions/TenantOwnedPlaybooksPage.tsx:144:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/tenant-instructions/TenantInstructionsPage.tsx:56:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:462:          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain xl:col-span-1">
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:483:          <div className="flex min-h-0 min-w-0 flex-col overflow-y-auto overscroll-contain xl:col-span-2">
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:426:          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain xl:col-span-1">
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:441:          <div className="flex min-h-0 min-w-0 flex-col overflow-y-auto overscroll-contain xl:col-span-2">
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:234:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx:310:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/tenant-instructions/TenantOverridesPage.tsx:102:    <div className="h-full overflow-y-auto overscroll-contain">
 ./src/pages/AdminPlaybookVersionsPage.tsx:192:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
 ./src/pages/AdminPlaybookVersionsPage.tsx:260:              <ul className="max-h-[36rem] space-y-1.5 overflow-y-auto">
-./src/pages/AdminPage.tsx:743:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/instructions/GlobalInstructionsPage.tsx:393:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:684:    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:965:            <div className="flex min-h-0 flex-col gap-4 overflow-y-auto xl:col-span-1">
-./src/pages/instructions/DocTypeInstructionsPage.tsx:403:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/instructions/DocTypeDetailPage.tsx:634:    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-./src/pages/instructions/DocTypeDetailPage.tsx:888:            <div className="flex min-h-0 flex-col gap-4 overflow-y-auto xl:col-span-1">
-./src/pages/instructions/InstructionsIndexPage.tsx:67:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
+./src/pages/DashboardPage.tsx:130:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/AdminPage.tsx:735:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/instructions/PlaybookVersionDetailPage.tsx:45:      <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/instructions/PlaybookVersionDetailPage.tsx:57:      <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/instructions/PlaybookVersionDetailPage.tsx:80:      <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/instructions/PlaybookVersionDetailPage.tsx:94:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/instructions/GlobalInstructionsPage.tsx:404:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:669:    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:943:          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain xl:col-span-1">
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:970:          <div className="flex min-h-0 min-w-0 flex-col overflow-y-auto overscroll-contain xl:col-span-2">
+./src/pages/instructions/DocTypeInstructionsPage.tsx:416:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/instructions/DocTypeDetailPage.tsx:630:    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+./src/pages/instructions/DocTypeDetailPage.tsx:881:          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain xl:col-span-1">
+./src/pages/instructions/DocTypeDetailPage.tsx:908:          <div className="flex min-h-0 min-w-0 flex-col overflow-y-auto overscroll-contain xl:col-span-2">
+./src/pages/instructions/GlobalPlaybookDetailPage.tsx:42:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/instructions/InstructionsIndexPage.tsx:60:    <div className="h-full overflow-y-auto overscroll-contain">
 ./src/pages/ProjectMembersPage.tsx:22:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/AdminMonitoringPage.tsx:287:  <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/PlaybooksRegistryPage.tsx:496:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-./src/pages/PlaybooksRegistryPage.tsx:609:                <ul className="max-h-[36rem] space-y-1.5 overflow-y-auto">
+./src/pages/AdminMonitoringPage.tsx:260:  <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/PlaybooksRegistryPage.tsx:441:    <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/PlaybooksRegistryPage.tsx:555:                <ul className="max-h-[36rem] space-y-1.5 overflow-y-auto overscroll-contain">
 ./src/pages/AdminPlaybookLinesPage.tsx:542:            <ul className="max-h-80 space-y-1 overflow-y-auto pr-1">
 ./src/pages/AdminPlaybookLinesPage.tsx:701:              <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
-./src/pages/TenantAdminPage.tsx:668:            <pre className="mt-1.5 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-base)] px-4 py-3 text-[10px] leading-5 text-[var(--text-secondary)]">
-./src/pages/TenantAdminPage.tsx:895:                    <pre className="mt-1.5 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-[10px] leading-5 text-[var(--text-secondary)]">
+./src/pages/TenantAdminPage.tsx:671:            <pre className="mt-1.5 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-base)] px-4 py-3 text-[10px] leading-5 text-[var(--text-secondary)]">
+./src/pages/TenantAdminPage.tsx:898:                    <pre className="mt-1.5 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-[10px] leading-5 text-[var(--text-secondary)]">
 ./src/pages/ModelConfigsAdminPage.tsx:18:    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
 ./src/pages/tabs/DocumentsTab.tsx:112:        <div className="max-h-48 space-y-0.5 overflow-y-auto">
 ./src/pages/tabs/AuditTab.tsx:212:          <div className="min-h-0 flex-1 overflow-y-auto">
@@ -100,11 +113,13 @@
 ./src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx:588:      <div className="flex-1 overflow-y-auto px-5 py-4">
 ./src/pages/tabs/dd-grid-v1/DDGridV1InstructionDrawer.tsx:125:      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
 ./src/pages/tabs/dd-grid-v1/DDGridV1TypedGroups.tsx:377:    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-1">
+./src/pages/ProjectPlaybookPage.tsx:88:      <div className="h-full overflow-y-auto overscroll-contain">
+./src/pages/ProjectPlaybookPage.tsx:154:    <div className="h-full overflow-y-auto overscroll-contain">
 ./src/marketing/components/platform/PlatformTechnicalSection.tsx:125:            style={{ overflow: "hidden" }}
 ./src/marketing/components/shared/MobileMenu.tsx:76:        <nav className="flex-1 overflow-y-auto px-4 pt-2 pb-6">
 ./src/marketing/components/security/SecurityFAQSection.tsx:117:            style={{ overflow: 'hidden' }}
 ./src/marketing/components/home/ApplicationSection/ApplicationSection.module.css:52:  overflow-x: auto;
-./src/index.css:161:  overflow-x: hidden;
-./src/index.css:179:  overflow-x: hidden;
-./src/index.css:180:  overflow-y: auto;
-./src/index.css:664:  overflow: hidden !important;
+./src/index.css:297:  overflow-x: hidden;
+./src/index.css:315:  overflow-x: hidden;
+./src/index.css:316:  overflow-y: auto;
+./src/index.css:798:  overflow: hidden !important;

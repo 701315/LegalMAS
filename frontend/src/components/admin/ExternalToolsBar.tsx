@@ -68,7 +68,7 @@ export function ExternalToolsBar() {
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)]"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
         aria-expanded={isOpen}
         aria-haspopup="menu"
       >
@@ -102,7 +102,7 @@ export function ExternalToolsBar() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs transition hover:bg-[var(--bg-elevated-soft)]"
+                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs transition hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
                     role="menuitem"
                   >
                     <div className="min-w-0 flex-1">
@@ -140,7 +140,7 @@ export function ExternalToolsBar() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs transition hover:bg-[var(--bg-elevated-soft)]"
+                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs transition hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
                     role="menuitem"
                   >
                     <div className="min-w-0 flex-1">

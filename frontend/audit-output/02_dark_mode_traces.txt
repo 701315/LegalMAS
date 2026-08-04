@@ -21,4 +21,4 @@
 ./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:950:                : "text-red-700 dark:text-red-300";
 ./src/pages/tabs/dd-grid-v1/DDGridV1List.tsx:982:                  className="inline-flex items-center rounded border border-amber-400 bg-amber-100 px-1 py-0 text-[10px] font-medium text-amber-900 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-200"
 ./src/marketing/hooks/useMediaQuery.ts:19: *   const isDark   = useMediaQuery("(prefers-color-scheme: dark)");
-./src/index.css:14:  --color-dark: #1A1917;
+./src/index.css:261:  --color-dark:        var(--text-primary);

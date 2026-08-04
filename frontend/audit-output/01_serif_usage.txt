@@ -87,6 +87,7 @@
 ./src/marketing/pages/solutions/ContractReviewPage.tsx:136:                    <strong className="text-[#1A1917] block mb-2 font-serif italic text-lg tracking-tight">Связанность данных</strong>
 ./src/marketing/pages/solutions/ContractReviewPage.tsx:162:                <h2 className="mt-10 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">
 ./src/marketing/pages/solutions/CounterpartiesPage.tsx:34:              <h1 className="mt-6 font-serif tracking-[-0.03em]" style={{ fontSize: "clamp(2.5rem, 5vw, 4rem)", lineHeight: 1.05 }}>
-./src/index.css:37:  --font-serif: 'Instrument Serif', Georgia, serif;
-./src/index.css:59:  --font-display: "Instrument Serif", Georgia, serif;
-./src/index.css:442:    font-family: var(--font-display);
+./src/index.css:19:  --font-display: "Instrument Serif", Georgia, serif;
+./src/index.css:21:  /* Aliases: build audit confirmed 1 reference each to --font-sans, --font-serif */
+./src/index.css:23:  --font-serif: var(--font-display);
+./src/index.css:585:    font-family: var(--font-display);

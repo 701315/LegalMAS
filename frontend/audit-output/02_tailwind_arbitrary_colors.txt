@@ -24,17 +24,6 @@
 ./src/pages/deal-instructions/DealOverrideDetailPage.tsx:315:                        : "text-[#b91c1c]",
 ./src/pages/deal-instructions/DealOverrideDetailPage.tsx:325:                        <li key={i} className="text-[11px] text-[#b91c1c]">
 ./src/pages/deal-instructions/DealOverrideDetailPage.tsx:366:              <p className="text-[11px] text-[#b91c1c]">
-./src/pages/LoginPage.tsx:97:    <div className="flex min-h-screen flex-col items-center justify-center bg-[#FAF8F5] px-4 text-[#1A1917]">
-./src/pages/LoginPage.tsx:98:      <div className="w-full max-w-sm rounded-2xl border border-[#E8E4DD] bg-white px-6 py-7 shadow-sm">
-./src/pages/LoginPage.tsx:100:          <div className="inline-flex items-center rounded-full border border-[#E8E4DD] bg-[#F3F0EB] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#A8A29E]">
-./src/pages/LoginPage.tsx:104:          <h1 className="mt-4 text-[20px] font-semibold tracking-tight text-[#1A1917]">
-./src/pages/LoginPage.tsx:107:          <p className="mt-2 text-sm leading-6 text-[#78756F]">
-./src/pages/LoginPage.tsx:116:              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[#A8A29E]"
-./src/pages/LoginPage.tsx:125:              className="w-full rounded-xl border border-[#E8E4DD] bg-[#FAF8F5] px-3.5 py-2.5 text-sm text-[#1A1917] placeholder:text-[#A8A29E] outline-none transition-colors focus:border-[#C86B52] focus:bg-white"
-./src/pages/LoginPage.tsx:135:              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[#A8A29E]"
-./src/pages/LoginPage.tsx:144:              className="w-full rounded-xl border border-[#E8E4DD] bg-[#FAF8F5] px-3.5 py-2.5 text-sm text-[#1A1917] placeholder:text-[#A8A29E] outline-none transition-colors focus:border-[#C86B52] focus:bg-white"
-./src/pages/LoginPage.tsx:151:            <p className="rounded-xl border border-[#DC2626]/20 bg-[#FEE2E2] px-3.5 py-2.5 text-xs text-[#B91C1C]">
-./src/pages/LoginPage.tsx:171:        className="mt-6 text-xs text-[#A8A29E] transition-colors hover:text-[#78756F]"
 ./src/marketing/components/platform/PlatformWorkflowSection.tsx:40:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">              {WORKFLOW_CONTENT.title}
 ./src/marketing/components/platform/PlatformWorkflowSection.tsx:58:                  className="text-[1rem] leading-[1.75] text-[#78756F]"
 ./src/marketing/components/platform/PlatformWorkflowSection.tsx:68:            <div className="border-l border-[#E8E4DD] pl-6">

@@ -8,6 +8,7 @@ import { useDocuments, useUploadDocuments } from "../../api/documents";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import { formatDate } from "../../utils";
 import Button from "../ui/Button";
+import InlineAlert from "../InlineAlert";
 import UploadDropzoneCard from "./UploadDropzoneCard";
 import UploadWorkflowCard from "./UploadWorkflowCard";
 import PreparedFilesTable, {
@@ -48,10 +49,6 @@ function getRelativePath(file: FileWithRelativePath): string {
 function getErrorText(err: unknown, fallback: string): string {
   if (typeof err !== "object" || err === null) return fallback;
 
-  // Случай 1: кастомный ApiError из axios interceptor.
-  // client.ts делает Promise.reject({ detail, code, status }) —
-  // это plain object, не AxiosError и не instanceof Error,
-  // поэтому axios.isAxiosError() на нём всегда возвращает false.
   const maybeApiError = err as Record<string, unknown>;
   if (
     typeof maybeApiError["detail"] === "string" &&
@@ -60,12 +57,10 @@ function getErrorText(err: unknown, fallback: string): string {
     return maybeApiError["detail"];
   }
 
-  // Случай 2: оригинальный AxiosError (если interceptor не отработал).
   if (axios.isAxiosError<{ detail?: string }>(err)) {
     return err.response?.data?.detail ?? err.message ?? fallback;
   }
 
-  // Случай 3: обычный Error.
   if (err instanceof Error && err.message) {
     return err.message;
   }
@@ -101,8 +96,12 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
 
   const uploadMutation = useUploadDocuments(dealId);
 
-  const [selectedFiles, setSelectedFiles] = useState<FileWithRelativePath[]>([]);
-  const [selectedPreparedRowIds, setSelectedPreparedRowIds] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<FileWithRelativePath[]>(
+    [],
+  );
+  const [selectedPreparedRowIds, setSelectedPreparedRowIds] = useState<
+    string[]
+  >([]);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
 
@@ -126,12 +125,8 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
   }, [selectedFiles]);
 
   const resetInputs = () => {
-    if (filesInputRef.current) {
-      filesInputRef.current.value = "";
-    }
-    if (folderInputRef.current) {
-      folderInputRef.current.value = "";
-    }
+    if (filesInputRef.current) filesInputRef.current.value = "";
+    if (folderInputRef.current) folderInputRef.current.value = "";
   };
 
   const resetSelection = () => {
@@ -179,7 +174,9 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
     e.stopPropagation();
     setIsDragActive(false);
 
-    const files = Array.from(e.dataTransfer.files ?? []) as FileWithRelativePath[];
+    const files = Array.from(
+      e.dataTransfer.files ?? [],
+    ) as FileWithRelativePath[];
     if (files.length === 0) return;
 
     applySelectedFiles(files);
@@ -195,7 +192,9 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
 
   const toggleAllPreparedRows = () => {
     setSelectedPreparedRowIds((prev) =>
-      prev.length === preparedRows.length ? [] : preparedRows.map((row) => row.id),
+      prev.length === preparedRows.length
+        ? []
+        : preparedRows.map((row) => row.id),
     );
   };
 
@@ -209,7 +208,9 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
       }),
     );
 
-    setSelectedPreparedRowIds((prev) => prev.filter((id) => !rowIdSet.has(id)));
+    setSelectedPreparedRowIds((prev) =>
+      prev.filter((id) => !rowIdSet.has(id)),
+    );
   };
 
   const handleRemovePreparedSelected = () => {
@@ -230,10 +231,7 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
     }
 
     try {
-      await uploadMutation.mutateAsync({
-        files: selectedFiles,
-      });
-
+      await uploadMutation.mutateAsync({ files: selectedFiles });
       resetSelection();
       onFinished();
     } catch (err: unknown) {
@@ -247,28 +245,20 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
     try {
       await refetchDocuments();
     } catch (err: unknown) {
-      setErrorText(getErrorText(err, "Не удалось обновить список документов."));
+      setErrorText(
+        getErrorText(err, "Не удалось обновить список документов."),
+      );
     }
   };
 
   if (!canUploadDocuments) {
-    if (mode === "page") {
-      return (
-        <div className="mx-auto max-w-md">
-          <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
-            <p className="text-sm text-[var(--text-secondary)]">
-              У вас нет прав на загрузку документов в этот проект.
-            </p>
-          </div>
-        </div>
-      );
-    }
-
     return (
-      <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
-        <p className="text-sm text-[var(--text-secondary)]">
-          У вас нет прав на загрузку документов в этот проект.
-        </p>
+      <div className="mx-auto max-w-md">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
+          <p className="text-sm text-[var(--text-secondary)]">
+            У вас нет прав на загрузку документов в этот проект.
+          </p>
+        </div>
       </div>
     );
   }
@@ -279,17 +269,17 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
     <div
       className={
         mode === "page"
-          ? "mx-auto max-w-6xl space-y-6"
+          ? "space-y-4"
           : "flex min-h-0 flex-col space-y-4"
       }
     >
       {mode === "page" && (
-        <header className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-[26px] font-semibold tracking-tight">
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
               Загрузка документов
             </h1>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
               Подготовьте набор файлов и загрузите его в проект.
             </p>
           </div>
@@ -335,11 +325,7 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
         {showWorkflow && <UploadWorkflowCard />}
       </div>
 
-      {errorText && (
-        <div className="rounded-[18px] border border-[color:rgba(161,53,68,0.22)] bg-[color:rgba(161,53,68,0.08)] px-4 py-3 text-sm text-[color:rgb(120,35,46)]">
-          {errorText}
-        </div>
-      )}
+      {errorText && <InlineAlert tone="error" message={errorText} />}
 
       <PreparedFilesTable
         rows={preparedRows}
@@ -353,7 +339,7 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
         onRemoveSingle={handleRemovePreparedSingle}
       />
 
-      <section className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
           <div>
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -379,7 +365,7 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
           {docsLoading ? (
             <div className="text-sm text-[var(--text-muted)]">Загрузка…</div>
           ) : docsErrorText ? (
-            <div className="text-sm text-[color:rgb(120,35,46)]">
+            <div className="text-sm text-[var(--color-error-text)]">
               {docsErrorText}
             </div>
           ) : documents.length === 0 ? (
@@ -429,8 +415,8 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
   );
 
   return mode === "page" ? (
-    <div className="min-h-full bg-[var(--bg-base)] px-4 py-6 text-[var(--text-primary)]">
-      {content}
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein px-4 py-5 md:px-6">{content}</div>
     </div>
   ) : (
     <div className="min-w-0 text-[var(--text-primary)]">{content}</div>
@@ -438,10 +424,5 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
 };
 
 export default ProjectUploadPanel;
-
-
-
-
-
 
 

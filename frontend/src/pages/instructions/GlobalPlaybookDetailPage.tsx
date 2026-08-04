@@ -1,18 +1,15 @@
 // src/pages/instructions/GlobalPlaybookDetailPage.tsx
 // Detail страница global playbook — список версий + переход к версии.
-// Дублирует логику PlaybookVersionsPanel, но как самостоятельная страница.
 
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { GitBranch, RefreshCw } from "lucide-react";
+import { ArrowLeft, GitBranch, RefreshCw } from "lucide-react";
 
 import {
   useGlobalPlaybooks,
   useGlobalPlaybookVersions,
 } from "../../hooks/instructions/useInstructionVersions";
-import InstructionPageHeader from "../../components/instructions/InstructionPageHeader";
 import VersionStatusBadge from "../../components/instructions/VersionStatusBadge";
-import PageSection from "../../components/ui/PageSection";
 import LoadingBlock from "../../components/ui/LoadingBlock";
 import EmptyState from "../../components/ui/EmptyState";
 import InlineAlert from "../../components/InlineAlert";
@@ -22,7 +19,8 @@ const GlobalPlaybookDetailPage: React.FC = () => {
   const { playbookId } = useParams<{ playbookId: string }>();
   const navigate = useNavigate();
 
-  const { data: playbooks, isLoading: isPlaybooksLoading } = useGlobalPlaybooks();
+  const { data: playbooks, isLoading: isPlaybooksLoading } =
+    useGlobalPlaybooks();
   const playbook = playbooks?.find((p) => p.id === playbookId) ?? null;
 
   const {
@@ -41,32 +39,51 @@ const GlobalPlaybookDetailPage: React.FC = () => {
   const isLoading = isPlaybooksLoading || isVersionsLoading;
 
   return (
-    <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
-      <div className="mx-auto max-w-4xl space-y-4">
-        <InstructionPageHeader
-          breadcrumbs={[
-            { label: "Admin", to: "/admin" },
-            { label: "Инструкции", to: "/admin/instructions" },
-            { label: "Global Playbooks", to: "/admin/instructions/global-playbooks" },
-            { label: playbook?.title ?? playbookId ?? "..." },
-          ]}
-          title={playbook?.title ?? "Playbook"}
-          subtitle={playbook?.description ?? undefined}
-          rightSlot={
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
+
+        {/* ── Шапка ───────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => navigate("/admin/instructions/global-playbooks")}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Global Playbooks
+              </button>
+
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                {playbook?.title ?? playbookId ?? "Playbook"}
+              </h1>
+
+              {playbook?.description && (
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                  {playbook.description}
+                </p>
+              )}
+            </div>
+
             <Button
               variant="secondary"
               size="sm"
               onClick={() => void refetch()}
               aria-label="Обновить версии"
+              leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
             >
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              Обновить
             </Button>
-          }
-        />
+          </div>
+        </header>
 
-        <PageSection
-          title="Версии"
-          rightSlot={
+        {/* ── Секция версий ────────────────────────────────────── */}
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+              Версии
+            </h2>
             <div className="flex items-center gap-1.5">
               <GitBranch
                 className="h-3.5 w-3.5 text-[var(--text-muted)]"
@@ -76,8 +93,8 @@ const GlobalPlaybookDetailPage: React.FC = () => {
                 {versions?.length ?? 0}
               </span>
             </div>
-          }
-        >
+          </div>
+
           {isLoading && (
             <LoadingBlock text="Загружаем версии..." rows={4} />
           )}
@@ -103,7 +120,7 @@ const GlobalPlaybookDetailPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleOpenVersion(version.id)}
-                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5 text-left text-xs transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--bg-elevated-soft)]"
+                    className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-3 py-2.5 text-left text-xs transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -128,7 +145,8 @@ const GlobalPlaybookDetailPage: React.FC = () => {
               ))}
             </ul>
           )}
-        </PageSection>
+        </section>
+
       </div>
     </div>
   );

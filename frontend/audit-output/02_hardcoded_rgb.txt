@@ -1,18 +1,4 @@
-./src/components/DealCard.tsx:28:      return "bg-[var(--success-bg,rgba(67,122,34,0.12))] text-[var(--success-fg,#2f5d18)] border-[rgba(67,122,34,0.18)]";
-./src/components/DealCard.tsx:30:      return "bg-[var(--accent-muted)] text-[var(--accent-primary)] border-[rgba(1,105,111,0.18)]";
 ./src/components/qc/BulkQCBar.tsx:78:    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border-soft)] bg-[color:color-mix(in_srgb,var(--bg-card)_92%,black)] px-4 py-2 text-xs text-[var(--text-secondary)] shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur">
-./src/components/viewer/DocumentViewerModal.tsx:260:                  ? "font-medium text-[color:rgb(161,53,68)]"
-./src/components/viewer/DocumentViewerModal.tsx:318:            <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[color:rgb(161,53,68)]">
-./src/components/viewer/DocumentViewerModal.tsx:332:                  <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[color:rgb(161,53,68)]">
-./src/components/playbook/ProjectPlaybookPanel.tsx:258:              <p className="text-sm text-[color:rgb(120,35,46)]">
-./src/components/upload/ProjectUploadPanel.tsx:339:        <div className="rounded-[18px] border border-[color:rgba(161,53,68,0.22)] bg-[color:rgba(161,53,68,0.08)] px-4 py-3 text-sm text-[color:rgb(120,35,46)]">
-./src/components/upload/ProjectUploadPanel.tsx:382:            <div className="text-sm text-[color:rgb(120,35,46)]">
-./src/components/InlineAlert.tsx:17:    "border-[rgba(67,122,34,0.18)] bg-[rgba(67,122,34,0.08)] text-[rgb(47,93,24)]",
-./src/components/InlineAlert.tsx:19:    "border-[rgba(161,53,68,0.22)] bg-[rgba(161,53,68,0.08)] text-[rgb(120,35,46)]",
-./src/components/InlineAlert.tsx:21:    "border-[rgba(1,105,111,0.18)] bg-[var(--accent-muted)] text-[var(--accent-primary)]",
-./src/components/InlineAlert.tsx:23:    "border-[rgba(150,66,25,0.18)] bg-[rgba(150,66,25,0.08)] text-[rgb(122,59,27)]",
-./src/pages/DealListPage.tsx:47:          <div className="rounded-[24px] border border-[color:rgba(161,53,68,0.22)] bg-[color:rgba(161,53,68,0.08)] px-6 py-5 text-center text-sm text-[color:rgb(120,35,46)] shadow-sm">
-./src/pages/ProjectPlaybookPage.tsx:219:              <p className="text-sm text-[color:rgb(120,35,46)]">{errorText}</p>
 ./src/marketing/components/platform/PlatformStandardsSection.tsx:33:            background: 'linear-gradient(90deg, #1A1917 0%, rgba(26,25,23,0.85) 30%, rgba(26,25,23,0.2) 60%, transparent 100%)'
 ./src/marketing/components/platform/primitives/PathCrumb.tsx:31:  const rootColor = variant === "dark" ? "rgba(250, 248, 245, 0.45)" : "#A8A29E";
 ./src/marketing/components/platform/primitives/PathCrumb.tsx:32:  const slashColor = variant === "dark" ? "rgba(250, 248, 245, 0.28)" : "#D6D0C7";

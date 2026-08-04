@@ -1,7 +1,6 @@
 // frontend/src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx
 //
 // Read-only detail страница базовой global instruction для tenant admin.
-// Визуально идентична GlobalInstructionDetailPage без write-actions.
 //
 // URL: /tenant-admin/instructions/base-global-checks/:instructionCode
 //      /tenant-admin/instructions/base-global-checks/:instructionCode?version=<id>
@@ -24,7 +23,7 @@ import type {
   GlobalInstructionVersionItem,
 } from "../../types/instructions";
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────
 
 function formatDate(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -44,7 +43,7 @@ function pickDefaultVersionId(
   return versions[0].id;
 }
 
-// ── InstructionInfoCard ────────────────────────────────────────────────────────
+// ── InstructionInfoCard ──────────────────────────────────────
 
 const InstructionInfoCard: React.FC<{
   item: GlobalInstructionCatalogItem;
@@ -101,7 +100,7 @@ const InstructionInfoCard: React.FC<{
             className={[
               "mt-0.5 text-sm font-semibold",
               item.has_published
-                ? "text-[color:var(--color-success-text)]"
+                ? "text-[var(--color-success-text)]"
                 : "text-[var(--text-muted)]",
             ].join(" ")}
           >
@@ -121,7 +120,7 @@ const InstructionInfoCard: React.FC<{
   </section>
 );
 
-// ── VersionSidebarItem ─────────────────────────────────────────────────────────
+// ── VersionSidebarItem ───────────────────────────────────────
 
 const VersionSidebarItem: React.FC<{
   version: GlobalInstructionVersionItem;
@@ -139,6 +138,7 @@ const VersionSidebarItem: React.FC<{
       aria-current={isSelected ? "true" : undefined}
       className={[
         "group w-full rounded-xl border px-3 py-2.5 text-left transition-all",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
         isSelected
           ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] shadow-sm"
           : "border-[var(--border-soft)] bg-[var(--bg-card)] hover:border-[var(--border-strong)]",
@@ -160,7 +160,7 @@ const VersionSidebarItem: React.FC<{
   );
 };
 
-// ── VersionGroup ───────────────────────────────────────────────────────────────
+// ── VersionGroup ─────────────────────────────────────────────
 
 const VersionGroup: React.FC<{
   label: string;
@@ -187,7 +187,7 @@ const VersionGroup: React.FC<{
   </div>
 );
 
-// ── VersionsSidebar ────────────────────────────────────────────────────────────
+// ── VersionsSidebar ──────────────────────────────────────────
 
 const VersionsSidebar: React.FC<{
   versions: GlobalInstructionVersionItem[];
@@ -264,7 +264,7 @@ const VersionsSidebar: React.FC<{
   );
 };
 
-// ── VersionViewPane ────────────────────────────────────────────────────────────
+// ── VersionViewPane ──────────────────────────────────────────
 
 const VersionViewPane: React.FC<{
   versionId: string;
@@ -325,7 +325,7 @@ const VersionViewPane: React.FC<{
   );
 };
 
-// ── Page ───────────────────────────────────────────────────────────────────────
+// ── Page ─────────────────────────────────────────────────────
 
 const TenantBaseGlobalCheckDetailPage: React.FC = () => {
   const { instructionCode } = useParams<{ instructionCode: string }>();
@@ -353,7 +353,6 @@ const TenantBaseGlobalCheckDetailPage: React.FC = () => {
 
   const pendingVersionIdRef = useRef<string | null>(null);
 
-  // Автовыбор дефолтной версии
   useEffect(() => {
     if (versions.length === 0) return;
     if (pendingVersionIdRef.current) return;
@@ -385,83 +384,80 @@ const TenantBaseGlobalCheckDetailPage: React.FC = () => {
     catalogItem?.name ?? instructionCode ?? "Global Instruction";
 
   return (
-    <div className="h-full overflow-hidden px-6 py-6 md:px-8 md:py-8">
-      <div className="flex h-full min-h-0 flex-col gap-6">
-        {/* Back-link */}
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 py-4 md:px-5 md:py-5">
+
+      {/* ── Шапка ─────────────────────────────────────────────── */}
+      <header className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
         <button
           type="button"
           onClick={() =>
             navigate("/tenant-admin/instructions/base-global-checks")
           }
-          className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+          className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Базовые Global Instructions
         </button>
 
-        {/* Header */}
-        <header className="shrink-0">
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-            {displayName}
-          </h1>
-          {instructionCode && displayName !== instructionCode && (
-            <p className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">
-              {instructionCode}
-            </p>
-          )}
-        </header>
+        <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+          {displayName}
+        </h1>
 
-        {/* Empty */}
-        {!isVersionsLoading && !isVersionsError && versions.length === 0 && (
-          <EmptyState
-            title="Версий нет"
-            description="Для этой инструкции ещё не создано ни одной версии."
-          />
+        {instructionCode && displayName !== instructionCode && (
+          <p className="mt-2 font-mono text-sm text-[var(--text-secondary)]">
+            {instructionCode}
+          </p>
         )}
+      </header>
 
-        {/* Main layout */}
-        {(isVersionsLoading || versions.length > 0) && (
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-3">
-            {/* Sidebar */}
-            <div className="flex min-h-0 flex-col gap-4 overflow-y-auto xl:col-span-1">
-              {catalogItem && (
-                <InstructionInfoCard item={catalogItem} />
-              )}
+      {/* ── Empty ─────────────────────────────────────────────── */}
+      {!isVersionsLoading && !isVersionsError && versions.length === 0 && (
+        <EmptyState
+          title="Версий нет"
+          description="Для этой инструкции ещё не создано ни одной версии."
+        />
+      )}
 
-              <VersionsSidebar
-                versions={versions}
-                selectedVersionId={selectedVersionId}
-                onSelectVersion={(id) =>
-                  setSearchParams({ version: id }, { replace: false })
-                }
-                isLoading={isVersionsLoading}
-                isError={isVersionsError}
-              />
-            </div>
+      {/* ── Main layout ───────────────────────────────────────── */}
+      {(isVersionsLoading || versions.length > 0) && (
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-3">
 
-            {/* View pane */}
-            <div className="flex min-h-0 min-w-0 flex-col xl:col-span-2">
-              {selectedVersionId ? (
-                <VersionViewPane
-                  key={selectedVersionId}
-                  versionId={selectedVersionId}
-                />
-              ) : (
-                <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated-soft)] p-10 text-center">
-                  <p className="text-sm text-[var(--text-muted)]">
-                    Выберите версию из списка слева.
-                  </p>
-                </section>
-              )}
-            </div>
+          {/* Sidebar */}
+          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain xl:col-span-1">
+            {catalogItem && <InstructionInfoCard item={catalogItem} />}
+
+            <VersionsSidebar
+              versions={versions}
+              selectedVersionId={selectedVersionId}
+              onSelectVersion={(id) =>
+                setSearchParams({ version: id }, { replace: false })
+              }
+              isLoading={isVersionsLoading}
+              isError={isVersionsError}
+            />
           </div>
-        )}
-      </div>
+
+          {/* View pane */}
+          <div className="flex min-h-0 min-w-0 flex-col overflow-y-auto overscroll-contain xl:col-span-2">
+            {selectedVersionId ? (
+              <VersionViewPane
+                key={selectedVersionId}
+                versionId={selectedVersionId}
+              />
+            ) : (
+              <section className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-elevated-soft)] p-10 text-center">
+                <p className="text-sm text-[var(--text-muted)]">
+                  Выберите версию из списка слева.
+                </p>
+              </section>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default TenantBaseGlobalCheckDetailPage;
-
 
 

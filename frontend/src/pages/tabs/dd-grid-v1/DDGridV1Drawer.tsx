@@ -1,30 +1,5 @@
 // =============================================================
 // src/pages/tabs/dd-grid-v1/DDGridV1Drawer.tsx
-// V1-specific drawer для DD Grid.
-//
-// Отличия от базового Drawer компонента:
-// - НЕ использует модальный backdrop (без blur, без затемнения)
-// - Работает как side panel: таблица остаётся видимой и интерактивной
-// - Клик вне drawer не закрывает его — только явные действия
-//
-// Содержимое (порядок):
-// 1. Заголовок: check name + document name
-// 2. Секция "Результат анализа" — display_text (canonical result)
-// 3. Секция "Обоснование" — resolved reason с меткой источника
-// 4. Секция "Извлечённые поля" — все runtime fields как список
-//    "Label: value" с бейджами cell_state, location availability,
-//    location confidence, и кнопкой "Открыть в документе"
-// 5. Секция "Evidence" — нормализованные evidence items
-// 6. Секция "Workflow" — review_status label + execution_status
-//    (только если execution_status != "SUCCESS")
-// 7. Секция "QC Review" — полный блок редактирования QC status/comment
-//
-// Правила:
-// - source of truth — DDGridV1DrawerContentDTO из V1 модели;
-// - никаких хардкодов check_id / column_id;
-// - все view-модели строятся через ddGridV1.drawer helpers;
-// - QC editing работает через тот же useUpdateReviewQc mutation, что
-//   и legacy drawer, чтобы не дублировать backend integration.
 // =============================================================
 
 import React from "react";
@@ -62,14 +37,9 @@ export interface DDGridV1DrawerProps {
   documentId: string | null;
   documentName: string | null;
 
-  /** Drawer content напрямую из V1 модели. */
   drawerContent: DDGridV1DrawerContentDTO | null;
 
-  /**
-   * @deprecated QC данные теперь читаются из drawerContent.qc_*.
-   * Пропсы оставлены для backward-compatibility.
-   * Если оба источника доступны — drawerContent побеждает.
-   */
+  /** @deprecated QC данные теперь читаются из drawerContent.qc_*. */
   currentQcStatus?: ReviewQcStatus | null;
   currentQcComment?: string | null;
 
@@ -91,7 +61,9 @@ const REASON_SOURCE_LABELS: Record<DDGridV1ReasonSource, string> = {
 // Review status labels
 // -------------------------------------------------------------
 
-function getReviewStatusLabel(status: string | null | undefined): string | null {
+function getReviewStatusLabel(
+  status: string | null | undefined,
+): string | null {
   if (!status || typeof status !== "string" || status.trim().length === 0) {
     return null;
   }
@@ -117,7 +89,9 @@ function getReviewStatusLabel(status: string | null | undefined): string | null 
 // Cell state labels for badges
 // -------------------------------------------------------------
 
-function getCellStateLabel(state: DDGridV1DrawerFieldView["cellState"]): string {
+function getCellStateLabel(
+  state: DDGridV1DrawerFieldView["cellState"],
+): string {
   switch (state) {
     case "defined":
       return "Определено";
@@ -145,21 +119,16 @@ function getLocationText(field: DDGridV1DrawerFieldView): string | null {
   if (typeof raw.location_page === "number") {
     parts.push(`стр. ${raw.location_page}`);
   }
-  if (typeof raw.location_clause_ref === "string" && raw.location_clause_ref.trim().length > 0) {
+  if (
+    typeof raw.location_clause_ref === "string" &&
+    raw.location_clause_ref.trim().length > 0
+  ) {
     parts.push(raw.location_clause_ref.trim());
   }
 
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-/**
- * Извлекает номер страницы из текстового location_clause_ref.
- * Backend может присылать location_page = null, но при этом clause_ref
- * содержит текстовое упоминание страницы, например "п. 7.3.3, стр. 8".
- *
- * Универсальный regex: ищет "стр. NNN", "страница NNN", "page NNN".
- * Возвращает null если ничего не найдено.
- */
 function extractPageFromClauseRef(clauseRef: string | null): number | null {
   if (!clauseRef || typeof clauseRef !== "string") return null;
 
@@ -183,13 +152,6 @@ function extractPageFromClauseRef(clauseRef: string | null): number | null {
   return null;
 }
 
-/**
- * Строит payload для viewer из field DTO.
- * Приоритет:
- * 1. location_page (число из backend)
- * 2. page извлечённая из location_clause_ref через regex
- * 3. location_clause_ref как clauseUid (fallback)
- */
 function buildViewerPayload(
   documentId: string,
   field: DDGridV1DrawerFieldView,
@@ -271,9 +233,7 @@ function InfoCard({
 }
 
 /**
- * Универсальный бейдж с явными контрастными цветами.
- * Все цвета выбраны так, чтобы текст был чётко читаем и в светлой,
- * и в тёмной теме.
+ * Pill бейдж — полностью на design tokens.
  */
 function Pill({
   children,
@@ -286,14 +246,14 @@ function Pill({
 }) {
   const toneClass =
     tone === "success"
-      ? "border-emerald-500/40 bg-emerald-100 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-900/40 dark:text-emerald-100"
+      ? "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]"
       : tone === "warning"
-        ? "border-amber-500/40 bg-amber-100 text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-100"
+        ? "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]"
         : tone === "error"
-          ? "border-red-500/40 bg-red-100 text-red-900 dark:border-red-700/60 dark:bg-red-900/40 dark:text-red-100"
+          ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]"
           : tone === "muted"
-            ? "border-gray-300 bg-gray-100 text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
-            : "border-gray-400 bg-gray-50 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";
+            ? "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]"
+            : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)]";
 
   return (
     <span
@@ -397,7 +357,7 @@ const FieldRow: React.FC<{
             <button
               type="button"
               onClick={handleOpen}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--accent-primary)] underline decoration-dotted underline-offset-2 hover:decoration-solid"
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--accent-primary)] underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35"
               title="Открыть фрагмент в документе"
             >
               <ExternalLink className="h-3 w-3" aria-hidden />
@@ -439,8 +399,6 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
   );
   const [localQcComment, setLocalQcComment] = React.useState<string>("");
 
-  // Синхронизация локального QC state с изменением drawerContent.
-  // Приоритет: drawerContent.qc_* (B3) → пропсы (legacy fallback).
   React.useEffect(() => {
     const qcFromDrawer = drawerContent?.qc_status ?? null;
     const commentFromDrawer = drawerContent?.qc_comment ?? null;
@@ -448,7 +406,6 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
     setLocalQcComment(commentFromDrawer ?? currentQcComment ?? "");
   }, [drawerContent, currentQcStatus, currentQcComment]);
 
-  // ESC key handler
   React.useEffect(() => {
     if (!open) return;
 
@@ -515,8 +472,6 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
     resolvedReason.text !== null &&
     resolvedReason.text.trim() !== (displayText ?? "").trim();
 
-  // QC editing logic.
-  // Источник истины — drawer (B3). Пропсы — legacy fallback.
   const savedQcStatus: ReviewQcStatus =
     (drawerContent?.qc_status as ReviewQcStatus | null) ??
     currentQcStatus ??
@@ -552,10 +507,6 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
     setLocalQcComment(savedQcComment);
   };
 
-  // -----------------------------------------------------------
-  // Render as side panel (без backdrop, без blur)
-  // -----------------------------------------------------------
-
   return (
     <aside
       role="complementary"
@@ -587,7 +538,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
         <div className="space-y-5">
-          {/* ── 0. Detection metadata (B3 badges) ───────── */}
+          {/* ── 0. Detection metadata ───────── */}
           {(confidence.formatted || qualityFlags.length > 0) && (
             <div className="flex flex-wrap items-center gap-2">
               {confidence.formatted && confidence.tier && (
@@ -613,7 +564,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
             </div>
           )}
 
-          {/* ── 1. Результат анализа + обоснование (объединённая секция) ─ */}
+          {/* ── 1. Результат анализа + обоснование ─ */}
           <Section
             title="Результат анализа"
             subtitle="Основной вывод системы и его обоснование."
@@ -642,7 +593,8 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
               {showReason ? (
                 <div className="mt-3 border-t border-[var(--border-subtle)] pt-3">
                   <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                    {REASON_SOURCE_LABELS[resolvedReason.source] || "Обоснование"}
+                    {REASON_SOURCE_LABELS[resolvedReason.source] ||
+                      "Обоснование"}
                   </div>
                   <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">
                     {resolvedReason.text}
@@ -712,7 +664,9 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
 
                   {showExecutionStatus ? (
                     <Pill
-                      tone={executionStatus === "FAILED" ? "error" : "warning"}
+                      tone={
+                        executionStatus === "FAILED" ? "error" : "warning"
+                      }
                       title="Техническое состояние выполнения check-а"
                     >
                       Execution: {executionStatus}
@@ -723,7 +677,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
             </Section>
           ) : null}
 
-          {/* ── 5b. QC Audit Trail (B3) ──────────────────── */}
+          {/* ── 5b. QC Audit Trail ──────────────────── */}
           {qcAuditInfo.hasBeenActioned && (
             <Section
               title="История QC"
@@ -788,7 +742,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                       setLocalQcStatus(e.target.value as ReviewQcStatus)
                     }
                     disabled={updateQc.isPending}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <option value="pending">Pending</option>
                     <option value="approved">Approved</option>
@@ -805,7 +759,7 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                     value={localQcComment}
                     onChange={(e) => setLocalQcComment(e.target.value)}
                     disabled={updateQc.isPending}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60"
                     rows={3}
                     placeholder="Оставьте комментарий к review (опционально)"
                   />
@@ -837,13 +791,13 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
                 )}
 
                 {!runId ? (
-                  <div className="rounded-lg border border-amber-500/40 bg-amber-100 px-3 py-2 text-xs text-amber-900">
+                  <div className="rounded-lg border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-xs text-[var(--color-warning-text)]">
                     Сохранение QC временно недоступно: отсутствует runId.
                   </div>
                 ) : null}
 
                 {updateQc.isError ? (
-                  <div className="rounded-lg border border-red-500/40 bg-red-100 px-3 py-2 text-xs text-red-900">
+                  <div className="rounded-lg border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs text-[var(--color-error-text)]">
                     Ошибка сохранения. Попробуйте снова.
                   </div>
                 ) : null}
@@ -869,5 +823,6 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
 };
 
 export default DDGridV1Drawer;
+
 
 

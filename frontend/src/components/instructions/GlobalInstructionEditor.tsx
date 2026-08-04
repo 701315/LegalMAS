@@ -1,22 +1,6 @@
 // src/components/instructions/GlobalInstructionEditor.tsx
 //
 // Визуальный редактор для global instruction.
-// Редактирует structured state → генерирует source_yaml.
-//
-// Архитектура:
-// - Принимает sourceYaml: string, вызывает onChange(newYaml)
-// - Внутри: parse YAML → EditorState → секции с полями
-// - При каждом изменении поля — сериализует обратно в YAML
-// - Секции сгруппированы в внутренние tabs (Basic / Detection / LLM / Retrieval / Extraction / Evidence)
-//
-// Важный инвариант:
-// - Нельзя вызывать onChange() внутри setState-updater или прямо во время render.
-//   Иначе React выдаёт warning:
-//   "Cannot update a component while rendering a different component".
-// - Поэтому локальный state меняется отдельно, а сериализация и onChange(newYaml)
-//   выполняются в useEffect после commit.
-//
-// Зависимости: js-yaml (должен быть в проекте вместе с @types/js-yaml)
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as jsyaml from "js-yaml";
@@ -122,7 +106,6 @@ function parseYamlToState(yaml: string): EditorState | null {
       : [];
 
     return {
-      // Basic
       id: String(doc.id ?? ""),
       name: String(doc.name ?? ""),
       group: String(doc.group ?? ""),
@@ -134,7 +117,6 @@ function parseYamlToState(yaml: string): EditorState | null {
       severity_if_unclear: String(doc.severity_if_unclear ?? ""),
       ui_mode: String(doc.ui_mode ?? ""),
 
-      // Detection
       detector_type: String(doc.detector_type ?? "hybrid"),
       keyword_mode: String(rules.keyword_mode ?? "any"),
       keywords_high: toStringArray(kwRaw.high),
@@ -142,13 +124,11 @@ function parseYamlToState(yaml: string): EditorState | null {
       keywords_low: toStringArray(kwRaw.low),
       regex_patterns: toStringArray(rules.regex_patterns),
 
-      // LLM
       llm_prompt_file: String(llm.prompt_file ?? ""),
       llm_context_k: Number(llm.context_k ?? 5),
       llm_temperature: Number(llm.temperature ?? 0.0),
       llm_max_tokens: Number(llm.max_tokens ?? 700),
 
-      // Retrieval
       retrieval_context_k: Number(retrieval.context_k ?? 6),
       retrieval_max_chunks: Number(retrieval.max_chunks ?? 10),
       retrieval_query: String(retrieval.retrieval_query ?? ""),
@@ -161,12 +141,10 @@ function parseYamlToState(yaml: string): EditorState | null {
       ),
       rerank: Boolean(retrieval.rerank ?? true),
 
-      // Evidence
       evidence_required: Boolean(evidence.required ?? true),
       evidence_min_snippet_length: Number(evidence.min_snippet_length ?? 20),
       evidence_max_snippet_length: Number(evidence.max_snippet_length ?? 600),
 
-      // Extraction
       extraction_enabled: Boolean(extraction.enabled ?? false),
       extraction_mode: String(extraction.mode ?? "hybrid"),
       extraction_llm_max_tokens: Number(extraction.llm_max_tokens ?? 380),
@@ -300,19 +278,18 @@ function serializeStateToYaml(state: EditorState): string {
 // ─────────────────────────────────────────────────────────────
 
 const inputCls =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:opacity-60";
 
 const textareaCls =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] resize-y disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] resize-y disabled:opacity-60";
 
 const selectCls =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]";
 
 // ─────────────────────────────────────────────────────────────
 // Reusable sub-components
 // ─────────────────────────────────────────────────────────────
 
-/** Редактируемый список строк (keywords, boost_keywords, etc.) */
 interface StringListEditorProps {
   label: string;
   values: string[];
@@ -377,7 +354,7 @@ const StringListEditor: React.FC<StringListEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => handleRemove(idx)}
-                  className="shrink-0 text-[var(--text-muted)] hover:text-[var(--color-error)]"
+                  className="shrink-0 text-[var(--text-muted)] hover:text-[var(--color-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
                   aria-label={`Удалить: ${v}`}
                 >
                   <Trash2 className="h-3 w-3" />
@@ -411,7 +388,6 @@ const StringListEditor: React.FC<StringListEditorProps> = ({
   );
 };
 
-/** Секция-заголовок внутри редактора */
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => (
@@ -420,7 +396,6 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({
   </h3>
 );
 
-/** Сетка полей 2 колонки */
 const FieldGrid: React.FC<{
   children: React.ReactNode;
   cols?: 1 | 2 | 3;
@@ -845,8 +820,6 @@ const EvidenceSection: React.FC<SectionProps> = ({ state, onChange }) => (
   </div>
 );
 
-// ── Extraction section ─────────────────────────────────────────
-
 const FIELD_TYPES = ["string", "number", "boolean", "date", "array"];
 const PRESENTATIONS = ["fact", "signal", "diagnostic"];
 
@@ -864,7 +837,7 @@ const ExtractionFieldEditor: React.FC<{
       <button
         type="button"
         onClick={onRemove}
-        className="text-[var(--text-muted)] hover:text-[var(--color-error)]"
+        className="text-[var(--text-muted)] hover:text-[var(--color-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]"
         aria-label="Удалить поле"
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -1099,22 +1072,12 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
   const [section, setSection] = useState("basic");
   const [parseError, setParseError] = useState<string | null>(null);
 
-  // Parse YAML → state при монтировании
   const [state, setState] = useState<EditorState | null>(() =>
     parseYamlToState(sourceYaml),
   );
 
-  // Храним последнее YAML-значение, которое:
-  // - либо пришло снаружи через props
-  // - либо было отправлено наружу через onChange
-  //
-  // Это позволяет:
-  // - не зациклиться между editor state ↔ parent sourceYaml
-  // - не эмитить onChange повторно для того же самого YAML
   const lastYamlRef = useRef(sourceYaml);
 
-  // При изменении sourceYaml снаружи (например переключение YAML→Editor
-  // или приход новых данных после refetch) пересчитываем editor state.
   useEffect(() => {
     if (lastYamlRef.current === sourceYaml) return;
 
@@ -1131,8 +1094,6 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
     }
   }, [sourceYaml]);
 
-  // Любое локальное изменение structured state сериализуем обратно в YAML
-  // ПОСЛЕ render. Это важно: onChange нельзя вызывать внутри setState-updater.
   useEffect(() => {
     if (!state) return;
 
@@ -1147,13 +1108,9 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
       onChange(newYaml);
     } catch {
       // Не блокируем UI если сериализация временно упала.
-      // Пользователь может продолжить редактирование, а YAML вкладка
-      // останется источником диагностики.
     }
   }, [state, onChange]);
 
-  // Обновить одно или несколько полей editor state.
-  // Без side effects: только меняем local state.
   const handleChange = useCallback((patch: Partial<EditorState>) => {
     setState((prev) => {
       if (!prev) return prev;
@@ -1161,10 +1118,9 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
     });
   }, []);
 
-  // Если YAML не парсится — показываем ошибку
   if (parseError || !state) {
     return (
-      <div className="flex items-start gap-2 rounded-xl border border-[var(--color-error)]/30 bg-[var(--color-error)]/8 p-4 text-xs text-[var(--color-error)]">
+      <div className="flex items-start gap-2 rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-4 text-xs text-[var(--color-error-text)]">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div className="space-y-1">
           <div className="font-semibold">Ошибка разбора YAML</div>
@@ -1220,6 +1176,5 @@ export const GlobalInstructionEditor: React.FC<GlobalInstructionEditorProps> = (
 };
 
 export default GlobalInstructionEditor;
-
 
 

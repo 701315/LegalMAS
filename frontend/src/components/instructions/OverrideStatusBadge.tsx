@@ -9,16 +9,19 @@ interface OverrideStatusBadgeProps {
   size?: "sm" | "xs";
 }
 
-const STATUS_CONFIG: Record<OverrideStatus, { label: string; className: string }> = {
+const STATUS_CONFIG: Record<
+  OverrideStatus,
+  { label: string; className: string }
+> = {
   draft: {
     label: "Draft",
     className:
-      "border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] text-[color:var(--color-warning-text,#92400e)]",
+      "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
   },
   active: {
     label: "Active",
     className:
-      "border-[color:var(--color-success-border)] bg-[color:var(--color-success-bg)] text-[color:var(--color-success-text)]",
+      "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
   },
   archived: {
     label: "Archived",
@@ -54,7 +57,7 @@ const OverrideStatusBadge: React.FC<OverrideStatusBadgeProps> = ({
           className={[
             "inline-flex items-center rounded-full border font-semibold uppercase",
             sizeClass,
-            "border-[#dc2626]/30 bg-[#fef2f2] text-[#b91c1c]",
+            "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
           ].join(" ")}
         >
           Stale

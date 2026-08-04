@@ -1,7 +1,5 @@
 // =============================================================
 // src/components/settings/ProjectMembersPanel.tsx
-// Embedded workspace panel для управления участниками проекта.
-// Новая модель: выбираем существующего пользователя tenant'а.
 // =============================================================
 
 import React from "react";
@@ -64,7 +62,10 @@ const SYSTEM_ROLE_LABEL: Record<string, string> = {
 };
 
 const ALERT_ERROR_CLASS =
-  "rounded-2xl border border-[var(--color-error,#ef4444)] bg-[color:color-mix(in_srgb,var(--color-error,#ef4444)_8%,var(--bg-card))] px-4 py-3";
+  "rounded-2xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3";
+
+const selectClassName =
+  "w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]";
 
 const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
   dealId,
@@ -73,11 +74,10 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
   const { canManageRequests } = useDealPermissions(dealId);
   const canManageMembers = canManageRequests;
 
-  const { data: members, isLoading: isMembersLoading } = useProjectMembers(dealId);
-  const {
-    data: availableUsers,
-    isLoading: isAvailableUsersLoading,
-  } = useAvailableProjectUsers(dealId);
+  const { data: members, isLoading: isMembersLoading } =
+    useProjectMembers(dealId);
+  const { data: availableUsers, isLoading: isAvailableUsersLoading } =
+    useAvailableProjectUsers(dealId);
 
   const createMutation = useCreateProjectMember(dealId);
   const updateMutation = useUpdateProjectMember(dealId);
@@ -251,10 +251,10 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
       <div className="space-y-4">
         {errorText && !formMode && !confirmDelete ? (
           <div className={ALERT_ERROR_CLASS}>
-            <p className="text-sm font-medium text-[var(--text-primary)]">
+            <p className="text-sm font-medium text-[var(--color-error-text)]">
               Не удалось выполнить действие
             </p>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            <p className="mt-1 text-sm text-[var(--color-error-text)]">
               {errorText}
             </p>
           </div>
@@ -282,7 +282,8 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
               </h2>
 
               <p className="mx-auto mt-2 max-w-md text-sm text-[var(--text-muted)]">
-                Добавьте первого участника проекта из числа пользователей клиента.
+                Добавьте первого участника проекта из числа пользователей
+                клиента.
               </p>
 
               <div className="mt-5 flex justify-center">
@@ -389,7 +390,8 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                 Добавить пользователя в проект
               </h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">
-                Выберите существующего пользователя клиента и назначьте ему роль в проекте.
+                Выберите существующего пользователя клиента и назначьте ему
+                роль в проекте.
               </p>
             </div>
 
@@ -414,7 +416,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                       onChange={(e) =>
                         handleCreateFormChange("userId", e.target.value)
                       }
-                      className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--border)]"
+                      className={selectClassName}
                     >
                       <option value="">Выберите пользователя</option>
                       {availableUsersList.map((u) => (
@@ -435,7 +437,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                     onChange={(e) =>
                       handleCreateFormChange("role", e.target.value)
                     }
-                    className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--border)]"
+                    className={selectClassName}
                   >
                     <option value="admin">Администратор</option>
                     <option value="editor">Редактор</option>
@@ -446,10 +448,10 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
 
               {errorText ? (
                 <div className={ALERT_ERROR_CLASS}>
-                  <p className="text-sm font-medium text-[var(--text-primary)]">
+                  <p className="text-sm font-medium text-[var(--color-error-text)]">
                     Проверьте данные формы
                   </p>
-                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                  <p className="mt-1 text-sm text-[var(--color-error-text)]">
                     {errorText}
                   </p>
                 </div>
@@ -502,7 +504,7 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
                   onChange={(e) =>
                     handleEditFormChange("role", e.target.value)
                   }
-                  className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--border)]"
+                  className={selectClassName}
                 >
                   <option value="admin">Администратор</option>
                   <option value="editor">Редактор</option>
@@ -512,10 +514,10 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
 
               {errorText ? (
                 <div className={ALERT_ERROR_CLASS}>
-                  <p className="text-sm font-medium text-[var(--text-primary)]">
+                  <p className="text-sm font-medium text-[var(--color-error-text)]">
                     Не удалось изменить роль
                   </p>
-                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                  <p className="mt-1 text-sm text-[var(--color-error-text)]">
                     {errorText}
                   </p>
                 </div>
@@ -597,4 +599,5 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
 };
 
 export default ProjectMembersPanel;
+
 

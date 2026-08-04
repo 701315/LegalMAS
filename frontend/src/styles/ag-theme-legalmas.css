@@ -285,7 +285,7 @@
     --ag-row-height: 38px;
     --ag-header-height: 34px;
     --ag-font-size: 12px;
-    --ag-header-font-size: 10px;
+    --ag-header-font-size: 12px;
   }
 }
 
@@ -298,7 +298,6 @@
 .ag-center-header .ag-header-cell-text {
   text-align: center;
 }
-
 
 /* -------------------------------------------------------------
    V1 Matrix: подсветка активной ячейки
@@ -316,7 +315,6 @@
   background-color: transparent !important;
 }
 
-
 /* -------------------------------------------------------------
    V1 List: подсветка активной строки при открытии drawer
    ------------------------------------------------------------- */
@@ -329,4 +327,3 @@
 .ag-theme-legalmas .ag-row.ag-row-active-v1:hover {
   background-color: color-mix(in srgb, var(--accent-primary) 15%, transparent) !important;
 }
-

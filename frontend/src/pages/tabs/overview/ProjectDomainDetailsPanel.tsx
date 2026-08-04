@@ -10,7 +10,7 @@
 
 import React from "react";
 import type { Deal } from "../../../types";
-import { DocumentsPipelinePanel } from "./DocumentsPipelinePanel";
+import DocumentsPipelinePanel from "./DocumentsPipelinePanel";
 import { LLMUsageWidget } from "./LLMUsageWidget";
 import { useDealLLMUsage } from "../../../api/deals";
 import { DEMO_AGGREGATES } from "../CounterpartiesTab";
@@ -55,19 +55,19 @@ const CounterpartiesSummary: React.FC = () => {
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
           <p className="text-[10px] text-[var(--text-muted)]">Critical</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error)]">
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
             {critical.length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
           <p className="text-[10px] text-[var(--text-muted)]">Санкции</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error)]">
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
             {sanctions.length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
           <p className="text-[10px] text-[var(--text-muted)]">Банкротство</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning)]">
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning-text)]">
             {bankruptcy.length}
           </p>
         </div>
@@ -135,7 +135,7 @@ const RealEstateSummary: React.FC = () => {
           <p className="text-[10px] text-[var(--text-muted)]">
             С обременением
           </p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error)]">
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
             {encumbered.length}
           </p>
         </div>
@@ -143,13 +143,13 @@ const RealEstateSummary: React.FC = () => {
           <p className="text-[10px] text-[var(--text-muted)]">
             Ownership review
           </p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning)]">
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-warning-text)]">
             {ownershipReview.length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] px-3 py-2.5">
           <p className="text-[10px] text-[var(--text-muted)]">Высокий риск</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error)]">
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--color-error-text)]">
             {highRisk.length}
           </p>
         </div>

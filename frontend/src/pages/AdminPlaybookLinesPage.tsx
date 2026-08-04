@@ -28,13 +28,13 @@ import type {
 import { getApiErrorMessage, isApiErrorStatus } from "../utils/apiErrors";
 
 const inputClassName =
-  "w-full rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const smallSelectClassName =
-  "rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-1 py-0.5 text-[11px] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60";
+  "rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-1 py-0.5 text-[11px] text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const fullSelectClassName =
-  "w-full rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-1 py-0.5 text-[11px] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-1 py-0.5 text-[11px] text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
 function normalizeLineItems(
   rawItems: PlaybookLineItemPayload[] = [],
@@ -431,9 +431,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
     clearMessages();
 
     try {
-      await client.delete<void>(
-        `/api/v1/playbooks/lines/${currentLine.id}`,
-      );
+      await client.delete<void>(`/api/v1/playbooks/lines/${currentLine.id}`);
 
       setIsDeleteDialogOpen(false);
       setSelectedLineId(null);
@@ -548,8 +546,9 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                     disabled={isUiLocked}
                     className={[
                       "w-full rounded-lg border px-3 py-2 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
                       selectedLineId === line.id
-                        ? "border-[var(--accent)] bg-[var(--bg-elevated)] text-[var(--text-primary)]"
+                        ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--text-primary)]"
                         : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]",
                     ].join(" ")}
                   >
@@ -843,7 +842,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                               size="sm"
                               onClick={() => handleRemoveItem(index)}
                               disabled={isUiLocked}
-                              className="px-2 py-1 text-[10px] text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                              className="px-2 py-1 text-[10px] text-[var(--color-error-text)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error-text)]"
                             >
                               ✕
                             </Button>

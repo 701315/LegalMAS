@@ -31,14 +31,14 @@ const PipelineStepCard: React.FC<{
 }> = ({ stepNumber, title, description, status, isLast = false }) => {
   const badgeClass =
     status === "done"
-      ? "bg-emerald-100 text-emerald-700"
+      ? "bg-[var(--color-success-bg)] text-[var(--color-success-text)]"
       : status === "active"
         ? "bg-[var(--accent-muted)] text-[var(--accent-primary)]"
         : "bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]";
 
   const dotClass =
     status === "done"
-      ? "bg-emerald-500"
+      ? "bg-[var(--color-success)]"
       : status === "active"
         ? "bg-[var(--accent-primary)]"
         : "bg-[var(--border)]";
@@ -46,11 +46,11 @@ const PipelineStepCard: React.FC<{
   return (
     <div className="relative pl-10">
       {!isLast && (
-        <div className="absolute left-[15px] top-8 bottom-[-16px] w-px bg-[var(--border-soft)]" />
+        <div className="absolute bottom-[-16px] left-[15px] top-8 w-px bg-[var(--border-soft)]" />
       )}
 
       <div
-        className={`absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-soft)] ${dotClass} text-xs font-semibold text-white`}
+        className={`absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border-soft)] text-xs font-semibold text-white ${dotClass}`}
       >
         {stepNumber}
       </div>
@@ -162,11 +162,12 @@ const PipelinePreviewPanel: React.FC<PipelinePreviewPanelProps> = ({
           </div>
 
           <span
-            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] ${
+            className={[
+              "rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]",
               launchReadiness === "ready"
-                ? "bg-emerald-100 text-emerald-700"
-                : "bg-amber-100 text-amber-800"
-            }`}
+                ? "bg-[var(--color-success-bg)] text-[var(--color-success-text)]"
+                : "bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
+            ].join(" ")}
           >
             {launchReadiness === "ready" ? "Ready" : "Attention"}
           </span>
@@ -190,7 +191,6 @@ const PipelinePreviewPanel: React.FC<PipelinePreviewPanelProps> = ({
 };
 
 export default PipelinePreviewPanel;
-
 
 
 

@@ -1,7 +1,7 @@
 // =============================================================
 // src/pages/NewProjectPage.tsx
-// Создание нового проекта (доступно только для superadmin).
-// Визуально согласовано с текущим DashboardPage.
+// Создание нового проекта.
+// Рендерится внутри AppShell — не задаёт свой viewport/background.
 // =============================================================
 
 import React, { useEffect, useState } from "react";
@@ -11,6 +11,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useUIStore } from "../stores/uiStore";
 import type { ApiError } from "../types";
 import Button from "../components/ui/Button";
+import InlineAlert from "../components/InlineAlert";
 
 interface CreateDealInput {
   name: string;
@@ -68,13 +69,7 @@ const NewProjectPage: React.FC = () => {
       const res = await client.post<DealResponse>("/api/v1/deals", payload);
       const dealId = res.data.id;
 
-      // Сразу записываем роль "admin" в store.
-      // Backend только что создал membership с этой ролью.
-      // Обновляем frontend store чтобы ProjectRouteGuard и
-      // useDealPermissions сразу видели корректные права
-      // без ожидания следующей загрузки user-info из API.
       setProjectRole(dealId, "admin");
-
       navigate(`/projects/${dealId}/upload`);
     } catch (err: unknown) {
       let detailFromResponse: string | undefined;
@@ -86,14 +81,12 @@ const NewProjectPage: React.FC = () => {
           const resp = (err as { response?: { data?: ApiError } }).response;
           detailFromResponse = resp?.data?.detail;
         }
-
         if (
           "detail" in err &&
           typeof (err as { detail?: unknown }).detail === "string"
         ) {
           detailFromApiError = (err as { detail?: string }).detail;
         }
-
         if (
           "message" in err &&
           typeof (err as { message?: unknown }).message === "string"
@@ -119,28 +112,23 @@ const NewProjectPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 md:px-6">
-      <div className="mx-auto max-w-6xl animate-fadein space-y-5">
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
+
         <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
-          <div className="flex flex-col gap-4">
-            <div className="min-w-0">
-              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-                Новый проект
-              </h1>
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                Создайте новый проект и задайте базовые параметры рабочего
-                пространства. Все дополнительные настройки можно будет изменить
-                позже.
-              </p>
-            </div>
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+              Новый проект
+            </h1>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              Создайте новый проект и задайте базовые параметры рабочего
+              пространства. Все дополнительные настройки можно будет изменить
+              позже.
+            </p>
           </div>
         </header>
 
-        {errorText && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {errorText}
-          </div>
-        )}
+        {errorText && <InlineAlert tone="error" message={errorText} />}
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
@@ -202,7 +190,7 @@ const NewProjectPage: React.FC = () => {
 
                 <Button
                   type="submit"
-                  variant="secondary"
+                  variant="primary"
                   size="sm"
                   isLoading={isSubmitting}
                 >
@@ -288,7 +276,5 @@ const NewProjectPage: React.FC = () => {
 };
 
 export default NewProjectPage;
-
-
 
 

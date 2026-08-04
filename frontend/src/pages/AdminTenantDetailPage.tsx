@@ -101,7 +101,7 @@ const AdminTenantDetailPage: React.FC = () => {
   );
   const { data: users, isLoading: usersLoading } = useTenantUsers(
     tenantId ?? null,
-    true, // include inactive
+    true,
   );
   const createUserMutation = useCreateTenantUser(tenantId ?? "");
   const updateUserMutation = useUpdateTenantUser(tenantId ?? "");
@@ -222,23 +222,25 @@ const AdminTenantDetailPage: React.FC = () => {
   };
 
   // ── Loading ─────────────────────────────────────────────────
+
   if (tenantLoading) {
     return (
-      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-        <div className="animate-fadein space-y-4">
-          <div className="skeleton h-8 w-48" />
-          <div className="skeleton h-32 max-w-4xl rounded-2xl" />
+      <div className="h-full overflow-y-auto overscroll-contain">
+        <div className="animate-fadein space-y-4 p-4 md:p-5">
+          <div className="skeleton h-8 w-48 rounded-xl" />
+          <div className="skeleton h-32 rounded-2xl" />
         </div>
       </div>
     );
   }
 
   // ── Not found ───────────────────────────────────────────────
+
   if (!tenant) {
     return (
-      <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-        <div className="animate-fadein">
-          <div className="max-w-4xl rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
+      <div className="h-full overflow-y-auto overscroll-contain">
+        <div className="animate-fadein p-4 md:p-5">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
             <p className="text-sm text-[var(--text-secondary)]">
               Клиент не найден.
             </p>
@@ -260,21 +262,21 @@ const AdminTenantDetailPage: React.FC = () => {
   const activeUsers = usersList.filter((u) => u.is_active).length;
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-      <div className="animate-fadein space-y-8">
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="animate-fadein space-y-4 p-4 md:p-5">
 
-        {/* ── Заголовок страницы (на фоне) ─────────────────── */}
-        <header>
+        {/* ── Шапка ───────────────────────────────────────────── */}
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
           <button
             type="button"
             onClick={() => navigate("/admin")}
-            className="mb-2 flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+            className="mb-3 inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] rounded-lg px-1 py-0.5"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Все клиенты
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
               {tenant.name}
             </h1>
@@ -285,28 +287,30 @@ const AdminTenantDetailPage: React.FC = () => {
             )}
           </div>
 
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
             slug: {tenant.slug}
-            <span className="mx-1.5">·</span>
+            <span className="mx-1.5 text-[var(--text-muted)]">·</span>
             <Link
               to={`/admin/tenants/${tenant.id}/projects`}
-              className="hover:text-[var(--text-secondary)]"
+              className="hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 rounded"
             >
               Проектов: {tenant.deals_count}
             </Link>
-            <span className="mx-1.5">·</span>
+            <span className="mx-1.5 text-[var(--text-muted)]">·</span>
             Пользователей: {activeUsers} из {tenant.users_count}
           </p>
 
           {tenant.notes && (
-            <p className="mt-3 max-w-3xl text-sm text-[var(--text-secondary)]">
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">
               {tenant.notes}
             </p>
           )}
         </header>
 
-        {/* ── Users section ────────────────────────────────── */}
+        {/* ── Секция пользователей ────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+
+          {/* Заголовок секции */}
           <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
             <h2 className="text-base font-semibold text-[var(--text-primary)]">
               Пользователи
@@ -316,14 +320,14 @@ const AdminTenantDetailPage: React.FC = () => {
                 size="sm"
                 variant="secondary"
                 onClick={openCreateForm}
+                leftIcon={<UserPlus className="h-4 w-4" />}
               >
-                <UserPlus className="mr-1.5 h-4 w-4" />
                 Добавить
               </Button>
             )}
           </div>
 
-          {/* ── Create form ──────────────────────────────────── */}
+          {/* Форма создания */}
           {formMode === "create" && (
             <div className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)] px-5 py-4">
               <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">
@@ -331,7 +335,7 @@ const AdminTenantDetailPage: React.FC = () => {
               </h3>
 
               {formError && (
-                <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                <div className="mb-3 rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs text-[var(--color-error-text)]">
                   {formError}
                 </div>
               )}
@@ -370,8 +374,9 @@ const AdminTenantDetailPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setShowCreatePassword((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] focus-visible:outline-none"
                         tabIndex={-1}
+                        aria-label={showCreatePassword ? "Скрыть пароль" : "Показать пароль"}
                       >
                         {showCreatePassword ? (
                           <EyeOff className="h-4 w-4" />
@@ -439,7 +444,7 @@ const AdminTenantDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* ── Edit form ────────────────────────────────────── */}
+          {/* Форма редактирования */}
           {formMode === "edit" && (
             <div className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)] px-5 py-4">
               <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">
@@ -447,7 +452,7 @@ const AdminTenantDetailPage: React.FC = () => {
               </h3>
 
               {formError && (
-                <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                <div className="mb-3 rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs text-[var(--color-error-text)]">
                   {formError}
                 </div>
               )}
@@ -505,8 +510,9 @@ const AdminTenantDetailPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setShowEditPassword((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] focus-visible:outline-none"
                         tabIndex={-1}
+                        aria-label={showEditPassword ? "Скрыть пароль" : "Показать пароль"}
                       >
                         {showEditPassword ? (
                           <EyeOff className="h-4 w-4" />
@@ -540,8 +546,8 @@ const AdminTenantDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* ── Users list ───────────────────────────────────── */}
-          <div className="divide-y divide-[var(--border)]">
+          {/* Список пользователей */}
+          <div className="divide-y divide-[var(--border-subtle)]">
             {usersLoading && (
               <div className="px-5 py-4">
                 <div className="skeleton mb-2 h-4 w-48" />
@@ -570,7 +576,7 @@ const AdminTenantDetailPage: React.FC = () => {
                     {u.full_name || u.email}
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">{u.email}</p>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
                     <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
                       {ROLE_LABEL[u.system_role] ?? u.system_role}
                     </span>
@@ -589,15 +595,15 @@ const AdminTenantDetailPage: React.FC = () => {
                         size="sm"
                         variant="ghost"
                         onClick={() => openEditForm(u)}
+                        aria-label="Редактировать пользователя"
                         className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         size="sm"
-                        variant="ghost"
+                        variant="danger"
                         onClick={() => setDeactivateTarget(u)}
-                        className="text-[var(--text-muted)] hover:text-rose-600"
                       >
                         Деактивировать
                       </Button>
@@ -608,6 +614,7 @@ const AdminTenantDetailPage: React.FC = () => {
             ))}
           </div>
         </section>
+
       </div>
 
       <ConfirmDialog
@@ -626,6 +633,5 @@ const AdminTenantDetailPage: React.FC = () => {
 };
 
 export default AdminTenantDetailPage;
-
 
 

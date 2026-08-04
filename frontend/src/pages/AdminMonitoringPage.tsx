@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────
-// Конфигурация URL — из env, с fallback на локальные адреса
+// Конфигурация URL
 // ─────────────────────────────────────────────────────────────
 
 const GRAFANA_BASE =
@@ -57,20 +57,10 @@ interface ToolGroup {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Логические группы инструментов
-//
-// Разбивка сделана по назначению, а не по вендору:
-// пользователь думает "что мне нужно посмотреть",
-// а не "в каком сервисе это лежит".
+// Данные
 // ─────────────────────────────────────────────────────────────
 
 const TOOL_GROUPS: ToolGroup[] = [
-  // ── 1. Обзорные дашборды ─────────────────────────────────
-  //
-  // Готовые визуализации ключевых метрик системы.
-  // Первое, что смотрит дежурный или tech lead утром или
-  // при подозрении на проблему. Здесь нет сырых метрик —
-  // только агрегированные картины по областям.
   {
     id: "dashboards",
     title: "Обзорные дашборды",
@@ -107,13 +97,6 @@ const TOOL_GROUPS: ToolGroup[] = [
       },
     ],
   },
-
-  // ── 2. Метрики и алерты ──────────────────────────────────
-  //
-  // Первичные источники метрик и управление алертами.
-  // Нужны когда надо копнуть глубже дашбордов: сырые
-  // PromQL-запросы, состояние targets, активные алерты,
-  // silences.
   {
     id: "metrics",
     title: "Метрики и алерты",
@@ -143,13 +126,6 @@ const TOOL_GROUPS: ToolGroup[] = [
       },
     ],
   },
-
-  // ── 3. Логи и трейсы ─────────────────────────────────────
-  //
-  // Инструменты для разбора конкретных инцидентов:
-  // "что произошло с этим запросом", "где упал этот run".
-  // Открываются через Grafana Explore, где Loki и Tempo
-  // работают как data sources.
   {
     id: "traces-logs",
     title: "Логи и трейсы",
@@ -174,13 +150,6 @@ const TOOL_GROUPS: ToolGroup[] = [
       },
     ],
   },
-
-  // ── 4. Инфраструктура и API ──────────────────────────────
-  //
-  // Внутренние сервисы платформы: хранилище артефактов,
-  // документация API, LLM inference. Нужны для операционных
-  // задач: посмотреть загруженные файлы, проверить состояние
-  // моделей, свериться со схемой API.
   {
     id: "infrastructure",
     title: "Инфраструктура и API",
@@ -225,6 +194,8 @@ const ToolCard: React.FC<{ tool: ToolItem }> = ({ tool }) => (
       "group rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm",
       "transition-all duration-200",
       "hover:border-[var(--border-strong)] hover:shadow-md",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35",
+      "focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)]",
     ].join(" ")}
   >
     <div className="flex items-start justify-between gap-3">
@@ -257,16 +228,18 @@ const ToolCard: React.FC<{ tool: ToolItem }> = ({ tool }) => (
 
 // ─────────────────────────────────────────────────────────────
 // ToolGroupSection
-// Заголовок группы + описание + сетка карточек
 // ─────────────────────────────────────────────────────────────
 
 const ToolGroupSection: React.FC<{ group: ToolGroup }> = ({ group }) => (
-  <section id={group.id} className="scroll-mt-6 space-y-4">
-    <div>
-      <h2 className="text-base font-semibold text-[var(--text-primary)]">
+  <section
+    id={group.id}
+    className="scroll-mt-20 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm"
+  >
+    <div className="mb-4">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
         {group.title}
-      </h2>
-      <p className="mt-1 max-w-3xl text-sm text-[var(--text-secondary)]">
+      </div>
+      <p className="mt-2 text-xs text-[var(--text-secondary)]">
         {group.description}
       </p>
     </div>
@@ -284,32 +257,20 @@ const ToolGroupSection: React.FC<{ group: ToolGroup }> = ({ group }) => (
 // ─────────────────────────────────────────────────────────────
 
 const AdminMonitoringPage: React.FC = () => (
-  <div className="h-full overflow-y-auto px-6 py-6 md:px-8 md:py-8">
-    <div className="animate-fadein space-y-10">
-
-      {/* ── Заголовок страницы + inline-навигация по блокам ── */}
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
-          Мониторинг
-        </h1>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
-          {TOOL_GROUPS.map((group, idx) => (
-            <React.Fragment key={group.id}>
-              <a
-                href={`#${group.id}`}
-                className="hover:text-[var(--text-secondary)]"
-              >
-                {group.title}
-              </a>
-              {idx < TOOL_GROUPS.length - 1 && (
-                <span className="mx-1.5">·</span>
-              )}
-            </React.Fragment>
-          ))}
-        </p>
+  <div className="h-full overflow-y-auto overscroll-contain">
+    <div className="animate-fadein space-y-4 p-4 md:p-5">
+      <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+            Мониторинг
+          </h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
+            Инструменты наблюдаемости платформы: дашборды, метрики, логи,
+            трейсы и инфраструктура.
+          </p>
+        </div>
       </header>
 
-      {/* ── Логические группы инструментов ─────────────────── */}
       {TOOL_GROUPS.map((group) => (
         <ToolGroupSection key={group.id} group={group} />
       ))}

@@ -1,6 +1,6 @@
 ./src/components/qc/BulkQCBar.tsx:78:    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border-soft)] bg-[color:color-mix(in_srgb,var(--bg-card)_92%,black)] px-4 py-2 text-xs text-[var(--text-secondary)] shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur">
 ./src/components/ConfirmDialog.tsx:99:    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-./src/components/viewer/DocumentViewerModal.tsx:244:      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/65"
+./src/components/viewer/DocumentViewerModal.tsx:238:      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/65"
 ./src/components/ui/ConfirmDialog.tsx:88:      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-[2px]"
 ./src/components/ui/Drawer.tsx:110:    <div className="fixed inset-0 z-40 flex bg-black/45 backdrop-blur-[2px]">
 ./src/components/documents/DocumentChunksModal.tsx:82:      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
@@ -16,16 +16,16 @@
 ./src/components/requests/ReviewRequestsTable.tsx:101:          <table className="w-full table-fixed border-collapse">
 ./src/components/evidence/MagicZoom.tsx:203:      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 py-8"
 ./src/components/evidence/EvidencePanel.tsx:194:    <div className="fixed inset-y-0 right-0 z-40 flex w-full max-w-3xl translate-x-0 transform flex-col border-l border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-2xl transition-transform duration-200 ease-out">
-./src/components/layout/AppShell.tsx:432:          className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 backdrop-blur-[2px]"
-./src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx:325:              "sticky -top-6 z-10 -mx-6 md:-top-8 md:-mx-8",
-./src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx:309:              "sticky -top-6 z-10 -mx-6 md:-top-8 md:-mx-8",
-./src/pages/AdminPage.tsx:783:              "sticky -top-6 z-10 -mx-6 md:-top-8 md:-mx-8",
-./src/pages/instructions/GlobalInstructionsPage.tsx:446:              "sticky -top-6 z-10 -mx-6 md:-top-8 md:-mx-8",
-./src/pages/instructions/DocTypeInstructionsPage.tsx:456:              "sticky -top-6 z-10 -mx-6 md:-top-8 md:-mx-8",
+./src/components/layout/AppShell.tsx:387:          className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 backdrop-blur-[2px]"
+./src/pages/tenant-instructions/TenantBaseDocTypesPage.tsx:408:              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
+./src/pages/tenant-instructions/TenantBaseGlobalChecksPage.tsx:387:              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
+./src/pages/AdminPage.tsx:777:              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
+./src/pages/instructions/GlobalInstructionsPage.tsx:455:              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
+./src/pages/instructions/DocTypeInstructionsPage.tsx:469:              "sticky -top-4 z-10 -mx-4 md:-top-5 md:-mx-5",
 ./src/pages/AdminPlaybookLinesPage.tsx:702:                <table className="w-full table-fixed border-collapse text-[11px]">
-./src/pages/TenantAdminPage.tsx:687:    <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
-./src/pages/TenantAdminPage.tsx:1975:                    <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
-./src/pages/TenantAdminPage.tsx:2017:                <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+./src/pages/TenantAdminPage.tsx:690:    <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+./src/pages/TenantAdminPage.tsx:1978:                    <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
+./src/pages/TenantAdminPage.tsx:2020:                <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
 ./src/pages/tabs/DocumentsTab.tsx:583:                          <thead className="sticky top-0 z-10 bg-[var(--bg-elevated-soft)]">
 ./src/pages/tabs/AuditTab.tsx:11:// - Шапка таблицы sticky внутри viewport.
 ./src/pages/tabs/AuditTab.tsx:251:                        <table className="w-full table-fixed border-collapse">
@@ -44,3 +44,4 @@
 ./src/marketing/components/home/ContactModal.tsx:35:      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1A1917]/60 px-4 backdrop-blur-sm"
 ./src/marketing/components/home/SecurityFoundationSection/index.tsx:82:          <div className="flex flex-col justify-center lg:col-span-5 lg:sticky lg:top-32">
 ./src/marketing/components/home/FaqSection.tsx:58:          <div className="sticky top-32">
+./src/index.css:64:  --bg-elevated-soft: #F3F0EB;   /* sticky headers, inset panels */

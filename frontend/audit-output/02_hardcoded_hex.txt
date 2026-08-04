@@ -1,22 +1,3 @@
-./src/components/DealCard.tsx:28:      return "bg-[var(--success-bg,rgba(67,122,34,0.12))] text-[var(--success-fg,#2f5d18)] border-[rgba(67,122,34,0.18)]";
-./src/components/ui/LoadingBlock.tsx:32:        "rounded-xl border border-[var(--border,#e5e7eb)] bg-[var(--bg-elevated,#ffffff)] p-4",
-./src/components/ui/LoadingBlock.tsx:45:              "bg-[var(--bg-elevated-soft,#f3f4f6)]",
-./src/components/ui/SeverityBadge.tsx:27:      "bg-[var(--color-error-highlight,#fef2f2)] " +
-./src/components/ui/SeverityBadge.tsx:28:      "text-[var(--color-error,#b91c1c)]",
-./src/components/ui/SeverityBadge.tsx:34:      "bg-[var(--color-orange-highlight,#fff7ed)] " +
-./src/components/ui/SeverityBadge.tsx:35:      "text-[var(--color-orange,#c2410c)]",
-./src/components/ui/SeverityBadge.tsx:41:      "bg-[var(--color-gold-highlight,#fefce8)] " +
-./src/components/ui/SeverityBadge.tsx:42:      "text-[var(--color-gold-hover,#854d0e)]",
-./src/components/ui/SeverityBadge.tsx:48:      "bg-[var(--color-success-highlight,#f0fdf4)] " +
-./src/components/ui/SeverityBadge.tsx:49:      "text-[var(--color-success,#15803d)]",
-./src/components/ui/SeverityBadge.tsx:55:      "bg-[var(--color-blue-highlight,#eff6ff)] " +
-./src/components/ui/SeverityBadge.tsx:56:      "text-[var(--color-blue,#1d4ed8)]",
-./src/components/ui/SeverityBadge.tsx:65:        "border-[var(--border-subtle,#e5e7eb)] " +
-./src/components/ui/SeverityBadge.tsx:66:        "bg-[var(--bg-subtle,#f9fafb)] " +
-./src/components/ui/SeverityBadge.tsx:67:        "text-[var(--text-secondary,#6b7280)]",
-./src/components/ui/TriggerList.tsx:23:      <span className="text-xs italic text-[var(--text-tertiary,#9ca3af)]">
-./src/components/ui/TriggerList.tsx:45:            "border-[var(--color-blue,#1d4ed8)]/15 bg-[var(--color-blue-highlight,#eff6ff)] text-[var(--color-blue,#1d4ed8)]",
-./src/components/ui/TriggerList.tsx:53:        <span className="text-xs text-[var(--text-tertiary,#9ca3af)]">
 ./src/components/settings/ProjectMembersPanel.tsx:67:  "rounded-2xl border border-[var(--color-error,#ef4444)] bg-[color:color-mix(in_srgb,var(--color-error,#ef4444)_8%,var(--bg-card))] px-4 py-3";
 ./src/components/documents/pipeline/LayoutStageViewer.tsx:176:          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-inverse,#111827)] shadow-sm">
 ./src/components/documents/pipeline/LayoutStageViewer.tsx:183:            <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-5 text-[var(--text-inverse,#f9fafb)]">
@@ -65,29 +46,14 @@
 ./src/pages/deal-instructions/DealOverrideDetailPage.tsx:366:              <p className="text-[11px] text-[#b91c1c]">
 ./src/pages/deal-instructions/DealOverridesPage.tsx:115:          <div className="rounded-xl border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] px-4 py-2.5">
 ./src/pages/deal-instructions/DealOverridesPage.tsx:116:            <span className="text-[11px] text-[color:var(--color-warning-text,#92400e)]">
-./src/pages/instructions/GlobalInstructionsPage.tsx:165:                  className="h-3.5 w-3.5 text-[color:var(--color-warning-text,#92400e)]"
-./src/pages/instructions/GlobalInstructionsPage.tsx:170:                  className="h-3.5 w-3.5 text-[color:var(--color-warning-text,#92400e)]"
-./src/pages/instructions/DocTypeInstructionsPage.tsx:172:                  className="h-3.5 w-3.5 text-[color:var(--color-warning-text,#92400e)]"
-./src/pages/instructions/DocTypeInstructionsPage.tsx:177:                  className="h-3.5 w-3.5 text-[color:var(--color-warning-text,#92400e)]"
-./src/pages/PlaybooksRegistryPage.tsx:278:    body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #111; }
-./src/pages/PlaybooksRegistryPage.tsx:280:    h2 { font-size: 14pt; margin-top: 24pt; margin-bottom: 6pt; border-bottom: 1px solid #999; padding-bottom: 4pt; }
-./src/pages/PlaybooksRegistryPage.tsx:282:    .meta { color: #555; font-size: 10pt; margin-bottom: 8pt; }
-./src/pages/PlaybooksRegistryPage.tsx:285:    th, td { border: 1px solid #bbb; padding: 4pt 6pt; text-align: left; vertical-align: top; }
-./src/pages/PlaybooksRegistryPage.tsx:286:    th { background: #f0f0f0; font-weight: bold; }
-./src/pages/PlaybooksRegistryPage.tsx:287:    .code { font-family: Consolas, monospace; color: #333; }
+./src/pages/PlaybooksRegistryPage.tsx:251:    body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #111; }
+./src/pages/PlaybooksRegistryPage.tsx:253:    h2 { font-size: 14pt; margin-top: 24pt; margin-bottom: 6pt; border-bottom: 1px solid #999; padding-bottom: 4pt; }
+./src/pages/PlaybooksRegistryPage.tsx:255:    .meta { color: #555; font-size: 10pt; margin-bottom: 8pt; }
+./src/pages/PlaybooksRegistryPage.tsx:258:    th, td { border: 1px solid #bbb; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+./src/pages/PlaybooksRegistryPage.tsx:259:    th { background: #f0f0f0; font-weight: bold; }
+./src/pages/PlaybooksRegistryPage.tsx:260:    .code { font-family: Consolas, monospace; color: #333; }
 ./src/pages/tabs/AuditTab.tsx:39:  "bg-[color:color-mix(in_srgb,var(--color-blue,#3b82f6)_6%,transparent)]";
 ./src/pages/tabs/audit/ClassificationAuditView.tsx:270:                            "bg-[color:color-mix(in_srgb,var(--color-warning,#f59e0b)_4%,transparent)]",
-./src/pages/LoginPage.tsx:97:    <div className="flex min-h-screen flex-col items-center justify-center bg-[#FAF8F5] px-4 text-[#1A1917]">
-./src/pages/LoginPage.tsx:98:      <div className="w-full max-w-sm rounded-2xl border border-[#E8E4DD] bg-white px-6 py-7 shadow-sm">
-./src/pages/LoginPage.tsx:100:          <div className="inline-flex items-center rounded-full border border-[#E8E4DD] bg-[#F3F0EB] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#A8A29E]">
-./src/pages/LoginPage.tsx:104:          <h1 className="mt-4 text-[20px] font-semibold tracking-tight text-[#1A1917]">
-./src/pages/LoginPage.tsx:107:          <p className="mt-2 text-sm leading-6 text-[#78756F]">
-./src/pages/LoginPage.tsx:116:              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[#A8A29E]"
-./src/pages/LoginPage.tsx:125:              className="w-full rounded-xl border border-[#E8E4DD] bg-[#FAF8F5] px-3.5 py-2.5 text-sm text-[#1A1917] placeholder:text-[#A8A29E] outline-none transition-colors focus:border-[#C86B52] focus:bg-white"
-./src/pages/LoginPage.tsx:135:              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[#A8A29E]"
-./src/pages/LoginPage.tsx:144:              className="w-full rounded-xl border border-[#E8E4DD] bg-[#FAF8F5] px-3.5 py-2.5 text-sm text-[#1A1917] placeholder:text-[#A8A29E] outline-none transition-colors focus:border-[#C86B52] focus:bg-white"
-./src/pages/LoginPage.tsx:151:            <p className="rounded-xl border border-[#DC2626]/20 bg-[#FEE2E2] px-3.5 py-2.5 text-xs text-[#B91C1C]">
-./src/pages/LoginPage.tsx:171:        className="mt-6 text-xs text-[#A8A29E] transition-colors hover:text-[#78756F]"
 ./src/marketing/components/platform/PlatformWorkflowSection.tsx:22: * Фон off-white (#F3F0EB) — ритмичное чередование с hero (белым).
 ./src/marketing/components/platform/PlatformWorkflowSection.tsx:29:      style={{ background: "#F3F0EB" }}
 ./src/marketing/components/platform/PlatformWorkflowSection.tsx:40:            <h2 className="mt-4 font-serif text-[clamp(2.25rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.03em] text-[#1A1917]">              {WORKFLOW_CONTENT.title}

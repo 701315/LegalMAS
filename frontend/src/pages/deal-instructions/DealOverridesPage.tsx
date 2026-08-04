@@ -23,7 +23,7 @@ const OverrideCard: React.FC<OverrideCardProps> = ({ override, onClick }) => (
   <button
     type="button"
     onClick={onClick}
-    className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-left text-xs transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--bg-elevated-soft)]"
+    className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-left text-xs transition-colors hover:border-[var(--accent-primary)]/30 hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
   >
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0 flex-1">
@@ -43,8 +43,7 @@ const OverrideCard: React.FC<OverrideCardProps> = ({ override, onClick }) => (
           </div>
         )}
         <div className="mt-1 text-[10px] text-[var(--text-muted)]">
-          {override.patch_ops.length} patch ops ·{" "}
-          base:{" "}
+          {override.patch_ops.length} patch ops · base:{" "}
           {override.global_instruction_version_id
             ? `global ${override.global_instruction_version_id.slice(0, 8)}…`
             : override.instruction_version_id
@@ -99,9 +98,7 @@ const DealOverridesPage: React.FC = () => {
                 variant="secondary"
                 size="sm"
                 onClick={() =>
-                  navigate(
-                    `/projects/${dealId}/instructions/overrides/new`,
-                  )
+                  navigate(`/projects/${dealId}/instructions/overrides/new`)
                 }
               >
                 <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
@@ -112,8 +109,8 @@ const DealOverridesPage: React.FC = () => {
         />
 
         {staleCount > 0 && (
-          <div className="rounded-xl border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] px-4 py-2.5">
-            <span className="text-[11px] text-[color:var(--color-warning-text,#92400e)]">
+          <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-2.5">
+            <span className="text-[11px] text-[var(--color-warning-text)]">
               {staleCount}{" "}
               {staleCount === 1 ? "override устарел" : "overrides устарели"}.
               Выполните rebase для каждого stale override.
@@ -140,9 +137,7 @@ const DealOverridesPage: React.FC = () => {
                   variant="secondary"
                   size="sm"
                   onClick={() =>
-                    navigate(
-                      `/projects/${dealId}/instructions/overrides/new`,
-                    )
+                    navigate(`/projects/${dealId}/instructions/overrides/new`)
                   }
                 >
                   Создать override
@@ -173,5 +168,6 @@ const DealOverridesPage: React.FC = () => {
 };
 
 export default DealOverridesPage;
+
 
 

@@ -48,8 +48,9 @@ const DomainCard: React.FC<{
     onClick={onClick}
     className={[
       "flex min-h-[7rem] w-full flex-col rounded-2xl border px-4 py-3 text-left shadow-sm transition",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
       isActive
-        ? "border-[var(--accent-primary)] ring-1 ring-[var(--accent-primary)] bg-[color:color-mix(in_srgb,var(--accent-primary)_10%,var(--bg-card))] shadow-md"
+        ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] shadow-md"
         : "border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated-soft)]",
     ].join(" ")}
   >
@@ -210,5 +211,6 @@ export const ProjectDomainsOverviewPanel: React.FC<
 };
 
 export default ProjectDomainsOverviewPanel;
+
 
 

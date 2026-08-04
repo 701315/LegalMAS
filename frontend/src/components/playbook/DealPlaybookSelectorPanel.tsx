@@ -1,6 +1,5 @@
 // =============================================================
 // src/components/playbook/DealPlaybookSelectorPanel.tsx
-// Выбор и применение playbook для сделки.
 // =============================================================
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -46,10 +45,13 @@ export interface DealPlaybookSelectorPanelProps {
 const VISIBLE_VERSION_STATUSES = new Set<string>(["draft", "published"]);
 
 const selectClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
-const cardButtonBaseClassName =
-  "w-full rounded-2xl border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-60";
+const cardButtonBaseClassName = [
+  "w-full rounded-2xl border px-3 py-2 text-left text-xs transition-colors",
+  "disabled:cursor-not-allowed disabled:opacity-60",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
+].join(" ");
 
 const cardButtonIdleClassName =
   "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated-soft)]";
@@ -64,21 +66,21 @@ function VersionStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     draft: {
       label: "Черновик",
-      cls: "bg-amber-100 text-amber-700 border-amber-200",
+      cls: "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
     },
     published: {
       label: "Опубликована",
-      cls: "bg-emerald-100 text-emerald-700 border-emerald-200",
+      cls: "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
     },
     archived: {
       label: "Архив",
-      cls: "bg-[var(--bg-elevated-soft)] text-[var(--text-muted)] border-[var(--border)]",
+      cls: "border-[var(--border)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
     },
   };
 
   const cfg = map[status] ?? {
     label: status,
-    cls: "bg-[var(--bg-elevated-soft)] text-[var(--text-muted)] border-[var(--border)]",
+    cls: "border-[var(--border)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
   };
 
   return (
@@ -203,7 +205,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
       >(`/api/v1/deals/${dealId}/playbook-history`);
 
       const payload = res.data;
-      setHistory(Array.isArray(payload) ? payload : payload.items ?? []);
+      setHistory(Array.isArray(payload) ? payload : (payload.items ?? []));
     } catch (err) {
       setHistoryError(
         getApiErrorMessage(
@@ -604,7 +606,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
           <button
             type="button"
             onClick={handleBack}
-            className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+            className="flex shrink-0 items-center gap-1.5 rounded-md text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]"
           >
             ← Назад к проекту
           </button>
@@ -798,7 +800,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
               </ul>
 
               {isSelectedVersionDraft && (
-                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                <div className="mt-2 rounded-lg border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-xs text-[var(--color-warning-text)]">
                   Черновик нельзя применить к проекту — сначала опубликуйте
                   версию в Playbook Studio.
                 </div>
@@ -974,7 +976,8 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                       className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1"
                     >
                       <div className="text-[var(--text-secondary)]">
-                        {new Date(item.created_at).toLocaleString()} — {item.actor}
+                        {new Date(item.created_at).toLocaleString()} —{" "}
+                        {item.actor}
                         {item.actor_role && (
                           <span className="text-[var(--text-muted)]">
                             {" "}

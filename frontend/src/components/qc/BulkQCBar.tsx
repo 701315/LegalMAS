@@ -1,6 +1,5 @@
 // =============================================================
 // src/components/qc/BulkQCBar.tsx
-// Панель массового QC для выбранных результатов.
 // =============================================================
 
 import React from "react";
@@ -17,7 +16,6 @@ interface BulkQCBarProps {
   }) => void;
 }
 
-// Варианты severity для override
 const SEVERITY_OPTIONS: { value: SeverityLevel; label: string }[] = [
   { value: "critical", label: "Critical" },
   { value: "high", label: "High" },
@@ -26,7 +24,6 @@ const SEVERITY_OPTIONS: { value: SeverityLevel; label: string }[] = [
   { value: "unclear", label: "Unclear" },
 ];
 
-// Варианты result для override (+ «не менять»)
 const RESULT_OPTIONS: { value: CheckResultValue | ""; label: string }[] = [
   { value: "", label: "Не менять result" },
   { value: "pass", label: "Pass" },
@@ -75,7 +72,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border-soft)] bg-[color:color-mix(in_srgb,var(--bg-card)_92%,black)] px-4 py-2 text-xs text-[var(--text-secondary)] shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur">
+    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border)] bg-[var(--bg-card)] px-4 py-2 text-xs text-[var(--text-secondary)] shadow-lg backdrop-blur">
       {/* Основная строка */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -93,17 +90,16 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Комментарий QC (опционально)…"
-            className="w-64 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-muted)]"
+            className="w-64 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
           />
 
           <button
             type="button"
             className={cn(
               "rounded-lg border px-3 py-1 text-xs font-medium transition",
-              "border-[color:color-mix(in_srgb,var(--success)_26%,transparent)]",
-              "bg-[color:color-mix(in_srgb,var(--success)_14%,white)]",
-              "text-[var(--success)]",
-              "hover:bg-[color:color-mix(in_srgb,var(--success)_18%,white)]",
+              "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]",
+              "hover:opacity-90",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
               "disabled:cursor-not-allowed disabled:opacity-45",
             )}
             onClick={handleConfirm}
@@ -116,10 +112,9 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
             type="button"
             className={cn(
               "rounded-lg border px-3 py-1 text-xs font-medium transition",
-              "border-[color:color-mix(in_srgb,var(--color-error)_26%,transparent)]",
-              "bg-[var(--color-error-highlight)]",
-              "text-[var(--color-error)]",
-              "hover:bg-[color:color-mix(in_srgb,var(--color-error)_14%,white)]",
+              "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]",
+              "hover:opacity-90",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
               "disabled:cursor-not-allowed disabled:opacity-45",
             )}
             onClick={handleReject}
@@ -133,9 +128,10 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
               type="button"
               className={cn(
                 "rounded-lg border px-3 py-1 text-xs font-medium transition",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
                 "disabled:cursor-not-allowed disabled:opacity-45",
                 showOverride
-                  ? "border-[color:color-mix(in_srgb,var(--color-orange)_26%,transparent)] bg-[var(--color-orange-highlight)] text-[var(--color-orange)]"
+                  ? "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]"
                   : "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]",
               )}
               onClick={() => setShowOverride((v) => !v)}
@@ -156,7 +152,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
           <div className="flex items-center gap-1">
             <label className="text-[var(--text-secondary)]">Severity:</label>
             <select
-              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-muted)]"
+              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               value={newSeverity}
               onChange={(e) =>
                 setNewSeverity(e.target.value as SeverityLevel)
@@ -174,7 +170,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
           <div className="flex items-center gap-1">
             <label className="text-[var(--text-secondary)]">Result:</label>
             <select
-              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-muted)]"
+              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
               value={newResult}
               onChange={(e) =>
                 setNewResult(e.target.value as CheckResultValue | "")
@@ -191,8 +187,8 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
           <button
             type="button"
             className={cn(
-              "rounded-lg px-3 py-1 text-xs font-medium text-white transition",
-              "bg-[var(--color-orange)] hover:bg-[color:color-mix(in_srgb,var(--color-orange)_84%,black)]",
+              "rounded-lg border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-1 text-xs font-medium text-[var(--color-warning-text)] transition hover:opacity-90",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
               "disabled:cursor-not-allowed disabled:opacity-45",
             )}
             onClick={handleOverride}
@@ -203,7 +199,7 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
 
           <button
             type="button"
-            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)]"
+            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]"
             onClick={() => setShowOverride(false)}
           >
             Отмена
@@ -215,5 +211,6 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
 };
 
 export default BulkQCBar;
+
 
 

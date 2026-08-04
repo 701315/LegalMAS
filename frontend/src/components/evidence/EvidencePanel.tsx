@@ -1,8 +1,5 @@
 // =============================================================
 // src/components/evidence/EvidencePanel.tsx
-// Полноценная панель доказательств для одного результата проверки.
-// Правый сайдбар: контекст документа, фрагмент, QC, флаги качества,
-// классификация документа, условная проверка, извлечённые данные.
 // =============================================================
 
 import React from "react";
@@ -96,18 +93,17 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   onOpenAtLocation,
 }) => {
   const { data: evidence, isLoading, error } = useEvidence(result.id);
-
   const { data: provenance } = useCheckProvenance(result.id);
   const contextTrace = provenance?.context_trace ?? [];
 
   const evidenceObj = (evidence ?? undefined) as EvidenceDetailLike | undefined;
-
   const snippet = getSnippet(evidenceObj, result);
 
   const page =
     typeof evidenceObj?.page === "number" ? evidenceObj.page : undefined;
   const clauseUid =
-    typeof evidenceObj?.clause_uid === "string" && evidenceObj.clause_uid.trim()
+    typeof evidenceObj?.clause_uid === "string" &&
+    evidenceObj.clause_uid.trim()
       ? evidenceObj.clause_uid
       : undefined;
 
@@ -138,7 +134,10 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   const structuredEntries: [string, StructuredField][] = React.useMemo(() => {
     if (!result.structured_data || typeof result.structured_data !== "object")
       return [];
-    return Object.entries(result.structured_data) as [string, StructuredField][];
+    return Object.entries(result.structured_data) as [
+      string,
+      StructuredField,
+    ][];
   }, [result.structured_data]);
 
   const hasStructuredData = structuredEntries.length > 0;
@@ -252,7 +251,6 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 
       {/* Основное содержимое */}
       <div className="grid flex-1 grid-cols-3 gap-4 overflow-hidden px-5 py-4">
-
         {/* Левая колонка */}
         <div className="col-span-1 space-y-4 overflow-y-auto border-r border-[var(--border-subtle)] pr-4">
           <div>
@@ -277,7 +275,9 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
               {result.doc_classification_level ? (
                 <ClassificationBadge
                   level={result.doc_classification_level}
-                  confidence={result.doc_classification_confidence ?? undefined}
+                  confidence={
+                    result.doc_classification_confidence ?? undefined
+                  }
                 />
               ) : (
                 <span className="text-[11px] text-[var(--text-faint)]">
@@ -285,7 +285,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 </span>
               )}
               {isLowConfidence && (
-                <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-hover)]">
+                <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-text)]">
                   Низкая уверенность
                 </span>
               )}
@@ -330,7 +330,8 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
             <div className="space-y-0.5 text-[11px] text-[var(--text-muted)]">
               {result.confidence != null && (
                 <div>
-                  Уверенность детектора: {Math.round(result.confidence * 100)}%
+                  Уверенность детектора:{" "}
+                  {Math.round(result.confidence * 100)}%
                 </div>
               )}
               <div>Создано: {formatCreatedAt(result.created_at)}</div>
@@ -352,14 +353,18 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
             )}
 
             {error && (
-              <div className="rounded-xl border border-[color:color-mix(in_srgb,var(--color-error)_18%,transparent)] bg-[var(--color-error-highlight)] px-3 py-2 text-xs text-[var(--color-error)]">
+              <div className="rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs text-[var(--color-error-text)]">
                 Не удалось загрузить evidence.
               </div>
             )}
 
             {!isLoading && !error && (
               <>
-                {(page || clauseUid || segmentId || chunkIndex != null || chunkId) && (
+                {(page ||
+                  clauseUid ||
+                  segmentId ||
+                  chunkIndex != null ||
+                  chunkId) && (
                   <div className="mb-2 flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]">
                     {page != null && <span>Стр. {page}</span>}
                     {clauseUid && <span>Clause: {clauseUid}</span>}
@@ -369,7 +374,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                       </span>
                     )}
                     {chunkIndex != null && (
-                      <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-hover)]">
+                      <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-gold-text)]">
                         Chunk #{chunkIndex}
                       </span>
                     )}
@@ -396,18 +401,33 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                 <table className="w-full text-[11px]">
                   <thead>
                     <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]">
-                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">Поле</th>
-                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">Значение</th>
-                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">Статус</th>
-                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">Источник</th>
-                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">Увер.</th>
-                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">Фрагмент</th>
-                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">QC</th>
+                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
+                        Поле
+                      </th>
+                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
+                        Значение
+                      </th>
+                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
+                        Статус
+                      </th>
+                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
+                        Источник
+                      </th>
+                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
+                        Увер.
+                      </th>
+                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
+                        Фрагмент
+                      </th>
+                      <th className="px-2 py-1 text-left font-medium text-[var(--text-muted)]">
+                        QC
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {structuredEntries.map(([key, field]) => {
-                      const value = field.value != null ? String(field.value) : "—";
+                      const value =
+                        field.value != null ? String(field.value) : "—";
                       const source = field.source || "—";
                       const confidence =
                         typeof field.confidence === "number"
@@ -440,13 +460,17 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleOpenFieldLocation(field)}
+                                onClick={() =>
+                                  handleOpenFieldLocation(field)
+                                }
                                 className="h-auto min-h-0 px-0 py-0 text-[11px] font-medium text-[var(--accent-primary)] hover:bg-transparent hover:text-[var(--accent-primary)] hover:underline"
                               >
                                 {renderLocationLabel(field)}
                               </Button>
                             ) : (
-                              <span className="text-[var(--text-faint)]">—</span>
+                              <span className="text-[var(--text-faint)]">
+                                —
+                              </span>
                             )}
                           </td>
                           <td className="whitespace-nowrap px-2 py-1 align-top text-[var(--text-secondary)]">
@@ -492,7 +516,6 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 
         {/* Правая колонка */}
         <div className="col-span-1 flex flex-col gap-3 overflow-hidden">
-
           {/* QC-статус */}
           <div>
             <div className="mb-1 text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
@@ -563,35 +586,39 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
               <div className="max-h-56 space-y-1.5 overflow-auto">
                 {contextTrace.map((item, i) => {
                   const score = item.score != null ? item.score : null;
-                  const pct = score != null ? Math.round(score * 100) : null;
+                  const pct =
+                    score != null ? Math.round(score * 100) : null;
                   const isTop = i === 0;
                   return (
                     <div
                       key={i}
-                      className={`rounded-lg border p-2 text-[10px] ${
+                      className={[
+                        "rounded-lg border p-2 text-[10px]",
                         isTop
-                          ? "border-green-300/40 bg-green-50"
-                          : "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]"
-                      }`}
+                          ? "border-[var(--color-success-border)] bg-[var(--color-success-bg)]"
+                          : "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]",
+                      ].join(" ")}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span
-                          className={`font-medium ${
+                          className={[
+                            "font-medium",
                             isTop
-                              ? "text-green-800"
-                              : "text-[var(--text-secondary)]"
-                          }`}
+                              ? "text-[var(--color-success-text)]"
+                              : "text-[var(--text-secondary)]",
+                          ].join(" ")}
                         >
                           #{(item.rank ?? i) + 1}{" "}
                           {item.clause_uid ?? item.chunk_id ?? "—"}
                         </span>
                         {pct != null && (
                           <span
-                            className={`font-bold ${
+                            className={[
+                              "font-bold",
                               isTop
-                                ? "text-green-700"
-                                : "text-[var(--text-muted)]"
-                            }`}
+                                ? "text-[var(--color-success-text)]"
+                                : "text-[var(--text-muted)]",
+                            ].join(" ")}
                           >
                             {pct}%
                           </span>
@@ -600,9 +627,12 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                       {pct != null && (
                         <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-[var(--bg-card)]">
                           <div
-                            className={`h-full rounded-full ${
-                              isTop ? "bg-green-500" : "bg-[var(--text-muted)]"
-                            }`}
+                            className={[
+                              "h-full rounded-full",
+                              isTop
+                                ? "bg-[var(--color-success)]"
+                                : "bg-[var(--text-muted)]",
+                            ].join(" ")}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -610,7 +640,9 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                       {(item.page != null || item.segment_title) && (
                         <div className="mt-1 text-[var(--text-faint)]">
                           {item.page != null ? `Стр. ${item.page}` : ""}
-                          {item.page != null && item.segment_title ? " · " : ""}
+                          {item.page != null && item.segment_title
+                            ? " · "
+                            : ""}
                           {item.segment_title ?? ""}
                         </div>
                       )}
@@ -620,7 +652,6 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
               </div>
             </div>
           )}
-
         </div>
       </div>
     </div>
@@ -628,5 +659,6 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 };
 
 export default EvidencePanel;
+
 
 

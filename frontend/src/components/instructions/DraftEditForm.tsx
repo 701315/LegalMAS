@@ -33,10 +33,10 @@ import type {
 // ── Стили ─────────────────────────────────────────────────────
 
 const inputClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const textareaClassName =
-  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60 resize-y";
+  "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-xs font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60 resize-y";
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -233,11 +233,11 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
       {/* Conflict hint */}
       {concurrencyState.status === "conflict" &&
         concurrencyState.conflictData && (
-          <div className="rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-4 py-3">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#b91c1c]">
+          <div className="rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-error-text)]">
               Свежие данные с сервера
             </div>
-            <div className="space-y-1 text-[11px] text-[#b91c1c]">
+            <div className="space-y-1 text-[11px] text-[var(--color-error-text)]">
               <div>
                 Имя:{" "}
                 <span className="font-semibold">
@@ -259,7 +259,7 @@ const DraftEditForm: React.FC<DraftEditFormProps> = ({
                   : "—"}
               </div>
             </div>
-            <p className="mt-2 text-[11px] text-[#b91c1c]">
+            <p className="mt-2 text-[11px] text-[var(--color-error-text)]">
               Обновите форму вручную с учётом свежих данных, затем нажмите
               «Сохранить».
             </p>

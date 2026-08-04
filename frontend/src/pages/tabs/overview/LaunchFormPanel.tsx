@@ -1,6 +1,4 @@
-// =============================================================
 // src/pages/tabs/overview/LaunchFormPanel.tsx
-// =============================================================
 
 import React from "react";
 import type { Deal } from "../../../types";
@@ -115,15 +113,15 @@ function getDiscoveryBanner(
 
 function getBannerClassName(tone: BannerTone): string {
   if (tone === "error") {
-    return "border border-[var(--color-error-border)] bg-[var(--color-error-subtle)] text-[var(--color-error)]";
+    return "border border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-text)]";
   }
 
   if (tone === "warning") {
-    return "border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] text-[var(--color-warning)]";
+    return "border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]";
   }
 
   if (tone === "success") {
-    return "border border-[var(--color-success-border)] bg-[var(--color-success-subtle)] text-[var(--color-success)]";
+    return "border border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]";
   }
 
   return "border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
@@ -389,7 +387,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                   Playbook выбран.
                 </span>
               ) : (
-                <span className="text-[var(--color-error)]">
+                <span className="text-[var(--color-error-text)]">
                   Playbook не выбран. Нельзя запустить анализ без playbook.
                 </span>
               )}
@@ -495,7 +493,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                 </div>
 
                 {!primaryLanguageSelected && !isDiscoveryInProgress && (
-                  <p className="mt-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning)]">
+                  <p className="mt-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning-text)]">
                     Перед запуском анализа выберите основной язык сделки.
                   </p>
                 )}
@@ -597,7 +595,5 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 };
 
 export default LaunchFormPanel;
-
-
 
 

@@ -344,16 +344,16 @@ function MatchBadge({ type }: { type: CompareRow["matchType"] }) {
         }
       : type === "heuristic"
         ? {
-            cls: "bg-[var(--color-blue-highlight)] text-[var(--color-blue)] border-[var(--color-blue-hover)]/40",
+            cls: "bg-[var(--color-blue-highlight)] text-[var(--color-blue)] border-[var(--color-blue-strong)]/40",
             text: "match: similar text",
           }
         : type === "removed"
           ? {
-              cls: "bg-[var(--color-error-highlight)] text-[var(--color-error)] border-[var(--color-error-hover)]/40",
+              cls: "bg-[var(--color-error-bg)] text-[var(--color-error-text)] border-[var(--color-error-border)]",
               text: "removed",
             }
           : {
-              cls: "bg-[var(--color-success-highlight)] text-[var(--color-success)] border-[var(--color-success-hover)]/40",
+              cls: "bg-[var(--color-success-bg)] text-[var(--color-success-text)] border-[var(--color-success-border)]",
               text: "added",
             };
 
@@ -386,7 +386,7 @@ function BeforeTextDiff({
 
   if (removed) {
     return (
-      <span className="rounded bg-[var(--color-error-highlight)] px-1 py-0.5 text-[var(--color-error)]">
+      <span className="rounded bg-[var(--color-error-bg)] px-1 py-0.5 text-[var(--color-error-text)]">
         {beforeText}
       </span>
     );
@@ -405,7 +405,7 @@ function BeforeTextDiff({
           return (
             <span
               key={index}
-              className="rounded bg-[var(--color-error-highlight)] px-1 py-0.5 text-[var(--color-error)]"
+              className="rounded bg-[var(--color-error-bg)] px-1 py-0.5 text-[var(--color-error-text)]"
             >
               {token.text}
             </span>
@@ -546,9 +546,9 @@ export const LayoutDebugModal: React.FC<Props> = ({
             <div className="flex h-full flex-col items-center justify-center bg-[var(--bg-card)] text-center">
               <AlertTriangle
                 size={20}
-                className="mb-2 text-[var(--color-error)]"
+                className="mb-2 text-[var(--color-error-text)]"
               />
-              <div className="text-sm font-medium text-[var(--color-error)]">
+              <div className="text-sm font-medium text-[var(--color-error-text)]">
                 Ошибка загрузки данных
               </div>
               <div className="mt-1 max-w-2xl break-all text-xs text-[var(--text-muted)]">
@@ -642,7 +642,7 @@ export const LayoutDebugModal: React.FC<Props> = ({
                             key={`right-${row.key}`}
                             className={
                               row.added
-                                ? "rounded-md border border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] bg-[var(--color-success-highlight)] px-3 py-2"
+                                ? "rounded-md border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-2"
                                 : "rounded-md border border-transparent bg-transparent px-3 py-2"
                             }
                           >
@@ -685,6 +685,5 @@ export const LayoutDebugModal: React.FC<Props> = ({
 };
 
 export default LayoutDebugModal;
-
 
 

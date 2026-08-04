@@ -9,8 +9,10 @@
 ./src/styles/ag-theme-legalmas.css:190:.ag-theme-legalmas .ag-row-selected .ag-cell:first-child {
 ./src/styles/ag-theme-legalmas.css:250:.ag-theme-legalmas .ag-range-selected,
 ./src/styles/ag-theme-legalmas.css:251:.ag-theme-legalmas .ag-cell-range-selected {
-./src/styles/ag-theme-legalmas.css:324:.ag-theme-legalmas .ag-row.ag-row-active-v1 {
-./src/styles/ag-theme-legalmas.css:329:.ag-theme-legalmas .ag-row.ag-row-active-v1:hover {
+./src/styles/ag-theme-legalmas.css:322:.ag-theme-legalmas .ag-row.ag-row-active-v1 {
+./src/styles/ag-theme-legalmas.css:327:.ag-theme-legalmas .ag-row.ag-row-active-v1:hover {
+./src/components/DealCard.tsx:57:  const interactiveProps = onClick
+./src/components/DealCard.tsx:73:      {...interactiveProps}
 ./src/components/qc/BulkQCBar.tsx:10:  selectedCount: number;
 ./src/components/qc/BulkQCBar.tsx:42:  selectedCount,
 ./src/components/qc/BulkQCBar.tsx:52:  const disabled = selectedCount === 0;
@@ -19,19 +21,19 @@
 ./src/components/ConfirmDialog.tsx:73:      const active = document.activeElement as HTMLElement | null;
 ./src/components/ConfirmDialog.tsx:76:        if (active === first || !dialogRef.current.contains(active)) {
 ./src/components/ConfirmDialog.tsx:80:      } else if (active === last) {
-./src/components/viewer/DocumentViewerModal.tsx:147:      const activeOverlay = container.querySelector<HTMLDivElement>(
-./src/components/viewer/DocumentViewerModal.tsx:148:        '[data-active-overlay="true"]',
-./src/components/viewer/DocumentViewerModal.tsx:151:      if (activeOverlay) {
-./src/components/viewer/DocumentViewerModal.tsx:154:        const overlayRect = activeOverlay.getBoundingClientRect();
-./src/components/viewer/DocumentViewerModal.tsx:186:  let activeChunkIndex = -1;
-./src/components/viewer/DocumentViewerModal.tsx:194:        activeChunkIndex = idx;
-./src/components/viewer/DocumentViewerModal.tsx:199:      activeChunkIndex < 0 &&
-./src/components/viewer/DocumentViewerModal.tsx:204:      activeChunkIndex = chunkIndex;
-./src/components/viewer/DocumentViewerModal.tsx:207:    if (activeChunkIndex < 0 && clauseUid) {
-./src/components/viewer/DocumentViewerModal.tsx:212:        activeChunkIndex = idx;
-./src/components/viewer/DocumentViewerModal.tsx:362:                          activeChunkIndex >= 0 &&
-./src/components/viewer/DocumentViewerModal.tsx:363:                          ov.chunkIndex === activeChunkIndex;
-./src/components/viewer/DocumentViewerModal.tsx:375:                            data-active-overlay={isActive ? "true" : undefined}
+./src/components/viewer/DocumentViewerModal.tsx:143:      const activeOverlay = container.querySelector<HTMLDivElement>(
+./src/components/viewer/DocumentViewerModal.tsx:144:        '[data-active-overlay="true"]',
+./src/components/viewer/DocumentViewerModal.tsx:147:      if (activeOverlay) {
+./src/components/viewer/DocumentViewerModal.tsx:149:        const overlayRect = activeOverlay.getBoundingClientRect();
+./src/components/viewer/DocumentViewerModal.tsx:180:  let activeChunkIndex = -1;
+./src/components/viewer/DocumentViewerModal.tsx:188:        activeChunkIndex = idx;
+./src/components/viewer/DocumentViewerModal.tsx:193:      activeChunkIndex < 0 &&
+./src/components/viewer/DocumentViewerModal.tsx:198:      activeChunkIndex = chunkIndex;
+./src/components/viewer/DocumentViewerModal.tsx:201:    if (activeChunkIndex < 0 && clauseUid) {
+./src/components/viewer/DocumentViewerModal.tsx:206:        activeChunkIndex = idx;
+./src/components/viewer/DocumentViewerModal.tsx:356:                          activeChunkIndex >= 0 &&
+./src/components/viewer/DocumentViewerModal.tsx:357:                          ov.chunkIndex === activeChunkIndex;
+./src/components/viewer/DocumentViewerModal.tsx:369:                            data-active-overlay={isActive ? "true" : undefined}
 ./src/components/ui/Drawer.tsx:39:      document.activeElement as HTMLElement | null;
 ./src/components/ui/Drawer.tsx:82:      const active = document.activeElement as HTMLElement | null;
 ./src/components/ui/Drawer.tsx:85:        if (active === first || !panelRef.current.contains(active)) {
@@ -226,17 +228,17 @@
 ./src/components/upload/PreparedFilesTable.tsx:49:  const hasSelection = selectedRowIds.length > 0;
 ./src/components/upload/PreparedFilesTable.tsx:50:  const allSelected = hasRows && selectedRowIds.length === rows.length;
 ./src/components/upload/PreparedFilesTable.tsx:126:                const checked = selectedRowIds.includes(row.id);
-./src/components/upload/ProjectUploadPanel.tsx:104:  const [selectedFiles, setSelectedFiles] = useState<FileWithRelativePath[]>([]);
-./src/components/upload/ProjectUploadPanel.tsx:105:  const [selectedPreparedRowIds, setSelectedPreparedRowIds] = useState<string[]>([]);
-./src/components/upload/ProjectUploadPanel.tsx:111:  const canSubmit = !isSubmitting && selectedFiles.length > 0;
-./src/components/upload/ProjectUploadPanel.tsx:119:    return selectedFiles.map((file, index) => ({
-./src/components/upload/ProjectUploadPanel.tsx:126:  }, [selectedFiles]);
-./src/components/upload/ProjectUploadPanel.tsx:216:    if (selectedPreparedRowIds.length === 0) return;
-./src/components/upload/ProjectUploadPanel.tsx:217:    removePreparedRows(selectedPreparedRowIds);
-./src/components/upload/ProjectUploadPanel.tsx:227:    if (selectedFiles.length === 0) {
-./src/components/upload/ProjectUploadPanel.tsx:234:        files: selectedFiles,
-./src/components/upload/ProjectUploadPanel.tsx:326:          selectedCount={selectedFiles.length}
-./src/components/upload/ProjectUploadPanel.tsx:346:        selectedRowIds={selectedPreparedRowIds}
+./src/components/upload/ProjectUploadPanel.tsx:99:  const [selectedFiles, setSelectedFiles] = useState<FileWithRelativePath[]>(
+./src/components/upload/ProjectUploadPanel.tsx:102:  const [selectedPreparedRowIds, setSelectedPreparedRowIds] = useState<
+./src/components/upload/ProjectUploadPanel.tsx:110:  const canSubmit = !isSubmitting && selectedFiles.length > 0;
+./src/components/upload/ProjectUploadPanel.tsx:118:    return selectedFiles.map((file, index) => ({
+./src/components/upload/ProjectUploadPanel.tsx:125:  }, [selectedFiles]);
+./src/components/upload/ProjectUploadPanel.tsx:217:    if (selectedPreparedRowIds.length === 0) return;
+./src/components/upload/ProjectUploadPanel.tsx:218:    removePreparedRows(selectedPreparedRowIds);
+./src/components/upload/ProjectUploadPanel.tsx:228:    if (selectedFiles.length === 0) {
+./src/components/upload/ProjectUploadPanel.tsx:234:      await uploadMutation.mutateAsync({ files: selectedFiles });
+./src/components/upload/ProjectUploadPanel.tsx:316:          selectedCount={selectedFiles.length}
+./src/components/upload/ProjectUploadPanel.tsx:332:        selectedRowIds={selectedPreparedRowIds}
 ./src/components/upload/UploadDropzoneCard.tsx:10:  selectedCount: number;
 ./src/components/upload/UploadDropzoneCard.tsx:22:  selectedCount,
 ./src/components/upload/UploadDropzoneCard.tsx:82:          {selectedCount > 0
@@ -252,7 +254,7 @@
 ./src/components/evidence/EvidencePanel.tsx:133:      active.push("Есть технические флаги (см. детали ниже)");
 ./src/components/evidence/EvidencePanel.tsx:134:    if (!active.length) return "Флаги качества не установлены.";
 ./src/components/evidence/EvidencePanel.tsx:135:    return active.join(" · ");
-./src/components/layout/AppShell.tsx:84:    aria-current={isActive ? "page" : undefined}
+./src/components/layout/AppShell.tsx:60:          ? "nav-item-active"
 ./src/components/model-config/ModelConfigManagerPanel.tsx:95:  const [selectedId, setSelectedId] = useState<string | null>(null);
 ./src/components/model-config/ModelConfigManagerPanel.tsx:109:  const selectedConfig = useMemo(
 ./src/components/model-config/ModelConfigManagerPanel.tsx:110:    () => state.items.find((item) => item.id === selectedId) ?? null,
@@ -316,15 +318,14 @@
 ./src/pages/DealPage.tsx:566:      aria-selected={isActive}
 ./src/pages/AdminTenantProjectsPage.tsx:39:  active: {
 ./src/pages/DealListPage.tsx:27:  const activeDealId = params.dealId;
-./src/pages/DealListPage.tsx:183:                    isActive={activeDealId === deal.id}
-./src/pages/AdminTenantDetailPage.tsx:104:    true, // include inactive
-./src/pages/AdminTenantDetailPage.tsx:260:  const activeUsers = usersList.filter((u) => u.is_active).length;
-./src/pages/AdminTenantDetailPage.tsx:281:            {!tenant.is_active && (
-./src/pages/AdminTenantDetailPage.tsx:298:            Пользователей: {activeUsers} из {tenant.users_count}
-./src/pages/AdminTenantDetailPage.tsx:314:            {tenant.is_active && (
-./src/pages/AdminTenantDetailPage.tsx:563:                  !u.is_active && "opacity-50",
-./src/pages/AdminTenantDetailPage.tsx:577:                    {!u.is_active && (
-./src/pages/AdminTenantDetailPage.tsx:586:                  {u.is_active && (
+./src/pages/DealListPage.tsx:178:                    isActive={activeDealId === deal.id}
+./src/pages/AdminTenantDetailPage.tsx:262:  const activeUsers = usersList.filter((u) => u.is_active).length;
+./src/pages/AdminTenantDetailPage.tsx:283:            {!tenant.is_active && (
+./src/pages/AdminTenantDetailPage.tsx:300:            Пользователей: {activeUsers} из {tenant.users_count}
+./src/pages/AdminTenantDetailPage.tsx:318:            {tenant.is_active && (
+./src/pages/AdminTenantDetailPage.tsx:569:                  !u.is_active && "opacity-50",
+./src/pages/AdminTenantDetailPage.tsx:583:                    {!u.is_active && (
+./src/pages/AdminTenantDetailPage.tsx:592:                  {u.is_active && (
 ./src/pages/playbooks/PlaybookStudioPage.tsx:201:  const [selectedGroup, setSelectedGroup] = useState<string>("__all__");
 ./src/pages/playbooks/PlaybookStudioPage.tsx:202:  const [selectedCode, setSelectedCode] = useState<string>("");
 ./src/pages/playbooks/PlaybookStudioPage.tsx:214:      selectedGroup === "__all__"
@@ -370,22 +371,22 @@
 ./src/pages/playbooks/PlaybookStudioPage.tsx:563:    if (selectedPlaybook && !isNewTemplateMode) {
 ./src/pages/playbooks/PlaybookStudioPage.tsx:564:      setNewVersionName(`${selectedPlaybook.title} Draft`);
 ./src/pages/playbooks/PlaybookStudioPage.tsx:567:  }, [selectedPlaybook, isNewTemplateMode]);
-./src/pages/playbooks/PlaybookStudioPage.tsx:675:    if (!selectedPlaybookId) {
-./src/pages/playbooks/PlaybookStudioPage.tsx:685:      `/api/v1/playbooks/lines/${selectedPlaybookId}`,
-./src/pages/playbooks/PlaybookStudioPage.tsx:696:    return selectedPlaybookId;
-./src/pages/playbooks/PlaybookStudioPage.tsx:705:    if (!selectedModelConfigId) {
-./src/pages/playbooks/PlaybookStudioPage.tsx:733:          model_config_id: selectedModelConfigId,
-./src/pages/playbooks/PlaybookStudioPage.tsx:848:                        !isNewTemplateMode && selectedPlaybookId === playbook.id;
-./src/pages/playbooks/PlaybookStudioPage.tsx:900:              {!isNewTemplateMode && !selectedPlaybookId ? (
-./src/pages/playbooks/PlaybookStudioPage.tsx:1015:              {!selectedPlaybookId && !isNewTemplateMode ? (
-./src/pages/playbooks/PlaybookStudioPage.tsx:1023:                  {selectedPlaybook && !isNewTemplateMode && (
-./src/pages/playbooks/PlaybookStudioPage.tsx:1029:                        {selectedPlaybook.title}
-./src/pages/playbooks/PlaybookStudioPage.tsx:1032:                        {selectedPlaybook.code}
-./src/pages/playbooks/PlaybookStudioPage.tsx:1109:                        value={selectedModelConfigId}
-./src/pages/playbooks/PlaybookStudioPage.tsx:1128:                      disabled={isBusy || !selectedModelConfigId}
-./src/pages/playbooks/PlaybookStudioPage.tsx:1137:                      disabled={isBusy || !selectedModelConfigId}
-./src/pages/tenant-instructions/TenantOverrideDetailPage.tsx:77:    override?.status === "draft" || override?.status === "active";
-./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:178:      aria-current={isSelected ? "true" : undefined}
+./src/pages/playbooks/PlaybookStudioPage.tsx:671:    if (!selectedPlaybookId) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:681:      `/api/v1/playbooks/lines/${selectedPlaybookId}`,
+./src/pages/playbooks/PlaybookStudioPage.tsx:692:    return selectedPlaybookId;
+./src/pages/playbooks/PlaybookStudioPage.tsx:698:    if (!selectedModelConfigId) {
+./src/pages/playbooks/PlaybookStudioPage.tsx:723:          model_config_id: selectedModelConfigId,
+./src/pages/playbooks/PlaybookStudioPage.tsx:842:                        !isNewTemplateMode && selectedPlaybookId === playbook.id;
+./src/pages/playbooks/PlaybookStudioPage.tsx:894:              {!isNewTemplateMode && !selectedPlaybookId ? (
+./src/pages/playbooks/PlaybookStudioPage.tsx:1007:              {!selectedPlaybookId && !isNewTemplateMode ? (
+./src/pages/playbooks/PlaybookStudioPage.tsx:1014:                  {selectedPlaybook && !isNewTemplateMode && (
+./src/pages/playbooks/PlaybookStudioPage.tsx:1020:                        {selectedPlaybook.title}
+./src/pages/playbooks/PlaybookStudioPage.tsx:1023:                        {selectedPlaybook.code}
+./src/pages/playbooks/PlaybookStudioPage.tsx:1100:                        value={selectedModelConfigId}
+./src/pages/playbooks/PlaybookStudioPage.tsx:1118:                      disabled={isBusy || !selectedModelConfigId}
+./src/pages/playbooks/PlaybookStudioPage.tsx:1127:                      disabled={isBusy || !selectedModelConfigId}
+./src/pages/tenant-instructions/TenantOverrideDetailPage.tsx:74:    override?.status === "draft" || override?.status === "active";
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:177:      aria-current={isSelected ? "true" : undefined}
 ./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:208:  selectedVersionId: string | null;
 ./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:210:}> = ({ label, count, versions, selectedVersionId, onSelectVersion }) => (
 ./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:221:          isSelected={v.id === selectedVersionId}
@@ -395,11 +396,11 @@
 ./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:286:                selectedVersionId={selectedVersionId}
 ./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:295:                selectedVersionId={selectedVersionId}
 ./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:412:  const selectedVersionId: string | null = (() => {
-./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:472:                selectedVersionId={selectedVersionId}
-./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:483:              {selectedVersionId ? (
-./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:485:                  key={selectedVersionId}
-./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:486:                  versionId={selectedVersionId}
-./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:139:      aria-current={isSelected ? "true" : undefined}
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:473:              selectedVersionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:484:            {selectedVersionId ? (
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:486:                key={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseDocTypeDetailPage.tsx:487:                versionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:138:      aria-current={isSelected ? "true" : undefined}
 ./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:169:  selectedVersionId: string | null;
 ./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:171:}> = ({ label, count, versions, selectedVersionId, onSelectVersion }) => (
 ./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:182:          isSelected={v.id === selectedVersionId}
@@ -408,31 +409,31 @@
 ./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:238:                selectedVersionId={selectedVersionId}
 ./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:247:                selectedVersionId={selectedVersionId}
 ./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:256:                selectedVersionId={selectedVersionId}
-./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:376:  const selectedVersionId: string | null = (() => {
-./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:433:                selectedVersionId={selectedVersionId}
-./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:444:              {selectedVersionId ? (
-./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:446:                  key={selectedVersionId}
-./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:447:                  versionId={selectedVersionId}
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:68:  const [selectedDocTypeCode, setSelectedDocTypeCode] = useState("");
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:69:  const [selectedGlobalInstructionCode, setSelectedGlobalInstructionCode] =
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:71:  const [selectedBaseVersionId, setSelectedBaseVersionId] = useState("");
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:98:      kind === "doc-type" && selectedDocTypeCode
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:99:        ? selectedDocTypeCode
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:105:      kind === "global" && selectedGlobalInstructionCode
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:106:        ? selectedGlobalInstructionCode
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:131:      if (!selectedDocTypeCode && docTypeCatalogItems.length > 0) {
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:135:      if (!selectedGlobalInstructionCode && globalCatalogItems.length > 0) {
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:143:    selectedDocTypeCode,
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:144:    selectedGlobalInstructionCode,
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:172:    !!selectedBaseVersionId &&
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:194:    if (!selectedBaseVersionId) {
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:212:            instruction_version_id: selectedBaseVersionId,
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:224:            global_instruction_version_id: selectedBaseVersionId,
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:332:                  value={selectedDocTypeCode}
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:353:                  value={selectedGlobalInstructionCode}
-./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:389:                  value={selectedBaseVersionId}
-./src/pages/tenant-instructions/TenantOverridesPage.tsx:95:  const activeCount = overrides.filter((o) => o.status === "active").length;
-./src/pages/tenant-instructions/TenantOverridesPage.tsx:145:              {activeCount}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:375:  const selectedVersionId: string | null = (() => {
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:431:              selectedVersionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:442:            {selectedVersionId ? (
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:444:                key={selectedVersionId}
+./src/pages/tenant-instructions/TenantBaseGlobalCheckDetailPage.tsx:445:                versionId={selectedVersionId}
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:69:  const [selectedDocTypeCode, setSelectedDocTypeCode] = useState("");
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:70:  const [selectedGlobalInstructionCode, setSelectedGlobalInstructionCode] =
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:72:  const [selectedBaseVersionId, setSelectedBaseVersionId] = useState("");
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:97:      kind === "doc-type" && selectedDocTypeCode ? selectedDocTypeCode : null,
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:102:      kind === "global" && selectedGlobalInstructionCode
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:103:        ? selectedGlobalInstructionCode
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:127:      if (!selectedDocTypeCode && docTypeCatalogItems.length > 0) {
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:131:      if (!selectedGlobalInstructionCode && globalCatalogItems.length > 0) {
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:137:    selectedDocTypeCode,
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:138:    selectedGlobalInstructionCode,
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:162:    !!tenantId && !!selectedBaseVersionId && patchOps.length > 0 && !isSubmitting;
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:179:    if (!selectedBaseVersionId) {
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:197:            instruction_version_id: selectedBaseVersionId,
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:209:            global_instruction_version_id: selectedBaseVersionId,
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:321:                  value={selectedDocTypeCode}
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:339:                  value={selectedGlobalInstructionCode}
+./src/pages/tenant-instructions/TenantOverrideCreatePage.tsx:372:                  value={selectedBaseVersionId}
+./src/pages/tenant-instructions/TenantOverridesPage.tsx:97:  const activeCount = overrides.filter((o) => o.status === "active").length;
+./src/pages/tenant-instructions/TenantOverridesPage.tsx:131:                  {activeCount > 0 && (
+./src/pages/tenant-instructions/TenantOverridesPage.tsx:133:                      Active: {activeCount}
 ./src/pages/AdminPlaybookVersionsPage.tsx:87:  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
 ./src/pages/AdminPlaybookVersionsPage.tsx:88:  const [selectedModelConfigId, setSelectedModelConfigId] = useState<
 ./src/pages/AdminPlaybookVersionsPage.tsx:158:    if (!selectedVersionId) return;
@@ -457,124 +458,124 @@
 ./src/pages/AdminPlaybookVersionsPage.tsx:370:                  {selectedModelConfigName && (
 ./src/pages/AdminPlaybookVersionsPage.tsx:374:                        {selectedModelConfigName}
 ./src/pages/deal-instructions/DealOverrideDetailPage.tsx:67:    override?.status === "draft" || override?.status === "active";
-./src/pages/AdminPage.tsx:346:  const activeOption = SORT_OPTIONS.find((opt) => opt.key === sortKey);
-./src/pages/AdminPage.tsx:404:        {activeOption?.label}
-./src/pages/AdminPage.tsx:535:      tenant.is_active
-./src/pages/AdminPage.tsx:546:        {!tenant.is_active && (
-./src/pages/AdminPage.tsx:612:      {tenant.is_active ? (
-./src/pages/AdminPage.tsx:632:  const [includeInactive, setIncludeInactive] = useState(false);
-./src/pages/AdminPage.tsx:656:  const { data: tenants, isLoading, error } = useTenants(includeInactive);
-./src/pages/AdminPage.tsx:695:  const activeCount = tenantList.filter((t) => t.is_active).length;
-./src/pages/AdminPage.tsx:755:              Активных: {activeCount}
-./src/pages/AdminPage.tsx:760:                  checked={includeInactive}
-./src/pages/AdminPage.tsx:761:                  onChange={(e) => setIncludeInactive(e.target.checked)}
+./src/pages/AdminPage.tsx:347:  const activeOption = SORT_OPTIONS.find((opt) => opt.key === sortKey);
+./src/pages/AdminPage.tsx:405:        {activeOption?.label}
+./src/pages/AdminPage.tsx:536:      tenant.is_active
+./src/pages/AdminPage.tsx:547:        {!tenant.is_active && (
+./src/pages/AdminPage.tsx:613:      {tenant.is_active ? (
+./src/pages/AdminPage.tsx:633:  const [includeInactive, setIncludeInactive] = useState(false);
+./src/pages/AdminPage.tsx:657:  const { data: tenants, isLoading, error } = useTenants(includeInactive);
+./src/pages/AdminPage.tsx:694:  const activeCount = tenantList.filter((t) => t.is_active).length;
+./src/pages/AdminPage.tsx:748:                Активных: {activeCount}
+./src/pages/AdminPage.tsx:753:                    checked={includeInactive}
+./src/pages/AdminPage.tsx:754:                    onChange={(e) => setIncludeInactive(e.target.checked)}
 ./src/pages/instructions/GlobalInstructionDetailPage.tsx:326:      aria-current={isSelected ? "true" : undefined}
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:358:  selectedVersionId: string | null;
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:360:}> = ({ label, count, versions, selectedVersionId, onSelectVersion }) => (
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:371:          isSelected={v.id === selectedVersionId}
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:381:  selectedVersionId: string | null;
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:389:  selectedVersionId,
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:433:                selectedVersionId={selectedVersionId}
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:442:                selectedVersionId={selectedVersionId}
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:451:                selectedVersionId={selectedVersionId}
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:807:  const [selectedVersionDetail, setSelectedVersionDetail] =
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:842:  const selectedVersionId: string | null = (() => {
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:853:      selectedVersionDetail &&
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:854:      selectedVersionDetail.id !== selectedVersionId
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:858:  }, [selectedVersionId, selectedVersionDetail]);
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:975:              {selectedVersionId && (
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:977:                  version={selectedVersionDetail}
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:984:                selectedVersionId={selectedVersionId}
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:993:              {selectedVersionId && instructionCode ? (
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:995:                  key={selectedVersionId}
-./src/pages/instructions/GlobalInstructionDetailPage.tsx:997:                  versionId={selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:359:  selectedVersionId: string | null;
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:361:}> = ({ label, count, versions, selectedVersionId, onSelectVersion }) => (
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:372:          isSelected={v.id === selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:382:  selectedVersionId: string | null;
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:390:  selectedVersionId,
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:434:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:443:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:452:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:792:  const [selectedVersionDetail, setSelectedVersionDetail] =
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:818:  const selectedVersionId: string | null = (() => {
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:827:      selectedVersionDetail &&
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:828:      selectedVersionDetail.id !== selectedVersionId
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:832:  }, [selectedVersionId, selectedVersionDetail]);
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:953:            {selectedVersionId && (
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:955:                version={selectedVersionDetail}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:962:              selectedVersionId={selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:971:            {selectedVersionId && instructionCode ? (
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:973:                key={selectedVersionId}
+./src/pages/instructions/GlobalInstructionDetailPage.tsx:975:                versionId={selectedVersionId}
 ./src/pages/instructions/DocTypeDetailPage.tsx:287:      aria-current={isSelected ? "true" : undefined}
-./src/pages/instructions/DocTypeDetailPage.tsx:319:  selectedVersionId: string | null;
-./src/pages/instructions/DocTypeDetailPage.tsx:321:}> = ({ label, count, versions, selectedVersionId, onSelectVersion }) => (
-./src/pages/instructions/DocTypeDetailPage.tsx:332:          isSelected={v.id === selectedVersionId}
-./src/pages/instructions/DocTypeDetailPage.tsx:342:  selectedVersionId: string | null;
-./src/pages/instructions/DocTypeDetailPage.tsx:350:  selectedVersionId,
-./src/pages/instructions/DocTypeDetailPage.tsx:394:                selectedVersionId={selectedVersionId}
-./src/pages/instructions/DocTypeDetailPage.tsx:403:                selectedVersionId={selectedVersionId}
-./src/pages/instructions/DocTypeDetailPage.tsx:412:                selectedVersionId={selectedVersionId}
-./src/pages/instructions/DocTypeDetailPage.tsx:755:  const [selectedVersionDetail, setSelectedVersionDetail] =
-./src/pages/instructions/DocTypeDetailPage.tsx:784:  const selectedVersionId: string | null = (() => {
-./src/pages/instructions/DocTypeDetailPage.tsx:795:      selectedVersionDetail &&
-./src/pages/instructions/DocTypeDetailPage.tsx:796:      selectedVersionDetail.id !== selectedVersionId
-./src/pages/instructions/DocTypeDetailPage.tsx:800:  }, [selectedVersionId, selectedVersionDetail]);
-./src/pages/instructions/DocTypeDetailPage.tsx:897:              {selectedVersionId && (
-./src/pages/instructions/DocTypeDetailPage.tsx:899:                  version={selectedVersionDetail}
-./src/pages/instructions/DocTypeDetailPage.tsx:907:                selectedVersionId={selectedVersionId}
-./src/pages/instructions/DocTypeDetailPage.tsx:916:              {selectedVersionId && docType ? (
-./src/pages/instructions/DocTypeDetailPage.tsx:918:                  key={selectedVersionId}
-./src/pages/instructions/DocTypeDetailPage.tsx:920:                  versionId={selectedVersionId}
-./src/pages/AdminMonitoringPage.tsx:83:        description: "HTTP, LLM, DLQ, active runs",
-./src/pages/PlaybooksRegistryPage.tsx:355:  const [selectedId, setSelectedId] = useState<string | null>(null);
-./src/pages/PlaybooksRegistryPage.tsx:453:  const selectedEntry = useMemo(
-./src/pages/PlaybooksRegistryPage.tsx:454:    () => entries.find((e) => e.line.id === selectedId) ?? null,
-./src/pages/PlaybooksRegistryPage.tsx:455:    [entries, selectedId],
-./src/pages/PlaybooksRegistryPage.tsx:460:    if (!selectedId && filteredEntries.length > 0) {
-./src/pages/PlaybooksRegistryPage.tsx:464:      selectedId &&
-./src/pages/PlaybooksRegistryPage.tsx:465:      !filteredEntries.some((e) => e.line.id === selectedId) &&
-./src/pages/PlaybooksRegistryPage.tsx:470:  }, [filteredEntries, selectedId]);
-./src/pages/PlaybooksRegistryPage.tsx:612:                    const isSelected = selectedId === line.id;
-./src/pages/PlaybooksRegistryPage.tsx:661:              {!selectedEntry ? (
-./src/pages/PlaybooksRegistryPage.tsx:668:                  entry={selectedEntry}
+./src/pages/instructions/DocTypeDetailPage.tsx:320:  selectedVersionId: string | null;
+./src/pages/instructions/DocTypeDetailPage.tsx:322:}> = ({ label, count, versions, selectedVersionId, onSelectVersion }) => (
+./src/pages/instructions/DocTypeDetailPage.tsx:333:          isSelected={v.id === selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:343:  selectedVersionId: string | null;
+./src/pages/instructions/DocTypeDetailPage.tsx:351:  selectedVersionId,
+./src/pages/instructions/DocTypeDetailPage.tsx:395:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:404:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:413:                selectedVersionId={selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:751:  const [selectedVersionDetail, setSelectedVersionDetail] =
+./src/pages/instructions/DocTypeDetailPage.tsx:776:  const selectedVersionId: string | null = (() => {
+./src/pages/instructions/DocTypeDetailPage.tsx:786:      selectedVersionDetail &&
+./src/pages/instructions/DocTypeDetailPage.tsx:787:      selectedVersionDetail.id !== selectedVersionId
+./src/pages/instructions/DocTypeDetailPage.tsx:791:  }, [selectedVersionId, selectedVersionDetail]);
+./src/pages/instructions/DocTypeDetailPage.tsx:890:            {selectedVersionId && (
+./src/pages/instructions/DocTypeDetailPage.tsx:892:                version={selectedVersionDetail}
+./src/pages/instructions/DocTypeDetailPage.tsx:900:              selectedVersionId={selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:909:            {selectedVersionId && docType ? (
+./src/pages/instructions/DocTypeDetailPage.tsx:911:                key={selectedVersionId}
+./src/pages/instructions/DocTypeDetailPage.tsx:913:                versionId={selectedVersionId}
+./src/pages/AdminMonitoringPage.tsx:73:        description: "HTTP, LLM, DLQ, active runs",
+./src/pages/PlaybooksRegistryPage.tsx:320:  const [selectedId, setSelectedId] = useState<string | null>(null);
+./src/pages/PlaybooksRegistryPage.tsx:408:  const selectedEntry = useMemo(
+./src/pages/PlaybooksRegistryPage.tsx:409:    () => entries.find((e) => e.line.id === selectedId) ?? null,
+./src/pages/PlaybooksRegistryPage.tsx:410:    [entries, selectedId],
+./src/pages/PlaybooksRegistryPage.tsx:414:    if (!selectedId && filteredEntries.length > 0) {
+./src/pages/PlaybooksRegistryPage.tsx:418:      selectedId &&
+./src/pages/PlaybooksRegistryPage.tsx:419:      !filteredEntries.some((e) => e.line.id === selectedId) &&
+./src/pages/PlaybooksRegistryPage.tsx:424:  }, [filteredEntries, selectedId]);
+./src/pages/PlaybooksRegistryPage.tsx:558:                    const isSelected = selectedId === line.id;
+./src/pages/PlaybooksRegistryPage.tsx:607:              {!selectedEntry ? (
+./src/pages/PlaybooksRegistryPage.tsx:614:                  entry={selectedEntry}
 ./src/pages/AdminPlaybookLinesPage.tsx:75:  const [selectedLineId, setSelectedLineId] = React.useState<string | null>(
 ./src/pages/AdminPlaybookLinesPage.tsx:551:                      selectedLineId === line.id
-./src/pages/TenantAdminPage.tsx:264:  active: boolean;
-./src/pages/TenantAdminPage.tsx:268:}> = ({ active, onClick, children, badge }) => (
-./src/pages/TenantAdminPage.tsx:273:      active
-./src/pages/TenantAdminPage.tsx:476:          {user.is_active ? (
-./src/pages/TenantAdminPage.tsx:682:  selectedIdx: number | null;
-./src/pages/TenantAdminPage.tsx:685:}> = ({ logs, selectedIdx, onSelect, compact = false }) => (
-./src/pages/TenantAdminPage.tsx:703:        const sel = selectedIdx === idx;
-./src/pages/TenantAdminPage.tsx:950:  const [selectedLogIdx, setSelectedLogIdx] = React.useState<number | null>(
-./src/pages/TenantAdminPage.tsx:976:  }, [selectedLogIdx]);
-./src/pages/TenantAdminPage.tsx:982:  const selectedLog: LogEntry | null =
-./src/pages/TenantAdminPage.tsx:983:    selectedLogIdx != null ? (logs[selectedLogIdx] ?? null) : null;
-./src/pages/TenantAdminPage.tsx:999:    if (!selectedLog) return;
-./src/pages/TenantAdminPage.tsx:1002:        JSON.stringify(selectedLog.raw, null, 2),
-./src/pages/TenantAdminPage.tsx:1065:              active={subTab === "overview"}
-./src/pages/TenantAdminPage.tsx:1071:              active={subTab === "members"}
-./src/pages/TenantAdminPage.tsx:1078:              active={subTab === "logs"}
-./src/pages/TenantAdminPage.tsx:1557:                              selectedIdx={selectedLogIdx}
-./src/pages/TenantAdminPage.tsx:1567:                          entry={selectedLog}
-./src/pages/TenantAdminPage.tsx:1597:                {selectedLog && (
-./src/pages/TenantAdminPage.tsx:1602:                      entry={selectedLog}
-./src/pages/TenantAdminPage.tsx:1624:  const [activeTab, setActiveTab] = React.useState<AdminTab>("projects");
-./src/pages/TenantAdminPage.tsx:1625:  const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(
-./src/pages/TenantAdminPage.tsx:1635:    enabled: activeTab === "monitoring",
-./src/pages/TenantAdminPage.tsx:1679:    { enabled: activeTab === "logs" },
-./src/pages/TenantAdminPage.tsx:1682:  const [selectedLogIdx, setSelectedLogIdx] = React.useState<number | null>(
-./src/pages/TenantAdminPage.tsx:1696:  }, [selectedLogIdx]);
-./src/pages/TenantAdminPage.tsx:1716:  const selectedLog: LogEntry | null =
-./src/pages/TenantAdminPage.tsx:1717:    selectedLogIdx != null ? (logs[selectedLogIdx] ?? null) : null;
-./src/pages/TenantAdminPage.tsx:1747:    if (!selectedLog) return;
-./src/pages/TenantAdminPage.tsx:1750:        JSON.stringify(selectedLog.raw, null, 2),
-./src/pages/TenantAdminPage.tsx:1776:    if (activeTab === "monitoring") metricsQ.refetch();
-./src/pages/TenantAdminPage.tsx:1777:    if (activeTab === "logs") logsQ.refetch();
-./src/pages/TenantAdminPage.tsx:1782:    (activeTab === "monitoring" && metricsQ.isFetching) ||
-./src/pages/TenantAdminPage.tsx:1783:    (activeTab === "logs" && logsQ.isFetching);
-./src/pages/TenantAdminPage.tsx:1873:      {problemProjects.length > 0 && !selectedProjectId && (
-./src/pages/TenantAdminPage.tsx:1918:        {!selectedProjectId && (
-./src/pages/TenantAdminPage.tsx:1922:                active={activeTab === "projects"}
-./src/pages/TenantAdminPage.tsx:1929:                active={activeTab === "users"}
-./src/pages/TenantAdminPage.tsx:1936:                active={activeTab === "monitoring"}
-./src/pages/TenantAdminPage.tsx:1942:                active={activeTab === "logs"}
-./src/pages/TenantAdminPage.tsx:1948:                active={activeTab === "alerts"}
-./src/pages/TenantAdminPage.tsx:1959:        {activeTab === "projects" && (
-./src/pages/TenantAdminPage.tsx:1961:            {selectedProjectId ? (
-./src/pages/TenantAdminPage.tsx:1963:                dealId={selectedProjectId}
-./src/pages/TenantAdminPage.tsx:2009:        {activeTab === "users" && (
-./src/pages/TenantAdminPage.tsx:2053:        {activeTab === "monitoring" && (
-./src/pages/TenantAdminPage.tsx:2096:                    value={metricVal(md?.pipeline.active_runs)}
-./src/pages/TenantAdminPage.tsx:2375:        {activeTab === "logs" && (
-./src/pages/TenantAdminPage.tsx:2570:                          selectedIdx={selectedLogIdx}
-./src/pages/TenantAdminPage.tsx:2579:                      entry={selectedLog}
-./src/pages/TenantAdminPage.tsx:2609:            {selectedLog && (
-./src/pages/TenantAdminPage.tsx:2614:                  entry={selectedLog}
-./src/pages/TenantAdminPage.tsx:2625:        {activeTab === "alerts" && (
+./src/pages/TenantAdminPage.tsx:267:  active: boolean;
+./src/pages/TenantAdminPage.tsx:271:}> = ({ active, onClick, children, badge }) => (
+./src/pages/TenantAdminPage.tsx:276:      active
+./src/pages/TenantAdminPage.tsx:479:          {user.is_active ? (
+./src/pages/TenantAdminPage.tsx:685:  selectedIdx: number | null;
+./src/pages/TenantAdminPage.tsx:688:}> = ({ logs, selectedIdx, onSelect, compact = false }) => (
+./src/pages/TenantAdminPage.tsx:706:        const sel = selectedIdx === idx;
+./src/pages/TenantAdminPage.tsx:953:  const [selectedLogIdx, setSelectedLogIdx] = React.useState<number | null>(
+./src/pages/TenantAdminPage.tsx:979:  }, [selectedLogIdx]);
+./src/pages/TenantAdminPage.tsx:985:  const selectedLog: LogEntry | null =
+./src/pages/TenantAdminPage.tsx:986:    selectedLogIdx != null ? (logs[selectedLogIdx] ?? null) : null;
+./src/pages/TenantAdminPage.tsx:1002:    if (!selectedLog) return;
+./src/pages/TenantAdminPage.tsx:1005:        JSON.stringify(selectedLog.raw, null, 2),
+./src/pages/TenantAdminPage.tsx:1068:              active={subTab === "overview"}
+./src/pages/TenantAdminPage.tsx:1074:              active={subTab === "members"}
+./src/pages/TenantAdminPage.tsx:1081:              active={subTab === "logs"}
+./src/pages/TenantAdminPage.tsx:1560:                              selectedIdx={selectedLogIdx}
+./src/pages/TenantAdminPage.tsx:1570:                          entry={selectedLog}
+./src/pages/TenantAdminPage.tsx:1600:                {selectedLog && (
+./src/pages/TenantAdminPage.tsx:1605:                      entry={selectedLog}
+./src/pages/TenantAdminPage.tsx:1627:  const [activeTab, setActiveTab] = React.useState<AdminTab>("projects");
+./src/pages/TenantAdminPage.tsx:1628:  const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(
+./src/pages/TenantAdminPage.tsx:1638:    enabled: activeTab === "monitoring",
+./src/pages/TenantAdminPage.tsx:1682:    { enabled: activeTab === "logs" },
+./src/pages/TenantAdminPage.tsx:1685:  const [selectedLogIdx, setSelectedLogIdx] = React.useState<number | null>(
+./src/pages/TenantAdminPage.tsx:1699:  }, [selectedLogIdx]);
+./src/pages/TenantAdminPage.tsx:1719:  const selectedLog: LogEntry | null =
+./src/pages/TenantAdminPage.tsx:1720:    selectedLogIdx != null ? (logs[selectedLogIdx] ?? null) : null;
+./src/pages/TenantAdminPage.tsx:1750:    if (!selectedLog) return;
+./src/pages/TenantAdminPage.tsx:1753:        JSON.stringify(selectedLog.raw, null, 2),
+./src/pages/TenantAdminPage.tsx:1779:    if (activeTab === "monitoring") metricsQ.refetch();
+./src/pages/TenantAdminPage.tsx:1780:    if (activeTab === "logs") logsQ.refetch();
+./src/pages/TenantAdminPage.tsx:1785:    (activeTab === "monitoring" && metricsQ.isFetching) ||
+./src/pages/TenantAdminPage.tsx:1786:    (activeTab === "logs" && logsQ.isFetching);
+./src/pages/TenantAdminPage.tsx:1878:      {problemProjects.length > 0 && !selectedProjectId && (
+./src/pages/TenantAdminPage.tsx:1921:        {!selectedProjectId && (
+./src/pages/TenantAdminPage.tsx:1925:                active={activeTab === "projects"}
+./src/pages/TenantAdminPage.tsx:1932:                active={activeTab === "users"}
+./src/pages/TenantAdminPage.tsx:1939:                active={activeTab === "monitoring"}
+./src/pages/TenantAdminPage.tsx:1945:                active={activeTab === "logs"}
+./src/pages/TenantAdminPage.tsx:1951:                active={activeTab === "alerts"}
+./src/pages/TenantAdminPage.tsx:1962:        {activeTab === "projects" && (
+./src/pages/TenantAdminPage.tsx:1964:            {selectedProjectId ? (
+./src/pages/TenantAdminPage.tsx:1966:                dealId={selectedProjectId}
+./src/pages/TenantAdminPage.tsx:2012:        {activeTab === "users" && (
+./src/pages/TenantAdminPage.tsx:2056:        {activeTab === "monitoring" && (
+./src/pages/TenantAdminPage.tsx:2099:                    value={metricVal(md?.pipeline.active_runs)}
+./src/pages/TenantAdminPage.tsx:2378:        {activeTab === "logs" && (
+./src/pages/TenantAdminPage.tsx:2573:                          selectedIdx={selectedLogIdx}
+./src/pages/TenantAdminPage.tsx:2582:                      entry={selectedLog}
+./src/pages/TenantAdminPage.tsx:2612:            {selectedLog && (
+./src/pages/TenantAdminPage.tsx:2617:                  entry={selectedLog}
+./src/pages/TenantAdminPage.tsx:2628:        {activeTab === "alerts" && (
 ./src/pages/tabs/DocumentsTab.tsx:317:  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
 ./src/pages/tabs/DocumentsTab.tsx:330:  const selectedDocument = useMemo(
 ./src/pages/tabs/DocumentsTab.tsx:331:    () => documents.find((doc) => doc.id === selectedDocId) ?? null,
@@ -811,45 +812,46 @@
 ./src/types/instructions.ts:217:export type OverrideStatus = "draft" | "active" | "archived";
 ./src/types/runs.ts:250:  active_step_codes: string[];
 ./src/types/deals.ts:8:export type DealStatus = "active" | "archived" | "draft";
-./src/index.css:145:  --app-active-bg: rgba(200, 107, 82, 0.08);
-./src/index.css:146:  --app-active-bg-hover: rgba(200, 107, 82, 0.12);
-./src/index.css:147:  --app-active-border: #C86B52;
-./src/index.css:148:  --app-active-text: #B55D46;
-./src/index.css:149:  --app-active-indicator: #C86B52;
-./src/index.css:490:  .btn-active {
-./src/index.css:491:    background: var(--app-active-bg);
-./src/index.css:492:    color: var(--app-active-text);
-./src/index.css:493:    border: 1px solid var(--app-active-border);
-./src/index.css:501:  .btn-active:hover {
-./src/index.css:502:    background: var(--app-active-bg-hover);
-./src/index.css:506:  .nav-item-active {
-./src/index.css:507:    background: var(--app-active-bg);
-./src/index.css:508:    color: var(--app-active-text);
-./src/index.css:516:  .nav-item-active::before {
-./src/index.css:524:    background: var(--app-active-indicator);
-./src/index.css:528:  .nav-item-active:hover {
-./src/index.css:529:    background: var(--app-active-bg-hover);
-./src/index.css:533:  .tab-active {
-./src/index.css:534:    color: var(--app-active-text);
-./src/index.css:540:  .tab-active::after {
-./src/index.css:547:    background: var(--app-active-indicator);
-./src/index.css:551:  .tab-active:hover {
-./src/index.css:552:    color: var(--app-active-text);
-./src/index.css:556:  .chip-active {
-./src/index.css:557:    background: var(--app-active-bg);
-./src/index.css:558:    color: var(--app-active-text);
-./src/index.css:559:    border: 1px solid var(--app-active-border);
-./src/index.css:567:  .chip-active:hover {
-./src/index.css:568:    background: var(--app-active-bg-hover);
-./src/index.css:572:  .sidebar-item-active {
-./src/index.css:573:    background: var(--app-active-bg);
-./src/index.css:574:    color: var(--app-active-text);
-./src/index.css:575:    border-left: 3px solid var(--app-active-indicator);
-./src/index.css:583:  .sidebar-item-active:hover {
-./src/index.css:584:    background: var(--app-active-bg-hover);
-./src/index.css:588:  .toolbar-btn-active {
-./src/index.css:589:    background: var(--app-active-bg);
-./src/index.css:590:    color: var(--app-active-text);
-./src/index.css:591:    border: 1px solid var(--app-active-border);
-./src/index.css:600:  .toolbar-btn-active:hover {
-./src/index.css:601:    background: var(--app-active-bg-hover);
+./src/index.css:78:  --border-strong: rgba(26, 25, 23, 0.14);   /* hover/active emphasis */
+./src/index.css:242:  --app-active-bg:        rgba(200, 107, 82, 0.08);
+./src/index.css:243:  --app-active-bg-hover:  rgba(200, 107, 82, 0.12);
+./src/index.css:244:  --app-active-border:    #C86B52;
+./src/index.css:245:  --app-active-text:      #B55D46;
+./src/index.css:246:  --app-active-indicator: #C86B52;
+./src/index.css:632:  .btn-active {
+./src/index.css:633:    background: var(--app-active-bg);
+./src/index.css:634:    color: var(--app-active-text);
+./src/index.css:635:    border: 1px solid var(--app-active-border);
+./src/index.css:643:  .btn-active:hover {
+./src/index.css:644:    background: var(--app-active-bg-hover);
+./src/index.css:647:  .nav-item-active {
+./src/index.css:648:    background: var(--app-active-bg);
+./src/index.css:649:    color: var(--app-active-text);
+./src/index.css:657:  .nav-item-active::before {
+./src/index.css:665:    background: var(--app-active-indicator);
+./src/index.css:669:  .nav-item-active:hover {
+./src/index.css:670:    background: var(--app-active-bg-hover);
+./src/index.css:673:  .tab-active {
+./src/index.css:674:    color: var(--app-active-text);
+./src/index.css:680:  .tab-active::after {
+./src/index.css:687:    background: var(--app-active-indicator);
+./src/index.css:691:  .tab-active:hover {
+./src/index.css:692:    color: var(--app-active-text);
+./src/index.css:695:  .chip-active {
+./src/index.css:696:    background: var(--app-active-bg);
+./src/index.css:697:    color: var(--app-active-text);
+./src/index.css:698:    border: 1px solid var(--app-active-border);
+./src/index.css:706:  .chip-active:hover {
+./src/index.css:707:    background: var(--app-active-bg-hover);
+./src/index.css:710:  .sidebar-item-active {
+./src/index.css:711:    background: var(--app-active-bg);
+./src/index.css:712:    color: var(--app-active-text);
+./src/index.css:713:    border-left: 3px solid var(--app-active-indicator);
+./src/index.css:721:  .sidebar-item-active:hover {
+./src/index.css:722:    background: var(--app-active-bg-hover);
+./src/index.css:725:  .toolbar-btn-active {
+./src/index.css:726:    background: var(--app-active-bg);
+./src/index.css:727:    color: var(--app-active-text);
+./src/index.css:728:    border: 1px solid var(--app-active-border);
+./src/index.css:737:  .toolbar-btn-active:hover {
+./src/index.css:738:    background: var(--app-active-bg-hover);

@@ -42,13 +42,13 @@ const ConcurrencyStatusBar: React.FC<ConcurrencyStatusBarProps> = ({
   // stale — 428: ETag устарел, перечитали, нужно повторить
   if (state.status === "stale") {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--color-warning-border,#fbbf24)] bg-[color:var(--color-warning-bg,#fef9c3)] px-3 py-2">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2">
         <div className="flex items-center gap-2 min-w-0">
           <AlertTriangle
-            className="h-3.5 w-3.5 shrink-0 text-[color:var(--color-warning-text,#92400e)]"
+            className="h-3.5 w-3.5 shrink-0 text-[var(--color-warning-text)]"
             aria-hidden="true"
           />
-          <span className="text-[11px] text-[color:var(--color-warning-text,#92400e)]">
+          <span className="text-[11px] text-[var(--color-warning-text)]">
             Данные были обновлены на сервере. Нажмите «Сохранить» ещё раз
             чтобы применить изменения.
           </span>
@@ -70,13 +70,13 @@ const ConcurrencyStatusBar: React.FC<ConcurrencyStatusBarProps> = ({
   // conflict — 412: параллельное редактирование
   if (state.status === "conflict") {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-3 py-2">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2">
         <div className="flex items-center gap-2 min-w-0">
           <XCircle
-            className="h-3.5 w-3.5 shrink-0 text-[#b91c1c]"
+            className="h-3.5 w-3.5 shrink-0 text-[var(--color-error-text)]"
             aria-hidden="true"
           />
-          <span className="text-[11px] text-[#b91c1c]">
+          <span className="text-[11px] text-[var(--color-error-text)]">
             Конфликт редактирования — версия была изменена другим
             пользователем. Ваши изменения не сохранены. Просмотрите свежие
             данные и повторно примените изменения.
@@ -99,12 +99,12 @@ const ConcurrencyStatusBar: React.FC<ConcurrencyStatusBarProps> = ({
   // error
   if (state.status === "error") {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-[#dc2626]/30 bg-[#fef2f2] px-3 py-2">
+      <div className="flex items-center gap-2 rounded-xl border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2">
         <XCircle
-          className="h-3.5 w-3.5 shrink-0 text-[#b91c1c]"
+          className="h-3.5 w-3.5 shrink-0 text-[var(--color-error-text)]"
           aria-hidden="true"
         />
-        <span className="text-[11px] text-[#b91c1c]">
+        <span className="text-[11px] text-[var(--color-error-text)]">
           {state.errorMessage ?? "Ошибка сохранения."}
         </span>
       </div>

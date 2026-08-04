@@ -1,6 +1,5 @@
 ./src/pages/tabs/RealEstateTab.tsx:734:          "mt-1 text-2xl font-semibold tabular-nums",
 ./src/pages/tabs/CounterpartiesTab.tsx:715:          "mt-1 text-2xl font-semibold tabular-nums",
-./src/pages/tabs/overview/LLMUsageWidget.tsx:129:        <p className="mt-1 text-2xl font-bold tabular-nums text-[var(--text-primary)]">
 ./src/marketing/components/demo/DemoFormSection.tsx:25:        <h2 className="font-serif text-2xl tracking-[-0.03em] text-[#1A1917]">
 ./src/marketing/components/demo/DemoHeroSection.tsx:12:      <h1 className="mt-8 max-w-4xl font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[#1A1917] sm:text-6xl lg:text-[4.5rem]">
 ./src/marketing/components/demo/DemoAudienceSection.tsx:10:        <h2 className="font-serif text-3xl tracking-[-0.03em] text-[#1A1917] lg:text-4xl">

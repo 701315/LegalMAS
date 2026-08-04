@@ -1,6 +1,5 @@
 // =============================================================
 // src/components/ui/ClassificationBadge.tsx
-// Бейдж уровня классификации документа (L0–L4, L_manual) + confidence.
 // =============================================================
 
 import React from "react";
@@ -48,7 +47,7 @@ export const ClassificationBadge: React.FC<Props> = ({
       {isLowConfidence && (
         <AlertTriangle
           size={11}
-          className="text-[var(--color-gold-hover)]"
+          className="text-[var(--color-gold-text)]"
           aria-hidden="true"
         />
       )}
@@ -63,3 +62,5 @@ export const ClassificationBadge: React.FC<Props> = ({
     </span>
   );
 };
+
+

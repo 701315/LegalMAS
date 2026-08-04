@@ -17,7 +17,7 @@
 // После нескольких релизов и подтверждённого отсутствия внешних
 // ссылок этот файл + маршрут можно удалить.
 
-import React, { useEffect } from "react";
+import React from "react";
 import { Navigate, useParams } from "react-router-dom";
 
 const GlobalInstructionVersionDetailPage: React.FC = () => {
@@ -25,11 +25,6 @@ const GlobalInstructionVersionDetailPage: React.FC = () => {
     instructionCode: string;
     versionId: string;
   }>();
-
-  // Fallback: если параметры некорректны — редирект на каталог
-  useEffect(() => {
-    if (!instructionCode) return;
-  }, [instructionCode]);
 
   if (!instructionCode) {
     return <Navigate to="/admin/instructions/global-checks" replace />;

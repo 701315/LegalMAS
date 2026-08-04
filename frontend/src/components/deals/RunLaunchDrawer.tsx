@@ -109,8 +109,8 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
           </p>
           {currentRunId && (
             <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Последний анализ уже запускался. Новый запуск обновит результаты по
-              текущим документам.
+              Последний анализ уже запускался. Новый запуск обновит результаты
+              по текущим документам.
             </p>
           )}
         </div>
@@ -169,11 +169,12 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
             ).map(({ value, title, hint }) => (
               <label
                 key={value}
-                className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition ${
+                className={[
+                  "flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition-colors",
                   checksMode === value
                     ? "border-[var(--accent-primary)] bg-[var(--bg-elevated-soft)]"
-                    : "border-[var(--border-soft)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated-soft)]"
-                }`}
+                    : "border-[var(--border-soft)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated-soft)]",
+                ].join(" ")}
               >
                 <input
                   type="radio"
@@ -222,7 +223,7 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
                 запуском.
               </span>
             ) : (
-              <span className="text-rose-600">
+              <span className="text-[var(--color-error-text)]">
                 Playbook не выбран. Нельзя запустить анализ без выбранного
                 playbook.
               </span>
@@ -264,7 +265,7 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
           </h4>
           <div className="mt-3 flex items-center gap-2">
             <select
-              className="min-w-[220px] rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-xs text-[var(--text-primary)] disabled:opacity-50"
+              className="min-w-[220px] rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-xs text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:opacity-50"
               value={selectedPrimaryLanguage}
               onChange={(e) => onPrimaryLanguageChange(e.target.value)}
               disabled={documentLanguages.length === 0 || isSubmitting}
@@ -294,9 +295,9 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
           )}
 
           {hasMultipleDocumentLanguages && !selectedPrimaryLanguage && (
-            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
-              В сделке есть документы на нескольких языках. Перед запуском анализа
-              выберите основной язык.
+            <p className="mt-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning-text)]">
+              В сделке есть документы на нескольких языках. Перед запуском
+              анализа выберите основной язык.
             </p>
           )}
         </section>
@@ -319,8 +320,8 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
                   Принудительно переклассифицировать документы
                 </span>
                 <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Используйте после ручной переклассификации, чтобы обновить типы
-                  документов.
+                  Используйте после ручной переклассификации, чтобы обновить
+                  типы документов.
                 </span>
               </span>
             </label>
@@ -332,4 +333,6 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
 };
 
 export default RunLaunchDrawer;
+
+
 

@@ -38,14 +38,14 @@ function formatDuration(ms: number | null | undefined): string {
 
 function StatusDot({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    succeeded: "bg-green-500",
-    failed: "bg-red-500",
-    started: "bg-yellow-400",
-    cancelled: "bg-gray-400",
+    succeeded: "bg-[var(--color-success)]",
+    failed: "bg-[var(--color-error)]",
+    started: "bg-[var(--color-warning)]",
+    cancelled: "bg-[var(--text-faint)]",
   };
   return (
     <span
-      className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${colors[status] ?? "bg-gray-300"}`}
+      className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${colors[status] ?? "bg-[var(--border-strong)]"}`}
     />
   );
 }
@@ -102,7 +102,7 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
               </span>
             )}
             {hasWarnings && (
-              <span className="rounded-full border border-yellow-300/30 bg-yellow-50 px-1.5 py-0.5 text-[10px] text-yellow-700">
+              <span className="status-border-warning status-bg-warning rounded-full border px-1.5 py-0.5 text-[10px] status-text-warning">
                 ⚠ {warnings.length}
               </span>
             )}
@@ -121,16 +121,15 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
       {expanded && (
         <div className="ml-5 mt-1 space-y-2 rounded-b-xl border border-t-0 border-[var(--border-subtle)] px-3 py-3 text-[11px]">
           {hasWarnings && (
-            <div className="rounded-lg border border-yellow-300/30 bg-yellow-50 px-2 py-2">
-              <div className="font-medium text-yellow-700">Warnings</div>
-              <ul className="mt-1 list-inside list-disc text-yellow-800">
+            <div className="status-border-warning status-bg-warning rounded-lg border px-2 py-2">
+              <div className="font-medium status-text-warning">Warnings</div>
+              <ul className="mt-1 list-inside list-disc text-[var(--color-warning-text)]">
                 {warnings.map((w, i) => (
                   <li key={i}>{String(w)}</li>
                 ))}
               </ul>
             </div>
           )}
-
           {stage.input_summary &&
             Object.keys(stage.input_summary).length > 0 && (
               <div>
@@ -174,8 +173,8 @@ function StageRow({ stage }: { stage: StageTraceDTO }) {
 
           {stage.error_details && (
             <div>
-              <div className="mb-1 font-medium text-red-500">Error</div>
-              <pre className="overflow-auto rounded-lg bg-red-50 p-2 text-[10px] text-red-700">
+              <div className="mb-1 font-medium status-text-error">Error</div>
+              <pre className="status-bg-error status-text-error overflow-auto rounded-lg p-2 text-[10px]">
                 {JSON.stringify(stage.error_details, null, 2)}
               </pre>
             </div>
@@ -216,7 +215,7 @@ export function ProcessingTracePanel({ documentId }: Props) {
 
   if (error) {
     return (
-      <div className="text-xs text-[var(--color-error)]">
+      <div className="text-xs text-[var(--color-error-text)]">
         Не удалось загрузить processing trace.
       </div>
     );
@@ -244,7 +243,7 @@ export function ProcessingTracePanel({ documentId }: Props) {
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--bg-elevated-soft)]">
         <div
-          className="h-full rounded-full bg-green-500 transition-all"
+          className="h-full rounded-full bg-[var(--color-success)] transition-all"
           style={{ width: `${pct}%` }}
         />
       </div>
