@@ -29,6 +29,7 @@ interface LaunchWideOverlayProps {
   open: boolean;
   overlayWidth: number;
   deal: Deal;
+  hasCurrentRun: boolean;
   documentsCount?: number;
   checksMode: ChecksMode;
   onChecksModeChange: (value: ChecksMode) => void;
@@ -59,6 +60,7 @@ const rightPaneClass =
   "min-w-0 min-h-0 overflow-y-auto bg-[var(--bg-card)]";
 
 function getReadinessLabel(params: {
+  hasCurrentRun: boolean;
   hasDocuments: boolean;
   hasPlaybook: boolean;
   hasLanguagesReady: boolean;
@@ -67,6 +69,7 @@ function getReadinessLabel(params: {
   discoveryStatus: string | null;
 }): string | null {
   const {
+    hasCurrentRun,
     hasDocuments,
     hasPlaybook,
     hasLanguagesReady,
@@ -80,35 +83,39 @@ function getReadinessLabel(params: {
   }
 
   if (!hasPlaybook) {
-    return "Нужно выбрать playbook, чтобы запустить анализ.";
+    return hasCurrentRun
+      ? "Нужно выбрать playbook перед перезапуском."
+      : "Нужно выбрать playbook перед запуском.";
   }
 
   if (!hasLanguagesReady) {
     if (discoveryStatus === "processing") {
-      return "Языки документов ещё определяются. Запуск станет доступен после завершения language discovery.";
+      return "Языки документов ещё определяются.";
     }
 
     if (discoveryStatus === "pending") {
-      return "Подготовка language discovery ещё не завершена. Запуск станет доступен после определения языков документов.";
+      return "Подготовка определения языков ещё не завершена.";
     }
 
     if (discoveryStatus === "failed") {
-      return "Не удалось автоматически определить языки документов. Проверьте импорт или повторите подготовку.";
+      return "Не удалось определить языки документов.";
     }
 
     if (discoveryStatus === "partial") {
-      return "Языки определены частично. Проверьте набор документов перед запуском анализа.";
+      return "Языки определены не для всех документов. Проверьте файлы.";
     }
 
-    return "Подготавливаем языки документов. Запуск станет доступен после определения языка.";
+    return "Подготавливаем языки документов.";
   }
 
   if (!hasPrimaryLanguage) {
-    return "Нужно выбрать основной язык анализа.";
+    return hasCurrentRun
+      ? "Нужно выбрать основной язык перед перезапуском."
+      : "Нужно выбрать основной язык перед запуском.";
   }
 
   if (isSubmitting) {
-    return "Выполняем запрос…";
+    return hasCurrentRun ? "Запускаем новый прогон…" : "Запускаем анализ…";
   }
 
   return null;
@@ -139,7 +146,7 @@ const LeftPaneHeader: React.FC<LeftPaneHeaderProps> = ({
     </div>
 
     <Button variant="secondary" size="sm" onClick={onBack}>
-      К сценарию
+      К сводке
     </Button>
   </div>
 );
@@ -148,6 +155,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   open,
   overlayWidth,
   deal,
+  hasCurrentRun,
   documentsCount,
   checksMode,
   onChecksModeChange,
@@ -202,6 +210,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   const readinessLabel = React.useMemo(
     () =>
       getReadinessLabel({
+        hasCurrentRun,
         hasDocuments,
         hasPlaybook,
         hasLanguagesReady,
@@ -210,6 +219,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
         discoveryStatus,
       }),
     [
+      hasCurrentRun,
       hasDocuments,
       hasPlaybook,
       hasLanguagesReady,
@@ -245,12 +255,25 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
     return null;
   }
 
+  const overlayCategory = hasCurrentRun ? "Повторный анализ" : "Новый анализ";
+  const overlayTitle = hasCurrentRun ? "Перезапуск анализа" : "Запуск анализа";
+  const overlayDescription = hasCurrentRun
+    ? "Проверьте документы и текущие настройки проекта перед новым прогоном."
+    : "Проверьте документы и настройки проекта перед первым запуском.";
+  const submitButtonLabel = hasCurrentRun
+    ? "Перезапустить анализ"
+    : "Запустить анализ";
+
   const renderUploadPane = () => (
     <div className={leftPaneShellClass}>
       <LeftPaneHeader
         category="Upload"
         title="Загрузка документов"
-        description="Подготовьте набор файлов, загрузите документы в проект и вернитесь к запуску анализа."
+        description={
+          hasCurrentRun
+            ? "Добавьте документы в проект и вернитесь к параметрам перезапуска."
+            : "Добавьте документы в проект и вернитесь к параметрам запуска."
+        }
         onBack={handleBackToPipeline}
       />
       <div className={leftPaneBodyClass}>
@@ -269,7 +292,11 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
       <LeftPaneHeader
         category="Playbook"
         title="Выбор playbook проекта"
-        description="Выберите шаблон и версию playbook для этого проекта, затем вернитесь к параметрам запуска анализа."
+        description={
+          hasCurrentRun
+            ? "Выберите playbook проекта и вернитесь к параметрам перезапуска."
+            : "Выберите playbook проекта и вернитесь к параметрам запуска."
+        }
         onBack={handleBackToPipeline}
       />
       <div className={leftPaneBodyClass}>
@@ -290,7 +317,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
       <LeftPaneHeader
         category="Model profile"
         title="Профиль модели"
-        description="Выберите или отредактируйте профиль модели для этой сделки."
+        description="Выберите или обновите профиль модели, затем вернитесь к параметрам анализа."
         onBack={handleBackToPipeline}
       />
       <div className={leftPaneBodyClass}>
@@ -325,6 +352,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
       <div className={leftPaneBodyClass}>
         <PipelinePreviewPanel
           deal={deal}
+          hasCurrentRun={hasCurrentRun}
           documentsCount={documentsCount}
           checksMode={checksMode}
           forceReclassify={forceReclassify}
@@ -357,14 +385,13 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                Analysis launch
+                {overlayCategory}
               </p>
               <h3 className="text-base font-semibold text-[var(--text-primary)]">
-                Подготовка запуска анализа
+                {overlayTitle}
               </h3>
               <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                Слева — сценарий пайплайна, загрузка документов, выбор playbook
-                или профиля модели; справа — параметры запуска.
+                {overlayDescription}
               </p>
             </div>
 
@@ -372,7 +399,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
               type="button"
               onClick={onClose}
               className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
-              aria-label="Закрыть панель запуска анализа"
+              aria-label="Закрыть панель анализа"
             >
               ✕
             </button>
@@ -388,6 +415,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
           <div className={rightPaneClass}>
             <LaunchFormPanel
               deal={deal}
+              hasCurrentRun={hasCurrentRun}
               documentsCount={documentsCount}
               checksMode={checksMode}
               onChecksModeChange={onChecksModeChange}
@@ -423,7 +451,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
               disabled={!canStartRun || isSubmitting}
               isLoading={isSubmitting}
             >
-              Запустить анализ
+              {submitButtonLabel}
             </Button>
           </div>
         </div>
@@ -433,6 +461,5 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
 };
 
 export default LaunchWideOverlay;
-
 
 

@@ -131,14 +131,21 @@ const DashboardPage: React.FC = () => {
       <div className="animate-fadein space-y-4 p-4 md:p-5">
 
         {/* Шапка */}
-        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+        <header
+          className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] bg-cover bg-center px-5 py-5 shadow-sm"
+          style={{
+            backgroundImage: "url('/background2.png')",
+          }}
+        >
           <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
               Мои проекты
             </h1>
+
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
               Управление проектами, доступными текущему пользователю.
             </p>
+
             <div className="mt-3 flex flex-wrap gap-2 text-[12px] text-[var(--text-secondary)]">
               <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1">
                 Пользователь: {userName || userId}

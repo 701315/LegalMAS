@@ -9,7 +9,6 @@ import { BookOpen, FileText, Layers, Shield } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────
 // NavCard — карточка навигации
-// Визуально выровнена с ToolCard из AdminMonitoringPage
 // ─────────────────────────────────────────────────────────────
 
 interface NavCardProps {
@@ -59,6 +58,7 @@ const InstructionsIndexPage: React.FC = () => {
   return (
     <div className="h-full overflow-y-auto overscroll-contain">
       <div className="animate-fadein space-y-4 p-4 md:p-5">
+
         <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
           <div className="min-w-0">
             <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
@@ -141,6 +141,7 @@ const InstructionsIndexPage: React.FC = () => {
             />
           </div>
         </section>
+
       </div>
     </div>
   );

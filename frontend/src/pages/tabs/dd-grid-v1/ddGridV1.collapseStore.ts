@@ -2,6 +2,7 @@
 // src/pages/tabs/dd-grid-v1/ddGridV1.collapseStore.ts
 // Zustand store для persistent состояния DD Grid V1 UI:
 // - настройки отображения матрицы (три независимых параметра)
+// - фильтр показа pass-результатов в list mode
 // - collapsed checks / groups с persistence через localStorage
 //
 // Правила:
@@ -14,7 +15,7 @@
 import { create } from "zustand";
 
 // -------------------------------------------------------------
-// View settings — три независимых параметра
+// View settings — независимые параметры
 // -------------------------------------------------------------
 
 /** Формат представления данных. */
@@ -29,10 +30,12 @@ export type DDGridV1DocGrouping = "all_docs" | "by_type";
 export const DD_GRID_V1_DEFAULT_FORMAT: DDGridV1GridFormat = "matrix";
 export const DD_GRID_V1_DEFAULT_CHECKS_SCOPE: DDGridV1ChecksScope = "all";
 export const DD_GRID_V1_DEFAULT_DOC_GROUPING: DDGridV1DocGrouping = "by_type";
+export const DD_GRID_V1_DEFAULT_SHOW_PASS_IN_LIST: boolean = true;
 
 const FORMAT_STORAGE_KEY = "mas_dd_v1_format";
 const CHECKS_SCOPE_STORAGE_KEY = "mas_dd_v1_checks_scope";
 const DOC_GROUPING_STORAGE_KEY = "mas_dd_v1_doc_grouping";
+const SHOW_PASS_IN_LIST_STORAGE_KEY = "mas_dd_v1_show_pass_in_list";
 const COLLAPSED_CHECKS_STORAGE_KEY = "mas_dd_v1_collapsed_checks";
 const COLLAPSED_GROUPS_STORAGE_KEY = "mas_dd_v1_collapsed_groups";
 
@@ -76,6 +79,13 @@ function loadDocGrouping(): DDGridV1DocGrouping {
   return DD_GRID_V1_DEFAULT_DOC_GROUPING;
 }
 
+function loadShowPassInList(): boolean {
+  const raw = safeGetItem(SHOW_PASS_IN_LIST_STORAGE_KEY);
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  return DD_GRID_V1_DEFAULT_SHOW_PASS_IN_LIST;
+}
+
 function loadKeyedRecord(storageKey: string): Record<string, true> {
   const raw = safeGetItem(storageKey);
   if (!raw) return {};
@@ -117,6 +127,9 @@ interface DDGridV1UIState {
 
   docGrouping: DDGridV1DocGrouping;
   setDocGrouping: (value: DDGridV1DocGrouping) => void;
+
+  showPassInList: boolean;
+  setShowPassInList: (value: boolean) => void;
 
   // Collapsed checks
   collapsedCheckIds: Record<string, true>;
@@ -219,6 +232,12 @@ export const useDDGridV1UIStore = create<DDGridV1UIState>((set, get) => ({
   setDocGrouping: (value) => {
     safeSetItem(DOC_GROUPING_STORAGE_KEY, value);
     set({ docGrouping: value });
+  },
+
+  showPassInList: loadShowPassInList(),
+  setShowPassInList: (value) => {
+    safeSetItem(SHOW_PASS_IN_LIST_STORAGE_KEY, value ? "true" : "false");
+    set({ showPassInList: value });
   },
 
   // -----------------------------------------------------------

@@ -14,6 +14,7 @@ const SECONDARY_ACTION_BUTTON_CLASS = "w-[220px] shrink-0 justify-center";
 
 interface LaunchFormPanelProps {
   deal: Deal;
+  hasCurrentRun: boolean;
   documentsCount?: number;
   checksMode: ChecksMode;
   onChecksModeChange: (value: ChecksMode) => void;
@@ -56,11 +57,11 @@ function formatLangHint(value: string): string {
   const normalized = normalizeLang(value);
 
   if (normalized === "RU") {
-    return "Primary source и проверки будут ориентированы на русский язык.";
+    return "Анализ будет ориентирован на русский язык.";
   }
 
   if (normalized === "EN") {
-    return "Primary source и проверки будут ориентированы на английский язык.";
+    return "Анализ будет ориентирован на английский язык.";
   }
 
   return "Выберите этот язык как основной для анализа.";
@@ -76,35 +77,35 @@ function getDiscoveryBanner(
   if (status === "pending") {
     return {
       tone: "info",
-      text: "Система подготавливает анализ всех загруженных документов для определения языков. До завершения этого этапа выбор основного языка сделки и режима проверки недоступен.",
+      text: "Определяем языки документов. Настройки станут доступны чуть позже.",
     };
   }
 
   if (status === "processing") {
     return {
       tone: "info",
-      text: "Система анализирует все загруженные документы и определяет языки, которые в них используются. Пока этот этап не завершён по всем файлам, выбор основного языка сделки и режима проверки недоступен.",
+      text: "Анализируем языки документов. Подождите пару минут.",
     };
   }
 
   if (status === "failed") {
     return {
       tone: "error",
-      text: "Автоопределение языков завершилось ошибкой. Проверьте документы или повторите подготовку перед запуском анализа.",
+      text: "Не удалось определить языки автоматически. Проверьте документы.",
     };
   }
 
   if (status === "partial") {
     return {
       tone: "warning",
-      text: "Определение языков завершено частично: часть документов не прошла language discovery. Вы можете продолжить настройку, но рекомендуется проверить проблемные файлы.",
+      text: "Языки определены не для всех файлов. Рекомендуем проверить проблемные документы.",
     };
   }
 
   if (status === "completed" && hasLanguages) {
     return {
       tone: "success",
-      text: "Определение языков завершено. Теперь выберите основной язык сделки, после этого станет доступен режим проверки.",
+      text: "Языки определены. Теперь выберите основной язык анализа.",
     };
   }
 
@@ -141,23 +142,23 @@ function getPrimaryLanguageHelperText(params: {
   } = params;
 
   if (isDiscoveryInProgress) {
-    return "Основной язык сделки можно будет выбрать только после завершения анализа всех загруженных файлов.";
+    return "Основной язык можно выбрать после того, как система определит языки документов.";
   }
 
   if (!hasLanguages && discoveryStatus === "failed") {
-    return "Список языков недоступен, потому что автоопределение завершилось ошибкой.";
+    return "Список языков недоступен: автоопределение завершилось ошибкой.";
   }
 
   if (!hasLanguages && discoveryStatus === "partial") {
-    return "Языки определены не по всем документам. Проверьте проблемные файлы или повторите подготовку.";
+    return "Языки определены не по всем документам. Проверьте проблемные файлы.";
   }
 
   if (!hasLanguages) {
-    return "Языки документов ещё недоступны. После завершения подготовки вы сможете выбрать основной язык сделки.";
+    return "Языки документов пока не определены.";
   }
 
   if (!primaryLanguageSelected) {
-    return "Выберите основной язык сделки. После этого станет доступен режим проверки.";
+    return "Выберите основной язык анализа.";
   }
 
   return "Основной язык выбран. Теперь можно выбрать режим проверки.";
@@ -179,30 +180,31 @@ function getChecksModeHelperText(params: {
   } = params;
 
   if (!documentsCountLoaded) {
-    return "Дождитесь загрузки информации о документах проекта.";
+    return "Загружаем данные о документах проекта.";
   }
 
   if (!hasDocuments) {
-    return "Сначала загрузите документы в проект.";
+    return "Сначала загрузите документы.";
   }
 
   if (!hasPlaybook) {
-    return "Сначала выберите playbook проекта.";
+    return "Сначала выберите playbook.";
   }
 
   if (isDiscoveryInProgress) {
-    return "Система анализирует все загруженные документы и определяет языки, которые в них используются. Режим проверки станет доступен после завершения этого этапа по всем файлам.";
+    return "Режим проверки станет доступен после определения языков документов.";
   }
 
   if (!primaryLanguageSelected) {
-    return "Сначала выберите основной язык сделки, затем станет доступен режим проверки.";
+    return "Сначала выберите основной язык анализа.";
   }
 
-  return "Выберите набор проверок для запуска анализа.";
+  return "Выберите, какие правила применять при анализе.";
 }
 
 const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
   deal,
+  hasCurrentRun,
   documentsCount,
   checksMode,
   onChecksModeChange,
@@ -322,14 +324,19 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
     ],
   );
 
+  const formTitle = hasCurrentRun ? "Перезапуск анализа" : "Запуск анализа";
+  const formDescription = hasCurrentRun
+    ? "Вы можете оставить текущие настройки как есть или изменить их перед новым прогоном."
+    : "Проверьте параметры перед первым запуском анализа.";
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--bg-card)]">
       <div className="border-b border-[var(--border-subtle)] px-5 py-4">
         <h3 className="text-base font-semibold text-[var(--text-primary)]">
-          Запуск анализа
+          {formTitle}
         </h3>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Проверьте параметры анализа для этой сделки.
+          {formDescription}
         </p>
       </div>
 
@@ -344,7 +351,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                 <p className="mt-1 text-xs text-[var(--text-secondary)]">
                   {documentsCountLoaded
                     ? `В проект загружено ${documentsCount} документ(ов).`
-                    : "Загружаем информацию о документах…"}
+                    : "Загружаем данные…"}
                 </p>
               </div>
 
@@ -367,7 +374,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                   Playbook проекта
                 </h4>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Используется для формирования проверок и DD Grid.
+                  Определяет набор проверок для проекта.
                 </p>
               </div>
 
@@ -388,7 +395,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                 </span>
               ) : (
                 <span className="text-[var(--color-error-text)]">
-                  Playbook не выбран. Нельзя запустить анализ без playbook.
+                  Playbook не выбран. Запуск невозможен.
                 </span>
               )}
             </p>
@@ -401,7 +408,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                   Профиль модели
                 </h4>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Настройка профиля модели.
+                  Выберите профиль модели для анализа.
                 </p>
               </div>
 
@@ -412,15 +419,15 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                   onClick={onOpenModelConfig}
                   className={SECONDARY_ACTION_BUTTON_CLASS}
                 >
-                  Настроить профиль модели
+                  Настроить профиль
                 </Button>
               ) : null}
             </div>
 
             <p className="mt-3 text-xs leading-5 text-[var(--text-secondary)]">
               {deal.model_config_name
-                ? `Текущий профиль (используется в проекте по умолчанию): ${deal.model_config_name}.`
-                : "Будет использован профиль проекта или playbook."}
+                ? `Используется профиль: ${deal.model_config_name}.`
+                : "Используется стандартный профиль."}
             </p>
           </section>
 
@@ -430,8 +437,8 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
             </h4>
 
             <p className="mt-2 text-xs text-[var(--text-secondary)]">
-              Сначала система должна определить языки во всех загруженных
-              документах. Только после этого можно выбрать основной язык сделки.
+              Сначала система определит языки документов. После этого можно
+              выбрать основной язык анализа.
             </p>
 
             {discoveryBanner ? (
@@ -494,7 +501,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
                 {!primaryLanguageSelected && !isDiscoveryInProgress && (
                   <p className="mt-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning-text)]">
-                    Перед запуском анализа выберите основной язык сделки.
+                    Перед запуском выберите основной язык анализа.
                   </p>
                 )}
 
@@ -505,8 +512,8 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
             ) : (
               <p className="mt-3 text-xs text-[var(--text-secondary)]">
                 {discoveryStatus === "failed"
-                  ? "Список языков пока недоступен, потому что автоопределение завершилось ошибкой."
-                  : "Языки документов ещё не определены автоматически. После завершения обработки всех файлов вы сможете выбрать основной язык сделки."}
+                  ? "Список языков недоступен: автоопределение завершилось ошибкой."
+                  : "Языки документов ещё не определены. После обработки файлов вы сможете выбрать основной язык."}
               </p>
             )}
           </section>
@@ -565,7 +572,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
           {deal.has_pending_manual_reclassifications ? (
             <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-4">
               <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-                Дополнительные параметры
+                Повторная классификация
               </h4>
 
               <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-3 text-xs text-[var(--text-secondary)]">
@@ -579,10 +586,10 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
                 <span>
                   <span className="block text-[13px] font-medium text-[var(--text-primary)]">
-                    Принудительно переклассифицировать документы
+                    Переклассифицировать документы заново
                   </span>
                   <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
-                    Используйте после ручной переклассификации.
+                    Включите это, если вы вручную изменили типы документов.
                   </span>
                 </span>
               </label>

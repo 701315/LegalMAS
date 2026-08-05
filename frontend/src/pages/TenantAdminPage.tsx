@@ -1849,7 +1849,21 @@ const TenantAdminPage: React.FC = () => {
   if (!dashQ.data) return null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 py-4 md:px-5 md:py-5">
+    <div className="h-full xl:grid xl:grid-cols-4">
+      {/* Left visual column */}
+      <aside className="hidden xl:block xl:col-span-1">
+        <div className="sticky top-0 h-screen w-full">
+          <img
+            src="/adminpicture.png"
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+          />
+        </div>
+      </aside>
+
+      {/* Main content column */}
+      <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 py-4 md:px-5 md:py-5 xl:col-span-3">
       <header className="shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
@@ -2632,7 +2646,8 @@ const TenantAdminPage: React.FC = () => {
         )}
       </section>
     </div>
-  );
+  </div>
+);
 };
 
 export default TenantAdminPage;

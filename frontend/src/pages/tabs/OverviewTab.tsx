@@ -351,11 +351,24 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
           showReclassBanner={showReclassBanner}
         />
 
+        {/* Декоративная иллюстрация под панелью действий (только на xl+) */}
+        <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+          <img
+            src="/overviewpicture.png"
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            decoding="async"
+            className="pointer-events-none block w-full h-auto select-none opacity-90"
+          />
+        </div>
+
         {overlayWidth !== null && (
           <LaunchWideOverlay
             open={isLaunchPanelOpen}
             overlayWidth={overlayWidth}
             deal={effectiveDeal}
+            hasCurrentRun={!!currentRun}
             documentsCount={documentsCount}
             checksMode={checksMode}
             onChecksModeChange={setChecksMode}

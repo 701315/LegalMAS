@@ -2,9 +2,14 @@
 // src/pages/tabs/overview/ProjectDomainDetailsPanel.tsx
 // Переключаемая панель деталей по направлению.
 //
-// Documents: двухколоночный layout
-//   левая  — динамика пайплайна (DocumentsPipelinePanel)
-//   правая — метрики проекта (LLMUsageWidget + будущие виджеты)
+// Documents (xl+): 4-колоночный layout, каждая колонка = 1/4 ширины,
+//                  одинаковая высота, внутренний скролл.
+//   1. Пайплайн анализа
+//   2. Обзор документов (с встроенным блоком "Требует внимания")
+//   3. Итог анализа (с встроенным блоком "Результаты, требующие уточнения")
+//   4. Использование LLM
+//
+// Documents (< xl):  fallback 2-колоночный layout (legacy).
 // Counterparties / RealEstate: одна колонка, как раньше.
 // =============================================================
 
@@ -12,7 +17,10 @@ import React from "react";
 import type { Deal } from "../../../types";
 import DocumentsPipelinePanel from "./DocumentsPipelinePanel";
 import { LLMUsageWidget } from "./LLMUsageWidget";
+import { DocumentsOverviewWidget } from "./DocumentsOverviewWidget";
+import { AnalysisResultsWidget } from "./AnalysisResultsWidget";
 import { useDealLLMUsage } from "../../../api/deals";
+import { useDocuments } from "../../../api/documents";
 import { DEMO_AGGREGATES } from "../CounterpartiesTab";
 import { DEMO_OBJECTS } from "../RealEstateTab";
 
@@ -24,6 +32,26 @@ interface ProjectDomainDetailsPanelProps {
   runId: string | null;
   deal: Deal;
 }
+
+// ---------------------------------------------------------------------------
+// Column shell (общий стиль для 4-колоночного layout)
+// ---------------------------------------------------------------------------
+
+interface ColumnShellProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+const ColumnShell: React.FC<ColumnShellProps> = ({ title, children }) => (
+  <div className="flex min-h-0 min-w-0 flex-col">
+    <p className="mb-2 shrink-0 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+      {title}
+    </p>
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+      {children}
+    </div>
+  </div>
+);
 
 // ---------------------------------------------------------------------------
 // Counterparties summary
@@ -184,7 +212,7 @@ const RealEstateSummary: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// DocumentsContent — двухколоночный layout
+// DocumentsContent — 4-колоночный layout на xl+, fallback на меньших
 // ---------------------------------------------------------------------------
 
 const DocumentsContent: React.FC<{
@@ -200,29 +228,84 @@ const DocumentsContent: React.FC<{
     refetchInterval: isRunActive ? 30_000 : false,
   });
 
+  const {
+    data: documentsPage,
+    isLoading: documentsLoading,
+    isError: documentsError,
+  } = useDocuments(dealId, 1);
+
+  const documents = documentsPage?.items;
+
   return (
-    <div className="grid min-h-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-      {/* Левая колонка: пайплайн */}
-      <div className="min-w-0">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-          Пайплайн анализа
-        </p>
-        <DocumentsPipelinePanel runId={runId} />
+    <>
+      {/* ── xl+ : 4 колонки, одинаковая высота, скролл внутри каждой ── */}
+      <div className="hidden h-full min-h-0 grid-cols-4 gap-4 xl:grid">
+        <ColumnShell title="Пайплайн анализа">
+          <DocumentsPipelinePanel runId={runId} />
+        </ColumnShell>
+
+        <ColumnShell title="Обзор документов">
+          <DocumentsOverviewWidget
+            documents={documents}
+            isLoading={documentsLoading}
+            isError={documentsError}
+          />
+        </ColumnShell>
+
+        <ColumnShell title="Итог анализа">
+          <AnalysisResultsWidget dealId={dealId} runId={runId} />
+        </ColumnShell>
+
+        <ColumnShell title="Использование LLM">
+          <LLMUsageWidget
+            data={llmUsage}
+            isLoading={llmLoading}
+            isError={llmError}
+          />
+        </ColumnShell>
       </div>
 
-      {/* Правая колонка: метрики */}
-      <div className="min-w-0">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
-          Метрики проекта
-        </p>
+      {/* ── < xl : fallback — двухколоночный layout с новыми виджетами ── */}
+      <div className="grid min-h-0 grid-cols-1 gap-4 xl:hidden lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="min-w-0">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+            Пайплайн анализа
+          </p>
+          <DocumentsPipelinePanel runId={runId} />
+        </div>
 
-        <LLMUsageWidget
-          data={llmUsage}
-          isLoading={llmLoading}
-          isError={llmError}
-        />
+        <div className="min-w-0 space-y-4">
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+              Обзор документов
+            </p>
+            <DocumentsOverviewWidget
+              documents={documents}
+              isLoading={documentsLoading}
+              isError={documentsError}
+            />
+          </div>
+
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+              Итог анализа
+            </p>
+            <AnalysisResultsWidget dealId={dealId} runId={runId} />
+          </div>
+
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+              Использование LLM
+            </p>
+            <LLMUsageWidget
+              data={llmUsage}
+              isLoading={llmLoading}
+              isError={llmError}
+            />
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -248,7 +331,7 @@ export const ProjectDomainDetailsPanel: React.FC<
       <div className="shrink-0 px-5">
         <div className="py-3">
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Детали направления
+            Детали результатов анализа
           </h2>
           <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
             {domainTitle}
@@ -257,8 +340,8 @@ export const ProjectDomainDetailsPanel: React.FC<
         <div className="border-t border-[var(--border-subtle)]" />
       </div>
 
-      {/* Scrollable content */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+      {/* Content */}
+      <div className="min-h-0 flex-1 overflow-hidden px-5 py-4">
         {activeDomain === "documents" && (
           <DocumentsContent
             runId={runId}
@@ -266,13 +349,20 @@ export const ProjectDomainDetailsPanel: React.FC<
             isRunActive={isRunActive}
           />
         )}
-        {activeDomain === "counterparties" && <CounterpartiesSummary />}
-        {activeDomain === "real_estate" && <RealEstateSummary />}
+        {activeDomain === "counterparties" && (
+          <div className="h-full overflow-y-auto overscroll-contain">
+            <CounterpartiesSummary />
+          </div>
+        )}
+        {activeDomain === "real_estate" && (
+          <div className="h-full overflow-y-auto overscroll-contain">
+            <RealEstateSummary />
+          </div>
+        )}
       </div>
     </section>
   );
 };
 
 export default ProjectDomainDetailsPanel;
-
 

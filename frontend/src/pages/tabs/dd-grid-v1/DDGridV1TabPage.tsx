@@ -442,7 +442,12 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   // checksScope из store — используется для фильтрации в list mode
   const checksScope = useDDGridV1UIStore((state) => state.checksScope);
 
-  const [showPassInList, setShowPassInList] = React.useState<boolean>(true);
+  // showPassInList из store — persistent между сессиями,
+  // позволяет управлять фильтром извне (например, из Overview widgets)
+  const showPassInList = useDDGridV1UIStore((state) => state.showPassInList);
+  const setShowPassInList = useDDGridV1UIStore(
+    (state) => state.setShowPassInList,
+  );
 
   // Inline layout picker для matrix PDF/Word.
   // null — picker скрыт; "pdf" / "docx" — picker показан для этого формата.
@@ -776,7 +781,7 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                         type="button"
                         size="sm"
                         variant={!showPassInList ? "outline" : "secondary"}
-                        onClick={() => setShowPassInList((prev) => !prev)}
+                        onClick={() => setShowPassInList(!showPassInList)}
                         title={
                           showPassInList
                             ? "Скрыть pass результаты"
