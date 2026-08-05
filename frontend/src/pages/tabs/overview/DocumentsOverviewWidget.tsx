@@ -4,11 +4,12 @@
 // документам проекта: количество, статусы обработки, топ типов.
 //
 // Внутри виджета:
-//   1) Блок "Документы в проекте" — счётчики.
+//   1) Блок "Документы в проекте" — счётчики (Всего / Готовы /
+//      В работе / Ошибок). duplicate и deleted исключаются
+//      полностью (не в активной работе).
 //   2) Блок "По типам документов" — топ-5 типов.
 //   3) Блок "Требует внимания" — про низкую classification_confidence
-//      (< 0.6). Показывает счётчик + первые 3 файла, БЕЗ отдельной
-//      кнопки перехода — переход единый снизу.
+//      (< 0.6). Показывает счётчик + первые 3 файла.
 //   4) Отдельная кнопка "Перейти к списку документов" — всегда внизу,
 //      если в проекте есть хотя бы один документ.
 // =============================================================
@@ -25,12 +26,22 @@ import type { DocumentListItem } from "../../../types";
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
 const MAX_ITEMS_IN_LIST = 3;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// Статусы документа, которые считаем "готовыми" для целей UI.
+// Оба означают что document-level pipeline завершён:
+// - enriched  — прошёл до semantic enrichment включительно
+// - completed — прошёл всё включая checks на этом документе
+const READY_STATUSES = new Set<string>(["enriched", "completed"]);
 
-const READY_STATUSES = new Set<string>(["completed"]);
+// Статусы, означающие проблему с документом.
 const ERROR_STATUSES = new Set<string>(["failed", "quarantine"]);
+
+// Статусы, при которых документ вообще исключается из счётчиков
+// (не в активной работе, не считаем ни готовыми, ни в работе).
+const EXCLUDED_STATUSES = new Set<string>(["duplicate", "deleted"]);
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface DocumentsOverviewData {
   total: number;
@@ -46,15 +57,24 @@ interface LowConfidenceItem {
   confidence: number | null;
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function buildOverviewData(
   documents: DocumentListItem[],
 ): DocumentsOverviewData {
-  const total = documents.length;
+  // Отфильтровываем excluded документы полностью — они не в активной работе.
+  const activeDocuments = documents.filter(
+    (doc) => !EXCLUDED_STATUSES.has(doc.status),
+  );
+
+  const total = activeDocuments.length;
   let ready = 0;
   let errors = 0;
   const docTypeMap = new Map<string, number>();
 
-  for (const doc of documents) {
+  for (const doc of activeDocuments) {
     if (READY_STATUSES.has(doc.status)) ready++;
     else if (ERROR_STATUSES.has(doc.status)) errors++;
 

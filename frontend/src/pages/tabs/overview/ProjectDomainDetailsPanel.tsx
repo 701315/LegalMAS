@@ -4,16 +4,19 @@
 //
 // Documents (xl+): 4-колоночный layout, каждая колонка = 1/4 ширины,
 //                  одинаковая высота, внутренний скролл.
-//   1. Пайплайн анализа
-//   2. Обзор документов (с встроенным блоком "Требует внимания")
-//   3. Итог анализа (с встроенным блоком "Результаты, требующие уточнения")
-//   4. Использование LLM
-//
-// Documents (< xl):  fallback 2-колоночный layout (legacy).
+// Documents (< xl): fallback 2-колоночный layout (legacy).
 // Counterparties / RealEstate: одна колонка, как раньше.
+//
+// Header:
+//   - Breadcrumb: ● {ActiveDomainName} › Детали результатов анализа
+//   - Accent dot цвета activeDomain (пока — единый accent color)
+//   - На xl+: убраны top-rounded корнеры + top-border,
+//     потому что панель "врастает" сверху в активную карточку
+//     из ProjectDomainsOverviewPanel.
 // =============================================================
 
 import React from "react";
+import { ChevronRight } from "lucide-react";
 import type { Deal } from "../../../types";
 import DocumentsPipelinePanel from "./DocumentsPipelinePanel";
 import { LLMUsageWidget } from "./LLMUsageWidget";
@@ -31,6 +34,21 @@ interface ProjectDomainDetailsPanelProps {
   onDomainChange: (d: DomainKey) => void;
   runId: string | null;
   deal: Deal;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getDomainLabel(domain: DomainKey): string {
+  switch (domain) {
+    case "documents":
+      return "Документы";
+    case "counterparties":
+      return "Контрагенты";
+    case "real_estate":
+      return "Имущество";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -316,26 +334,42 @@ const DocumentsContent: React.FC<{
 export const ProjectDomainDetailsPanel: React.FC<
   ProjectDomainDetailsPanelProps
 > = ({ activeDomain, onDomainChange: _onDomainChange, runId, deal }) => {
-  const domainTitle =
-    activeDomain === "documents"
-      ? "Документы"
-      : activeDomain === "counterparties"
-        ? "Контрагенты"
-        : "Имущество";
-
+  const domainLabel = getDomainLabel(activeDomain);
   const isRunActive = !!runId;
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-      {/* Header */}
+    <section
+      className={[
+        "flex h-full min-h-0 flex-col overflow-hidden",
+        // Base border + rounded на всех размерах
+        "rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm",
+        // На xl+ убираем top-скругления и top-border —
+        // панель "врастает" сверху в активную карточку из
+        // ProjectDomainsOverviewPanel.
+        "xl:rounded-t-none xl:border-t-0",
+      ].join(" ")}
+    >
+      {/* Header с breadcrumb */}
       <div className="shrink-0 px-5">
         <div className="py-3">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Детали результатов анализа
-          </h2>
-          <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-            {domainTitle}
-          </p>
+          {/* Breadcrumb: ● Домен › Детали результатов анализа */}
+          <div className="flex items-center gap-1.5">
+            {/* Accent dot — маркер связи с активной карточкой сверху */}
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary)]"
+              aria-hidden
+            />
+            <span className="text-xs font-semibold text-[var(--accent-primary)]">
+              {domainLabel}
+            </span>
+            <ChevronRight
+              className="h-3 w-3 shrink-0 text-[var(--text-muted)]"
+              aria-hidden
+            />
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+              Детали результатов анализа
+            </h2>
+          </div>
         </div>
         <div className="border-t border-[var(--border-subtle)]" />
       </div>
@@ -365,4 +399,5 @@ export const ProjectDomainDetailsPanel: React.FC<
 };
 
 export default ProjectDomainDetailsPanel;
+
 

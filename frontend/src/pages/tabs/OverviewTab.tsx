@@ -323,22 +323,28 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
           />
         </div>
 
-        <div className="shrink-0">
-          <ProjectDomainsOverviewPanel
-            runId={currentRunId ?? null}
-            deal={effectiveDeal}
-            activeDomain={activeDomain}
-            onDomainSelect={setActiveDomain}
-          />
-        </div>
+        {/* Связка "Состояние направлений" + "Детали результатов анализа"
+            — визуально единый блок. Убран gap между ними, чтобы активная
+            карточка сверху "врастала" в панель деталей снизу на xl+.
+            Общий gap с DealInfoCard остаётся 16px. */}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0">
+            <ProjectDomainsOverviewPanel
+              runId={currentRunId ?? null}
+              deal={effectiveDeal}
+              activeDomain={activeDomain}
+              onDomainSelect={setActiveDomain}
+            />
+          </div>
 
-        <div className="min-h-0 flex-1">
-          <ProjectDomainDetailsPanel
-            activeDomain={activeDomain}
-            onDomainChange={setActiveDomain}
-            runId={currentRunId ?? null}
-            deal={effectiveDeal}
-          />
+          <div className="min-h-0 flex-1">
+            <ProjectDomainDetailsPanel
+              activeDomain={activeDomain}
+              onDomainChange={setActiveDomain}
+              runId={currentRunId ?? null}
+              deal={effectiveDeal}
+            />
+          </div>
         </div>
       </div>
 

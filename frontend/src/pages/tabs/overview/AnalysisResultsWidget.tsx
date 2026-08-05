@@ -4,25 +4,36 @@
 //
 // Секции:
 //   1) Выполнено проверок X/X + прогресс-бар.
-//   2) Обнаруженные проблемы (если есть failed/quarantine).
-//   3) Результаты, требующие уточнения — findings с
+//   2) Режим проверки (checks_mode).
+//   3) Обнаруженные проблемы (если есть failed/quarantine).
+//   4) Global checks — счётчики + топ-5 чеков с иконкой худшего
+//      результата. Клик по заголовку → DD Grid list mode +
+//      checksScope=global_only.
+//   5) Doc-type checks — то же самое для doc-type checks (без
+//      пересечения с global — global побеждает).
+//      Клик → DD Grid + checksScope=doc_type_only.
+//   6) Результаты, требующие уточнения — findings с
 //      review_status === "unclear", сгруппированные по документу.
-//      Это те самые findings, которые в DD Grid отображаются как
-//      "Результат не определён LLM на 100%".
-//      Внутри блока — только счётчик + первые 3 файла, БЕЗ отдельной
-//      кнопки перехода — переход единый снизу.
-//   4) Отдельная кнопка "Перейти к списку результатов" —
+//   7) Отдельная кнопка "Перейти к списку результатов" —
 //      всегда внизу, если анализ завершён.
-//      Ведёт в DD Grid list mode без применения фильтра
-//      "Скрыть pass" — пользователь сам выбирает что показывать.
+//      Ведёт в DD Grid list mode + checksScope=all + showPass=true.
 //
-// Заголовок "Итог анализа" рендерится внешним ColumnShell,
-// внутри виджета его нет.
+// При running/pending статусе секции 4-5 не показываются, чтобы
+// не давать промежуточных счётчиков (они могут меняться каждые
+// несколько секунд).
+//
+// Заголовок "Итог анализа" рендерится внешним ColumnShell.
 // =============================================================
 
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronRight,
+  HelpCircle,
+  MinusCircle,
+  XCircle,
+} from "lucide-react";
 import { useRun } from "../../../api/runs";
 import { useDealReviewDdGridV1 } from "../../../api/dealReview";
 import { useDDGridV1UIStore } from "../dd-grid-v1/ddGridV1.collapseStore";
@@ -33,16 +44,40 @@ import { selectDDGridV1DerivedModel } from "../dd-grid-v1/ddGridV1.selectors";
 // ---------------------------------------------------------------------------
 
 const MAX_ITEMS_IN_LIST = 3;
+const MAX_CHECKS_IN_GROUP = 5;
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers — types
 // ---------------------------------------------------------------------------
+
+type CheckWorstStatus = "fail" | "unclear" | "pass" | "unknown";
+
+interface CheckAggregate {
+  checkId: string;
+  checkName: string;
+  passCount: number;
+  failCount: number;
+  unclearCount: number;
+  worstStatus: CheckWorstStatus;
+}
+
+interface CheckGroupSummary {
+  totalChecks: number;
+  passedChecksCount: number;
+  failedChecksCount: number;
+  unclearChecksCount: number;
+  topChecks: CheckAggregate[];
+}
 
 interface UnclearFindingsItem {
   documentId: string;
   filename: string;
   unclearCount: number;
 }
+
+// ---------------------------------------------------------------------------
+// Helpers — filename / plural
+// ---------------------------------------------------------------------------
 
 function truncateFilename(filename: string, maxLength = 24): string {
   if (filename.length <= maxLength) return filename;
@@ -51,9 +86,11 @@ function truncateFilename(filename: string, maxLength = 24): string {
   return ext ? `${base}…${ext}` : `${base}…`;
 }
 
-/**
- * Плюрализация "проверок" по русским правилам.
- */
+function truncateCheckName(name: string, maxLength = 32): string {
+  if (name.length <= maxLength) return name;
+  return `${name.slice(0, maxLength - 1)}…`;
+}
+
 function pluralizeChecks(count: number): string {
   const mod10 = Math.abs(count) % 10;
   const mod100 = Math.abs(count) % 100;
@@ -63,9 +100,6 @@ function pluralizeChecks(count: number): string {
   return "проверок";
 }
 
-/**
- * Плюрализация "документах" по русским правилам.
- */
 function pluralizeDocuments(count: number): string {
   const mod10 = Math.abs(count) % 10;
   const mod100 = Math.abs(count) % 100;
@@ -73,6 +107,250 @@ function pluralizeDocuments(count: number): string {
   if (mod10 === 1) return "документе";
   if (mod10 >= 2 && mod10 <= 4) return "документах";
   return "документах";
+}
+
+/**
+ * Плюрализация "тип проверки" по русским правилам.
+ * 1 → "тип проверки"
+ * 2-4 → "типа проверки"
+ * 5+ → "типов проверки"
+ */
+function pluralizeCheckTypes(count: number): string {
+  const mod10 = Math.abs(count) % 10;
+  const mod100 = Math.abs(count) % 100;
+  if (mod100 >= 11 && mod100 <= 19) return "типов проверки";
+  if (mod10 === 1) return "тип проверки";
+  if (mod10 >= 2 && mod10 <= 4) return "типа проверки";
+  return "типов проверки";
+}
+
+
+// ---------------------------------------------------------------------------
+// Helpers — checks_mode label
+// ---------------------------------------------------------------------------
+
+function formatChecksModeLabel(mode: string | null | undefined): string {
+  if (!mode) return "Не указан";
+  switch (mode) {
+    case "global_and_doc_type":
+      return "Playbook + типы документов";
+    case "global_only":
+      return "Только Playbook";
+    case "doc_type_only":
+      return "Только типы документов";
+    default:
+      return mode;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers — worst status
+// ---------------------------------------------------------------------------
+
+function computeWorstStatus(
+  passCount: number,
+  failCount: number,
+  unclearCount: number,
+): CheckWorstStatus {
+  if (failCount > 0) return "fail";
+  if (unclearCount > 0) return "unclear";
+  if (passCount > 0) return "pass";
+  return "unknown";
+}
+
+function StatusIcon({ status }: { status: CheckWorstStatus }) {
+  const iconClass = "h-3 w-3 shrink-0";
+  if (status === "fail") {
+    return (
+      <XCircle
+        className={`${iconClass} text-[var(--color-error-text)]`}
+        aria-hidden
+      />
+    );
+  }
+  if (status === "unclear") {
+    return (
+      <HelpCircle
+        className={`${iconClass} text-[var(--color-warning-text)]`}
+        aria-hidden
+      />
+    );
+  }
+  if (status === "pass") {
+    return (
+      <CheckCircle2
+        className={`${iconClass} text-[var(--color-success-text)]`}
+        aria-hidden
+      />
+    );
+  }
+  return (
+    <MinusCircle
+      className={`${iconClass} text-[var(--text-muted)]`}
+      aria-hidden
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Aggregation
+// ---------------------------------------------------------------------------
+
+/**
+ * Собирает уникальные check_id из global_groups.
+ */
+function collectGlobalCheckIds(
+  model: ReturnType<typeof selectDDGridV1DerivedModel>,
+): Set<string> {
+  const set = new Set<string>();
+  for (const group of model.globalGroups) {
+    for (const check of group.checks) {
+      set.add(check.checkId);
+    }
+  }
+  return set;
+}
+
+/**
+ * Собирает уникальные check_id из doc_type_classes,
+ * ИСКЛЮЧАЯ те что уже есть в global (global побеждает при пересечении).
+ */
+function collectDocTypeOnlyCheckIds(
+  model: ReturnType<typeof selectDDGridV1DerivedModel>,
+  globalCheckIds: Set<string>,
+): Set<string> {
+  const set = new Set<string>();
+  for (const cls of model.docTypeClasses) {
+    for (const t of cls.types) {
+      for (const check of t.checks) {
+        if (!globalCheckIds.has(check.checkId)) {
+          set.add(check.checkId);
+        }
+      }
+    }
+  }
+  return set;
+}
+
+/**
+ * Собирает мапу checkId → checkName из всей иерархии.
+ */
+function collectCheckNamesMap(
+  model: ReturnType<typeof selectDDGridV1DerivedModel>,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const group of model.globalGroups) {
+    for (const check of group.checks) {
+      if (!map.has(check.checkId)) {
+        map.set(check.checkId, check.checkName || check.checkId);
+      }
+    }
+  }
+  for (const cls of model.docTypeClasses) {
+    for (const t of cls.types) {
+      for (const check of t.checks) {
+        if (!map.has(check.checkId)) {
+          map.set(check.checkId, check.checkName || check.checkId);
+        }
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * Для указанного набора check_id агрегирует результаты по всем документам.
+ * Учитывает только "executed" статусы (needs_review / ok / unclear).
+ * Пропускает not_applicable и not_executed.
+ */
+function buildCheckGroupSummary(
+  model: ReturnType<typeof selectDDGridV1DerivedModel>,
+  checkIds: Set<string>,
+  checkNames: Map<string, string>,
+): CheckGroupSummary {
+  // checkId → { pass, fail, unclear }
+  const aggregateMap = new Map<
+    string,
+    { passCount: number; failCount: number; unclearCount: number }
+  >();
+
+  for (const row of model.rows) {
+    const drawerByCheck = model.drawerContents[row.documentId] ?? {};
+
+    for (const [checkId, drawer] of Object.entries(drawerByCheck)) {
+      if (!checkIds.has(checkId)) continue;
+      if (!drawer) continue;
+
+      const status = drawer.review_status;
+
+      // Учитываем только executed статусы
+      let bucket: "pass" | "fail" | "unclear" | null = null;
+      if (status === "ok" || status === "no_issue_detected") {
+        bucket = "pass";
+      } else if (status === "needs_review") {
+        bucket = "fail";
+      } else if (status === "unclear") {
+        bucket = "unclear";
+      }
+      // status === "not_applicable" → пропускаем
+      // status === null / undefined / other → пропускаем
+
+      if (!bucket) continue;
+
+      const existing = aggregateMap.get(checkId);
+      if (existing) {
+        if (bucket === "pass") existing.passCount++;
+        else if (bucket === "fail") existing.failCount++;
+        else existing.unclearCount++;
+      } else {
+        aggregateMap.set(checkId, {
+          passCount: bucket === "pass" ? 1 : 0,
+          failCount: bucket === "fail" ? 1 : 0,
+          unclearCount: bucket === "unclear" ? 1 : 0,
+        });
+      }
+    }
+  }
+
+  const aggregates: CheckAggregate[] = [];
+  for (const checkId of checkIds) {
+    const stats = aggregateMap.get(checkId);
+    if (!stats) continue; // check не был executed ни для одного документа
+    aggregates.push({
+      checkId,
+      checkName: checkNames.get(checkId) ?? checkId,
+      passCount: stats.passCount,
+      failCount: stats.failCount,
+      unclearCount: stats.unclearCount,
+      worstStatus: computeWorstStatus(
+        stats.passCount,
+        stats.failCount,
+        stats.unclearCount,
+      ),
+    });
+  }
+
+  // Сортировка: сначала fail, потом unclear, потом pass
+  const statusRank: Record<CheckWorstStatus, number> = {
+    fail: 0,
+    unclear: 1,
+    pass: 2,
+    unknown: 3,
+  };
+  aggregates.sort((a, b) => {
+    const rankDiff = statusRank[a.worstStatus] - statusRank[b.worstStatus];
+    if (rankDiff !== 0) return rankDiff;
+    return a.checkName.localeCompare(b.checkName, "ru");
+  });
+
+  return {
+    totalChecks: aggregates.length,
+    passedChecksCount: aggregates.filter((c) => c.worstStatus === "pass").length,
+    failedChecksCount: aggregates.filter((c) => c.worstStatus === "fail").length,
+    unclearChecksCount: aggregates.filter((c) => c.worstStatus === "unclear")
+      .length,
+    topChecks: aggregates.slice(0, MAX_CHECKS_IN_GROUP),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -89,7 +367,7 @@ const AnalysisResultsSkeleton: React.FC = () => (
 );
 
 // ---------------------------------------------------------------------------
-// Unclear findings item row
+// Unclear findings row
 // ---------------------------------------------------------------------------
 
 interface UnclearFindingsRowProps {
@@ -120,6 +398,128 @@ const UnclearFindingsRow: React.FC<UnclearFindingsRowProps> = ({
 );
 
 // ---------------------------------------------------------------------------
+// Check group section
+// ---------------------------------------------------------------------------
+
+interface CheckGroupSectionProps {
+  title: string;
+  summary: CheckGroupSummary;
+  onGroupClick: () => void;
+}
+
+const CheckGroupSection: React.FC<CheckGroupSectionProps> = ({
+  title,
+  summary,
+  onGroupClick,
+}) => {
+  if (summary.totalChecks === 0) {
+    return (
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+          {title}
+        </p>
+        <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+          Проверки не выполнялись
+        </p>
+      </div>
+    );
+  }
+
+  const hiddenCount = summary.totalChecks - summary.topChecks.length;
+
+  // Текст счётчика типов: "2 типа проверки", "58 типов проверки"
+  const typesCounterText = `${summary.totalChecks} ${pluralizeCheckTypes(
+    summary.totalChecks,
+  )}`;
+
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
+      {/* Заголовок = кликабельный ряд: title справа стрелка */}
+      <button
+        type="button"
+        onClick={onGroupClick}
+        className="group flex w-full items-center justify-between gap-2 text-left transition-colors hover:bg-[var(--bg-elevated-soft)] rounded-md -mx-1 px-1 py-0.5"
+      >
+        <p className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+          {title}
+        </p>
+
+        <ChevronRight
+          className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--text-primary)]"
+          aria-hidden
+        />
+      </button>
+
+      {/* Счётчик "типов проверки" — объясняет что именно считаем */}
+      <p
+        className="mt-1 text-[11px] font-medium text-[var(--text-primary)]"
+        title={`В этой группе ${typesCounterText}. Каждая проверка может применяться к одному или нескольким документам.`}
+      >
+        {typesCounterText}
+      </p>
+
+      {/* Компактные счётчики по worst status */}
+      <div className="mt-1 flex items-center gap-2 text-[10px] tabular-nums">
+        {summary.passedChecksCount > 0 && (
+          <span
+            className="flex items-center gap-0.5 text-[var(--color-success-text)]"
+            title={`${summary.passedChecksCount} ${pluralizeCheckTypes(
+              summary.passedChecksCount,
+            )} без замечаний`}
+          >
+            <CheckCircle2 className="h-2.5 w-2.5" aria-hidden />
+            {summary.passedChecksCount}
+          </span>
+        )}
+        {summary.failedChecksCount > 0 && (
+          <span
+            className="flex items-center gap-0.5 text-[var(--color-error-text)]"
+            title={`${summary.failedChecksCount} ${pluralizeCheckTypes(
+              summary.failedChecksCount,
+            )} с замечаниями (хотя бы в одном документе)`}
+          >
+            <XCircle className="h-2.5 w-2.5" aria-hidden />
+            {summary.failedChecksCount}
+          </span>
+        )}
+        {summary.unclearChecksCount > 0 && (
+          <span
+            className="flex items-center gap-0.5 text-[var(--color-warning-text)]"
+            title={`${summary.unclearChecksCount} ${pluralizeCheckTypes(
+              summary.unclearChecksCount,
+            )} требуют уточнения (хотя бы в одном документе)`}
+          >
+            <HelpCircle className="h-2.5 w-2.5" aria-hidden />
+            {summary.unclearChecksCount}
+          </span>
+        )}
+      </div>
+
+      {/* Топ-5 чеков */}
+      <div className="mt-2 space-y-0.5">
+        {summary.topChecks.map((check) => (
+          <div
+            key={check.checkId}
+            className="flex items-center gap-1.5"
+            title={check.checkName}
+          >
+            <StatusIcon status={check.worstStatus} />
+            <span className="min-w-0 flex-1 truncate text-[11px] leading-4 text-[var(--text-primary)]">
+              {truncateCheckName(check.checkName)}
+            </span>
+          </div>
+        ))}
+        {hiddenCount > 0 && (
+          <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
+            Ещё {hiddenCount}…
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Widget
 // ---------------------------------------------------------------------------
 
@@ -141,7 +541,30 @@ export const AnalysisResultsWidget: React.FC<
     [ddGridResponse],
   );
 
-  // Findings с review_status === "unclear", сгруппированные по документу.
+  // Aggregates для global / doc-type
+  const { globalSummary, docTypeSummary } = React.useMemo(() => {
+    const checkNames = collectCheckNamesMap(ddGridModel);
+    const globalCheckIds = collectGlobalCheckIds(ddGridModel);
+    const docTypeOnlyCheckIds = collectDocTypeOnlyCheckIds(
+      ddGridModel,
+      globalCheckIds,
+    );
+
+    return {
+      globalSummary: buildCheckGroupSummary(
+        ddGridModel,
+        globalCheckIds,
+        checkNames,
+      ),
+      docTypeSummary: buildCheckGroupSummary(
+        ddGridModel,
+        docTypeOnlyCheckIds,
+        checkNames,
+      ),
+    };
+  }, [ddGridModel]);
+
+  // Findings с review_status === "unclear", сгруппированные по документу
   const unclearFindingsItems = React.useMemo<UnclearFindingsItem[]>(() => {
     if (!ddGridResponse) return [];
 
@@ -178,7 +601,6 @@ export const AnalysisResultsWidget: React.FC<
       .sort((a, b) => b.unclearCount - a.unclearCount);
   }, [ddGridModel, ddGridResponse]);
 
-  // Общий счётчик findings и документов
   const totalUnclearFindingsCount = React.useMemo(
     () =>
       unclearFindingsItems.reduce((sum, item) => sum + item.unclearCount, 0),
@@ -187,43 +609,48 @@ export const AnalysisResultsWidget: React.FC<
 
   const affectedDocumentsCount = unclearFindingsItems.length;
 
-  // Клик по файлу в списке unclear findings — переход в DD Grid list mode
-  // с включённым фильтром "Скрыть pass", чтобы юрист сразу увидел
-  // только проблемные findings.
+  // Handlers для навигации в DD Grid
+  const navigateToDDGrid = React.useCallback(() => {
+    const params = new URLSearchParams(location.search);
+    params.set("tab", "dd_grid");
+    navigate(
+      {
+        pathname: location.pathname,
+        search: params.toString(),
+      },
+      { replace: false },
+    );
+  }, [location.pathname, location.search, navigate]);
+
   const handleOpenUnclearInDDGrid = React.useCallback(() => {
     const store = useDDGridV1UIStore.getState();
     store.setFormat("list");
     store.setShowPassInList(false);
+    store.setChecksScope("all");
+    navigateToDDGrid();
+  }, [navigateToDDGrid]);
 
-    const params = new URLSearchParams(location.search);
-    params.set("tab", "dd_grid");
-    navigate(
-      {
-        pathname: location.pathname,
-        search: params.toString(),
-      },
-      { replace: false },
-    );
-  }, [location.pathname, location.search, navigate]);
-
-  // Клик по нижней кнопке "Перейти к списку результатов" — переход
-  // в DD Grid list mode БЕЗ применения фильтра "Скрыть pass".
-  // Пользователь сам решает какие результаты показывать.
   const handleOpenAllResultsInDDGrid = React.useCallback(() => {
     const store = useDDGridV1UIStore.getState();
     store.setFormat("list");
     store.setShowPassInList(true);
+    store.setChecksScope("all");
+    navigateToDDGrid();
+  }, [navigateToDDGrid]);
 
-    const params = new URLSearchParams(location.search);
-    params.set("tab", "dd_grid");
-    navigate(
-      {
-        pathname: location.pathname,
-        search: params.toString(),
-      },
-      { replace: false },
-    );
-  }, [location.pathname, location.search, navigate]);
+  const handleOpenGlobalChecksInDDGrid = React.useCallback(() => {
+    const store = useDDGridV1UIStore.getState();
+    store.setFormat("matrix");
+    store.setChecksScope("global_only");
+    navigateToDDGrid();
+  }, [navigateToDDGrid]);
+
+  const handleOpenDocTypeChecksInDDGrid = React.useCallback(() => {
+    const store = useDDGridV1UIStore.getState();
+    store.setFormat("matrix");
+    store.setChecksScope("doc_type_only");
+    navigateToDDGrid();
+  }, [navigateToDDGrid]);
 
   if (!runId) {
     return (
@@ -256,14 +683,16 @@ export const AnalysisResultsWidget: React.FC<
   const failedDocs = run.failed_docs_count ?? 0;
   const quarantineDocs = run.quarantine_docs_count ?? 0;
 
-  const isRunning =
-    run.status === "pending" || run.status === "running";
+  const isRunning = run.status === "pending" || run.status === "running";
+  const isTerminal =
+    run.status === "completed" || run.status === "completed_with_errors";
 
   const progressPercent =
     totalChecks > 0 ? Math.round((completedChecks / totalChecks) * 100) : 0;
 
-  const canOpenDDGrid =
-    run.status === "completed" || run.status === "completed_with_errors";
+  const canOpenDDGrid = isTerminal;
+
+  const checksModeLabel = formatChecksModeLabel(run.checks_mode);
 
   const visibleUnclearFindings = unclearFindingsItems.slice(0, MAX_ITEMS_IN_LIST);
   const hiddenUnclearFindingsCount =
@@ -314,7 +743,17 @@ export const AnalysisResultsWidget: React.FC<
         )}
       </div>
 
-      {/* Проблемы — только если есть */}
+      {/* Режим проверки */}
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
+          Режим проверки
+        </p>
+        <p className="mt-0.5 text-[11px] font-medium text-[var(--text-primary)]">
+          {checksModeLabel}
+        </p>
+      </div>
+
+      {/* Проблемы */}
       {(hasErrors || failedDocs > 0 || quarantineDocs > 0) && (
         <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--color-warning-text)]">
@@ -335,7 +774,25 @@ export const AnalysisResultsWidget: React.FC<
         </div>
       )}
 
-      {/* Результаты, требующие уточнения — findings с review_status === "unclear" */}
+      {/* Global checks — только для terminal статусов */}
+      {isTerminal && (
+        <CheckGroupSection
+          title="Global checks"
+          summary={globalSummary}
+          onGroupClick={handleOpenGlobalChecksInDDGrid}
+        />
+      )}
+
+      {/* Doc-type checks — только для terminal статусов */}
+      {isTerminal && (
+        <CheckGroupSection
+          title="Doc-type checks"
+          summary={docTypeSummary}
+          onGroupClick={handleOpenDocTypeChecksInDDGrid}
+        />
+      )}
+
+      {/* Результаты, требующие уточнения */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2.5">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-muted)]">
           Результаты, требующие уточнения
@@ -370,9 +827,7 @@ export const AnalysisResultsWidget: React.FC<
         )}
       </div>
 
-      {/* Отдельная ссылка на страницу со списком результатов —
-          без применения фильтра "Скрыть pass".
-          Пользователь сам решает, какие результаты показывать. */}
+      {/* Отдельная ссылка на страницу со списком результатов */}
       {canOpenDDGrid && (
         <button
           type="button"

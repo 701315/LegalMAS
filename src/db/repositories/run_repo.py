@@ -116,21 +116,40 @@ class RunRepository:
         """
         Обновить статус Run и дополнительные поля.
 
-
         Основная идея:
         - это единая точка смены статуса Run;
         - здесь же аккуратно заполняются started_at / completed_at,
-          если вызывающий их не передал явно.
+        если вызывающий их не передал явно.
+
+        ВАЖНО про started_at:
+        - started_at устанавливается ТОЛЬКО через try_start_run()
+        при первом переходе PENDING → RUNNING.
+        - update_status(RUNNING) НЕ трогает started_at, иначе
+        каждый повторный вызов (например из finalize_run_if_finished
+        после каждого завершённого check) перезаписывал бы started_at
+        на "сейчас" и Run.elapsed_seconds давал бы неверное время.
+        - Если вызывающий явно передал started_at в kwargs — уважаем это
+        (для backfill/восстановления сценариев).
+
+        Про completed_at:
+        - completed_at устанавливается один раз при переходе в терминальный
+        статус (COMPLETED / COMPLETED_WITH_ERRORS / FAILED), если явно не
+        передан. Повторный вызов update_status с тем же терминальным
+        статусом всё равно перепишет completed_at на "сейчас" — это
+        сохранено как было, потому что терминальный переход обычно
+        делается один раз.
         """
         values: dict = {"status": status}
 
+        # started_at: только если явно передан вызывающим (никогда не автозаполняем).
+        # Автоматическая установка при PENDING → RUNNING делается в try_start_run().
         if "started_at" in kwargs and kwargs["started_at"] is not None:
             values["started_at"] = kwargs["started_at"]
+
+        # completed_at: если явно передан — уважаем, иначе автозаполнение
+        # при переходе в терминальный статус.
         if "completed_at" in kwargs and kwargs["completed_at"] is not None:
             values["completed_at"] = kwargs["completed_at"]
-
-        if status == RunStatus.RUNNING.value and "started_at" not in values:
-            values["started_at"] = datetime.now(UTC)
 
         if (
             status

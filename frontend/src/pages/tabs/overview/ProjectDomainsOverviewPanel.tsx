@@ -1,6 +1,16 @@
 // =============================================================
 // src/pages/tabs/overview/ProjectDomainsOverviewPanel.tsx
 // Три равные карточки: Документы · Контрагенты · Имущество
+//
+// Активная карточка визуально "врастает" в панель "Детали
+// результатов анализа" снизу:
+//   - Плоский нижний бордер (bottom-border убран)
+//   - rounded-b убран (углы снизу — прямые)
+//   - bg === bg панели ниже (var(--bg-card))
+//   - Left accent border вместо full-border accent
+//
+// На mobile connected эффект не применяется — карточки стакаются,
+// активная может быть не последней в ряду, и "connect" ломается.
 // =============================================================
 
 import React from "react";
@@ -32,7 +42,7 @@ function formatRelativeTime(iso: string | undefined | null): string {
 }
 
 // ---------------------------------------------------------------------------
-// DomainCard
+// DomainCard (компактный + connected для активной на xl+)
 // ---------------------------------------------------------------------------
 
 const DomainCard: React.FC<{
@@ -47,14 +57,41 @@ const DomainCard: React.FC<{
     type="button"
     onClick={onClick}
     className={[
-      "flex min-h-[7rem] w-full flex-col rounded-2xl border px-4 py-3 text-left shadow-sm transition",
+      "relative flex min-h-[4.5rem] w-full flex-col px-3 py-2 text-left shadow-sm transition",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)]",
+      // Базовые скругления — на mobile всегда полные
+      "rounded-2xl",
+      // На xl+ у активной карточки убираем нижние скругления —
+      // она визуально сливается с панелью деталей ниже.
+      isActive ? "xl:rounded-b-none" : "",
       isActive
-        ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] shadow-md"
-        : "border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated-soft)]",
+        ? [
+            // Активная карточка на всех размерах:
+            // - border вокруг (base border, не accent)
+            // - но на xl+ убираем bottom-border (сливается с панелью)
+            "border border-[var(--border)]",
+            "xl:border-b-0",
+            // Bg === bg панели ниже — ключевой connect-эффект
+            "bg-[var(--bg-card)]",
+            "shadow-md",
+          ].join(" ")
+        : [
+            // Неактивная — стандартная карточка
+            "border border-[var(--border)]",
+            "bg-[var(--bg-card)]",
+            "hover:bg-[var(--bg-elevated-soft)]",
+          ].join(" "),
     ].join(" ")}
   >
-    <div className="mb-1 flex items-center gap-1.5">
+    {/* Left accent border для активной карточки — визуальный маркер выбора */}
+    {isActive && (
+      <div
+        className="pointer-events-none absolute inset-y-0 left-0 w-[3px] rounded-l-2xl bg-[var(--accent-primary)] xl:rounded-bl-none"
+        aria-hidden
+      />
+    )}
+
+    <div className="mb-0.5 flex items-center gap-1.5">
       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
         {title}
       </p>
@@ -73,13 +110,18 @@ const DomainCard: React.FC<{
       {statusLine}
     </p>
 
-    <div className="mt-1.5 space-y-0.5">
-      {lines.map((line, i) => (
-        <p key={i} className="text-[11px] leading-4 text-[var(--text-muted)]">
-          {line}
-        </p>
-      ))}
-    </div>
+    {lines.length > 0 && (
+      <div className="mt-0.5 space-y-0">
+        {lines.slice(0, 2).map((line, i) => (
+          <p
+            key={i}
+            className="truncate text-[10px] leading-4 text-[var(--text-muted)]"
+          >
+            {line}
+          </p>
+        ))}
+      </div>
+    )}
   </button>
 );
 
@@ -127,13 +169,11 @@ export const ProjectDomainsOverviewPanel: React.FC<
       }`
     );
   }
-  if (progress?.last_activity_at && docRunning) {
+  if (progress?.last_activity_at && docRunning && docLines.length < 2) {
     docLines.push(`обновлено ${formatRelativeTime(progress.last_activity_at)}`);
   }
   if (progress?.documents_total && docLines.length === 0) {
-    docLines.push(
-      `Документов: ${progress.documents_total}`
-    );
+    docLines.push(`Документов: ${progress.documents_total}`);
   }
 
   // ── Контрагенты ──
@@ -158,20 +198,21 @@ export const ProjectDomainsOverviewPanel: React.FC<
   ).length;
 
   return (
-    <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-      <div className="px-5">
-        <div className="py-3">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Состояние направлений проекта
-          </h2>
-          <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-            Выберите направление для просмотра деталей
-          </p>
-        </div>
-        <div className="border-t border-[var(--border-subtle)]" />
+    <section
+      className={[
+        // Убираем нижние скругления секции на xl+ — секция плавно
+        // переходит в панель деталей ниже.
+        "rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm",
+        "xl:rounded-b-none xl:border-b-0 xl:shadow-none",
+      ].join(" ")}
+    >
+      <div className="px-5 py-2">
+        <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+          Состояние направлений проекта
+        </h2>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 px-5 pb-3 sm:grid-cols-3">
         {/* Документы */}
         <DomainCard
           isActive={activeDomain === "documents"}
@@ -211,6 +252,5 @@ export const ProjectDomainsOverviewPanel: React.FC<
 };
 
 export default ProjectDomainsOverviewPanel;
-
 
 

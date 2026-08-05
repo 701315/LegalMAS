@@ -25,6 +25,28 @@ const STAGE_LABELS: Record<string, string> = {
   heading_refiner: "Заголовки",
 };
 
+/**
+ * Плюрализация "ошибки парсинга" по русским правилам.
+ * 1 → "ошибка парсинга"
+ * 2-4 → "ошибки парсинга"
+ * 5+ → "ошибок парсинга"
+ */
+function pluralizeParseErrors(count: number): string {
+  const mod10 = Math.abs(count) % 10;
+  const mod100 = Math.abs(count) % 100;
+  if (mod100 >= 11 && mod100 <= 19) return "ошибок парсинга";
+  if (mod10 === 1) return "ошибка парсинга";
+  if (mod10 >= 2 && mod10 <= 4) return "ошибки парсинга";
+  return "ошибок парсинга";
+}
+
+const PARSE_ERROR_TOOLTIP =
+  "Модель вернула ответ, который не удалось корректно распарсить. " +
+  "Это техническая ошибка — при возможности использовался повторный вызов. " +
+  "На бизнес-результат обычно не влияет.";
+
+
+
 // ---------------------------------------------------------------------------
 // StageRow
 // ---------------------------------------------------------------------------
@@ -41,8 +63,12 @@ const StageRow: React.FC<{ stage: LLMStageUsage }> = ({ stage }) => {
         <p className="text-[10px] text-[var(--text-muted)]">
           {stage.calls} вызовов
           {stage.parse_failures > 0 && (
-            <span className="ml-1 text-[var(--color-warning-text)]">
-              · {stage.parse_failures} ошибок
+            <span
+              className="ml-1 cursor-help text-[var(--color-warning-text)]"
+              title={PARSE_ERROR_TOOLTIP}
+            >
+              · {stage.parse_failures}{" "}
+              {pluralizeParseErrors(stage.parse_failures)}
             </span>
           )}
         </p>
