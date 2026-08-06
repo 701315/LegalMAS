@@ -549,6 +549,7 @@ class Settings(BaseSettings):
 
     RUNNER_METADATA_PREAMBLE_BOOST: float = 1.0
     RUNNER_METADATA_TOPIC_MATCH_BOOST: float = 0.6
+    RUNNER_METADATA_TOPIC_SUPPORTING_BOOST: float = 0.3
 
     CHECK_RUNNER_MODE: str = "global_and_doc_type"
     RUNNER_EMBEDDINGS_ENABLED: bool = True
