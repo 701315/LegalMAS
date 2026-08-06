@@ -191,19 +191,27 @@ _DETERMINISTIC_SOURCES = frozenset({
     "default_mapping",
 })
 
-# Типы юнитов, для которых LLM может добавить полезные topic_tags,
-# даже если structural classification уже завершена deterministically.
-# Типы НЕ в этом списке будут skip-нуты даже при пустых topics.
-_TOPIC_COMPLETION_ELIGIBLE_TYPES = frozenset({
-    LegalUnitType.OBLIGATION,
-    LegalUnitType.PAYMENT_TERM,
-    LegalUnitType.CONFIDENTIALITY,
-    LegalUnitType.INDEMNIFICATION,
-    LegalUnitType.TERMINATION_PROVISION,
-    LegalUnitType.LIABILITY_PROVISION,
-    LegalUnitType.NOTICE,
-    LegalUnitType.WARRANTY,
-    LegalUnitType.DISPUTE_RESOLUTION,
+# Типы юнитов которые НЕ eligible для topic completion.
+#
+# Denylist вместо allowlist: исключаем только структурные артефакты парсинга,
+# а не перечисляем разрешённые семантические типы.
+#
+# Логика:
+# - STRUCTURAL_ANCHOR: heading-only узел без собственного текста
+#   → нет смысла enriching topics, нет содержания для inference
+# - TECHNICAL_FRAGMENT: технический fallback fragment
+#   → не является юридической клаузой
+# - UNKNOWN: тип ещё не определён
+#   → сначала нужно определить тип, потом enriching topics
+#
+# Все остальные типы (DEFINITION, GOVERNING_LAW, JURISDICTION,
+# GENERAL_PROVISION, APPENDIX_REFERENCE и т.д.) могут получать
+# topic completion если у них пустые topics и достаточно длинный текст.
+# Это универсально для всего поддерживаемого contract registry.
+_TOPIC_COMPLETION_INELIGIBLE_TYPES = frozenset({
+    LegalUnitType.STRUCTURAL_ANCHOR,
+    LegalUnitType.TECHNICAL_FRAGMENT,
+    LegalUnitType.UNKNOWN,
 })
 
 def _is_deterministic_source(unit: LegalUnit) -> bool:
@@ -229,9 +237,16 @@ def _is_topic_completion_candidate(
     Topic completion path — это когда:
     - structural classification уже сделана deterministically;
     - но topic_tags пустые;
-    - тип юнита входит в allowlist topic-enrichable types;
+    - тип юнита НЕ входит в denylist неeligible types;
     - текст достаточно длинный для meaningful topic inference;
     - policy разрешает этот path.
+
+    Использует denylist вместо allowlist:
+    - запрещаем только структурные артефакты (STRUCTURAL_ANCHOR,
+      TECHNICAL_FRAGMENT, UNKNOWN);
+    - все остальные содержательные contract clause types могут
+      получать topic completion если topics пустые.
+    - универсально для всего supported contract registry.
 
     Возвращает True если unit должен пройти enrichment
     только ради topics, даже если type/function уже известны.
@@ -242,7 +257,8 @@ def _is_topic_completion_candidate(
     if not _is_deterministic_source(unit):
         return False
 
-    if unit.unit_type not in _TOPIC_COMPLETION_ELIGIBLE_TYPES:
+    # Denylist: только структурные артефакты не eligible
+    if unit.unit_type in _TOPIC_COMPLETION_INELIGIBLE_TYPES:
         return False
 
     if unit.topic_tags:
