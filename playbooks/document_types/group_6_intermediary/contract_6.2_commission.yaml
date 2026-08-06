@@ -857,6 +857,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "payment_terms_check"
       boost_keywords:
         - "комиссионное вознаграждение"
         - "возмещение расходов"
@@ -1076,6 +1077,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "consent_check"
       boost_keywords:
         - "субкомиссия"
         - "субкомиссионер"
@@ -1222,6 +1224,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "termination_check"
       boost_keywords:
         - "возврат нереализованного товара"
         - "отмена поручения"

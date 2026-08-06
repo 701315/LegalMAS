@@ -811,6 +811,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "authority_check"
       boost_keywords:
         - "доверенность"
         - "полномочия"
@@ -884,6 +885,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "authority_check"
       boost_keywords:
         - "пределы полномочий"
         - "конфликт интересов"
@@ -1030,6 +1032,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "termination_check"
       boost_keywords:
         - "отмена поручения"
         - "возврат доверенности"
@@ -1103,6 +1106,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "consent_check"
       boost_keywords:
         - "передоверие"
         - "согласие доверителя"
