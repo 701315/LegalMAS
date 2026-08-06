@@ -408,6 +408,10 @@ class Settings(BaseSettings):
 
     # --- Semantic Enrichment (Phase 12) ---
     SEMANTIC_ENRICHMENT_ENABLED: bool = True   # чтобы отключить для тестов надо сменить на False.
+    # Отдельный порог для unit_type — строже чем для clause_function.
+    # unit_type является semantic identity юнита и влияет на routing
+    # в retrieval и checks pipeline. Ошибка системная, поэтому 0.80.
+    SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL_UNIT_TYPE: float = 0.80
     SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL: float = 0.72
     SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_TOPICS: float = 0.72
     SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_OVERRIDE: float = 0.92

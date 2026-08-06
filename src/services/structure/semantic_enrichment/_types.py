@@ -82,6 +82,27 @@ class SemanticEnrichmentPolicy:
     min_text_chars_topic_completion: int = 80
 
     # thresholds
+    #
+    # Разделены по типу поля — чем выше риск ошибки, тем строже порог:
+    #
+    # min_confidence_fill_unit_type (0.80):
+    #   Порог для заполнения unknown unit_type.
+    #   unit_type — semantic identity юнита, влияет на routing в retrieval
+    #   и checks pipeline. Ошибка здесь системная.
+    #   Строже чем fill_missing (0.80 vs 0.72).
+    #
+    # min_confidence_fill_missing (0.72):
+    #   Порог для заполнения unknown clause_function.
+    #   Влияет на scoring, но менее критична чем unit_type.
+    #
+    # min_confidence_add_topics (0.72):
+    #   Порог для добавления topic_tags.
+    #   Additive операция, наименее рискованная.
+    #
+    # min_confidence_override_existing (0.92):
+    #   Порог для override существующего значения.
+    #   Максимальная строгость — меняем то что уже есть.
+    min_confidence_fill_unit_type: float = 0.80
     min_confidence_fill_missing: float = 0.72
     min_confidence_add_topics: float = 0.72
     min_confidence_override_existing: float = 0.92

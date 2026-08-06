@@ -524,11 +524,14 @@ def apply_enrichment_policy(
         has_meaningful_suggestion = True
 
         if base_unit_type == LegalUnitType.UNKNOWN:
-            if confidence >= policy.min_confidence_fill_missing:
+            # unit_type использует отдельный, более строгий порог.
+            # unit_type — semantic identity юнита, влияет на routing
+            # в retrieval и checks pipeline. Ошибка здесь системная.
+            if confidence >= policy.min_confidence_fill_unit_type:
                 effective_unit_type = suggested_unit_type
                 applied_fields.append("unit_type")
             else:
-                notes.append("unit_type_below_fill_threshold")
+                notes.append("unit_type_below_fill_unit_type_threshold")
         elif base_unit_type != suggested_unit_type:
             if (
                 policy.allow_override_existing_type
@@ -681,12 +684,12 @@ def apply_enrichment_policy(
         diagnostics=diagnostics,
     )
 
-
 def make_policy_from_settings() -> SemanticEnrichmentPolicy:
     """
     Создаёт SemanticEnrichmentPolicy из runtime settings.
 
     Позволяет настраивать поведение enrichment без правки кода:
+    - SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL_UNIT_TYPE
     - SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL
     - SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_TOPICS
     - SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_OVERRIDE
@@ -700,6 +703,13 @@ def make_policy_from_settings() -> SemanticEnrichmentPolicy:
         from core.config import settings
 
         return SemanticEnrichmentPolicy(
+            min_confidence_fill_unit_type=float(
+                getattr(
+                    settings,
+                    "SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL_UNIT_TYPE",
+                    0.80,
+                )
+            ),
             min_confidence_fill_missing=float(
                 getattr(settings, "SEMANTIC_ENRICHMENT_MIN_CONFIDENCE_FILL", 0.72)
             ),
@@ -731,7 +741,11 @@ def make_policy_from_settings() -> SemanticEnrichmentPolicy:
                 getattr(settings, "SEMANTIC_ENRICHMENT_ALLOW_TOPIC_COMPLETION", True)
             ),
             min_text_chars_topic_completion=int(
-                getattr(settings, "SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS_TOPIC_COMPLETION", 80)
+                getattr(
+                    settings,
+                    "SEMANTIC_ENRICHMENT_MIN_TEXT_CHARS_TOPIC_COMPLETION",
+                    80,
+                )
             ),
         )
     except Exception:
