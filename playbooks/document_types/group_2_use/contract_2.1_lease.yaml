@@ -1484,6 +1484,7 @@ checks_v8:
         preferred_range: [0.15, 0.55]
         boost: 0.18
         scope: segment
+      retrieval_profile: "rent_check"
       context_k: 6
       max_chunks: 8
       rerank: true
@@ -2135,6 +2136,7 @@ checks_v8:
         preferred_range: [0.25, 0.65]
         boost: 0.15
         scope: segment
+      retrieval_profile: "repair_maintenance_check"
       context_k: 6
       max_chunks: 8
       rerank: true
@@ -4962,6 +4964,7 @@ checks_v8:
         preferred_range: [0.65, 1.0]
         boost: 0.15
         scope: segment
+      retrieval_profile: "registration_check"
       context_k: 5
       max_chunks: 7
       rerank: true

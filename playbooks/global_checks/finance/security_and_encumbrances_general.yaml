@@ -130,6 +130,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "security_check"
   context_k: 6
   max_chunks: 12
 

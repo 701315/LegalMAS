@@ -1001,6 +1001,7 @@ checks_v8:
         preferred_range: [0.0, 0.20]
         boost: 0.25
         scope: segment
+      retrieval_profile: "party_identification_check"
       context_k: 6
       max_chunks: 8
       rerank: true
@@ -2753,6 +2754,7 @@ checks_v8:
         preferred_range: [0.20, 0.65]
         boost: 0.18
         scope: segment
+      retrieval_profile: "payment_terms_check"
       context_k: 6
       max_chunks: 8
       rerank: true
@@ -3119,6 +3121,7 @@ checks_v8:
         preferred_range: [0.30, 0.80]
         boost: 0.15
         scope: segment
+      retrieval_profile: "warranties_check"
       context_k: 7
       max_chunks: 9
       rerank: true
@@ -3449,6 +3452,7 @@ checks_v8:
         preferred_range: [0.40, 0.90]
         boost: 0.15
         scope: segment
+      retrieval_profile: "liability_cap_check"
       context_k: 6
       max_chunks: 8
       rerank: true

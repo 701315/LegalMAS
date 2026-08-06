@@ -4355,6 +4355,7 @@ checks_v8:
     max_tokens: 540
   retrieval:
     corpus_scope: "document"
+    retrieval_profile: "acceptance_check"
     context_k: 6
     max_chunks: 8
     boost_keywords:

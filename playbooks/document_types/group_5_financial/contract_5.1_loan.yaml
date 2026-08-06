@@ -1108,6 +1108,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 420
     retrieval:
+      retrieval_profile: "interest_rate_check"
       context_k: 5
       max_chunks: 8
       boost_keywords:

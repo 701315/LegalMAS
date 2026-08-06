@@ -125,6 +125,7 @@ evidence:
   max_snippet_length: 700
 
 retrieval:
+  retrieval_profile: "authority_check"
   context_k: 6
   max_chunks: 12
 

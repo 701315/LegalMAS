@@ -110,6 +110,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "force_majeure_check"
   context_k: 5
   max_chunks: 10
 
