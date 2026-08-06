@@ -2415,7 +2415,7 @@ checks_v8:
       - "signature_block"
     preferred_clause_functions:
       - "expertise"
-      - "payment_terms"
+      - "obligations"
   evidence:
     required: true
     min_snippet_length: 50
@@ -2991,8 +2991,7 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "price_terms"
-      - "commercial_terms"
+      - "obligations"
   evidence:
     required: true
     min_snippet_length: 40
@@ -3261,8 +3260,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "payment_terms"
-      - "acceptance_payment_link"
+      - "obligations"
+      - "procedures"
   evidence:
     required: true
     min_snippet_length: 40
