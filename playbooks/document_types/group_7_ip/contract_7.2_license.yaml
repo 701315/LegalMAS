@@ -1102,6 +1102,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "license_scope_check"
       boost_keywords:
         - "исключительная"
         - "неисключительная"
@@ -1165,6 +1166,7 @@ checks_v8:
     retrieval:
       context_k: 4
       max_chunks: 6
+      retrieval_profile: "license_scope_check"
       boost_keywords:
         - "территория"
         - "использование"
@@ -1289,6 +1291,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "royalty_check"
       boost_keywords:
         - "вознаграждение"
         - "роялти"
@@ -1730,6 +1733,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "sublicensing_check"
       boost_keywords:
         - "сублицензия"
         - "передача прав"
@@ -1791,6 +1795,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "termination_check"
       boost_keywords:
         - "расторжение"
         - "досрочное прекращение"
@@ -2097,6 +2102,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "change_of_control_check"
       boost_keywords:
         - "смена контроля"
         - "реорганизация"
@@ -2221,6 +2227,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "liability_cap_check"
       boost_keywords:
         - "ограничение ответственности"
         - "упущенная выгода"
@@ -2353,6 +2360,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "confidentiality_check"
       boost_keywords:
         - "персональные данные"
         - "ФЗ-152"

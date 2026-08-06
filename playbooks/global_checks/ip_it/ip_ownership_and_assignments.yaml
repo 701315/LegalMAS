@@ -131,6 +131,7 @@ evidence:
   max_snippet_length: 700
 
 retrieval:
+  retrieval_profile: "ip_ownership_check"
   context_k: 5
   max_chunks: 12
 

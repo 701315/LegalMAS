@@ -1118,6 +1118,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 9
+      retrieval_profile: "interest_rate_check"
       boost_keywords:
         - "процентная ставка"
         - "пск"
@@ -1197,6 +1198,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "repayment_schedule_check"
       boost_keywords:
         - "график платежей"
         - "досрочное погашение"
@@ -1350,6 +1352,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "event_of_default_check"
       boost_keywords:
         - "досрочный возврат по требованию банка"
         - "ухудшение финансового состояния"
@@ -1560,6 +1563,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "financial_covenant_check"
       boost_keywords:
         - "ковенант"
         - "финансовые показатели"
@@ -1630,6 +1634,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "event_of_default_check"
       boost_keywords:
         - "кросс-дефолт"
         - "иные обязательства"
@@ -1762,6 +1767,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "security_check"
       boost_keywords:
         - "негативный залог"
         - "не обременять"

@@ -1790,6 +1790,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "акт приёма-передачи техническое состояние исправное состояние пригодно для использования недостатки дефекты соответствие назначению качество объекта передача объекта рекламация"
+      retrieval_profile: "acceptance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2438,6 +2439,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "улучшения неотделимые улучшения отделимые улучшения перепланировка переоборудование субаренда перенаем с письменного согласия компенсация стоимости улучшений"
+      retrieval_profile: "subletting_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2768,6 +2770,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "односторонний отказ досрочное расторжение уведомление за возврат имущества возврат объекта обеспечительный платёж удержание депозита возврат депозита акт возврата"
+      retrieval_profile: "termination_check"      
       preferred_unit_types:
         - termination_provision
         - obligation
@@ -3090,6 +3093,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "преимущественное право продление пролонгация автоматическое продление возобновление на тех же условиях уведомление о продлении отказ от продления на новый срок ст. 621"
+      retrieval_profile: "term_and_renewal_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3723,6 +3727,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "арендодатель арендатор именуем в лице действующего на основании ИНН ОГРН крупная сделка сделка с заинтересованностью одобрение решение единственного участника реквизиты"
+      retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4399,6 +4404,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "страхование страховой полис выгодоприобретатель страховая сумма имущественное страхование страхование ответственности страховой случай"
+      retrieval_profile: "insurance_check"
       preferred_unit_types: 
         - obligation
         - general_provision
@@ -4670,6 +4676,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "неустойка штраф пени ответственность ограничение ответственности возмещение убытков ущерб третьим лицам"
+      retrieval_profile: "liability_cap_check"
       preferred_unit_types:
         - liability_provision
         - obligation

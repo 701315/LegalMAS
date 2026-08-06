@@ -712,6 +712,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "подрядчик обязуется выполнить работы предмет договора результат работ сдать результат техническое задание спецификация овеществлённый результат"
+      retrieval_profile: "scope_of_work_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1004,6 +1005,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "начало работ начальный срок конечный срок срок выполнения срок завершения не позднее в течение этап работ"
+      retrieval_profile: "completion_deadline_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2457,6 +2459,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "подрядчик заказчик именуем в лице действующего на основании ИНН ОГРН устав доверенность паспорт гражданин физическое лицо крупная сделка сделка с заинтересованностью одобрение общего собрания совета директоров корпоративное одобрение"
+      retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2837,6 +2840,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "акт выполненных работ акт сдачи приемки подписание акта порядок приемки сдача результата мотивированный отказ считаются принятыми уклонение от приемки односторонний акт"
+      retrieval_profile: "acceptance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3120,6 +3124,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "срок оплаты после подписания акта банковских дней рабочих дней банковские реквизиты аванс предоплата авансовый платеж безналичный расчет наличными"
+      retrieval_profile: "payment_terms_check"
       preferred_unit_types:
         - payment_term
         - obligation
@@ -5066,6 +5071,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "субподрядчик только с согласия заказчика запрещено привлекать ответственность за субподрядчика генеральный подрядчик"
+      retrieval_profile: "subcontracting_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -6032,6 +6038,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "расторжение договора отказ от исполнения возврат аванса оплата фактически выполненного взаиморасчеты последствия расторжения"
+      retrieval_profile: "termination_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -6545,6 +6552,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "форс-мажор обстоятельства непреодолимой силы уведомление о форс-мажоре приостановление сроков продление сроков право расторжения"
+      retrieval_profile: "force_majeure_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -6815,6 +6823,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "исключительное право права на результат интеллектуальная собственность переходят к заказчику отчуждение прав проект чертеж программный код"
+      retrieval_profile: "ip_ownership_check"
       preferred_unit_types:
         - obligation
         - general_provision

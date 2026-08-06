@@ -1186,6 +1186,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "repayment_schedule_check"
       boost_keywords:
         - "срок возврата"
         - "досрочный возврат"
@@ -1641,6 +1642,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "credit_facility_check"
       boost_keywords:
         - "транш"
         - "лимит"
