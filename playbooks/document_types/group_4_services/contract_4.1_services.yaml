@@ -1760,7 +1760,7 @@ checks_v8:
         - structural_anchor
       preferred_clause_functions:
         - obligations
-        - payment
+        - obligations
       negative_keywords:
         - "неустойка"
         - "штраф"
@@ -1782,7 +1782,7 @@ checks_v8:
         - "technical_specification"
       preferred_clause_functions:
         - "obligations"
-        - "payment"
+        - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -2409,7 +2409,7 @@ checks_v8:
         - structural_anchor
       preferred_clause_functions:
         - obligations
-        - payment
+        - obligations
       negative_keywords:
         - "форс-мажор"
         - "неустойка"
@@ -2430,7 +2430,7 @@ checks_v8:
         - "technical_specification"
       preferred_clause_functions:
         - "obligations"
-        - "payment"
+        - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -6193,7 +6193,7 @@ checks_v8:
         - definition
       preferred_clause_functions:
         - obligations
-        - payment
+        - obligations
       negative_keywords:
         - "неустойка"
         - "форс-мажор"
@@ -6215,7 +6215,7 @@ checks_v8:
         - "price_list"
       preferred_clause_functions:
         - "obligations"
-        - "payment"
+        - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -6465,7 +6465,7 @@ checks_v8:
         - definition
       preferred_clause_functions:
         - obligations
-        - payment
+        - obligations
       negative_keywords:
         - "неустойка"
         - "форс-мажор"
@@ -6487,7 +6487,7 @@ checks_v8:
         - "price_list"
       preferred_clause_functions:
         - "obligations"
-        - "payment"
+        - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -7024,7 +7024,7 @@ checks_v8:
         - definition
       preferred_clause_functions:
         - obligations
-        - payment
+        - obligations
       negative_keywords:
         - "неустойка"
         - "форс-мажор"
@@ -7046,7 +7046,7 @@ checks_v8:
         - "price_list"
       preferred_clause_functions:
         - "obligations"
-        - "payment"
+        - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 

@@ -2075,7 +2075,7 @@ checks_v8:
         - structural_anchor
         - technical_fragment
       preferred_clause_functions:
-        - payment
+        - obligations
         - obligations
       negative_keywords:
         - "гарантийный срок"
@@ -2100,7 +2100,7 @@ checks_v8:
       excluded_segment_types:
         - "technical_specification"
       preferred_clause_functions:
-        - "payment"
+        - "obligations"
         - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.14
