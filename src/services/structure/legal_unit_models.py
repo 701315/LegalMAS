@@ -76,6 +76,34 @@ class LegalUnitType(str, Enum):
     TECHNICAL_FRAGMENT = "technical_fragment"
     UNKNOWN = "unknown"
 
+    @classmethod
+    def llm_eligible_values(cls) -> list[str]:
+        """
+        Типы которые LLM может предлагать как enrichment output.
+
+        Исключает структурные и технические артефакты парсинга:
+        - STRUCTURAL_ANCHOR: heading-only узел без семантического содержания
+        - TECHNICAL_FRAGMENT: технический fallback fragment
+        - UNKNOWN: LLM не должна явно предлагать unknown как ответ
+
+        Эти типы существуют как внутренние метки пайплайна,
+        а не как юридические категории договорных клауз.
+
+        Используется в prompt construction (_prompting.py)
+        вместо _enum_values(LegalUnitType) чтобы не давать модели
+        escape hatch в виде структурных pseudo-labels.
+        """
+        _excluded = {
+            cls.STRUCTURAL_ANCHOR,
+            cls.TECHNICAL_FRAGMENT,
+            cls.UNKNOWN,
+        }
+        return [
+            member.value
+            for member in cls
+            if member not in _excluded
+        ]
+
 
 class ClauseFunction(str, Enum):
     """
