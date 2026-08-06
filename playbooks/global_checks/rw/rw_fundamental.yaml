@@ -178,7 +178,7 @@ retrieval:
 
   preferred_clause_functions:
     - "representations"
-    - "general_provisions"
+    - "boilerplate"
 
   position_bias:
     preferred_range: [0.0, 1.0]

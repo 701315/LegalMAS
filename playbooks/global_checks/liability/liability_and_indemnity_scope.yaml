@@ -154,9 +154,9 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "liability"
-    - "indemnification"
-    - "limitation_of_liability"
+    - "limitations"
+    - "remedies"
+    - "limitations"
     - "remedies"
 
   position_bias:

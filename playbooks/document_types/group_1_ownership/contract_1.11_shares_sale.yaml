@@ -4418,7 +4418,7 @@ checks_v8:
       retrieval_query: "промежуточный период interim period обычная хозяйственная деятельность ordinary course запрет на дивиденды не допускать изменений без согласия покупателя ковенанты дивиденды заимствования отчуждение активов нарушение ковенантов"
       preferred_unit_types:
         - obligation
-        - limitation
+        - liability_provision
         - general_provision
       excluded_unit_types:
         - definition

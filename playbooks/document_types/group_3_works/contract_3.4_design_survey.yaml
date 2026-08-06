@@ -1146,8 +1146,8 @@ checks_v8:
       - "table"
       - "schedule"
     preferred_clause_functions:
-      - "parties_identification"
-      - "signatory_authority"
+      - "definitions"
+      - "representations"
     confidence_bonuses:
       - condition: "keyword_match"
         keywords:
@@ -1556,8 +1556,8 @@ checks_v8:
       - "table"
       - "schedule"
     preferred_clause_functions:
-      - "subject_of_contract"
-      - "scope_of_work"
+      - "definitions"
+      - "obligations"
     confidence_bonuses:
       - condition: "keyword_match"
         keywords:
@@ -1862,8 +1862,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "technical_assignment"
-      - "scope_of_work"
+      - "definitions"
+      - "obligations"
   evidence:
     required: true
     min_snippet_length: 50
@@ -2144,8 +2144,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "initial_data"
-      - "client_obligations"
+      - "definitions"
+      - "obligations"
   evidence:
     required: true
     min_snippet_length: 40
@@ -2414,7 +2414,7 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "expertise"
+      - "procedures"
       - "obligations"
   evidence:
     required: true
@@ -2711,8 +2711,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "external_approvals"
-      - "client_obligations"
+      - "procedures"
+      - "obligations"
   evidence:
     required: true
     min_snippet_length: 40
@@ -3530,8 +3530,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "performance_deadlines"
-      - "milestones"
+      - "procedures"
+      - "procedures"
   evidence:
     required: true
     min_snippet_length: 40
@@ -3790,8 +3790,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "deadline_extension"
-      - "client_delay_consequences"
+      - "procedures"
+      - "remedies"
   evidence:
     required: true
     min_snippet_length: 40
@@ -4084,8 +4084,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "approval_procedure"
-      - "scope_change"
+      - "procedures"
+      - "procedures"
   evidence:
     required: true
     min_snippet_length: 40
@@ -4378,8 +4378,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "acceptance_procedure"
-      - "defect_remedy"
+      - "procedures"
+      - "remedies"
   evidence:
     required: true
     min_snippet_length: 40
@@ -4902,8 +4902,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "subcontracting"
-      - "assignment"
+      - "procedures"
+      - "procedures"
   evidence:
     required: true
     min_snippet_length: 30
@@ -5146,8 +5146,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "intellectual_property"
-      - "rights_transfer"
+      - "rights"
+      - "procedures"
   evidence:
     required: true
     min_snippet_length: 40
@@ -5425,9 +5425,9 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "liability"
-      - "liability_cap"
-      - "indemnification"
+      - "limitations"
+      - "limitations"
+      - "remedies"
   evidence:
     required: true
     min_snippet_length: 40
@@ -5689,8 +5689,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "liability_delimitation"
-      - "author_supervision"
+      - "limitations"
+      - "obligations"
   evidence:
     required: true
     min_snippet_length: 40
@@ -5917,8 +5917,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "author_supervision"
-      - "contractor_obligations"
+      - "obligations"
+      - "obligations"
   evidence:
     required: true
     min_snippet_length: 30
@@ -6189,8 +6189,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "quality_warranty"
-      - "norms_compliance"
+      - "representations"
+      - "representations"
   evidence:
     required: true
     min_snippet_length: 40
@@ -6454,8 +6454,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "warranty_period"
-      - "defect_remedy"
+      - "representations"
+      - "remedies"
   evidence:
     required: true
     min_snippet_length: 40
@@ -6724,7 +6724,7 @@ checks_v8:
       - "signature_block"
     preferred_clause_functions:
       - "penalty"
-      - "liability"
+      - "limitations"
   evidence:
     required: true
     min_snippet_length: 40
@@ -7002,8 +7002,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "sro_membership"
-      - "contractor_qualifications"
+      - "representations"
+      - "representations"
   evidence:
     required: true
     min_snippet_length: 30
@@ -7253,7 +7253,7 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "force_majeure"
+      - "limitations"
   evidence:
     required: true
     min_snippet_length: 40
@@ -7513,7 +7513,7 @@ checks_v8:
       - "signature_block"
     preferred_clause_functions:
       - "dispute_resolution"
-      - "pretension_procedure"
+      - "procedures"
   evidence:
     required: true
     min_snippet_length: 40
@@ -7736,8 +7736,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "delivery_format"
-      - "acceptance_procedure"
+      - "procedures"
+      - "procedures"
   evidence:
     required: true
     min_snippet_length: 30
@@ -7981,8 +7981,8 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "insurance"
-      - "contractor_obligations"
+      - "obligations"
+      - "obligations"
   evidence:
     required: true
     min_snippet_length: 30

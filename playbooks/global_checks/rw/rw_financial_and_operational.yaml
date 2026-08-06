@@ -164,7 +164,7 @@ enrichment_hints:
     - "act"
     - "schedule"
   preferred_clause_functions:
-    - "representations_warranties"
+    - "representations"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 

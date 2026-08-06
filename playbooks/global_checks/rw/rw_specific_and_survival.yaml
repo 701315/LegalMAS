@@ -170,7 +170,7 @@ retrieval:
 
   preferred_clause_functions:
     - "representations"
-    - "indemnification"
+    - "remedies"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -194,9 +194,9 @@ enrichment_hints:
     - "act"
     - "schedule"
   preferred_clause_functions:
-    - "representations_warranties"
-    - "liability"
-    - "intellectual_property"
+    - "representations"
+    - "limitations"
+    - "rights"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 

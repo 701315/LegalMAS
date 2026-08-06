@@ -143,8 +143,8 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "liability"
-    - "limitation_of_liability"
+    - "limitations"
+    - "limitations"
 
   position_bias:
     preferred_range: [0.0, 1.0]

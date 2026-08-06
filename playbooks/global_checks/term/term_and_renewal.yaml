@@ -142,7 +142,7 @@ retrieval:
 
   preferred_unit_types:
     - "general_provision"
-    - "term_and_termination"
+    - "termination_provision"
 
   excluded_unit_types:
     - "technical_fragment"
@@ -150,7 +150,7 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "term"
+    - "boilerplate"
     - "procedures"
 
   position_bias:
@@ -174,9 +174,9 @@ enrichment_hints:
     - "invoice"
     - "act"
   preferred_clause_functions:
-    - "term"
+    - "boilerplate"
     - "procedures"
-    - "general_provisions"
+    - "boilerplate"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 

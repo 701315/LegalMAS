@@ -184,8 +184,8 @@ retrieval:
     - "appendix_reference"
 
   preferred_clause_functions:
-    - "intellectual_property"
-    - "assignment"
+    - "rights"
+    - "procedures"
     - "representations"
 
   position_bias:

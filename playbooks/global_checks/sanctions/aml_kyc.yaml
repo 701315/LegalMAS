@@ -164,7 +164,7 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "compliance"
+    - "obligations"
     - "obligations"
     - "procedures"
 
@@ -191,9 +191,9 @@ enrichment_hints:
     - "act"
     - "schedule"
   preferred_clause_functions:
-    - "data_protection"
-    - "representations_warranties"
-    - "general_provisions"
+    - "obligations"
+    - "representations"
+    - "boilerplate"
   confidence_bonus_on_match: 0.08
   confidence_penalty_on_excluded_segment: 0.15
 

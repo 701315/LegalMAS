@@ -6451,7 +6451,7 @@ checks_v8:
       required_kind: "legal_unit"
       retrieval_query: "досудебный порядок претензионный порядок строительно-техническая экспертиза совместное обследование независимая экспертиза расходы на экспертизу"
       preferred_unit_types:
-        - boilerplate
+        - general_provision
         - obligation
         - general_provision
       excluded_unit_types:

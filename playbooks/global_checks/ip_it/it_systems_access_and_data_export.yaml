@@ -175,7 +175,7 @@ retrieval:
 
   preferred_clause_functions:
     - "procedures"
-    - "data_protection"
+    - "obligations"
     - "obligations"
     - "limitations"
 

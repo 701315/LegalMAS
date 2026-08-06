@@ -169,7 +169,7 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "compliance"
+    - "obligations"
     - "obligations"
     - "representations"
 
@@ -194,9 +194,9 @@ enrichment_hints:
     - "invoice"
     - "act"
   preferred_clause_functions:
-    - "representations_warranties"
-    - "general_provisions"
-    - "compliance"
+    - "representations"
+    - "boilerplate"
+    - "obligations"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 

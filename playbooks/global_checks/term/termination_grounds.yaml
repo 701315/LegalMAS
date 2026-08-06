@@ -152,7 +152,7 @@ retrieval:
     - "интеллектуальная собственность"
 
   preferred_unit_types:
-    - "term_and_termination"
+    - "termination_provision"
     - "general_provision"
 
   excluded_unit_types:
@@ -186,7 +186,7 @@ enrichment_hints:
     - "schedule"
   preferred_clause_functions:
     - "procedures"
-    - "general_provisions"
+    - "boilerplate"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 

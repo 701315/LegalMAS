@@ -168,9 +168,9 @@ retrieval:
     - "appendix_reference"
 
   preferred_clause_functions:
-    - "intellectual_property"
-    - "assignment"
-    - "change_of_control"
+    - "rights"
+    - "procedures"
+    - "procedures"
     - "limitations"
 
   position_bias:

@@ -177,7 +177,7 @@ retrieval:
 
   preferred_clause_functions:
     - "representations"
-    - "change_of_control"
+    - "procedures"
     - "obligations"
 
   position_bias:

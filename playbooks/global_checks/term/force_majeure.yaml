@@ -152,7 +152,7 @@ retrieval:
 
   preferred_unit_types:
     - "general_provision"
-    - "condition"
+    - "general_provision"
 
   excluded_unit_types:
     - "technical_fragment"
@@ -160,9 +160,9 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "force_majeure"
+    - "limitations"
     - "procedures"
-    - "general_provisions"
+    - "boilerplate"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -186,9 +186,9 @@ enrichment_hints:
     - "act"
     - "schedule"
   preferred_clause_functions:
-    - "force_majeure"
+    - "limitations"
     - "procedures"
-    - "general_provisions"
+    - "boilerplate"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 

@@ -140,7 +140,7 @@ retrieval:
   preferred_unit_types:
     - "definition"
     - "general_provision"
-    - "condition"
+    - "general_provision"
 
   excluded_unit_types:
     - "technical_fragment"
@@ -150,7 +150,7 @@ retrieval:
   preferred_clause_functions:
     - "definitions"
     - "procedures"
-    - "conditions_precedent"
+    - "boilerplate"
     - "representations"
 
   position_bias:
@@ -176,8 +176,8 @@ enrichment_hints:
     - "schedule"
   preferred_clause_functions:
     - "procedures"
-    - "representations_warranties"
-    - "change_of_control"
+    - "representations"
+    - "procedures"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 
