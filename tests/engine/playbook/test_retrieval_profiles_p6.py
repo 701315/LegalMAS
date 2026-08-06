@@ -26,6 +26,8 @@ NEW_PROFILES = {
     "sublicensing_check",
     "repayment_schedule_check",
     "credit_facility_check",
+    "dispute_resolution_check",
+    "technical_documentation_check",
 }
 
 

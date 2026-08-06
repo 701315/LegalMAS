@@ -607,6 +607,37 @@ CREDIT_FACILITY_PROFILE = RetrievalProfile(
     max_supporting_units=4,
 )
 
+DISPUTE_RESOLUTION_PROFILE = RetrievalProfile(
+    profile_id="dispute_resolution_check",
+    query_topic="dispute_resolution",
+    required_topics=["dispute_resolution"],
+    supporting_topics=[
+        "arbitration",
+        "mediation",
+        "jurisdiction",
+        "notices",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+TECHNICAL_DOCUMENTATION_PROFILE = RetrievalProfile(
+    profile_id="technical_documentation_check",
+    query_topic="technical_documentation",
+    required_topics=["technical_documentation", "design_documentation"],
+    supporting_topics=[
+        "scope_of_work",
+        "acceptance",
+        "completion_deadline",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
 
 # Используется для lookup по profile_id из YAML playbook конфигурации.
 ALL_PROFILES: dict[str, RetrievalProfile] = {
@@ -651,6 +682,8 @@ ALL_PROFILES: dict[str, RetrievalProfile] = {
         SUBLICENSING_PROFILE,
         REPAYMENT_SCHEDULE_PROFILE,
         CREDIT_FACILITY_PROFILE,
+        DISPUTE_RESOLUTION_PROFILE,
+        TECHNICAL_DOCUMENTATION_PROFILE,
     ]
 }
 
