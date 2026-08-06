@@ -4650,8 +4650,7 @@ checks_v8:
     excluded_segment_types:
       - "signature_block"
     preferred_clause_functions:
-      - "termination"
-      - "contract_termination"
+      - "procedures"
   evidence:
     required: true
     min_snippet_length: 40

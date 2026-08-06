@@ -151,7 +151,7 @@ retrieval:
 
   preferred_clause_functions:
     - "term"
-    - "termination"
+    - "procedures"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -175,7 +175,7 @@ enrichment_hints:
     - "act"
   preferred_clause_functions:
     - "term"
-    - "termination"
+    - "procedures"
     - "general_provisions"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15

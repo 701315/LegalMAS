@@ -157,7 +157,7 @@ retrieval:
     - "structural_anchor"
 
   preferred_clause_functions:
-    - "termination"
+    - "procedures"
     - "confidentiality"
     - "intellectual_property"
 
@@ -183,7 +183,7 @@ enrichment_hints:
     - "act"
     - "schedule"
   preferred_clause_functions:
-    - "termination"
+    - "procedures"
     - "confidentiality"
     - "intellectual_property"
   confidence_bonus_on_match: 0.10

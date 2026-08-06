@@ -161,7 +161,7 @@ retrieval:
 
   preferred_clause_functions:
     - "force_majeure"
-    - "termination"
+    - "procedures"
     - "general_provisions"
 
   position_bias:
@@ -187,7 +187,7 @@ enrichment_hints:
     - "schedule"
   preferred_clause_functions:
     - "force_majeure"
-    - "termination"
+    - "procedures"
     - "general_provisions"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15

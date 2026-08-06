@@ -174,7 +174,7 @@ retrieval:
     - "appendix_reference"
 
   preferred_clause_functions:
-    - "termination"
+    - "procedures"
     - "data_protection"
     - "obligations"
     - "limitations"

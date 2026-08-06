@@ -176,7 +176,7 @@ retrieval:
   preferred_clause_functions:
     - "compliance"
     - "representations"
-    - "termination"
+    - "procedures"
 
   position_bias:
     preferred_range: [0.0, 1.0]
@@ -202,7 +202,7 @@ enrichment_hints:
   preferred_clause_functions:
     - "representations_warranties"
     - "general_provisions"
-    - "termination"
+    - "procedures"
   confidence_bonus_on_match: 0.10
   confidence_penalty_on_excluded_segment: 0.15
 

@@ -149,7 +149,7 @@ retrieval:
 
   preferred_clause_functions:
     - "definitions"
-    - "termination"
+    - "procedures"
     - "conditions_precedent"
     - "representations"
 
@@ -175,7 +175,7 @@ enrichment_hints:
     - "act"
     - "schedule"
   preferred_clause_functions:
-    - "termination"
+    - "procedures"
     - "representations_warranties"
     - "change_of_control"
   confidence_bonus_on_match: 0.10
