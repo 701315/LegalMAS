@@ -18,7 +18,10 @@ TopicTagger — rule-based маркировка LegalUnit темами.
 - Rule-based baseline: regex паттерны по title + text.
 - В будущем может быть заменён LLM-based tagger без изменения интерфейса.
 
-Canonical topic taxonomy (v1):
+Canonical topic taxonomy (v2):
+- CORE_TOPICS: stable regex-backed topics (rule-based detection).
+- EXTENDED_TOPICS: CORE + LLM-only topics (enrichment whitelist).
+- KNOWN_TOPICS: backward-compatible alias for CORE_TOPICS.
 Темы сгруппированы по категориям. Каждый unit может иметь несколько тем.
 """
 
@@ -35,14 +38,11 @@ logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Topic taxonomy
+# Topic taxonomy v2
 # ---------------------------------------------------------------------------
 
-# Canonical список тем v1.
-# Каждая тема — строка в snake_case.
-# Downstream (evidence_bundle_builder, retrieval_profiles) использует эти
-# строки для routing и фильтрации.
-KNOWN_TOPICS: frozenset[str] = frozenset(
+# Legacy v1 topics — stable base, не трогаем.
+_LEGACY_TOPICS: frozenset[str] = frozenset(
     {
         # Определения и интерпретация
         "definitions",
@@ -133,6 +133,127 @@ KNOWN_TOPICS: frozenset[str] = frozenset(
 )
 
 
+# New CORE topics — regex-backed, added in P5.
+_P5_CORE_TOPICS: frozenset[str] = frozenset(
+    {
+        # Identity / authority / party block
+        "preamble",
+        "party_identification",
+        "counterparty",
+        "authority",
+        "signatory",
+        "corporate_approvals",
+        # Universal contract mechanics
+        "consent",
+        "change_of_control",
+        "term",
+        "renewal",
+        "registration",
+        "penalty",
+        "insurance",
+        "bankruptcy",
+        # Lease / use
+        "rent",
+        "security_deposit",
+        "indexation",
+        "utilities",
+        "maintenance",
+        "repair",
+        "subletting",
+        "return_condition",
+        "permitted_use",
+        # Finance / security
+        "interest_rate",
+        "loan_amount",
+        "repayment_schedule",
+        "event_of_default",
+        "acceleration",
+        "cross_default",
+        "pledge",
+        "guarantee",
+        "financial_covenant",
+        "credit_facility",
+        "lien",
+        # Works / construction / design
+        "scope_of_work",
+        "completion_deadline",
+        "acceptance",
+        "technical_documentation",
+        "subcontracting",
+        "design_documentation",
+        # Insurance / transport
+        "insured_event",
+        "insurance_premium",
+        "coverage_limit",
+        # IP / licensing
+        "license_scope",
+        "royalty",
+        "ip_assignment",
+        "territory",
+        "exclusivity",
+        "sublicensing",
+        "ip_ownership",
+        "know_how",
+        "patent",
+        "trademark",
+    }
+)
+
+CORE_TOPICS: frozenset[str] = _LEGACY_TOPICS | _P5_CORE_TOPICS
+
+
+# LLM-only expansion: valid semantic targets for enrichment policy,
+# but regex baseline is intentionally deferred.
+EXTENDED_ONLY_TOPICS: frozenset[str] = frozenset(
+    {
+        # Finance nuance
+        "security_interest",
+        "collateral",
+        # Services nuance
+        "service_scope",
+        "service_levels",
+        "sla",
+        "delivery",
+        # Insurance nuance
+        "coverage_exclusions",
+        "cargo_risk",
+        # Works nuance
+        "change_order",
+        # IP nuance
+        "use_restrictions",
+        "copyright",
+        # Employment
+        "remuneration",
+        "salary",
+        "working_hours",
+        "leave",
+        "probation",
+        "benefits",
+        "disciplinary",
+        "termination_employment",
+        "overtime",
+        "bonus",
+        # Transport / logistics
+        "dangerous_goods",
+        # Intermediary
+        "subagency",
+        "requalification_risk",
+        # Regulatory / compliance
+        "sanctions",
+        "anti_corruption",
+        "aml_kyc",
+        "export_control",
+        "cybersecurity",
+    }
+)
+
+EXTENDED_TOPICS: frozenset[str] = CORE_TOPICS | EXTENDED_ONLY_TOPICS
+
+# Backward-compatible alias.
+# Старый импорт KNOWN_TOPICS остаётся валидным и указывает на stable core.
+KNOWN_TOPICS: frozenset[str] = CORE_TOPICS
+
+
 # ---------------------------------------------------------------------------
 # Паттерны для topic detection
 # ---------------------------------------------------------------------------
@@ -154,6 +275,155 @@ _TOPIC_PATTERNS: list[tuple[str, re.Pattern]] = [
         "interpretation",
         re.compile(
             r"\b(interpretation|construction|понимани[еяй]|применение договора)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # ── Identity / authority / universal mechanics ─────────────────────────
+    (
+        "preamble",
+        re.compile(
+            r"\b(hereinafter|collectively referred to as|"
+            r"именуем[а-я]* в дальнейшем|совместно именуем[а-я]*|"
+            r"заключили настоящий договор)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "party_identification",
+        re.compile(
+            r"\b(INN|TIN|OGRN|KPP|tax id|company number|registered office|"
+            r"ИНН|ОГРН|КПП|местонахождени[ея]|реквизиты сторон)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "authority",
+        re.compile(
+            r"\b(acting by virtue of|duly authorized|power of attorney|"
+            r"board resolution|действующ[а-я]* на основании|"
+            r"по доверенности|уполномочен[а-я]*)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "counterparty",
+        re.compile(
+            r"\b(counterparty|контрагент)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "signatory",
+        re.compile(
+            r"\b(signatory|authorized signatory|подписант|подписывающ[а-я]*)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "corporate_approvals",
+        re.compile(
+            r"\b(corporate approvals?|board approval|shareholder approval|"
+            r"major transaction|interested[- ]party transaction|"
+            r"крупн[а-я]+\s+сделк|сделк[а-я]+\s+с\s+заинтересованност|"
+            r"одобрени[ея]\s+(общего собрания|совета директоров))\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "consent",
+        re.compile(
+            r"\b(prior written consent|approval of the other party|"
+            r"с письменного согласия|"
+            r"с предварительного письменного согласия)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "change_of_control",
+        re.compile(
+            r"\b(change of control|control change|"
+            r"смен[аы]\s+контроля|приобретени[ея]\s+контроля|"
+            r"изменени[ея]\s+состава\s+участников)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "term",
+        re.compile(
+            r"\b(term of (this )?agreement|duration of (this )?agreement|"
+            r"effective date|effective until|"
+            r"срок действия|вступает в силу|действует до)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "renewal",
+        re.compile(
+            r"\b(renewal|extension of term|prolongation|auto[- ]?renewal|"
+            r"automatically renewed|"
+            r"пролонгац[а-я]*|продлени[ея][а-я]*\s+срока|"
+            r"автоматическ[а-я]*\s+пролонгац[а-я]*|"
+            r"автоматическ[а-я]*\s+продлени[ея][а-я]*|"
+            r"автоматическ[а-я]*\s+продлева[а-я]*|"
+            r"возобновлени[ея][а-я]*)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "registration",
+        re.compile(
+            r"\b(state registration|registration with|"
+            r"государственн[а-я]+\s+регистрац|регистрация\s+договора|"
+            r"росреестр|зарегистрирован)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "penalty",
+        re.compile(
+            r"\b(penalty|liquidated damages|"
+            r"неустойк[аи]|пен[яи]|штраф|за каждый день просрочки)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "insurance",
+        re.compile(
+            r"\b(insurance|insure|insurance policy|"
+            r"страховани[ея]|страхов[а-я]+\s+полис|застраховать)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "bankruptcy",
+        re.compile(
+            r"\b(bankruptcy|insolvency|winding[- ]up|"
+            r"банкротств[а-я]*|несостоятельност[ьи]|ликвидаци[яи])\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # ── Стороны и сделка ─────────────────────────────────────────────────────
+    (
+        "parties",
+        re.compile(
+            r"\b(parties|party|seller|buyer|purchaser|vendor|"
+            r"стороны|продавец|покупатель|сторона)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "conditions_precedent",
+        re.compile(
+            r"\b(conditions? precedent|CP[s]?|"
+            r"предварительные условия|условия вступления в силу)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "regulatory_approval",
+        re.compile(
+            r"\b(regulatory approval|antitrust|competition authority|clearance|"
+            r"регуляторное одобрение|антимонопольн|ФАС|одобрение регулятора)\b",
             re.IGNORECASE,
         ),
     ),
@@ -193,28 +463,204 @@ _TOPIC_PATTERNS: list[tuple[str, re.Pattern]] = [
     (
         "currency",
         re.compile(
-            r"\b(currency|exchange rate|fx|forex|" r"валюта|курс обмена|обменный курс)\b",
+            r"\b(currency|exchange rate|fx|forex|"
+            r"валюта|курс обмена|обменный курс)\b",
             re.IGNORECASE,
         ),
     ),
     (
         "escrow",
         re.compile(
-            r"\b(escrow|retention|holdback|" r"эскроу|удержание|резервирование)\b",
+            r"\b(escrow|retention|holdback|"
+            r"эскроу|удержание|резервирование)\b",
             re.IGNORECASE,
         ),
     ),
     (
         "deposit",
         re.compile(
-            r"\b(deposit|advance payment|prepayment|down payment|" r"задаток|аванс|предоплата)\b",
+            r"\b(deposit|advance payment|prepayment|down payment|"
+            r"задаток|аванс|предоплата)\b",
             re.IGNORECASE,
         ),
     ),
     (
         "fee",
         re.compile(
-            r"\b(fee[s]?|remuneration|commission|" r"вознаграждение|комиссия|гонорар)\b",
+            r"\b(fee[s]?|remuneration|commission|"
+            r"вознаграждение|комиссия|гонорар)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # ── Lease / use ─────────────────────────────────────────────────────────
+    (
+        "rent",
+        re.compile(
+            r"\b(rent|rental fee|lease payment|"
+            r"арендн[а-я]+\s+плат[аы]|плата за аренду)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "security_deposit",
+        re.compile(
+            r"\b(security deposit|deposit security|"
+            r"обеспечительн[а-я]+\s+плат[её]ж|гарантийн[а-я]+\s+депозит)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "indexation",
+        re.compile(
+            r"\b(indexation|indexed rent|CPI adjustment|"
+            r"индексаци[яи]|индексация\s+арендной\s+платы|"
+            r"пересмотр\s+арендной\s+платы)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "utilities",
+        re.compile(
+            r"\b(utilities|utility charges|"
+            r"коммунальн[а-я]+\s+услуг[а-я]*|"
+            r"электроэнерги[а-я]*|водоснабжени[а-я]*|отоплени[а-я]*|"
+            r"эксплуатационн[а-я]+\s+расход[а-я]*)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "maintenance",
+        re.compile(
+            r"\b(maintenance|servicing|technical maintenance|"
+            r"техническ[а-я]+\s+обслуживани[ея]|"
+            r"эксплуатационн[а-я]+\s+обслуживани[ея])\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "repair",
+        re.compile(
+            r"\b(repair|capital repair|current repair|"
+            r"ремонт|капитальн[а-я]+\s+ремонт|текущ[а-я]+\s+ремонт)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "subletting",
+        re.compile(
+            r"\b(sublease|subletting|subrent|"
+            r"субаренд[аы]|передач[аи]\s+в\s+пользование\s+третьим)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "return_condition",
+        re.compile(
+            r"\b(return condition|handback condition|"
+            r"состояни[ея]\s+при\s+возврате|возврат\s+имущества|"
+            r"возврат\s+объекта)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "permitted_use",
+        re.compile(
+            r"\b(permitted use|use of premises|intended use|"
+            r"целевое\s+назначение|назначение\s+помещения|"
+            r"использовани[ея]\s+объекта)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # ── Finance / security ──────────────────────────────────────────────────
+    (
+        "interest_rate",
+        re.compile(
+            r"\b(interest rate|rate of interest|"
+            r"процентн[а-я]+\s+ставк[а-я]*|процент[а-я]*\s+за\s+пользование)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "loan_amount",
+        re.compile(
+            r"\b(loan amount|principal amount|facility amount|commitment amount|"
+            r"сумм[аы]\s+(займа|кредита)|размер\s+кредита)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "repayment_schedule",
+        re.compile(
+            r"\b(repayment schedule|amortization schedule|"
+            r"график\s+погашения|график\s+возврата|"
+            r"погашени[ея]\s+задолженности)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "event_of_default",
+        re.compile(
+            r"\b(event of default|default event|default notice|"
+            r"событи[ея]\s+дефолта|случа[йи]\s+неисполнени[яи])\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "acceleration",
+        re.compile(
+            r"\b(acceleration|immediately due and payable|"
+            r"досрочн[а-я]+\s+возврат|требовать\s+досрочного\s+возврата|"
+            r"досрочн[а-я]+\s+истребовани)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "cross_default",
+        re.compile(
+            r"\b(cross[-\s]?default|cross[-\s]?acceleration|"
+            r"перекр[её]стн[а-я]+\s+дефолт|кросс[-\s]?дефолт)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "pledge",
+        re.compile(
+            r"\b(pledge|pledgor|pledgee|"
+            r"залог[а-я]*|залогодатель|залогодержатель)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "guarantee",
+        re.compile(
+            r"\b(guarantor|surety(ship)?|bank guarantee|"
+            r"банковск[а-я]+\s+гарант|поручительств[а-я]*)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "financial_covenant",
+        re.compile(
+            r"\b(financial covenants?|maintenance covenants?|incurrence covenants?|"
+            r"leverage ratio|net debt[/\s]*EBITDA|DSCR|interest coverage|"
+            r"restricted payments?|финансов[а-я]+\s+ковенант|"
+            r"коэффициент\s+левериджа|покрыти[ея]\s+процент)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "credit_facility",
+        re.compile(
+            r"\b(credit facility|facility agreement|revolving facility|term facility|"
+            r"кредитн[а-я]+\s+лини[яи]|лимит\s+(задолженности|выдачи)|транш)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "lien",
+        re.compile(
+            r"\b(lien|right of retention|"
+            r"право\s+удержания|удержание\s+(вещи|груза|имущества))\b",
             re.IGNORECASE,
         ),
     ),
@@ -260,18 +706,181 @@ _TOPIC_PATTERNS: list[tuple[str, re.Pattern]] = [
             re.IGNORECASE,
         ),
     ),
+    # ── Works / construction / design ───────────────────────────────────────
+    (
+        "scope_of_work",
+        re.compile(
+            r"\b(scope of work|statement of work|"
+            r"объ[её]м\s+работ|состав\s+работ|перечень\s+работ|"
+            r"техническое\s+задание|задание\s+на\s+проектирование)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "completion_deadline",
+        re.compile(
+            r"\b(completion deadline|deadline for completion|"
+            r"срок\s+выполнения|срок\s+завершения|"
+            r"окончани[ея]\s+работ|не\s+позднее)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "acceptance",
+        re.compile(
+            r"\b(acceptance|acceptance certificate|take[- ]over certificate|"
+            r"при[её]мк[аи]|акт\s+сдачи[- ]при[её]мки|"
+            r"акт\s+выполненных\s+работ|акт\s+оказанных\s+услуг)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "technical_documentation",
+        re.compile(
+            r"\b(technical documentation|working documentation|"
+            r"техническ[а-я]+\s+документац|рабоч[а-я]+\s+документац|"
+            r"техническ[иео]+\s+услови[яй])\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "subcontracting",
+        re.compile(
+            r"\b(subcontract(ing|or)?|"
+            r"субподряд[а-я]*|субподрядчик[а-я]*|привлечение\s+третьих\s+лиц)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "design_documentation",
+        re.compile(
+            r"\b(design documentation|project documentation|engineering surveys?|"
+            r"проектн[а-я]+\s+документац[а-я]*|инженерн[а-я]+\s+изыскани[а-я]*)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # ── Insurance / transport ───────────────────────────────────────────────
+    (
+        "insured_event",
+        re.compile(
+            r"\b(insured event|insured loss|"
+            r"страхов[а-я]+\s+случа[йя])\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "insurance_premium",
+        re.compile(
+            r"\b(insurance premium|premium payable|"
+            r"страхов[а-я]+\s+преми[яи])\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "coverage_limit",
+        re.compile(
+            r"\b(coverage limit|policy limit|sum insured|"
+            r"страхов[а-я]+\s+сумм[аы]|лимит\s+покрытия)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    # ── IP / licensing ──────────────────────────────────────────────────────
+    (
+        "license_scope",
+        re.compile(
+            r"\b(license scope|licensed rights|scope of license|"
+            r"способы\s+использования|объ[её]м\s+лицензии|"
+            r"право\s+на\s+использование)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "royalty",
+        re.compile(
+            r"\b(royalt(y|ies)|running royalty|"
+            r"роялти|лицензионн[а-я]+\s+вознаграждени[а-я]*|"
+            r"паушальн[а-я]+\s+плат[её]ж[а-я]*)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "ip_assignment",
+        re.compile(
+            r"\b(IP assignment|assignment of intellectual property|"
+            r"отчуждени[ея]\s+исключительн[а-я]+\s+прав|"
+            r"передач[аеи]\s+исключительн[а-я]+\s+прав)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "territory",
+        re.compile(
+            r"\b(territorial scope|"
+            r"территори[яи]\s+использования|на\s+территории)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "exclusivity",
+        re.compile(
+            r"\b(exclusive license|non[- ]exclusive license|sole license|"
+            r"исключительн[а-я]+\s+лицензи[а-я]*|неисключительн[а-я]+\s+лицензи[а-я]*)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "sublicensing",
+        re.compile(
+            r"\b(sublicen[sc](e|ing)|"
+            r"сублиценз[а-я]*|выдач[а-я]*\s+сублиценз[а-я]*|"
+            r"право\s+выдавать\s+сублиценз[а-я]*)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "ip_ownership",
+        re.compile(
+            r"\b(ip ownership|ownership of intellectual property|rightsholder|"
+            r"правообладател[ья]|исключительн[а-я]+\s+прав[а-я]*\s+принадлеж[а-я]*)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "know_how",
+        re.compile(
+            r"\b(know[- ]how|trade secret|"
+            r"ноу[- ]хау|секрет\s+производства)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "patent",
+        re.compile(
+            r"\b(patent[а-я]*|патент[а-я]*)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "trademark",
+        re.compile(
+            r"\b(trademark|trade mark|"
+            r"товарн[а-я]+\s+знак[а-я]*|знак\s+обслуживания)\b",
+            re.IGNORECASE,
+        ),
+    ),
     # ── Гарантии и заверения ─────────────────────────────────────────────────
     (
         "warranties",
         re.compile(
-            r"\b(warrant(y|ies)|guarantee[s]?|" r"гарантии?|поручительство)\b",
+            r"\b(warrant(y|ies)|гарантии?)\b",
             re.IGNORECASE,
         ),
     ),
     (
         "representations",
         re.compile(
-            r"\b(representation[s]?|represent[s]?|" r"заверени[яей]|подтверждени[яей])\b",
+            r"\b(representation[s]?|represent[s]?|"
+            r"заверени[яей]|подтверждени[яей])\b",
             re.IGNORECASE,
         ),
     ),
@@ -310,7 +919,8 @@ _TOPIC_PATTERNS: list[tuple[str, re.Pattern]] = [
     (
         "warranty_basket",
         re.compile(
-            r"\b(basket|de minimis|threshold|" r"порог|минимальная сумма претензии|франшиза)\b",
+            r"\b(basket|de minimis|threshold|"
+            r"порог|минимальная сумма претензии|франшиза)\b",
             re.IGNORECASE,
         ),
     ),
@@ -351,7 +961,8 @@ _TOPIC_PATTERNS: list[tuple[str, re.Pattern]] = [
     (
         "damages",
         re.compile(
-            r"\b(damages?|compensation|reimbursement|" r"убытки|возмещение|ущерб)\b",
+            r"\b(damages?|compensation|reimbursement|"
+            r"убытки|возмещение|ущерб)\b",
             re.IGNORECASE,
         ),
     ),
@@ -507,7 +1118,8 @@ _TOPIC_PATTERNS: list[tuple[str, re.Pattern]] = [
     (
         "mediation",
         re.compile(
-            r"\b(mediation|mediator|" r"медиация|медиатор|примирительная процедура)\b",
+            r"\b(mediation|mediator|"
+            r"медиация|медиатор|примирительная процедура)\b",
             re.IGNORECASE,
         ),
     ),
@@ -564,7 +1176,8 @@ _TOPIC_PATTERNS: list[tuple[str, re.Pattern]] = [
     (
         "assignment",
         re.compile(
-            r"\b(assign(ment)?|transfer of rights?|novation|" r"уступка|передача прав|новация)\b",
+            r"\b(assign(ment)?|transfer of rights?|novation|"
+            r"уступка|передача прав|новация)\b",
             re.IGNORECASE,
         ),
     ),
@@ -588,7 +1201,8 @@ _TOPIC_PATTERNS: list[tuple[str, re.Pattern]] = [
     (
         "appendix_reference",
         re.compile(
-            r"\b(appendix|annex|exhibit|schedule|attachment|" r"приложени[еяй]|перечень|список)\b",
+            r"\b(appendix|annex|exhibit|schedule|attachment|"
+            r"приложени[еяй]|перечень|список)\b",
             re.IGNORECASE,
         ),
     ),
@@ -596,7 +1210,8 @@ _TOPIC_PATTERNS: list[tuple[str, re.Pattern]] = [
     (
         "tax",
         re.compile(
-            r"\b(tax(es)?|fiscal|taxation|" r"нало[г]|налогообложение|фискальн)\b",
+            r"\b(tax(es)?|fiscal|taxation|"
+            r"нало[г]|налогообложение|фискальн)\b",
             re.IGNORECASE,
         ),
     ),
@@ -604,31 +1219,6 @@ _TOPIC_PATTERNS: list[tuple[str, re.Pattern]] = [
         "vat",
         re.compile(
             r"\b(VAT|value added tax|НДС|налог на добавленную стоимость)\b",
-            re.IGNORECASE,
-        ),
-    ),
-    # ── Стороны и сделка ─────────────────────────────────────────────────────
-    (
-        "parties",
-        re.compile(
-            r"\b(parties|party|seller|buyer|purchaser|vendor|"
-            r"стороны|продавец|покупатель|сторона)\b",
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        "conditions_precedent",
-        re.compile(
-            r"\b(conditions? precedent|CP[s]?|"
-            r"предварительные условия|условия вступления в силу)\b",
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        "regulatory_approval",
-        re.compile(
-            r"\b(regulatory approval|antitrust|competition authority|clearance|consent|"
-            r"регуляторное одобрение|антимонопольн|ФАС|одобрение регулятора)\b",
             re.IGNORECASE,
         ),
     ),
@@ -690,13 +1280,11 @@ class TopicTagger:
             LegalUnitType.GOVERNING_LAW: ["governing_law"],
             LegalUnitType.JURISDICTION: ["jurisdiction"],
             LegalUnitType.APPENDIX_REFERENCE: ["appendix_reference"],
-
             LegalUnitType.CONFIDENTIALITY: ["confidentiality"],
             LegalUnitType.INDEMNIFICATION: ["indemnification"],
             LegalUnitType.DISPUTE_RESOLUTION: ["dispute_resolution"],
             LegalUnitType.TERMINATION_PROVISION: ["termination"],
             LegalUnitType.LIABILITY_PROVISION: ["liability"],
-
             LegalUnitType.GENERAL_PROVISION: [],
             LegalUnitType.UNKNOWN: [],
         }
