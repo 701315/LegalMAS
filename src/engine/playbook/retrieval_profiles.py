@@ -447,6 +447,166 @@ FINANCIAL_COVENANT_PROFILE = RetrievalProfile(
     max_supporting_units=5,
 )
 
+INSURANCE_PROFILE = RetrievalProfile(
+    profile_id="insurance_check",
+    query_topic="insurance",
+    required_topics=["insurance"],
+    supporting_topics=[
+        "insured_event",
+        "insurance_premium",
+        "coverage_limit",
+        "liability",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+SUBLETTING_PROFILE = RetrievalProfile(
+    profile_id="subletting_check",
+    query_topic="subletting",
+    required_topics=["subletting"],
+    supporting_topics=[
+        "consent",
+        "permitted_use",
+        "assignment",
+        "rent",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=6,
+    max_supporting_units=4,
+)
+
+SCOPE_OF_WORK_PROFILE = RetrievalProfile(
+    profile_id="scope_of_work_check",
+    query_topic="scope_of_work",
+    required_topics=["scope_of_work"],
+    supporting_topics=[
+        "technical_documentation",
+        "design_documentation",
+        "completion_deadline",
+        "acceptance",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+COMPLETION_DEADLINE_PROFILE = RetrievalProfile(
+    profile_id="completion_deadline_check",
+    query_topic="completion_deadline",
+    required_topics=["completion_deadline"],
+    supporting_topics=[
+        "acceptance",
+        "penalty",
+        "termination",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+SUBCONTRACTING_PROFILE = RetrievalProfile(
+    profile_id="subcontracting_check",
+    query_topic="subcontracting",
+    required_topics=["subcontracting"],
+    supporting_topics=[
+        "consent",
+        "liability",
+        "scope_of_work",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=6,
+    max_supporting_units=4,
+)
+
+IP_OWNERSHIP_PROFILE = RetrievalProfile(
+    profile_id="ip_ownership_check",
+    query_topic="ip_ownership",
+    required_topics=["ip_ownership"],
+    supporting_topics=[
+        "ip_assignment",
+        "patent",
+        "trademark",
+        "know_how",
+        "license_scope",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=5,
+)
+
+ROYALTY_PROFILE = RetrievalProfile(
+    profile_id="royalty_check",
+    query_topic="royalty",
+    required_topics=["royalty"],
+    supporting_topics=[
+        "license_scope",
+        "term",
+        "territory",
+        "exclusivity",
+        "payment_terms",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=5,
+)
+
+SUBLICENSING_PROFILE = RetrievalProfile(
+    profile_id="sublicensing_check",
+    query_topic="sublicensing",
+    required_topics=["sublicensing"],
+    supporting_topics=[
+        "license_scope",
+        "consent",
+        "assignment",
+        "exclusivity",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=6,
+    max_supporting_units=4,
+)
+
+REPAYMENT_SCHEDULE_PROFILE = RetrievalProfile(
+    profile_id="repayment_schedule_check",
+    query_topic="repayment_schedule",
+    required_topics=["repayment_schedule"],
+    supporting_topics=[
+        "interest_rate",
+        "loan_amount",
+        "acceleration",
+        "late_payment",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+CREDIT_FACILITY_PROFILE = RetrievalProfile(
+    profile_id="credit_facility_check",
+    query_topic="credit_facility",
+    required_topics=["credit_facility"],
+    supporting_topics=[
+        "loan_amount",
+        "repayment_schedule",
+        "interest_rate",
+        "event_of_default",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
 
 # Используется для lookup по profile_id из YAML playbook конфигурации.
 ALL_PROFILES: dict[str, RetrievalProfile] = {
@@ -481,6 +641,16 @@ ALL_PROFILES: dict[str, RetrievalProfile] = {
         ACCEPTANCE_PROFILE,
         LICENSE_SCOPE_PROFILE,
         FINANCIAL_COVENANT_PROFILE,
+        INSURANCE_PROFILE,
+        SUBLETTING_PROFILE,
+        SCOPE_OF_WORK_PROFILE,
+        COMPLETION_DEADLINE_PROFILE,
+        SUBCONTRACTING_PROFILE,
+        IP_OWNERSHIP_PROFILE,
+        ROYALTY_PROFILE,
+        SUBLICENSING_PROFILE,
+        REPAYMENT_SCHEDULE_PROFILE,
+        CREDIT_FACILITY_PROFILE,
     ]
 }
 

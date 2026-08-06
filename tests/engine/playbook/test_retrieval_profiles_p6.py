@@ -16,6 +16,16 @@ NEW_PROFILES = {
     "acceptance_check",
     "license_scope_check",
     "financial_covenant_check",
+    "insurance_check",
+    "subletting_check",
+    "scope_of_work_check",
+    "completion_deadline_check",
+    "subcontracting_check",
+    "ip_ownership_check",
+    "royalty_check",
+    "sublicensing_check",
+    "repayment_schedule_check",
+    "credit_facility_check",
 }
 
 
