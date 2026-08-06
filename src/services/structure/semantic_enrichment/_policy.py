@@ -23,7 +23,7 @@ Tiered approach:
                               AND policy.allow_override_existing_type = True
 
 Безопасность:
-- Topic tags фильтруются через KNOWN_TOPICS taxonomy.
+- Topic tags фильтруются через EXTENDED_TOPICS taxonomy.
 - Неизвестные topics отклоняются и логируются.
 - Clause function может автоматически выводиться из unit_type
   через deterministic default mapping.
@@ -43,7 +43,7 @@ from services.structure.semantic_enrichment._types import (
     SemanticEnrichmentPolicy,
     SemanticEnrichmentStatus,
 )
-from services.structure.topic_tagger import KNOWN_TOPICS
+from services.structure.topic_tagger import EXTENDED_TOPICS
 
 _DEFAULT_TYPE_TO_FUNCTION: dict[LegalUnitType, ClauseFunction] = {
     LegalUnitType.DEFINITION: ClauseFunction.DEFINITIONS,
@@ -99,7 +99,7 @@ def _normalize_topics(
         normalized = _normalize_topic_name(raw_topic)
         if not normalized:
             continue
-        if normalized not in KNOWN_TOPICS:
+        if normalized not in EXTENDED_TOPICS:
             rejected.append(normalized)
             continue
         if normalized in seen:
