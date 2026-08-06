@@ -3374,6 +3374,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "право требования уступка должник по требованию передача документов уведомление должника основание требования акт передачи прав документы подтверждающие"
+      retrieval_profile: "assignment_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3688,6 +3689,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "залог ипотека поручительство обеспечение прекращается снятие залога погашение записи об ипотеке закладная залогодержатель поручитель освобождение от обеспечения возврат закладной снятие обременения расходы на снятие обеспечения"
+      retrieval_profile: "security_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4389,6 +4391,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "НДС налоговые обязательства доход кредитора расход должника первичные документы акт приёма-передачи стоимость для целей налогообложения рыночная стоимость для налога не является дарением экономическая цель налог на прибыль"
+      retrieval_profile: "tax_check"
       preferred_unit_types:
         - obligation
         - general_provision

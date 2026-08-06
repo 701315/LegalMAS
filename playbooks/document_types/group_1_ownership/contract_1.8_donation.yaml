@@ -3425,6 +3425,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "кадастровый номер ЕГРН Росреестр государственная регистрация перехода права дарения обременение право пользования зарегистрированные лица жилое помещение передаточный акт выписка из ЕГРН право собственности основание права проживающие лица снят с регистрационного учёта госпошлина ст. 558 ГК РФ"
+      retrieval_profile: "registration_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3995,6 +3996,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "доля в уставном капитале доля в ООО нотариальное удостоверение нотариус ЕГРЮЛ преимущественное право устав общества запрет дарения согласие участников размер доли номинальная стоимость ст. 21 ФЗ-14 уставные ограничения"
+      retrieval_profile: "registration_check"
       preferred_unit_types:
         - obligation
         - general_provision

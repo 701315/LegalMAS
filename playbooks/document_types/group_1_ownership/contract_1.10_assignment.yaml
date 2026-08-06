@@ -913,6 +913,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "цедент цессионарий новый кредитор первоначальный кредитор должник ИНН ОГРН именуемый в лице действующего на основании устава доверенности реквизиты подписант"
+      retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1927,6 +1928,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "уведомление должника письменное уведомление уведомить должника в течение заказное письмо цедент обязуется уведомить цессионарий уведомляет момент уведомления подтверждение получения форма уведомления приложение"
+      retrieval_profile: "notice_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4350,6 +4352,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "цена уступки стоимость уступки уплачивает цеденту срок оплаты не позднее в течение банковский перевод после подписания рассрочка цена договора уступки возмездно безвозмездно дисконт премия номинал долга последствия неоплаты"
+      retrieval_profile: "payment_terms_check"
       preferred_unit_types:
         - payment_term
         - obligation
@@ -4673,6 +4676,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "расторжение отказ от договора обратная уступка возврат права требования возврат цены уступки неустойка штраф пеня расторжение договора уступки последствия расторжения"
+      retrieval_profile: "termination_check"
       preferred_unit_types:
         - termination_provision
         - liability_provision
