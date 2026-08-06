@@ -941,6 +941,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 10
+      retrieval_profile: "insurance_check"
       boost_keywords:
         - "объект страхования"
         - "страховой случай"
@@ -1054,6 +1055,7 @@ checks_v8:
     retrieval:
       context_k: 7
       max_chunks: 10
+      retrieval_profile: "insurance_check"
       boost_keywords:
         - "страховой случай"
         - "исключения"
@@ -1203,6 +1205,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "notice_check"
       boost_keywords:
         - "уведомление о страховом случае"
         - "незамедлительно"
@@ -1355,6 +1358,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "consent_check"
       boost_keywords:
         - "согласие застрахованного лица"
         - "выгодоприобретатель"
@@ -1422,6 +1426,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "termination_check"
       boost_keywords:
         - "досрочное прекращение"
         - "возврат премии"
@@ -1493,6 +1498,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "notice_check"
       boost_keywords:
         - "увеличение риска"
         - "уведомить страховщика"

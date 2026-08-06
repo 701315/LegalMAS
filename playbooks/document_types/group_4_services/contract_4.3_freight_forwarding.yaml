@@ -1162,6 +1162,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "liability_cap_check"
       boost_keywords:
         - "ответственность за третьих лиц"
         - "перевозчик"
@@ -1238,6 +1239,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "payment_terms_check"
       boost_keywords:
         - "вознаграждение"
         - "возмещение расходов"
@@ -1312,6 +1314,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "insurance_check"
       boost_keywords:
         - "страхование груза"
         - "страховой полис"
@@ -1382,6 +1385,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "consent_check"
       boost_keywords:
         - "согласование перевозчика"
         - "выбор"
@@ -1596,6 +1600,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "termination_check"
       boost_keywords:
         - "односторонний отказ"
         - "штраф 10%"
@@ -1746,6 +1751,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "completion_deadline_check"
       boost_keywords:
         - "срок доставки"
         - "просрочка"
@@ -1816,6 +1822,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "notice_check"
       boost_keywords:
         - "информирование"
         - "уведомление"

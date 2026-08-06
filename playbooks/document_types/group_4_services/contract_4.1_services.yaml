@@ -1031,6 +1031,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "заказчик исполнитель в лице действующего на основании устав доверенность приказ ИНН ОГРН ОГРНИП одобрение сделки протокол"
+      retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1413,6 +1414,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "предмет договора оказание услуг перечень услуг объем услуг техническое задание спецификация приложение результат услуг"
+      retrieval_profile: "scope_of_work_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1752,6 +1754,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "стоимость услуг цена вознаграждение оплата аванс НДС счет акт отчет абонентская плата почасовая ставка право удержания передача результатов после оплаты не передавать результат до полной оплаты"
+      retrieval_profile: "payment_terms_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2106,6 +2109,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "срок оказания услуг дата начала дата окончания период оказания этап календарный план milestone"
+      retrieval_profile: "term_and_renewal_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2401,6 +2405,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "акт оказанных услуг отчет детализация мотивированный отказ срок рассмотрения оплата после подписания акта приемка услуг"
+      retrieval_profile: "acceptance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2737,6 +2742,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "неустойка пеня штраф ответственность ограничена совокупная ответственность косвенные убытки упущенная выгода страхование ответственности страховой полис профессиональная ответственность"
+      retrieval_profile: "liability_cap_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3047,6 +3053,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "стандарты качества гарантийный срок недостатки претензия устранение недостатков срок устранения"
+      retrieval_profile: "warranties_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3335,6 +3342,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "расторжение односторонний отказ отказ от исполнения фактически понесенные расходы убытки взаиморасчеты возврат данных удаление данных"
+      retrieval_profile: "termination_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3645,6 +3653,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "форс-мажор обстоятельства непреодолимой силы уведомление срок исполнения продлевается подтверждается ТПП"
+      retrieval_profile: "force_majeure_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3908,6 +3917,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "споры претензионный порядок претензия срок ответа подсудность арбитражный суд третейский суд"
+      retrieval_profile: "dispute_resolution_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4171,6 +4181,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "личное исполнение привлечение третьих лиц субисполнитель соисполнитель своими силами с согласия заказчика ответственность за действия третьих лиц"
+      retrieval_profile: "subcontracting_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4450,6 +4461,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "исключительные права интеллектуальная собственность авторские права передача прав лицензия право использования результаты интеллектуальной деятельности"
+      retrieval_profile: "ip_ownership_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4743,6 +4755,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "персональные данные обработка персональных данных поручение на обработку оператор цели обработки меры защиты трансграничная передача"
+      retrieval_profile: "confidentiality_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -7278,6 +7291,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "автопролонгация автоматическое продление продлевается на тот же срок уведомление о непродлении пролонгация"
+      retrieval_profile: "term_and_renewal_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -7535,6 +7549,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "уступка прав переуступка перевод долга цессия без согласия с согласия другой стороны"
+      retrieval_profile: "assignment_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -8313,6 +8328,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "запрет переманивания non-solicitation не привлекать сотрудников не нанимать работников не переманивать"
+      retrieval_profile: "non_compete_check"
       preferred_unit_types:
         - obligation
         - general_provision
