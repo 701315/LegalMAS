@@ -935,6 +935,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 10
+      retrieval_profile: "security_check"
       boost_keywords:
         - "основное обязательство"
         - "поручитель"
@@ -1317,6 +1318,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "registration_check"
       boost_keywords:
         - "регистрация ипотеки"
         - "егрн"
@@ -1729,6 +1731,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "event_of_default_check"
       boost_keywords:
         - "кросс-дефолт"
         - "досрочное востребование"

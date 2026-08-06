@@ -1011,6 +1011,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 10
+      retrieval_profile: "ip_ownership_check"
       boost_keywords:
         - "патент"
         - "товарный знак"
@@ -1294,6 +1295,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "confidentiality_check"
       boost_keywords:
         - "ноу-хау"
         - "конфиденциальность"
@@ -1747,6 +1749,7 @@ checks_v8:
     retrieval:
       context_k: 8
       max_chunks: 10
+      retrieval_profile: "warranties_check"
       boost_keywords:
         - "гарантирует"
         - "заверяет"
@@ -1819,6 +1822,7 @@ checks_v8:
     retrieval:
       context_k: 4
       max_chunks: 6
+      retrieval_profile: "tax_check"
       boost_keywords:
         - "НДС"
         - "освобождение"

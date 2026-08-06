@@ -970,6 +970,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "assignment_check"
       boost_keywords:
         - "денежное требование"
         - "должник"
@@ -1049,6 +1050,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "payment_terms_check"
       boost_keywords:
         - "сумма финансирования"
         - "факторинговая комиссия"
@@ -1197,6 +1199,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "notice_check"
       boost_keywords:
         - "уведомление должника"
         - "об уступке"
@@ -1581,6 +1584,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "warranties_check"
       boost_keywords:
         - "гарантирует"
         - "заверяет"

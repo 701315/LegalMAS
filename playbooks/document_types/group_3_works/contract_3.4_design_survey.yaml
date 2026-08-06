@@ -1840,6 +1840,7 @@ checks_v8:
     corpus_scope: "document"
     context_k: 6
     max_chunks: 8
+    retrieval_profile: "technical_documentation_check"
     boost_keywords:
       - "техническое задание"
       - "задание на проектирование"
@@ -3509,6 +3510,7 @@ checks_v8:
     corpus_scope: "document"
     context_k: 6
     max_chunks: 8
+    retrieval_profile: "completion_deadline_check"
     boost_keywords:
       - "срок выполнения"
       - "календарный план"
@@ -7235,6 +7237,7 @@ checks_v8:
     corpus_scope: "document"
     context_k: 5
     max_chunks: 6
+    retrieval_profile: "force_majeure_check"
     boost_keywords:
       - "форс-мажор"
       - "непреодолимая сила"
@@ -7963,6 +7966,7 @@ checks_v8:
     corpus_scope: "document"
     context_k: 4
     max_chunks: 6
+    retrieval_profile: "insurance_check"
     boost_keywords:
       - "страхование ответственности"
       - "страховой полис"

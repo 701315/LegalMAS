@@ -685,6 +685,7 @@ checks_v8:
     retrieval:
       context_k: 8
       max_chunks: 12
+      retrieval_profile: "confidentiality_check"
       boost_keywords:
         - "конфиденциальная информация"
         - "определение"
@@ -760,6 +761,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "confidentiality_check"
       boost_keywords:
         - "любая информация"
         - "вся информация"
@@ -879,6 +881,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "confidentiality_check"
       boost_keywords:
         - "исключения"
         - "не является конфиденциальной"
@@ -952,6 +955,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "term_and_renewal_check"
       boost_keywords:
         - "срок"
         - "действует"
@@ -1023,6 +1027,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "confidentiality_check"
       boost_keywords:
         - "меры защиты"
         - "ограничение доступа"
@@ -1216,6 +1221,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "liability_cap_check"
       boost_keywords:
         - "штраф"
         - "неустойка"
@@ -1338,6 +1344,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "termination_check"
       boost_keywords:
         - "возврат"
         - "уничтожение"
@@ -1525,6 +1532,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "non_compete_check"
       boost_keywords:
         - "переманивание"
         - "non-solicitation"

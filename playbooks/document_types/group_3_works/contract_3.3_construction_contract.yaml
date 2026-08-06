@@ -1345,6 +1345,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "объект капитального строительства проектная документация рабочая документация наименование объекта адрес объекта кадастровый номер техническое задание разрешение на строительство экспертиза"
+      retrieval_profile: "technical_documentation_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1704,6 +1705,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "срок начала работ срок окончания работ календарный план график производства работ не позднее этапы строительства неустойка за просрочку пеня за каждый день задержки"
+      retrieval_profile: "completion_deadline_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3457,6 +3459,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "страхование строительных рисков страхование гражданской ответственности страхование объекта строительства полис страхования страхование от несчастных случаев риск случайной гибели переход рисков до подписания акта после приемки объекта"
+      retrieval_profile: "insurance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4387,6 +4390,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "субподрядчик право привлекать субподрядчиков согласование субподрядчиков генподрядчик отвечает перечень субподрядчиков"
+      retrieval_profile: "subcontracting_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -6450,6 +6454,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "досудебный порядок претензионный порядок строительно-техническая экспертиза совместное обследование независимая экспертиза расходы на экспертизу"
+      retrieval_profile: "dispute_resolution_check"
       preferred_unit_types:
         - general_provision
         - obligation

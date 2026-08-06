@@ -1550,6 +1550,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "term_and_renewal_check"
       boost_keywords:
         - "пролонгация"
         - "продление"
@@ -1614,6 +1615,7 @@ checks_v8:
     retrieval:
       context_k: 4
       max_chunks: 6
+      retrieval_profile: "authority_check"
       boost_keywords:
         - "доверенность"
         - "право подписи"
@@ -1792,6 +1794,7 @@ checks_v8:
     retrieval:
       context_k: 4
       max_chunks: 6
+      retrieval_profile: "confidentiality_check"
       boost_keywords:
         - "персональные данные"
         - "согласие"
