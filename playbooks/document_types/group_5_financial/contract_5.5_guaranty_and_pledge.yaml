@@ -1024,6 +1024,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "liability_cap_check"
       boost_keywords:
         - "солидарная ответственность"
         - "субсидиарная ответственность"
@@ -1098,6 +1099,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "termination_check"
       boost_keywords:
         - "согласие поручителя"
         - "прекращение поручительства"
@@ -1172,6 +1174,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "security_check"
       boost_keywords:
         - "предмет залога"
         - "оценка предмета залога"
@@ -1246,6 +1249,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "event_of_default_check"
       boost_keywords:
         - "обращение взыскания"
         - "внесудебный порядок"
@@ -1783,6 +1787,7 @@ checks_v8:
     retrieval:
       context_k: 4
       max_chunks: 6
+      retrieval_profile: "dispute_resolution_check"
       boost_keywords:
         - "разрешение споров"
         - "арбитражный суд"
