@@ -909,6 +909,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 512
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       context_k: 6
       max_chunks: 10
       boost_keywords:
@@ -994,6 +995,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "technical_documentation_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:
@@ -1072,6 +1074,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 512
     retrieval:
+      retrieval_profile: "liability_cap_check"
       context_k: 6
       max_chunks: 8
       boost_keywords:
@@ -1148,6 +1151,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "dispute_resolution_check"
       context_k: 5
       max_chunks: 8
       boost_keywords:
@@ -1222,6 +1226,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "insurance_check"
       context_k: 5
       max_chunks: 8
       boost_keywords:
@@ -1460,6 +1465,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "security_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:
@@ -1607,6 +1613,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "completion_deadline_check"
       context_k: 5
       max_chunks: 6
       boost_keywords:
@@ -1677,6 +1684,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "warranties_check"
       context_k: 5
       max_chunks: 8
       boost_keywords:
@@ -1746,6 +1754,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "subcontracting_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:
@@ -1808,6 +1817,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 250
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:

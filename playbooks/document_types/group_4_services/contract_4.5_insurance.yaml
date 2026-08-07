@@ -1130,6 +1130,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "insurance_check"
       context_k: 5
       max_chunks: 8
       boost_keywords:
@@ -1280,6 +1281,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 450
     retrieval:
+      retrieval_profile: "insurance_check"
       context_k: 6
       max_chunks: 9
       boost_keywords:
@@ -1574,6 +1576,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "insurance_check"
       context_k: 5
       max_chunks: 8
       boost_keywords:
@@ -1635,6 +1638,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 250
     retrieval:
+      retrieval_profile: "governing_law_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:

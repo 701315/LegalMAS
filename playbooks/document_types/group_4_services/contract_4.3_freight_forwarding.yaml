@@ -943,6 +943,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 512
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       context_k: 6
       max_chunks: 10
       boost_keywords:
@@ -1015,6 +1016,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "acceptance_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:
@@ -1082,6 +1084,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:
@@ -1527,6 +1530,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "security_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:
@@ -1673,6 +1677,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 500
     retrieval:
+      retrieval_profile: "liability_cap_check"
       context_k: 6
       max_chunks: 8
       boost_keywords:
