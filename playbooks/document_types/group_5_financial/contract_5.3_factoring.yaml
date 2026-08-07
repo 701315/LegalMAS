@@ -870,6 +870,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "assignment_check"
       context_k: 6
       max_chunks: 10
       boost_keywords:
@@ -1416,6 +1417,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 350
     retrieval:
+      retrieval_profile: "assignment_check"
       context_k: 5
       max_chunks: 8
       boost_keywords:

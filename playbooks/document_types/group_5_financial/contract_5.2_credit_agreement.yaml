@@ -1049,6 +1049,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 350
     retrieval:
+      retrieval_profile: "party_identification_check"
       context_k: 5
       max_chunks: 7
       boost_keywords:
@@ -1277,6 +1278,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 350
     retrieval:
+      retrieval_profile: "insurance_check"
       context_k: 5
       max_chunks: 8
       boost_keywords:
@@ -1701,6 +1703,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 350
     retrieval:
+      retrieval_profile: "credit_facility_check"
       context_k: 5
       max_chunks: 7
       boost_keywords:
@@ -1847,6 +1850,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 450
     retrieval:
+      retrieval_profile: "warranties_check"
       context_k: 6
       max_chunks: 8
       boost_keywords:

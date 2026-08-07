@@ -1394,6 +1394,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 360
     retrieval:
+      retrieval_profile: "security_check"
       context_k: 5
       max_chunks: 7
       boost_keywords:
@@ -1542,6 +1543,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "security_check"
       context_k: 5
       max_chunks: 6
       boost_keywords:
@@ -1670,6 +1672,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "security_check"
       context_k: 5
       max_chunks: 6
       boost_keywords:

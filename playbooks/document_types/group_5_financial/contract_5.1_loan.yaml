@@ -1261,6 +1261,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 320
     retrieval:
+      retrieval_profile: "credit_facility_check"
       context_k: 5
       max_chunks: 7
       boost_keywords:
