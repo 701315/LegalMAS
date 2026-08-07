@@ -1373,6 +1373,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "ip_ownership_check"
       context_k: 5
       max_chunks: 6
       boost_keywords:
@@ -1672,6 +1673,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "payment_terms_check"
       context_k: 5
       max_chunks: 6
       boost_keywords:

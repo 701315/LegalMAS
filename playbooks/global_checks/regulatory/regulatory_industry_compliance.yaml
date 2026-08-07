@@ -110,6 +110,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "warranties_check"
   context_k: 5
   max_chunks: 10
 
