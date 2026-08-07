@@ -1154,6 +1154,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "term_and_renewal_check"
       boost_keywords:
         - "территория"
         - "срок"
@@ -1224,6 +1225,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "definitions_check"
       boost_keywords:
         - "преддоговорное раскрытие"
         - "информация о франчайзере"
@@ -1404,6 +1406,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "notice_check"
       boost_keywords:
         - "изменение стандартов"
         - "уведомление"
@@ -1780,6 +1783,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "liability_cap_check"
       boost_keywords:
         - "субсидиарная ответственность"
         - "претензии потребителей"
@@ -1968,6 +1972,7 @@ checks_v8:
     retrieval:
       context_k: 6
       max_chunks: 8
+      retrieval_profile: "payment_terms_check"
       boost_keywords:
         - "обязательные закупки"
         - "одобренные поставщики"

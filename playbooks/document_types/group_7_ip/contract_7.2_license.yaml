@@ -1542,6 +1542,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "ip_ownership_check"
       boost_keywords:
         - "защита"
         - "нарушители"
@@ -1928,6 +1929,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "non_compete_check"
       boost_keywords:
         - "лицензиар не вправе"
         - "запрет использования"
@@ -2173,6 +2175,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 6
+      retrieval_profile: "registration_check"
       boost_keywords:
         - "escrow"
         - "депонирование"
