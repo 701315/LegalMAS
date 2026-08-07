@@ -118,6 +118,7 @@ evidence:
   max_snippet_length: 600
 
 retrieval:
+  retrieval_profile: "cybersecurity_check"
   context_k: 7
   max_chunks: 15
 

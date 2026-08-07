@@ -638,6 +638,69 @@ TECHNICAL_DOCUMENTATION_PROFILE = RetrievalProfile(
     max_supporting_units=4,
 )
 
+EMPLOYMENT_SCHEDULE_PROFILE = RetrievalProfile(
+    profile_id="employment_schedule_check",
+    query_topic="working_hours",
+    required_topics=["working_hours", "leave", "probation"],
+    supporting_topics=[
+        "overtime",
+        "salary",
+        "term",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+EMPLOYMENT_BENEFITS_PROFILE = RetrievalProfile(
+    profile_id="employment_benefits_check",
+    query_topic="benefits",
+    required_topics=["benefits"],
+    supporting_topics=[
+        "salary",
+        "bonus",
+        "leave",
+        "remuneration",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=4,
+)
+
+SANCTIONS_COMPLIANCE_PROFILE = RetrievalProfile(
+    profile_id="sanctions_compliance_check",
+    query_topic="sanctions",
+    required_topics=["sanctions", "aml_kyc", "export_control", "anti_corruption"],
+    supporting_topics=[
+        "counterparty",
+        "regulatory_approval",
+        "representations",
+        "confidentiality",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=10,
+    max_supporting_units=5,
+)
+
+CYBERSECURITY_PROFILE = RetrievalProfile(
+    profile_id="cybersecurity_check",
+    query_topic="cybersecurity",
+    required_topics=["cybersecurity"],
+    supporting_topics=[
+        "confidentiality",
+        "data_protection",
+        "sla",
+        "service_levels",
+    ],
+    required_unit_types=[],
+    min_citability="low",
+    max_primary_units=8,
+    max_supporting_units=5,
+)
+
 
 # Используется для lookup по profile_id из YAML playbook конфигурации.
 ALL_PROFILES: dict[str, RetrievalProfile] = {
@@ -684,6 +747,10 @@ ALL_PROFILES: dict[str, RetrievalProfile] = {
         CREDIT_FACILITY_PROFILE,
         DISPUTE_RESOLUTION_PROFILE,
         TECHNICAL_DOCUMENTATION_PROFILE,
+        EMPLOYMENT_SCHEDULE_PROFILE,
+        EMPLOYMENT_BENEFITS_PROFILE,
+        SANCTIONS_COMPLIANCE_PROFILE,
+        CYBERSECURITY_PROFILE,
     ]
 }
 

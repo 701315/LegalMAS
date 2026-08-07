@@ -1484,6 +1484,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "employment_benefits_check"
       context_k: 8
       max_chunks: 12
       boost_keywords:
