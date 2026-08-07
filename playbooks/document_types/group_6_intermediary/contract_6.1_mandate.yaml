@@ -648,6 +648,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       context_k: 6
       max_chunks: 10
       boost_keywords:
@@ -740,6 +741,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 340
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       context_k: 5
       max_chunks: 8
       boost_keywords:
@@ -956,6 +958,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 360
     retrieval:
+      retrieval_profile: "acceptance_check"
       context_k: 5
       max_chunks: 7
       boost_keywords:
