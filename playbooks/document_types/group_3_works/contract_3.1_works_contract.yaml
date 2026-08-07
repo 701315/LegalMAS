@@ -3817,6 +3817,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "право приостановить обязан уведомить немедленно предупредить непригодность материалов неверные указания неисполнение заказчиком"
+      retrieval_profile: "notice_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -5566,6 +5567,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "проверять ход работ контроль качества проверка хода выполнения вправе проверить промежуточная инспекция не вмешиваясь"
+      retrieval_profile: "acceptance_check"
       preferred_unit_types:
         - obligation
         - general_provision
