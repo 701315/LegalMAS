@@ -989,6 +989,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "term_and_renewal_check"
       context_k: 6
       max_chunks: 8
       boost_keywords:
@@ -1064,6 +1065,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "payment_terms_check"
       context_k: 8
       max_chunks: 12
       boost_keywords:
@@ -1447,6 +1449,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "liability_cap_check"
       context_k: 5
       max_chunks: 6
       boost_keywords:
@@ -1507,6 +1510,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "confidentiality_check"
       context_k: 5
       max_chunks: 6
       boost_keywords:
@@ -1938,6 +1942,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "non_compete_check"
       context_k: 5
       max_chunks: 8
       boost_keywords:
@@ -1998,6 +2003,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 200
     retrieval:
+      retrieval_profile: "dispute_resolution_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:
