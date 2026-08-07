@@ -2692,6 +2692,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 520
   retrieval:
+    retrieval_profile: "technical_documentation_check"
     corpus_scope: "document"
     context_k: 6
     max_chunks: 8
@@ -5910,6 +5911,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 440
   retrieval:
+    retrieval_profile: "technical_documentation_check"
     corpus_scope: "document"
     context_k: 4
     max_chunks: 6
@@ -6995,6 +6997,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 440
   retrieval:
+    retrieval_profile: "registration_check"
     corpus_scope: "document"
     context_k: 4
     max_chunks: 6
