@@ -1283,6 +1283,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "твёрдая цена твёрдая смета приблизительная смета цена работ стоимость работ смета изменение цены дополнительные работы согласие заказчика"
+      retrieval_profile: "payment_terms_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1859,6 +1860,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "право отказаться от исполнения в любое время до сдачи оплатив фактически выполненное штраф за расторжение неустойка за отказ ст 717"
+      retrieval_profile: "termination_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2129,6 +2131,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "качество работ требования к качеству стандарт качества ГОСТ ТУ технические условия соответствие образцу критерии приемки"
+      retrieval_profile: "warranties_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3359,6 +3362,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "гарантийный срок гарантия качества устранение недостатков безвозмездное исправление скрытые недостатки претензия по качеству"
+      retrieval_profile: "warranties_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -6297,6 +6301,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "НДС в том числе НДС без НДС налог на профессиональный доход самозанятый УСН не является плательщиком НДС"
+      retrieval_profile: "tax_check"
       preferred_unit_types:
         - payment_term
         - general_provision

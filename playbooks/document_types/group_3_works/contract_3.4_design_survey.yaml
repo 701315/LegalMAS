@@ -2969,6 +2969,7 @@ checks_v8:
     corpus_scope: "document"
     context_k: 6
     max_chunks: 8
+    retrieval_profile: "payment_terms_check"
     boost_keywords:
       - "цена"
       - "стоимость"
@@ -3240,6 +3241,7 @@ checks_v8:
     corpus_scope: "document"
     context_k: 6
     max_chunks: 8
+    retrieval_profile: "payment_terms_check"
     boost_keywords:
       - "аванс"
       - "поэтапная оплата"
@@ -4634,6 +4636,7 @@ checks_v8:
     corpus_scope: "document"
     context_k: 6
     max_chunks: 8
+    retrieval_profile: "termination_check"
     boost_keywords:
       - "расторжение"
       - "отказ от договора"
@@ -5127,6 +5130,7 @@ checks_v8:
     corpus_scope: "document"
     context_k: 5
     max_chunks: 8
+    retrieval_profile: "ip_ownership_check"
     boost_keywords:
       - "исключительные права"
       - "интеллектуальные права"
@@ -5405,6 +5409,7 @@ checks_v8:
     corpus_scope: "document"
     context_k: 6
     max_chunks: 8
+    retrieval_profile: "liability_cap_check"
     boost_keywords:
       - "ответственность проектировщика"
       - "ответственность за ошибки"
@@ -7497,6 +7502,7 @@ checks_v8:
     corpus_scope: "document"
     context_k: 5
     max_chunks: 8
+    retrieval_profile: "dispute_resolution_check"
     boost_keywords:
       - "претензия"
       - "претензионный порядок"

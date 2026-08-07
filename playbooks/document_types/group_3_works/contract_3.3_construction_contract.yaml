@@ -2068,6 +2068,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "смета твердая смета приблизительная смета сметная стоимость дополнительные работы изменение проектной документации дополнительное соглашение авансовый платеж предоплата КС-2 КС-3 индексация цены корректировка стоимости"
+      retrieval_profile: "payment_terms_check"
       preferred_unit_types:
         - payment_term
         - obligation
@@ -3126,6 +3127,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "гарантийный срок скрытые недостатки гарантийные обязательства ответственность за дефекты устранение недостатков 5 лет гарантийный депозит удержание гарантийной суммы"
+      retrieval_profile: "warranties_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4699,6 +4701,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "форс-мажор обстоятельства непреодолимой силы продление сроков при форс-мажоре уведомление о форс-мажоре справка ТПП погодные условия дополнительные расходы"
+      retrieval_profile: "force_majeure_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -5896,6 +5899,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "исполнительная документация as-built фактическое исполнение исключительные права передача документации BIM модель информационная модель авторские права"
+      retrieval_profile: "ip_ownership_check"
       preferred_unit_types:
         - obligation
         - general_provision
