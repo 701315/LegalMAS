@@ -1227,6 +1227,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "ip_ownership_check"
       context_k: 5
       max_chunks: 6
       boost_keywords:
@@ -1421,6 +1422,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 350
     retrieval:
+      retrieval_profile: "license_scope_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:
@@ -1614,6 +1616,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "non_compete_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:

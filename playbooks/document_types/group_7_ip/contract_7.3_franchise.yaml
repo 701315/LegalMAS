@@ -1012,6 +1012,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "license_scope_check"
       context_k: 6
       max_chunks: 8
       boost_keywords:
@@ -1281,6 +1282,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "license_scope_check"
       context_k: 6
       max_chunks: 8
       boost_keywords:
@@ -1340,6 +1342,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "term_and_renewal_check"
       context_k: 5
       max_chunks: 6
       boost_keywords:
@@ -1586,6 +1589,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "termination_check"
       context_k: 5
       max_chunks: 6
       boost_keywords:
@@ -1645,6 +1649,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "sublicensing_check"
       context_k: 5
       max_chunks: 6
       boost_keywords:
@@ -1891,6 +1896,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 400
     retrieval:
+      retrieval_profile: "termination_check"
       context_k: 6
       max_chunks: 8
       boost_keywords:
@@ -2300,6 +2306,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 300
     retrieval:
+      retrieval_profile: "dispute_resolution_check"
       context_k: 4
       max_chunks: 6
       boost_keywords:
