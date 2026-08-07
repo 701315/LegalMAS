@@ -1502,6 +1502,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "assignment_check"
       boost_keywords:
         - "перечислить фактору"
         - "специальный счёт"

@@ -1044,6 +1044,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 8
+      retrieval_profile: "payment_terms_check"
       boost_keywords:
         - "расписка"
         - "платежное поручение"
