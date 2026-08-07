@@ -3654,6 +3654,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "разрешение споров претензионный порядок досудебный порядок урегулирование споров направление претензии ответ на претензию"
+      retrieval_profile: "dispute_resolution_check"
       preferred_unit_types:
         - dispute_resolution
         - general_provision

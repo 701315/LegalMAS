@@ -3258,6 +3258,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "расторжение отказ от договора возврат денежных средств неустойка штраф уступка переуступка перевод долга без согласия с согласия другой стороны одностороннее расторжение последствия расторжения"
+      retrieval_profile: "termination_check"
       preferred_unit_types:
         - termination_provision
         - liability_provision

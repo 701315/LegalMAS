@@ -1053,6 +1053,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "согласие супруга нотариальное согласие не состоит в браке брачный договор личная собственность приобретено до брака материнский капитал маткапитал выделение долей ст. 35 СК РФ ФЗ-256"
+      retrieval_profile: "consent_check"
       preferred_unit_types:
         - warranty
         - obligation

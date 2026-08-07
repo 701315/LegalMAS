@@ -2581,6 +2581,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "возражения должника зачёт встречных требований встречное требование право должника на зачёт отсутствие встречных требований должник не имеет возражений акт сверки компенсация потерь цессионария скрытые встречные требования"
+      retrieval_profile: "assignment_check"
       preferred_unit_types:
         - warranty
         - obligation
@@ -2878,6 +2879,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "делькредере цедент отвечает за исполнение должником гарантия платежеспособности должника цедент принимает на себя риск неплатежа ответственность за неисполнение требования цедент выступает поручителем гарантия возврата уплаченного возместить цессионарию"
+      retrieval_profile: "assignment_check"
       preferred_unit_types:
         - liability_provision
         - obligation
@@ -3197,6 +3199,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "будущие требования права которые возникнут критерии определения будущих требований период возникновения определение будущего должника основание будущих требований механизм фиксации реестр требований ст. 388.2 ГК РФ"
+      retrieval_profile: "assignment_check"
       preferred_unit_types:
         - obligation
         - general_provision
