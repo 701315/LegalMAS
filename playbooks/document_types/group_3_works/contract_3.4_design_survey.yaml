@@ -1117,6 +1117,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 600
   retrieval:
+    retrieval_profile: "party_identification_check"
     corpus_scope: "document"
     context_k: 6
     max_chunks: 8
@@ -1528,6 +1529,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 500
   retrieval:
+    retrieval_profile: "technical_documentation_check"
     corpus_scope: "document"
     context_k: 6
     max_chunks: 10
@@ -2120,6 +2122,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 500
   retrieval:
+    retrieval_profile: "technical_documentation_check"
     corpus_scope: "document"
     context_k: 5
     max_chunks: 8
@@ -3771,6 +3774,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 500
   retrieval:
+    retrieval_profile: "completion_deadline_check"
     corpus_scope: "document"
     context_k: 5
     max_chunks: 8
@@ -4064,6 +4068,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 540
   retrieval:
+    retrieval_profile: "acceptance_check"
     corpus_scope: "document"
     context_k: 6
     max_chunks: 8
@@ -5675,6 +5680,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 420
   retrieval:
+    retrieval_profile: "liability_cap_check"
     corpus_scope: "document"
     context_k: 5
     max_chunks: 6
@@ -6172,6 +6178,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 520
   retrieval:
+    retrieval_profile: "warranties_check"
     corpus_scope: "document"
     context_k: 6
     max_chunks: 8
@@ -6440,6 +6447,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 480
   retrieval:
+    retrieval_profile: "warranties_check"
     corpus_scope: "document"
     context_k: 5
     max_chunks: 8
@@ -6709,6 +6717,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 540
   retrieval:
+    retrieval_profile: "liability_cap_check"
     corpus_scope: "document"
     context_k: 6
     max_chunks: 8
@@ -7722,6 +7731,7 @@ checks_v8:
     temperature: 0.0
     max_tokens: 440
   retrieval:
+    retrieval_profile: "technical_documentation_check"
     corpus_scope: "document"
     context_k: 5
     max_chunks: 6

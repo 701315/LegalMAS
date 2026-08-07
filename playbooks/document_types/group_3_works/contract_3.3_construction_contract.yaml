@@ -940,6 +940,7 @@ checks_v8:
       max_tokens: 760
 
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2463,6 +2464,7 @@ checks_v8:
       max_tokens: 760
 
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3776,6 +3778,7 @@ checks_v8:
       max_tokens: 720
 
     retrieval:
+      retrieval_profile: "acceptance_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4088,6 +4091,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -5012,6 +5016,7 @@ checks_v8:
       max_tokens: 680
 
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -5304,6 +5309,7 @@ checks_v8:
       max_tokens: 660
 
     retrieval:
+      retrieval_profile: "acceptance_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
