@@ -862,6 +862,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "арендодатель арендатор фрахтовщик фрахтователь в лице действующего на основании ИНН ОГРН ОГРНИП реквизиты паспорт"
+      retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1832,6 +1833,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "акт приёма-передачи техническое состояние пробег фотофиксация существующие повреждения комплект документов ключи уровень топлива"
+      retrieval_profile: "acceptance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2150,6 +2152,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "принадлежит на праве собственности исправное техническое состояние не в залоге не под арестом свободно от обременений действующий техосмотр диагностическая карта"
+      retrieval_profile: "title_transfer_check"
       preferred_unit_types:
         - warranty
         - obligation
@@ -2447,6 +2450,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "ОСАГО КАСКО страховой полис страхование гражданской ответственности выгодоприобретатель страховой случай расходы на страхование"
+      retrieval_profile: "insurance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2996,6 +3000,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "ответственность за вред третьим лицам источник повышенной опасности несёт арендатор несёт арендодатель экипаж действия экипажа текущий и капитальный ремонт содержание ТС"
+      retrieval_profile: "liability_cap_check"
       preferred_unit_types:
         - liability_provision
         - obligation
@@ -3299,6 +3304,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "возврат ТС акт возврата нормальный износ штраф за невозврат уровень топлива место возврата досрочное расторжение отказ от договора уведомление о расторжении"
+      retrieval_profile: "termination_check"
       preferred_unit_types:
         - termination_provision
         - obligation

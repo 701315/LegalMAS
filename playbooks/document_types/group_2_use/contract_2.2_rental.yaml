@@ -782,6 +782,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "арендодатель арендатор гражданин ИП коммерческая организация пункт проката в лице действующего на основании ИНН ОГРН ОГРНИП паспорт реквизиты"
+      retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1783,6 +1784,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "вправе отказаться в любое время односторонний отказ досрочный возврат имущества перерасчёт возврат части платы уведомление за не менее чем за"
+      retrieval_profile: "termination_check"
       preferred_unit_types:
         - termination_provision
         - obligation
@@ -2101,6 +2103,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "исправное состояние проверка исправности правила эксплуатации инструктаж техника безопасности ознакомление подпись об ознакомлении комплектность"
+      retrieval_profile: "acceptance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2421,6 +2424,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "капитальный ремонт текущий ремонт ремонт за счёт арендодателя устранение недостатков замена неисправного имущества ремонт за счёт арендатора арендатор обязан ремонтировать"
+      retrieval_profile: "repair_maintenance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2735,6 +2739,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "субаренда запрещена передача третьим лицам не допускается без права передачи личное использование только арендатором запрет субаренды"
+      retrieval_profile: "subletting_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4014,6 +4019,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "срок проката срок аренды не более одного года не более 12 месяцев максимальный срок возобновление на неопределённый срок преимущественное право ст. 627"
+      retrieval_profile: "term_and_renewal_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4317,6 +4323,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "запрет залога не вправе передавать в залог обременение запрещено в качестве вклада имущественный взнос ст. 631 не подлежит залогу"
+      retrieval_profile: "security_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4606,6 +4613,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "неустойка штраф пени ответственность ограничение ответственности возмещение убытков ущерб утрата имущества повреждение"
+      retrieval_profile: "liability_cap_check"
       preferred_unit_types:
         - liability_provision
         - obligation
@@ -5300,6 +5308,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "тариф стоимость проката за час за сутки в день минимальный период минимальная оплата плата за превышение дополнительные сутки доначисление округление поминутная почасовая"
+      retrieval_profile: "rent_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -5602,6 +5611,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "принадлежит на праве собственности свободно от прав третьих лиц не заложено не арестовано вправе передавать в прокат правоустанавливающие документы"
+      retrieval_profile: "title_transfer_check"
       preferred_unit_types:
         - warranty
         - obligation

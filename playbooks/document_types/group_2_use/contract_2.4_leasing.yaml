@@ -883,6 +883,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "лизингодатель лизингополучатель продавец в лице действующего на основании ИНН ОГРН выбор продавца по выбору лизингополучателя"
+      retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1552,6 +1553,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "график лизинговых платежей лизинговые платежи авансовый платёж выкупная цена остаточная стоимость ежемесячный платёж срок лизинга период лизинга"
+      retrieval_profile: "payment_terms_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -1885,6 +1887,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "риск случайной гибели несёт лизингополучатель страхование КАСКО выгодоприобретатель не освобождает от платежей страховая сумма с момента передачи"
+      retrieval_profile: "insurance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2221,6 +2224,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "приёмка акт приёма-передачи передача предмета лизинга протокол недостатков рекламация осмотр комплектность дата передачи срок поставки просрочка поставки"
+      retrieval_profile: "acceptance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -2868,6 +2872,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "бесспорное списание без акцепта исполнительная надпись нотариуса изъятие предмета лизинга одностороннее расторжение сальдо встречных обязательств завершающая обязанность стоимость возвращённого предмета рыночная стоимость просрочка"
+      retrieval_profile: "event_of_default_check"
       preferred_unit_types:
         - termination_provision
         - liability_provision
@@ -3227,6 +3232,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "техническое обслуживание текущий ремонт капитальный ремонт содержание предмета лизинга расходы на эксплуатацию ТО сервисное обслуживание поддерживать в исправном состоянии"
+      retrieval_profile: "repair_maintenance_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -3569,6 +3575,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "гарантирует отсутствие обременений свободен от прав третьих лиц не заложен не под арестом право собственности лизингодателя чистота права принадлежит на праве собственности"
+      retrieval_profile: "title_transfer_check"
       preferred_unit_types:
         - warranty
         - obligation
@@ -4595,6 +4602,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "регистрация в ГИБДД ПТС СТС Росреестр ЕГРН обременение расходы на регистрацию госпошлина временный учёт"
+      retrieval_profile: "registration_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -4921,6 +4929,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "место нахождения место эксплуатации запрет перемещения без согласия лизингодателя целевое использование только для запрещается использовать территория эксплуатации сублизинг с письменного согласия"
+      retrieval_profile: "subletting_check"
       preferred_unit_types:
         - obligation
         - general_provision
@@ -5233,6 +5242,7 @@ checks_v8:
         - "section"
       required_kind: "legal_unit"
       retrieval_query: "ответственность сторон неустойка штраф пени возмещение убытков ограничение ответственности просрочка платежа нарушение обязательств"
+      retrieval_profile: "liability_cap_check"
       preferred_unit_types:
         - liability_provision
         - obligation
