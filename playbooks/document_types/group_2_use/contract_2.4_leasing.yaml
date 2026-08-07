@@ -1228,6 +1228,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3908,6 +3909,7 @@ checks_v8:
       max_tokens: 800
 
     retrieval:
+      retrieval_profile: "acceptance_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
