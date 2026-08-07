@@ -1112,6 +1112,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 360
     retrieval:
+      retrieval_profile: "interest_rate_check"
       context_k: 5
       max_chunks: 7
       boost_keywords:
@@ -1257,6 +1258,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 360
     retrieval:
+      retrieval_profile: "sanctions_compliance_check"
       context_k: 5
       max_chunks: 8
       boost_keywords:
@@ -1405,6 +1407,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 360
     retrieval:
+      retrieval_profile: "cybersecurity_check"
       context_k: 5
       max_chunks: 7
       boost_keywords:
