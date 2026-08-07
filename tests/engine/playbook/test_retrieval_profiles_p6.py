@@ -1,5 +1,5 @@
 from engine.playbook.retrieval_profiles import ALL_PROFILES, get_profile
-from services.structure.topic_tagger import CORE_TOPICS
+from services.structure.topic_tagger import EXTENDED_TOPICS
 
 
 NEW_PROFILES = {
@@ -41,11 +41,11 @@ def test_new_profiles_resolve_via_get_profile():
         assert get_profile(profile_id) is not None
 
 
-def test_all_profile_topics_are_in_core_topics():
+def test_all_profile_topics_are_in_extended_topics():
     for profile in ALL_PROFILES.values():
         topics = set(profile.required_topics) | set(profile.supporting_topics)
-        missing = topics - CORE_TOPICS
-        assert not missing, f"{profile.profile_id} references non-core topics: {sorted(missing)}"
+        missing = topics - EXTENDED_TOPICS
+        assert not missing, f"{profile.profile_id} references unknown topics: {sorted(missing)}"
 
 
         
