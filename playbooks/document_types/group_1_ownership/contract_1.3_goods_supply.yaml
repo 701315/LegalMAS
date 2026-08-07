@@ -642,6 +642,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 450
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -940,6 +941,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 500
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1262,6 +1264,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_profile: "completion_deadline_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1953,6 +1956,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "acceptance_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2300,6 +2304,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 750
     retrieval:
+      retrieval_profile: "warranties_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2869,6 +2874,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "scope_of_work_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3148,6 +3154,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "force_majeure_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3454,6 +3461,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 700
     retrieval:
+      retrieval_profile: "technical_documentation_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4094,6 +4102,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "assignment_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"

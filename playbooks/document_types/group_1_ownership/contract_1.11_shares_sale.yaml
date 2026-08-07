@@ -1371,6 +1371,7 @@ checks_v8:
       max_tokens: 800
 
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1784,6 +1785,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2085,6 +2087,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2389,6 +2392,7 @@ checks_v8:
       max_tokens: 750
 
     retrieval:
+      retrieval_profile: "consent_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3715,6 +3719,7 @@ checks_v8:
       max_tokens: 700
 
     retrieval:
+      retrieval_profile: "warranties_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4414,6 +4419,7 @@ checks_v8:
       max_tokens: 800
 
     retrieval:
+      retrieval_profile: "financial_covenant_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"

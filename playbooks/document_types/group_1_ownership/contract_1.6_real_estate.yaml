@@ -866,6 +866,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1199,6 +1200,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -1520,6 +1522,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2067,6 +2070,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "event_of_default_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2341,6 +2345,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 650
     retrieval:
+      retrieval_profile: "payment_terms_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2647,6 +2652,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 550
     retrieval:
+      retrieval_profile: "security_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -2903,6 +2909,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 620
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3665,6 +3672,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 64
     retrieval:
+      retrieval_profile: "registration_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3835,6 +3843,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "consent_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4108,6 +4117,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -4313,6 +4323,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 1200
     retrieval:
+      retrieval_profile: "definitions_check"
       corpus_scope: "document"
       levels:
         - "section"
