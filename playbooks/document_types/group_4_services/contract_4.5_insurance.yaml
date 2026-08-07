@@ -1706,6 +1706,7 @@ checks_v8:
     retrieval:
       context_k: 5
       max_chunks: 7
+      retrieval_profile: "insurance_check"
       boost_keywords:
         - "claims made"
         - "occurrence"
